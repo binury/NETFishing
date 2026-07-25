@@ -1,0 +1,59 @@
+[gd_scene load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://player/player.gd" id="1_script"]
+
+[sub_resource type="CapsuleShape3D" id="PlayerShape"]
+radius = 0.45
+height = 1.8
+
+[sub_resource type="CapsuleMesh" id="PlayerMesh"]
+radius = 0.45
+height = 1.8
+
+[sub_resource type="StandardMaterial3D" id="PlayerMaterial"]
+albedo_color = Color(0.95, 0.48, 0.18, 1)
+
+[sub_resource type="BoxMesh" id="FacingMarkerMesh"]
+size = Vector3(0.24, 0.2, 0.4)
+
+[sub_resource type="StandardMaterial3D" id="FacingMarkerMaterial"]
+albedo_color = Color(0.12, 0.18, 0.28, 1)
+
+[node name="Player" type="CharacterBody3D"]
+collision_layer = 2
+collision_mask = 1
+script = ExtResource("1_script")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+position = Vector3(0, 0.9, 0)
+shape = SubResource("PlayerShape")
+
+[node name="Visuals" type="Node3D" parent="."]
+unique_name_in_owner = true
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Visuals"]
+position = Vector3(0, 0.9, 0)
+mesh = SubResource("PlayerMesh")
+material_override = SubResource("PlayerMaterial")
+
+[node name="FacingMarker" type="MeshInstance3D" parent="Visuals"]
+position = Vector3(0, 1.0, -0.55)
+mesh = SubResource("FacingMarkerMesh")
+material_override = SubResource("FacingMarkerMaterial")
+
+[node name="CameraYaw" type="Node3D" parent="."]
+unique_name_in_owner = true
+position = Vector3(0, 1.35, 0)
+
+[node name="CameraPitch" type="Node3D" parent="CameraYaw"]
+unique_name_in_owner = true
+rotation = Vector3(-0.261799, 0, 0)
+
+[node name="SpringArm3D" type="SpringArm3D" parent="CameraYaw/CameraPitch"]
+unique_name_in_owner = true
+spring_length = 5.0
+margin = 0.15
+collision_mask = 1
+
+[node name="Camera3D" type="Camera3D" parent="CameraYaw/CameraPitch/SpringArm3D"]
+current = true
