@@ -1,4 +1,7 @@
-[gd_scene load_steps=12 format=3]
+[gd_scene load_steps=14 format=3]
+
+[ext_resource type="Script" path="res://world/fishable_water_region.gd" id="1_water_region"]
+[ext_resource type="Resource" path="res://fish/pools/test_water_pool.tres" id="2_fish_pool"]
 
 [sub_resource type="BoxShape3D" id="GroundShape"]
 size = Vector3(30, 1, 30)
@@ -77,6 +80,9 @@ position = Vector3(0, 0.2, -29.75)
 collision_layer = 4
 collision_mask = 0
 monitoring = false
+script = ExtResource("1_water_region")
+location_tags = Array[StringName]([&"test_lake"])
+fish_pool = ExtResource("2_fish_pool")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="FishableWater"]
 shape = SubResource("FishableWaterShape")

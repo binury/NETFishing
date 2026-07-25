@@ -2,9 +2,17 @@ class_name FishingSpot
 extends Node3D
 
 const FishDataType = preload("res://fish/fish_data.gd")
+const FishCatchType = preload("res://fish/fish_catch.gd")
+const FishSelectorType = preload("res://fish/fish_selector.gd")
+const CollectionLogType = preload("res://collection/collection_log.gd")
 const CatchControllerType = preload("res://fishing/catch_controller.gd")
+const FishingContextType = preload("res://fishing/fishing_context.gd")
 const FishingPresentationType = preload("res://fishing/fishing_presentation.gd")
+const FishInventoryType = preload("res://inventory/fish_inventory.gd")
 const PlayerType = preload("res://player/player.gd")
+const FishableWaterRegionType = preload(
+	"res://world/fishable_water_region.gd"
+)
 
 signal status_changed(status: String)
 signal catch_display_changed(
@@ -16,6 +24,12 @@ signal catch_display_changed(
 	active_barrier_index: int,
 	visible: bool,
 )
+signal showcase_changed(
+	fish_name: String,
+	rarity_name: String,
+	weight_lb: float,
+	visible: bool,
+)
 
 enum FishingState {
 	READY,
@@ -24,6 +38,7 @@ enum FishingState {
 	WAITING_FOR_BITE,
 	BITE_ACTIVE,
 	FIGHTING,
+	SHOWING_CATCH,
 	COOLDOWN,
 }
 
@@ -49,14 +64,24 @@ enum FishingState {
 @export_range(0.1, 10.0, 0.1) var bite_window_duration: float = 1.5
 @export_range(0.1, 10.0, 0.1) var cooldown_duration: float = 1.0
 
-@export_category("Catch")
-@export var catchable_fish: FishDataType
+@export_category("Selection")
+@export_range(0.0, 10.0, 0.05) var undiscovered_weight_multiplier: float = 1.5
+@export var use_deterministic_selection_seed: bool = false
+@export var deterministic_selection_seed: int = 24680
+
+@export_category("Context Testing")
+@export var context_is_night: bool = false
+@export var context_is_raining: bool = false
+@export var context_event_tags: Array[StringName] = []
+@export var context_bait_tags: Array[StringName] = []
 
 @onready var _catch_controller: CatchControllerType = %CatchController
 @onready var _presentation: FishingPresentationType = %FishingPresentation
 
 var state: FishingState = FishingState.READY
 var _local_player: PlayerType
+var _local_inventory: FishInventoryType
+var _local_collection_log: CollectionLogType
 var _active_player: PlayerType
 var _state_time_remaining: float = 0.0
 var _cast_charge: float = 0.0
@@ -72,6 +97,14 @@ var _bobber_water_position: Vector3
 var _fight_start_position: Vector3
 var _cooldown_status: String = ""
 var _fishable_query_shape: SphereShape3D = SphereShape3D.new()
+var _fish_selector: FishSelectorType = FishSelectorType.new()
+var _selected_water_region: FishableWaterRegionType
+var _selection_context: FishingContextType
+var _selected_fish: FishDataType
+var _pending_catch: FishCatchType
+var _showcase_ready: bool = false
+var _put_away_press_armed: bool = false
+var _showcase_restore_generation: int = 0
 
 
 func _ready() -> void:
@@ -79,15 +112,52 @@ func _ready() -> void:
 	_catch_controller.caught.connect(_on_catch_completed)
 	_catch_controller.escaped.connect(_on_catch_escaped)
 	_presentation.cast_completed.connect(_on_cast_completed)
+	_presentation.outcome_completed.connect(_on_outcome_completed)
 
 
-func setup(local_player: PlayerType) -> void:
+func setup(
+	local_player: PlayerType,
+	local_inventory: FishInventoryType,
+	local_collection_log: CollectionLogType,
+) -> void:
 	_local_player = local_player
+	_local_inventory = local_inventory
+	_local_collection_log = local_collection_log
+
+
+func _exit_tree() -> void:
+	_showcase_restore_generation += 1
+	if (
+		state == FishingState.SHOWING_CATCH
+		and _pending_catch != null
+		and _local_inventory != null
+		and is_instance_valid(_local_inventory)
+		and _local_collection_log != null
+		and is_instance_valid(_local_collection_log)
+	):
+		_local_inventory.add_catch(_pending_catch)
+		_local_collection_log.mark_discovered(_pending_catch.fish_id)
+		_pending_catch = null
+	if _active_player != null and is_instance_valid(_active_player):
+		_active_player.end_catch_showcase(Callable(), true)
+		_active_player.set_movement_enabled(true)
+	_active_player = null
+	_selected_water_region = null
+	_selection_context = null
+	_selected_fish = null
+	_showcase_ready = false
+	_put_away_press_armed = false
 
 
 func _process(delta: float) -> void:
 	if state == FishingState.READY and not Input.is_action_pressed("fish_primary"):
 		_new_cast_press_armed = true
+	if (
+		state == FishingState.SHOWING_CATCH
+		and _showcase_ready
+		and not Input.is_action_pressed("fish_primary")
+	):
+		_put_away_press_armed = true
 
 	match state:
 		FishingState.AIMING_CAST:
@@ -110,6 +180,13 @@ func _process(delta: float) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if (
+		event.is_action_pressed("ui_cancel")
+		and state == FishingState.SHOWING_CATCH
+	):
+		_put_away_catch()
+		get_viewport().set_input_as_handled()
+		return
 	if (
 		event.is_action_pressed("ui_cancel")
 		and _active_player != null
@@ -148,6 +225,11 @@ func _unhandled_input(event: InputEvent) -> void:
 				_presentation.set_line_mode(
 					FishingPresentationType.LineMode.TAUT
 				)
+			FishingState.SHOWING_CATCH:
+				if _showcase_ready and _put_away_press_armed:
+					_put_away_catch()
+				else:
+					return
 			_:
 				return
 		get_viewport().set_input_as_handled()
@@ -217,9 +299,23 @@ func _on_cast_completed() -> void:
 	if state != FishingState.CASTING:
 		return
 
-	_cast_landing_is_fishable = is_target_fishable(_cast_target)
+	_selected_water_region = get_fishable_water_region(_cast_target)
+	_cast_landing_is_fishable = _selected_water_region != null
 	if not _cast_landing_is_fishable:
 		_cleanup_attempt("Can't fish there.", &"invalid")
+		return
+	_selection_context = _build_fishing_context(_selected_water_region)
+	_fish_selector.undiscovered_weight_multiplier = undiscovered_weight_multiplier
+	_fish_selector.use_deterministic_test_seed = use_deterministic_selection_seed
+	_fish_selector.deterministic_test_seed = deterministic_selection_seed
+	_fish_selector.begin_roll()
+	_selected_fish = _fish_selector.select_fish(
+		_selected_water_region.fish_pool,
+		_selection_context,
+		_local_collection_log
+	)
+	if _selected_fish == null:
+		_cleanup_attempt("Nothing is biting here.", &"invalid")
 		return
 
 	state = FishingState.WAITING_FOR_BITE
@@ -350,8 +446,8 @@ func _confirm_hook() -> void:
 	if (
 		state != FishingState.BITE_ACTIVE
 		or _active_player == null
-		or catchable_fish == null
-		or catchable_fish.catch_profile == null
+		or _selected_fish == null
+		or _selected_fish.catch_profile == null
 	):
 		_cancel_attempt()
 		return
@@ -363,7 +459,7 @@ func _confirm_hook() -> void:
 	_presentation.set_line_mode(FishingPresentationType.LineMode.TAUT)
 	_presentation.begin_reeling()
 	_catch_controller.start_encounter(
-		catchable_fish.catch_profile,
+		_selected_fish.catch_profile,
 		_active_player.reel_speed,
 		_active_player.click_power
 	)
@@ -420,12 +516,24 @@ func _on_catch_encounter_updated(
 
 
 func _on_catch_completed() -> void:
-	if state != FishingState.FIGHTING or _active_player == null or catchable_fish == null:
+	if (
+		state != FishingState.FIGHTING
+		or _active_player == null
+		or _selected_fish == null
+	):
 		_cancel_attempt()
 		return
 
-	_active_player.inventory.add_fish(catchable_fish)
-	_cleanup_attempt("Caught %s!" % catchable_fish.display_name, &"catch")
+	_pending_catch = _fish_selector.create_catch(_selected_fish)
+	if _pending_catch == null or not _pending_catch.is_valid():
+		_cancel_attempt()
+		return
+	state = FishingState.SHOWING_CATCH
+	_showcase_ready = false
+	_put_away_press_armed = false
+	_catch_controller.reset()
+	_presentation.set_line_mode(FishingPresentationType.LineMode.TAUT)
+	_presentation.play_outcome(&"catch")
 
 
 func _on_catch_escaped() -> void:
@@ -433,9 +541,67 @@ func _on_catch_escaped() -> void:
 		return
 
 	var fish_name: String = "The fish"
-	if catchable_fish != null and not catchable_fish.display_name.is_empty():
-		fish_name = "The %s" % catchable_fish.display_name
+	if _selected_fish != null and not _selected_fish.display_name.is_empty():
+		fish_name = "The %s" % _selected_fish.display_name
 	_cleanup_attempt("%s got away!" % fish_name, &"escape")
+
+
+func _on_outcome_completed(outcome: StringName) -> void:
+	if (
+		outcome != &"catch"
+		or state != FishingState.SHOWING_CATCH
+		or _active_player == null
+		or _pending_catch == null
+	):
+		return
+	_showcase_ready = true
+	_active_player.begin_catch_showcase(_pending_catch)
+	showcase_changed.emit(
+		_pending_catch.fish.display_name,
+		_pending_catch.fish.get_rarity_name(),
+		_pending_catch.weight_lb,
+		true
+	)
+	status_changed.emit("Left click or Escape to put away")
+
+
+func _put_away_catch() -> void:
+	if (
+		state != FishingState.SHOWING_CATCH
+		or _active_player == null
+		or _local_inventory == null
+		or _local_collection_log == null
+		or _pending_catch == null
+	):
+		return
+	var caught_name: String = _pending_catch.fish.display_name
+	_local_inventory.add_catch(_pending_catch)
+	_local_collection_log.mark_discovered(_pending_catch.fish_id)
+	_pending_catch = null
+	_showcase_ready = false
+	_put_away_press_armed = false
+	showcase_changed.emit("", "", 0.0, false)
+	_showcase_restore_generation += 1
+	var restore_generation: int = _showcase_restore_generation
+	_active_player.end_catch_showcase(
+		_finish_showcase_put_away.bind(
+			restore_generation,
+			"Caught %s!" % caught_name
+		)
+	)
+
+
+func _finish_showcase_put_away(
+	restore_generation: int,
+	cooldown_message: String,
+) -> void:
+	if (
+		restore_generation != _showcase_restore_generation
+		or state != FishingState.SHOWING_CATCH
+		or _active_player == null
+	):
+		return
+	_cleanup_attempt(cooldown_message)
 
 
 func _miss_bite() -> void:
@@ -448,7 +614,9 @@ func _cleanup_attempt(
 	cooldown_message: String = "",
 	visual_outcome: StringName = &"",
 ) -> void:
+	_showcase_restore_generation += 1
 	if _active_player != null:
+		_active_player.end_catch_showcase()
 		_active_player.set_movement_enabled(true)
 	_active_player = null
 	_state_time_remaining = 0.0
@@ -462,6 +630,13 @@ func _cleanup_attempt(
 	_withdrawal_input_held = false
 	_bobber_water_position = Vector3.ZERO
 	_fight_start_position = Vector3.ZERO
+	_selected_water_region = null
+	_selection_context = null
+	_selected_fish = null
+	_pending_catch = null
+	_showcase_ready = false
+	_put_away_press_armed = false
+	showcase_changed.emit("", "", 0.0, false)
 	_catch_controller.reset()
 	if visual_outcome.is_empty():
 		_presentation.cleanup()
@@ -531,6 +706,12 @@ func _calculate_cast_target(distance: float) -> Vector3:
 
 
 func is_target_fishable(target: Vector3) -> bool:
+	return get_fishable_water_region(target) != null
+
+
+func get_fishable_water_region(
+	target: Vector3,
+) -> FishableWaterRegionType:
 	_fishable_query_shape.radius = fishable_query_radius
 	var query := PhysicsShapeQueryParameters3D.new()
 	query.shape = _fishable_query_shape
@@ -543,9 +724,36 @@ func is_target_fishable(target: Vector3) -> bool:
 	query.collide_with_bodies = false
 	var results: Array[Dictionary] = get_world_3d().direct_space_state.intersect_shape(
 		query,
-		1
+		32
 	)
-	return not results.is_empty()
+	var selected_region: FishableWaterRegionType
+	for result: Dictionary in results:
+		var collider: Object = result.get("collider")
+		var region: FishableWaterRegionType = collider as FishableWaterRegionType
+		if region == null or region.fish_pool == null:
+			continue
+		if (
+			selected_region == null
+			or region.selection_priority > selected_region.selection_priority
+			or (
+				region.selection_priority == selected_region.selection_priority
+				and region.get_instance_id() < selected_region.get_instance_id()
+			)
+		):
+			selected_region = region
+	return selected_region
+
+
+func _build_fishing_context(
+	region: FishableWaterRegionType,
+) -> FishingContextType:
+	var context := FishingContextType.new()
+	context.location_tags = region.location_tags.duplicate()
+	context.active_event_tags = context_event_tags.duplicate()
+	context.active_bait_tags = context_bait_tags.duplicate()
+	context.is_night = context_is_night
+	context.is_raining = context_is_raining
+	return context
 
 
 func find_last_fishable_position(from: Vector3, to: Vector3) -> Vector3:

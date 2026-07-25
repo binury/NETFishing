@@ -21,7 +21,7 @@ script = ExtResource("1_ui")
 offset_left = 16.0
 offset_top = 16.0
 offset_right = 176.0
-offset_bottom = 62.0
+offset_bottom = 104.0
 
 [node name="MarginContainer" type="MarginContainer" parent="InventoryPanel"]
 theme_override_constants/margin_left = 12
@@ -29,9 +29,19 @@ theme_override_constants/margin_top = 8
 theme_override_constants/margin_right = 12
 theme_override_constants/margin_bottom = 8
 
-[node name="BluegillCountLabel" type="Label" parent="InventoryPanel/MarginContainer"]
+[node name="VBoxContainer" type="VBoxContainer" parent="InventoryPanel/MarginContainer"]
+
+[node name="BluegillCountLabel" type="Label" parent="InventoryPanel/MarginContainer/VBoxContainer"]
 unique_name_in_owner = true
 text = "Bluegill: 0"
+
+[node name="BassCountLabel" type="Label" parent="InventoryPanel/MarginContainer/VBoxContainer"]
+unique_name_in_owner = true
+text = "Bass: 0"
+
+[node name="CarpCountLabel" type="Label" parent="InventoryPanel/MarginContainer/VBoxContainer"]
+unique_name_in_owner = true
+text = "Carp: 0"
 
 [node name="FishingPanel" type="PanelContainer" parent="."]
 anchors_preset = 7
@@ -59,6 +69,11 @@ theme_override_constants/margin_bottom = 8
 unique_name_in_owner = true
 visible = false
 text = ""
+horizontal_alignment = 1
+
+[node name="ShowcaseDetails" type="Label" parent="FishingPanel/MarginContainer/VBoxContainer"]
+unique_name_in_owner = true
+visible = false
 horizontal_alignment = 1
 
 [node name="CatchTrack" type="Control" parent="FishingPanel/MarginContainer/VBoxContainer"]

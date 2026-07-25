@@ -1,21 +1,34 @@
 class_name FishInventory
 extends Node
 
-const FishDataType = preload("res://fish/fish_data.gd")
+const FishCatchType = preload("res://fish/fish_catch.gd")
 
 signal contents_changed(fish_id: StringName, count: int)
 
-var _fish_counts: Dictionary[StringName, int] = {}
+var _catches: Array[FishCatchType] = []
 
 
-func add_fish(fish: FishDataType, amount: int = 1) -> void:
-	if fish == null or fish.id.is_empty() or amount <= 0:
+func add_catch(fish_catch: FishCatchType) -> void:
+	if fish_catch == null or not fish_catch.is_valid():
 		return
-
-	var new_count: int = get_count(fish.id) + amount
-	_fish_counts[fish.id] = new_count
-	contents_changed.emit(fish.id, new_count)
+	_catches.append(fish_catch)
+	contents_changed.emit(
+		fish_catch.fish_id,
+		get_count(fish_catch.fish_id)
+	)
 
 
 func get_count(fish_id: StringName) -> int:
-	return _fish_counts.get(fish_id, 0)
+	return get_catches_by_fish_id(fish_id).size()
+
+
+func get_all_catches() -> Array[FishCatchType]:
+	return _catches.duplicate()
+
+
+func get_catches_by_fish_id(fish_id: StringName) -> Array[FishCatchType]:
+	var matching: Array[FishCatchType] = []
+	for fish_catch: FishCatchType in _catches:
+		if fish_catch.fish_id == fish_id:
+			matching.append(fish_catch)
+	return matching

@@ -10,5 +10,9 @@ const PlayerType = preload("res://player/player.gd")
 
 
 func _ready() -> void:
-	_fishing_spot.setup(_player)
+	_fishing_spot.setup(
+		_player,
+		_player.inventory,
+		_player.collection_log
+	)
 	_game_ui.setup(_player.inventory, _fishing_spot)

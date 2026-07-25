@@ -1,0 +1,21 @@
+[gd_resource type="Resource" load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://fish/fish_data.gd" id="1_fish_data"]
+[ext_resource type="Resource" path="res://fishing/common_catch_profile.tres" id="2_profile"]
+[ext_resource type="Resource" path="res://fish/default_availability.tres" id="3_availability"]
+[ext_resource type="Texture2D" path="res://fish/species/bluegill/bluegill.svg" id="4_texture"]
+
+[resource]
+script = ExtResource("1_fish_data")
+id = &"bluegill"
+display_name = "Bluegill"
+rarity = 0
+base_catch_weight = 10.0
+catch_profile = ExtResource("2_profile")
+availability = ExtResource("3_availability")
+weight_min_lb = 0.3
+weight_max_lb = 2.0
+display_scale_min = 0.7
+display_scale_max = 1.1
+display_scale_curve = 1.0
+display_texture = ExtResource("4_texture")

@@ -1,7 +1,8 @@
-[gd_scene load_steps=10 format=3]
+[gd_scene load_steps=11 format=3]
 
 [ext_resource type="Script" path="res://player/player.gd" id="1_script"]
 [ext_resource type="Script" path="res://inventory/fish_inventory.gd" id="2_inventory"]
+[ext_resource type="Script" path="res://collection/collection_log.gd" id="3_collection"]
 
 [sub_resource type="CapsuleShape3D" id="PlayerShape"]
 radius = 0.45
@@ -72,6 +73,26 @@ position = Vector3(0, 0.9, 0)
 [node name="Inventory" type="Node" parent="."]
 unique_name_in_owner = true
 script = ExtResource("2_inventory")
+
+[node name="CollectionLog" type="Node" parent="."]
+unique_name_in_owner = true
+script = ExtResource("3_collection")
+
+[node name="CatchDisplayAnchor" type="Marker3D" parent="Visuals"]
+unique_name_in_owner = true
+position = Vector3(0, 1.45, -1.15)
+
+[node name="CatchDisplay" type="Node3D" parent="Visuals/CatchDisplayAnchor"]
+unique_name_in_owner = true
+visible = false
+
+[node name="CatchSprite" type="Sprite3D" parent="Visuals/CatchDisplayAnchor/CatchDisplay"]
+unique_name_in_owner = true
+pixel_size = 0.012
+billboard = 1
+shaded = false
+double_sided = true
+texture_filter = 0
 
 [node name="CameraYaw" type="Node3D" parent="."]
 unique_name_in_owner = true

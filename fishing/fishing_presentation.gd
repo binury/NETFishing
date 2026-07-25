@@ -2,6 +2,7 @@ class_name FishingPresentation
 extends Node3D
 
 signal cast_completed
+signal outcome_completed(outcome: StringName)
 
 enum VisualMode {
 	NONE,
@@ -304,7 +305,7 @@ func play_outcome(outcome: StringName) -> void:
 			_:
 				_active_tween.tween_property(_bobber, "scale", Vector3.ZERO, 0.18)
 
-	_active_tween.finished.connect(cleanup)
+	_active_tween.finished.connect(_on_outcome_finished.bind(outcome))
 
 
 func cleanup() -> void:
@@ -321,6 +322,11 @@ func cleanup() -> void:
 	_bobber.visible = false
 	_bobber.scale = Vector3.ONE
 	set_line_mode(LineMode.HIDDEN)
+
+
+func _on_outcome_finished(outcome: StringName) -> void:
+	cleanup()
+	outcome_completed.emit(outcome)
 
 
 func _set_cast_sample(

@@ -1,0 +1,10 @@
+[gd_resource type="Resource" load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://fish/fish_pool.gd" id="1_pool"]
+[ext_resource type="Resource" path="res://fish/species/bluegill/bluegill.tres" id="2_bluegill"]
+[ext_resource type="Resource" path="res://fish/species/bass/bass.tres" id="3_bass"]
+[ext_resource type="Resource" path="res://fish/species/carp/carp.tres" id="4_carp"]
+
+[resource]
+script = ExtResource("1_pool")
+candidates = [ExtResource("2_bluegill"), ExtResource("3_bass"), ExtResource("4_carp")]

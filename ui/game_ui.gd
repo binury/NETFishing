@@ -6,27 +6,42 @@ const FishingSpotType = preload("res://fishing/fishing_spot.gd")
 
 @onready var _status_label: Label = %StatusLabel
 @onready var _bluegill_count_label: Label = %BluegillCountLabel
+@onready var _bass_count_label: Label = %BassCountLabel
+@onready var _carp_count_label: Label = %CarpCountLabel
 @onready var _catch_track: Control = %CatchTrack
 @onready var _green_catch_progress: ProgressBar = %GreenCatchProgress
 @onready var _red_chase_progress: ProgressBar = %RedChaseProgress
 @onready var _barrier_markers: Control = %BarrierMarkers
 @onready var _barrier_summary: Label = %BarrierSummary
 @onready var _barrier_health: Label = %BarrierHealth
+@onready var _showcase_details: Label = %ShowcaseDetails
+
+var _showcase_active: bool = false
 
 
 func setup(inventory: FishInventoryType, fishing_spot: FishingSpotType) -> void:
 	inventory.contents_changed.connect(_on_inventory_contents_changed)
 	fishing_spot.status_changed.connect(_on_fishing_status_changed)
 	fishing_spot.catch_display_changed.connect(_on_catch_display_changed)
+	fishing_spot.showcase_changed.connect(_on_showcase_changed)
 	_update_bluegill_count(inventory.get_count(&"bluegill"))
+	_bass_count_label.text = "Bass: %d" % inventory.get_count(&"bass")
+	_carp_count_label.text = "Carp: %d" % inventory.get_count(&"carp")
 
 
 func _on_inventory_contents_changed(fish_id: StringName, count: int) -> void:
-	if fish_id == &"bluegill":
-		_update_bluegill_count(count)
+	match fish_id:
+		&"bluegill":
+			_update_bluegill_count(count)
+		&"bass":
+			_bass_count_label.text = "Bass: %d" % count
+		&"carp":
+			_carp_count_label.text = "Carp: %d" % count
 
 
 func _on_fishing_status_changed(status: String) -> void:
+	if _showcase_active:
+		return
 	_status_label.text = status
 	_status_label.visible = not status.is_empty()
 
@@ -130,6 +145,32 @@ func _update_barrier_markers(
 func _clear_barrier_markers() -> void:
 	for marker: Node in _barrier_markers.get_children():
 		marker.queue_free()
+
+
+func _on_showcase_changed(
+	fish_name: String,
+	rarity_name: String,
+	weight_lb: float,
+	visible: bool,
+) -> void:
+	_showcase_active = visible
+	if not visible:
+		_status_label.text = ""
+		_status_label.visible = false
+		_showcase_details.text = ""
+		_showcase_details.visible = false
+		return
+	_catch_track.visible = false
+	_barrier_summary.visible = false
+	_barrier_health.visible = false
+	_clear_barrier_markers()
+	_status_label.text = "You caught a %s!" % fish_name
+	_status_label.visible = true
+	_showcase_details.text = (
+		"%.1f lb • %s\nLeft click or Escape to put away"
+		% [weight_lb, rarity_name]
+	)
+	_showcase_details.visible = true
 
 
 func _update_bluegill_count(count: int) -> void:
