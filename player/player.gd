@@ -230,6 +230,20 @@ func set_movement_enabled(enabled: bool) -> void:
 		velocity.z = 0.0
 
 
+func is_movement_enabled() -> bool:
+	return _movement_enabled
+
+
+func set_camera_input_enabled(enabled: bool) -> void:
+	_camera_input_enabled = enabled
+	if not enabled:
+		_camera_dragging = false
+
+
+func is_camera_input_enabled() -> bool:
+	return _camera_input_enabled
+
+
 func get_fishing_rod_tip() -> Marker3D:
 	return _fishing_rod_tip
 

@@ -1,13 +1,14 @@
 class_name GameUI
 extends CanvasLayer
 
+const CollectionLogType = preload("res://collection/collection_log.gd")
+const FishPoolType = preload("res://fish/fish_pool.gd")
 const FishInventoryType = preload("res://inventory/fish_inventory.gd")
 const FishingSpotType = preload("res://fishing/fishing_spot.gd")
+const PlayerMenuType = preload("res://ui/player_menu.gd")
+const PlayerType = preload("res://player/player.gd")
 
 @onready var _status_label: Label = %StatusLabel
-@onready var _bluegill_count_label: Label = %BluegillCountLabel
-@onready var _bass_count_label: Label = %BassCountLabel
-@onready var _carp_count_label: Label = %CarpCountLabel
 @onready var _catch_track: Control = %CatchTrack
 @onready var _green_catch_progress: ProgressBar = %GreenCatchProgress
 @onready var _red_chase_progress: ProgressBar = %RedChaseProgress
@@ -15,28 +16,32 @@ const FishingSpotType = preload("res://fishing/fishing_spot.gd")
 @onready var _barrier_summary: Label = %BarrierSummary
 @onready var _barrier_health: Label = %BarrierHealth
 @onready var _showcase_details: Label = %ShowcaseDetails
+@onready var _fishing_panel: PanelContainer = %FishingPanel
+@onready var _player_menu: PlayerMenuType = %PlayerMenu
 
 var _showcase_active: bool = false
 
 
-func setup(inventory: FishInventoryType, fishing_spot: FishingSpotType) -> void:
-	inventory.contents_changed.connect(_on_inventory_contents_changed)
+func setup(
+	player: PlayerType,
+	inventory: FishInventoryType,
+	collection_log: CollectionLogType,
+	catalog: FishPoolType,
+	fishing_spot: FishingSpotType,
+) -> void:
 	fishing_spot.status_changed.connect(_on_fishing_status_changed)
 	fishing_spot.catch_display_changed.connect(_on_catch_display_changed)
 	fishing_spot.showcase_changed.connect(_on_showcase_changed)
-	_update_bluegill_count(inventory.get_count(&"bluegill"))
-	_bass_count_label.text = "Bass: %d" % inventory.get_count(&"bass")
-	_carp_count_label.text = "Carp: %d" % inventory.get_count(&"carp")
-
-
-func _on_inventory_contents_changed(fish_id: StringName, count: int) -> void:
-	match fish_id:
-		&"bluegill":
-			_update_bluegill_count(count)
-		&"bass":
-			_bass_count_label.text = "Bass: %d" % count
-		&"carp":
-			_carp_count_label.text = "Carp: %d" % count
+	_player_menu.menu_visibility_changed.connect(
+		_on_player_menu_visibility_changed
+	)
+	_player_menu.setup(
+		player,
+		inventory,
+		collection_log,
+		catalog,
+		fishing_spot
+	)
 
 
 func _on_fishing_status_changed(status: String) -> void:
@@ -173,5 +178,5 @@ func _on_showcase_changed(
 	_showcase_details.visible = true
 
 
-func _update_bluegill_count(count: int) -> void:
-	_bluegill_count_label.text = "Bluegill: %d" % count
+func _on_player_menu_visibility_changed(is_open: bool) -> void:
+	_fishing_panel.visible = not is_open

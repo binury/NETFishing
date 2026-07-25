@@ -68,6 +68,7 @@ func create_catch(fish: FishDataType) -> FishCatchType:
 	var caught_fish := FishCatchType.new()
 	caught_fish.fish = fish
 	caught_fish.fish_id = fish.id
+	caught_fish.ensure_identity()
 	caught_fish.weight_lb = _rng.randf_range(
 		fish.get_minimum_weight(),
 		fish.get_maximum_weight()

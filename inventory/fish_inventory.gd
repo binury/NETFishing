@@ -4,18 +4,29 @@ extends Node
 const FishCatchType = preload("res://fish/fish_catch.gd")
 
 signal contents_changed(fish_id: StringName, count: int)
+signal catches_changed
 
 var _catches: Array[FishCatchType] = []
+var _next_catch_sequence: int = 1
 
 
 func add_catch(fish_catch: FishCatchType) -> void:
 	if fish_catch == null or not fish_catch.is_valid():
 		return
+	if get_catch(fish_catch.catch_id) != null:
+		return
+	if fish_catch.catch_sequence <= 0:
+		fish_catch.catch_sequence = _next_catch_sequence
+	_next_catch_sequence = maxi(
+		_next_catch_sequence,
+		fish_catch.catch_sequence + 1
+	)
 	_catches.append(fish_catch)
 	contents_changed.emit(
 		fish_catch.fish_id,
 		get_count(fish_catch.fish_id)
 	)
+	catches_changed.emit()
 
 
 func get_count(fish_id: StringName) -> int:
@@ -24,6 +35,15 @@ func get_count(fish_id: StringName) -> int:
 
 func get_all_catches() -> Array[FishCatchType]:
 	return _catches.duplicate()
+
+
+func get_catch(catch_id: StringName) -> FishCatchType:
+	if catch_id.is_empty():
+		return null
+	for fish_catch: FishCatchType in _catches:
+		if fish_catch != null and fish_catch.catch_id == catch_id:
+			return fish_catch
+	return null
 
 
 func get_catches_by_fish_id(fish_id: StringName) -> Array[FishCatchType]:

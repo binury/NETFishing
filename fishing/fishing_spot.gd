@@ -30,6 +30,7 @@ signal showcase_changed(
 	weight_lb: float,
 	visible: bool,
 )
+signal bite_activated
 
 enum FishingState {
 	READY,
@@ -123,6 +124,13 @@ func setup(
 	_local_player = local_player
 	_local_inventory = local_inventory
 	_local_collection_log = local_collection_log
+
+
+func can_open_player_menu() -> bool:
+	return state in [
+		FishingState.READY,
+		FishingState.WAITING_FOR_BITE,
+	]
 
 
 func _exit_tree() -> void:
@@ -437,6 +445,7 @@ func _activate_bite() -> void:
 	state = FishingState.BITE_ACTIVE
 	_state_time_remaining = bite_window_duration
 	_withdrawal_input_held = false
+	bite_activated.emit()
 	status_changed.emit("Bite! Left click to hook")
 	_presentation.set_line_mode(FishingPresentationType.LineMode.TAUT)
 	_presentation.show_bite()

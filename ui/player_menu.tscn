@@ -1,0 +1,213 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://ui/player_menu.gd" id="1_menu"]
+
+[node name="PlayerMenu" type="Control"]
+process_mode = 3
+visible = false
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 0
+script = ExtResource("1_menu")
+
+[node name="Dimmer" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.015, 0.02, 0.03, 0.72)
+
+[node name="MenuPanel" type="PanelContainer" parent="."]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -480.0
+offset_top = -310.0
+offset_right = 480.0
+offset_bottom = 310.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Margin" type="MarginContainer" parent="MenuPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 18
+theme_override_constants/margin_top = 14
+theme_override_constants/margin_right = 18
+theme_override_constants/margin_bottom = 16
+
+[node name="Layout" type="VBoxContainer" parent="MenuPanel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="Header" type="HBoxContainer" parent="MenuPanel/Margin/Layout"]
+layout_mode = 2
+
+[node name="Title" type="Label" parent="MenuPanel/Margin/Layout/Header"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 24
+text = "Player Menu"
+
+[node name="InventoryTab" type="Button" parent="MenuPanel/Margin/Layout/Header"]
+unique_name_in_owner = true
+layout_mode = 2
+toggle_mode = true
+text = "Inventory"
+
+[node name="LogbookTab" type="Button" parent="MenuPanel/Margin/Layout/Header"]
+unique_name_in_owner = true
+layout_mode = 2
+toggle_mode = true
+text = "Logbook"
+
+[node name="CloseButton" type="Button" parent="MenuPanel/Margin/Layout/Header"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Close"
+
+[node name="Separator" type="HSeparator" parent="MenuPanel/Margin/Layout"]
+layout_mode = 2
+
+[node name="Content" type="Control" parent="MenuPanel/Margin/Layout"]
+custom_minimum_size = Vector2(0, 530)
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="InventorySection" type="VBoxContainer" parent="MenuPanel/Margin/Layout/Content"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="SortBar" type="HBoxContainer" parent="MenuPanel/Margin/Layout/Content/InventorySection"]
+layout_mode = 2
+
+[node name="SortLabel" type="Label" parent="MenuPanel/Margin/Layout/Content/InventorySection/SortBar"]
+layout_mode = 2
+text = "Sort:"
+
+[node name="SortOption" type="OptionButton" parent="MenuPanel/Margin/Layout/Content/InventorySection/SortBar"]
+unique_name_in_owner = true
+layout_mode = 2
+custom_minimum_size = Vector2(160, 0)
+
+[node name="SortDirection" type="Button" parent="MenuPanel/Margin/Layout/Content/InventorySection/SortBar"]
+unique_name_in_owner = true
+layout_mode = 2
+custom_minimum_size = Vector2(130, 0)
+text = "Newest first"
+
+[node name="InventoryBody" type="HSplitContainer" parent="MenuPanel/Margin/Layout/Content/InventorySection"]
+layout_mode = 2
+size_flags_vertical = 3
+split_offset = 620
+
+[node name="InventoryList" type="PanelContainer" parent="MenuPanel/Margin/Layout/Content/InventorySection/InventoryBody"]
+custom_minimum_size = Vector2(610, 0)
+layout_mode = 2
+
+[node name="InventoryListMargin" type="MarginContainer" parent="MenuPanel/Margin/Layout/Content/InventorySection/InventoryBody/InventoryList"]
+layout_mode = 2
+theme_override_constants/margin_left = 8
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 8
+theme_override_constants/margin_bottom = 8
+
+[node name="InventoryStack" type="VBoxContainer" parent="MenuPanel/Margin/Layout/Content/InventorySection/InventoryBody/InventoryList/InventoryListMargin"]
+layout_mode = 2
+
+[node name="InventoryEmpty" type="Label" parent="MenuPanel/Margin/Layout/Content/InventorySection/InventoryBody/InventoryList/InventoryListMargin/InventoryStack"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "No fish in your inventory."
+horizontal_alignment = 1
+
+[node name="InventoryScroll" type="ScrollContainer" parent="MenuPanel/Margin/Layout/Content/InventorySection/InventoryBody/InventoryList/InventoryListMargin/InventoryStack"]
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="InventoryGrid" type="GridContainer" parent="MenuPanel/Margin/Layout/Content/InventorySection/InventoryBody/InventoryList/InventoryListMargin/InventoryStack/InventoryScroll"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/h_separation = 8
+theme_override_constants/v_separation = 8
+columns = 3
+
+[node name="DetailPanel" type="PanelContainer" parent="MenuPanel/Margin/Layout/Content/InventorySection/InventoryBody"]
+custom_minimum_size = Vector2(270, 0)
+layout_mode = 2
+
+[node name="DetailMargin" type="MarginContainer" parent="MenuPanel/Margin/Layout/Content/InventorySection/InventoryBody/DetailPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 12
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 12
+
+[node name="DetailStack" type="VBoxContainer" parent="MenuPanel/Margin/Layout/Content/InventorySection/InventoryBody/DetailPanel/DetailMargin"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="DetailTexture" type="TextureRect" parent="MenuPanel/Margin/Layout/Content/InventorySection/InventoryBody/DetailPanel/DetailMargin/DetailStack"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(240, 180)
+layout_mode = 2
+expand_mode = 1
+stretch_mode = 5
+texture_filter = 1
+
+[node name="DetailName" type="Label" parent="MenuPanel/Margin/Layout/Content/InventorySection/InventoryBody/DetailPanel/DetailMargin/DetailStack"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+horizontal_alignment = 1
+
+[node name="DetailData" type="Label" parent="MenuPanel/Margin/Layout/Content/InventorySection/InventoryBody/DetailPanel/DetailMargin/DetailStack"]
+unique_name_in_owner = true
+layout_mode = 2
+autowrap_mode = 2
+horizontal_alignment = 1
+
+[node name="LogbookSection" type="VBoxContainer" parent="MenuPanel/Margin/Layout/Content"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="LogbookEmpty" type="Label" parent="MenuPanel/Margin/Layout/Content/LogbookSection"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "No species discovered yet."
+horizontal_alignment = 1
+
+[node name="LogbookScroll" type="ScrollContainer" parent="MenuPanel/Margin/Layout/Content/LogbookSection"]
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="LogbookGrid" type="GridContainer" parent="MenuPanel/Margin/Layout/Content/LogbookSection/LogbookScroll"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/h_separation = 12
+theme_override_constants/v_separation = 12
+columns = 4
