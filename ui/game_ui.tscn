@@ -1,6 +1,18 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=6 format=3]
 
 [ext_resource type="Script" path="res://ui/game_ui.gd" id="1_ui"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBox_chase_background"]
+bg_color = Color(0.08, 0.08, 0.1, 0.9)
+
+[sub_resource type="StyleBoxFlat" id="StyleBox_chase_fill"]
+bg_color = Color(0.85, 0.12, 0.12, 0.95)
+
+[sub_resource type="StyleBoxFlat" id="StyleBox_catch_fill"]
+bg_color = Color(0.16, 0.82, 0.28, 0.9)
+
+[sub_resource type="StyleBoxFlat" id="StyleBox_transparent"]
+bg_color = Color(0, 0, 0, 0)
 
 [node name="GameUI" type="CanvasLayer"]
 script = ExtResource("1_ui")
@@ -49,9 +61,55 @@ visible = false
 text = ""
 horizontal_alignment = 1
 
-[node name="ReelProgress" type="ProgressBar" parent="FishingPanel/MarginContainer/VBoxContainer"]
+[node name="CatchTrack" type="Control" parent="FishingPanel/MarginContainer/VBoxContainer"]
 unique_name_in_owner = true
 visible = false
 custom_minimum_size = Vector2(0, 18)
+
+[node name="GreenCatchProgress" type="ProgressBar" parent="FishingPanel/MarginContainer/VBoxContainer/CatchTrack"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_styles/background = SubResource("StyleBox_chase_background")
+theme_override_styles/fill = SubResource("StyleBox_catch_fill")
 value = 0.0
 show_percentage = false
+
+[node name="RedChaseProgress" type="ProgressBar" parent="FishingPanel/MarginContainer/VBoxContainer/CatchTrack"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_styles/background = SubResource("StyleBox_transparent")
+theme_override_styles/fill = SubResource("StyleBox_chase_fill")
+value = 0.0
+show_percentage = false
+
+[node name="BarrierMarkers" type="Control" parent="FishingPanel/MarginContainer/VBoxContainer/CatchTrack"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="BarrierSummary" type="Label" parent="FishingPanel/MarginContainer/VBoxContainer"]
+unique_name_in_owner = true
+visible = false
+horizontal_alignment = 1
+
+[node name="BarrierHealth" type="Label" parent="FishingPanel/MarginContainer/VBoxContainer"]
+unique_name_in_owner = true
+visible = false
+horizontal_alignment = 1

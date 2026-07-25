@@ -14,6 +14,10 @@ const FishInventoryType = preload("res://inventory/fish_inventory.gd")
 @export_category("Control")
 @export var local_control_enabled: bool = true
 
+@export_category("Fishing Stats")
+@export_range(0.01, 2.0, 0.01) var reel_speed: float = 0.32
+@export_range(1, 100, 1) var click_power: int = 1
+
 @export_category("Camera")
 @export var mouse_sensitivity: float = 0.005
 @export var controller_camera_speed: float = 2.5

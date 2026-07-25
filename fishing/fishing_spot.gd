@@ -2,11 +2,20 @@ class_name FishingSpot
 extends Node3D
 
 const FishDataType = preload("res://fish/fish_data.gd")
+const CatchControllerType = preload("res://fishing/catch_controller.gd")
 const FishingPresentationType = preload("res://fishing/fishing_presentation.gd")
 const PlayerType = preload("res://player/player.gd")
 
 signal status_changed(status: String)
-signal reel_progress_changed(progress: float, visible: bool)
+signal catch_display_changed(
+	progress: float,
+	chase_progress: float,
+	barrier_positions: PackedFloat32Array,
+	barrier_health: PackedInt32Array,
+	barrier_max_health: PackedInt32Array,
+	active_barrier_index: int,
+	visible: bool,
+)
 
 enum FishingState {
 	READY,
@@ -14,7 +23,7 @@ enum FishingState {
 	CASTING,
 	WAITING_FOR_BITE,
 	BITE_ACTIVE,
-	REELING,
+	FIGHTING,
 	COOLDOWN,
 }
 
@@ -39,13 +48,11 @@ enum FishingState {
 @export_range(0.1, 30.0, 0.1) var wait_time: float = 2.0
 @export_range(0.1, 10.0, 0.1) var bite_window_duration: float = 1.5
 @export_range(0.1, 10.0, 0.1) var cooldown_duration: float = 1.0
-@export_range(0.01, 5.0, 0.01) var reel_gain_rate: float = 0.67
-@export_range(0.01, 5.0, 0.01) var reel_decay_rate: float = 0.2
-@export_range(0.0, 0.95, 0.05) var hooked_starting_progress: float = 0.25
 
 @export_category("Catch")
 @export var catchable_fish: FishDataType
 
+@onready var _catch_controller: CatchControllerType = %CatchController
 @onready var _presentation: FishingPresentationType = %FishingPresentation
 
 var state: FishingState = FishingState.READY
@@ -62,14 +69,15 @@ var _withdrawal_progress: float = 0.0
 var _withdrawal_input_held: bool = false
 var _new_cast_press_armed: bool = true
 var _bobber_water_position: Vector3
-var _reel_start_position: Vector3
-var _reel_progress: float = 0.0
-var _reel_input_held: bool = false
+var _fight_start_position: Vector3
 var _cooldown_status: String = ""
 var _fishable_query_shape: SphereShape3D = SphereShape3D.new()
 
 
 func _ready() -> void:
+	_catch_controller.encounter_updated.connect(_on_catch_encounter_updated)
+	_catch_controller.caught.connect(_on_catch_completed)
+	_catch_controller.escaped.connect(_on_catch_escaped)
 	_presentation.cast_completed.connect(_on_cast_completed)
 
 
@@ -92,10 +100,9 @@ func _process(delta: float) -> void:
 			_state_time_remaining -= delta
 			if _state_time_remaining <= 0.0:
 				_miss_bite()
-		FishingState.REELING:
-			if _reel_input_held and not Input.is_action_pressed("fish_primary"):
-				_reel_input_held = false
-			_update_reel_progress(delta)
+		FishingState.FIGHTING:
+			if not Input.is_action_pressed("fish_primary"):
+				_catch_controller.set_reel_input(false)
 		FishingState.COOLDOWN:
 			_state_time_remaining -= delta
 			if _state_time_remaining <= 0.0:
@@ -111,7 +118,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			FishingState.CASTING,
 			FishingState.WAITING_FOR_BITE,
 			FishingState.BITE_ACTIVE,
-			FishingState.REELING,
+			FishingState.FIGHTING,
 		]
 	):
 		_cancel_attempt()
@@ -136,8 +143,8 @@ func _unhandled_input(event: InputEvent) -> void:
 				)
 			FishingState.BITE_ACTIVE:
 				_confirm_hook()
-			FishingState.REELING:
-				_reel_input_held = true
+			FishingState.FIGHTING:
+				_catch_controller.handle_primary_pressed()
 				_presentation.set_line_mode(
 					FishingPresentationType.LineMode.TAUT
 				)
@@ -151,8 +158,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		_withdrawal_input_held = false
 		_presentation.set_line_mode(FishingPresentationType.LineMode.SLACK)
 		get_viewport().set_input_as_handled()
-	elif state == FishingState.REELING:
-		_reel_input_held = false
+	elif state == FishingState.FIGHTING:
+		_catch_controller.set_reel_input(false)
 		get_viewport().set_input_as_handled()
 
 
@@ -340,58 +347,80 @@ func _activate_bite() -> void:
 
 
 func _confirm_hook() -> void:
-	if state != FishingState.BITE_ACTIVE or _active_player == null:
+	if (
+		state != FishingState.BITE_ACTIVE
+		or _active_player == null
+		or catchable_fish == null
+		or catchable_fish.catch_profile == null
+	):
+		_cancel_attempt()
 		return
 
-	state = FishingState.REELING
+	state = FishingState.FIGHTING
 	_state_time_remaining = 0.0
-	_reel_progress = clampf(hooked_starting_progress, 0.0, 0.95)
-	_reel_input_held = true
-	_reel_start_position = _bobber_water_position
+	_fight_start_position = _bobber_water_position
 	status_changed.emit("Hold left click to reel")
-	reel_progress_changed.emit(_reel_progress, true)
 	_presentation.set_line_mode(FishingPresentationType.LineMode.TAUT)
 	_presentation.begin_reeling()
-	_update_reel_presentation()
+	_catch_controller.start_encounter(
+		catchable_fish.catch_profile,
+		_active_player.reel_speed,
+		_active_player.click_power
+	)
+	_catch_controller.set_reel_input(true)
 
 
-func _update_reel_progress(delta: float) -> void:
-	if state != FishingState.REELING:
+func _on_catch_encounter_updated(
+	progress: float,
+	chase_progress: float,
+	barrier_positions: PackedFloat32Array,
+	barrier_health: PackedInt32Array,
+	barrier_max_health: PackedInt32Array,
+	active_barrier_index: int,
+	visible: bool,
+) -> void:
+	catch_display_changed.emit(
+		progress,
+		chase_progress,
+		barrier_positions,
+		barrier_health,
+		barrier_max_health,
+		active_barrier_index,
+		visible
+	)
+	if state != FishingState.FIGHTING or not visible:
 		return
 
-	if _reel_input_held:
-		_reel_progress = minf(_reel_progress + reel_gain_rate * delta, 1.0)
-	else:
-		_reel_progress = maxf(_reel_progress - reel_decay_rate * delta, 0.0)
-	reel_progress_changed.emit(_reel_progress, true)
-	_update_reel_presentation()
-	if is_equal_approx(_reel_progress, 1.0):
-		_resolve_catch()
-	elif is_zero_approx(_reel_progress):
-		_resolve_escape()
-
-
-func _update_reel_presentation() -> void:
-	var desired_position: Vector3 = _reel_start_position.lerp(
+	var desired_position: Vector3 = _fight_start_position.lerp(
 		_withdrawal_endpoint,
-		_reel_progress
+		progress
 	)
-	_bobber_water_position = _get_clamped_reel_position(desired_position)
-	_presentation.show_reel_position(
-		_bobber_water_position,
-		_reel_input_held
-	)
-
-
-func _get_clamped_reel_position(desired_position: Vector3) -> Vector3:
-	return find_last_fishable_position(
-		_reel_start_position,
+	_bobber_water_position = find_last_fishable_position(
+		_fight_start_position,
 		desired_position
 	)
+	_presentation.show_reel_position(
+		_bobber_water_position,
+		Input.is_action_pressed("fish_primary")
+	)
+	if (
+		active_barrier_index >= 0
+		and active_barrier_index < barrier_health.size()
+		and active_barrier_index < barrier_max_health.size()
+	):
+		status_changed.emit(
+			"Barrier: %d / %d"
+			% [
+				barrier_health[active_barrier_index],
+				barrier_max_health[active_barrier_index],
+			]
+		)
+	else:
+		status_changed.emit("Hold left click to reel")
 
 
-func _resolve_catch() -> void:
-	if state != FishingState.REELING or _active_player == null or catchable_fish == null:
+func _on_catch_completed() -> void:
+	if state != FishingState.FIGHTING or _active_player == null or catchable_fish == null:
 		_cancel_attempt()
 		return
 
@@ -399,8 +428,8 @@ func _resolve_catch() -> void:
 	_cleanup_attempt("Caught %s!" % catchable_fish.display_name, &"catch")
 
 
-func _resolve_escape() -> void:
-	if state != FishingState.REELING:
+func _on_catch_escaped() -> void:
+	if state != FishingState.FIGHTING:
 		return
 
 	var fish_name: String = "The fish"
@@ -432,10 +461,8 @@ func _cleanup_attempt(
 	_withdrawal_progress = 0.0
 	_withdrawal_input_held = false
 	_bobber_water_position = Vector3.ZERO
-	_reel_start_position = Vector3.ZERO
-	_reel_input_held = false
-	_reel_progress = 0.0
-	reel_progress_changed.emit(0.0, false)
+	_fight_start_position = Vector3.ZERO
+	_catch_controller.reset()
 	if visual_outcome.is_empty():
 		_presentation.cleanup()
 	else:
