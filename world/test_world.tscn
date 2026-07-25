@@ -1,4 +1,4 @@
-[gd_scene load_steps=11 format=3]
+[gd_scene load_steps=12 format=3]
 
 [sub_resource type="BoxShape3D" id="GroundShape"]
 size = Vector3(30, 1, 30)
@@ -22,7 +22,10 @@ albedo_color = Color(0.42, 0.25, 0.12, 1)
 size = Vector2(40, 25)
 
 [sub_resource type="BoxShape3D" id="FishableWaterShape"]
-size = Vector3(40, 0.5, 19.5)
+size = Vector3(40, 0.16, 19.5)
+
+[sub_resource type="BoxShape3D" id="FishableShoreShape"]
+size = Vector3(17.5, 0.16, 5.5)
 
 [sub_resource type="StandardMaterial3D" id="WaterMaterial"]
 transparency = 1
@@ -77,3 +80,11 @@ monitoring = false
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="FishableWater"]
 shape = SubResource("FishableWaterShape")
+
+[node name="ShoreLeft" type="CollisionShape3D" parent="FishableWater"]
+position = Vector3(-11.25, 0, 12.5)
+shape = SubResource("FishableShoreShape")
+
+[node name="ShoreRight" type="CollisionShape3D" parent="FishableWater"]
+position = Vector3(11.25, 0, 12.5)
+shape = SubResource("FishableShoreShape")

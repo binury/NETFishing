@@ -1,27 +1,8 @@
-[gd_scene load_steps=13 format=3]
+[gd_scene load_steps=11 format=3]
 
 [ext_resource type="Script" path="res://fishing/fishing_spot.gd" id="1_spot"]
 [ext_resource type="Resource" path="res://fish/bluegill.tres" id="2_bluegill"]
 [ext_resource type="Script" path="res://fishing/fishing_presentation.gd" id="3_presentation"]
-
-[sub_resource type="SphereShape3D" id="RangeShape"]
-radius = 3.5
-
-[sub_resource type="CylinderMesh" id="MarkerPostMesh"]
-top_radius = 0.12
-bottom_radius = 0.12
-height = 2.0
-
-[sub_resource type="TorusMesh" id="RangeMarkerMesh"]
-inner_radius = 3.35
-outer_radius = 3.5
-rings = 32
-
-[sub_resource type="StandardMaterial3D" id="MarkerMaterial"]
-albedo_color = Color(0.95, 0.82, 0.18, 1)
-emission_enabled = true
-emission = Color(0.3, 0.2, 0.01, 1)
-emission_energy_multiplier = 0.7
 
 [sub_resource type="SphereMesh" id="BobberMesh"]
 radius = 0.12
@@ -42,40 +23,49 @@ height = 0.035
 
 [sub_resource type="StandardMaterial3D" id="CastTargetMaterial"]
 shading_mode = 0
-albedo_color = Color(0.3, 0.95, 0.72, 0.9)
+albedo_color = Color(0.18, 1, 0.72, 1)
 emission_enabled = true
-emission = Color(0.08, 0.35, 0.22, 1)
-emission_energy_multiplier = 0.8
+emission = Color(0.08, 0.8, 0.42, 1)
+emission_energy_multiplier = 1.6
 
-[node name="FishingSpot" type="Area3D"]
-collision_layer = 0
-collision_mask = 2
-monitoring = true
-monitorable = false
+[sub_resource type="StandardMaterial3D" id="InvalidTargetMaterial"]
+shading_mode = 0
+albedo_color = Color(1, 0.08, 0.22, 1)
+emission_enabled = true
+emission = Color(1, 0.01, 0.08, 1)
+emission_energy_multiplier = 2.2
+
+[sub_resource type="BoxMesh" id="InvalidCrossMesh"]
+size = Vector3(0.72, 0.06, 0.12)
+
+[node name="FishingSpot" type="Node3D"]
 script = ExtResource("1_spot")
 catchable_fish = ExtResource("2_bluegill")
-
-[node name="RangeCollision" type="CollisionShape3D" parent="."]
-shape = SubResource("RangeShape")
-
-[node name="MarkerPost" type="MeshInstance3D" parent="."]
-position = Vector3(0, 1, 0)
-mesh = SubResource("MarkerPostMesh")
-material_override = SubResource("MarkerMaterial")
-
-[node name="RangeMarker" type="MeshInstance3D" parent="."]
-position = Vector3(0, 0.03, 0)
-mesh = SubResource("RangeMarkerMesh")
-material_override = SubResource("MarkerMaterial")
 
 [node name="FishingPresentation" type="Node3D" parent="."]
 unique_name_in_owner = true
 script = ExtResource("3_presentation")
+valid_target_material = SubResource("CastTargetMaterial")
+invalid_target_material = SubResource("InvalidTargetMaterial")
 
 [node name="CastTargetMarker" type="MeshInstance3D" parent="FishingPresentation"]
 unique_name_in_owner = true
 mesh = SubResource("CastTargetMesh")
 material_override = SubResource("CastTargetMaterial")
+
+[node name="InvalidCrossA" type="MeshInstance3D" parent="FishingPresentation/CastTargetMarker"]
+unique_name_in_owner = true
+position = Vector3(0, 0.075, 0)
+rotation = Vector3(0, 0.785398, 0)
+mesh = SubResource("InvalidCrossMesh")
+material_override = SubResource("InvalidTargetMaterial")
+
+[node name="InvalidCrossB" type="MeshInstance3D" parent="FishingPresentation/CastTargetMarker"]
+unique_name_in_owner = true
+position = Vector3(0, 0.075, 0)
+rotation = Vector3(0, -0.785398, 0)
+mesh = SubResource("InvalidCrossMesh")
+material_override = SubResource("InvalidTargetMaterial")
 
 [node name="FishingLine" type="MeshInstance3D" parent="FishingPresentation"]
 unique_name_in_owner = true

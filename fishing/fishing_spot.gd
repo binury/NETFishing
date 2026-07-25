@@ -1,5 +1,5 @@
 class_name FishingSpot
-extends Area3D
+extends Node3D
 
 const FishDataType = preload("res://fish/fish_data.gd")
 const FishingPresentationType = preload("res://fishing/fishing_presentation.gd")
@@ -23,6 +23,13 @@ enum FishingState {
 @export_range(0.1, 30.0, 0.1) var maximum_cast_distance: float = 14.0
 @export_range(0.1, 10.0, 0.1) var cast_charge_duration: float = 2.75
 @export_flags_3d_physics var fishable_surface_mask: int = 4
+@export_range(0.01, 1.0, 0.01) var fishable_query_radius: float = 0.08
+
+@export_category("Target Preview")
+@export_flags_3d_physics var preview_surface_mask: int = 5
+@export_range(1.0, 100.0, 1.0) var preview_ray_start_height: float = 30.0
+@export_range(1.0, 200.0, 1.0) var preview_ray_length: float = 60.0
+@export_range(0.01, 1.0, 0.01) var preview_marker_vertical_offset: float = 0.06
 
 @export_category("Withdrawal")
 @export_range(0.1, 20.0, 0.1) var withdrawal_rate: float = 4.9
@@ -42,7 +49,7 @@ enum FishingState {
 @onready var _presentation: FishingPresentationType = %FishingPresentation
 
 var state: FishingState = FishingState.READY
-var _nearby_player: PlayerType
+var _local_player: PlayerType
 var _active_player: PlayerType
 var _state_time_remaining: float = 0.0
 var _cast_charge: float = 0.0
@@ -54,15 +61,20 @@ var _withdrawal_endpoint: Vector3
 var _withdrawal_progress: float = 0.0
 var _withdrawal_input_held: bool = false
 var _new_cast_press_armed: bool = true
+var _bobber_water_position: Vector3
+var _reel_start_position: Vector3
 var _reel_progress: float = 0.0
 var _reel_input_held: bool = false
 var _cooldown_status: String = ""
+var _fishable_query_shape: SphereShape3D = SphereShape3D.new()
 
 
 func _ready() -> void:
-	body_entered.connect(_on_body_entered)
-	body_exited.connect(_on_body_exited)
 	_presentation.cast_completed.connect(_on_cast_completed)
+
+
+func setup(local_player: PlayerType) -> void:
+	_local_player = local_player
 
 
 func _process(delta: float) -> void:
@@ -75,17 +87,7 @@ func _process(delta: float) -> void:
 			if not Input.is_action_pressed("fish_primary"):
 				_confirm_cast()
 		FishingState.WAITING_FOR_BITE:
-			_state_time_remaining -= delta
-			if _state_time_remaining <= 0.0:
-				_activate_bite()
-			else:
-				if (
-					_withdrawal_input_held
-					and not Input.is_action_pressed("fish_primary")
-				):
-					_withdrawal_input_held = false
-				if _withdrawal_input_held:
-					_update_withdrawal(delta)
+			_update_waiting_for_bite(delta)
 		FishingState.BITE_ACTIVE:
 			_state_time_remaining -= delta
 			if _state_time_remaining <= 0.0:
@@ -116,7 +118,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		return
 
-	if _nearby_player == null or not _nearby_player.is_local_control_enabled():
+	if _local_player == null or not _local_player.is_local_control_enabled():
 		return
 	if not event.is_action("fish_primary"):
 		return
@@ -126,13 +128,19 @@ func _unhandled_input(event: InputEvent) -> void:
 			FishingState.READY:
 				if not _new_cast_press_armed:
 					return
-				_begin_aiming(_nearby_player)
+				_begin_aiming(_local_player)
 			FishingState.WAITING_FOR_BITE:
 				_withdrawal_input_held = true
+				_presentation.set_line_mode(
+					FishingPresentationType.LineMode.TAUT
+				)
 			FishingState.BITE_ACTIVE:
 				_confirm_hook()
 			FishingState.REELING:
 				_reel_input_held = true
+				_presentation.set_line_mode(
+					FishingPresentationType.LineMode.TAUT
+				)
 			_:
 				return
 		get_viewport().set_input_as_handled()
@@ -141,6 +149,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 	elif state == FishingState.WAITING_FOR_BITE:
 		_withdrawal_input_held = false
+		_presentation.set_line_mode(FishingPresentationType.LineMode.SLACK)
 		get_viewport().set_input_as_handled()
 	elif state == FishingState.REELING:
 		_reel_input_held = false
@@ -159,10 +168,13 @@ func _begin_aiming(player: PlayerType) -> void:
 	_cast_target = _calculate_cast_target(minimum_cast_distance)
 	state = FishingState.AIMING_CAST
 	status_changed.emit("Hold left click to aim • Release to cast")
+	var target_is_fishable: bool = is_target_fishable(_cast_target)
+	var preview_position: Vector3 = _resolve_preview_surface_position(_cast_target)
 	_presentation.begin_aim(
 		_active_player.get_fishing_rod_tip(),
 		_active_player.get_fishing_rod(),
-		_cast_target
+		preview_position,
+		target_is_fishable
 	)
 
 
@@ -174,7 +186,13 @@ func _update_cast_charge(delta: float) -> void:
 	var maximum_distance: float = maxf(minimum_cast_distance, maximum_cast_distance)
 	var distance: float = lerpf(minimum_cast_distance, maximum_distance, _cast_charge)
 	_cast_target = _calculate_cast_target(distance)
-	_presentation.update_aim_target(_cast_target, _cast_charge)
+	var target_is_fishable: bool = is_target_fishable(_cast_target)
+	var preview_position: Vector3 = _resolve_preview_surface_position(_cast_target)
+	_presentation.update_aim_target(
+		preview_position,
+		_cast_charge,
+		target_is_fishable
+	)
 	_presentation.update_rod_charge(_cast_charge)
 
 
@@ -182,16 +200,17 @@ func _confirm_cast() -> void:
 	if state != FishingState.AIMING_CAST:
 		return
 
-	_cast_landing_is_fishable = _is_landing_fishable(_cast_target)
 	state = FishingState.CASTING
 	status_changed.emit("Casting...")
 	_presentation.begin_cast(_cast_target)
+	_presentation.set_line_mode(FishingPresentationType.LineMode.TAUT)
 
 
 func _on_cast_completed() -> void:
 	if state != FishingState.CASTING:
 		return
 
+	_cast_landing_is_fishable = is_target_fishable(_cast_target)
 	if not _cast_landing_is_fishable:
 		_cleanup_attempt("Can't fish there.", &"invalid")
 		return
@@ -200,37 +219,112 @@ func _on_cast_completed() -> void:
 	_state_time_remaining = wait_time
 	_withdrawal_progress = 0.0
 	_withdrawal_input_held = false
+	_bobber_water_position = _cast_target
 	_withdrawal_endpoint = Vector3(
 		_cast_origin_position.x + _cast_direction.x * withdrawal_cancel_distance,
 		_presentation.get_water_surface_height(),
 		_cast_origin_position.z + _cast_direction.z * withdrawal_cancel_distance
 	)
+	_presentation.set_line_mode(FishingPresentationType.LineMode.SLACK)
 	status_changed.emit("Waiting for a bite...")
+
+
+func _update_waiting_for_bite(delta: float) -> void:
+	if (
+		_withdrawal_input_held
+		and not Input.is_action_pressed("fish_primary")
+	):
+		_withdrawal_input_held = false
+		_presentation.set_line_mode(FishingPresentationType.LineMode.SLACK)
+
+	if not _withdrawal_input_held:
+		_state_time_remaining -= delta
+		if _state_time_remaining <= 0.0:
+			_activate_bite()
+		return
+
+	var completion_time: float = _get_withdrawal_completion_time(delta)
+	if _state_time_remaining <= delta and _state_time_remaining <= completion_time:
+		_update_withdrawal(maxf(_state_time_remaining, 0.0))
+		if state == FishingState.WAITING_FOR_BITE:
+			_activate_bite()
+		return
+
+	_update_withdrawal(delta)
+	if state != FishingState.WAITING_FOR_BITE:
+		return
+	_state_time_remaining -= delta
+	if _state_time_remaining <= 0.0:
+		_activate_bite()
 
 
 func _update_withdrawal(delta: float) -> void:
 	if state != FishingState.WAITING_FOR_BITE:
 		return
 
-	var landing_offset: Vector3 = _cast_target - _cast_origin_position
-	landing_offset.y = 0.0
-	var landing_distance: float = landing_offset.length()
-	var withdrawable_distance: float = landing_distance - withdrawal_cancel_distance
+	var withdrawable_distance: float = _get_withdrawable_distance()
 	if withdrawable_distance <= 0.0:
 		_cancel_from_withdrawal()
 		return
 
-	_withdrawal_progress = minf(
+	var next_progress: float = minf(
 		_withdrawal_progress + withdrawal_rate * delta / withdrawable_distance,
 		1.0
 	)
-	var current_position: Vector3 = _cast_target.lerp(
+	var desired_position: Vector3 = _cast_target.lerp(
 		_withdrawal_endpoint,
-		_withdrawal_progress
+		next_progress
 	)
-	_presentation.show_withdrawal_position(current_position)
+	var clamped_position: Vector3 = find_last_fishable_position(
+		_bobber_water_position,
+		desired_position
+	)
+	_withdrawal_progress = next_progress
+	_bobber_water_position = clamped_position
+	_presentation.show_withdrawal_position(_bobber_water_position)
+	if not clamped_position.is_equal_approx(desired_position):
+		_resolve_withdrawal_at_shore()
+		return
 	if is_equal_approx(_withdrawal_progress, 1.0):
 		_cancel_from_withdrawal()
+
+
+func _get_withdrawal_completion_time(delta: float) -> float:
+	var withdrawable_distance: float = _get_withdrawable_distance()
+	if withdrawable_distance <= 0.0:
+		return 0.0
+
+	var progress_step: float = withdrawal_rate * delta / withdrawable_distance
+	if progress_step <= 0.0:
+		return INF
+	var next_progress: float = minf(_withdrawal_progress + progress_step, 1.0)
+	var desired_position: Vector3 = _cast_target.lerp(
+		_withdrawal_endpoint,
+		next_progress
+	)
+	var clamped_position: Vector3 = find_last_fishable_position(
+		_bobber_water_position,
+		desired_position
+	)
+	if not clamped_position.is_equal_approx(desired_position):
+		var segment_length: float = _bobber_water_position.distance_to(
+			desired_position
+		)
+		if segment_length <= 0.0:
+			return 0.0
+		return delta * (
+			_bobber_water_position.distance_to(clamped_position)
+			/ segment_length
+		)
+	if is_equal_approx(next_progress, 1.0):
+		return delta * (1.0 - _withdrawal_progress) / progress_step
+	return INF
+
+
+func _get_withdrawable_distance() -> float:
+	var landing_offset: Vector3 = _cast_target - _cast_origin_position
+	landing_offset.y = 0.0
+	return landing_offset.length() - withdrawal_cancel_distance
 
 
 func _activate_bite() -> void:
@@ -241,6 +335,7 @@ func _activate_bite() -> void:
 	_state_time_remaining = bite_window_duration
 	_withdrawal_input_held = false
 	status_changed.emit("Bite! Left click to hook")
+	_presentation.set_line_mode(FishingPresentationType.LineMode.TAUT)
 	_presentation.show_bite()
 
 
@@ -252,10 +347,12 @@ func _confirm_hook() -> void:
 	_state_time_remaining = 0.0
 	_reel_progress = clampf(hooked_starting_progress, 0.0, 0.95)
 	_reel_input_held = true
+	_reel_start_position = _bobber_water_position
 	status_changed.emit("Hold left click to reel")
 	reel_progress_changed.emit(_reel_progress, true)
-	_presentation.begin_reeling(_withdrawal_endpoint)
-	_presentation.show_reel_progress(_reel_progress, _reel_input_held)
+	_presentation.set_line_mode(FishingPresentationType.LineMode.TAUT)
+	_presentation.begin_reeling()
+	_update_reel_presentation()
 
 
 func _update_reel_progress(delta: float) -> void:
@@ -267,11 +364,30 @@ func _update_reel_progress(delta: float) -> void:
 	else:
 		_reel_progress = maxf(_reel_progress - reel_decay_rate * delta, 0.0)
 	reel_progress_changed.emit(_reel_progress, true)
-	_presentation.show_reel_progress(_reel_progress, _reel_input_held)
+	_update_reel_presentation()
 	if is_equal_approx(_reel_progress, 1.0):
 		_resolve_catch()
 	elif is_zero_approx(_reel_progress):
 		_resolve_escape()
+
+
+func _update_reel_presentation() -> void:
+	var desired_position: Vector3 = _reel_start_position.lerp(
+		_withdrawal_endpoint,
+		_reel_progress
+	)
+	_bobber_water_position = _get_clamped_reel_position(desired_position)
+	_presentation.show_reel_position(
+		_bobber_water_position,
+		_reel_input_held
+	)
+
+
+func _get_clamped_reel_position(desired_position: Vector3) -> Vector3:
+	return find_last_fishable_position(
+		_reel_start_position,
+		desired_position
+	)
 
 
 func _resolve_catch() -> void:
@@ -315,21 +431,28 @@ func _cleanup_attempt(
 	_withdrawal_endpoint = Vector3.ZERO
 	_withdrawal_progress = 0.0
 	_withdrawal_input_held = false
+	_bobber_water_position = Vector3.ZERO
+	_reel_start_position = Vector3.ZERO
 	_reel_input_held = false
 	_reel_progress = 0.0
 	reel_progress_changed.emit(0.0, false)
 	if visual_outcome.is_empty():
 		_presentation.cleanup()
 	else:
+		if visual_outcome in [&"catch", &"invalid", &"withdrawal"]:
+			_presentation.set_line_mode(
+				FishingPresentationType.LineMode.TAUT
+			)
+		else:
+			_presentation.set_line_mode(
+				FishingPresentationType.LineMode.HIDDEN
+			)
 		_presentation.play_outcome(visual_outcome)
 
 	if cooldown_message.is_empty():
 		state = FishingState.READY
 		_cooldown_status = ""
-		if _nearby_player != null:
-			status_changed.emit("Left click to cast")
-		else:
-			status_changed.emit("")
+		status_changed.emit("")
 	else:
 		state = FishingState.COOLDOWN
 		_state_time_remaining = cooldown_duration
@@ -341,10 +464,7 @@ func _return_to_ready() -> void:
 	state = FishingState.READY
 	_state_time_remaining = 0.0
 	_cooldown_status = ""
-	if _nearby_player != null:
-		status_changed.emit("Left click to cast")
-	else:
-		status_changed.emit("")
+	status_changed.emit("")
 
 
 func _cancel_attempt() -> void:
@@ -356,6 +476,12 @@ func _cancel_from_withdrawal() -> void:
 		return
 	_new_cast_press_armed = false
 	_cleanup_attempt("", &"withdrawal")
+
+
+func _resolve_withdrawal_at_shore() -> void:
+	if state != FishingState.WAITING_FOR_BITE:
+		return
+	_cancel_from_withdrawal()
 
 
 func _capture_cast_direction(player: PlayerType) -> Vector3:
@@ -377,36 +503,79 @@ func _calculate_cast_target(distance: float) -> Vector3:
 	)
 
 
-func _is_landing_fishable(target: Vector3) -> bool:
-	var query := PhysicsPointQueryParameters3D.new()
-	query.position = target
+func is_target_fishable(target: Vector3) -> bool:
+	_fishable_query_shape.radius = fishable_query_radius
+	var query := PhysicsShapeQueryParameters3D.new()
+	query.shape = _fishable_query_shape
+	query.transform = Transform3D(
+		Basis.IDENTITY,
+		Vector3(target.x, _presentation.get_water_surface_height(), target.z)
+	)
 	query.collision_mask = fishable_surface_mask
 	query.collide_with_areas = true
 	query.collide_with_bodies = false
-	var results: Array[Dictionary] = get_world_3d().direct_space_state.intersect_point(
+	var results: Array[Dictionary] = get_world_3d().direct_space_state.intersect_shape(
 		query,
 		1
 	)
 	return not results.is_empty()
 
 
-func _on_body_entered(body: Node3D) -> void:
-	if body is not PlayerType or not body.is_local_control_enabled():
-		return
-	if _nearby_player != null:
-		return
+func find_last_fishable_position(from: Vector3, to: Vector3) -> Vector3:
+	if from.is_equal_approx(to):
+		return from
 
-	_nearby_player = body
-	if state == FishingState.READY:
-		status_changed.emit("Left click to cast")
+	var segment_length: float = from.distance_to(to)
+	var sample_spacing: float = maxf(fishable_query_radius, 0.05)
+	var sample_count: int = maxi(1, ceili(segment_length / sample_spacing))
+	var last_valid_fraction: float = 0.0
+
+	for sample_index: int in range(1, sample_count + 1):
+		var sample_fraction: float = float(sample_index) / float(sample_count)
+		var sample_position: Vector3 = from.lerp(to, sample_fraction)
+		if is_target_fishable(sample_position):
+			last_valid_fraction = sample_fraction
+			continue
+
+		var invalid_fraction: float = sample_fraction
+		for _iteration: int in range(10):
+			var midpoint: float = (
+				last_valid_fraction + invalid_fraction
+			) * 0.5
+			if is_target_fishable(from.lerp(to, midpoint)):
+				last_valid_fraction = midpoint
+			else:
+				invalid_fraction = midpoint
+		return from.lerp(to, last_valid_fraction)
+
+	return to
 
 
-func _on_body_exited(body: Node3D) -> void:
-	if body != _nearby_player:
-		return
+func _resolve_preview_surface_position(target: Vector3) -> Vector3:
+	var ray_start := Vector3(
+		target.x,
+		target.y + preview_ray_start_height,
+		target.z
+	)
+	var ray_end := Vector3(
+		target.x,
+		ray_start.y - preview_ray_length,
+		target.z
+	)
+	var query := PhysicsRayQueryParameters3D.create(
+		ray_start,
+		ray_end,
+		preview_surface_mask
+	)
+	query.collide_with_areas = true
+	query.collide_with_bodies = true
+	var result: Dictionary = get_world_3d().direct_space_state.intersect_ray(query)
+	if result.is_empty():
+		return target
 
-	_nearby_player = null
-	if body == _active_player:
-		_cancel_attempt()
-	else:
-		status_changed.emit("")
+	var hit_position: Vector3 = result["position"]
+	return Vector3(
+		target.x,
+		hit_position.y + preview_marker_vertical_offset,
+		target.z
+	)
