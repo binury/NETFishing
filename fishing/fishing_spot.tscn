@@ -1,7 +1,8 @@
-[gd_scene load_steps=7 format=3]
+[gd_scene load_steps=13 format=3]
 
 [ext_resource type="Script" path="res://fishing/fishing_spot.gd" id="1_spot"]
 [ext_resource type="Resource" path="res://fish/bluegill.tres" id="2_bluegill"]
+[ext_resource type="Script" path="res://fishing/fishing_presentation.gd" id="3_presentation"]
 
 [sub_resource type="SphereShape3D" id="RangeShape"]
 radius = 3.5
@@ -21,6 +22,30 @@ albedo_color = Color(0.95, 0.82, 0.18, 1)
 emission_enabled = true
 emission = Color(0.3, 0.2, 0.01, 1)
 emission_energy_multiplier = 0.7
+
+[sub_resource type="SphereMesh" id="BobberMesh"]
+radius = 0.12
+height = 0.24
+
+[sub_resource type="StandardMaterial3D" id="BobberMaterial"]
+albedo_color = Color(0.92, 0.12, 0.08, 1)
+roughness = 0.45
+
+[sub_resource type="StandardMaterial3D" id="LineMaterial"]
+shading_mode = 0
+albedo_color = Color(0.9, 0.9, 0.82, 1)
+
+[sub_resource type="CylinderMesh" id="CastTargetMesh"]
+top_radius = 0.28
+bottom_radius = 0.28
+height = 0.035
+
+[sub_resource type="StandardMaterial3D" id="CastTargetMaterial"]
+shading_mode = 0
+albedo_color = Color(0.3, 0.95, 0.72, 0.9)
+emission_enabled = true
+emission = Color(0.08, 0.35, 0.22, 1)
+emission_energy_multiplier = 0.8
 
 [node name="FishingSpot" type="Area3D"]
 collision_layer = 0
@@ -42,3 +67,21 @@ material_override = SubResource("MarkerMaterial")
 position = Vector3(0, 0.03, 0)
 mesh = SubResource("RangeMarkerMesh")
 material_override = SubResource("MarkerMaterial")
+
+[node name="FishingPresentation" type="Node3D" parent="."]
+unique_name_in_owner = true
+script = ExtResource("3_presentation")
+
+[node name="CastTargetMarker" type="MeshInstance3D" parent="FishingPresentation"]
+unique_name_in_owner = true
+mesh = SubResource("CastTargetMesh")
+material_override = SubResource("CastTargetMaterial")
+
+[node name="FishingLine" type="MeshInstance3D" parent="FishingPresentation"]
+unique_name_in_owner = true
+material_override = SubResource("LineMaterial")
+
+[node name="Bobber" type="MeshInstance3D" parent="FishingPresentation"]
+unique_name_in_owner = true
+mesh = SubResource("BobberMesh")
+material_override = SubResource("BobberMaterial")

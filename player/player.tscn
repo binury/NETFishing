@@ -1,4 +1,4 @@
-[gd_scene load_steps=8 format=3]
+[gd_scene load_steps=10 format=3]
 
 [ext_resource type="Script" path="res://player/player.gd" id="1_script"]
 [ext_resource type="Script" path="res://inventory/fish_inventory.gd" id="2_inventory"]
@@ -19,6 +19,15 @@ size = Vector3(0.24, 0.2, 0.4)
 
 [sub_resource type="StandardMaterial3D" id="FacingMarkerMaterial"]
 albedo_color = Color(0.12, 0.18, 0.28, 1)
+
+[sub_resource type="CylinderMesh" id="FishingRodMesh"]
+top_radius = 0.025
+bottom_radius = 0.045
+height = 1.2
+
+[sub_resource type="StandardMaterial3D" id="FishingRodMaterial"]
+albedo_color = Color(0.22, 0.12, 0.06, 1)
+roughness = 0.8
 
 [node name="Player" type="CharacterBody3D"]
 collision_layer = 2
@@ -41,6 +50,24 @@ material_override = SubResource("PlayerMaterial")
 position = Vector3(0, 1.0, -0.55)
 mesh = SubResource("FacingMarkerMesh")
 material_override = SubResource("FacingMarkerMaterial")
+
+[node name="FishingRod" type="Node3D" parent="Visuals"]
+unique_name_in_owner = true
+position = Vector3(0.42, 1.05, -0.2)
+rotation = Vector3(-0.436332, 0, 0)
+
+[node name="RodMesh" type="MeshInstance3D" parent="Visuals/FishingRod"]
+position = Vector3(0, 0.6, 0)
+mesh = SubResource("FishingRodMesh")
+material_override = SubResource("FishingRodMaterial")
+
+[node name="FishingRodTip" type="Marker3D" parent="Visuals/FishingRod"]
+unique_name_in_owner = true
+position = Vector3(0, 1.2, 0)
+
+[node name="CastOrigin" type="Marker3D" parent="."]
+unique_name_in_owner = true
+position = Vector3(0, 0.9, 0)
 
 [node name="Inventory" type="Node" parent="."]
 unique_name_in_owner = true

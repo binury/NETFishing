@@ -31,6 +31,9 @@ const FishInventoryType = preload("res://inventory/fish_inventory.gd")
 @onready var _spring_arm: SpringArm3D = %SpringArm3D
 @onready var _camera: Camera3D = %Camera3D
 @onready var inventory: FishInventoryType = %Inventory
+@onready var _cast_origin: Marker3D = %CastOrigin
+@onready var _fishing_rod: Node3D = %FishingRod
+@onready var _fishing_rod_tip: Marker3D = %FishingRodTip
 
 var _gravity: float = float(ProjectSettings.get_setting("physics/3d/default_gravity"))
 var _camera_dragging: bool = false
@@ -171,3 +174,26 @@ func set_movement_enabled(enabled: bool) -> void:
 	if not enabled:
 		velocity.x = 0.0
 		velocity.z = 0.0
+
+
+func get_fishing_rod_tip() -> Marker3D:
+	return _fishing_rod_tip
+
+
+func get_fishing_rod() -> Node3D:
+	return _fishing_rod
+
+
+func get_cast_origin_position() -> Vector3:
+	return _cast_origin.global_position
+
+
+func get_facing_direction() -> Vector3:
+	var facing: Vector3 = -_visuals.global_basis.z
+	facing.y = 0.0
+	if facing.is_zero_approx():
+		facing = -global_basis.z
+		facing.y = 0.0
+	if facing.is_zero_approx():
+		return Vector3.FORWARD
+	return facing.normalized()
