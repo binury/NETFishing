@@ -68,6 +68,15 @@ var _auto_click_accumulator: float = 0.0
 var _rng: RandomNumberGenerator = RandomNumberGenerator.new()
 
 
+func configure_accessibility(
+	enabled: bool,
+	interval: float,
+) -> void:
+	auto_click_enabled = enabled
+	auto_click_interval = clampf(interval, 0.10, 0.50)
+	_auto_click_accumulator = 0.0
+
+
 func _process(delta: float) -> void:
 	match state:
 		CatchState.REELING:

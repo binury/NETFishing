@@ -1,9 +1,11 @@
-[gd_scene load_steps=9 format=3]
+[gd_scene load_steps=11 format=3]
 
 [ext_resource type="Script" path="res://ui/game_ui.gd" id="1_ui"]
 [ext_resource type="PackedScene" path="res://ui/player_menu.tscn" id="2_menu"]
 [ext_resource type="Theme" path="res://ui/game_theme.tres" id="3_theme"]
 [ext_resource type="Script" path="res://ui/screen_fade.gd" id="4_fade"]
+[ext_resource type="PackedScene" path="res://ui/title_screen.tscn" id="5_title"]
+[ext_resource type="PackedScene" path="res://ui/pause_menu.tscn" id="6_pause"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBox_chase_background"]
 bg_color = Color(0.055, 0.105, 0.125, 1)
@@ -138,3 +140,9 @@ grow_vertical = 2
 mouse_filter = 0
 color = Color(0, 0, 0, 1)
 script = ExtResource("4_fade")
+
+[node name="TitleScreen" parent="." instance=ExtResource("5_title")]
+unique_name_in_owner = true
+
+[node name="PauseMenu" parent="." instance=ExtResource("6_pause")]
+unique_name_in_owner = true

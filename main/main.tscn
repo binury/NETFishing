@@ -1,4 +1,4 @@
-[gd_scene load_steps=9 format=3]
+[gd_scene load_steps=11 format=3]
 
 [ext_resource type="PackedScene" path="res://world/test_world.tscn" id="1_world"]
 [ext_resource type="PackedScene" path="res://player/player.tscn" id="2_player"]
@@ -8,6 +8,8 @@
 [ext_resource type="Resource" path="res://fish/pools/test_water_pool.tres" id="6_pool"]
 [ext_resource type="Resource" path="res://economy/buyers/pelicans.tres" id="7_pelicans"]
 [ext_resource type="Script" path="res://world/water_recovery_controller.gd" id="8_recovery"]
+[ext_resource type="Script" path="res://save/player_save_manager.gd" id="9_save"]
+[ext_resource type="Script" path="res://settings/player_settings_manager.gd" id="10_settings"]
 
 [node name="Main" type="Node3D"]
 script = ExtResource("3_main")
@@ -29,6 +31,14 @@ position = Vector3(0, 1.02, -18)
 [node name="WaterRecovery" type="Node" parent="."]
 unique_name_in_owner = true
 script = ExtResource("8_recovery")
+
+[node name="PlayerSaveManager" type="Node" parent="."]
+unique_name_in_owner = true
+script = ExtResource("9_save")
+
+[node name="PlayerSettingsManager" type="Node" parent="."]
+unique_name_in_owner = true
+script = ExtResource("10_settings")
 
 [node name="GameUI" parent="." instance=ExtResource("5_ui")]
 unique_name_in_owner = true

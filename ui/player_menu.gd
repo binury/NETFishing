@@ -1,6 +1,7 @@
 class_name PlayerMenu
 extends Control
 
+const INPUT_OWNER: StringName = &"player_menu"
 const CollectionLogType = preload("res://collection/collection_log.gd")
 const FishCatchType = preload("res://fish/fish_catch.gd")
 const FishDataType = preload("res://fish/fish_data.gd")
@@ -24,6 +25,15 @@ enum SortMode {
 	CATCH_ORDER,
 	NAME,
 	RARITY,
+}
+
+enum CloseReason {
+	USER,
+	BITE_STARTED,
+	WATER_RECOVERY,
+	GAME_MENU,
+	SESSION_END,
+	TEARDOWN,
 }
 
 @onready var _inventory_tab: Button = %InventoryTab
@@ -128,20 +138,10 @@ func _input(event: InputEvent) -> void:
 	if event is InputEventKey and event.echo:
 		return
 	if visible:
-		if (
-			event.is_action_pressed("ui_cancel")
-			and _sale_confirmation.visible
-		):
-			_close_sale_confirmation()
-			get_viewport().set_input_as_handled()
-			return
-		if (
-			event.is_action_pressed("open_backpack")
-			or event.is_action_pressed("ui_cancel")
-		):
+		if event.is_action_pressed("open_backpack"):
 			close_menu()
 			get_viewport().set_input_as_handled()
-		return
+			return
 	if (
 		event.is_action_pressed("open_backpack")
 		and _fishing_spot != null
@@ -149,6 +149,16 @@ func _input(event: InputEvent) -> void:
 	):
 		open_menu()
 		get_viewport().set_input_as_handled()
+
+
+func consume_escape() -> bool:
+	if not visible:
+		return false
+	if _sale_confirmation.visible:
+		_close_sale_confirmation()
+	else:
+		close_menu()
+	return true
 
 
 func open_menu() -> void:
@@ -165,6 +175,7 @@ func open_menu() -> void:
 	_control_snapshot_stored = true
 	_player.set_movement_enabled(false)
 	_player.set_camera_input_enabled(false)
+	_fishing_spot.set_local_menu_input_suppressed(INPUT_OWNER, true)
 	visible = true
 	_refresh_all()
 	_show_section(_current_section)
@@ -172,22 +183,41 @@ func open_menu() -> void:
 	menu_visibility_changed.emit(true)
 
 
-func close_menu() -> void:
+func close_menu(
+	_reason: CloseReason = CloseReason.USER,
+	restore_controls: bool = true,
+) -> void:
 	if not visible:
 		return
 	_close_sale_confirmation()
 	var closing_generation: int = _menu_generation
 	visible = false
 	get_viewport().gui_release_focus()
-	_restore_player_controls(closing_generation)
+	if _fishing_spot != null and is_instance_valid(_fishing_spot):
+		_fishing_spot.set_local_menu_input_suppressed(INPUT_OWNER, false)
+	if restore_controls:
+		_restore_player_controls(closing_generation)
+	else:
+		_control_snapshot_stored = false
 	_menu_generation += 1
 	menu_visibility_changed.emit(false)
 
 
+func close_for_water_recovery() -> void:
+	close_menu(CloseReason.WATER_RECOVERY)
+
+
+func close_for_game_menu() -> void:
+	close_menu(CloseReason.GAME_MENU)
+
+
+func close_for_session_end() -> void:
+	close_menu(CloseReason.SESSION_END, false)
+
+
 func _exit_tree() -> void:
 	if visible:
-		visible = false
-		_restore_player_controls(_menu_generation)
+		close_menu(CloseReason.TEARDOWN, false)
 		_selected_catch_id = StringName()
 	_menu_generation += 1
 
@@ -206,7 +236,7 @@ func _restore_player_controls(generation: int) -> void:
 
 func _on_bite_activated() -> void:
 	if visible:
-		close_menu()
+		close_menu(CloseReason.BITE_STARTED)
 
 
 func _show_section(section: Section) -> void:

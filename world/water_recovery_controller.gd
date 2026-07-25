@@ -1,6 +1,8 @@
 class_name WaterRecoveryController
 extends Node
 
+signal recovery_starting
+
 enum RecoveryState {
 	IDLE,
 	BOBBING,
@@ -28,6 +30,7 @@ var _bob_elapsed: float = 0.0
 var _prior_movement_enabled: bool = true
 var _prior_camera_input_enabled: bool = true
 var _generation: int = 0
+var _recovery_enabled: bool = false
 
 
 func setup(
@@ -68,6 +71,14 @@ func _process(delta: float) -> void:
 		_screen_fade.fade_to_black(_generation)
 
 
+func set_recovery_enabled(enabled: bool) -> void:
+	_recovery_enabled = enabled
+
+
+func is_recovery_active() -> bool:
+	return state != RecoveryState.IDLE
+
+
 func _exit_tree() -> void:
 	_generation += 1
 	if _screen_fade != null and is_instance_valid(_screen_fade):
@@ -84,14 +95,16 @@ func _on_recovery_requested(
 	surface_height: float,
 ) -> void:
 	if (
+		not _recovery_enabled
+		or
 		state != RecoveryState.IDLE
 		or triggered_player != _player
 		or not is_instance_valid(triggered_player)
 	):
 		return
+	recovery_starting.emit()
 	_generation += 1
 	_entry_position = _player.global_position
-	_game_ui.close_player_menu()
 	_fishing_spot.begin_water_recovery()
 	_prior_movement_enabled = _player.is_movement_enabled()
 	_prior_camera_input_enabled = _player.is_camera_input_enabled()

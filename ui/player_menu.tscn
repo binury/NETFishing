@@ -4,7 +4,6 @@
 [ext_resource type="Theme" path="res://ui/game_theme.tres" id="2_theme"]
 
 [node name="PlayerMenu" type="Control"]
-process_mode = 3
 visible = false
 layout_mode = 3
 anchors_preset = 15

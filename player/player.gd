@@ -50,6 +50,7 @@ class ShowcaseCameraSnapshot:
 @export var mouse_sensitivity: float = 0.005
 @export var controller_camera_speed: float = 2.5
 @export_range(0.0, 1.0, 0.01) var controller_camera_deadzone: float = 0.2
+@export var invert_camera_y: bool = false
 @export_range(-89.0, 0.0, 0.5) var minimum_pitch_degrees: float = -65.0
 @export_range(0.0, 89.0, 0.5) var maximum_pitch_degrees: float = 45.0
 @export var minimum_zoom: float = 2.0
@@ -217,8 +218,9 @@ func _get_current_speed() -> float:
 
 func _rotate_camera(delta_rotation: Vector2) -> void:
 	_camera_yaw.rotation.y -= delta_rotation.x
+	var vertical_direction: float = -1.0 if invert_camera_y else 1.0
 	_camera_pitch.rotation.x = clampf(
-		_camera_pitch.rotation.x - delta_rotation.y,
+		_camera_pitch.rotation.x - delta_rotation.y * vertical_direction,
 		deg_to_rad(minimum_pitch_degrees),
 		deg_to_rad(maximum_pitch_degrees)
 	)
@@ -255,6 +257,20 @@ func set_camera_input_enabled(enabled: bool) -> void:
 	_camera_input_enabled = enabled
 	if not enabled:
 		_camera_dragging = false
+
+
+func apply_camera_settings(
+	new_mouse_sensitivity: float,
+	new_controller_sensitivity: float,
+	invert_vertical: bool,
+) -> void:
+	mouse_sensitivity = clampf(new_mouse_sensitivity, 0.001, 0.012)
+	controller_camera_speed = clampf(
+		new_controller_sensitivity,
+		0.5,
+		5.0
+	)
+	invert_camera_y = invert_vertical
 
 
 func is_camera_input_enabled() -> bool:

@@ -1,0 +1,539 @@
+class_name PlayerSaveManager
+extends Node
+
+const FishCatchType = preload("res://fish/fish_catch.gd")
+const FishInventoryType = preload("res://inventory/fish_inventory.gd")
+const CollectionLogType = preload("res://collection/collection_log.gd")
+const PlayerWalletType = preload("res://economy/player_wallet.gd")
+const FishPoolType = preload("res://fish/fish_pool.gd")
+const SaveInspectionType = preload("res://save/player_save_inspection.gd")
+
+const SAVE_VERSION: int = 1
+const SAVE_PATH: String = "user://player_save.json"
+const TEMP_PATH: String = "user://player_save.json.tmp"
+const BACKUP_PATH: String = "user://player_save.json.backup"
+const MAX_SAFE_BALANCE: int = 1000000000000
+
+class LoadSnapshot:
+	extends RefCounted
+
+	var catches: Array[FishCatchType] = []
+	var discovered_ids: Array[StringName] = []
+	var wallet_balance: int = 0
+	var next_catch_sequence: int = 1
+
+
+@export_range(0.05, 5.0, 0.05) var autosave_delay: float = 0.5
+
+var _inventory: FishInventoryType
+var _collection_log: CollectionLogType
+var _wallet: PlayerWalletType
+var _catalog: FishPoolType
+var _autosave_timer: Timer
+var _is_configured: bool = false
+var _is_restoring: bool = false
+var _is_dirty: bool = false
+var _automatic_saving_blocked: bool = false
+var _autosave_enabled: bool = false
+
+
+func _ready() -> void:
+	_autosave_timer = Timer.new()
+	_autosave_timer.one_shot = true
+	_autosave_timer.timeout.connect(_on_autosave_timeout)
+	add_child(_autosave_timer)
+
+
+func setup(
+	inventory: FishInventoryType,
+	collection_log: CollectionLogType,
+	wallet: PlayerWalletType,
+	catalog: FishPoolType,
+) -> void:
+	_inventory = inventory
+	_collection_log = collection_log
+	_wallet = wallet
+	_catalog = catalog
+	_is_configured = (
+		_inventory != null
+		and _collection_log != null
+		and _wallet != null
+		and _catalog != null
+	)
+	if not _is_configured:
+		push_error("PlayerSaveManager setup is missing required references.")
+		return
+	if not _inventory.catches_changed.is_connected(_mark_dirty):
+		_inventory.catches_changed.connect(_mark_dirty)
+	if not _collection_log.fish_discovered.is_connected(
+		_on_fish_discovered
+	):
+		_collection_log.fish_discovered.connect(_on_fish_discovered)
+	if not _wallet.balance_changed.is_connected(_on_balance_changed):
+		_wallet.balance_changed.connect(_on_balance_changed)
+
+
+func load_player_data() -> bool:
+	if not _is_configured:
+		return false
+	_automatic_saving_blocked = false
+	_recover_interrupted_write()
+	if not FileAccess.file_exists(SAVE_PATH):
+		_is_dirty = false
+		return true
+
+	var save_file := FileAccess.open(SAVE_PATH, FileAccess.READ)
+	if save_file == null:
+		_handle_corrupt_save("Unable to open player save.")
+		return false
+	var json_text: String = save_file.get_as_text()
+	save_file.close()
+
+	var json := JSON.new()
+	var parse_error: Error = json.parse(json_text)
+	if parse_error != OK or typeof(json.data) != TYPE_DICTIONARY:
+		_handle_corrupt_save("Player save contains malformed JSON.")
+		return false
+	var save_data: Dictionary = json.data
+	var version: int = _read_integer(save_data.get("save_version"), -1)
+	if version > SAVE_VERSION:
+		_automatic_saving_blocked = true
+		push_warning(
+			(
+				"Player save version %d is newer than supported "
+				+ "version %d; the file was left untouched."
+			)
+			% [version, SAVE_VERSION]
+		)
+		_restore_defaults()
+		return false
+	if version != SAVE_VERSION:
+		save_data = _migrate_save(save_data, version)
+		if save_data.is_empty():
+			_handle_corrupt_save(
+				"Player save version %d is unsupported." % version
+			)
+			return false
+
+	var snapshot: LoadSnapshot = _build_load_snapshot(save_data)
+	if snapshot == null:
+		_handle_corrupt_save("Player save failed structural validation.")
+		return false
+
+	_is_restoring = true
+	var inventory_restored: bool = _inventory.replace_all_catches(
+		snapshot.catches,
+		snapshot.next_catch_sequence
+	)
+	var collection_restored: bool = (
+		_collection_log.replace_discovered_ids(snapshot.discovered_ids)
+	)
+	var wallet_restored: bool = _wallet.restore_balance(
+		snapshot.wallet_balance
+	)
+	_is_restoring = false
+	if (
+		not inventory_restored
+		or not collection_restored
+		or not wallet_restored
+	):
+		push_error("Validated player save could not be restored.")
+		return false
+
+	_is_dirty = false
+	print(
+		"Loaded player save version %d with %d catches."
+		% [SAVE_VERSION, snapshot.catches.size()]
+	)
+	return true
+
+
+func inspect_save() -> SaveInspectionType:
+	var result := SaveInspectionType.new()
+	_recover_interrupted_write()
+	result.has_primary_file = FileAccess.file_exists(SAVE_PATH)
+	if not result.has_primary_file:
+		result.status = SaveInspectionType.Status.MISSING
+		result.message = "No save found."
+		return result
+	var save_file := FileAccess.open(SAVE_PATH, FileAccess.READ)
+	if save_file == null:
+		result.status = SaveInspectionType.Status.IO_ERROR
+		result.message = "The save could not be read."
+		return result
+	var json := JSON.new()
+	var parse_error: Error = json.parse(save_file.get_as_text())
+	save_file.close()
+	if parse_error != OK or typeof(json.data) != TYPE_DICTIONARY:
+		result.status = SaveInspectionType.Status.MALFORMED
+		result.message = "The save is corrupt and was preserved."
+		return result
+	var save_data: Dictionary = json.data
+	result.detected_version = _read_integer(save_data.get("save_version"), -1)
+	if result.detected_version > SAVE_VERSION:
+		result.status = SaveInspectionType.Status.UNSUPPORTED_VERSION
+		result.message = "This save belongs to a newer game version."
+		return result
+	if result.detected_version != SAVE_VERSION:
+		result.status = SaveInspectionType.Status.MALFORMED
+		result.message = "The save version is unsupported."
+		return result
+	var snapshot: LoadSnapshot = _build_load_snapshot(save_data)
+	if snapshot == null:
+		result.status = SaveInspectionType.Status.MALFORMED
+		result.message = "The save is structurally invalid and was preserved."
+		return result
+	result.status = SaveInspectionType.Status.VALID_SUPPORTED
+	result.catch_count = snapshot.catches.size()
+	result.wallet_balance = snapshot.wallet_balance
+	result.discovered_species_count = snapshot.discovered_ids.size()
+	result.message = "Save ready."
+	return result
+
+
+func initialize_new_game() -> bool:
+	if not _is_configured:
+		return false
+	_automatic_saving_blocked = false
+	_restore_defaults()
+	return true
+
+
+func delete_progression_save() -> bool:
+	if FileAccess.file_exists(SAVE_PATH) and not _remove_if_present(SAVE_PATH):
+		return false
+	for path: String in [TEMP_PATH, BACKUP_PATH]:
+		if FileAccess.file_exists(path) and not _remove_if_present(path):
+			push_warning("Unable to remove stale player-save auxiliary file.")
+	if _autosave_timer != null:
+		_autosave_timer.stop()
+	_is_dirty = false
+	_automatic_saving_blocked = false
+	return true
+
+
+func set_autosave_enabled(enabled: bool) -> void:
+	_autosave_enabled = enabled
+	if not enabled and _autosave_timer != null:
+		_autosave_timer.stop()
+
+
+func save_if_dirty() -> bool:
+	return not _is_dirty or save_now()
+
+
+func is_dirty() -> bool:
+	return _is_dirty
+
+
+func cancel_pending_autosave() -> void:
+	if _autosave_timer != null:
+		_autosave_timer.stop()
+	_is_dirty = false
+
+
+func save_now() -> bool:
+	if (
+		not _is_configured
+		or _automatic_saving_blocked
+		or not _autosave_enabled
+	):
+		return false
+	var save_data: Dictionary = _build_save_dictionary()
+	if save_data.is_empty():
+		return false
+	var json_text: String = JSON.stringify(save_data, "\t")
+	if json_text.is_empty():
+		return false
+
+	var temp_file := FileAccess.open(TEMP_PATH, FileAccess.WRITE)
+	if temp_file == null:
+		push_warning("Unable to open temporary player save for writing.")
+		return false
+	temp_file.store_string(json_text)
+	temp_file.flush()
+	var write_error: Error = temp_file.get_error()
+	temp_file.close()
+	if write_error != OK:
+		_remove_if_present(TEMP_PATH)
+		push_warning("Unable to finish writing temporary player save.")
+		return false
+
+	var had_primary: bool = FileAccess.file_exists(SAVE_PATH)
+	_remove_if_present(BACKUP_PATH)
+	if had_primary and not _rename_file(SAVE_PATH, BACKUP_PATH):
+		_remove_if_present(TEMP_PATH)
+		push_warning("Unable to preserve the previous player save.")
+		return false
+	if not _rename_file(TEMP_PATH, SAVE_PATH):
+		if had_primary:
+			_rename_file(BACKUP_PATH, SAVE_PATH)
+		push_warning("Unable to promote the temporary player save.")
+		return false
+	_remove_if_present(BACKUP_PATH)
+	_is_dirty = false
+	return true
+
+
+func delete_save_for_debug() -> bool:
+	return delete_progression_save()
+
+
+func _exit_tree() -> void:
+	if _is_dirty and _autosave_enabled and not _automatic_saving_blocked:
+		save_now()
+
+
+func _build_save_dictionary() -> Dictionary:
+	var serialized_catches: Array[Dictionary] = []
+	for fish_catch: FishCatchType in _inventory.get_all_catches():
+		if fish_catch == null or not fish_catch.is_valid():
+			push_warning(
+				"Player save aborted because inventory contains an "
+				+ "invalid runtime catch."
+			)
+			return {}
+		serialized_catches.append(fish_catch.to_save_dict())
+
+	var discovered_strings: Array[String] = []
+	for fish_id: StringName in _collection_log.get_discovered_ids():
+		if fish_id.is_empty():
+			return {}
+		discovered_strings.append(String(fish_id))
+	if (
+		_wallet.get_balance() < 0
+		or _wallet.get_balance() > MAX_SAFE_BALANCE
+		or _inventory.get_next_catch_sequence() < 1
+		or (
+			_inventory.get_next_catch_sequence()
+			> FishCatchType.MAX_SAFE_SEQUENCE
+		)
+	):
+		return {}
+
+	return {
+		"save_version": SAVE_VERSION,
+		"wallet": {
+			"balance": _wallet.get_balance(),
+		},
+		"collection": {
+			"discovered_fish_ids": discovered_strings,
+		},
+		"inventory": {
+			"next_catch_sequence": _inventory.get_next_catch_sequence(),
+			"catches": serialized_catches,
+		},
+	}
+
+
+func _build_load_snapshot(save_data: Dictionary) -> LoadSnapshot:
+	if (
+		typeof(save_data.get("wallet")) != TYPE_DICTIONARY
+		or typeof(save_data.get("collection")) != TYPE_DICTIONARY
+		or typeof(save_data.get("inventory")) != TYPE_DICTIONARY
+	):
+		return null
+	var wallet_data: Dictionary = save_data["wallet"]
+	var collection_data: Dictionary = save_data["collection"]
+	var inventory_data: Dictionary = save_data["inventory"]
+	if (
+		not wallet_data.has("balance")
+		or typeof(collection_data.get("discovered_fish_ids")) != TYPE_ARRAY
+		or typeof(inventory_data.get("catches")) != TYPE_ARRAY
+		or not inventory_data.has("next_catch_sequence")
+	):
+		return null
+
+	var balance: int = _read_integer(
+		wallet_data["balance"],
+		-1,
+		MAX_SAFE_BALANCE
+	)
+	var requested_next_sequence: int = _read_integer(
+		inventory_data["next_catch_sequence"],
+		-1,
+		FishCatchType.MAX_SAFE_SEQUENCE
+	)
+	if balance < 0 or requested_next_sequence < 1:
+		return null
+
+	var snapshot := LoadSnapshot.new()
+	snapshot.wallet_balance = balance
+	var discovered_values: Array = collection_data["discovered_fish_ids"]
+	var seen_discoveries: Dictionary[StringName, bool] = {}
+	for value: Variant in discovered_values:
+		if typeof(value) != TYPE_STRING and typeof(value) != TYPE_STRING_NAME:
+			continue
+		var fish_id: StringName = StringName(str(value))
+		if fish_id.is_empty() or seen_discoveries.has(fish_id):
+			continue
+		seen_discoveries[fish_id] = true
+		snapshot.discovered_ids.append(fish_id)
+
+	var seen_ids: Dictionary[StringName, bool] = {}
+	var seen_sequences: Dictionary[int, bool] = {}
+	var maximum_sequence: int = 0
+	var catch_values: Array = inventory_data["catches"]
+	for catch_index: int in range(catch_values.size()):
+		var catch_value: Variant = catch_values[catch_index]
+		if typeof(catch_value) != TYPE_DICTIONARY:
+			push_warning(
+				"Skipped invalid saved catch at index %d." % catch_index
+			)
+			continue
+		var catch_data: Dictionary = catch_value
+		var fish_id: StringName = StringName(str(catch_data.get("fish_id", "")))
+		var fish_data = _catalog.get_fish_by_id(fish_id)
+		if fish_data == null:
+			push_warning(
+				"Skipped saved catch with missing fish ID '%s'."
+				% String(fish_id)
+			)
+			continue
+		var fish_catch: FishCatchType = FishCatchType.from_save_dict(
+			catch_data,
+			fish_data
+		)
+		if fish_catch == null:
+			push_warning(
+				"Skipped structurally invalid saved catch at index %d."
+				% catch_index
+			)
+			continue
+		if seen_ids.has(fish_catch.catch_id):
+			push_warning(
+				"Skipped duplicate saved catch ID '%s'."
+				% String(fish_catch.catch_id)
+			)
+			continue
+		if seen_sequences.has(fish_catch.catch_sequence):
+			push_warning(
+				"Skipped duplicate saved catch sequence %d."
+				% fish_catch.catch_sequence
+			)
+			continue
+		seen_ids[fish_catch.catch_id] = true
+		seen_sequences[fish_catch.catch_sequence] = true
+		maximum_sequence = maxi(
+			maximum_sequence,
+			fish_catch.catch_sequence
+		)
+		snapshot.catches.append(fish_catch)
+
+	snapshot.next_catch_sequence = maxi(
+		requested_next_sequence,
+		maximum_sequence + 1
+	)
+	return snapshot
+
+
+func _migrate_save(
+	data: Dictionary,
+	from_version: int,
+) -> Dictionary:
+	if from_version == SAVE_VERSION:
+		return data
+	return {}
+
+
+func _mark_dirty() -> void:
+	if (
+		_is_restoring
+		or _automatic_saving_blocked
+		or not _autosave_enabled
+	):
+		return
+	_is_dirty = true
+	if _autosave_timer != null and _autosave_timer.is_stopped():
+		_autosave_timer.start(maxf(autosave_delay, 0.05))
+
+
+func _on_fish_discovered(_fish_id: StringName) -> void:
+	_mark_dirty()
+
+
+func _on_balance_changed(_new_balance: int, _delta: int) -> void:
+	_mark_dirty()
+
+
+func _on_autosave_timeout() -> void:
+	if _is_dirty:
+		save_now()
+
+
+func _recover_interrupted_write() -> void:
+	if FileAccess.file_exists(SAVE_PATH):
+		_remove_if_present(TEMP_PATH)
+		_remove_if_present(BACKUP_PATH)
+		return
+	if FileAccess.file_exists(BACKUP_PATH):
+		_rename_file(BACKUP_PATH, SAVE_PATH)
+	_remove_if_present(TEMP_PATH)
+
+
+func _handle_corrupt_save(message: String) -> void:
+	push_warning(message)
+	_restore_defaults()
+	if not FileAccess.file_exists(SAVE_PATH):
+		return
+	var timestamp: int = int(Time.get_unix_time_from_system())
+	var corrupt_path: String = (
+		"%s.corrupt-%d" % [SAVE_PATH, timestamp]
+	)
+	if FileAccess.file_exists(corrupt_path):
+		corrupt_path += "-%d" % Time.get_ticks_usec()
+	if not _rename_file(SAVE_PATH, corrupt_path):
+		_automatic_saving_blocked = true
+		push_warning(
+			"Corrupt player save was left in place; automatic saving is "
+			+ "disabled for this run."
+		)
+
+
+func _restore_defaults() -> void:
+	if not _is_configured:
+		return
+	_is_restoring = true
+	var empty_catches: Array[FishCatchType] = []
+	var empty_discoveries: Array[StringName] = []
+	_inventory.replace_all_catches(empty_catches, 1)
+	_collection_log.replace_discovered_ids(empty_discoveries)
+	_wallet.restore_balance(0)
+	_is_restoring = false
+	_is_dirty = false
+
+
+func _read_integer(
+	value: Variant,
+	invalid_value: int,
+	maximum_value: int = 2147483647,
+) -> int:
+	if typeof(value) == TYPE_INT:
+		var integer_value: int = int(value)
+		if integer_value >= 0 and integer_value <= maximum_value:
+			return integer_value
+	elif typeof(value) == TYPE_FLOAT:
+		var float_value: float = float(value)
+		if (
+			is_finite(float_value)
+			and float_value >= 0.0
+			and float_value <= float(maximum_value)
+			and is_equal_approx(float_value, round(float_value))
+		):
+			return int(round(float_value))
+	return invalid_value
+
+
+func _rename_file(from_path: String, to_path: String) -> bool:
+	return DirAccess.rename_absolute(
+		ProjectSettings.globalize_path(from_path),
+		ProjectSettings.globalize_path(to_path)
+	) == OK
+
+
+func _remove_if_present(path: String) -> bool:
+	if not FileAccess.file_exists(path):
+		return true
+	return DirAccess.remove_absolute(
+		ProjectSettings.globalize_path(path)
+	) == OK

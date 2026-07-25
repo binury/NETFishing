@@ -79,6 +79,8 @@ enum FishingState {
 
 var state: FishingState = FishingState.READY
 var _external_input_blocked: bool = false
+var _gameplay_input_enabled: bool = false
+var _local_menu_input_owners: Dictionary[StringName, bool] = {}
 var _local_player: PlayerType
 var _local_inventory: FishInventoryType
 var _local_collection_log: CollectionLogType
@@ -126,10 +128,76 @@ func setup(
 
 
 func can_open_player_menu() -> bool:
-	return not _external_input_blocked and state in [
+	return (
+		_gameplay_input_enabled
+		and not _external_input_blocked
+		and _local_menu_input_owners.is_empty()
+		and state in [
 		FishingState.READY,
 		FishingState.WAITING_FOR_BITE,
-	]
+		]
+	)
+
+
+func can_open_system_menu() -> bool:
+	return (
+		_gameplay_input_enabled
+		and not _external_input_blocked
+		and _local_menu_input_owners.is_empty()
+		and state in [
+			FishingState.READY,
+			FishingState.WAITING_FOR_BITE,
+		]
+	)
+
+
+func handle_escape_action() -> bool:
+	if not _gameplay_input_enabled or _external_input_blocked:
+		return false
+	if state == FishingState.SHOWING_CATCH:
+		_put_away_catch()
+		return true
+	if (
+		_active_player != null
+		and state in [
+			FishingState.AIMING_CAST,
+			FishingState.CASTING,
+			FishingState.FIGHTING,
+		]
+	):
+		_cancel_attempt()
+		return true
+	return false
+
+
+func set_local_menu_input_suppressed(
+	owner: StringName,
+	suppressed: bool,
+) -> void:
+	if owner.is_empty():
+		return
+	if suppressed:
+		_local_menu_input_owners[owner] = true
+	else:
+		_local_menu_input_owners.erase(owner)
+	if suppressed and state == FishingState.WAITING_FOR_BITE:
+		_withdrawal_input_held = false
+		_presentation.set_line_mode(
+			FishingPresentationType.LineMode.SLACK
+		)
+
+
+func set_gameplay_input_enabled(enabled: bool) -> void:
+	_gameplay_input_enabled = enabled
+	if not enabled:
+		_local_menu_input_owners.clear()
+
+
+func configure_accessibility_auto_click(
+	enabled: bool,
+	interval: float,
+) -> void:
+	_catch_controller.configure_accessibility(enabled, interval)
 
 
 func begin_water_recovery() -> void:
@@ -217,29 +285,12 @@ func _process(delta: float) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if _external_input_blocked:
-		return
 	if (
-		event.is_action_pressed("ui_cancel")
-		and state == FishingState.SHOWING_CATCH
+		not _gameplay_input_enabled
+		or _external_input_blocked
+		or not _local_menu_input_owners.is_empty()
 	):
-		_put_away_catch()
-		get_viewport().set_input_as_handled()
 		return
-	if (
-		event.is_action_pressed("ui_cancel")
-		and _active_player != null
-		and state in [
-			FishingState.AIMING_CAST,
-			FishingState.CASTING,
-			FishingState.WAITING_FOR_BITE,
-			FishingState.FIGHTING,
-		]
-	):
-		_cancel_attempt()
-		get_viewport().set_input_as_handled()
-		return
-
 	if _local_player == null or not _local_player.is_local_control_enabled():
 		return
 	if not event.is_action("fish_primary"):

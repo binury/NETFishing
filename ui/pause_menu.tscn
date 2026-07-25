@@ -1,0 +1,173 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://ui/pause_menu.gd" id="1_script"]
+[ext_resource type="PackedScene" path="res://ui/settings_panel.tscn" id="2_settings"]
+[ext_resource type="Theme" path="res://ui/game_theme.tres" id="3_theme"]
+
+[node name="PauseMenu" type="Control"]
+unique_name_in_owner = true
+visible = false
+z_index = 190
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 0
+theme = ExtResource("3_theme")
+script = ExtResource("1_script")
+
+[node name="DimBackground" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 0
+color = Color(0.02, 0.05, 0.07, 0.78)
+
+[node name="RootCenter" type="CenterContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="RootPanel" type="PanelContainer" parent="RootCenter"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(420, 0)
+layout_mode = 2
+
+[node name="Margin" type="MarginContainer" parent="RootCenter/RootPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 32
+theme_override_constants/margin_top = 26
+theme_override_constants/margin_right = 32
+theme_override_constants/margin_bottom = 26
+
+[node name="Content" type="VBoxContainer" parent="RootCenter/RootPanel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 11
+
+[node name="Title" type="Label" parent="RootCenter/RootPanel/Margin/Content"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 30
+text = "Game Menu"
+horizontal_alignment = 1
+
+[node name="ResumeButton" type="Button" parent="RootCenter/RootPanel/Margin/Content"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 43)
+layout_mode = 2
+text = "Return to Game"
+
+[node name="SaveButton" type="Button" parent="RootCenter/RootPanel/Margin/Content"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 43)
+layout_mode = 2
+text = "Save Now"
+
+[node name="SettingsButton" type="Button" parent="RootCenter/RootPanel/Margin/Content"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 43)
+layout_mode = 2
+text = "Settings"
+
+[node name="ReturnToTitleButton" type="Button" parent="RootCenter/RootPanel/Margin/Content"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 43)
+layout_mode = 2
+text = "Return to Title"
+
+[node name="ResetProgressButton" type="Button" parent="RootCenter/RootPanel/Margin/Content"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 43)
+layout_mode = 2
+theme_type_variation = &"DangerButton"
+text = "Reset Progress"
+
+[node name="QuitButton" type="Button" parent="RootCenter/RootPanel/Margin/Content"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 43)
+layout_mode = 2
+text = "Quit"
+
+[node name="FeedbackLabel" type="Label" parent="RootCenter/RootPanel/Margin/Content"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 34)
+layout_mode = 2
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 2
+
+[node name="SettingsCenter" type="CenterContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="SettingsPanel" parent="SettingsCenter" instance=ExtResource("2_settings")]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="ConfirmationCenter" type="CenterContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="ConfirmationPanel" type="PanelContainer" parent="ConfirmationCenter"]
+unique_name_in_owner = true
+visible = false
+custom_minimum_size = Vector2(520, 0)
+layout_mode = 2
+
+[node name="Margin" type="MarginContainer" parent="ConfirmationCenter/ConfirmationPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 28
+theme_override_constants/margin_top = 24
+theme_override_constants/margin_right = 28
+theme_override_constants/margin_bottom = 24
+
+[node name="Content" type="VBoxContainer" parent="ConfirmationCenter/ConfirmationPanel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 15
+
+[node name="ConfirmationTitle" type="Label" parent="ConfirmationCenter/ConfirmationPanel/Margin/Content"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.937, 0.357, 0.384, 1)
+theme_override_font_sizes/font_size = 24
+text = "Confirm"
+horizontal_alignment = 1
+
+[node name="ConfirmationText" type="Label" parent="ConfirmationCenter/ConfirmationPanel/Margin/Content"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Are you sure?"
+horizontal_alignment = 1
+autowrap_mode = 2
+
+[node name="Buttons" type="HBoxContainer" parent="ConfirmationCenter/ConfirmationPanel/Margin/Content"]
+layout_mode = 2
+theme_override_constants/separation = 12
+alignment = 1
+
+[node name="ConfirmButton" type="Button" parent="ConfirmationCenter/ConfirmationPanel/Margin/Content/Buttons"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(190, 43)
+layout_mode = 2
+text = "Confirm"
+
+[node name="CancelConfirmButton" type="Button" parent="ConfirmationCenter/ConfirmationPanel/Margin/Content/Buttons"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(130, 43)
+layout_mode = 2
+text = "Cancel"

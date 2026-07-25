@@ -10,6 +10,8 @@ const FishingSpotType = preload("res://fishing/fishing_spot.gd")
 const PlayerMenuType = preload("res://ui/player_menu.gd")
 const PlayerType = preload("res://player/player.gd")
 const PlayerWalletType = preload("res://economy/player_wallet.gd")
+const TitleScreenType = preload("res://ui/title_screen.gd")
+const PauseMenuType = preload("res://ui/pause_menu.gd")
 
 @onready var _status_label: Label = %StatusLabel
 @onready var _catch_track: Control = %CatchTrack
@@ -22,9 +24,12 @@ const PlayerWalletType = preload("res://economy/player_wallet.gd")
 @onready var _fishing_panel: PanelContainer = %FishingPanel
 @onready var _player_menu: PlayerMenuType = %PlayerMenu
 @onready var _screen_fade: ScreenFade = %ScreenFade
+@onready var _title_screen: TitleScreenType = %TitleScreen
+@onready var _pause_menu: PauseMenuType = %PauseMenu
 
 var _showcase_active: bool = false
 var _player_menu_open: bool = false
+var _gameplay_ui_enabled: bool = false
 
 
 func setup(
@@ -59,8 +64,41 @@ func close_player_menu() -> void:
 	_player_menu.close_menu()
 
 
+func close_player_menu_for_water_recovery() -> void:
+	_player_menu.close_for_water_recovery()
+
+
+func close_player_menu_for_game_menu() -> void:
+	_player_menu.close_for_game_menu()
+
+
+func close_player_menu_for_session_end() -> void:
+	_player_menu.close_for_session_end()
+
+
+func consume_player_menu_escape() -> bool:
+	return _player_menu.consume_escape()
+
+
+func get_pause_menu() -> PauseMenuType:
+	return _pause_menu
+
+
+func set_gameplay_ui_enabled(enabled: bool) -> void:
+	_gameplay_ui_enabled = enabled
+	if not enabled:
+		close_player_menu_for_session_end()
+		_fishing_panel.visible = false
+	else:
+		_refresh_fishing_panel_visibility()
+
+
 func get_screen_fade() -> ScreenFade:
 	return _screen_fade
+
+
+func get_title_screen() -> TitleScreenType:
+	return _title_screen
 
 
 func _on_fishing_status_changed(status: String) -> void:
@@ -84,7 +122,11 @@ func _refresh_fishing_panel_visibility() -> void:
 		or _barrier_summary.visible
 		or _barrier_health.visible
 	)
-	_fishing_panel.visible = has_content and not _player_menu_open
+	_fishing_panel.visible = (
+		_gameplay_ui_enabled
+		and has_content
+		and not _player_menu_open
+	)
 
 
 func _on_catch_display_changed(

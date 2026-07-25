@@ -14,6 +14,18 @@ func get_balance() -> int:
 	return current_balance
 
 
+func restore_balance(balance: int) -> bool:
+	if balance < 0:
+		return false
+	var previous_balance: int = current_balance
+	current_balance = balance
+	balance_changed.emit(
+		current_balance,
+		current_balance - previous_balance
+	)
+	return true
+
+
 func can_afford(amount: int) -> bool:
 	return amount >= 0 and current_balance >= amount
 

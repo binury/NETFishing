@@ -37,6 +37,44 @@ func get_all_catches() -> Array[FishCatchType]:
 	return _catches.duplicate()
 
 
+func get_next_catch_sequence() -> int:
+	return _next_catch_sequence
+
+
+func replace_all_catches(
+	catches: Array[FishCatchType],
+	requested_next_sequence: int,
+) -> bool:
+	var validated: Array[FishCatchType] = []
+	var seen_ids: Dictionary[StringName, bool] = {}
+	var seen_sequences: Dictionary[int, bool] = {}
+	var maximum_sequence: int = 0
+	for fish_catch: FishCatchType in catches:
+		if (
+			fish_catch == null
+			or not fish_catch.is_valid()
+			or fish_catch.catch_sequence <= 0
+			or seen_ids.has(fish_catch.catch_id)
+			or seen_sequences.has(fish_catch.catch_sequence)
+		):
+			return false
+		seen_ids[fish_catch.catch_id] = true
+		seen_sequences[fish_catch.catch_sequence] = true
+		maximum_sequence = maxi(
+			maximum_sequence,
+			fish_catch.catch_sequence
+		)
+		validated.append(fish_catch)
+
+	_catches = validated
+	_next_catch_sequence = maxi(
+		maxi(requested_next_sequence, 1),
+		maximum_sequence + 1
+	)
+	catches_changed.emit()
+	return true
+
+
 func get_catch_by_id(catch_id: StringName) -> FishCatchType:
 	if catch_id.is_empty():
 		return null
