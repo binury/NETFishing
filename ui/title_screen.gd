@@ -52,12 +52,14 @@ func setup(
 ) -> void:
 	_save_manager = save_manager
 	_settings_manager = settings_manager
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	_refresh_save_inspection()
 	show()
 	call_deferred("_focus_initial_button")
 
 
 func reopen() -> void:
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	_close_confirmation()
 	_settings_panel.hide()
 	_refresh_save_inspection()

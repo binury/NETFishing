@@ -75,7 +75,9 @@ var _sort_descending: bool = true
 var _selected_catch_id: StringName
 var _prior_movement_enabled: bool = true
 var _prior_camera_input_enabled: bool = true
+var _prior_mouse_mode: Input.MouseMode = Input.MOUSE_MODE_VISIBLE
 var _control_snapshot_stored: bool = false
+var _mouse_snapshot_stored: bool = false
 var _menu_generation: int = 0
 var _confirmation_catch_id: StringName
 var _confirmation_buyer: FishBuyerProfileType
@@ -172,10 +174,13 @@ func open_menu() -> void:
 	_menu_generation += 1
 	_prior_movement_enabled = _player.is_movement_enabled()
 	_prior_camera_input_enabled = _player.is_camera_input_enabled()
+	_prior_mouse_mode = Input.mouse_mode
 	_control_snapshot_stored = true
+	_mouse_snapshot_stored = true
 	_player.set_movement_enabled(false)
 	_player.set_camera_input_enabled(false)
 	_fishing_spot.set_local_menu_input_suppressed(INPUT_OWNER, true)
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	visible = true
 	_refresh_all()
 	_show_section(_current_section)
@@ -184,7 +189,7 @@ func open_menu() -> void:
 
 
 func close_menu(
-	_reason: CloseReason = CloseReason.USER,
+	reason: CloseReason = CloseReason.USER,
 	restore_controls: bool = true,
 ) -> void:
 	if not visible:
@@ -199,12 +204,13 @@ func close_menu(
 		_restore_player_controls(closing_generation)
 	else:
 		_control_snapshot_stored = false
+	_apply_mouse_close_policy(reason)
 	_menu_generation += 1
 	menu_visibility_changed.emit(false)
 
 
 func close_for_water_recovery() -> void:
-	close_menu(CloseReason.WATER_RECOVERY)
+	close_menu(CloseReason.WATER_RECOVERY, false)
 
 
 func close_for_game_menu() -> void:
@@ -232,6 +238,25 @@ func _restore_player_controls(generation: int) -> void:
 		_player.set_movement_enabled(_prior_movement_enabled)
 		_player.set_camera_input_enabled(_prior_camera_input_enabled)
 	_control_snapshot_stored = false
+
+
+func _apply_mouse_close_policy(reason: CloseReason) -> void:
+	if not _mouse_snapshot_stored:
+		return
+	match reason:
+		CloseReason.USER, CloseReason.BITE_STARTED:
+			Input.mouse_mode = _prior_mouse_mode
+		CloseReason.GAME_MENU:
+			# The Game Menu immediately assumes visible pointer ownership.
+			Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+		CloseReason.WATER_RECOVERY:
+			# Recovery remains authoritative over local input.
+			pass
+		CloseReason.SESSION_END:
+			Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+		CloseReason.TEARDOWN:
+			pass
+	_mouse_snapshot_stored = false
 
 
 func _on_bite_activated() -> void:

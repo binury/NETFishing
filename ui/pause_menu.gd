@@ -47,7 +47,9 @@ var _settings_manager: SettingsManagerType
 var _fishing_spot: FishingSpotType
 var _prior_movement_enabled: bool = true
 var _prior_camera_enabled: bool = true
+var _prior_mouse_mode: Input.MouseMode = Input.MOUSE_MODE_VISIBLE
 var _control_snapshot_stored: bool = false
+var _mouse_snapshot_stored: bool = false
 var _confirmation_action: ConfirmationAction = ConfirmationAction.NONE
 var _action_in_progress: bool = false
 
@@ -84,10 +86,13 @@ func open_menu() -> void:
 		return
 	_prior_movement_enabled = _player.is_movement_enabled()
 	_prior_camera_enabled = _player.is_camera_input_enabled()
+	_prior_mouse_mode = Input.mouse_mode
 	_control_snapshot_stored = true
+	_mouse_snapshot_stored = true
 	_player.set_movement_enabled(false)
 	_player.set_camera_input_enabled(false)
 	_fishing_spot.set_local_menu_input_suppressed(INPUT_OWNER, true)
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	_feedback.text = ""
 	_root_panel.show()
 	_settings_panel.hide()
@@ -108,11 +113,11 @@ func close_for_title_transition() -> void:
 
 
 func close_for_water_recovery() -> void:
-	close_menu(CloseReason.WATER_RECOVERY)
+	close_menu(CloseReason.WATER_RECOVERY, false)
 
 
 func close_menu(
-	_reason: CloseReason,
+	reason: CloseReason,
 	restore_controls: bool = true,
 ) -> void:
 	if not visible:
@@ -132,6 +137,7 @@ func close_menu(
 		_restore_controls()
 	else:
 		_control_snapshot_stored = false
+	_apply_mouse_close_policy(reason)
 
 
 func handle_escape() -> bool:
@@ -293,6 +299,23 @@ func _restore_controls() -> void:
 		_player.set_movement_enabled(_prior_movement_enabled)
 		_player.set_camera_input_enabled(_prior_camera_enabled)
 	_control_snapshot_stored = false
+
+
+func _apply_mouse_close_policy(reason: CloseReason) -> void:
+	if not _mouse_snapshot_stored:
+		return
+	match reason:
+		CloseReason.USER_RETURN, CloseReason.BITE_STARTED:
+			Input.mouse_mode = _prior_mouse_mode
+		CloseReason.WATER_RECOVERY:
+			# Recovery owns local input until it finishes. Keep the current
+			# visible gameplay cursor policy without restoring stale state.
+			pass
+		CloseReason.RETURN_TO_TITLE, CloseReason.RESET_PROGRESS:
+			Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+		CloseReason.QUIT, CloseReason.TEARDOWN:
+			pass
+	_mouse_snapshot_stored = false
 
 
 func _on_bite_activated() -> void:
