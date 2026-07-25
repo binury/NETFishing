@@ -1,6 +1,7 @@
-[gd_scene load_steps=7 format=3]
+[gd_scene load_steps=8 format=3]
 
 [ext_resource type="Script" path="res://player/player.gd" id="1_script"]
+[ext_resource type="Script" path="res://inventory/fish_inventory.gd" id="2_inventory"]
 
 [sub_resource type="CapsuleShape3D" id="PlayerShape"]
 radius = 0.45
@@ -41,6 +42,10 @@ position = Vector3(0, 1.0, -0.55)
 mesh = SubResource("FacingMarkerMesh")
 material_override = SubResource("FacingMarkerMaterial")
 
+[node name="Inventory" type="Node" parent="."]
+unique_name_in_owner = true
+script = ExtResource("2_inventory")
+
 [node name="CameraYaw" type="Node3D" parent="."]
 unique_name_in_owner = true
 position = Vector3(0, 1.35, 0)
@@ -56,4 +61,5 @@ margin = 0.15
 collision_mask = 1
 
 [node name="Camera3D" type="Camera3D" parent="CameraYaw/CameraPitch/SpringArm3D"]
+unique_name_in_owner = true
 current = true

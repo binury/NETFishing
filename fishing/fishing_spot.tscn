@@ -1,0 +1,44 @@
+[gd_scene load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://fishing/fishing_spot.gd" id="1_spot"]
+[ext_resource type="Resource" path="res://fish/bluegill.tres" id="2_bluegill"]
+
+[sub_resource type="SphereShape3D" id="RangeShape"]
+radius = 3.5
+
+[sub_resource type="CylinderMesh" id="MarkerPostMesh"]
+top_radius = 0.12
+bottom_radius = 0.12
+height = 2.0
+
+[sub_resource type="TorusMesh" id="RangeMarkerMesh"]
+inner_radius = 3.35
+outer_radius = 3.5
+rings = 32
+
+[sub_resource type="StandardMaterial3D" id="MarkerMaterial"]
+albedo_color = Color(0.95, 0.82, 0.18, 1)
+emission_enabled = true
+emission = Color(0.3, 0.2, 0.01, 1)
+emission_energy_multiplier = 0.7
+
+[node name="FishingSpot" type="Area3D"]
+collision_layer = 0
+collision_mask = 2
+monitoring = true
+monitorable = false
+script = ExtResource("1_spot")
+catchable_fish = ExtResource("2_bluegill")
+
+[node name="RangeCollision" type="CollisionShape3D" parent="."]
+shape = SubResource("RangeShape")
+
+[node name="MarkerPost" type="MeshInstance3D" parent="."]
+position = Vector3(0, 1, 0)
+mesh = SubResource("MarkerPostMesh")
+material_override = SubResource("MarkerMaterial")
+
+[node name="RangeMarker" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.03, 0)
+mesh = SubResource("RangeMarkerMesh")
+material_override = SubResource("MarkerMaterial")

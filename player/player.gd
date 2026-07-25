@@ -1,6 +1,8 @@
 class_name Player
 extends CharacterBody3D
 
+const FishInventoryType = preload("res://inventory/fish_inventory.gd")
+
 @export_category("Movement")
 @export var walk_speed: float = 5.0
 @export var sprint_speed: float = 8.0
@@ -8,6 +10,9 @@ extends CharacterBody3D
 @export var slow_walk_speed: float = 3.25
 @export var jump_velocity: float = 6.0
 @export var body_rotation_speed: float = 12.0
+
+@export_category("Control")
+@export var local_control_enabled: bool = true
 
 @export_category("Camera")
 @export var mouse_sensitivity: float = 0.005
@@ -24,22 +29,36 @@ extends CharacterBody3D
 @onready var _camera_yaw: Node3D = %CameraYaw
 @onready var _camera_pitch: Node3D = %CameraPitch
 @onready var _spring_arm: SpringArm3D = %SpringArm3D
+@onready var _camera: Camera3D = %Camera3D
+@onready var inventory: FishInventoryType = %Inventory
 
 var _gravity: float = float(ProjectSettings.get_setting("physics/3d/default_gravity"))
 var _camera_dragging: bool = false
+var _movement_enabled: bool = true
 var _target_zoom: float = 5.0
 
 
 func _ready() -> void:
 	_target_zoom = clampf(_spring_arm.spring_length, minimum_zoom, maximum_zoom)
 	_spring_arm.spring_length = _target_zoom
+	_camera.current = local_control_enabled
 
 
 func _physics_process(delta: float) -> void:
 	if not is_on_floor():
 		velocity.y -= _gravity * delta
-	elif Input.is_action_just_pressed("jump"):
+	elif (
+		local_control_enabled
+		and _movement_enabled
+		and Input.is_action_just_pressed("jump")
+	):
 		velocity.y = jump_velocity
+
+	if not local_control_enabled or not _movement_enabled:
+		velocity.x = 0.0
+		velocity.z = 0.0
+		move_and_slide()
+		return
 
 	var input_vector: Vector2 = Input.get_vector(
 		"move_left",
@@ -69,6 +88,9 @@ func _physics_process(delta: float) -> void:
 
 
 func _process(delta: float) -> void:
+	if not local_control_enabled:
+		return
+
 	if _camera_dragging and not Input.is_action_pressed("camera_drag"):
 		_camera_dragging = false
 
@@ -88,6 +110,9 @@ func _process(delta: float) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if not local_control_enabled:
+		return
+
 	if event.is_action("camera_drag"):
 		_camera_dragging = event.is_pressed()
 		get_viewport().set_input_as_handled()
@@ -127,3 +152,22 @@ func _rotate_camera(delta_rotation: Vector2) -> void:
 
 func _set_target_zoom(value: float) -> void:
 	_target_zoom = clampf(value, minimum_zoom, maximum_zoom)
+
+
+func set_local_control(enabled: bool) -> void:
+	local_control_enabled = enabled
+	if is_node_ready():
+		_camera.current = enabled
+	if not enabled:
+		_camera_dragging = false
+
+
+func is_local_control_enabled() -> bool:
+	return local_control_enabled
+
+
+func set_movement_enabled(enabled: bool) -> void:
+	_movement_enabled = enabled
+	if not enabled:
+		velocity.x = 0.0
+		velocity.z = 0.0
