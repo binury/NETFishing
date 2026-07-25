@@ -1,6 +1,7 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=3 format=3]
 
 [ext_resource type="Script" path="res://ui/player_menu.gd" id="1_menu"]
+[ext_resource type="Theme" path="res://ui/game_theme.tres" id="2_theme"]
 
 [node name="PlayerMenu" type="Control"]
 process_mode = 3
@@ -12,6 +13,7 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 0
+theme = ExtResource("2_theme")
 script = ExtResource("1_menu")
 
 [node name="Dimmer" type="ColorRect" parent="."]
@@ -26,59 +28,60 @@ color = Color(0.015, 0.02, 0.03, 0.72)
 
 [node name="MenuPanel" type="PanelContainer" parent="."]
 layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -480.0
-offset_top = -310.0
-offset_right = 480.0
-offset_bottom = 310.0
+anchor_left = 0.055
+anchor_top = 0.045
+anchor_right = 0.945
+anchor_bottom = 0.955
 grow_horizontal = 2
 grow_vertical = 2
 
 [node name="Margin" type="MarginContainer" parent="MenuPanel"]
 layout_mode = 2
-theme_override_constants/margin_left = 18
-theme_override_constants/margin_top = 14
-theme_override_constants/margin_right = 18
-theme_override_constants/margin_bottom = 16
+theme_override_constants/margin_left = 22
+theme_override_constants/margin_top = 18
+theme_override_constants/margin_right = 22
+theme_override_constants/margin_bottom = 20
 
 [node name="Layout" type="VBoxContainer" parent="MenuPanel/Margin"]
 layout_mode = 2
-theme_override_constants/separation = 10
+theme_override_constants/separation = 12
 
 [node name="Header" type="HBoxContainer" parent="MenuPanel/Margin/Layout"]
 layout_mode = 2
+theme_override_constants/separation = 8
 
 [node name="Title" type="Label" parent="MenuPanel/Margin/Layout/Header"]
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 24
+theme_override_colors/font_color = Color(0.208, 0.725, 0.78, 1)
+theme_override_font_sizes/font_size = 26
 text = "Player Menu"
 
 [node name="WalletBalance" type="Label" parent="MenuPanel/Margin/Layout/Header"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Wallet: $0"
+theme_override_colors/font_color = Color(1, 0.82, 0.4, 1)
 
 [node name="InventoryTab" type="Button" parent="MenuPanel/Margin/Layout/Header"]
 unique_name_in_owner = true
 layout_mode = 2
 toggle_mode = true
 text = "Inventory"
+custom_minimum_size = Vector2(104, 36)
 
 [node name="LogbookTab" type="Button" parent="MenuPanel/Margin/Layout/Header"]
 unique_name_in_owner = true
 layout_mode = 2
 toggle_mode = true
 text = "Logbook"
+custom_minimum_size = Vector2(104, 36)
 
 [node name="CloseButton" type="Button" parent="MenuPanel/Margin/Layout/Header"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Close"
+custom_minimum_size = Vector2(76, 36)
 
 [node name="Separator" type="HSeparator" parent="MenuPanel/Margin/Layout"]
 layout_mode = 2
@@ -88,9 +91,11 @@ unique_name_in_owner = true
 layout_mode = 2
 text = ""
 horizontal_alignment = 1
+theme_override_colors/font_color = Color(1, 0.82, 0.4, 1)
+theme_override_font_sizes/font_size = 16
 
 [node name="Content" type="Control" parent="MenuPanel/Margin/Layout"]
-custom_minimum_size = Vector2(0, 530)
+custom_minimum_size = Vector2(0, 390)
 layout_mode = 2
 size_flags_vertical = 3
 
@@ -102,9 +107,11 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+theme_override_constants/separation = 10
 
 [node name="SortBar" type="HBoxContainer" parent="MenuPanel/Margin/Layout/Content/InventorySection"]
 layout_mode = 2
+theme_override_constants/separation = 8
 
 [node name="SortLabel" type="Label" parent="MenuPanel/Margin/Layout/Content/InventorySection/SortBar"]
 layout_mode = 2
@@ -113,12 +120,12 @@ text = "Sort:"
 [node name="SortOption" type="OptionButton" parent="MenuPanel/Margin/Layout/Content/InventorySection/SortBar"]
 unique_name_in_owner = true
 layout_mode = 2
-custom_minimum_size = Vector2(160, 0)
+custom_minimum_size = Vector2(145, 36)
 
 [node name="SortDirection" type="Button" parent="MenuPanel/Margin/Layout/Content/InventorySection/SortBar"]
 unique_name_in_owner = true
 layout_mode = 2
-custom_minimum_size = Vector2(130, 0)
+custom_minimum_size = Vector2(125, 36)
 text = "Newest first"
 
 [node name="SortSpacer" type="Control" parent="MenuPanel/Margin/Layout/Content/InventorySection/SortBar"]
@@ -129,25 +136,28 @@ size_flags_horizontal = 3
 unique_name_in_owner = true
 layout_mode = 2
 text = "Held fish base value: $0"
+theme_override_colors/font_color = Color(0.682, 0.733, 0.761, 1)
 
 [node name="InventoryBody" type="HSplitContainer" parent="MenuPanel/Margin/Layout/Content/InventorySection"]
 layout_mode = 2
 size_flags_vertical = 3
-split_offset = 620
+split_offset = 560
+theme_override_constants/separation = 12
 
 [node name="InventoryList" type="PanelContainer" parent="MenuPanel/Margin/Layout/Content/InventorySection/InventoryBody"]
-custom_minimum_size = Vector2(610, 0)
+custom_minimum_size = Vector2(400, 0)
 layout_mode = 2
 
 [node name="InventoryListMargin" type="MarginContainer" parent="MenuPanel/Margin/Layout/Content/InventorySection/InventoryBody/InventoryList"]
 layout_mode = 2
-theme_override_constants/margin_left = 8
-theme_override_constants/margin_top = 8
-theme_override_constants/margin_right = 8
-theme_override_constants/margin_bottom = 8
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 12
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 12
 
 [node name="InventoryStack" type="VBoxContainer" parent="MenuPanel/Margin/Layout/Content/InventorySection/InventoryBody/InventoryList/InventoryListMargin"]
 layout_mode = 2
+theme_override_constants/separation = 10
 
 [node name="InventoryEmpty" type="Label" parent="MenuPanel/Margin/Layout/Content/InventorySection/InventoryBody/InventoryList/InventoryListMargin/InventoryStack"]
 unique_name_in_owner = true
@@ -164,20 +174,20 @@ horizontal_scroll_mode = 0
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_constants/h_separation = 8
-theme_override_constants/v_separation = 8
+theme_override_constants/h_separation = 10
+theme_override_constants/v_separation = 10
 columns = 3
 
 [node name="DetailPanel" type="PanelContainer" parent="MenuPanel/Margin/Layout/Content/InventorySection/InventoryBody"]
-custom_minimum_size = Vector2(270, 0)
+custom_minimum_size = Vector2(240, 0)
 layout_mode = 2
 
 [node name="DetailMargin" type="MarginContainer" parent="MenuPanel/Margin/Layout/Content/InventorySection/InventoryBody/DetailPanel"]
 layout_mode = 2
-theme_override_constants/margin_left = 12
-theme_override_constants/margin_top = 12
-theme_override_constants/margin_right = 12
-theme_override_constants/margin_bottom = 12
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 14
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 14
 
 [node name="DetailStack" type="VBoxContainer" parent="MenuPanel/Margin/Layout/Content/InventorySection/InventoryBody/DetailPanel/DetailMargin"]
 layout_mode = 2
@@ -185,7 +195,7 @@ theme_override_constants/separation = 10
 
 [node name="DetailTexture" type="TextureRect" parent="MenuPanel/Margin/Layout/Content/InventorySection/InventoryBody/DetailPanel/DetailMargin/DetailStack"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(240, 180)
+custom_minimum_size = Vector2(208, 140)
 layout_mode = 2
 expand_mode = 1
 stretch_mode = 5
@@ -194,6 +204,7 @@ texture_filter = 1
 [node name="DetailName" type="Label" parent="MenuPanel/Margin/Layout/Content/InventorySection/InventoryBody/DetailPanel/DetailMargin/DetailStack"]
 unique_name_in_owner = true
 layout_mode = 2
+theme_override_colors/font_color = Color(0.208, 0.725, 0.78, 1)
 theme_override_font_sizes/font_size = 22
 horizontal_alignment = 1
 
@@ -214,6 +225,7 @@ unique_name_in_owner = true
 layout_mode = 2
 disabled = true
 text = "Sell"
+theme_type_variation = &"DangerButton"
 
 [node name="SaleUnavailable" type="Label" parent="MenuPanel/Margin/Layout/Content/InventorySection/InventoryBody/DetailPanel/DetailMargin/DetailStack"]
 unique_name_in_owner = true
@@ -221,6 +233,7 @@ visible = false
 layout_mode = 2
 autowrap_mode = 2
 horizontal_alignment = 1
+theme_override_colors/font_color = Color(1, 0.702, 0.278, 1)
 
 [node name="LogbookSection" type="VBoxContainer" parent="MenuPanel/Margin/Layout/Content"]
 unique_name_in_owner = true
@@ -231,6 +244,7 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+theme_override_constants/separation = 10
 
 [node name="LogbookEmpty" type="Label" parent="MenuPanel/Margin/Layout/Content/LogbookSection"]
 unique_name_in_owner = true
@@ -247,8 +261,8 @@ horizontal_scroll_mode = 0
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_constants/h_separation = 12
-theme_override_constants/v_separation = 12
+theme_override_constants/h_separation = 10
+theme_override_constants/v_separation = 10
 columns = 4
 
 [node name="SaleConfirmation" type="PanelContainer" parent="MenuPanel/Margin/Layout/Content"]
@@ -260,19 +274,19 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -220.0
-offset_top = -90.0
-offset_right = 220.0
-offset_bottom = 90.0
+offset_left = -230.0
+offset_top = -105.0
+offset_right = 230.0
+offset_bottom = 105.0
 grow_horizontal = 2
 grow_vertical = 2
 
 [node name="ConfirmationMargin" type="MarginContainer" parent="MenuPanel/Margin/Layout/Content/SaleConfirmation"]
 layout_mode = 2
-theme_override_constants/margin_left = 18
-theme_override_constants/margin_top = 16
-theme_override_constants/margin_right = 18
-theme_override_constants/margin_bottom = 16
+theme_override_constants/margin_left = 22
+theme_override_constants/margin_top = 20
+theme_override_constants/margin_right = 22
+theme_override_constants/margin_bottom = 20
 
 [node name="ConfirmationLayout" type="VBoxContainer" parent="MenuPanel/Margin/Layout/Content/SaleConfirmation/ConfirmationMargin"]
 layout_mode = 2
@@ -292,8 +306,11 @@ alignment = 1
 unique_name_in_owner = true
 layout_mode = 2
 text = "Confirm"
+theme_type_variation = &"DangerButton"
+custom_minimum_size = Vector2(120, 38)
 
 [node name="CancelSaleButton" type="Button" parent="MenuPanel/Margin/Layout/Content/SaleConfirmation/ConfirmationMargin/ConfirmationLayout/ConfirmationButtons"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Cancel"
+custom_minimum_size = Vector2(120, 38)

@@ -24,7 +24,10 @@ class ShowcaseCameraSnapshot:
 @export var sprint_speed: float = 8.0
 @export var sneak_speed: float = 2.0
 @export var slow_walk_speed: float = 3.25
-@export var jump_velocity: float = 6.0
+@export_range(0.1, 20.0, 0.1) var jump_velocity: float = 4.6
+@export_range(0.1, 5.0, 0.05) var upward_gravity_multiplier: float = 1.35
+@export_range(0.1, 5.0, 0.05) var fall_gravity_multiplier: float = 2.1
+@export_range(0.1, 3.0, 0.05) var body_center_height: float = 0.9
 @export var body_rotation_speed: float = 12.0
 
 @export_category("Control")
@@ -73,6 +76,7 @@ var _gravity: float = float(ProjectSettings.get_setting("physics/3d/default_grav
 var _camera_dragging: bool = false
 var _camera_input_enabled: bool = true
 var _movement_enabled: bool = true
+var _water_recovery_active: bool = false
 var _target_zoom: float = 5.0
 var _showcase_rod_visibility: bool = true
 var _showcase_rod_state_stored: bool = false
@@ -92,8 +96,17 @@ func _ready() -> void:
 
 
 func _physics_process(delta: float) -> void:
+	if _water_recovery_active:
+		velocity = Vector3.ZERO
+		return
+
 	if not is_on_floor():
-		velocity.y -= _gravity * delta
+		var gravity_multiplier: float = (
+			upward_gravity_multiplier
+			if velocity.y > 0.0
+			else fall_gravity_multiplier
+		)
+		velocity.y -= _gravity * gravity_multiplier * delta
 	elif (
 		local_control_enabled
 		and _movement_enabled
@@ -246,6 +259,19 @@ func set_camera_input_enabled(enabled: bool) -> void:
 
 func is_camera_input_enabled() -> bool:
 	return _camera_input_enabled
+
+
+func set_water_recovery_active(active: bool) -> void:
+	_water_recovery_active = active
+	velocity = Vector3.ZERO
+
+
+func get_body_center_position() -> Vector3:
+	return global_position + Vector3.UP * body_center_height
+
+
+func get_body_center_height() -> float:
+	return body_center_height
 
 
 func get_fishing_rod_tip() -> Marker3D:

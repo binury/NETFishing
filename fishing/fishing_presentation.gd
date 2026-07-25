@@ -71,6 +71,7 @@ var _cast_position: Vector3
 var _pickup_position: Vector3
 var _active_tween: Tween
 var _rod_tween: Tween
+var _bite_tween: Tween
 
 
 func _ready() -> void:
@@ -179,29 +180,30 @@ func show_bite() -> void:
 	if _mode != VisualMode.FISHING:
 		return
 
-	_kill_active_tween()
-	var bite_position: Vector3 = _with_water_height(_bobber.global_position)
-	_bobber.global_position = bite_position
-	_active_tween = create_tween()
-	_active_tween.set_trans(Tween.TRANS_QUAD)
-	_active_tween.tween_property(
+	_kill_bite_tween()
+	_bobber.scale = Vector3.ONE
+	_bite_tween = create_tween()
+	_bite_tween.set_trans(Tween.TRANS_QUAD)
+	_bite_tween.set_ease(Tween.EASE_IN_OUT)
+	_bite_tween.tween_property(
 		_bobber,
-		"global_position:y",
-		get_water_surface_height() - 0.25,
-		0.11
+		"scale",
+		Vector3.ONE * 0.68,
+		0.08
 	)
-	_active_tween.tween_property(
+	_bite_tween.tween_property(
 		_bobber,
-		"global_position:y",
-		get_water_surface_height() + 0.05,
-		0.14
+		"scale",
+		Vector3.ONE * 1.2,
+		0.1
 	)
-	_active_tween.tween_property(
+	_bite_tween.tween_property(
 		_bobber,
-		"global_position:y",
-		bite_position.y,
-		0.12
+		"scale",
+		Vector3.ONE,
+		0.1
 	)
+	_bite_tween.finished.connect(_on_bite_tween_finished)
 
 
 func show_withdrawal_position(position: Vector3) -> void:
@@ -225,7 +227,6 @@ func show_reel_position(position: Vector3, _input_held: bool) -> void:
 		return
 
 	_kill_active_tween()
-	_bobber.scale = Vector3.ONE
 	_bobber.global_position = _with_water_height(position)
 
 
@@ -235,6 +236,7 @@ func play_outcome(outcome: StringName) -> void:
 		return
 
 	_kill_active_tween()
+	_kill_bite_tween()
 	_kill_rod_tween()
 	_restore_rod_neutral()
 	_mode = VisualMode.OUTCOME
@@ -274,15 +276,6 @@ func play_outcome(outcome: StringName) -> void:
 					get_water_surface_height() - 0.4,
 					0.2
 				)
-			&"miss":
-				_active_tween.set_parallel(true)
-				_active_tween.tween_property(
-					_bobber,
-					"global_position:y",
-					get_water_surface_height() - 0.4,
-					0.3
-				)
-				_active_tween.tween_property(_bobber, "scale", Vector3.ONE * 0.65, 0.3)
 			&"invalid":
 				var return_target: Vector3 = _bobber.global_position
 				if _rod_tip != null:
@@ -310,6 +303,7 @@ func play_outcome(outcome: StringName) -> void:
 
 func cleanup() -> void:
 	_kill_active_tween()
+	_kill_bite_tween()
 	_kill_rod_tween()
 	_restore_rod_neutral()
 	_mode = VisualMode.NONE
@@ -750,6 +744,18 @@ func _kill_active_tween() -> void:
 	if _active_tween != null and _active_tween.is_valid():
 		_active_tween.kill()
 	_active_tween = null
+
+
+func _kill_bite_tween() -> void:
+	if _bite_tween != null and _bite_tween.is_valid():
+		_bite_tween.kill()
+	_bite_tween = null
+	if is_instance_valid(_bobber):
+		_bobber.scale = Vector3.ONE
+
+
+func _on_bite_tween_finished() -> void:
+	_bite_tween = null
 
 
 func _kill_rod_tween() -> void:

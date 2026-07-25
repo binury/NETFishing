@@ -21,8 +21,10 @@ const PlayerWalletType = preload("res://economy/player_wallet.gd")
 @onready var _showcase_details: Label = %ShowcaseDetails
 @onready var _fishing_panel: PanelContainer = %FishingPanel
 @onready var _player_menu: PlayerMenuType = %PlayerMenu
+@onready var _screen_fade: ScreenFade = %ScreenFade
 
 var _showcase_active: bool = false
+var _player_menu_open: bool = false
 
 
 func setup(
@@ -53,11 +55,36 @@ func setup(
 	)
 
 
+func close_player_menu() -> void:
+	_player_menu.close_menu()
+
+
+func get_screen_fade() -> ScreenFade:
+	return _screen_fade
+
+
 func _on_fishing_status_changed(status: String) -> void:
 	if _showcase_active:
 		return
-	_status_label.text = status
-	_status_label.visible = not status.is_empty()
+	_set_fishing_status(status)
+
+
+func _set_fishing_status(text: String) -> void:
+	var normalized_text: String = text.strip_edges()
+	_status_label.text = normalized_text
+	_status_label.visible = not normalized_text.is_empty()
+	_refresh_fishing_panel_visibility()
+
+
+func _refresh_fishing_panel_visibility() -> void:
+	var has_content: bool = (
+		not _status_label.text.strip_edges().is_empty()
+		or not _showcase_details.text.strip_edges().is_empty()
+		or _catch_track.visible
+		or _barrier_summary.visible
+		or _barrier_health.visible
+	)
+	_fishing_panel.visible = has_content and not _player_menu_open
 
 
 func _on_catch_display_changed(
@@ -78,6 +105,7 @@ func _on_catch_display_changed(
 		_clear_barrier_markers()
 		_barrier_summary.text = ""
 		_barrier_health.text = ""
+		_refresh_fishing_panel_visibility()
 		return
 
 	_update_barrier_markers(
@@ -128,6 +156,7 @@ func _on_catch_display_changed(
 		visible
 		and (active_barrier_index >= 0 or chase_gap <= 0.05)
 	)
+	_refresh_fishing_panel_visibility()
 
 
 func _update_barrier_markers(
@@ -142,9 +171,13 @@ func _update_barrier_markers(
 			barrier_index < health.size()
 			and health[barrier_index] <= 0
 		)
-		marker.color = Color(0.35, 0.38, 0.42, 0.8) if defeated else Color(1.0, 0.82, 0.2, 1.0)
+		marker.color = (
+			UIPalette.DISABLED
+			if defeated
+			else UIPalette.SECONDARY
+		)
 		if barrier_index == active_index:
-			marker.color = Color(1.0, 1.0, 1.0, 1.0)
+			marker.color = UIPalette.TEXT
 		marker.set_anchors_preset(Control.PRESET_TOP_LEFT)
 		marker.anchor_left = positions[barrier_index]
 		marker.anchor_right = positions[barrier_index]
@@ -169,23 +202,22 @@ func _on_showcase_changed(
 ) -> void:
 	_showcase_active = visible
 	if not visible:
-		_status_label.text = ""
-		_status_label.visible = false
 		_showcase_details.text = ""
 		_showcase_details.visible = false
+		_set_fishing_status("")
 		return
 	_catch_track.visible = false
 	_barrier_summary.visible = false
 	_barrier_health.visible = false
 	_clear_barrier_markers()
-	_status_label.text = "You caught a %s!" % fish_name
-	_status_label.visible = true
 	_showcase_details.text = (
 		"%.1f lb • %s\nLeft click or Escape to put away"
 		% [weight_lb, rarity_name]
 	)
 	_showcase_details.visible = true
+	_set_fishing_status("You caught a %s!" % fish_name)
 
 
 func _on_player_menu_visibility_changed(is_open: bool) -> void:
-	_fishing_panel.visible = not is_open
+	_player_menu_open = is_open
+	_refresh_fishing_panel_visibility()

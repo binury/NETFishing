@@ -37,7 +37,6 @@ enum FishingState {
 	AIMING_CAST,
 	CASTING,
 	WAITING_FOR_BITE,
-	BITE_ACTIVE,
 	FIGHTING,
 	SHOWING_CATCH,
 	COOLDOWN,
@@ -62,7 +61,6 @@ enum FishingState {
 
 @export_category("Timing")
 @export_range(0.1, 30.0, 0.1) var wait_time: float = 2.0
-@export_range(0.1, 10.0, 0.1) var bite_window_duration: float = 1.5
 @export_range(0.1, 10.0, 0.1) var cooldown_duration: float = 1.0
 
 @export_category("Selection")
@@ -80,6 +78,7 @@ enum FishingState {
 @onready var _presentation: FishingPresentationType = %FishingPresentation
 
 var state: FishingState = FishingState.READY
+var _external_input_blocked: bool = false
 var _local_player: PlayerType
 var _local_inventory: FishInventoryType
 var _local_collection_log: CollectionLogType
@@ -127,10 +126,44 @@ func setup(
 
 
 func can_open_player_menu() -> bool:
-	return state in [
+	return not _external_input_blocked and state in [
 		FishingState.READY,
 		FishingState.WAITING_FOR_BITE,
 	]
+
+
+func begin_water_recovery() -> void:
+	_external_input_blocked = true
+	if state in [
+		FishingState.AIMING_CAST,
+		FishingState.CASTING,
+		FishingState.WAITING_FOR_BITE,
+		FishingState.FIGHTING,
+	]:
+		_cancel_attempt()
+	elif state == FishingState.SHOWING_CATCH:
+		_secure_showcase_catch_for_recovery()
+
+
+func end_water_recovery() -> void:
+	_external_input_blocked = false
+
+
+func _secure_showcase_catch_for_recovery() -> void:
+	if (
+		_pending_catch != null
+		and _local_inventory != null
+		and _local_collection_log != null
+	):
+		_local_inventory.add_catch(_pending_catch)
+		_local_collection_log.mark_discovered(_pending_catch.fish_id)
+	_pending_catch = null
+	_showcase_ready = false
+	_put_away_press_armed = false
+	showcase_changed.emit("", "", 0.0, false)
+	if _active_player != null:
+		_active_player.end_catch_showcase(Callable(), true)
+	_cleanup_attempt()
 
 
 func _exit_tree() -> void:
@@ -174,10 +207,6 @@ func _process(delta: float) -> void:
 				_confirm_cast()
 		FishingState.WAITING_FOR_BITE:
 			_update_waiting_for_bite(delta)
-		FishingState.BITE_ACTIVE:
-			_state_time_remaining -= delta
-			if _state_time_remaining <= 0.0:
-				_miss_bite()
 		FishingState.FIGHTING:
 			if not Input.is_action_pressed("fish_primary"):
 				_catch_controller.set_reel_input(false)
@@ -188,6 +217,8 @@ func _process(delta: float) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if _external_input_blocked:
+		return
 	if (
 		event.is_action_pressed("ui_cancel")
 		and state == FishingState.SHOWING_CATCH
@@ -202,7 +233,6 @@ func _unhandled_input(event: InputEvent) -> void:
 			FishingState.AIMING_CAST,
 			FishingState.CASTING,
 			FishingState.WAITING_FOR_BITE,
-			FishingState.BITE_ACTIVE,
 			FishingState.FIGHTING,
 		]
 	):
@@ -226,8 +256,6 @@ func _unhandled_input(event: InputEvent) -> void:
 				_presentation.set_line_mode(
 					FishingPresentationType.LineMode.TAUT
 				)
-			FishingState.BITE_ACTIVE:
-				_confirm_hook()
 			FishingState.FIGHTING:
 				_catch_controller.handle_primary_pressed()
 				_presentation.set_line_mode(
@@ -442,19 +470,8 @@ func _activate_bite() -> void:
 	if state != FishingState.WAITING_FOR_BITE:
 		return
 
-	state = FishingState.BITE_ACTIVE
-	_state_time_remaining = bite_window_duration
-	_withdrawal_input_held = false
-	bite_activated.emit()
-	status_changed.emit("Bite! Left click to hook")
-	_presentation.set_line_mode(FishingPresentationType.LineMode.TAUT)
-	_presentation.show_bite()
-
-
-func _confirm_hook() -> void:
 	if (
-		state != FishingState.BITE_ACTIVE
-		or _active_player == null
+		_active_player == null
 		or _selected_fish == null
 		or _selected_fish.catch_profile == null
 	):
@@ -463,8 +480,10 @@ func _confirm_hook() -> void:
 
 	state = FishingState.FIGHTING
 	_state_time_remaining = 0.0
+	_withdrawal_input_held = false
 	_fight_start_position = _bobber_water_position
-	status_changed.emit("Hold left click to reel")
+	bite_activated.emit()
+	status_changed.emit("Fish on!")
 	_presentation.set_line_mode(FishingPresentationType.LineMode.TAUT)
 	_presentation.begin_reeling()
 	_catch_controller.start_encounter(
@@ -472,7 +491,10 @@ func _confirm_hook() -> void:
 		_active_player.reel_speed,
 		_active_player.click_power
 	)
-	_catch_controller.set_reel_input(true)
+	_catch_controller.set_reel_input(
+		Input.is_action_pressed("fish_primary")
+	)
+	_presentation.show_bite()
 
 
 func _on_catch_encounter_updated(
@@ -611,12 +633,6 @@ func _finish_showcase_put_away(
 	):
 		return
 	_cleanup_attempt(cooldown_message)
-
-
-func _miss_bite() -> void:
-	if state != FishingState.BITE_ACTIVE:
-		return
-	_cleanup_attempt("The fish got away.", &"miss")
 
 
 func _cleanup_attempt(

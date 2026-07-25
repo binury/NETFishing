@@ -1,4 +1,4 @@
-[gd_scene load_steps=8 format=3]
+[gd_scene load_steps=9 format=3]
 
 [ext_resource type="PackedScene" path="res://world/test_world.tscn" id="1_world"]
 [ext_resource type="PackedScene" path="res://player/player.tscn" id="2_player"]
@@ -7,6 +7,7 @@
 [ext_resource type="PackedScene" path="res://ui/game_ui.tscn" id="5_ui"]
 [ext_resource type="Resource" path="res://fish/pools/test_water_pool.tres" id="6_pool"]
 [ext_resource type="Resource" path="res://economy/buyers/pelicans.tres" id="7_pelicans"]
+[ext_resource type="Script" path="res://world/water_recovery_controller.gd" id="8_recovery"]
 
 [node name="Main" type="Node3D"]
 script = ExtResource("3_main")
@@ -24,6 +25,10 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 5)
 [node name="FishingSpot" parent="." instance=ExtResource("4_spot")]
 unique_name_in_owner = true
 position = Vector3(0, 1.02, -18)
+
+[node name="WaterRecovery" type="Node" parent="."]
+unique_name_in_owner = true
+script = ExtResource("8_recovery")
 
 [node name="GameUI" parent="." instance=ExtResource("5_ui")]
 unique_name_in_owner = true

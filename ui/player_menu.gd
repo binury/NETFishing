@@ -328,35 +328,101 @@ func _compare_catches(left: FishCatchType, right: FishCatchType) -> bool:
 
 func _create_inventory_card(fish_catch: FishCatchType) -> Button:
 	var card := Button.new()
-	card.custom_minimum_size = Vector2(170.0, 160.0)
+	card.theme_type_variation = &"CardButton"
+	card.custom_minimum_size = Vector2(152.0, 140.0)
 	card.toggle_mode = true
 	card.button_pressed = fish_catch.catch_id == _selected_catch_id
-	card.tooltip_text = String(fish_catch.catch_id)
 	card.pressed.connect(_select_catch.bind(fish_catch.catch_id))
+	_apply_inventory_card_styles(
+		card,
+		UIPalette.get_rarity_color(fish_catch.fish.rarity)
+	)
 
 	var content := VBoxContainer.new()
 	content.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_MINSIZE, 8)
+	content.add_theme_constant_override("separation", 3)
 	content.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.add_child(content)
-	content.add_child(_create_texture_frame(fish_catch.fish.display_texture, Vector2(138.0, 82.0)))
+	content.add_child(_create_texture_frame(
+		fish_catch.fish.display_texture,
+		Vector2(124.0, 78.0)
+	))
 	var name_label := Label.new()
 	name_label.text = fish_catch.fish.display_name
 	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	content.add_child(name_label)
-	var data_label := Label.new()
-	data_label.text = "%.2f lb • %s\nCatch #%d" % [
-		fish_catch.weight_lb,
-		fish_catch.fish.get_rarity_name(),
-		fish_catch.catch_sequence,
-	]
-	data_label.text += "\nBase value: $%d" % fish_catch.sale_value
+	var weight_label := Label.new()
+	weight_label.text = "%.2f lb" % fish_catch.weight_lb
+	weight_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	weight_label.add_theme_color_override(
+		"font_color",
+		UIPalette.MUTED_TEXT
+	)
+	weight_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	content.add_child(weight_label)
 	if fish_catch.is_favorited:
-		data_label.text += " • ★"
-	data_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	data_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	content.add_child(data_label)
+		var favorite_marker := Label.new()
+		favorite_marker.text = "★"
+		favorite_marker.add_theme_color_override(
+			"font_color",
+			UIPalette.SECONDARY
+		)
+		favorite_marker.add_theme_font_size_override("font_size", 18)
+		favorite_marker.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+		favorite_marker.offset_left = -28.0
+		favorite_marker.offset_top = 5.0
+		favorite_marker.offset_right = -8.0
+		favorite_marker.offset_bottom = 29.0
+		favorite_marker.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		favorite_marker.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		card.add_child(favorite_marker)
 	return card
+
+
+func _apply_inventory_card_styles(
+	card: Button,
+	rarity_color: Color,
+) -> void:
+	card.add_theme_stylebox_override(
+		"normal",
+		_create_inventory_card_style(rarity_color, 0)
+	)
+	card.add_theme_stylebox_override(
+		"hover",
+		_create_inventory_card_style(rarity_color, 1)
+	)
+	card.add_theme_stylebox_override(
+		"focus",
+		_create_inventory_card_style(rarity_color, 1)
+	)
+	card.add_theme_stylebox_override(
+		"pressed",
+		_create_inventory_card_style(rarity_color, 2)
+	)
+
+
+func _create_inventory_card_style(
+	rarity_color: Color,
+	state_index: int,
+) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	match state_index:
+		1:
+			style.bg_color = UIPalette.ELEVATED_PANEL.lightened(0.1)
+		2:
+			style.bg_color = UIPalette.PRIMARY.darkened(0.48)
+		_:
+			style.bg_color = UIPalette.ELEVATED_PANEL
+	style.border_color = rarity_color
+	var border_width: int = 4 if state_index == 2 else 2
+	style.set_border_width_all(border_width)
+	style.set_corner_radius_all(8)
+	style.content_margin_left = 7.0
+	style.content_margin_top = 7.0
+	style.content_margin_right = 7.0
+	style.content_margin_bottom = 7.0
+	return style
 
 
 func _select_catch(catch_id: StringName) -> void:
@@ -395,13 +461,11 @@ func _update_inventory_detail(fish_catch: FishCatchType) -> void:
 			_default_buyer.display_name,
 			buyer_offer,
 		]
-	_detail_data.text = "%.2f lb\n%s\nBase value: $%d\n%s\nCatch #%d\n%s" % [
+	_detail_data.text = "%.2f lb\n%s\nBase value: $%d\n%s" % [
 		fish_catch.weight_lb,
 		fish_catch.fish.get_rarity_name(),
 		fish_catch.sale_value,
 		buyer_offer_text,
-		fish_catch.catch_sequence,
-		String(fish_catch.catch_id),
 	]
 	_favorite_button.disabled = false
 	_favorite_button.text = (
@@ -601,16 +665,16 @@ func _create_logbook_card(fish: FishDataType) -> Control:
 		and _collection_log.has_discovered(fish.id)
 	)
 	var card := PanelContainer.new()
-	card.custom_minimum_size = Vector2(190.0, 170.0)
+	card.custom_minimum_size = Vector2(158.0, 154.0)
 	var content := VBoxContainer.new()
 	content.add_theme_constant_override("separation", 4)
 	card.add_child(content)
 	var texture_frame: TextureRect = _create_texture_frame(
 		fish.display_texture,
-		Vector2(170.0, 92.0)
+		Vector2(142.0, 82.0)
 	)
 	if not discovered:
-		texture_frame.modulate = Color(0.08, 0.1, 0.12, 1.0)
+		texture_frame.modulate = UIPalette.PANEL
 	content.add_child(texture_frame)
 	var name_label := Label.new()
 	name_label.text = fish.display_name if discovered else "???"

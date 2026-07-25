@@ -1,7 +1,10 @@
-[gd_scene load_steps=14 format=3]
+[gd_scene load_steps=18 format=3]
 
 [ext_resource type="Script" path="res://world/fishable_water_region.gd" id="1_water_region"]
 [ext_resource type="Resource" path="res://fish/pools/test_water_pool.tres" id="2_fish_pool"]
+[ext_resource type="Script" path="res://world/test_world.gd" id="3_world"]
+[ext_resource type="Script" path="res://world/player_water_trigger.gd" id="4_water_trigger"]
+[ext_resource type="Script" path="res://world/safe_respawn_point.gd" id="5_safe_point"]
 
 [sub_resource type="BoxShape3D" id="GroundShape"]
 size = Vector3(30, 1, 30)
@@ -30,6 +33,12 @@ size = Vector3(40, 0.16, 19.5)
 [sub_resource type="BoxShape3D" id="FishableShoreShape"]
 size = Vector3(17.5, 0.16, 5.5)
 
+[sub_resource type="BoxShape3D" id="PlayerWaterShape"]
+size = Vector3(40, 5, 19.5)
+
+[sub_resource type="BoxShape3D" id="PlayerWaterShoreShape"]
+size = Vector3(17.5, 5, 5.5)
+
 [sub_resource type="StandardMaterial3D" id="WaterMaterial"]
 transparency = 1
 albedo_color = Color(0.1, 0.45, 0.7, 0.72)
@@ -43,6 +52,7 @@ ambient_light_color = Color(0.65, 0.72, 0.8, 1)
 ambient_light_energy = 0.65
 
 [node name="TestWorld" type="Node3D"]
+script = ExtResource("3_world")
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
 environment = SubResource("Environment")
@@ -94,3 +104,41 @@ shape = SubResource("FishableShoreShape")
 [node name="ShoreRight" type="CollisionShape3D" parent="FishableWater"]
 position = Vector3(11.25, 0, 12.5)
 shape = SubResource("FishableShoreShape")
+
+[node name="PlayerWaterTrigger" type="Area3D" parent="."]
+unique_name_in_owner = true
+position = Vector3(0, -2.3, -29.75)
+collision_layer = 8
+collision_mask = 2
+script = ExtResource("4_water_trigger")
+surface_height = 0.2
+
+[node name="DeepWater" type="CollisionShape3D" parent="PlayerWaterTrigger"]
+shape = SubResource("PlayerWaterShape")
+
+[node name="ShoreLeft" type="CollisionShape3D" parent="PlayerWaterTrigger"]
+position = Vector3(-11.25, 0, 12.5)
+shape = SubResource("PlayerWaterShoreShape")
+
+[node name="ShoreRight" type="CollisionShape3D" parent="PlayerWaterTrigger"]
+position = Vector3(11.25, 0, 12.5)
+shape = SubResource("PlayerWaterShoreShape")
+
+[node name="SafeRespawnPoints" type="Node3D" parent="."]
+unique_name_in_owner = true
+
+[node name="DockApproach" type="Marker3D" parent="SafeRespawnPoints"]
+position = Vector3(0, 0.58, -9)
+script = ExtResource("5_safe_point")
+
+[node name="WestShore" type="Marker3D" parent="SafeRespawnPoints"]
+position = Vector3(-11.5, 0.58, -11.5)
+script = ExtResource("5_safe_point")
+
+[node name="EastShore" type="Marker3D" parent="SafeRespawnPoints"]
+position = Vector3(11.5, 0.58, -11.5)
+script = ExtResource("5_safe_point")
+
+[node name="DockEnd" type="Marker3D" parent="SafeRespawnPoints"]
+position = Vector3(0, 1.08, -17)
+script = ExtResource("5_safe_point")
