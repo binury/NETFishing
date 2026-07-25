@@ -4,10 +4,14 @@ extends Control
 const CollectionLogType = preload("res://collection/collection_log.gd")
 const FishCatchType = preload("res://fish/fish_catch.gd")
 const FishDataType = preload("res://fish/fish_data.gd")
+const FishBuyerProfileType = preload("res://economy/fish_buyer_profile.gd")
+const FishSaleResultType = preload("res://economy/fish_sale_result.gd")
+const FishSaleServiceType = preload("res://economy/fish_sale_service.gd")
 const FishInventoryType = preload("res://inventory/fish_inventory.gd")
 const FishPoolType = preload("res://fish/fish_pool.gd")
 const FishingSpotType = preload("res://fishing/fishing_spot.gd")
 const PlayerType = preload("res://player/player.gd")
+const PlayerWalletType = preload("res://economy/player_wallet.gd")
 
 signal menu_visibility_changed(is_open: bool)
 
@@ -25,21 +29,34 @@ enum SortMode {
 @onready var _inventory_tab: Button = %InventoryTab
 @onready var _logbook_tab: Button = %LogbookTab
 @onready var _close_button: Button = %CloseButton
+@onready var _wallet_balance: Label = %WalletBalance
 @onready var _inventory_section: Control = %InventorySection
 @onready var _logbook_section: Control = %LogbookSection
 @onready var _sort_option: OptionButton = %SortOption
 @onready var _sort_direction: Button = %SortDirection
+@onready var _held_value: Label = %HeldValue
 @onready var _inventory_empty: Label = %InventoryEmpty
 @onready var _inventory_grid: GridContainer = %InventoryGrid
 @onready var _detail_texture: TextureRect = %DetailTexture
 @onready var _detail_name: Label = %DetailName
 @onready var _detail_data: Label = %DetailData
+@onready var _favorite_button: Button = %FavoriteButton
+@onready var _sell_button: Button = %SellButton
+@onready var _sale_unavailable: Label = %SaleUnavailable
+@onready var _transaction_feedback: Label = %TransactionFeedback
+@onready var _sale_confirmation: PanelContainer = %SaleConfirmation
+@onready var _confirmation_message: Label = %ConfirmationMessage
+@onready var _confirm_sale_button: Button = %ConfirmSaleButton
+@onready var _cancel_sale_button: Button = %CancelSaleButton
 @onready var _logbook_empty: Label = %LogbookEmpty
 @onready var _logbook_grid: GridContainer = %LogbookGrid
 
 var _player: PlayerType
 var _inventory: FishInventoryType
 var _collection_log: CollectionLogType
+var _wallet: PlayerWalletType
+var _sale_service: FishSaleServiceType
+var _default_buyer: FishBuyerProfileType
 var _catalog: FishPoolType
 var _fishing_spot: FishingSpotType
 var _current_section: Section = Section.INVENTORY
@@ -50,6 +67,10 @@ var _prior_movement_enabled: bool = true
 var _prior_camera_input_enabled: bool = true
 var _control_snapshot_stored: bool = false
 var _menu_generation: int = 0
+var _confirmation_catch_id: StringName
+var _confirmation_buyer: FishBuyerProfileType
+var _confirmation_buyer_id: StringName
+var _sale_in_progress: bool = false
 
 
 func _ready() -> void:
@@ -62,6 +83,10 @@ func _ready() -> void:
 	_close_button.pressed.connect(close_menu)
 	_sort_option.item_selected.connect(_on_sort_selected)
 	_sort_direction.pressed.connect(_on_sort_direction_pressed)
+	_favorite_button.pressed.connect(_on_favorite_pressed)
+	_sell_button.pressed.connect(_on_sell_pressed)
+	_confirm_sale_button.pressed.connect(_on_confirm_sale_pressed)
+	_cancel_sale_button.pressed.connect(_close_sale_confirmation)
 	_sort_option.add_item("Catch order", SortMode.CATCH_ORDER)
 	_sort_option.add_item("Name", SortMode.NAME)
 	_sort_option.add_item("Rarity", SortMode.RARITY)
@@ -74,18 +99,26 @@ func setup(
 	player: PlayerType,
 	inventory: FishInventoryType,
 	collection_log: CollectionLogType,
+	wallet: PlayerWalletType,
+	sale_service: FishSaleServiceType,
+	default_buyer: FishBuyerProfileType,
 	catalog: FishPoolType,
 	fishing_spot: FishingSpotType,
 ) -> void:
 	_player = player
 	_inventory = inventory
 	_collection_log = collection_log
+	_wallet = wallet
+	_sale_service = sale_service
+	_default_buyer = default_buyer
 	_catalog = catalog
 	_fishing_spot = fishing_spot
 	if not _inventory.catches_changed.is_connected(_on_inventory_changed):
 		_inventory.catches_changed.connect(_on_inventory_changed)
 	if not _collection_log.fish_discovered.is_connected(_on_fish_discovered):
 		_collection_log.fish_discovered.connect(_on_fish_discovered)
+	if not _wallet.balance_changed.is_connected(_on_wallet_balance_changed):
+		_wallet.balance_changed.connect(_on_wallet_balance_changed)
 	if not _fishing_spot.bite_activated.is_connected(_on_bite_activated):
 		_fishing_spot.bite_activated.connect(_on_bite_activated)
 	_refresh_all()
@@ -95,6 +128,13 @@ func _input(event: InputEvent) -> void:
 	if event is InputEventKey and event.echo:
 		return
 	if visible:
+		if (
+			event.is_action_pressed("ui_cancel")
+			and _sale_confirmation.visible
+		):
+			_close_sale_confirmation()
+			get_viewport().set_input_as_handled()
+			return
 		if (
 			event.is_action_pressed("open_backpack")
 			or event.is_action_pressed("ui_cancel")
@@ -135,6 +175,7 @@ func open_menu() -> void:
 func close_menu() -> void:
 	if not visible:
 		return
+	_close_sale_confirmation()
 	var closing_generation: int = _menu_generation
 	visible = false
 	get_viewport().gui_release_focus()
@@ -209,17 +250,40 @@ func _update_sort_direction_text() -> void:
 
 
 func _refresh_all() -> void:
+	_refresh_economy_summary()
 	_refresh_inventory()
 	_refresh_logbook()
 
 
 func _on_inventory_changed() -> void:
+	_refresh_economy_summary()
+	_revalidate_confirmation()
 	_refresh_inventory()
 	_refresh_logbook()
 
 
 func _on_fish_discovered(_fish_id: StringName) -> void:
 	_refresh_logbook()
+
+
+func _on_wallet_balance_changed(
+	_new_balance: int,
+	_delta: int,
+) -> void:
+	_refresh_economy_summary()
+
+
+func _refresh_economy_summary() -> void:
+	if not is_node_ready():
+		return
+	var balance: int = _wallet.get_balance() if _wallet != null else 0
+	var held_total: int = (
+		_inventory.get_total_sale_value()
+		if _inventory != null
+		else 0
+	)
+	_wallet_balance.text = "Wallet: $%d" % balance
+	_held_value.text = "Held fish base value: $%d" % held_total
 
 
 func _refresh_inventory() -> void:
@@ -286,6 +350,9 @@ func _create_inventory_card(fish_catch: FishCatchType) -> Button:
 		fish_catch.fish.get_rarity_name(),
 		fish_catch.catch_sequence,
 	]
+	data_label.text += "\nBase value: $%d" % fish_catch.sale_value
+	if fish_catch.is_favorited:
+		data_label.text += " • ★"
 	data_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	data_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	content.add_child(data_label)
@@ -308,16 +375,198 @@ func _update_inventory_detail(fish_catch: FishCatchType) -> void:
 		_detail_texture.visible = false
 		_detail_name.text = ""
 		_detail_data.text = ""
+		_favorite_button.disabled = true
+		_favorite_button.text = "Favorite"
+		_sell_button.disabled = true
+		_sale_unavailable.text = ""
+		_sale_unavailable.visible = false
 		return
 	_detail_texture.texture = fish_catch.fish.display_texture
 	_detail_texture.visible = fish_catch.fish.display_texture != null
 	_detail_name.text = fish_catch.fish.display_name
-	_detail_data.text = "%.2f lb\n%s\nCatch #%d\n%s" % [
+	var buyer_offer: int = (
+		_default_buyer.get_offer(fish_catch.sale_value)
+		if _default_buyer != null
+		else -1
+	)
+	var buyer_offer_text: String = "Buyer unavailable"
+	if buyer_offer >= 0:
+		buyer_offer_text = "%s offer: $%d" % [
+			_default_buyer.display_name,
+			buyer_offer,
+		]
+	_detail_data.text = "%.2f lb\n%s\nBase value: $%d\n%s\nCatch #%d\n%s" % [
 		fish_catch.weight_lb,
 		fish_catch.fish.get_rarity_name(),
+		fish_catch.sale_value,
+		buyer_offer_text,
 		fish_catch.catch_sequence,
 		String(fish_catch.catch_id),
 	]
+	_favorite_button.disabled = false
+	_favorite_button.text = (
+		"Unfavorite" if fish_catch.is_favorited else "Favorite"
+	)
+	var valid_sale_value: bool = fish_catch.sale_value >= 0
+	var valid_buyer: bool = (
+		_default_buyer != null
+		and _default_buyer.is_valid()
+		and buyer_offer >= 0
+	)
+	_sell_button.disabled = (
+		fish_catch.is_favorited
+		or not valid_sale_value
+		or not valid_buyer
+	)
+	if fish_catch.is_favorited:
+		_sale_unavailable.text = "Favorited fish cannot be sold."
+	elif not valid_sale_value:
+		_sale_unavailable.text = "Invalid sale value."
+	elif not valid_buyer:
+		_sale_unavailable.text = "Buyer is unavailable."
+	else:
+		_sale_unavailable.text = ""
+	_sale_unavailable.visible = not _sale_unavailable.text.is_empty()
+
+
+func _on_favorite_pressed() -> void:
+	if _inventory == null or _selected_catch_id.is_empty():
+		return
+	var fish_catch: FishCatchType = _inventory.get_catch_by_id(
+		_selected_catch_id
+	)
+	if fish_catch == null:
+		_refresh_inventory()
+		return
+	if _inventory.set_catch_favorited(
+		fish_catch.catch_id,
+		not fish_catch.is_favorited
+	):
+		_transaction_feedback.text = (
+			"%s %s."
+			% [
+				fish_catch.fish.display_name,
+				"favorited" if fish_catch.is_favorited else "unfavorited",
+			]
+		)
+
+
+func _on_sell_pressed() -> void:
+	if (
+		_inventory == null
+		or _sale_service == null
+		or _default_buyer == null
+		or _selected_catch_id.is_empty()
+	):
+		return
+	var fish_catch: FishCatchType = _inventory.get_catch_by_id(
+		_selected_catch_id
+	)
+	if fish_catch == null:
+		_transaction_feedback.text = "Fish no longer exists."
+		_refresh_inventory()
+		return
+	if fish_catch.is_favorited:
+		_transaction_feedback.text = "Favorited fish cannot be sold."
+		return
+	if fish_catch.sale_value < 0:
+		_transaction_feedback.text = "Invalid sale value."
+		return
+	if not _default_buyer.is_valid():
+		_transaction_feedback.text = "Buyer is unavailable."
+		return
+	var buyer_offer: int = _default_buyer.get_offer(
+		fish_catch.sale_value
+	)
+	if buyer_offer < 0:
+		_transaction_feedback.text = "Invalid buyer offer."
+		return
+	_confirmation_catch_id = fish_catch.catch_id
+	_confirmation_buyer = _default_buyer
+	_confirmation_buyer_id = _default_buyer.id
+	_confirmation_message.text = (
+		"Sell this %.2f lb %s to the %s for $%d?\nBase value: $%d"
+		% [
+			fish_catch.weight_lb,
+			fish_catch.fish.display_name,
+			_get_buyer_display_group(_default_buyer),
+			buyer_offer,
+			fish_catch.sale_value,
+		]
+	)
+	_sale_confirmation.visible = true
+	_confirm_sale_button.disabled = false
+	_confirm_sale_button.grab_focus()
+
+
+func _on_confirm_sale_pressed() -> void:
+	if (
+		_sale_in_progress
+		or _sale_service == null
+		or _confirmation_catch_id.is_empty()
+		or _confirmation_buyer == null
+		or _confirmation_buyer.id != _confirmation_buyer_id
+	):
+		return
+	_sale_in_progress = true
+	var requested_catch_id: StringName = _confirmation_catch_id
+	_confirm_sale_button.disabled = true
+	var result: FishSaleResultType = _sale_service.sell(
+		requested_catch_id,
+		_confirmation_buyer
+	)
+	_close_sale_confirmation()
+	_transaction_feedback.text = result.get_message()
+	_sale_in_progress = false
+	if result.is_success() and _selected_catch_id == requested_catch_id:
+		_selected_catch_id = StringName()
+	_refresh_all()
+	_inventory_tab.grab_focus()
+
+
+func _close_sale_confirmation() -> void:
+	_confirmation_catch_id = StringName()
+	_confirmation_buyer = null
+	_confirmation_buyer_id = StringName()
+	_sale_confirmation.visible = false
+	_confirmation_message.text = ""
+	_confirm_sale_button.disabled = false
+
+
+func _revalidate_confirmation() -> void:
+	if not _sale_confirmation.visible:
+		return
+	var fish_catch: FishCatchType
+	if _inventory != null:
+		fish_catch = _inventory.get_catch_by_id(_confirmation_catch_id)
+	if fish_catch == null:
+		_close_sale_confirmation()
+		_transaction_feedback.text = "Fish no longer exists."
+	elif fish_catch.is_favorited:
+		_close_sale_confirmation()
+		_transaction_feedback.text = "Favorited fish cannot be sold."
+	elif fish_catch.sale_value < 0:
+		_close_sale_confirmation()
+		_transaction_feedback.text = "Invalid sale value."
+	elif (
+		_confirmation_buyer == null
+		or _confirmation_buyer.id != _confirmation_buyer_id
+		or not _confirmation_buyer.is_valid()
+	):
+		_close_sale_confirmation()
+		_transaction_feedback.text = "Buyer is unavailable."
+
+
+func _get_buyer_display_group(
+	buyer: FishBuyerProfileType,
+) -> String:
+	if buyer == null:
+		return "buyer"
+	if not buyer.animal_name_plural.is_empty():
+		return buyer.animal_name_plural
+	if not buyer.display_name.is_empty():
+		return buyer.display_name
+	return "buyer"
 
 
 func _refresh_logbook() -> void:

@@ -4,6 +4,8 @@ extends CharacterBody3D
 const FishInventoryType = preload("res://inventory/fish_inventory.gd")
 const CollectionLogType = preload("res://collection/collection_log.gd")
 const FishCatchType = preload("res://fish/fish_catch.gd")
+const FishSaleServiceType = preload("res://economy/fish_sale_service.gd")
+const PlayerWalletType = preload("res://economy/player_wallet.gd")
 
 class ShowcaseCameraSnapshot:
 	extends RefCounted
@@ -59,6 +61,8 @@ class ShowcaseCameraSnapshot:
 @onready var _camera: Camera3D = %Camera3D
 @onready var inventory: FishInventoryType = %Inventory
 @onready var collection_log: CollectionLogType = %CollectionLog
+@onready var wallet: PlayerWalletType = %Wallet
+@onready var fish_sale_service: FishSaleServiceType = %FishSaleService
 @onready var _cast_origin: Marker3D = %CastOrigin
 @onready var _fishing_rod: Node3D = %FishingRod
 @onready var _fishing_rod_tip: Marker3D = %FishingRodTip

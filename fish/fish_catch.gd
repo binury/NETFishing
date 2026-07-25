@@ -9,6 +9,8 @@ const FishDataType = preload("res://fish/fish_data.gd")
 @export var catch_sequence: int = 0
 @export var weight_lb: float = 0.0
 @export var display_scale: float = 1.0
+@export var sale_value: int = 0
+@export var is_favorited: bool = false
 
 
 func ensure_identity() -> void:
@@ -29,4 +31,5 @@ func is_valid() -> bool:
 		and weight_lb >= fish.get_minimum_weight()
 		and weight_lb <= fish.get_maximum_weight()
 		and display_scale > 0.0
+		and sale_value >= 0
 	)

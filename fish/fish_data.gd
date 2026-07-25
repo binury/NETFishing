@@ -25,6 +25,9 @@ enum Rarity {
 @export_range(0.01, 20.0, 0.01) var display_scale_min: float = 0.8
 @export_range(0.01, 20.0, 0.01) var display_scale_max: float = 1.2
 @export_range(0.01, 10.0, 0.01) var display_scale_curve: float = 1.0
+@export_range(0, 1000000, 1) var sell_value_min: int = 0
+@export_range(0, 1000000, 1) var sell_value_max: int = 1
+@export_range(0.01, 10.0, 0.01) var sell_value_curve: float = 1.0
 @export var display_texture: Texture2D
 
 
@@ -38,6 +41,9 @@ func is_selectable() -> bool:
 		and display_scale_min > 0.0
 		and display_scale_max >= display_scale_min
 		and display_scale_curve > 0.0
+		and sell_value_min >= 0
+		and sell_value_max >= sell_value_min
+		and sell_value_curve > 0.0
 	)
 
 
@@ -66,6 +72,29 @@ func get_display_scale_for_weight(weight_lb: float) -> float:
 	var minimum_scale: float = maxf(display_scale_min, 0.01)
 	var maximum_scale: float = maxf(display_scale_max, minimum_scale)
 	return lerpf(minimum_scale, maximum_scale, normalized_weight)
+
+
+func get_sale_value_for_weight(weight_lb: float) -> int:
+	var minimum_value: int = maxi(sell_value_min, 0)
+	var maximum_value: int = maxi(sell_value_max, minimum_value)
+	var normalized_weight: float = 0.0
+	var minimum_weight: float = get_minimum_weight()
+	var maximum_weight: float = get_maximum_weight()
+	if maximum_weight > minimum_weight:
+		normalized_weight = inverse_lerp(
+			minimum_weight,
+			maximum_weight,
+			weight_lb
+		)
+	normalized_weight = pow(
+		clampf(normalized_weight, 0.0, 1.0),
+		maxf(sell_value_curve, 0.01)
+	)
+	return clampi(
+		roundi(lerpf(minimum_value, maximum_value, normalized_weight)),
+		minimum_value,
+		maximum_value
+	)
 
 
 func get_rarity_name() -> String:

@@ -1,0 +1,12 @@
+[gd_resource type="Resource" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://economy/fish_buyer_profile.gd" id="1_profile"]
+
+[resource]
+script = ExtResource("1_profile")
+id = &"pelicans"
+display_name = "Pelicans"
+animal_name_singular = "pelican"
+animal_name_plural = "pelicans"
+payout_multiplier = 0.7
+sale_message_template = "You sold your {fish} to the pelicans for ${payout}."

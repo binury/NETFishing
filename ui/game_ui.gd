@@ -2,11 +2,14 @@ class_name GameUI
 extends CanvasLayer
 
 const CollectionLogType = preload("res://collection/collection_log.gd")
+const FishBuyerProfileType = preload("res://economy/fish_buyer_profile.gd")
+const FishSaleServiceType = preload("res://economy/fish_sale_service.gd")
 const FishPoolType = preload("res://fish/fish_pool.gd")
 const FishInventoryType = preload("res://inventory/fish_inventory.gd")
 const FishingSpotType = preload("res://fishing/fishing_spot.gd")
 const PlayerMenuType = preload("res://ui/player_menu.gd")
 const PlayerType = preload("res://player/player.gd")
+const PlayerWalletType = preload("res://economy/player_wallet.gd")
 
 @onready var _status_label: Label = %StatusLabel
 @onready var _catch_track: Control = %CatchTrack
@@ -26,6 +29,9 @@ func setup(
 	player: PlayerType,
 	inventory: FishInventoryType,
 	collection_log: CollectionLogType,
+	wallet: PlayerWalletType,
+	sale_service: FishSaleServiceType,
+	default_buyer: FishBuyerProfileType,
 	catalog: FishPoolType,
 	fishing_spot: FishingSpotType,
 ) -> void:
@@ -39,6 +45,9 @@ func setup(
 		player,
 		inventory,
 		collection_log,
+		wallet,
+		sale_service,
+		default_buyer,
 		catalog,
 		fishing_spot
 	)

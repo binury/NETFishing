@@ -76,4 +76,7 @@ func create_catch(fish: FishDataType) -> FishCatchType:
 	caught_fish.display_scale = fish.get_display_scale_for_weight(
 		caught_fish.weight_lb
 	)
+	caught_fish.sale_value = fish.get_sale_value_for_weight(
+		caught_fish.weight_lb
+	)
 	return caught_fish

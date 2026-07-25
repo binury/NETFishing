@@ -18,4 +18,7 @@ weight_max_lb = 2.0
 display_scale_min = 0.7
 display_scale_max = 1.1
 display_scale_curve = 1.0
+sell_value_min = 3
+sell_value_max = 12
+sell_value_curve = 1.0
 display_texture = ExtResource("4_texture")
