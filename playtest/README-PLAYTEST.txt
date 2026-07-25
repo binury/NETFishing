@@ -1,0 +1,96 @@
+NETFISHING
+Pre-Alpha Playtest 0.1
+Version 0.1.0-prealpha
+
+Thank you for trying this early private playtest.
+
+NETFISHING is currently a local gameplay prototype for a future
+multiplayer-first game. Networking and multiplayer are NOT implemented in
+this build.
+
+INSTALLATION
+
+1. Extract the entire ZIP into a new folder.
+2. Keep the executable and netfishing.pck together.
+3. Launch netfishing.exe on Windows or netfishing on Linux.
+
+Windows may show a warning for an unsigned application. This private build is
+not code signed. Only run a copy received from the playtest organizer.
+
+Linux users may need to allow execution:
+
+    chmod +x netfishing
+
+CONTROLS
+
+Move                         W / A / S / D or left stick
+Jump                         Space
+Sprint                       Shift
+Sneak                        Ctrl
+Slow walk                    Alt
+Rotate camera                Hold right mouse, or use right stick
+Zoom camera                  Mouse wheel
+Cast / withdraw / reel       Left mouse
+Inventory and Logbook        Tab
+Game Menu / back             Escape
+
+FISHING
+
+- Hold left mouse to select cast distance, then release to cast.
+- The target preview shows whether the selected landing point is fishable.
+- While waiting, hold left mouse to withdraw the bobber.
+- A bite starts the chase automatically.
+- Hold left mouse to advance the green catch meter.
+- At barriers, use distinct left-click presses to damage the barrier.
+- Do not let the red chase meter catch the green meter.
+- Accessibility auto-click can be enabled in Settings.
+
+FEATURES TO TRY
+
+- Movement, jumping, camera rotation, and zoom
+- Short, medium, and maximum-distance casts
+- Valid water and invalid land casts
+- Manual withdrawal before a bite
+- Barrier-and-chase catching
+- Accessibility auto-click settings
+- Catch showcase and fish size variation
+- Inventory, Logbook, favorites, and sorting
+- Pelican selling and wallet updates
+- Save, Continue, New Game, and Delete Save
+- Game Menu and persistent camera settings
+- Water-entry recovery from several shores
+
+SAVES AND SETTINGS
+
+Progression and settings are stored in Godot's per-user application-data
+directory, outside this extracted game folder. Delete Save removes progression
+but preserves settings.
+
+Windows:
+    %APPDATA%\Godot\app_userdata\NETFISHING\
+
+Linux:
+    ~/.local/share/godot/app_userdata/NETFISHING/
+
+This is an early save format. Keep expectations modest and report any failure
+to Continue, save, sell, favorite, or retain an individual fish.
+
+FEEDBACK
+
+Please include:
+
+- Your operating system and whether you used mouse/keyboard or controller
+- What you were doing when a problem occurred
+- Whether the issue repeated after restarting
+- Screenshots or a short recording when useful
+- How movement, casting, chase pressure, barrier clicking, menus, and camera
+  controls felt
+
+KNOWN PRE-ALPHA LIMITATIONS
+
+- Multiplayer/networking is not implemented.
+- Fish and character art are temporary.
+- UI and balance values are placeholders.
+- There is no audio.
+- There is no installer or automatic updater.
+- Windows builds are unsigned.

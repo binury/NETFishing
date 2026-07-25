@@ -60,6 +60,13 @@ layout_mode = 2
 text = "A cozy social fishing game"
 horizontal_alignment = 1
 
+[node name="PlaytestLabel" type="Label" parent="Center/MainPanel/Margin/Content"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.682, 0.733, 0.761, 1)
+theme_override_font_sizes/font_size = 13
+text = "Pre-Alpha Playtest 0.1"
+horizontal_alignment = 1
+
 [node name="Spacer" type="Control" parent="Center/MainPanel/Margin/Content"]
 custom_minimum_size = Vector2(0, 12)
 layout_mode = 2

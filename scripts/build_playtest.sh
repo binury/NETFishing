@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+readonly SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+readonly PROJECT_ROOT="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
+readonly BUILD_ROOT="${PROJECT_ROOT}/builds/playtest-0.1"
+readonly WINDOWS_DIR="${BUILD_ROOT}/windows-x86_64"
+readonly LINUX_DIR="${BUILD_ROOT}/linux-x86_64"
+readonly README_SOURCE="${PROJECT_ROOT}/playtest/README-PLAYTEST.txt"
+readonly WINDOWS_ZIP="${BUILD_ROOT}/netfishing-prealpha-0.1-windows-x86_64.zip"
+readonly LINUX_ZIP="${BUILD_ROOT}/netfishing-prealpha-0.1-linux-x86_64.zip"
+readonly GODOT_BIN="${GODOT_BIN:-godot}"
+
+if [[ ! -f "${PROJECT_ROOT}/project.godot" ]]; then
+	echo "error: project.godot was not found" >&2
+	exit 1
+fi
+
+if [[ ! -f "${README_SOURCE}" ]]; then
+	echo "error: playtest README was not found" >&2
+	exit 1
+fi
+
+rm -rf -- "${BUILD_ROOT}"
+mkdir -p -- "${WINDOWS_DIR}" "${LINUX_DIR}"
+
+"${GODOT_BIN}" \
+	--headless \
+	--path "${PROJECT_ROOT}" \
+	--export-release "Windows Desktop" \
+	"${WINDOWS_DIR}/netfishing.exe"
+
+"${GODOT_BIN}" \
+	--headless \
+	--path "${PROJECT_ROOT}" \
+	--export-release "Linux Desktop" \
+	"${LINUX_DIR}/netfishing"
+
+for required_file in \
+	"${WINDOWS_DIR}/netfishing.exe" \
+	"${WINDOWS_DIR}/netfishing.pck" \
+	"${LINUX_DIR}/netfishing" \
+	"${LINUX_DIR}/netfishing.pck"; do
+	if [[ ! -s "${required_file}" ]]; then
+		echo "error: expected export output is missing: ${required_file}" >&2
+		exit 1
+	fi
+done
+
+chmod +x -- "${LINUX_DIR}/netfishing"
+cp -- "${README_SOURCE}" "${WINDOWS_DIR}/README-PLAYTEST.txt"
+cp -- "${README_SOURCE}" "${LINUX_DIR}/README-PLAYTEST.txt"
+
+(
+	cd -- "${BUILD_ROOT}"
+	zip -X -q -r "$(basename -- "${WINDOWS_ZIP}")" windows-x86_64
+	zip -X -q -r "$(basename -- "${LINUX_ZIP}")" linux-x86_64
+	sha256sum \
+		"$(basename -- "${WINDOWS_ZIP}")" \
+		"$(basename -- "${LINUX_ZIP}")" \
+		> SHA256SUMS
+)
+
+echo "Playtest packages created in ${BUILD_ROOT}"
