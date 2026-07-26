@@ -1,0 +1,83 @@
+[gd_scene load_steps=10 format=3]
+
+[ext_resource type="Script" path="res://world/fishing_shop_interaction.gd" id="1_shop"]
+
+[sub_resource type="BoxMesh" id="CounterMesh"]
+size = Vector3(4.2, 1.25, 1.8)
+
+[sub_resource type="BoxMesh" id="RoofMesh"]
+size = Vector3(5.2, 0.35, 3.2)
+
+[sub_resource type="BoxMesh" id="PostMesh"]
+size = Vector3(0.28, 3.2, 0.28)
+
+[sub_resource type="BoxMesh" id="BackMesh"]
+size = Vector3(5, 2.8, 0.25)
+
+[sub_resource type="StandardMaterial3D" id="PrimaryMaterial"]
+albedo_color = Color(0.12, 0.68, 0.62, 1)
+
+[sub_resource type="StandardMaterial3D" id="AccentMaterial"]
+albedo_color = Color(1, 0.68, 0.18, 1)
+
+[sub_resource type="StandardMaterial3D" id="BackMaterial"]
+albedo_color = Color(0.13, 0.34, 0.38, 1)
+
+[sub_resource type="SphereShape3D" id="InteractionShape"]
+radius = 3.0
+
+[sub_resource type="BoxShape3D" id="CounterShape"]
+size = Vector3(4.2, 1.25, 1.8)
+
+[node name="FishingShopWorld" type="Node3D"]
+
+[node name="Visuals" type="Node3D" parent="."]
+
+[node name="Counter" type="MeshInstance3D" parent="Visuals"]
+position = Vector3(0, 0.625, 0)
+mesh = SubResource("CounterMesh")
+material_override = SubResource("PrimaryMaterial")
+
+[node name="Back" type="MeshInstance3D" parent="Visuals"]
+position = Vector3(0, 1.4, 1.25)
+mesh = SubResource("BackMesh")
+material_override = SubResource("BackMaterial")
+
+[node name="Roof" type="MeshInstance3D" parent="Visuals"]
+position = Vector3(0, 3.15, 0.35)
+mesh = SubResource("RoofMesh")
+material_override = SubResource("AccentMaterial")
+
+[node name="WestPost" type="MeshInstance3D" parent="Visuals"]
+position = Vector3(-2.15, 1.6, -0.8)
+mesh = SubResource("PostMesh")
+material_override = SubResource("PrimaryMaterial")
+
+[node name="EastPost" type="MeshInstance3D" parent="Visuals"]
+position = Vector3(2.15, 1.6, -0.8)
+mesh = SubResource("PostMesh")
+material_override = SubResource("PrimaryMaterial")
+
+[node name="ShopName" type="Label3D" parent="Visuals"]
+position = Vector3(0, 3.7, 0)
+text = "Fishing Shop"
+font_size = 42
+outline_size = 9
+billboard = 1
+no_depth_test = true
+
+[node name="StaticCollision" type="StaticBody3D" parent="."]
+
+[node name="CounterShape" type="CollisionShape3D" parent="StaticCollision"]
+position = Vector3(0, 0.625, 0)
+shape = SubResource("CounterShape")
+
+[node name="FishingShopInteraction" type="Area3D" parent="."]
+unique_name_in_owner = true
+position = Vector3(0, 1, -0.3)
+collision_layer = 0
+collision_mask = 2
+script = ExtResource("1_shop")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="FishingShopInteraction"]
+shape = SubResource("InteractionShape")

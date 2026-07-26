@@ -1,0 +1,50 @@
+[gd_scene load_steps=5 format=3]
+
+[sub_resource type="BoxMesh" id="PerchMesh"]
+size = Vector3(5, 0.7, 2.2)
+
+[sub_resource type="CylinderMesh" id="PostMesh"]
+top_radius = 0.18
+bottom_radius = 0.24
+height = 2.5
+
+[sub_resource type="StandardMaterial3D" id="WoodMaterial"]
+albedo_color = Color(0.46, 0.28, 0.13, 1)
+
+[sub_resource type="StandardMaterial3D" id="SignMaterial"]
+albedo_color = Color(0.95, 0.82, 0.42, 1)
+
+[node name="PelicanCoolerPerch" type="Node3D"]
+
+[node name="Visuals" type="Node3D" parent="."]
+
+[node name="Perch" type="MeshInstance3D" parent="Visuals"]
+position = Vector3(0, 1.65, 0)
+mesh = SubResource("PerchMesh")
+material_override = SubResource("WoodMaterial")
+
+[node name="WestPost" type="MeshInstance3D" parent="Visuals"]
+position = Vector3(-1.8, 0.7, 0)
+mesh = SubResource("PostMesh")
+material_override = SubResource("WoodMaterial")
+
+[node name="EastPost" type="MeshInstance3D" parent="Visuals"]
+position = Vector3(1.8, 0.7, 0)
+mesh = SubResource("PostMesh")
+material_override = SubResource("WoodMaterial")
+
+[node name="Sign" type="Label3D" parent="Visuals"]
+position = Vector3(0, 2.55, 0)
+text = "Sell to Pelicans\nfrom the Cooler"
+font_size = 30
+outline_size = 8
+billboard = 1
+no_depth_test = true
+
+[node name="ConvenienceLabel" type="Label3D" parent="Visuals"]
+position = Vector3(0, 1.65, -1.15)
+text = "Available anywhere • 0.25x"
+font_size = 20
+outline_size = 6
+billboard = 1
+no_depth_test = true

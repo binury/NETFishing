@@ -308,6 +308,24 @@ func set_water_recovery_active(active: bool) -> void:
 	velocity = Vector3.ZERO
 
 
+func prepare_for_water_recovery() -> void:
+	_restore_gameplay_presentation_for_recovery()
+
+
+func restore_gameplay_orientation_after_recovery() -> void:
+	_restore_gameplay_presentation_for_recovery()
+
+
+func _restore_gameplay_presentation_for_recovery() -> void:
+	# Recovery owns presentation teardown. Ending immediately kills every
+	# showcase tween, invalidates its callbacks, and restores the gameplay yaw.
+	end_catch_showcase(Callable(), true)
+	var gameplay_rotation: Vector3 = _visuals.rotation
+	gameplay_rotation.x = 0.0
+	gameplay_rotation.z = 0.0
+	_visuals.rotation = gameplay_rotation
+
+
 func get_body_center_position() -> Vector3:
 	return global_position + Vector3.UP * body_center_height
 

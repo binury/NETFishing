@@ -100,7 +100,7 @@ func _ready() -> void:
 		_fishing_spot,
 		_game_ui,
 		_game_ui.get_screen_fade(),
-		_test_world.get_player_water_trigger(),
+		_test_world.get_player_water_triggers(),
 		_test_world.get_safe_respawn_points()
 	)
 	if not _settings_manager.settings_changed.is_connected(

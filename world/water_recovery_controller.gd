@@ -21,11 +21,12 @@ var _player: Player
 var _fishing_spot: FishingSpot
 var _game_ui: GameUI
 var _screen_fade: ScreenFade
-var _water_trigger: PlayerWaterTrigger
+var _water_triggers: Array[PlayerWaterTrigger] = []
 var _safe_points: Array[SafeRespawnPoint] = []
 var _initial_spawn_transform: Transform3D
 var _entry_position: Vector3
 var _bob_base_position: Vector3
+var _recovery_root_basis: Basis
 var _bob_elapsed: float = 0.0
 var _prior_movement_enabled: bool = true
 var _prior_camera_input_enabled: bool = true
@@ -38,20 +39,26 @@ func setup(
 	fishing_spot: FishingSpot,
 	game_ui: GameUI,
 	screen_fade: ScreenFade,
-	water_trigger: PlayerWaterTrigger,
+	water_triggers: Array[PlayerWaterTrigger],
 	safe_points: Array[SafeRespawnPoint],
 ) -> void:
 	_player = player
 	_fishing_spot = fishing_spot
 	_game_ui = game_ui
 	_screen_fade = screen_fade
-	_water_trigger = water_trigger
+	_water_triggers = water_triggers
 	_safe_points = safe_points
 	_initial_spawn_transform = player.global_transform
-	if not _water_trigger.recovery_requested.is_connected(
-		_on_recovery_requested
-	):
-		_water_trigger.recovery_requested.connect(_on_recovery_requested)
+	for water_trigger: PlayerWaterTrigger in _water_triggers:
+		if (
+			water_trigger != null
+			and not water_trigger.recovery_requested.is_connected(
+				_on_recovery_requested
+			)
+		):
+			water_trigger.recovery_requested.connect(
+				_on_recovery_requested
+			)
 	if not _screen_fade.transition_completed.is_connected(
 		_on_fade_transition_completed
 	):
@@ -84,6 +91,7 @@ func _exit_tree() -> void:
 	if _screen_fade != null and is_instance_valid(_screen_fade):
 		_screen_fade.reset_immediately()
 	if _player != null and is_instance_valid(_player):
+		_player.restore_gameplay_orientation_after_recovery()
 		_player.set_water_recovery_active(false)
 		_player.set_movement_enabled(_prior_movement_enabled)
 		_player.set_camera_input_enabled(_prior_camera_input_enabled)
@@ -105,7 +113,9 @@ func _on_recovery_requested(
 	recovery_starting.emit()
 	_generation += 1
 	_entry_position = _player.global_position
+	_recovery_root_basis = _player.global_basis
 	_fishing_spot.begin_water_recovery()
+	_player.prepare_for_water_recovery()
 	_prior_movement_enabled = _player.is_movement_enabled()
 	_prior_camera_input_enabled = _player.is_camera_input_enabled()
 	_player.set_movement_enabled(false)
@@ -137,7 +147,7 @@ func _on_fade_transition_completed(
 
 
 func _respawn_player() -> void:
-	var target_transform: Transform3D = _initial_spawn_transform
+	var target_position: Vector3 = _initial_spawn_transform.origin
 	var nearest_distance: float = INF
 	for point: SafeRespawnPoint in _safe_points:
 		if point == null or not is_instance_valid(point) or not point.enabled:
@@ -147,13 +157,18 @@ func _respawn_player() -> void:
 		)
 		if distance < nearest_distance:
 			nearest_distance = distance
-			target_transform = point.global_transform
-	target_transform.origin.y += respawn_height_offset
-	_player.global_transform = target_transform
+			target_position = point.global_position
+	target_position.y += respawn_height_offset
+	var respawn_transform: Transform3D = _player.global_transform
+	respawn_transform.basis = _recovery_root_basis
+	respawn_transform.origin = target_position
+	_player.global_transform = respawn_transform
+	_player.restore_gameplay_orientation_after_recovery()
 	_player.velocity = Vector3.ZERO
 
 
 func _finish_recovery() -> void:
+	_player.restore_gameplay_orientation_after_recovery()
 	_player.set_water_recovery_active(false)
 	_player.set_movement_enabled(_prior_movement_enabled)
 	_player.set_camera_input_enabled(_prior_camera_input_enabled)

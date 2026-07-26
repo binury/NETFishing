@@ -26,7 +26,7 @@ item_catalog = ExtResource("11_items")
 
 [node name="Player" parent="Players" instance=ExtResource("2_player")]
 unique_name_in_owner = true
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 5)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 16)
 
 [node name="FishingSpot" parent="." instance=ExtResource("4_spot")]
 unique_name_in_owner = true
