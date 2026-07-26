@@ -1,4 +1,4 @@
-[gd_scene load_steps=11 format=3]
+[gd_scene load_steps=12 format=3]
 
 [ext_resource type="PackedScene" path="res://world/test_world.tscn" id="1_world"]
 [ext_resource type="PackedScene" path="res://player/player.tscn" id="2_player"]
@@ -10,11 +10,13 @@
 [ext_resource type="Script" path="res://world/water_recovery_controller.gd" id="8_recovery"]
 [ext_resource type="Script" path="res://save/player_save_manager.gd" id="9_save"]
 [ext_resource type="Script" path="res://settings/player_settings_manager.gd" id="10_settings"]
+[ext_resource type="Resource" path="res://items/catalog/item_catalog.tres" id="11_items"]
 
 [node name="Main" type="Node3D"]
 script = ExtResource("3_main")
 fish_catalog = ExtResource("6_pool")
 pelican_buyer_profile = ExtResource("7_pelicans")
+item_catalog = ExtResource("11_items")
 
 [node name="TestWorld" parent="." instance=ExtResource("1_world")]
 

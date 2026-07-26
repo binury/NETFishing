@@ -6,6 +6,8 @@ const CollectionLogType = preload("res://collection/collection_log.gd")
 const FishCatchType = preload("res://fish/fish_catch.gd")
 const FishSaleServiceType = preload("res://economy/fish_sale_service.gd")
 const PlayerWalletType = preload("res://economy/player_wallet.gd")
+const PlayerBagType = preload("res://inventory/player_bag.gd")
+const PlayerHotbarType = preload("res://inventory/player_hotbar.gd")
 
 class ShowcaseCameraSnapshot:
 	extends RefCounted
@@ -67,6 +69,8 @@ class ShowcaseCameraSnapshot:
 @onready var collection_log: CollectionLogType = %CollectionLog
 @onready var wallet: PlayerWalletType = %Wallet
 @onready var fish_sale_service: FishSaleServiceType = %FishSaleService
+@onready var bag: PlayerBagType = %Bag
+@onready var hotbar: PlayerHotbarType = %Hotbar
 @onready var _cast_origin: Marker3D = %CastOrigin
 @onready var _fishing_rod: Node3D = %FishingRod
 @onready var _fishing_rod_tip: Marker3D = %FishingRodTip
@@ -198,10 +202,18 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		return
 
-	if event.is_action_pressed("camera_zoom_in"):
+	if (
+		event is InputEventMouseButton
+		and event.shift_pressed
+		and event.is_action_pressed("camera_zoom_in")
+	):
 		_set_target_zoom(_target_zoom - zoom_step)
 		get_viewport().set_input_as_handled()
-	elif event.is_action_pressed("camera_zoom_out"):
+	elif (
+		event is InputEventMouseButton
+		and event.shift_pressed
+		and event.is_action_pressed("camera_zoom_out")
+	):
 		_set_target_zoom(_target_zoom + zoom_step)
 		get_viewport().set_input_as_handled()
 
@@ -296,6 +308,13 @@ func get_fishing_rod_tip() -> Marker3D:
 
 func get_fishing_rod() -> Node3D:
 	return _fishing_rod
+
+
+func set_active_item_is_rod(active_is_rod: bool) -> void:
+	if _showcase_rod_state_stored:
+		_showcase_rod_visibility = active_is_rod
+	else:
+		_fishing_rod.visible = active_is_rod
 
 
 func get_cast_origin_position() -> Vector3:

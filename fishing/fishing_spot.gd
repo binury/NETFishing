@@ -9,6 +9,10 @@ const CatchControllerType = preload("res://fishing/catch_controller.gd")
 const FishingContextType = preload("res://fishing/fishing_context.gd")
 const FishingPresentationType = preload("res://fishing/fishing_presentation.gd")
 const FishInventoryType = preload("res://inventory/fish_inventory.gd")
+const ItemCatalogType = preload("res://items/item_catalog.gd")
+const ItemDataType = preload("res://items/item_data.gd")
+const PlayerBagType = preload("res://inventory/player_bag.gd")
+const PlayerHotbarType = preload("res://inventory/player_hotbar.gd")
 const PlayerType = preload("res://player/player.gd")
 const FishableWaterRegionType = preload(
 	"res://world/fishable_water_region.gd"
@@ -31,6 +35,7 @@ signal showcase_changed(
 	visible: bool,
 )
 signal bite_activated
+signal ready_for_equipment_refresh
 
 enum FishingState {
 	READY,
@@ -84,6 +89,9 @@ var _local_menu_input_owners: Dictionary[StringName, bool] = {}
 var _local_player: PlayerType
 var _local_inventory: FishInventoryType
 var _local_collection_log: CollectionLogType
+var _local_bag: PlayerBagType
+var _local_hotbar: PlayerHotbarType
+var _item_catalog: ItemCatalogType
 var _active_player: PlayerType
 var _state_time_remaining: float = 0.0
 var _cast_charge: float = 0.0
@@ -121,10 +129,16 @@ func setup(
 	local_player: PlayerType,
 	local_inventory: FishInventoryType,
 	local_collection_log: CollectionLogType,
+	local_bag: PlayerBagType,
+	local_hotbar: PlayerHotbarType,
+	item_catalog: ItemCatalogType,
 ) -> void:
 	_local_player = local_player
 	_local_inventory = local_inventory
 	_local_collection_log = local_collection_log
+	_local_bag = local_bag
+	_local_hotbar = local_hotbar
+	_item_catalog = item_catalog
 
 
 func can_open_player_menu() -> bool:
@@ -148,6 +162,15 @@ func can_open_system_menu() -> bool:
 			FishingState.READY,
 			FishingState.WAITING_FOR_BITE,
 		]
+	)
+
+
+func can_change_hotbar_selection() -> bool:
+	return (
+		_gameplay_input_enabled
+		and not _external_input_blocked
+		and _local_menu_input_owners.is_empty()
+		and state == FishingState.READY
 	)
 
 
@@ -301,6 +324,10 @@ func _unhandled_input(event: InputEvent) -> void:
 			FishingState.READY:
 				if not _new_cast_press_armed:
 					return
+				if not has_active_fishing_rod():
+					status_changed.emit("Select a fishing rod to cast.")
+					get_viewport().set_input_as_handled()
+					return
 				_begin_aiming(_local_player)
 			FishingState.WAITING_FOR_BITE:
 				_withdrawal_input_held = true
@@ -352,6 +379,35 @@ func _begin_aiming(player: PlayerType) -> void:
 		preview_position,
 		target_is_fishable
 	)
+
+
+func has_active_fishing_rod() -> bool:
+	if (
+		_local_bag == null
+		or _local_hotbar == null
+		or _item_catalog == null
+	):
+		return false
+	var item_id: StringName = _local_hotbar.get_selected_item_id()
+	if item_id.is_empty() or not _local_bag.owns_item(item_id):
+		return false
+	var item: ItemDataType = _item_catalog.get_item_by_id(item_id)
+	return (
+		item != null
+		and item.is_valid()
+		and item.category == ItemDataType.Category.ROD
+		and item.usable
+		and item.equippable
+	)
+
+
+func is_fighting() -> bool:
+	return state == FishingState.FIGHTING
+
+
+func refresh_active_item_status() -> void:
+	if state == FishingState.READY and has_active_fishing_rod():
+		status_changed.emit("")
 
 
 func _update_cast_charge(delta: float) -> void:
@@ -581,20 +637,6 @@ func _on_catch_encounter_updated(
 		_bobber_water_position,
 		Input.is_action_pressed("fish_primary")
 	)
-	if (
-		active_barrier_index >= 0
-		and active_barrier_index < barrier_health.size()
-		and active_barrier_index < barrier_max_health.size()
-	):
-		status_changed.emit(
-			"Barrier: %d / %d"
-			% [
-				barrier_health[active_barrier_index],
-				barrier_max_health[active_barrier_index],
-			]
-		)
-	else:
-		status_changed.emit("Hold left click to reel")
 
 
 func _on_catch_completed() -> void:
@@ -731,6 +773,7 @@ func _cleanup_attempt(
 		state = FishingState.READY
 		_cooldown_status = ""
 		status_changed.emit("")
+		ready_for_equipment_refresh.emit()
 	else:
 		state = FishingState.COOLDOWN
 		_state_time_remaining = cooldown_duration
@@ -743,6 +786,7 @@ func _return_to_ready() -> void:
 	_state_time_remaining = 0.0
 	_cooldown_status = ""
 	status_changed.emit("")
+	ready_for_equipment_refresh.emit()
 
 
 func _cancel_attempt() -> void:

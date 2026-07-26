@@ -10,6 +10,10 @@ const FishingSpotType = preload("res://fishing/fishing_spot.gd")
 const PlayerMenuType = preload("res://ui/player_menu.gd")
 const PlayerType = preload("res://player/player.gd")
 const PlayerWalletType = preload("res://economy/player_wallet.gd")
+const ItemCatalogType = preload("res://items/item_catalog.gd")
+const PlayerBagType = preload("res://inventory/player_bag.gd")
+const PlayerHotbarType = preload("res://inventory/player_hotbar.gd")
+const HotbarUIType = preload("res://ui/hotbar.gd")
 const TitleScreenType = preload("res://ui/title_screen.gd")
 const PauseMenuType = preload("res://ui/pause_menu.gd")
 
@@ -26,10 +30,12 @@ const PauseMenuType = preload("res://ui/pause_menu.gd")
 @onready var _screen_fade: ScreenFade = %ScreenFade
 @onready var _title_screen: TitleScreenType = %TitleScreen
 @onready var _pause_menu: PauseMenuType = %PauseMenu
+@onready var _hotbar_ui: HotbarUIType = %Hotbar
 
 var _showcase_active: bool = false
 var _player_menu_open: bool = false
 var _gameplay_ui_enabled: bool = false
+var _fishing_spot: FishingSpotType
 
 
 func setup(
@@ -41,7 +47,11 @@ func setup(
 	default_buyer: FishBuyerProfileType,
 	catalog: FishPoolType,
 	fishing_spot: FishingSpotType,
+	bag: PlayerBagType,
+	hotbar: PlayerHotbarType,
+	item_catalog: ItemCatalogType,
 ) -> void:
+	_fishing_spot = fishing_spot
 	fishing_spot.status_changed.connect(_on_fishing_status_changed)
 	fishing_spot.catch_display_changed.connect(_on_catch_display_changed)
 	fishing_spot.showcase_changed.connect(_on_showcase_changed)
@@ -56,8 +66,12 @@ func setup(
 		sale_service,
 		default_buyer,
 		catalog,
-		fishing_spot
+		fishing_spot,
+		bag,
+		hotbar,
+		item_catalog
 	)
+	_hotbar_ui.setup(hotbar, bag, item_catalog, fishing_spot)
 
 
 func close_player_menu() -> void:
@@ -89,8 +103,20 @@ func set_gameplay_ui_enabled(enabled: bool) -> void:
 	if not enabled:
 		close_player_menu_for_session_end()
 		_fishing_panel.visible = false
+		_hotbar_ui.hide()
+		_hotbar_ui.set_gameplay_input_enabled(false)
 	else:
+		_hotbar_ui.show()
+		_hotbar_ui.set_gameplay_input_enabled(true)
 		_refresh_fishing_panel_visibility()
+
+
+func set_system_menu_open(is_open: bool) -> void:
+	_hotbar_ui.visible = _gameplay_ui_enabled and not is_open
+	_hotbar_ui.set_gameplay_input_enabled(
+		_gameplay_ui_enabled and not is_open and not _player_menu_open
+	)
+	_hotbar_ui.set_drag_enabled(_player_menu_open and not is_open)
 
 
 func get_screen_fade() -> ScreenFade:
@@ -103,6 +129,8 @@ func get_title_screen() -> TitleScreenType:
 
 func _on_fishing_status_changed(status: String) -> void:
 	if _showcase_active:
+		return
+	if _fishing_spot != null and _fishing_spot.is_fighting():
 		return
 	_set_fishing_status(status)
 
@@ -125,7 +153,6 @@ func _refresh_fishing_panel_visibility() -> void:
 	_fishing_panel.visible = (
 		_gameplay_ui_enabled
 		and has_content
-		and not _player_menu_open
 	)
 
 
@@ -138,17 +165,26 @@ func _on_catch_display_changed(
 	active_barrier_index: int,
 	visible: bool,
 ) -> void:
+	var encounter_visible: bool = (
+		visible
+		and _fishing_spot != null
+		and _fishing_spot.is_fighting()
+	)
+	_hotbar_ui.set_item_name_suppressed(encounter_visible)
 	_green_catch_progress.value = progress * 100.0
 	_red_chase_progress.value = maxf(chase_progress, 0.0) * 100.0
-	_catch_track.visible = visible
-	_barrier_summary.visible = visible
-	if not visible:
+	_catch_track.visible = encounter_visible
+	_barrier_summary.visible = encounter_visible
+	_barrier_health.visible = encounter_visible
+	if not encounter_visible:
 		_barrier_health.visible = false
 		_clear_barrier_markers()
 		_barrier_summary.text = ""
 		_barrier_health.text = ""
 		_refresh_fishing_panel_visibility()
 		return
+	_status_label.text = ""
+	_status_label.visible = false
 
 	_update_barrier_markers(
 		barrier_positions,
@@ -183,7 +219,7 @@ func _on_catch_display_changed(
 			]
 		)
 	else:
-		_barrier_health.text = ""
+		_barrier_health.text = "Hold left click to reel"
 
 	var chase_gap: float = progress - chase_progress
 	if chase_gap <= 0.05:
@@ -194,10 +230,6 @@ func _on_catch_display_changed(
 				"\nRed is closing in!",
 			]
 		).strip_edges()
-	_barrier_health.visible = (
-		visible
-		and (active_barrier_index >= 0 or chase_gap <= 0.05)
-	)
 	_refresh_fishing_panel_visibility()
 
 
@@ -262,4 +294,8 @@ func _on_showcase_changed(
 
 func _on_player_menu_visibility_changed(is_open: bool) -> void:
 	_player_menu_open = is_open
+	_hotbar_ui.set_gameplay_input_enabled(
+		_gameplay_ui_enabled and not is_open
+	)
+	_hotbar_ui.set_drag_enabled(is_open)
 	_refresh_fishing_panel_visibility()

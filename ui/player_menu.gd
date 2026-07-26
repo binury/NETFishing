@@ -13,11 +13,18 @@ const FishPoolType = preload("res://fish/fish_pool.gd")
 const FishingSpotType = preload("res://fishing/fishing_spot.gd")
 const PlayerType = preload("res://player/player.gd")
 const PlayerWalletType = preload("res://economy/player_wallet.gd")
+const ItemCatalogType = preload("res://items/item_catalog.gd")
+const ItemDataType = preload("res://items/item_data.gd")
+const OwnedItemType = preload("res://items/owned_item.gd")
+const PlayerBagType = preload("res://inventory/player_bag.gd")
+const PlayerHotbarType = preload("res://inventory/player_hotbar.gd")
+const ItemDragSourceType = preload("res://ui/item_drag_source.gd")
 
 signal menu_visibility_changed(is_open: bool)
 
 enum Section {
-	INVENTORY,
+	COOLER,
+	BAG,
 	LOGBOOK,
 }
 
@@ -37,11 +44,18 @@ enum CloseReason {
 }
 
 @onready var _inventory_tab: Button = %InventoryTab
+@onready var _bag_tab: Button = %BagTab
 @onready var _logbook_tab: Button = %LogbookTab
 @onready var _close_button: Button = %CloseButton
 @onready var _wallet_balance: Label = %WalletBalance
 @onready var _inventory_section: Control = %InventorySection
+@onready var _bag_section: Control = %BagSection
 @onready var _logbook_section: Control = %LogbookSection
+@onready var _bag_empty: Label = %BagEmpty
+@onready var _bag_grid: GridContainer = %BagGrid
+@onready var _bag_detail_texture: TextureRect = %BagDetailTexture
+@onready var _bag_detail_name: Label = %BagDetailName
+@onready var _bag_detail_data: Label = %BagDetailData
 @onready var _sort_option: OptionButton = %SortOption
 @onready var _sort_direction: Button = %SortDirection
 @onready var _held_value: Label = %HeldValue
@@ -69,10 +83,14 @@ var _sale_service: FishSaleServiceType
 var _default_buyer: FishBuyerProfileType
 var _catalog: FishPoolType
 var _fishing_spot: FishingSpotType
-var _current_section: Section = Section.INVENTORY
+var _bag: PlayerBagType
+var _hotbar: PlayerHotbarType
+var _item_catalog: ItemCatalogType
+var _current_section: Section = Section.COOLER
 var _sort_mode: SortMode = SortMode.CATCH_ORDER
 var _sort_descending: bool = true
 var _selected_catch_id: StringName
+var _selected_bag_item_id: StringName
 var _prior_movement_enabled: bool = true
 var _prior_camera_input_enabled: bool = true
 var _prior_mouse_mode: Input.MouseMode = Input.MOUSE_MODE_VISIBLE
@@ -87,8 +105,9 @@ var _sale_in_progress: bool = false
 
 func _ready() -> void:
 	_inventory_tab.pressed.connect(
-		_show_section.bind(Section.INVENTORY)
+		_show_section.bind(Section.COOLER)
 	)
+	_bag_tab.pressed.connect(_show_section.bind(Section.BAG))
 	_logbook_tab.pressed.connect(
 		_show_section.bind(Section.LOGBOOK)
 	)
@@ -116,6 +135,9 @@ func setup(
 	default_buyer: FishBuyerProfileType,
 	catalog: FishPoolType,
 	fishing_spot: FishingSpotType,
+	bag: PlayerBagType,
+	hotbar: PlayerHotbarType,
+	item_catalog: ItemCatalogType,
 ) -> void:
 	_player = player
 	_inventory = inventory
@@ -125,6 +147,9 @@ func setup(
 	_default_buyer = default_buyer
 	_catalog = catalog
 	_fishing_spot = fishing_spot
+	_bag = bag
+	_hotbar = hotbar
+	_item_catalog = item_catalog
 	if not _inventory.catches_changed.is_connected(_on_inventory_changed):
 		_inventory.catches_changed.connect(_on_inventory_changed)
 	if not _collection_log.fish_discovered.is_connected(_on_fish_discovered):
@@ -133,6 +158,8 @@ func setup(
 		_wallet.balance_changed.connect(_on_wallet_balance_changed)
 	if not _fishing_spot.bite_activated.is_connected(_on_bite_activated):
 		_fishing_spot.bite_activated.connect(_on_bite_activated)
+	if not _bag.contents_changed.is_connected(_on_bag_changed):
+		_bag.contents_changed.connect(_on_bag_changed)
 	_refresh_all()
 
 
@@ -194,6 +221,7 @@ func close_menu(
 ) -> void:
 	if not visible:
 		return
+	get_viewport().gui_cancel_drag()
 	_close_sale_confirmation()
 	var closing_generation: int = _menu_generation
 	visible = false
@@ -268,17 +296,21 @@ func _show_section(section: Section) -> void:
 	_current_section = section
 	if not is_node_ready():
 		return
-	_inventory_section.visible = section == Section.INVENTORY
+	_inventory_section.visible = section == Section.COOLER
+	_bag_section.visible = section == Section.BAG
 	_logbook_section.visible = section == Section.LOGBOOK
-	_inventory_tab.button_pressed = section == Section.INVENTORY
+	_inventory_tab.button_pressed = section == Section.COOLER
+	_bag_tab.button_pressed = section == Section.BAG
 	_logbook_tab.button_pressed = section == Section.LOGBOOK
 	if visible:
 		_focus_current_section()
 
 
 func _focus_current_section() -> void:
-	if _current_section == Section.INVENTORY:
+	if _current_section == Section.COOLER:
 		_inventory_tab.grab_focus()
+	elif _current_section == Section.BAG:
+		_bag_tab.grab_focus()
 	else:
 		_logbook_tab.grab_focus()
 
@@ -307,7 +339,97 @@ func _update_sort_direction_text() -> void:
 func _refresh_all() -> void:
 	_refresh_economy_summary()
 	_refresh_inventory()
+	_refresh_bag()
 	_refresh_logbook()
+
+
+func _on_bag_changed() -> void:
+	_refresh_bag()
+
+
+func _refresh_bag() -> void:
+	if not is_node_ready():
+		return
+	_clear_container(_bag_grid)
+	var owned_items: Array[OwnedItemType] = (
+		_bag.get_all_items() if _bag != null else []
+	)
+	owned_items.sort_custom(_sort_bag_items)
+	_bag_empty.visible = owned_items.is_empty()
+	if (
+		not _selected_bag_item_id.is_empty()
+		and (_bag == null or not _bag.owns_item(_selected_bag_item_id))
+	):
+		_selected_bag_item_id = StringName()
+	for owned: OwnedItemType in owned_items:
+		var item: ItemDataType = _item_catalog.get_item_by_id(owned.item_id)
+		if item == null:
+			continue
+		var card := ItemDragSourceType.new()
+		card.custom_minimum_size = Vector2(140, 88)
+		card.expand_icon = true
+		card.icon = item.icon
+		card.text = "%s%s\n%s" % [
+			item.display_name,
+			" ×%d" % owned.quantity if owned.quantity > 1 else "",
+			item.get_category_name(),
+		]
+		card.tooltip_text = (
+			"Drag to a hotbar slot."
+			if item.hotbar_allowed
+			else "This item cannot be assigned to the hotbar."
+		)
+		card.setup(item.item_id, item.display_name, item.icon)
+		card.pressed.connect(_select_bag_item.bind(item.item_id))
+		_bag_grid.add_child(card)
+	_update_bag_detail()
+
+
+func _sort_bag_items(a: OwnedItemType, b: OwnedItemType) -> bool:
+	var item_a: ItemDataType = _item_catalog.get_item_by_id(a.item_id)
+	var item_b: ItemDataType = _item_catalog.get_item_by_id(b.item_id)
+	if item_a == null:
+		return false
+	if item_b == null:
+		return true
+	if item_a.category != item_b.category:
+		return item_a.category < item_b.category
+	return item_a.display_name.naturalnocasecmp_to(item_b.display_name) < 0
+
+
+func _select_bag_item(item_id: StringName) -> void:
+	_selected_bag_item_id = item_id
+	_update_bag_detail()
+
+
+func _update_bag_detail() -> void:
+	var item: ItemDataType = (
+		_item_catalog.get_item_by_id(_selected_bag_item_id)
+		if _item_catalog != null and not _selected_bag_item_id.is_empty()
+		else null
+	)
+	var quantity: int = (
+		_bag.get_quantity(_selected_bag_item_id)
+		if _bag != null and item != null
+		else 0
+	)
+	_bag_detail_texture.texture = item.icon if item != null else null
+	_bag_detail_name.text = item.display_name if item != null else ""
+	_bag_detail_data.text = (
+		"%s\nQuantity: %d\n%s\n%s"
+		% [
+			item.get_category_name(),
+			quantity,
+			item.description,
+			(
+				"Can be assigned to the hotbar."
+				if item.hotbar_allowed
+				else "Cannot be assigned to the hotbar."
+			),
+		]
+		if item != null
+		else "Select a Bag item for details."
+	)
 
 
 func _on_inventory_changed() -> void:
@@ -384,7 +506,7 @@ func _compare_catches(left: FishCatchType, right: FishCatchType) -> bool:
 func _create_inventory_card(fish_catch: FishCatchType) -> Button:
 	var card := Button.new()
 	card.theme_type_variation = &"CardButton"
-	card.custom_minimum_size = Vector2(152.0, 140.0)
+	card.custom_minimum_size = Vector2(132.0, 118.0)
 	card.toggle_mode = true
 	card.button_pressed = fish_catch.catch_id == _selected_catch_id
 	card.pressed.connect(_select_catch.bind(fish_catch.catch_id))
@@ -400,7 +522,7 @@ func _create_inventory_card(fish_catch: FishCatchType) -> Button:
 	card.add_child(content)
 	content.add_child(_create_texture_frame(
 		fish_catch.fish.display_texture,
-		Vector2(124.0, 78.0)
+		Vector2(108.0, 62.0)
 	))
 	var name_label := Label.new()
 	name_label.text = fish_catch.fish.display_name

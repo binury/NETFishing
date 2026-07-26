@@ -13,6 +13,7 @@ const FishingSpotType = preload("res://fishing/fishing_spot.gd")
 signal return_to_title_requested
 signal reset_progress_requested
 signal quit_requested
+signal menu_visibility_changed(is_open: bool)
 
 enum ConfirmationAction {
 	NONE,
@@ -100,6 +101,7 @@ func open_menu() -> void:
 	_confirmation_action = ConfirmationAction.NONE
 	show()
 	%ResumeButton.grab_focus()
+	menu_visibility_changed.emit(true)
 
 
 func resume() -> void:
@@ -138,6 +140,7 @@ func close_menu(
 	else:
 		_control_snapshot_stored = false
 	_apply_mouse_close_policy(reason)
+	menu_visibility_changed.emit(false)
 
 
 func handle_escape() -> bool:

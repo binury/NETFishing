@@ -1,10 +1,12 @@
-[gd_scene load_steps=13 format=3]
+[gd_scene load_steps=15 format=3]
 
 [ext_resource type="Script" path="res://player/player.gd" id="1_script"]
 [ext_resource type="Script" path="res://inventory/fish_inventory.gd" id="2_inventory"]
 [ext_resource type="Script" path="res://collection/collection_log.gd" id="3_collection"]
 [ext_resource type="Script" path="res://economy/player_wallet.gd" id="4_wallet"]
 [ext_resource type="Script" path="res://economy/fish_sale_service.gd" id="5_sale_service"]
+[ext_resource type="Script" path="res://inventory/player_bag.gd" id="6_bag"]
+[ext_resource type="Script" path="res://inventory/player_hotbar.gd" id="7_hotbar"]
 
 [sub_resource type="CapsuleShape3D" id="PlayerShape"]
 radius = 0.45
@@ -87,6 +89,14 @@ script = ExtResource("4_wallet")
 [node name="FishSaleService" type="Node" parent="."]
 unique_name_in_owner = true
 script = ExtResource("5_sale_service")
+
+[node name="Bag" type="Node" parent="."]
+unique_name_in_owner = true
+script = ExtResource("6_bag")
+
+[node name="Hotbar" type="Node" parent="."]
+unique_name_in_owner = true
+script = ExtResource("7_hotbar")
 
 [node name="CatchDisplayAnchor" type="Marker3D" parent="Visuals"]
 unique_name_in_owner = true

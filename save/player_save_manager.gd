@@ -7,8 +7,13 @@ const CollectionLogType = preload("res://collection/collection_log.gd")
 const PlayerWalletType = preload("res://economy/player_wallet.gd")
 const FishPoolType = preload("res://fish/fish_pool.gd")
 const SaveInspectionType = preload("res://save/player_save_inspection.gd")
+const ItemCatalogType = preload("res://items/item_catalog.gd")
+const OwnedItemType = preload("res://items/owned_item.gd")
+const PlayerBagType = preload("res://inventory/player_bag.gd")
+const PlayerHotbarType = preload("res://inventory/player_hotbar.gd")
 
-const SAVE_VERSION: int = 1
+const SAVE_VERSION: int = 2
+const BASIC_ROD_ID: StringName = &"basic_fishing_rod"
 const SAVE_PATH: String = "user://player_save.json"
 const TEMP_PATH: String = "user://player_save.json.tmp"
 const BACKUP_PATH: String = "user://player_save.json.backup"
@@ -21,6 +26,9 @@ class LoadSnapshot:
 	var discovered_ids: Array[StringName] = []
 	var wallet_balance: int = 0
 	var next_catch_sequence: int = 1
+	var bag_items: Array[OwnedItemType] = []
+	var hotbar_slots: Array[StringName] = []
+	var selected_hotbar_slot: int = 0
 
 
 @export_range(0.05, 5.0, 0.05) var autosave_delay: float = 0.5
@@ -29,6 +37,9 @@ var _inventory: FishInventoryType
 var _collection_log: CollectionLogType
 var _wallet: PlayerWalletType
 var _catalog: FishPoolType
+var _bag: PlayerBagType
+var _hotbar: PlayerHotbarType
+var _item_catalog: ItemCatalogType
 var _autosave_timer: Timer
 var _is_configured: bool = false
 var _is_restoring: bool = false
@@ -49,16 +60,25 @@ func setup(
 	collection_log: CollectionLogType,
 	wallet: PlayerWalletType,
 	catalog: FishPoolType,
+	bag: PlayerBagType,
+	hotbar: PlayerHotbarType,
+	item_catalog: ItemCatalogType,
 ) -> void:
 	_inventory = inventory
 	_collection_log = collection_log
 	_wallet = wallet
 	_catalog = catalog
+	_bag = bag
+	_hotbar = hotbar
+	_item_catalog = item_catalog
 	_is_configured = (
 		_inventory != null
 		and _collection_log != null
 		and _wallet != null
 		and _catalog != null
+		and _bag != null
+		and _hotbar != null
+		and _item_catalog != null
 	)
 	if not _is_configured:
 		push_error("PlayerSaveManager setup is missing required references.")
@@ -71,6 +91,16 @@ func setup(
 		_collection_log.fish_discovered.connect(_on_fish_discovered)
 	if not _wallet.balance_changed.is_connected(_on_balance_changed):
 		_wallet.balance_changed.connect(_on_balance_changed)
+	if not _bag.contents_changed.is_connected(_mark_dirty):
+		_bag.contents_changed.connect(_mark_dirty)
+	if not _hotbar.slots_changed.is_connected(_mark_dirty):
+		_hotbar.slots_changed.connect(_mark_dirty)
+	if not _hotbar.selected_slot_changed.is_connected(
+		_on_selected_hotbar_slot_changed
+	):
+		_hotbar.selected_slot_changed.connect(
+			_on_selected_hotbar_slot_changed
+		)
 
 
 func load_player_data() -> bool:
@@ -131,11 +161,18 @@ func load_player_data() -> bool:
 	var wallet_restored: bool = _wallet.restore_balance(
 		snapshot.wallet_balance
 	)
+	var bag_restored: bool = _bag.replace_all_items(snapshot.bag_items)
+	var hotbar_restored: bool = _hotbar.replace_state(
+		snapshot.hotbar_slots,
+		snapshot.selected_hotbar_slot
+	)
 	_is_restoring = false
 	if (
 		not inventory_restored
 		or not collection_restored
 		or not wallet_restored
+		or not bag_restored
+		or not hotbar_restored
 	):
 		push_error("Validated player save could not be restored.")
 		return false
@@ -174,10 +211,16 @@ func inspect_save() -> SaveInspectionType:
 		result.status = SaveInspectionType.Status.UNSUPPORTED_VERSION
 		result.message = "This save belongs to a newer game version."
 		return result
-	if result.detected_version != SAVE_VERSION:
+	if result.detected_version < 1:
 		result.status = SaveInspectionType.Status.MALFORMED
 		result.message = "The save version is unsupported."
 		return result
+	if result.detected_version != SAVE_VERSION:
+		save_data = _migrate_save(save_data, result.detected_version)
+		if save_data.is_empty():
+			result.status = SaveInspectionType.Status.MALFORMED
+			result.message = "The save version is unsupported."
+			return result
 	var snapshot: LoadSnapshot = _build_load_snapshot(save_data)
 	if snapshot == null:
 		result.status = SaveInspectionType.Status.MALFORMED
@@ -300,6 +343,14 @@ func _build_save_dictionary() -> Dictionary:
 		if fish_id.is_empty():
 			return {}
 		discovered_strings.append(String(fish_id))
+	var serialized_items: Array[Dictionary] = []
+	for owned: OwnedItemType in _bag.get_all_items():
+		if owned == null or not owned.is_valid():
+			return {}
+		serialized_items.append(owned.to_save_dict())
+	var serialized_slots: Array[String] = []
+	for item_id: StringName in _hotbar.get_slots():
+		serialized_slots.append(String(item_id))
 	if (
 		_wallet.get_balance() < 0
 		or _wallet.get_balance() > MAX_SAFE_BALANCE
@@ -323,6 +374,13 @@ func _build_save_dictionary() -> Dictionary:
 			"next_catch_sequence": _inventory.get_next_catch_sequence(),
 			"catches": serialized_catches,
 		},
+		"bag": {
+			"items": serialized_items,
+		},
+		"hotbar": {
+			"selected_slot": _hotbar.get_selected_slot(),
+			"slots": serialized_slots,
+		},
 	}
 
 
@@ -331,16 +389,23 @@ func _build_load_snapshot(save_data: Dictionary) -> LoadSnapshot:
 		typeof(save_data.get("wallet")) != TYPE_DICTIONARY
 		or typeof(save_data.get("collection")) != TYPE_DICTIONARY
 		or typeof(save_data.get("inventory")) != TYPE_DICTIONARY
+		or typeof(save_data.get("bag")) != TYPE_DICTIONARY
+		or typeof(save_data.get("hotbar")) != TYPE_DICTIONARY
 	):
 		return null
 	var wallet_data: Dictionary = save_data["wallet"]
 	var collection_data: Dictionary = save_data["collection"]
 	var inventory_data: Dictionary = save_data["inventory"]
+	var bag_data: Dictionary = save_data["bag"]
+	var hotbar_data: Dictionary = save_data["hotbar"]
 	if (
 		not wallet_data.has("balance")
 		or typeof(collection_data.get("discovered_fish_ids")) != TYPE_ARRAY
 		or typeof(inventory_data.get("catches")) != TYPE_ARRAY
 		or not inventory_data.has("next_catch_sequence")
+		or typeof(bag_data.get("items")) != TYPE_ARRAY
+		or typeof(hotbar_data.get("slots")) != TYPE_ARRAY
+		or not hotbar_data.has("selected_slot")
 	):
 		return null
 
@@ -424,6 +489,81 @@ func _build_load_snapshot(save_data: Dictionary) -> LoadSnapshot:
 		requested_next_sequence,
 		maximum_sequence + 1
 	)
+
+	var seen_items: Dictionary[StringName, bool] = {}
+	var item_values: Array = bag_data["items"]
+	for item_index: int in range(item_values.size()):
+		var value: Variant = item_values[item_index]
+		if typeof(value) != TYPE_DICTIONARY:
+			push_warning("Skipped invalid saved Bag item.")
+			continue
+		var item_record: Dictionary = value
+		var item_id: StringName = StringName(
+			str(item_record.get("item_id", ""))
+		)
+		var item_data = _item_catalog.get_item_by_id(item_id)
+		var quantity: int = _read_integer(
+			item_record.get("quantity"),
+			-1,
+			999
+		)
+		if (
+			item_id.is_empty()
+			or item_data == null
+			or not item_data.is_valid()
+			or quantity <= 0
+			or seen_items.has(item_id)
+		):
+			push_warning(
+				"Skipped invalid or unknown saved Bag item '%s'."
+				% String(item_id)
+			)
+			continue
+		var maximum: int = (
+			item_data.max_stack if item_data.stackable else 1
+		)
+		if quantity > maximum:
+			push_warning(
+				"Skipped saved Bag item with invalid quantity '%s'."
+				% String(item_id)
+			)
+			continue
+		var owned := OwnedItemType.new()
+		owned.item_id = item_id
+		owned.quantity = quantity
+		seen_items[item_id] = true
+		snapshot.bag_items.append(owned)
+
+	var slot_values: Array = hotbar_data["slots"]
+	snapshot.hotbar_slots.resize(PlayerHotbarType.SLOT_COUNT)
+	snapshot.hotbar_slots.fill(StringName())
+	for slot_index: int in range(
+		mini(slot_values.size(), PlayerHotbarType.SLOT_COUNT)
+	):
+		var slot_value: Variant = slot_values[slot_index]
+		if typeof(slot_value) not in [TYPE_STRING, TYPE_STRING_NAME]:
+			continue
+		var slot_item_id: StringName = StringName(str(slot_value))
+		if slot_item_id.is_empty():
+			continue
+		var slot_item = _item_catalog.get_item_by_id(slot_item_id)
+		if (
+			slot_item != null
+			and slot_item.is_valid()
+			and slot_item.hotbar_allowed
+			and seen_items.has(slot_item_id)
+		):
+			snapshot.hotbar_slots[slot_index] = slot_item_id
+	var selected_slot: int = _read_integer(
+		hotbar_data["selected_slot"],
+		0,
+		PlayerHotbarType.SLOT_COUNT - 1
+	)
+	snapshot.selected_hotbar_slot = clampi(
+		selected_slot,
+		0,
+		PlayerHotbarType.SLOT_COUNT - 1
+	)
 	return snapshot
 
 
@@ -433,6 +573,26 @@ func _migrate_save(
 ) -> Dictionary:
 	if from_version == SAVE_VERSION:
 		return data
+	if from_version == 1:
+		var migrated: Dictionary = data.duplicate(true)
+		migrated["save_version"] = SAVE_VERSION
+		migrated["bag"] = {
+			"items": [
+				{
+					"item_id": String(BASIC_ROD_ID),
+					"quantity": 1,
+				},
+			],
+		}
+		var slots: Array[String] = []
+		slots.resize(PlayerHotbarType.SLOT_COUNT)
+		slots.fill("")
+		slots[0] = String(BASIC_ROD_ID)
+		migrated["hotbar"] = {
+			"selected_slot": 0,
+			"slots": slots,
+		}
+		return migrated
 	return {}
 
 
@@ -453,6 +613,13 @@ func _on_fish_discovered(_fish_id: StringName) -> void:
 
 
 func _on_balance_changed(_new_balance: int, _delta: int) -> void:
+	_mark_dirty()
+
+
+func _on_selected_hotbar_slot_changed(
+	_slot_index: int,
+	_item_id: StringName,
+) -> void:
 	_mark_dirty()
 
 
@@ -496,9 +663,20 @@ func _restore_defaults() -> void:
 	_is_restoring = true
 	var empty_catches: Array[FishCatchType] = []
 	var empty_discoveries: Array[StringName] = []
+	var default_items: Array[OwnedItemType] = []
+	var basic_rod := OwnedItemType.new()
+	basic_rod.item_id = BASIC_ROD_ID
+	basic_rod.quantity = 1
+	default_items.append(basic_rod)
+	var default_slots: Array[StringName] = []
+	default_slots.resize(PlayerHotbarType.SLOT_COUNT)
+	default_slots.fill(StringName())
+	default_slots[0] = BASIC_ROD_ID
 	_inventory.replace_all_catches(empty_catches, 1)
 	_collection_log.replace_discovered_ids(empty_discoveries)
 	_wallet.restore_balance(0)
+	_bag.replace_all_items(default_items)
+	_hotbar.replace_state(default_slots, 0)
 	_is_restoring = false
 	_is_dirty = false
 

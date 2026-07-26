@@ -18,9 +18,12 @@ const PlayerSettingsManagerType = preload(
 const PlayerSettingsType = preload("res://settings/player_settings.gd")
 const TitleScreenType = preload("res://ui/title_screen.gd")
 const PauseMenuType = preload("res://ui/pause_menu.gd")
+const ItemCatalogType = preload("res://items/item_catalog.gd")
+const ItemDataType = preload("res://items/item_data.gd")
 
 @export var fish_catalog: FishPoolType
 @export var pelican_buyer_profile: FishBuyerProfileType
+@export var item_catalog: ItemCatalogType
 
 @onready var _test_world: TestWorldType = $TestWorld
 @onready var _player: PlayerType = %Player
@@ -38,17 +41,25 @@ func _ready() -> void:
 		_player.inventory,
 		_player.wallet
 	)
+	_player.bag.setup(item_catalog)
+	_player.hotbar.setup(_player.bag, item_catalog)
 	_save_manager.setup(
 		_player.inventory,
 		_player.collection_log,
 		_player.wallet,
-		fish_catalog
+		fish_catalog,
+		_player.bag,
+		_player.hotbar,
+		item_catalog
 	)
 	_save_manager.set_autosave_enabled(false)
 	_fishing_spot.setup(
 		_player,
 		_player.inventory,
-		_player.collection_log
+		_player.collection_log,
+		_player.bag,
+		_player.hotbar,
+		item_catalog
 	)
 	_game_ui.setup(
 		_player,
@@ -58,7 +69,10 @@ func _ready() -> void:
 		_player.fish_sale_service,
 		pelican_buyer_profile,
 		fish_catalog,
-		_fishing_spot
+		_fishing_spot,
+		_player.bag,
+		_player.hotbar,
+		item_catalog
 	)
 	_water_recovery.setup(
 		_player,
@@ -93,8 +107,21 @@ func _ready() -> void:
 		_on_reset_progress_requested
 	)
 	pause_menu.quit_requested.connect(_on_quit_requested)
+	pause_menu.menu_visibility_changed.connect(
+		_game_ui.set_system_menu_open
+	)
+	_player.hotbar.selected_slot_changed.connect(
+		_on_active_hotbar_item_changed
+	)
+	_fishing_spot.ready_for_equipment_refresh.connect(
+		_refresh_active_hotbar_item
+	)
 	_water_recovery.recovery_starting.connect(
 		_on_water_recovery_starting
+	)
+	_on_active_hotbar_item_changed(
+		_player.hotbar.get_selected_slot(),
+		_player.hotbar.get_selected_item_id()
 	)
 
 
@@ -180,6 +207,29 @@ func _on_reset_progress_requested() -> void:
 func _on_water_recovery_starting() -> void:
 	_game_ui.close_player_menu_for_water_recovery()
 	_game_ui.get_pause_menu().close_for_water_recovery()
+
+
+func _on_active_hotbar_item_changed(
+	_slot_index: int,
+	item_id: StringName,
+) -> void:
+	if _fishing_spot.state != FishingSpotType.FishingState.READY:
+		return
+	var item = item_catalog.get_item_by_id(item_id)
+	var active_is_rod: bool = (
+		item != null
+		and item.category == ItemDataType.Category.ROD
+		and _player.bag.owns_item(item_id)
+	)
+	_player.set_active_item_is_rod(active_is_rod)
+	_fishing_spot.refresh_active_item_status()
+
+
+func _refresh_active_hotbar_item() -> void:
+	_on_active_hotbar_item_changed(
+		_player.hotbar.get_selected_slot(),
+		_player.hotbar.get_selected_item_id()
+	)
 
 
 func _on_quit_requested() -> void:

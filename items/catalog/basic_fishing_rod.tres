@@ -1,0 +1,26 @@
+[gd_resource type="Resource" script_class="ItemData" load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://items/item_data.gd" id="1_script"]
+
+[sub_resource type="Gradient" id="Gradient_rod"]
+colors = PackedColorArray(0.302, 0.184, 0.11, 1, 0.957, 0.827, 0.369, 1, 0.439, 0.839, 0.82, 1)
+
+[sub_resource type="GradientTexture2D" id="GradientTexture_rod"]
+gradient = SubResource("Gradient_rod")
+width = 128
+height = 128
+fill_from = Vector2(0.15, 0.85)
+fill_to = Vector2(0.85, 0.15)
+
+[resource]
+script = ExtResource("1_script")
+item_id = &"basic_fishing_rod"
+display_name = "Basic Fishing Rod"
+description = "A dependable starter rod. Select it to cast."
+category = 0
+icon = SubResource("GradientTexture_rod")
+stackable = false
+max_stack = 1
+usable = true
+equippable = true
+hotbar_allowed = true

@@ -29,9 +29,11 @@ Sprint                       Shift
 Sneak                        Ctrl
 Slow walk                    Alt
 Rotate camera                Hold right mouse, or use right stick
-Zoom camera                  Mouse wheel
+Cycle active hotbar slot     Mouse wheel
+Select hotbar slot           1 through 9
+Zoom camera                  Shift + mouse wheel
 Cast / withdraw / reel       Left mouse
-Inventory and Logbook        Tab
+Cooler, Bag, and Logbook     Tab
 Game Menu / back             Escape
 
 FISHING
@@ -54,7 +56,8 @@ FEATURES TO TRY
 - Barrier-and-chase catching
 - Accessibility auto-click settings
 - Catch showcase and fish size variation
-- Inventory, Logbook, favorites, and sorting
+- Cooler, Bag, Logbook, favorites, and sorting
+- Basic Fishing Rod equipment and the 1–9 hotbar
 - Pelican selling and wallet updates
 - Save, Continue, New Game, and Delete Save
 - Game Menu and persistent camera settings
