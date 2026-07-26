@@ -9,11 +9,18 @@ const FishInventoryType = preload("res://inventory/fish_inventory.gd")
 const FishSaleResultType = preload("res://economy/fish_sale_result.gd")
 const FishSaleServiceType = preload("res://economy/fish_sale_service.gd")
 const PlayerWalletType = preload("res://economy/player_wallet.gd")
+const FishingShopStockType = preload("res://economy/fishing_shop_stock.gd")
+const ItemCatalogType = preload("res://items/item_catalog.gd")
+const ItemDataType = preload("res://items/item_data.gd")
+const PlayerBagType = preload("res://inventory/player_bag.gd")
 const FishingSpotType = preload("res://fishing/fishing_spot.gd")
 const PlayerFishingUpgradesType = preload(
 	"res://progression/player_fishing_upgrades.gd"
 )
 const PlayerType = preload("res://player/player.gd")
+const PlayerCoolerCapacityType = preload(
+	"res://progression/player_cooler_capacity.gd"
+)
 const ShopInteractionType = preload(
 	"res://world/fishing_shop_interaction.gd"
 )
@@ -30,6 +37,7 @@ enum CloseReason {
 
 @onready var _wallet_label: Label = %WalletLabel
 @onready var _fish_list: ItemList = %FishList
+@onready var _sales_title: Label = %SalesTitle
 @onready var _fish_empty: Label = %FishEmpty
 @onready var _fish_texture: TextureRect = %FishTexture
 @onready var _fish_name: Label = %FishName
@@ -44,6 +52,11 @@ enum CloseReason {
 @onready var _barrier_effect: Label = %BarrierEffect
 @onready var _barrier_cost: Label = %BarrierCost
 @onready var _barrier_purchase: Button = %BarrierPurchase
+@onready var _supplies_list: VBoxContainer = %SuppliesList
+@onready var _cooler_level: Label = %CoolerLevel
+@onready var _cooler_effect: Label = %CoolerEffect
+@onready var _cooler_cost: Label = %CoolerCost
+@onready var _cooler_purchase: Button = %CoolerPurchase
 @onready var _confirmation: PanelContainer = %SaleConfirmation
 @onready var _confirmation_text: Label = %ConfirmationText
 @onready var _confirm_sale: Button = %ConfirmSale
@@ -57,6 +70,9 @@ var _buyer: FishBuyerProfileType
 var _upgrades: PlayerFishingUpgradesType
 var _fishing_spot: FishingSpotType
 var _interaction: ShopInteractionType
+var _bag: PlayerBagType
+var _item_catalog: ItemCatalogType
+var _cooler_capacity: PlayerCoolerCapacityType
 var _selected_catch_id: StringName
 var _confirmation_catch_id: StringName
 var _prior_movement_enabled: bool = true
@@ -77,6 +93,7 @@ func _ready() -> void:
 	_cancel_sale.pressed.connect(_close_sale_confirmation)
 	_reel_purchase.pressed.connect(_purchase_reel_speed)
 	_barrier_purchase.pressed.connect(_purchase_barrier_power)
+	_cooler_purchase.pressed.connect(_purchase_cooler_capacity)
 
 
 func setup(
@@ -88,6 +105,9 @@ func setup(
 	upgrades: PlayerFishingUpgradesType,
 	fishing_spot: FishingSpotType,
 	interaction: ShopInteractionType,
+	bag: PlayerBagType,
+	item_catalog: ItemCatalogType,
+	cooler_capacity: PlayerCoolerCapacityType,
 ) -> void:
 	_player = player
 	_inventory = inventory
@@ -97,12 +117,21 @@ func setup(
 	_upgrades = upgrades
 	_fishing_spot = fishing_spot
 	_interaction = interaction
+	_bag = bag
+	_item_catalog = item_catalog
+	_cooler_capacity = cooler_capacity
 	if not _inventory.catches_changed.is_connected(_on_inventory_changed):
 		_inventory.catches_changed.connect(_on_inventory_changed)
 	if not _wallet.balance_changed.is_connected(_on_wallet_changed):
 		_wallet.balance_changed.connect(_on_wallet_changed)
 	if not _upgrades.upgrades_changed.is_connected(_on_upgrades_changed):
 		_upgrades.upgrades_changed.connect(_on_upgrades_changed)
+	if not _bag.contents_changed.is_connected(_on_bag_changed):
+		_bag.contents_changed.connect(_on_bag_changed)
+	if not _cooler_capacity.capacity_changed.is_connected(
+		_on_cooler_capacity_changed
+	):
+		_cooler_capacity.capacity_changed.connect(_on_cooler_capacity_changed)
 	_refresh_all()
 
 
@@ -207,6 +236,8 @@ func _refresh_all() -> void:
 	_refresh_fish_list()
 	_refresh_selected_fish()
 	_refresh_upgrades()
+	_refresh_supplies()
+	_refresh_cooler_capacity()
 
 
 func _refresh_wallet() -> void:
@@ -222,6 +253,10 @@ func _refresh_fish_list() -> void:
 	var catches: Array[FishCatchType] = (
 		_inventory.get_all_catches() if _inventory != null else []
 	)
+	_sales_title.text = "Cooler %d / %d • Full base value" % [
+		catches.size(),
+		_cooler_capacity.get_capacity() if _cooler_capacity != null else 0,
+	]
 	catches.sort_custom(
 		func(a: FishCatchType, b: FishCatchType) -> bool:
 			return a.catch_sequence > b.catch_sequence
@@ -335,6 +370,65 @@ func _refresh_upgrades() -> void:
 	_barrier_purchase.text = "MAX" if barrier_cost < 0 else "Purchase"
 
 
+func _refresh_supplies() -> void:
+	if _supplies_list == null:
+		return
+	for child: Node in _supplies_list.get_children():
+		_supplies_list.remove_child(child)
+		child.queue_free()
+	for item_id: StringName in FishingShopStockType.get_stock_item_ids():
+		var item: ItemDataType = _item_catalog.get_item_by_id(item_id)
+		if item == null:
+			continue
+		var button := Button.new()
+		button.custom_minimum_size = Vector2(195, 54)
+		button.icon = item.icon
+		button.expand_icon = true
+		button.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		button.text = "%s\n$%d • Owned %d" % [
+			item.display_name,
+			FishingShopStockType.get_price(item_id),
+			_bag.get_quantity(item_id),
+		]
+		button.tooltip_text = item.description
+		button.disabled = (
+			_transaction_in_progress
+			or _closing
+			or not _bag.can_add_item(item_id, 1)
+			or not _wallet.can_afford(
+				FishingShopStockType.get_price(item_id)
+			)
+		)
+		button.pressed.connect(_purchase_supply.bind(item_id))
+		_supplies_list.add_child(button)
+
+
+func _refresh_cooler_capacity() -> void:
+	if _cooler_capacity == null:
+		return
+	var level: int = _cooler_capacity.get_level()
+	var cost: int = _cooler_capacity.get_next_cost()
+	var next_capacity: int = _cooler_capacity.get_next_capacity()
+	_cooler_level.text = "Level %d" % level
+	_cooler_purchase.disabled = (
+		cost < 0
+		or _transaction_in_progress
+		or _closing
+		or not _cooler_capacity.can_purchase(_wallet)
+	)
+	if cost < 0:
+		_cooler_effect.text = "%d fish" % _cooler_capacity.get_capacity()
+		_cooler_cost.text = "MAX"
+		_cooler_purchase.text = "MAX"
+	else:
+		_cooler_effect.text = "%d → %d fish" % [
+			_cooler_capacity.get_capacity(),
+			next_capacity,
+		]
+		_cooler_cost.text = "$%d" % cost
+		_cooler_purchase.text = "Purchase"
+
+
 func _on_fish_selected(index: int) -> void:
 	if index < 0 or index >= _fish_list.item_count:
 		return
@@ -405,6 +499,59 @@ func _purchase_barrier_power() -> void:
 	_purchase_upgrade(false)
 
 
+func _purchase_supply(item_id: StringName) -> void:
+	if _transaction_in_progress or not _is_transaction_context_valid():
+		_feedback.text = "Unable to complete purchase."
+		return
+	var price: int = FishingShopStockType.get_price(item_id)
+	if not _bag.can_add_item(item_id, 1):
+		_feedback.text = "Bag cannot accept this item."
+		return
+	if not _wallet.can_afford(price):
+		_feedback.text = "Not enough money."
+		return
+	var transaction_generation: int = _generation
+	_transaction_in_progress = true
+	var purchased: bool = FishingShopStockType.purchase_one(
+		item_id,
+		_wallet,
+		_bag,
+		_item_catalog
+	)
+	_transaction_in_progress = false
+	if transaction_generation != _generation or not visible:
+		return
+	_feedback.text = (
+		"Item purchased." if purchased else "Unable to complete purchase."
+	)
+	_refresh_all()
+
+
+func _purchase_cooler_capacity() -> void:
+	if _transaction_in_progress or not _is_transaction_context_valid():
+		_feedback.text = "Unable to complete purchase."
+		return
+	var cost: int = _cooler_capacity.get_next_cost()
+	if cost < 0:
+		_feedback.text = "Maximum level reached."
+		return
+	if not _wallet.can_afford(cost):
+		_feedback.text = "Not enough money."
+		return
+	var transaction_generation: int = _generation
+	_transaction_in_progress = true
+	var purchased: bool = _cooler_capacity.purchase(_wallet)
+	_transaction_in_progress = false
+	if transaction_generation != _generation or not visible:
+		return
+	_feedback.text = (
+		"Upgrade purchased."
+		if purchased
+		else "Unable to complete purchase."
+	)
+	_refresh_all()
+
+
 func _purchase_upgrade(is_reel_speed: bool) -> void:
 	if _transaction_in_progress or not _is_transaction_context_valid():
 		_feedback.text = "Unable to complete purchase."
@@ -472,6 +619,8 @@ func _on_inventory_changed() -> void:
 func _on_wallet_changed(_balance: int, _delta: int) -> void:
 	_refresh_wallet()
 	_refresh_upgrades()
+	_refresh_supplies()
+	_refresh_cooler_capacity()
 
 
 func _on_upgrades_changed(
@@ -479,6 +628,15 @@ func _on_upgrades_changed(
 	_barrier_power_level: int,
 ) -> void:
 	_refresh_upgrades()
+
+
+func _on_bag_changed() -> void:
+	_refresh_supplies()
+
+
+func _on_cooler_capacity_changed(_level: int, _capacity: int) -> void:
+	_refresh_cooler_capacity()
+	_refresh_fish_list()
 
 
 func _apply_mouse_close_policy(reason: CloseReason) -> void:

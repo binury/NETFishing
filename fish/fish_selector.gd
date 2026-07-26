@@ -8,6 +8,7 @@ const FishPoolType = preload("res://fish/fish_pool.gd")
 const FishingContextType = preload("res://fishing/fishing_context.gd")
 
 var undiscovered_weight_multiplier: float = 1.5
+var rarity_weight_multipliers: Array[float] = []
 var use_deterministic_test_seed: bool = false
 var deterministic_test_seed: int = 24680
 var selection_seed: int = 0
@@ -45,6 +46,8 @@ func select_fish(
 			final_weight *= fish.availability.get_bait_weight_multiplier(context)
 		if not collection_log.has_discovered(fish.id):
 			final_weight *= maxf(undiscovered_weight_multiplier, 0.0)
+		if fish.rarity >= 0 and fish.rarity < rarity_weight_multipliers.size():
+			final_weight *= maxf(rarity_weight_multipliers[fish.rarity], 0.0)
 		if final_weight <= 0.0:
 			continue
 		eligible_fish.append(fish)

@@ -16,25 +16,32 @@ func setup(catalog: ItemCatalogType) -> void:
 
 
 func add_item(item_id: StringName, quantity: int = 1) -> bool:
-	var item: ItemDataType = _resolve_valid_item(item_id)
-	if item == null or quantity <= 0:
+	if not can_add_item(item_id, quantity):
 		return false
+	var item: ItemDataType = _resolve_valid_item(item_id)
 	var existing: OwnedItemType = get_owned_item(item_id)
 	if existing != null:
-		if not item.stackable:
-			return false
-		if existing.quantity + quantity > item.max_stack:
-			return false
 		existing.quantity += quantity
 	else:
-		if quantity > (item.max_stack if item.stackable else 1):
-			return false
 		var owned := OwnedItemType.new()
 		owned.item_id = item_id
 		owned.quantity = quantity
 		_items.append(owned)
 	contents_changed.emit()
 	return true
+
+
+func can_add_item(item_id: StringName, quantity: int = 1) -> bool:
+	var item: ItemDataType = _resolve_valid_item(item_id)
+	if item == null or quantity <= 0:
+		return false
+	var existing: OwnedItemType = get_owned_item(item_id)
+	if existing != null:
+		return (
+			item.stackable
+			and existing.quantity + quantity <= item.max_stack
+		)
+	return quantity <= (item.max_stack if item.stackable else 1)
 
 
 func remove_item(item_id: StringName, quantity: int = 1) -> bool:

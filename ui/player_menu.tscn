@@ -140,6 +140,12 @@ text = "Newest first"
 layout_mode = 2
 size_flags_horizontal = 3
 
+[node name="CoolerCount" type="Label" parent="MenuPanel/Margin/Layout/Content/InventorySection/SortBar"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "0 / 12"
+theme_override_colors/font_color = Color(0.208, 0.725, 0.78, 1)
+
 [node name="HeldValue" type="Label" parent="MenuPanel/Margin/Layout/Content/InventorySection/SortBar"]
 unique_name_in_owner = true
 layout_mode = 2

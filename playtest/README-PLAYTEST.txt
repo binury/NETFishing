@@ -49,6 +49,10 @@ FISHING
 - Accessibility auto-click can be enabled in Settings.
 - Approach the bright Fishing Shop booth and press E to open it.
 - The Fishing Shop buys one Cooler fish at a time for full base value.
+- Buy Coffee, Energy Drinks, Snacks, and Fish Finders as Bag supplies.
+- Drag supplies from Bag to the hotbar and left-click in READY to use one.
+- Coffee improves movement; other supplies temporarily improve fishing.
+- The Cooler starts at 12 fish; buy permanent capacity expansions at the shop.
 - Reel Speed upgrades increase authoritative green reeling progress.
 - Barrier Power upgrades increase damage per valid barrier action.
 - Shop upgrades persist in the local progression save.

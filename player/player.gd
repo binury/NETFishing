@@ -11,6 +11,12 @@ const PlayerHotbarType = preload("res://inventory/player_hotbar.gd")
 const PlayerFishingUpgradesType = preload(
 	"res://progression/player_fishing_upgrades.gd"
 )
+const PlayerItemEffectsType = preload(
+	"res://progression/player_item_effects.gd"
+)
+const PlayerCoolerCapacityType = preload(
+	"res://progression/player_cooler_capacity.gd"
+)
 
 class ShowcaseCameraSnapshot:
 	extends RefCounted
@@ -75,6 +81,8 @@ class ShowcaseCameraSnapshot:
 @onready var bag: PlayerBagType = %Bag
 @onready var hotbar: PlayerHotbarType = %Hotbar
 @onready var fishing_upgrades: PlayerFishingUpgradesType = %FishingUpgrades
+@onready var item_effects: PlayerItemEffectsType = %ItemEffects
+@onready var cooler_capacity: PlayerCoolerCapacityType = %CoolerCapacity
 @onready var _cast_origin: Marker3D = %CastOrigin
 @onready var _fishing_rod: Node3D = %FishingRod
 @onready var _fishing_rod_tip: Marker3D = %FishingRodTip
@@ -141,7 +149,9 @@ func _physics_process(delta: float) -> void:
 	var input_strength: float = minf(input_vector.length(), 1.0)
 	move_direction = move_direction.normalized()
 
-	var speed: float = _get_current_speed()
+	var speed: float = (
+		_get_current_speed() * item_effects.get_movement_multiplier()
+	)
 	velocity.x = move_direction.x * speed * input_strength
 	velocity.z = move_direction.z * speed * input_strength
 

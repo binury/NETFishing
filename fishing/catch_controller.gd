@@ -128,6 +128,13 @@ func set_reel_input(held: bool) -> void:
 		_auto_click_accumulator = 0.0
 
 
+func set_effective_stats(reel_speed: float, click_power: int) -> void:
+	if state == CatchState.IDLE:
+		return
+	_reel_speed = maxf(reel_speed, 0.0)
+	_click_power = maxi(click_power, 1)
+
+
 func handle_primary_pressed() -> void:
 	if state not in [CatchState.REELING, CatchState.BLOCKED_BY_BARRIER]:
 		return

@@ -19,6 +19,9 @@ const OwnedItemType = preload("res://items/owned_item.gd")
 const PlayerBagType = preload("res://inventory/player_bag.gd")
 const PlayerHotbarType = preload("res://inventory/player_hotbar.gd")
 const ItemDragSourceType = preload("res://ui/item_drag_source.gd")
+const PlayerCoolerCapacityType = preload(
+	"res://progression/player_cooler_capacity.gd"
+)
 
 signal menu_visibility_changed(is_open: bool)
 
@@ -59,6 +62,7 @@ enum CloseReason {
 @onready var _sort_option: OptionButton = %SortOption
 @onready var _sort_direction: Button = %SortDirection
 @onready var _held_value: Label = %HeldValue
+@onready var _cooler_count: Label = %CoolerCount
 @onready var _inventory_empty: Label = %InventoryEmpty
 @onready var _inventory_grid: GridContainer = %InventoryGrid
 @onready var _detail_texture: TextureRect = %DetailTexture
@@ -86,6 +90,7 @@ var _fishing_spot: FishingSpotType
 var _bag: PlayerBagType
 var _hotbar: PlayerHotbarType
 var _item_catalog: ItemCatalogType
+var _cooler_capacity: PlayerCoolerCapacityType
 var _current_section: Section = Section.COOLER
 var _sort_mode: SortMode = SortMode.CATCH_ORDER
 var _sort_descending: bool = true
@@ -138,6 +143,7 @@ func setup(
 	bag: PlayerBagType,
 	hotbar: PlayerHotbarType,
 	item_catalog: ItemCatalogType,
+	cooler_capacity: PlayerCoolerCapacityType,
 ) -> void:
 	_player = player
 	_inventory = inventory
@@ -150,6 +156,7 @@ func setup(
 	_bag = bag
 	_hotbar = hotbar
 	_item_catalog = item_catalog
+	_cooler_capacity = cooler_capacity
 	if not _inventory.catches_changed.is_connected(_on_inventory_changed):
 		_inventory.catches_changed.connect(_on_inventory_changed)
 	if not _collection_log.fish_discovered.is_connected(_on_fish_discovered):
@@ -160,6 +167,10 @@ func setup(
 		_fishing_spot.bite_activated.connect(_on_bite_activated)
 	if not _bag.contents_changed.is_connected(_on_bag_changed):
 		_bag.contents_changed.connect(_on_bag_changed)
+	if not _cooler_capacity.capacity_changed.is_connected(
+		_on_cooler_capacity_changed
+	):
+		_cooler_capacity.capacity_changed.connect(_on_cooler_capacity_changed)
 	_refresh_all()
 
 
@@ -461,6 +472,14 @@ func _refresh_economy_summary() -> void:
 	)
 	_wallet_balance.text = "Wallet: $%d" % balance
 	_held_value.text = "Held fish base value: $%d" % held_total
+	_cooler_count.text = "%d / %d" % [
+		_inventory.get_all_catches().size() if _inventory != null else 0,
+		_cooler_capacity.get_capacity() if _cooler_capacity != null else 0,
+	]
+
+
+func _on_cooler_capacity_changed(_level: int, _capacity: int) -> void:
+	_refresh_economy_summary()
 
 
 func _refresh_inventory() -> void:

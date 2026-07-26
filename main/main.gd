@@ -62,7 +62,8 @@ func _ready() -> void:
 		_player.bag,
 		_player.hotbar,
 		item_catalog,
-		_player.fishing_upgrades
+		_player.fishing_upgrades,
+		_player.cooler_capacity
 	)
 	_save_manager.set_autosave_enabled(false)
 	_fishing_spot.setup(
@@ -72,7 +73,9 @@ func _ready() -> void:
 		_player.bag,
 		_player.hotbar,
 		item_catalog,
-		_player.fishing_upgrades
+		_player.fishing_upgrades,
+		_player.item_effects,
+		_player.cooler_capacity
 	)
 	_game_ui.setup(
 		_player,
@@ -88,7 +91,9 @@ func _ready() -> void:
 		item_catalog,
 		main_shop_buyer_profile,
 		_player.fishing_upgrades,
-		_shop_interaction
+		_shop_interaction,
+		_player.item_effects,
+		_player.cooler_capacity
 	)
 	_water_recovery.setup(
 		_player,
@@ -210,6 +215,8 @@ func _apply_runtime_settings(settings: PlayerSettingsType) -> void:
 
 func _set_gameplay_active(active: bool) -> void:
 	_gameplay_started = active
+	if not active:
+		_player.item_effects.reset_all()
 	_player.set_movement_enabled(active)
 	_player.set_camera_input_enabled(active)
 	_fishing_spot.set_gameplay_input_enabled(active)

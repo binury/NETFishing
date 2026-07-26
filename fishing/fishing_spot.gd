@@ -16,6 +16,12 @@ const PlayerHotbarType = preload("res://inventory/player_hotbar.gd")
 const PlayerFishingUpgradesType = preload(
 	"res://progression/player_fishing_upgrades.gd"
 )
+const PlayerItemEffectsType = preload(
+	"res://progression/player_item_effects.gd"
+)
+const PlayerCoolerCapacityType = preload(
+	"res://progression/player_cooler_capacity.gd"
+)
 const PlayerType = preload("res://player/player.gd")
 const FishableWaterRegionType = preload(
 	"res://world/fishable_water_region.gd"
@@ -96,6 +102,8 @@ var _local_bag: PlayerBagType
 var _local_hotbar: PlayerHotbarType
 var _item_catalog: ItemCatalogType
 var _fishing_upgrades: PlayerFishingUpgradesType
+var _item_effects: PlayerItemEffectsType
+var _cooler_capacity: PlayerCoolerCapacityType
 var _active_player: PlayerType
 var _state_time_remaining: float = 0.0
 var _cast_charge: float = 0.0
@@ -137,6 +145,8 @@ func setup(
 	local_hotbar: PlayerHotbarType,
 	item_catalog: ItemCatalogType,
 	fishing_upgrades: PlayerFishingUpgradesType,
+	item_effects: PlayerItemEffectsType,
+	cooler_capacity: PlayerCoolerCapacityType,
 ) -> void:
 	_local_player = local_player
 	_local_inventory = local_inventory
@@ -145,6 +155,18 @@ func setup(
 	_local_hotbar = local_hotbar
 	_item_catalog = item_catalog
 	_fishing_upgrades = fishing_upgrades
+	_item_effects = item_effects
+	_cooler_capacity = cooler_capacity
+	if not _local_inventory.catches_changed.is_connected(
+		_on_cooler_availability_changed
+	):
+		_local_inventory.catches_changed.connect(
+			_on_cooler_availability_changed
+		)
+	if not _cooler_capacity.capacity_changed.is_connected(
+		_on_cooler_capacity_changed
+	):
+		_cooler_capacity.capacity_changed.connect(_on_cooler_capacity_changed)
 
 
 func can_open_player_menu() -> bool:
@@ -322,6 +344,10 @@ func _process(delta: float) -> void:
 		FishingState.WAITING_FOR_BITE:
 			_update_waiting_for_bite(delta)
 		FishingState.FIGHTING:
+			_catch_controller.set_effective_stats(
+				_get_effective_reel_speed(),
+				_get_effective_barrier_damage()
+			)
 			if not Input.is_action_pressed("fish_primary"):
 				_catch_controller.set_reel_input(false)
 		FishingState.COOLDOWN:
@@ -347,8 +373,27 @@ func _unhandled_input(event: InputEvent) -> void:
 			FishingState.READY:
 				if not _new_cast_press_armed:
 					return
+				var active_item: ItemDataType = _get_active_item()
+				if (
+					active_item != null
+					and active_item.category == ItemDataType.Category.CONSUMABLE
+				):
+					if _item_effects.use_consumable(active_item, _local_bag):
+						status_changed.emit(
+							_item_effects.get_feedback(active_item.item_id)
+						)
+					get_viewport().set_input_as_handled()
+					return
 				if not has_active_fishing_rod():
 					status_changed.emit("Select a fishing rod to cast.")
+					get_viewport().set_input_as_handled()
+					return
+				if (
+					_is_cooler_full()
+				):
+					status_changed.emit(
+						"Cooler full. Sell fish before casting again."
+					)
 					get_viewport().set_input_as_handled()
 					return
 				_begin_aiming(_local_player)
@@ -411,10 +456,7 @@ func has_active_fishing_rod() -> bool:
 		or _item_catalog == null
 	):
 		return false
-	var item_id: StringName = _local_hotbar.get_selected_item_id()
-	if item_id.is_empty() or not _local_bag.owns_item(item_id):
-		return false
-	var item: ItemDataType = _item_catalog.get_item_by_id(item_id)
+	var item: ItemDataType = _get_active_item()
 	return (
 		item != null
 		and item.is_valid()
@@ -422,6 +464,38 @@ func has_active_fishing_rod() -> bool:
 		and item.usable
 		and item.equippable
 	)
+
+
+func _get_active_item() -> ItemDataType:
+	if (
+		_local_bag == null
+		or _local_hotbar == null
+		or _item_catalog == null
+	):
+		return null
+	var item_id: StringName = _local_hotbar.get_selected_item_id()
+	if item_id.is_empty() or not _local_bag.owns_item(item_id):
+		return null
+	var item: ItemDataType = _item_catalog.get_item_by_id(item_id)
+	return item if item != null and item.is_valid() else null
+
+
+func _is_cooler_full() -> bool:
+	return (
+		_cooler_capacity != null
+		and _local_inventory != null
+		and _local_inventory.get_all_catches().size()
+		>= _cooler_capacity.get_capacity()
+	)
+
+
+func _on_cooler_availability_changed() -> void:
+	if state == FishingState.READY and not _is_cooler_full():
+		refresh_active_item_status()
+
+
+func _on_cooler_capacity_changed(_level: int, _capacity: int) -> void:
+	_on_cooler_availability_changed()
 
 
 func is_fighting() -> bool:
@@ -472,6 +546,13 @@ func _on_cast_completed() -> void:
 		return
 	_selection_context = _build_fishing_context(_selected_water_region)
 	_fish_selector.undiscovered_weight_multiplier = undiscovered_weight_multiplier
+	_fish_selector.rarity_weight_multipliers = []
+	for rarity: int in range(FishDataType.Rarity.size()):
+		_fish_selector.rarity_weight_multipliers.append(
+			_item_effects.get_rarity_weight_multiplier(rarity)
+			if _item_effects != null
+			else 1.0
+		)
 	_fish_selector.use_deterministic_test_seed = use_deterministic_selection_seed
 	_fish_selector.deterministic_test_seed = deterministic_selection_seed
 	_fish_selector.begin_roll()
@@ -485,7 +566,11 @@ func _on_cast_completed() -> void:
 		return
 
 	state = FishingState.WAITING_FOR_BITE
-	_state_time_remaining = wait_time
+	_state_time_remaining = wait_time * (
+		_item_effects.get_bite_time_multiplier()
+		if _item_effects != null
+		else 1.0
+	)
 	_withdrawal_progress = 0.0
 	_withdrawal_input_held = false
 	_bobber_water_position = _cast_target
@@ -618,21 +703,41 @@ func _activate_bite() -> void:
 	_presentation.begin_reeling()
 	_catch_controller.start_encounter(
 		_selected_fish.catch_profile,
-		_active_player.reel_speed * (
-			_fishing_upgrades.get_reel_speed_multiplier()
-			if _fishing_upgrades != null
-			else 1.0
-		),
-		(
-			_fishing_upgrades.get_barrier_damage()
-			if _fishing_upgrades != null
-			else _active_player.click_power
-		)
+		_get_effective_reel_speed(),
+		_get_effective_barrier_damage()
 	)
 	_catch_controller.set_reel_input(
 		Input.is_action_pressed("fish_primary")
 	)
 	_presentation.show_bite()
+
+
+func _get_effective_reel_speed() -> float:
+	if _active_player == null:
+		return 0.0
+	return _active_player.reel_speed * (
+		_fishing_upgrades.get_reel_speed_multiplier()
+		if _fishing_upgrades != null
+		else 1.0
+	) * (
+		_item_effects.get_reel_multiplier()
+		if _item_effects != null
+		else 1.0
+	)
+
+
+func _get_effective_barrier_damage() -> int:
+	if _active_player == null:
+		return 1
+	return (
+		_fishing_upgrades.get_barrier_damage()
+		if _fishing_upgrades != null
+		else _active_player.click_power
+	) + (
+		_item_effects.get_barrier_bonus()
+		if _item_effects != null
+		else 0
+	)
 
 
 func _on_catch_encounter_updated(

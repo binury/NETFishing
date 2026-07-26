@@ -8,5 +8,5 @@ id = &"pelicans"
 display_name = "Pelicans"
 animal_name_singular = "pelican"
 animal_name_plural = "pelicans"
-payout_multiplier = 0.7
+payout_multiplier = 0.25
 sale_message_template = "You sold your {fish} to the pelicans for ${payout}."

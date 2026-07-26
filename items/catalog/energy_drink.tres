@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="ItemData" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://items/item_data.gd" id="1"]
+[ext_resource type="Texture2D" path="res://items/icons/placeholder/energy_drink.svg" id="2"]
+
+[resource]
+script = ExtResource("1")
+item_id = &"energy_drink"
+display_name = "Energy Drink"
+description = "Temporarily increases reeling progress."
+category = 3
+icon = ExtResource("2")
+stackable = true
+max_stack = 99
+usable = true
+hotbar_allowed = true

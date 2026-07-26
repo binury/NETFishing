@@ -14,8 +14,11 @@ const PlayerHotbarType = preload("res://inventory/player_hotbar.gd")
 const PlayerFishingUpgradesType = preload(
 	"res://progression/player_fishing_upgrades.gd"
 )
+const PlayerCoolerCapacityType = preload(
+	"res://progression/player_cooler_capacity.gd"
+)
 
-const SAVE_VERSION: int = 3
+const SAVE_VERSION: int = 4
 const BASIC_ROD_ID: StringName = &"basic_fishing_rod"
 const SAVE_PATH: String = "user://player_save.json"
 const TEMP_PATH: String = "user://player_save.json.tmp"
@@ -34,6 +37,7 @@ class LoadSnapshot:
 	var selected_hotbar_slot: int = 0
 	var reel_speed_level: int = 0
 	var barrier_power_level: int = 0
+	var cooler_capacity_level: int = 0
 
 
 @export_range(0.05, 5.0, 0.05) var autosave_delay: float = 0.5
@@ -46,6 +50,7 @@ var _bag: PlayerBagType
 var _hotbar: PlayerHotbarType
 var _item_catalog: ItemCatalogType
 var _fishing_upgrades: PlayerFishingUpgradesType
+var _cooler_capacity: PlayerCoolerCapacityType
 var _autosave_timer: Timer
 var _is_configured: bool = false
 var _is_restoring: bool = false
@@ -70,6 +75,7 @@ func setup(
 	hotbar: PlayerHotbarType,
 	item_catalog: ItemCatalogType,
 	fishing_upgrades: PlayerFishingUpgradesType,
+	cooler_capacity: PlayerCoolerCapacityType,
 ) -> void:
 	_inventory = inventory
 	_collection_log = collection_log
@@ -79,6 +85,7 @@ func setup(
 	_hotbar = hotbar
 	_item_catalog = item_catalog
 	_fishing_upgrades = fishing_upgrades
+	_cooler_capacity = cooler_capacity
 	_is_configured = (
 		_inventory != null
 		and _collection_log != null
@@ -88,6 +95,7 @@ func setup(
 		and _hotbar != null
 		and _item_catalog != null
 		and _fishing_upgrades != null
+		and _cooler_capacity != null
 	)
 	if not _is_configured:
 		push_error("PlayerSaveManager setup is missing required references.")
@@ -114,6 +122,12 @@ func setup(
 		_on_upgrades_changed
 	):
 		_fishing_upgrades.upgrades_changed.connect(_on_upgrades_changed)
+	if not _cooler_capacity.capacity_changed.is_connected(
+		_on_cooler_capacity_changed
+	):
+		_cooler_capacity.capacity_changed.connect(
+			_on_cooler_capacity_changed
+		)
 
 
 func load_player_data() -> bool:
@@ -183,6 +197,9 @@ func load_player_data() -> bool:
 		snapshot.reel_speed_level,
 		snapshot.barrier_power_level
 	)
+	var cooler_restored: bool = _cooler_capacity.restore_level(
+		snapshot.cooler_capacity_level
+	)
 	_is_restoring = false
 	if (
 		not inventory_restored
@@ -191,6 +208,7 @@ func load_player_data() -> bool:
 		or not bag_restored
 		or not hotbar_restored
 		or not upgrades_restored
+		or not cooler_restored
 	):
 		push_error("Validated player save could not be restored.")
 		return false
@@ -400,6 +418,7 @@ func _build_save_dictionary() -> Dictionary:
 			"slots": serialized_slots,
 		},
 		"upgrades": _fishing_upgrades.to_save_data(),
+		"cooler": _cooler_capacity.to_save_data(),
 	}
 
 
@@ -418,12 +437,17 @@ func _build_load_snapshot(save_data: Dictionary) -> LoadSnapshot:
 	var bag_data: Dictionary = save_data["bag"]
 	var hotbar_data: Dictionary = save_data["hotbar"]
 	var upgrades_data: Dictionary = {}
+	var cooler_data: Dictionary = {}
 	if typeof(save_data.get("upgrades")) == TYPE_DICTIONARY:
 		upgrades_data = save_data["upgrades"]
 	else:
 		push_warning(
 			"Saved fishing upgrades were missing or invalid; using defaults."
 		)
+	if typeof(save_data.get("cooler")) == TYPE_DICTIONARY:
+		cooler_data = save_data["cooler"]
+	else:
+		push_warning("Saved Cooler data was missing or invalid; using defaults.")
 	if (
 		not wallet_data.has("balance")
 		or typeof(collection_data.get("discovered_fish_ids")) != TYPE_ARRAY
@@ -600,6 +624,11 @@ func _build_load_snapshot(save_data: Dictionary) -> LoadSnapshot:
 		PlayerFishingUpgradesType.MAX_BARRIER_POWER_LEVEL,
 		"barrier_power_level"
 	)
+	snapshot.cooler_capacity_level = _read_upgrade_level(
+		cooler_data.get("capacity_level"),
+		PlayerCoolerCapacityType.MAX_LEVEL,
+		"cooler.capacity_level"
+	)
 	return snapshot
 
 
@@ -619,6 +648,8 @@ func _migrate_save(
 				migrated = _migrate_version_1_to_2(migrated)
 			2:
 				migrated = _migrate_version_2_to_3(migrated)
+			3:
+				migrated = _migrate_version_3_to_4(migrated)
 			_:
 				return {}
 		if migrated.is_empty():
@@ -659,6 +690,13 @@ func _migrate_version_2_to_3(data: Dictionary) -> Dictionary:
 	return migrated
 
 
+func _migrate_version_3_to_4(data: Dictionary) -> Dictionary:
+	var migrated: Dictionary = data.duplicate(true)
+	migrated["save_version"] = 4
+	migrated["cooler"] = {"capacity_level": 0}
+	return migrated
+
+
 func _mark_dirty() -> void:
 	if (
 		_is_restoring
@@ -689,6 +727,13 @@ func _on_selected_hotbar_slot_changed(
 func _on_upgrades_changed(
 	_reel_speed_level: int,
 	_barrier_power_level: int,
+) -> void:
+	_mark_dirty()
+
+
+func _on_cooler_capacity_changed(
+	_level: int,
+	_capacity: int,
 ) -> void:
 	_mark_dirty()
 
@@ -748,6 +793,7 @@ func _restore_defaults() -> void:
 	_bag.replace_all_items(default_items)
 	_hotbar.replace_state(default_slots, 0)
 	_fishing_upgrades.reset_to_defaults()
+	_cooler_capacity.reset_to_defaults()
 	_is_restoring = false
 	_is_dirty = false
 

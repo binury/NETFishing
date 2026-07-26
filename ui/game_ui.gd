@@ -23,6 +23,12 @@ const PlayerFishingUpgradesType = preload(
 const ShopInteractionType = preload(
 	"res://world/fishing_shop_interaction.gd"
 )
+const PlayerItemEffectsType = preload(
+	"res://progression/player_item_effects.gd"
+)
+const PlayerCoolerCapacityType = preload(
+	"res://progression/player_cooler_capacity.gd"
+)
 
 @onready var _status_label: Label = %StatusLabel
 @onready var _catch_track: Control = %CatchTrack
@@ -40,6 +46,7 @@ const ShopInteractionType = preload(
 @onready var _hotbar_ui: HotbarUIType = %Hotbar
 @onready var _fishing_shop: FishingShopType = %FishingShop
 @onready var _shop_prompt: PanelContainer = %ShopPrompt
+@onready var _effect_status: Label = %EffectStatus
 
 var _showcase_active: bool = false
 var _player_menu_open: bool = false
@@ -47,6 +54,7 @@ var _gameplay_ui_enabled: bool = false
 var _fishing_spot: FishingSpotType
 var _system_menu_open: bool = false
 var _shop_open: bool = false
+var _item_effects: PlayerItemEffectsType
 
 
 func setup(
@@ -64,8 +72,11 @@ func setup(
 	main_shop_buyer: FishBuyerProfileType,
 	fishing_upgrades: PlayerFishingUpgradesType,
 	shop_interaction: ShopInteractionType,
+	item_effects: PlayerItemEffectsType,
+	cooler_capacity: PlayerCoolerCapacityType,
 ) -> void:
 	_fishing_spot = fishing_spot
+	_item_effects = item_effects
 	fishing_spot.status_changed.connect(_on_fishing_status_changed)
 	fishing_spot.catch_display_changed.connect(_on_catch_display_changed)
 	fishing_spot.showcase_changed.connect(_on_showcase_changed)
@@ -83,7 +94,8 @@ func setup(
 		fishing_spot,
 		bag,
 		hotbar,
-		item_catalog
+		item_catalog,
+		cooler_capacity
 	)
 	_hotbar_ui.setup(hotbar, bag, item_catalog, fishing_spot)
 	_fishing_shop.setup(
@@ -94,9 +106,40 @@ func setup(
 		main_shop_buyer,
 		fishing_upgrades,
 		fishing_spot,
-		shop_interaction
+		shop_interaction,
+		bag,
+		item_catalog,
+		cooler_capacity
 	)
 	_fishing_shop.menu_visibility_changed.connect(_on_shop_visibility_changed)
+
+
+func _process(_delta: float) -> void:
+	if _item_effects == null or not _gameplay_ui_enabled:
+		_effect_status.hide()
+		return
+	var parts: Array[String] = []
+	for item_id: StringName in [
+		PlayerItemEffectsType.COFFEE_ID,
+		PlayerItemEffectsType.ENERGY_DRINK_ID,
+		PlayerItemEffectsType.SNACK_ID,
+		PlayerItemEffectsType.FISH_FINDER_ID,
+	]:
+		var remaining: float = _item_effects.get_remaining(item_id)
+		if remaining <= 0.0:
+			continue
+		var label: String = {
+			PlayerItemEffectsType.COFFEE_ID: "Coffee",
+			PlayerItemEffectsType.ENERGY_DRINK_ID: "Energy",
+			PlayerItemEffectsType.SNACK_ID: "Snack",
+			PlayerItemEffectsType.FISH_FINDER_ID: "Finder",
+		}.get(item_id, "")
+		parts.append(
+			"%s %d:%02d"
+			% [label, int(remaining) / 60, int(remaining) % 60]
+		)
+	_effect_status.text = "  ".join(parts)
+	_effect_status.visible = not parts.is_empty()
 
 
 func close_player_menu() -> void:
