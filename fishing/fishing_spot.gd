@@ -13,6 +13,9 @@ const ItemCatalogType = preload("res://items/item_catalog.gd")
 const ItemDataType = preload("res://items/item_data.gd")
 const PlayerBagType = preload("res://inventory/player_bag.gd")
 const PlayerHotbarType = preload("res://inventory/player_hotbar.gd")
+const PlayerFishingUpgradesType = preload(
+	"res://progression/player_fishing_upgrades.gd"
+)
 const PlayerType = preload("res://player/player.gd")
 const FishableWaterRegionType = preload(
 	"res://world/fishable_water_region.gd"
@@ -92,6 +95,7 @@ var _local_collection_log: CollectionLogType
 var _local_bag: PlayerBagType
 var _local_hotbar: PlayerHotbarType
 var _item_catalog: ItemCatalogType
+var _fishing_upgrades: PlayerFishingUpgradesType
 var _active_player: PlayerType
 var _state_time_remaining: float = 0.0
 var _cast_charge: float = 0.0
@@ -132,6 +136,7 @@ func setup(
 	local_bag: PlayerBagType,
 	local_hotbar: PlayerHotbarType,
 	item_catalog: ItemCatalogType,
+	fishing_upgrades: PlayerFishingUpgradesType,
 ) -> void:
 	_local_player = local_player
 	_local_inventory = local_inventory
@@ -139,6 +144,7 @@ func setup(
 	_local_bag = local_bag
 	_local_hotbar = local_hotbar
 	_item_catalog = item_catalog
+	_fishing_upgrades = fishing_upgrades
 
 
 func can_open_player_menu() -> bool:
@@ -162,6 +168,23 @@ func can_open_system_menu() -> bool:
 			FishingState.READY,
 			FishingState.WAITING_FOR_BITE,
 		]
+	)
+
+
+func can_open_fishing_shop() -> bool:
+	return (
+		_gameplay_input_enabled
+		and not _external_input_blocked
+		and _local_menu_input_owners.is_empty()
+		and state == FishingState.READY
+	)
+
+
+func is_ready_for_shop_transaction() -> bool:
+	return (
+		_gameplay_input_enabled
+		and not _external_input_blocked
+		and state == FishingState.READY
 	)
 
 
@@ -595,8 +618,16 @@ func _activate_bite() -> void:
 	_presentation.begin_reeling()
 	_catch_controller.start_encounter(
 		_selected_fish.catch_profile,
-		_active_player.reel_speed,
-		_active_player.click_power
+		_active_player.reel_speed * (
+			_fishing_upgrades.get_reel_speed_multiplier()
+			if _fishing_upgrades != null
+			else 1.0
+		),
+		(
+			_fishing_upgrades.get_barrier_damage()
+			if _fishing_upgrades != null
+			else _active_player.click_power
+		)
 	)
 	_catch_controller.set_reel_input(
 		Input.is_action_pressed("fish_primary")

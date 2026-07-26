@@ -20,9 +20,14 @@ const TitleScreenType = preload("res://ui/title_screen.gd")
 const PauseMenuType = preload("res://ui/pause_menu.gd")
 const ItemCatalogType = preload("res://items/item_catalog.gd")
 const ItemDataType = preload("res://items/item_data.gd")
+const FishingShopType = preload("res://ui/fishing_shop.gd")
+const FishingShopInteractionType = preload(
+	"res://world/fishing_shop_interaction.gd"
+)
 
 @export var fish_catalog: FishPoolType
 @export var pelican_buyer_profile: FishBuyerProfileType
+@export var main_shop_buyer_profile: FishBuyerProfileType
 @export var item_catalog: ItemCatalogType
 
 @onready var _test_world: TestWorldType = $TestWorld
@@ -34,6 +39,7 @@ const ItemDataType = preload("res://items/item_data.gd")
 @onready var _settings_manager: PlayerSettingsManagerType = %PlayerSettingsManager
 
 var _gameplay_started: bool = false
+var _shop_interaction: FishingShopInteractionType
 
 
 func _ready() -> void:
@@ -43,6 +49,11 @@ func _ready() -> void:
 	)
 	_player.bag.setup(item_catalog)
 	_player.hotbar.setup(_player.bag, item_catalog)
+	_shop_interaction = _test_world.get_fishing_shop()
+	_shop_interaction.setup_local_player(_player)
+	_shop_interaction.local_player_range_changed.connect(
+		_on_shop_range_changed
+	)
 	_save_manager.setup(
 		_player.inventory,
 		_player.collection_log,
@@ -50,7 +61,8 @@ func _ready() -> void:
 		fish_catalog,
 		_player.bag,
 		_player.hotbar,
-		item_catalog
+		item_catalog,
+		_player.fishing_upgrades
 	)
 	_save_manager.set_autosave_enabled(false)
 	_fishing_spot.setup(
@@ -59,7 +71,8 @@ func _ready() -> void:
 		_player.collection_log,
 		_player.bag,
 		_player.hotbar,
-		item_catalog
+		item_catalog,
+		_player.fishing_upgrades
 	)
 	_game_ui.setup(
 		_player,
@@ -72,7 +85,10 @@ func _ready() -> void:
 		_fishing_spot,
 		_player.bag,
 		_player.hotbar,
-		item_catalog
+		item_catalog,
+		main_shop_buyer_profile,
+		_player.fishing_upgrades,
+		_shop_interaction
 	)
 	_water_recovery.setup(
 		_player,
@@ -135,6 +151,10 @@ func _input(event: InputEvent) -> void:
 	if title_screen.visible or not _gameplay_started:
 		return
 	var pause_menu: PauseMenuType = _game_ui.get_pause_menu()
+	var fishing_shop: FishingShopType = _game_ui.get_fishing_shop()
+	if fishing_shop.consume_escape():
+		get_viewport().set_input_as_handled()
+		return
 	if pause_menu.handle_escape():
 		get_viewport().set_input_as_handled()
 		return
@@ -151,6 +171,27 @@ func _input(event: InputEvent) -> void:
 		_game_ui.close_player_menu_for_game_menu()
 		pause_menu.open_menu()
 		get_viewport().set_input_as_handled()
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if (
+		not _gameplay_started
+		or not event.is_action_pressed("interact")
+		or (event is InputEventKey and event.echo)
+	):
+		return
+	if (
+		_shop_interaction != null
+		and _shop_interaction.is_local_player_in_range()
+		and _fishing_spot.can_open_fishing_shop()
+		and _game_ui.get_fishing_shop().open_shop()
+	):
+		_game_ui.set_shop_prompt_visible(false)
+		get_viewport().set_input_as_handled()
+
+
+func _process(_delta: float) -> void:
+	_game_ui.set_shop_prompt_visible(_can_show_shop_prompt())
 
 
 func _apply_runtime_settings(settings: PlayerSettingsType) -> void:
@@ -207,6 +248,7 @@ func _on_reset_progress_requested() -> void:
 func _on_water_recovery_starting() -> void:
 	_game_ui.close_player_menu_for_water_recovery()
 	_game_ui.get_pause_menu().close_for_water_recovery()
+	_game_ui.get_fishing_shop().close_for_water_recovery()
 
 
 func _on_active_hotbar_item_changed(
@@ -237,3 +279,20 @@ func _on_quit_requested() -> void:
 	if _gameplay_started:
 		_save_manager.save_if_dirty()
 	get_tree().quit()
+
+
+func _on_shop_range_changed(in_range: bool) -> void:
+	if not in_range:
+		_game_ui.get_fishing_shop().close_for_range_exit()
+	_game_ui.set_shop_prompt_visible(_can_show_shop_prompt())
+
+
+func _can_show_shop_prompt() -> bool:
+	return (
+		_gameplay_started
+		and _shop_interaction != null
+		and _shop_interaction.is_local_player_in_range()
+		and not _game_ui.get_fishing_shop().visible
+		and not _water_recovery.is_recovery_active()
+		and _fishing_spot.can_open_fishing_shop()
+	)

@@ -16,6 +16,13 @@ const PlayerHotbarType = preload("res://inventory/player_hotbar.gd")
 const HotbarUIType = preload("res://ui/hotbar.gd")
 const TitleScreenType = preload("res://ui/title_screen.gd")
 const PauseMenuType = preload("res://ui/pause_menu.gd")
+const FishingShopType = preload("res://ui/fishing_shop.gd")
+const PlayerFishingUpgradesType = preload(
+	"res://progression/player_fishing_upgrades.gd"
+)
+const ShopInteractionType = preload(
+	"res://world/fishing_shop_interaction.gd"
+)
 
 @onready var _status_label: Label = %StatusLabel
 @onready var _catch_track: Control = %CatchTrack
@@ -31,11 +38,15 @@ const PauseMenuType = preload("res://ui/pause_menu.gd")
 @onready var _title_screen: TitleScreenType = %TitleScreen
 @onready var _pause_menu: PauseMenuType = %PauseMenu
 @onready var _hotbar_ui: HotbarUIType = %Hotbar
+@onready var _fishing_shop: FishingShopType = %FishingShop
+@onready var _shop_prompt: PanelContainer = %ShopPrompt
 
 var _showcase_active: bool = false
 var _player_menu_open: bool = false
 var _gameplay_ui_enabled: bool = false
 var _fishing_spot: FishingSpotType
+var _system_menu_open: bool = false
+var _shop_open: bool = false
 
 
 func setup(
@@ -50,6 +61,9 @@ func setup(
 	bag: PlayerBagType,
 	hotbar: PlayerHotbarType,
 	item_catalog: ItemCatalogType,
+	main_shop_buyer: FishBuyerProfileType,
+	fishing_upgrades: PlayerFishingUpgradesType,
+	shop_interaction: ShopInteractionType,
 ) -> void:
 	_fishing_spot = fishing_spot
 	fishing_spot.status_changed.connect(_on_fishing_status_changed)
@@ -72,6 +86,17 @@ func setup(
 		item_catalog
 	)
 	_hotbar_ui.setup(hotbar, bag, item_catalog, fishing_spot)
+	_fishing_shop.setup(
+		player,
+		inventory,
+		wallet,
+		sale_service,
+		main_shop_buyer,
+		fishing_upgrades,
+		fishing_spot,
+		shop_interaction
+	)
+	_fishing_shop.menu_visibility_changed.connect(_on_shop_visibility_changed)
 
 
 func close_player_menu() -> void:
@@ -102,7 +127,9 @@ func set_gameplay_ui_enabled(enabled: bool) -> void:
 	_gameplay_ui_enabled = enabled
 	if not enabled:
 		close_player_menu_for_session_end()
+		_fishing_shop.close_for_session_end()
 		_fishing_panel.visible = false
+		_shop_prompt.hide()
 		_hotbar_ui.hide()
 		_hotbar_ui.set_gameplay_input_enabled(false)
 	else:
@@ -112,11 +139,33 @@ func set_gameplay_ui_enabled(enabled: bool) -> void:
 
 
 func set_system_menu_open(is_open: bool) -> void:
-	_hotbar_ui.visible = _gameplay_ui_enabled and not is_open
+	_system_menu_open = is_open
+	_hotbar_ui.visible = (
+		_gameplay_ui_enabled and not is_open and not _shop_open
+	)
 	_hotbar_ui.set_gameplay_input_enabled(
-		_gameplay_ui_enabled and not is_open and not _player_menu_open
+		_gameplay_ui_enabled
+		and not is_open
+		and not _player_menu_open
+		and not _shop_open
 	)
 	_hotbar_ui.set_drag_enabled(_player_menu_open and not is_open)
+	if is_open:
+		_shop_prompt.hide()
+
+
+func get_fishing_shop() -> FishingShopType:
+	return _fishing_shop
+
+
+func set_shop_prompt_visible(is_visible: bool) -> void:
+	_shop_prompt.visible = (
+		is_visible
+		and _gameplay_ui_enabled
+		and not _system_menu_open
+		and not _player_menu_open
+		and not _shop_open
+	)
 
 
 func get_screen_fade() -> ScreenFade:
@@ -299,3 +348,20 @@ func _on_player_menu_visibility_changed(is_open: bool) -> void:
 	)
 	_hotbar_ui.set_drag_enabled(is_open)
 	_refresh_fishing_panel_visibility()
+	if is_open:
+		_shop_prompt.hide()
+
+
+func _on_shop_visibility_changed(is_open: bool) -> void:
+	_shop_open = is_open
+	_hotbar_ui.visible = (
+		_gameplay_ui_enabled and not is_open and not _system_menu_open
+	)
+	_hotbar_ui.set_gameplay_input_enabled(
+		_gameplay_ui_enabled
+		and not is_open
+		and not _system_menu_open
+		and not _player_menu_open
+	)
+	if is_open:
+		_shop_prompt.hide()

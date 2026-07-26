@@ -1,0 +1,348 @@
+[gd_scene load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://ui/fishing_shop.gd" id="1_script"]
+[ext_resource type="Theme" path="res://ui/game_theme.tres" id="2_theme"]
+[ext_resource type="Texture2D" path="res://items/icons/placeholder/reel_speed_upgrade.svg" id="3_reel"]
+[ext_resource type="Texture2D" path="res://items/icons/placeholder/barrier_power_upgrade.svg" id="4_barrier"]
+[ext_resource type="Texture2D" path="res://items/icons/placeholder/fish_coin.svg" id="5_coin"]
+
+[node name="FishingShop" type="Control"]
+unique_name_in_owner = true
+visible = false
+z_index = 80
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme = ExtResource("2_theme")
+script = ExtResource("1_script")
+
+[node name="Dimmer" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 0
+color = Color(0.015, 0.02, 0.03, 0.64)
+
+[node name="ShopPanel" type="PanelContainer" parent="."]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -450.0
+offset_top = -260.0
+offset_right = 450.0
+offset_bottom = 260.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Margin" type="MarginContainer" parent="ShopPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 14
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 14
+
+[node name="Layout" type="VBoxContainer" parent="ShopPanel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="Header" type="HBoxContainer" parent="ShopPanel/Margin/Layout"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Title" type="Label" parent="ShopPanel/Margin/Layout/Header"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Fishing Shop"
+theme_override_font_sizes/font_size = 24
+theme_override_colors/font_color = Color(0.208, 0.725, 0.78, 1)
+
+[node name="CoinIcon" type="TextureRect" parent="ShopPanel/Margin/Layout/Header"]
+custom_minimum_size = Vector2(24, 24)
+layout_mode = 2
+texture = ExtResource("5_coin")
+expand_mode = 1
+stretch_mode = 5
+texture_filter = 1
+
+[node name="WalletLabel" type="Label" parent="ShopPanel/Margin/Layout/Header"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Wallet: $0"
+
+[node name="CloseButton" type="Button" parent="ShopPanel/Margin/Layout/Header"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Close"
+custom_minimum_size = Vector2(72, 30)
+
+[node name="Feedback" type="Label" parent="ShopPanel/Margin/Layout"]
+unique_name_in_owner = true
+layout_mode = 2
+text = ""
+horizontal_alignment = 1
+theme_override_colors/font_color = Color(1, 0.82, 0.4, 1)
+
+[node name="Body" type="HBoxContainer" parent="ShopPanel/Margin/Layout"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 12
+
+[node name="FishSales" type="VBoxContainer" parent="ShopPanel/Margin/Layout/Body"]
+custom_minimum_size = Vector2(500, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 6
+
+[node name="SalesTitle" type="Label" parent="ShopPanel/Margin/Layout/Body/FishSales"]
+layout_mode = 2
+text = "Sell individual Cooler fish • Full base value"
+theme_override_font_sizes/font_size = 17
+
+[node name="SalesBody" type="HSplitContainer" parent="ShopPanel/Margin/Layout/Body/FishSales"]
+layout_mode = 2
+size_flags_vertical = 3
+split_offset = 265
+theme_override_constants/separation = 8
+
+[node name="ListPanel" type="PanelContainer" parent="ShopPanel/Margin/Layout/Body/FishSales/SalesBody"]
+custom_minimum_size = Vector2(250, 0)
+layout_mode = 2
+
+[node name="ListMargin" type="MarginContainer" parent="ShopPanel/Margin/Layout/Body/FishSales/SalesBody/ListPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 7
+theme_override_constants/margin_top = 7
+theme_override_constants/margin_right = 7
+theme_override_constants/margin_bottom = 7
+
+[node name="ListStack" type="VBoxContainer" parent="ShopPanel/Margin/Layout/Body/FishSales/SalesBody/ListPanel/ListMargin"]
+layout_mode = 2
+
+[node name="FishEmpty" type="Label" parent="ShopPanel/Margin/Layout/Body/FishSales/SalesBody/ListPanel/ListMargin/ListStack"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Your Cooler is empty."
+horizontal_alignment = 1
+
+[node name="FishList" type="ItemList" parent="ShopPanel/Margin/Layout/Body/FishSales/SalesBody/ListPanel/ListMargin/ListStack"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+fixed_icon_size = Vector2i(48, 36)
+icon_mode = 1
+same_column_width = true
+
+[node name="FishDetail" type="PanelContainer" parent="ShopPanel/Margin/Layout/Body/FishSales/SalesBody"]
+custom_minimum_size = Vector2(220, 0)
+layout_mode = 2
+
+[node name="DetailMargin" type="MarginContainer" parent="ShopPanel/Margin/Layout/Body/FishSales/SalesBody/FishDetail"]
+layout_mode = 2
+theme_override_constants/margin_left = 9
+theme_override_constants/margin_top = 9
+theme_override_constants/margin_right = 9
+theme_override_constants/margin_bottom = 9
+
+[node name="DetailStack" type="VBoxContainer" parent="ShopPanel/Margin/Layout/Body/FishSales/SalesBody/FishDetail/DetailMargin"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="FishTexture" type="TextureRect" parent="ShopPanel/Margin/Layout/Body/FishSales/SalesBody/FishDetail/DetailMargin/DetailStack"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(190, 100)
+layout_mode = 2
+expand_mode = 1
+stretch_mode = 5
+texture_filter = 1
+
+[node name="FishName" type="Label" parent="ShopPanel/Margin/Layout/Body/FishSales/SalesBody/FishDetail/DetailMargin/DetailStack"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Select a fish"
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 19
+
+[node name="FishDetails" type="Label" parent="ShopPanel/Margin/Layout/Body/FishSales/SalesBody/FishDetail/DetailMargin/DetailStack"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Choose one individual fish from your Cooler."
+horizontal_alignment = 1
+autowrap_mode = 2
+
+[node name="SellButton" type="Button" parent="ShopPanel/Margin/Layout/Body/FishSales/SalesBody/FishDetail/DetailMargin/DetailStack"]
+unique_name_in_owner = true
+layout_mode = 2
+disabled = true
+text = "Sell Selected"
+
+[node name="Upgrades" type="VBoxContainer" parent="ShopPanel/Margin/Layout/Body"]
+custom_minimum_size = Vector2(310, 0)
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="UpgradeTitle" type="Label" parent="ShopPanel/Margin/Layout/Body/Upgrades"]
+layout_mode = 2
+text = "Fishing Upgrades"
+theme_override_font_sizes/font_size = 17
+
+[node name="ReelCard" type="PanelContainer" parent="ShopPanel/Margin/Layout/Body/Upgrades"]
+layout_mode = 2
+
+[node name="Margin" type="MarginContainer" parent="ShopPanel/Margin/Layout/Body/Upgrades/ReelCard"]
+layout_mode = 2
+theme_override_constants/margin_left = 9
+theme_override_constants/margin_top = 9
+theme_override_constants/margin_right = 9
+theme_override_constants/margin_bottom = 9
+
+[node name="Row" type="HBoxContainer" parent="ShopPanel/Margin/Layout/Body/Upgrades/ReelCard/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 9
+
+[node name="Icon" type="TextureRect" parent="ShopPanel/Margin/Layout/Body/Upgrades/ReelCard/Margin/Row"]
+custom_minimum_size = Vector2(60, 60)
+layout_mode = 2
+texture = ExtResource("3_reel")
+expand_mode = 1
+stretch_mode = 5
+texture_filter = 1
+
+[node name="Data" type="VBoxContainer" parent="ShopPanel/Margin/Layout/Body/Upgrades/ReelCard/Margin/Row"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Name" type="Label" parent="ShopPanel/Margin/Layout/Body/Upgrades/ReelCard/Margin/Row/Data"]
+layout_mode = 2
+text = "Reel Speed"
+theme_override_font_sizes/font_size = 17
+
+[node name="ReelLevel" type="Label" parent="ShopPanel/Margin/Layout/Body/Upgrades/ReelCard/Margin/Row/Data"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Level 0"
+
+[node name="ReelEffect" type="Label" parent="ShopPanel/Margin/Layout/Body/Upgrades/ReelCard/Margin/Row/Data"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "1.00× → 1.10×"
+
+[node name="ReelCost" type="Label" parent="ShopPanel/Margin/Layout/Body/Upgrades/ReelCard/Margin/Row/Data"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "$50"
+
+[node name="ReelPurchase" type="Button" parent="ShopPanel/Margin/Layout/Body/Upgrades/ReelCard/Margin/Row"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Purchase"
+
+[node name="BarrierCard" type="PanelContainer" parent="ShopPanel/Margin/Layout/Body/Upgrades"]
+layout_mode = 2
+
+[node name="Margin" type="MarginContainer" parent="ShopPanel/Margin/Layout/Body/Upgrades/BarrierCard"]
+layout_mode = 2
+theme_override_constants/margin_left = 9
+theme_override_constants/margin_top = 9
+theme_override_constants/margin_right = 9
+theme_override_constants/margin_bottom = 9
+
+[node name="Row" type="HBoxContainer" parent="ShopPanel/Margin/Layout/Body/Upgrades/BarrierCard/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 9
+
+[node name="Icon" type="TextureRect" parent="ShopPanel/Margin/Layout/Body/Upgrades/BarrierCard/Margin/Row"]
+custom_minimum_size = Vector2(60, 60)
+layout_mode = 2
+texture = ExtResource("4_barrier")
+expand_mode = 1
+stretch_mode = 5
+texture_filter = 1
+
+[node name="Data" type="VBoxContainer" parent="ShopPanel/Margin/Layout/Body/Upgrades/BarrierCard/Margin/Row"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Name" type="Label" parent="ShopPanel/Margin/Layout/Body/Upgrades/BarrierCard/Margin/Row/Data"]
+layout_mode = 2
+text = "Barrier Power"
+theme_override_font_sizes/font_size = 17
+
+[node name="BarrierLevel" type="Label" parent="ShopPanel/Margin/Layout/Body/Upgrades/BarrierCard/Margin/Row/Data"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Level 0"
+
+[node name="BarrierEffect" type="Label" parent="ShopPanel/Margin/Layout/Body/Upgrades/BarrierCard/Margin/Row/Data"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "1 damage → 2 damage"
+
+[node name="BarrierCost" type="Label" parent="ShopPanel/Margin/Layout/Body/Upgrades/BarrierCard/Margin/Row/Data"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "$100"
+
+[node name="BarrierPurchase" type="Button" parent="ShopPanel/Margin/Layout/Body/Upgrades/BarrierCard/Margin/Row"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Purchase"
+
+[node name="SaleConfirmation" type="PanelContainer" parent="."]
+unique_name_in_owner = true
+visible = false
+z_index = 10
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -220.0
+offset_top = -90.0
+offset_right = 220.0
+offset_bottom = 90.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Margin" type="MarginContainer" parent="SaleConfirmation"]
+layout_mode = 2
+theme_override_constants/margin_left = 18
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 18
+theme_override_constants/margin_bottom = 16
+
+[node name="Stack" type="VBoxContainer" parent="SaleConfirmation/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="ConfirmationText" type="Label" parent="SaleConfirmation/Margin/Stack"]
+unique_name_in_owner = true
+layout_mode = 2
+autowrap_mode = 2
+horizontal_alignment = 1
+
+[node name="Buttons" type="HBoxContainer" parent="SaleConfirmation/Margin/Stack"]
+layout_mode = 2
+alignment = 1
+theme_override_constants/separation = 8
+
+[node name="ConfirmSale" type="Button" parent="SaleConfirmation/Margin/Stack/Buttons"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Sell Fish"
+theme_type_variation = &"DangerButton"
+
+[node name="CancelSale" type="Button" parent="SaleConfirmation/Margin/Stack/Buttons"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Cancel"

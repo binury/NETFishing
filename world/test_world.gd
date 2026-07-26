@@ -1,8 +1,13 @@
 class_name TestWorld
 extends Node3D
 
+const FishingShopInteractionType = preload(
+	"res://world/fishing_shop_interaction.gd"
+)
+
 @onready var _water_trigger: PlayerWaterTrigger = %PlayerWaterTrigger
 @onready var _safe_respawn_points: Node3D = %SafeRespawnPoints
+@onready var _fishing_shop: FishingShopInteractionType = %FishingShopInteraction
 
 
 func get_player_water_trigger() -> PlayerWaterTrigger:
@@ -16,3 +21,7 @@ func get_safe_respawn_points() -> Array[SafeRespawnPoint]:
 		if point != null:
 			points.append(point)
 	return points
+
+
+func get_fishing_shop() -> FishingShopInteractionType:
+	return _fishing_shop

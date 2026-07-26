@@ -1,4 +1,4 @@
-[gd_scene load_steps=12 format=3]
+[gd_scene load_steps=13 format=3]
 
 [ext_resource type="Script" path="res://ui/game_ui.gd" id="1_ui"]
 [ext_resource type="PackedScene" path="res://ui/player_menu.tscn" id="2_menu"]
@@ -7,6 +7,7 @@
 [ext_resource type="PackedScene" path="res://ui/title_screen.tscn" id="5_title"]
 [ext_resource type="PackedScene" path="res://ui/pause_menu.tscn" id="6_pause"]
 [ext_resource type="PackedScene" path="res://ui/hotbar.tscn" id="7_hotbar"]
+[ext_resource type="PackedScene" path="res://ui/fishing_shop.tscn" id="8_shop"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBox_chase_background"]
 bg_color = Color(0.055, 0.105, 0.125, 1)
@@ -131,6 +132,39 @@ horizontal_alignment = 1
 unique_name_in_owner = true
 
 [node name="Hotbar" parent="." instance=ExtResource("7_hotbar")]
+unique_name_in_owner = true
+
+[node name="ShopPrompt" type="PanelContainer" parent="."]
+unique_name_in_owner = true
+visible = false
+z_index = 55
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -150.0
+offset_top = -284.0
+offset_right = 150.0
+offset_bottom = -246.0
+grow_horizontal = 2
+grow_vertical = 0
+mouse_filter = 2
+theme = ExtResource("3_theme")
+
+[node name="Margin" type="MarginContainer" parent="ShopPrompt"]
+layout_mode = 2
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 7
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 7
+
+[node name="Label" type="Label" parent="ShopPrompt/Margin"]
+layout_mode = 2
+text = "Press E to open Fishing Shop"
+horizontal_alignment = 1
+
+[node name="FishingShop" parent="." instance=ExtResource("8_shop")]
 unique_name_in_owner = true
 
 [node name="ScreenFade" type="ColorRect" parent="."]

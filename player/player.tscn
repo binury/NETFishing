@@ -1,4 +1,4 @@
-[gd_scene load_steps=15 format=3]
+[gd_scene load_steps=16 format=3]
 
 [ext_resource type="Script" path="res://player/player.gd" id="1_script"]
 [ext_resource type="Script" path="res://inventory/fish_inventory.gd" id="2_inventory"]
@@ -7,6 +7,7 @@
 [ext_resource type="Script" path="res://economy/fish_sale_service.gd" id="5_sale_service"]
 [ext_resource type="Script" path="res://inventory/player_bag.gd" id="6_bag"]
 [ext_resource type="Script" path="res://inventory/player_hotbar.gd" id="7_hotbar"]
+[ext_resource type="Script" path="res://progression/player_fishing_upgrades.gd" id="8_upgrades"]
 
 [sub_resource type="CapsuleShape3D" id="PlayerShape"]
 radius = 0.45
@@ -97,6 +98,10 @@ script = ExtResource("6_bag")
 [node name="Hotbar" type="Node" parent="."]
 unique_name_in_owner = true
 script = ExtResource("7_hotbar")
+
+[node name="FishingUpgrades" type="Node" parent="."]
+unique_name_in_owner = true
+script = ExtResource("8_upgrades")
 
 [node name="CatchDisplayAnchor" type="Marker3D" parent="Visuals"]
 unique_name_in_owner = true

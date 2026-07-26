@@ -1,10 +1,11 @@
-[gd_scene load_steps=18 format=3]
+[gd_scene load_steps=25 format=3]
 
 [ext_resource type="Script" path="res://world/fishable_water_region.gd" id="1_water_region"]
 [ext_resource type="Resource" path="res://fish/pools/test_water_pool.tres" id="2_fish_pool"]
 [ext_resource type="Script" path="res://world/test_world.gd" id="3_world"]
 [ext_resource type="Script" path="res://world/player_water_trigger.gd" id="4_water_trigger"]
 [ext_resource type="Script" path="res://world/safe_respawn_point.gd" id="5_safe_point"]
+[ext_resource type="Script" path="res://world/fishing_shop_interaction.gd" id="6_shop"]
 
 [sub_resource type="BoxShape3D" id="GroundShape"]
 size = Vector3(30, 1, 30)
@@ -50,6 +51,24 @@ background_color = Color(0.48, 0.72, 0.9, 1)
 ambient_light_source = 3
 ambient_light_color = Color(0.65, 0.72, 0.8, 1)
 ambient_light_energy = 0.65
+
+[sub_resource type="BoxMesh" id="ShopCounterMesh"]
+size = Vector3(3.4, 1.25, 1.5)
+
+[sub_resource type="BoxMesh" id="ShopRoofMesh"]
+size = Vector3(4.2, 0.35, 2.2)
+
+[sub_resource type="BoxMesh" id="ShopPostMesh"]
+size = Vector3(0.25, 2.8, 0.25)
+
+[sub_resource type="StandardMaterial3D" id="ShopPrimaryMaterial"]
+albedo_color = Color(0.18, 0.72, 0.68, 1)
+
+[sub_resource type="StandardMaterial3D" id="ShopAccentMaterial"]
+albedo_color = Color(1, 0.72, 0.22, 1)
+
+[sub_resource type="SphereShape3D" id="ShopInteractionShape"]
+radius = 3.0
 
 [node name="TestWorld" type="Node3D"]
 script = ExtResource("3_world")
@@ -142,3 +161,44 @@ script = ExtResource("5_safe_point")
 [node name="DockEnd" type="Marker3D" parent="SafeRespawnPoints"]
 position = Vector3(0, 1.08, -17)
 script = ExtResource("5_safe_point")
+
+[node name="FishingShop" type="Node3D" parent="."]
+position = Vector3(8, 0, 5)
+
+[node name="Counter" type="MeshInstance3D" parent="FishingShop"]
+position = Vector3(0, 0.625, 0)
+mesh = SubResource("ShopCounterMesh")
+material_override = SubResource("ShopPrimaryMaterial")
+
+[node name="Roof" type="MeshInstance3D" parent="FishingShop"]
+position = Vector3(0, 2.25, 0)
+mesh = SubResource("ShopRoofMesh")
+material_override = SubResource("ShopAccentMaterial")
+
+[node name="WestPost" type="MeshInstance3D" parent="FishingShop"]
+position = Vector3(-1.55, 1.4, 0.55)
+mesh = SubResource("ShopPostMesh")
+material_override = SubResource("ShopPrimaryMaterial")
+
+[node name="EastPost" type="MeshInstance3D" parent="FishingShop"]
+position = Vector3(1.55, 1.4, 0.55)
+mesh = SubResource("ShopPostMesh")
+material_override = SubResource("ShopPrimaryMaterial")
+
+[node name="ShopName" type="Label3D" parent="FishingShop"]
+position = Vector3(0, 2.7, 0)
+text = "Fishing Shop"
+font_size = 36
+outline_size = 8
+billboard = 1
+no_depth_test = true
+
+[node name="FishingShopInteraction" type="Area3D" parent="FishingShop"]
+unique_name_in_owner = true
+position = Vector3(0, 1, 0)
+collision_layer = 0
+collision_mask = 2
+script = ExtResource("6_shop")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="FishingShop/FishingShopInteraction"]
+shape = SubResource("ShopInteractionShape")

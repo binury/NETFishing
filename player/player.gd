@@ -8,6 +8,9 @@ const FishSaleServiceType = preload("res://economy/fish_sale_service.gd")
 const PlayerWalletType = preload("res://economy/player_wallet.gd")
 const PlayerBagType = preload("res://inventory/player_bag.gd")
 const PlayerHotbarType = preload("res://inventory/player_hotbar.gd")
+const PlayerFishingUpgradesType = preload(
+	"res://progression/player_fishing_upgrades.gd"
+)
 
 class ShowcaseCameraSnapshot:
 	extends RefCounted
@@ -71,6 +74,7 @@ class ShowcaseCameraSnapshot:
 @onready var fish_sale_service: FishSaleServiceType = %FishSaleService
 @onready var bag: PlayerBagType = %Bag
 @onready var hotbar: PlayerHotbarType = %Hotbar
+@onready var fishing_upgrades: PlayerFishingUpgradesType = %FishingUpgrades
 @onready var _cast_origin: Marker3D = %CastOrigin
 @onready var _fishing_rod: Node3D = %FishingRod
 @onready var _fishing_rod_tip: Marker3D = %FishingRodTip

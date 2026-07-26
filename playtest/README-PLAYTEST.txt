@@ -35,6 +35,7 @@ Zoom camera                  Shift + mouse wheel
 Cast / withdraw / reel       Left mouse
 Cooler, Bag, and Logbook     Tab
 Game Menu / back             Escape
+Open Fishing Shop            E while near the shop
 
 FISHING
 
@@ -46,6 +47,12 @@ FISHING
 - At barriers, use distinct left-click presses to damage the barrier.
 - Do not let the red chase meter catch the green meter.
 - Accessibility auto-click can be enabled in Settings.
+- Approach the bright Fishing Shop booth and press E to open it.
+- The Fishing Shop buys one Cooler fish at a time for full base value.
+- Reel Speed upgrades increase authoritative green reeling progress.
+- Barrier Power upgrades increase damage per valid barrier action.
+- Shop upgrades persist in the local progression save.
+- Escape closes shop confirmations before closing the shop itself.
 
 FEATURES TO TRY
 
@@ -59,6 +66,7 @@ FEATURES TO TRY
 - Cooler, Bag, Logbook, favorites, and sorting
 - Basic Fishing Rod equipment and the 1–9 hotbar
 - Pelican selling and wallet updates
+- Physical Fishing Shop sales and persistent fishing upgrades
 - Save, Continue, New Game, and Delete Save
 - Game Menu and persistent camera settings
 - Water-entry recovery from several shores

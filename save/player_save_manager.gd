@@ -11,8 +11,11 @@ const ItemCatalogType = preload("res://items/item_catalog.gd")
 const OwnedItemType = preload("res://items/owned_item.gd")
 const PlayerBagType = preload("res://inventory/player_bag.gd")
 const PlayerHotbarType = preload("res://inventory/player_hotbar.gd")
+const PlayerFishingUpgradesType = preload(
+	"res://progression/player_fishing_upgrades.gd"
+)
 
-const SAVE_VERSION: int = 2
+const SAVE_VERSION: int = 3
 const BASIC_ROD_ID: StringName = &"basic_fishing_rod"
 const SAVE_PATH: String = "user://player_save.json"
 const TEMP_PATH: String = "user://player_save.json.tmp"
@@ -29,6 +32,8 @@ class LoadSnapshot:
 	var bag_items: Array[OwnedItemType] = []
 	var hotbar_slots: Array[StringName] = []
 	var selected_hotbar_slot: int = 0
+	var reel_speed_level: int = 0
+	var barrier_power_level: int = 0
 
 
 @export_range(0.05, 5.0, 0.05) var autosave_delay: float = 0.5
@@ -40,6 +45,7 @@ var _catalog: FishPoolType
 var _bag: PlayerBagType
 var _hotbar: PlayerHotbarType
 var _item_catalog: ItemCatalogType
+var _fishing_upgrades: PlayerFishingUpgradesType
 var _autosave_timer: Timer
 var _is_configured: bool = false
 var _is_restoring: bool = false
@@ -63,6 +69,7 @@ func setup(
 	bag: PlayerBagType,
 	hotbar: PlayerHotbarType,
 	item_catalog: ItemCatalogType,
+	fishing_upgrades: PlayerFishingUpgradesType,
 ) -> void:
 	_inventory = inventory
 	_collection_log = collection_log
@@ -71,6 +78,7 @@ func setup(
 	_bag = bag
 	_hotbar = hotbar
 	_item_catalog = item_catalog
+	_fishing_upgrades = fishing_upgrades
 	_is_configured = (
 		_inventory != null
 		and _collection_log != null
@@ -79,6 +87,7 @@ func setup(
 		and _bag != null
 		and _hotbar != null
 		and _item_catalog != null
+		and _fishing_upgrades != null
 	)
 	if not _is_configured:
 		push_error("PlayerSaveManager setup is missing required references.")
@@ -101,6 +110,10 @@ func setup(
 		_hotbar.selected_slot_changed.connect(
 			_on_selected_hotbar_slot_changed
 		)
+	if not _fishing_upgrades.upgrades_changed.is_connected(
+		_on_upgrades_changed
+	):
+		_fishing_upgrades.upgrades_changed.connect(_on_upgrades_changed)
 
 
 func load_player_data() -> bool:
@@ -166,6 +179,10 @@ func load_player_data() -> bool:
 		snapshot.hotbar_slots,
 		snapshot.selected_hotbar_slot
 	)
+	var upgrades_restored: bool = _fishing_upgrades.restore_levels(
+		snapshot.reel_speed_level,
+		snapshot.barrier_power_level
+	)
 	_is_restoring = false
 	if (
 		not inventory_restored
@@ -173,6 +190,7 @@ func load_player_data() -> bool:
 		or not wallet_restored
 		or not bag_restored
 		or not hotbar_restored
+		or not upgrades_restored
 	):
 		push_error("Validated player save could not be restored.")
 		return false
@@ -381,6 +399,7 @@ func _build_save_dictionary() -> Dictionary:
 			"selected_slot": _hotbar.get_selected_slot(),
 			"slots": serialized_slots,
 		},
+		"upgrades": _fishing_upgrades.to_save_data(),
 	}
 
 
@@ -398,6 +417,13 @@ func _build_load_snapshot(save_data: Dictionary) -> LoadSnapshot:
 	var inventory_data: Dictionary = save_data["inventory"]
 	var bag_data: Dictionary = save_data["bag"]
 	var hotbar_data: Dictionary = save_data["hotbar"]
+	var upgrades_data: Dictionary = {}
+	if typeof(save_data.get("upgrades")) == TYPE_DICTIONARY:
+		upgrades_data = save_data["upgrades"]
+	else:
+		push_warning(
+			"Saved fishing upgrades were missing or invalid; using defaults."
+		)
 	if (
 		not wallet_data.has("balance")
 		or typeof(collection_data.get("discovered_fish_ids")) != TYPE_ARRAY
@@ -564,6 +590,16 @@ func _build_load_snapshot(save_data: Dictionary) -> LoadSnapshot:
 		0,
 		PlayerHotbarType.SLOT_COUNT - 1
 	)
+	snapshot.reel_speed_level = _read_upgrade_level(
+		upgrades_data.get("reel_speed_level"),
+		PlayerFishingUpgradesType.MAX_REEL_SPEED_LEVEL,
+		"reel_speed_level"
+	)
+	snapshot.barrier_power_level = _read_upgrade_level(
+		upgrades_data.get("barrier_power_level"),
+		PlayerFishingUpgradesType.MAX_BARRIER_POWER_LEVEL,
+		"barrier_power_level"
+	)
 	return snapshot
 
 
@@ -573,10 +609,28 @@ func _migrate_save(
 ) -> Dictionary:
 	if from_version == SAVE_VERSION:
 		return data
-	if from_version == 1:
-		var migrated: Dictionary = data.duplicate(true)
-		migrated["save_version"] = SAVE_VERSION
-		migrated["bag"] = {
+	if from_version < 1 or from_version > SAVE_VERSION:
+		return {}
+	var migrated: Dictionary = data.duplicate(true)
+	var current_version: int = from_version
+	while current_version < SAVE_VERSION:
+		match current_version:
+			1:
+				migrated = _migrate_version_1_to_2(migrated)
+			2:
+				migrated = _migrate_version_2_to_3(migrated)
+			_:
+				return {}
+		if migrated.is_empty():
+			return {}
+		current_version += 1
+	return migrated
+
+
+func _migrate_version_1_to_2(data: Dictionary) -> Dictionary:
+	var migrated: Dictionary = data.duplicate(true)
+	migrated["save_version"] = 2
+	migrated["bag"] = {
 			"items": [
 				{
 					"item_id": String(BASIC_ROD_ID),
@@ -584,16 +638,25 @@ func _migrate_save(
 				},
 			],
 		}
-		var slots: Array[String] = []
-		slots.resize(PlayerHotbarType.SLOT_COUNT)
-		slots.fill("")
-		slots[0] = String(BASIC_ROD_ID)
-		migrated["hotbar"] = {
-			"selected_slot": 0,
-			"slots": slots,
-		}
-		return migrated
-	return {}
+	var slots: Array[String] = []
+	slots.resize(PlayerHotbarType.SLOT_COUNT)
+	slots.fill("")
+	slots[0] = String(BASIC_ROD_ID)
+	migrated["hotbar"] = {
+		"selected_slot": 0,
+		"slots": slots,
+	}
+	return migrated
+
+
+func _migrate_version_2_to_3(data: Dictionary) -> Dictionary:
+	var migrated: Dictionary = data.duplicate(true)
+	migrated["save_version"] = 3
+	migrated["upgrades"] = {
+		"reel_speed_level": 0,
+		"barrier_power_level": 0,
+	}
+	return migrated
 
 
 func _mark_dirty() -> void:
@@ -619,6 +682,13 @@ func _on_balance_changed(_new_balance: int, _delta: int) -> void:
 func _on_selected_hotbar_slot_changed(
 	_slot_index: int,
 	_item_id: StringName,
+) -> void:
+	_mark_dirty()
+
+
+func _on_upgrades_changed(
+	_reel_speed_level: int,
+	_barrier_power_level: int,
 ) -> void:
 	_mark_dirty()
 
@@ -677,6 +747,7 @@ func _restore_defaults() -> void:
 	_wallet.restore_balance(0)
 	_bag.replace_all_items(default_items)
 	_hotbar.replace_state(default_slots, 0)
+	_fishing_upgrades.reset_to_defaults()
 	_is_restoring = false
 	_is_dirty = false
 
@@ -700,6 +771,46 @@ func _read_integer(
 		):
 			return int(round(float_value))
 	return invalid_value
+
+
+func _read_upgrade_level(
+	value: Variant,
+	maximum_level: int,
+	field_name: String,
+) -> int:
+	var parsed_value: int = 0
+	var value_is_integer_like: bool = false
+	if typeof(value) == TYPE_INT:
+		parsed_value = int(value)
+		value_is_integer_like = true
+	elif typeof(value) == TYPE_FLOAT:
+		var float_value: float = float(value)
+		if is_finite(float_value) and is_equal_approx(
+			float_value,
+			round(float_value)
+		):
+			parsed_value = int(round(float_value))
+			value_is_integer_like = true
+	if not value_is_integer_like:
+		push_warning(
+			"Saved upgrade '%s' was invalid; using level 0." % field_name
+		)
+		return 0
+	if parsed_value < 0:
+		push_warning(
+			"Saved upgrade '%s' was below 0; clamped to 0." % field_name
+		)
+		return 0
+	if parsed_value > maximum_level:
+		push_warning(
+			(
+				"Saved upgrade '%s' exceeded the supported maximum; "
+				+ "clamped to %d."
+			)
+			% [field_name, maximum_level]
+		)
+		return maximum_level
+	return parsed_value
 
 
 func _rename_file(from_path: String, to_path: String) -> bool:
