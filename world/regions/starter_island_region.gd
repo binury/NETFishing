@@ -1,21 +1,28 @@
+@tool
 class_name StarterIslandRegion
-extends GrayboxRegion
+extends WorldRegion
 
 const FishingShopInteractionType = preload(
 	"res://world/fishing_shop_interaction.gd"
 )
 
-@export var visual_mesh_path: NodePath = (
-	^"Visuals/StarterIslandModel/starter_island"
+@export_group("Owned Nodes")
+@export_node_path("MeshInstance3D")
+var visual_mesh_path: NodePath = (
+	^"Terrain/Visual/starter_island"
 )
-@export var terrain_collision_shape_path: NodePath = (
-	^"StaticCollision/Terrain/Shape"
+@export_node_path("CollisionShape3D")
+var terrain_collision_shape_path: NodePath = (
+	^"Terrain/Collision/Shape"
 )
-@export var player_spawn_path: NodePath = ^"PlayerSpawn"
-@export var fishing_shop_path: NodePath = (
-	^"Interactables/FishingShopWorld/FishingShopInteraction"
+@export_node_path("Marker3D")
+var player_spawn_path: NodePath = ^"PlayerSpawn"
+@export_node_path("Area3D")
+var fishing_shop_path: NodePath = (
+	^"Interactables/FishingShopWorld/InteractionArea"
 )
-@export var pelican_landmark_path: NodePath = (
+@export_node_path("Node3D")
+var pelican_landmark_path: NodePath = (
 	^"Interactables/PelicanCoolerPerch"
 )
 
@@ -27,6 +34,8 @@ const FishingShopInteractionType = preload(
 func _ready() -> void:
 	_apply_grass_material()
 	_build_terrain_collision()
+	if Engine.is_editor_hint():
+		update_configuration_warnings()
 
 
 func get_player_spawn_transform() -> Transform3D:
@@ -91,3 +100,25 @@ func _build_terrain_collision() -> void:
 		push_error("Starter island terrain collision could not be created.")
 		return
 	collision_shape.shape = terrain_shape
+
+
+func _get_configuration_warnings() -> PackedStringArray:
+	var warnings := PackedStringArray()
+	var visual_mesh := get_node_or_null(visual_mesh_path) as MeshInstance3D
+	if visual_mesh == null or visual_mesh.mesh == null:
+		warnings.append("Terrain/Visual must provide the island mesh.")
+	elif grass_surface_index >= visual_mesh.mesh.get_surface_count():
+		warnings.append("Grass surface index is outside the terrain mesh.")
+	elif visual_mesh.mesh.surface_get_name(grass_surface_index) != "grass":
+		warnings.append("Grass surface index must identify the grass surface.")
+	if grass_material == null:
+		warnings.append("Assign the starter-island grass material.")
+	if get_node_or_null(terrain_collision_shape_path) == null:
+		warnings.append("Terrain/Collision must provide a collision shape.")
+	if get_node_or_null(player_spawn_path) == null:
+		warnings.append("PlayerSpawn marker is missing.")
+	if get_node_or_null(fishing_shop_path) == null:
+		warnings.append("Fishing Shop placement is missing.")
+	if get_node_or_null(pelican_landmark_path) == null:
+		warnings.append("Pelican placement is missing.")
+	return warnings

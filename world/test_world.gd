@@ -19,7 +19,7 @@ const FishingShopInteractionType = preload(
 
 func get_player_water_triggers() -> Array[PlayerWaterTrigger]:
 	var triggers: Array[PlayerWaterTrigger] = []
-	for region: GrayboxRegion in _get_regions():
+	for region: WorldRegion in _get_regions():
 		triggers.append_array(region.get_water_recovery_triggers())
 	triggers.append(_below_world_failsafe)
 	return triggers
@@ -27,7 +27,7 @@ func get_player_water_triggers() -> Array[PlayerWaterTrigger]:
 
 func get_safe_respawn_points() -> Array[SafeRespawnPoint]:
 	var points: Array[SafeRespawnPoint] = []
-	for region: GrayboxRegion in _get_regions():
+	for region: WorldRegion in _get_regions():
 		points.append_array(region.get_safe_respawn_points())
 	return points
 
@@ -42,7 +42,7 @@ func get_player_spawn_transform() -> Transform3D:
 
 func get_fishable_water_regions() -> Array[FishableWaterRegion]:
 	var waters: Array[FishableWaterRegion] = []
-	for region: GrayboxRegion in _get_regions():
+	for region: WorldRegion in _get_regions():
 		waters.append_array(region.get_fishable_water_regions())
 	return waters
 
@@ -51,10 +51,10 @@ func get_pelican_convenience_landmark() -> Node3D:
 	return _starter_island.get_pelican_landmark()
 
 
-func _get_regions() -> Array[GrayboxRegion]:
-	var regions: Array[GrayboxRegion] = []
+func _get_regions() -> Array[WorldRegion]:
+	var regions: Array[WorldRegion] = []
 	for child: Node in _regions_root.get_children():
-		var region: GrayboxRegion = child as GrayboxRegion
+		var region: WorldRegion = child as WorldRegion
 		if region != null:
 			regions.append(region)
 	return regions

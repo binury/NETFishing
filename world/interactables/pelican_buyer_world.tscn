@@ -1,39 +1,46 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://world/world_prop.gd" id="1_prop"]
 
 [sub_resource type="BoxMesh" id="PerchMesh"]
+resource_local_to_scene = true
 size = Vector3(5, 0.7, 2.2)
 
 [sub_resource type="CylinderMesh" id="PostMesh"]
+resource_local_to_scene = true
 top_radius = 0.18
 bottom_radius = 0.24
 height = 2.5
 
 [sub_resource type="StandardMaterial3D" id="WoodMaterial"]
+resource_local_to_scene = true
 albedo_color = Color(0.46, 0.28, 0.13, 1)
 
 [sub_resource type="StandardMaterial3D" id="SignMaterial"]
+resource_local_to_scene = true
 albedo_color = Color(0.95, 0.82, 0.42, 1)
 
 [node name="PelicanCoolerPerch" type="Node3D"]
+script = ExtResource("1_prop")
 
-[node name="Visuals" type="Node3D" parent="."]
+[node name="Visual" type="Node3D" parent="."]
 
-[node name="Perch" type="MeshInstance3D" parent="Visuals"]
+[node name="Perch" type="MeshInstance3D" parent="Visual"]
 position = Vector3(0, 1.65, 0)
 mesh = SubResource("PerchMesh")
 material_override = SubResource("WoodMaterial")
 
-[node name="WestPost" type="MeshInstance3D" parent="Visuals"]
+[node name="WestPost" type="MeshInstance3D" parent="Visual"]
 position = Vector3(-1.8, 0.7, 0)
 mesh = SubResource("PostMesh")
 material_override = SubResource("WoodMaterial")
 
-[node name="EastPost" type="MeshInstance3D" parent="Visuals"]
+[node name="EastPost" type="MeshInstance3D" parent="Visual"]
 position = Vector3(1.8, 0.7, 0)
 mesh = SubResource("PostMesh")
 material_override = SubResource("WoodMaterial")
 
-[node name="Sign" type="Label3D" parent="Visuals"]
+[node name="Sign" type="Label3D" parent="Visual"]
 position = Vector3(0, 2.55, 0)
 text = "sell to pelicans\nfrom the cooler"
 font_size = 30
@@ -41,7 +48,7 @@ outline_size = 8
 billboard = 1
 no_depth_test = true
 
-[node name="ConvenienceLabel" type="Label3D" parent="Visuals"]
+[node name="ConvenienceLabel" type="Label3D" parent="Visual"]
 position = Vector3(0, 1.65, -1.15)
 text = "available anywhere • 0.25x"
 font_size = 20

@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" path="res://world/test_world.gd" id="1_world"]
 [ext_resource type="PackedScene" path="res://world/regions/starter_island_region.tscn" id="2_island"]
-[ext_resource type="Script" path="res://world/player_water_trigger.gd" id="3_water_trigger"]
+[ext_resource type="Script" path="res://world/below_world_failsafe.gd" id="3_water_trigger"]
 
 [sub_resource type="Environment" id="Environment"]
 background_mode = 1
@@ -60,7 +60,7 @@ collision_mask = 2
 script = ExtResource("3_water_trigger")
 surface_height = 0.3
 
-[node name="FailsafeShape" type="CollisionShape3D" parent="Safety/BelowWorldFailsafe"]
+[node name="Coverage" type="CollisionShape3D" parent="Safety/BelowWorldFailsafe"]
 shape = SubResource("FailsafeShape")
 
 [node name="WorldBounds" type="Node3D" parent="."]

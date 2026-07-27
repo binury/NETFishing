@@ -118,7 +118,7 @@ var _new_cast_press_armed: bool = true
 var _bobber_water_position: Vector3
 var _fight_start_position: Vector3
 var _cooldown_status: String = ""
-var _fishable_query_shape: SphereShape3D = SphereShape3D.new()
+var _fishable_query_shape: CylinderShape3D = CylinderShape3D.new()
 var _fish_selector: FishSelectorType = FishSelectorType.new()
 var _selected_water_region: FishableWaterRegionType
 var _selection_context: FishingContextType
@@ -966,7 +966,7 @@ func _calculate_cast_target(distance: float) -> Vector3:
 		target
 	)
 	if water_region != null:
-		target.y = water_region.surface_height
+		target.y = water_region.get_surface_height()
 		_presentation.set_water_surface_height(target.y)
 	else:
 		_presentation.reset_water_surface_height()
@@ -982,11 +982,12 @@ func get_fishable_water_region(
 	target: Vector3,
 ) -> FishableWaterRegionType:
 	_fishable_query_shape.radius = fishable_query_radius
+	_fishable_query_shape.height = preview_ray_length
 	var query := PhysicsShapeQueryParameters3D.new()
 	query.shape = _fishable_query_shape
 	query.transform = Transform3D(
 		Basis.IDENTITY,
-		Vector3(target.x, _presentation.get_water_surface_height(), target.z)
+		Vector3(target.x, target.y, target.z)
 	)
 	query.collision_mask = fishable_surface_mask
 	query.collide_with_areas = true
