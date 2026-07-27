@@ -17,6 +17,7 @@ const HotbarUIType = preload("res://ui/hotbar.gd")
 const TitleScreenType = preload("res://ui/title_screen.gd")
 const PauseMenuType = preload("res://ui/pause_menu.gd")
 const FishingShopType = preload("res://ui/fishing_shop.gd")
+const SettingsPanelType = preload("res://ui/settings_panel.gd")
 const PlayerFishingUpgradesType = preload(
 	"res://progression/player_fishing_upgrades.gd"
 )
@@ -29,6 +30,10 @@ const PlayerItemEffectsType = preload(
 const PlayerCoolerCapacityType = preload(
 	"res://progression/player_cooler_capacity.gd"
 )
+
+signal pixelation_settings_visibility_changed(is_visible: bool)
+signal crisp_reset_focus_requested
+signal interactive_pointer_ui_changed(is_open: bool)
 
 @onready var _status_label: Label = %StatusLabel
 @onready var _catch_track: Control = %CatchTrack
@@ -47,6 +52,12 @@ const PlayerCoolerCapacityType = preload(
 @onready var _fishing_shop: FishingShopType = %FishingShop
 @onready var _shop_prompt: PanelContainer = %ShopPrompt
 @onready var _effect_status: Label = %EffectStatus
+@onready var _title_settings_panel: SettingsPanelType = (
+	$UIRoot/TitleScreen/SettingsPanel
+)
+@onready var _pause_settings_panel: SettingsPanelType = (
+	$UIRoot/PauseMenu/SettingsCenter/SettingsPanel
+)
 
 var _showcase_active: bool = false
 var _player_menu_open: bool = false
@@ -55,6 +66,21 @@ var _fishing_spot: FishingSpotType
 var _system_menu_open: bool = false
 var _shop_open: bool = false
 var _item_effects: PlayerItemEffectsType
+
+
+func _ready() -> void:
+	_title_settings_panel.panel_visibility_changed.connect(
+		_on_settings_visibility_changed
+	)
+	_pause_settings_panel.panel_visibility_changed.connect(
+		_on_settings_visibility_changed
+	)
+	_title_settings_panel.crisp_reset_focus_requested.connect(
+		crisp_reset_focus_requested.emit
+	)
+	_pause_settings_panel.crisp_reset_focus_requested.connect(
+		crisp_reset_focus_requested.emit
+	)
 
 
 func setup(
@@ -195,6 +221,7 @@ func set_system_menu_open(is_open: bool) -> void:
 	_hotbar_ui.set_drag_enabled(_player_menu_open and not is_open)
 	if is_open:
 		_shop_prompt.hide()
+	_emit_interactive_pointer_ui_changed()
 
 
 func get_fishing_shop() -> FishingShopType:
@@ -217,6 +244,29 @@ func get_screen_fade() -> ScreenFade:
 
 func get_title_screen() -> TitleScreenType:
 	return _title_screen
+
+
+func set_effective_ui_pixel_size(pixel_size: int) -> void:
+	_title_settings_panel.set_effective_ui_pixel_size(pixel_size)
+	_pause_settings_panel.set_effective_ui_pixel_size(pixel_size)
+
+
+func focus_open_settings_back_button() -> void:
+	if _title_settings_panel.visible:
+		_title_settings_panel.focus_back_button()
+	elif _pause_settings_panel.visible:
+		_pause_settings_panel.focus_back_button()
+
+
+func refresh_open_settings_panel() -> void:
+	_title_settings_panel.refresh_open_panel()
+	_pause_settings_panel.refresh_open_panel()
+
+
+func _on_settings_visibility_changed(_is_visible: bool) -> void:
+	pixelation_settings_visibility_changed.emit(
+		_title_settings_panel.visible or _pause_settings_panel.visible
+	)
 
 
 func _on_fishing_status_changed(status: String) -> void:
@@ -391,6 +441,7 @@ func _on_player_menu_visibility_changed(is_open: bool) -> void:
 	)
 	_hotbar_ui.set_drag_enabled(is_open)
 	_refresh_fishing_panel_visibility()
+	_emit_interactive_pointer_ui_changed()
 	if is_open:
 		_shop_prompt.hide()
 
@@ -408,3 +459,10 @@ func _on_shop_visibility_changed(is_open: bool) -> void:
 	)
 	if is_open:
 		_shop_prompt.hide()
+	_emit_interactive_pointer_ui_changed()
+
+
+func _emit_interactive_pointer_ui_changed() -> void:
+	interactive_pointer_ui_changed.emit(
+		_system_menu_open or _player_menu_open or _shop_open
+	)

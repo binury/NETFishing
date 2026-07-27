@@ -29,10 +29,10 @@ color = Color(0.015, 0.02, 0.03, 0.72)
 
 [node name="MenuPanel" type="PanelContainer" parent="."]
 layout_mode = 1
-anchor_left = 0.07
-anchor_top = 0.055
-anchor_right = 0.93
-anchor_bottom = 0.72
+anchor_left = 0.02
+anchor_top = 0.025
+anchor_right = 0.98
+anchor_bottom = 0.96
 grow_horizontal = 2
 grow_vertical = 2
 
@@ -55,7 +55,7 @@ theme_override_constants/separation = 8
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_colors/font_color = Color(0.208, 0.725, 0.78, 1)
-theme_override_font_sizes/font_size = 22
+theme_override_font_sizes/font_size = 33
 text = "player menu"
 
 [node name="WalletBalance" type="Label" parent="MenuPanel/Margin/Layout/Header"]
@@ -69,27 +69,27 @@ unique_name_in_owner = true
 layout_mode = 2
 toggle_mode = true
 text = "cooler"
-custom_minimum_size = Vector2(88, 30)
+custom_minimum_size = Vector2(130, 58)
 
 [node name="BagTab" type="Button" parent="MenuPanel/Margin/Layout/Header"]
 unique_name_in_owner = true
 layout_mode = 2
 toggle_mode = true
 text = "bag"
-custom_minimum_size = Vector2(76, 30)
+custom_minimum_size = Vector2(110, 58)
 
 [node name="LogbookTab" type="Button" parent="MenuPanel/Margin/Layout/Header"]
 unique_name_in_owner = true
 layout_mode = 2
 toggle_mode = true
 text = "logbook"
-custom_minimum_size = Vector2(88, 30)
+custom_minimum_size = Vector2(140, 58)
 
 [node name="CloseButton" type="Button" parent="MenuPanel/Margin/Layout/Header"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "close"
-custom_minimum_size = Vector2(68, 30)
+custom_minimum_size = Vector2(110, 58)
 
 [node name="Separator" type="HSeparator" parent="MenuPanel/Margin/Layout"]
 layout_mode = 2
@@ -100,7 +100,7 @@ layout_mode = 2
 text = ""
 horizontal_alignment = 1
 theme_override_colors/font_color = Color(1, 0.82, 0.4, 1)
-theme_override_font_sizes/font_size = 14
+theme_override_font_sizes/font_size = 21
 
 [node name="Content" type="Control" parent="MenuPanel/Margin/Layout"]
 custom_minimum_size = Vector2(0, 260)
@@ -128,12 +128,12 @@ text = "sort:"
 [node name="SortOption" type="OptionButton" parent="MenuPanel/Margin/Layout/Content/InventorySection/SortBar"]
 unique_name_in_owner = true
 layout_mode = 2
-custom_minimum_size = Vector2(130, 30)
+custom_minimum_size = Vector2(190, 58)
 
 [node name="SortDirection" type="Button" parent="MenuPanel/Margin/Layout/Content/InventorySection/SortBar"]
 unique_name_in_owner = true
 layout_mode = 2
-custom_minimum_size = Vector2(112, 30)
+custom_minimum_size = Vector2(190, 58)
 text = "newest first"
 
 [node name="SortSpacer" type="Control" parent="MenuPanel/Margin/Layout/Content/InventorySection/SortBar"]
@@ -219,7 +219,7 @@ texture_filter = 1
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(0.208, 0.725, 0.78, 1)
-theme_override_font_sizes/font_size = 19
+theme_override_font_sizes/font_size = 29
 horizontal_alignment = 1
 
 [node name="DetailData" type="Label" parent="MenuPanel/Margin/Layout/Content/InventorySection/InventoryBody/DetailPanel/DetailMargin/DetailStack"]
@@ -339,7 +339,7 @@ texture_filter = 1
 [node name="BagDetailName" type="Label" parent="MenuPanel/Margin/Layout/Content/BagSection/BagBody/BagDetail/Margin/Stack"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 19
+theme_override_font_sizes/font_size = 29
 horizontal_alignment = 1
 
 [node name="BagDetailData" type="Label" parent="MenuPanel/Margin/Layout/Content/BagSection/BagBody/BagDetail/Margin/Stack"]
@@ -389,10 +389,10 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -230.0
-offset_top = -105.0
-offset_right = 230.0
-offset_bottom = 105.0
+offset_left = -320.0
+offset_top = -160.0
+offset_right = 320.0
+offset_bottom = 160.0
 grow_horizontal = 2
 grow_vertical = 2
 
@@ -422,10 +422,10 @@ unique_name_in_owner = true
 layout_mode = 2
 text = "confirm"
 theme_type_variation = &"DangerButton"
-custom_minimum_size = Vector2(120, 38)
+custom_minimum_size = Vector2(170, 64)
 
 [node name="CancelSaleButton" type="Button" parent="MenuPanel/Margin/Layout/Content/SaleConfirmation/ConfirmationMargin/ConfirmationLayout/ConfirmationButtons"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "cancel"
-custom_minimum_size = Vector2(120, 38)
+custom_minimum_size = Vector2(170, 64)

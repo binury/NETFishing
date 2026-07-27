@@ -1,4 +1,4 @@
-[gd_scene load_steps=14 format=3]
+[gd_scene load_steps=16 format=3]
 
 [ext_resource type="PackedScene" path="res://world/test_world.tscn" id="1_world"]
 [ext_resource type="PackedScene" path="res://player/player.tscn" id="2_player"]
@@ -13,6 +13,8 @@
 [ext_resource type="Resource" path="res://items/catalog/item_catalog.tres" id="11_items"]
 [ext_resource type="Resource" path="res://economy/buyers/main_fishing_shop.tres" id="12_main_shop"]
 [ext_resource type="AudioStream" path="res://audio/music/title/as_in_four_wolves.ogg" id="13_title_music"]
+[ext_resource type="Script" path="res://ui/ui_pixelation_presenter.gd" id="14_pixelation"]
+[ext_resource type="PackedScene" path="res://ui/pixelation_reset_overlay.tscn" id="15_reset"]
 
 [node name="Main" type="Node3D"]
 script = ExtResource("3_main")
@@ -51,5 +53,23 @@ stream = ExtResource("13_title_music")
 volume_db = -80.0
 bus = &"Music"
 
-[node name="GameUI" parent="." instance=ExtResource("5_ui")]
+[node name="UIPresentation" type="SubViewportContainer" parent="."]
+unique_name_in_owner = true
+texture_filter = 1
+offset_right = 1152.0
+offset_bottom = 648.0
+mouse_filter = 0
+stretch = true
+script = ExtResource("14_pixelation")
+
+[node name="UIViewport" type="SubViewport" parent="UIPresentation"]
+transparent_bg = true
+handle_input_locally = false
+size = Vector2i(1152, 648)
+render_target_update_mode = 4
+
+[node name="GameUI" parent="UIPresentation/UIViewport" instance=ExtResource("5_ui")]
+unique_name_in_owner = true
+
+[node name="PixelationResetOverlay" parent="." instance=ExtResource("15_reset")]
 unique_name_in_owner = true

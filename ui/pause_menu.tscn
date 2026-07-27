@@ -38,7 +38,7 @@ grow_vertical = 2
 
 [node name="RootPanel" type="PanelContainer" parent="RootCenter"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(420, 0)
+custom_minimum_size = Vector2(560, 0)
 layout_mode = 2
 
 [node name="Margin" type="MarginContainer" parent="RootCenter/RootPanel"]
@@ -54,50 +54,50 @@ theme_override_constants/separation = 11
 
 [node name="Title" type="Label" parent="RootCenter/RootPanel/Margin/Content"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 30
+theme_override_font_sizes/font_size = 45
 text = "game menu"
 horizontal_alignment = 1
 
 [node name="ResumeButton" type="Button" parent="RootCenter/RootPanel/Margin/Content"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 43)
+custom_minimum_size = Vector2(0, 64)
 layout_mode = 2
 text = "return to game"
 
 [node name="SaveButton" type="Button" parent="RootCenter/RootPanel/Margin/Content"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 43)
+custom_minimum_size = Vector2(0, 64)
 layout_mode = 2
 text = "save now"
 
 [node name="SettingsButton" type="Button" parent="RootCenter/RootPanel/Margin/Content"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 43)
+custom_minimum_size = Vector2(0, 64)
 layout_mode = 2
 text = "settings"
 
 [node name="ReturnToTitleButton" type="Button" parent="RootCenter/RootPanel/Margin/Content"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 43)
+custom_minimum_size = Vector2(0, 64)
 layout_mode = 2
 text = "return to title"
 
 [node name="ResetProgressButton" type="Button" parent="RootCenter/RootPanel/Margin/Content"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 43)
+custom_minimum_size = Vector2(0, 64)
 layout_mode = 2
 theme_type_variation = &"DangerButton"
 text = "reset progress"
 
 [node name="QuitButton" type="Button" parent="RootCenter/RootPanel/Margin/Content"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 43)
+custom_minimum_size = Vector2(0, 64)
 layout_mode = 2
 text = "quit"
 
 [node name="FeedbackLabel" type="Label" parent="RootCenter/RootPanel/Margin/Content"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 34)
+custom_minimum_size = Vector2(0, 54)
 layout_mode = 2
 horizontal_alignment = 1
 vertical_alignment = 1
@@ -128,7 +128,7 @@ mouse_filter = 2
 [node name="ConfirmationPanel" type="PanelContainer" parent="ConfirmationCenter"]
 unique_name_in_owner = true
 visible = false
-custom_minimum_size = Vector2(520, 0)
+custom_minimum_size = Vector2(700, 0)
 layout_mode = 2
 
 [node name="Margin" type="MarginContainer" parent="ConfirmationCenter/ConfirmationPanel"]
@@ -146,7 +146,7 @@ theme_override_constants/separation = 15
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(0.937, 0.357, 0.384, 1)
-theme_override_font_sizes/font_size = 24
+theme_override_font_sizes/font_size = 36
 text = "confirm"
 horizontal_alignment = 1
 
@@ -164,12 +164,12 @@ alignment = 1
 
 [node name="ConfirmButton" type="Button" parent="ConfirmationCenter/ConfirmationPanel/Margin/Content/Buttons"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(190, 43)
+custom_minimum_size = Vector2(240, 64)
 layout_mode = 2
 text = "confirm"
 
 [node name="CancelConfirmButton" type="Button" parent="ConfirmationCenter/ConfirmationPanel/Margin/Content/Buttons"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(130, 43)
+custom_minimum_size = Vector2(180, 64)
 layout_mode = 2
 text = "cancel"

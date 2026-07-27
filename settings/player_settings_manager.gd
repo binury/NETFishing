@@ -39,6 +39,9 @@ func load_settings() -> bool:
 		return _use_defaults_after_corruption("Player settings structure is invalid.")
 	var accessibility: Dictionary = data["accessibility"]
 	var camera: Dictionary = data["camera"]
+	var presentation: Dictionary = {}
+	if typeof(data.get("presentation")) == TYPE_DICTIONARY:
+		presentation = data["presentation"]
 	if (
 		typeof(accessibility.get("auto_click_enabled")) != TYPE_BOOL
 		or typeof(camera.get("invert_vertical")) != TYPE_BOOL
@@ -59,6 +62,24 @@ func load_settings() -> bool:
 		-1.0
 	)
 	loaded.invert_camera_y = camera["invert_vertical"]
+	loaded.world_pixel_size = _read_clamped_integer(
+		presentation.get(
+			"world_pixel_size",
+			PlayerSettings.DEFAULT_WORLD_PIXEL_SIZE
+		),
+		PlayerSettings.MIN_WORLD_PIXEL_SIZE,
+		PlayerSettings.MAX_WORLD_PIXEL_SIZE,
+		PlayerSettings.DEFAULT_WORLD_PIXEL_SIZE
+	)
+	loaded.ui_pixel_size = _read_clamped_integer(
+		presentation.get(
+			"ui_pixel_size",
+			PlayerSettings.DEFAULT_UI_PIXEL_SIZE
+		),
+		PlayerSettings.MIN_UI_PIXEL_SIZE,
+		PlayerSettings.MAX_UI_PIXEL_SIZE,
+		PlayerSettings.DEFAULT_UI_PIXEL_SIZE
+	)
 	if not loaded.is_valid():
 		return _use_defaults_after_corruption("Player settings values are invalid.")
 	current_settings = loaded
@@ -80,6 +101,21 @@ func apply_settings(settings: PlayerSettings) -> bool:
 	return true
 
 
+func apply_pixelation(world_pixel_size: int, ui_pixel_size: int) -> bool:
+	var edited: PlayerSettings = current_settings.copy()
+	edited.world_pixel_size = clampi(
+		world_pixel_size,
+		PlayerSettings.MIN_WORLD_PIXEL_SIZE,
+		PlayerSettings.MAX_WORLD_PIXEL_SIZE
+	)
+	edited.ui_pixel_size = clampi(
+		ui_pixel_size,
+		PlayerSettings.MIN_UI_PIXEL_SIZE,
+		PlayerSettings.MAX_UI_PIXEL_SIZE
+	)
+	return apply_settings(edited)
+
+
 func save_now() -> bool:
 	if current_settings == null or not current_settings.is_valid():
 		return false
@@ -93,6 +129,10 @@ func save_now() -> bool:
 			"mouse_sensitivity": current_settings.mouse_camera_sensitivity,
 			"controller_sensitivity": current_settings.controller_camera_sensitivity,
 			"invert_vertical": current_settings.invert_camera_y,
+		},
+		"presentation": {
+			"world_pixel_size": current_settings.world_pixel_size,
+			"ui_pixel_size": current_settings.ui_pixel_size,
 		},
 	}
 	var file := FileAccess.open(TEMP_PATH, FileAccess.WRITE)
@@ -158,6 +198,16 @@ func _read_float(value: Variant, fallback: float) -> float:
 		return fallback
 	var result: float = float(value)
 	return result if is_finite(result) else fallback
+
+
+func _read_clamped_integer(
+	value: Variant,
+	minimum: int,
+	maximum: int,
+	fallback: int,
+) -> int:
+	var result: int = _read_integer(value, fallback)
+	return clampi(result, minimum, maximum)
 
 
 func _rename_file(from_path: String, to_path: String) -> bool:

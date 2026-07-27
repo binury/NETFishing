@@ -24,6 +24,12 @@ const FishingShopType = preload("res://ui/fishing_shop.gd")
 const FishingShopInteractionType = preload(
 	"res://world/fishing_shop_interaction.gd"
 )
+const UIPixelationPresenterType = preload(
+	"res://ui/ui_pixelation_presenter.gd"
+)
+const PixelationResetOverlayType = preload(
+	"res://ui/pixelation_reset_overlay.gd"
+)
 
 const TITLE_MUSIC_SILENCE_DB: float = -80.0
 
@@ -43,6 +49,10 @@ const TITLE_MUSIC_SILENCE_DB: float = -80.0
 @onready var _save_manager: PlayerSaveManagerType = %PlayerSaveManager
 @onready var _settings_manager: PlayerSettingsManagerType = %PlayerSettingsManager
 @onready var _title_music: AudioStreamPlayer = %TitleMusic
+@onready var _ui_pixelation: UIPixelationPresenterType = %UIPresentation
+@onready var _pixelation_reset: PixelationResetOverlayType = (
+	%PixelationResetOverlay
+)
 
 var _gameplay_started: bool = false
 var _shop_interaction: FishingShopInteractionType
@@ -119,6 +129,22 @@ func _ready() -> void:
 		_apply_runtime_settings
 	):
 		_settings_manager.settings_changed.connect(_apply_runtime_settings)
+	_ui_pixelation.effective_pixel_size_changed.connect(
+		_on_effective_ui_pixel_size_changed
+	)
+	_game_ui.pixelation_settings_visibility_changed.connect(
+		_pixelation_reset.set_settings_open
+	)
+	_game_ui.crisp_reset_focus_requested.connect(
+		_pixelation_reset.focus_reset_button
+	)
+	_game_ui.interactive_pointer_ui_changed.connect(
+		_ui_pixelation.set_interactive_ui_open
+	)
+	_pixelation_reset.return_to_settings_requested.connect(
+		_game_ui.focus_open_settings_back_button
+	)
+	_pixelation_reset.reset_requested.connect(_reset_pixelation)
 	_settings_manager.load_settings()
 	_apply_runtime_settings(_settings_manager.current_settings)
 	_set_gameplay_active(false)
@@ -215,6 +241,18 @@ func _process(_delta: float) -> void:
 func _apply_runtime_settings(settings: PlayerSettingsType) -> void:
 	if settings == null:
 		return
+	var root_viewport: Viewport = get_viewport()
+	root_viewport.scaling_3d_mode = Viewport.SCALING_3D_MODE_NEAREST
+	root_viewport.scaling_3d_scale = PlayerSettingsType.get_world_render_scale(
+		settings.world_pixel_size
+	)
+	root_viewport.msaa_3d = Viewport.MSAA_DISABLED
+	root_viewport.screen_space_aa = Viewport.SCREEN_SPACE_AA_DISABLED
+	root_viewport.use_taa = false
+	_ui_pixelation.set_pixel_size(settings.ui_pixel_size)
+	_game_ui.get_title_screen().set_world_pixelation(
+		settings.world_pixel_size
+	)
 	_player.apply_camera_settings(
 		settings.mouse_camera_sensitivity,
 		settings.controller_camera_sensitivity,
@@ -226,8 +264,24 @@ func _apply_runtime_settings(settings: PlayerSettingsType) -> void:
 	)
 
 
+func _on_effective_ui_pixel_size_changed(
+	_requested_pixel_size: int,
+	effective_pixel_size: int,
+) -> void:
+	_game_ui.set_effective_ui_pixel_size(effective_pixel_size)
+
+
+func _reset_pixelation() -> void:
+	if _settings_manager.apply_pixelation(
+		PlayerSettingsType.DEFAULT_WORLD_PIXEL_SIZE,
+		PlayerSettingsType.DEFAULT_UI_PIXEL_SIZE
+	):
+		_game_ui.refresh_open_settings_panel()
+
+
 func _set_gameplay_active(active: bool) -> void:
 	_gameplay_started = active
+	_ui_pixelation.set_gameplay_active(active)
 	if not active:
 		_player.item_effects.reset_all()
 	_player.set_movement_enabled(active)

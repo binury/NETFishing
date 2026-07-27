@@ -587,7 +587,7 @@ func _create_inventory_card(fish_catch: FishCatchType) -> Button:
 			"font_color",
 			UIPalette.SECONDARY
 		)
-		favorite_marker.add_theme_font_size_override("font_size", 18)
+		favorite_marker.add_theme_font_size_override("font_size", 27)
 		favorite_marker.set_anchors_preset(Control.PRESET_TOP_RIGHT)
 		favorite_marker.offset_left = -28.0
 		favorite_marker.offset_top = 5.0
@@ -603,7 +603,7 @@ func _create_inventory_card(fish_catch: FishCatchType) -> Button:
 			"font_color",
 			UIPalette.SUCCESS
 		)
-		selected_marker.add_theme_font_size_override("font_size", 18)
+		selected_marker.add_theme_font_size_override("font_size", 27)
 		selected_marker.set_anchors_preset(Control.PRESET_TOP_LEFT)
 		selected_marker.offset_left = 8.0
 		selected_marker.offset_top = 5.0

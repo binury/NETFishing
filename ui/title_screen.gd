@@ -73,6 +73,7 @@ enum ConfirmationAction {
 @onready var _confirmation_text: Label = %ConfirmationText
 @onready var _confirm_button: Button = %ConfirmButton
 @onready var _settings_panel: SettingsPanelType = %SettingsPanel
+@onready var _background: ColorRect = %Background
 @onready var _decorative_fish_layer: Control = %DecorativeFishLayer
 @onready var _decorative_fish_timer: Timer = %DecorativeFishTimer
 @onready var _decorative_bubble_layer: Control = %DecorativeBubbleLayer
@@ -102,6 +103,7 @@ var _awaiting_start_input: bool = false
 var _start_prompt_elapsed: float = 0.0
 var _navigation_focus_active: bool = false
 var _modal_restore_navigation_focus: bool = false
+var _world_pixel_size: int = PlayerSettings.DEFAULT_WORLD_PIXEL_SIZE
 
 
 func _ready() -> void:
@@ -200,6 +202,54 @@ func _update_title_layout() -> void:
 	_button_stack.custom_minimum_size = Vector2(
 		minf(BUTTON_COLUMN_WIDTH, available_width),
 		0.0
+	)
+	_update_world_preview_resolution()
+
+
+func set_world_pixelation(pixel_size: int) -> void:
+	_world_pixel_size = clampi(
+		pixel_size,
+		PlayerSettings.MIN_WORLD_PIXEL_SIZE,
+		PlayerSettings.MAX_WORLD_PIXEL_SIZE
+	)
+	if is_node_ready():
+		_update_world_preview_resolution()
+
+
+func _update_world_preview_resolution() -> void:
+	var render_scale: float = PlayerSettings.get_world_render_scale(
+		_world_pixel_size
+	)
+	var shader_material := _background.material as ShaderMaterial
+	if shader_material != null:
+		shader_material.set_shader_parameter(
+			"virtual_pixel_density",
+			Vector2(
+				maxf(1.0, size.x * render_scale),
+				maxf(1.0, size.y * render_scale)
+			)
+		)
+	var logo_material := _title_logo.material as ShaderMaterial
+	if logo_material != null:
+		var effect_scale: float = 1.0 / render_scale
+		logo_material.set_shader_parameter(
+			"horizontal_displacement_pixels",
+			minf(2.0, 1.5 * effect_scale)
+		)
+		logo_material.set_shader_parameter(
+			"bob_amount_pixels",
+			minf(4.0, 3.0 * effect_scale)
+		)
+
+
+func _snap_world_preview(value: Vector2) -> Vector2:
+	var render_scale: float = PlayerSettings.get_world_render_scale(
+		_world_pixel_size
+	)
+	var step: float = 1.0 / render_scale
+	return Vector2(
+		roundf(value.x / step) * step,
+		roundf(value.y / step) * step
 	)
 
 
@@ -742,6 +792,7 @@ func _update_decorative_fish(
 		8.0,
 		maxf(8.0, _decorative_fish_layer.size.y - fish_control.size.y - 8.0)
 	)
+	fish_control.position = _snap_world_preview(fish_control.position)
 
 
 func _on_decorative_fish_finished(
@@ -944,13 +995,13 @@ func _update_decorative_bubble(
 	var wobble: float = sin(
 		wobble_phase + progress * TAU * wobble_cycles
 	) * wobble_amplitude
-	bubble.position = Vector2(
+	bubble.position = _snap_world_preview(Vector2(
 		base_x
 		+ horizontal_drift * progress
 		+ wobble
 		- bubble.size.x * 0.5,
 		lerpf(start_y, end_y, progress)
-	)
+	))
 
 
 func _on_decorative_bubble_finished(
