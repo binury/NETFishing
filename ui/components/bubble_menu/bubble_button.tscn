@@ -1,0 +1,9 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://ui/components/bubble_menu/bubble_button.gd" id="1_button"]
+[ext_resource type="Resource" path="res://ui/components/bubble_menu/bubble_menu_profile.tres" id="2_profile"]
+
+[node name="BubbleButton" type="Button"]
+custom_minimum_size = Vector2(120, 116)
+script = ExtResource("1_button")
+profile = ExtResource("2_profile")

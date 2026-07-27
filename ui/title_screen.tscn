@@ -1,4 +1,4 @@
-[gd_scene load_steps=9 format=3]
+[gd_scene load_steps=12 format=3]
 
 [ext_resource type="Script" path="res://ui/title_screen.gd" id="1_script"]
 [ext_resource type="Theme" path="res://ui/game_theme.tres" id="2_theme"]
@@ -6,6 +6,9 @@
 [ext_resource type="Shader" path="res://ui/title_water_background.gdshader" id="4_water_shader"]
 [ext_resource type="Texture2D" path="res://ui/assets/title/netfishing_logo.png" id="5_logo"]
 [ext_resource type="Shader" path="res://ui/title_logo_underwater.gdshader" id="6_logo_shader"]
+[ext_resource type="Script" path="res://ui/components/bubble_menu/bubble_button.gd" id="7_bubble_button"]
+[ext_resource type="Script" path="res://ui/components/bubble_menu/bubble_cluster.gd" id="8_bubble_cluster"]
+[ext_resource type="Resource" path="res://ui/components/bubble_menu/bubble_menu_profile.tres" id="9_bubble_profile"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_title_water"]
 shader = ExtResource("4_water_shader")
@@ -109,7 +112,7 @@ grow_vertical = 2
 
 [node name="MainContent" type="VBoxContainer" parent="Center"]
 layout_mode = 2
-theme_override_constants/separation = 8
+theme_override_constants/separation = 7
 alignment = 1
 
 [node name="TitleLogo" type="TextureRect" parent="Center/MainContent"]
@@ -126,12 +129,12 @@ stretch_mode = 5
 [node name="PlaytestLabel" type="Label" parent="Center/MainContent"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.682, 0.733, 0.761, 1)
-theme_override_font_sizes/font_size = 13
+theme_override_font_sizes/font_size = 17
 text = "pre-alpha playtest 0.2"
 horizontal_alignment = 1
 
 [node name="Spacer" type="Control" parent="Center/MainContent"]
-custom_minimum_size = Vector2(0, 4)
+custom_minimum_size = Vector2(0, 3)
 layout_mode = 2
 
 [node name="ButtonCenter" type="CenterContainer" parent="Center/MainContent"]
@@ -139,46 +142,151 @@ unique_name_in_owner = true
 visible = false
 layout_mode = 2
 
-[node name="ButtonStack" type="VBoxContainer" parent="Center/MainContent/ButtonCenter"]
+[node name="BubbleField" type="Control" parent="Center/MainContent/ButtonCenter"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(360, 0)
+custom_minimum_size = Vector2(396, 318)
 layout_mode = 2
-theme_override_constants/separation = 8
+script = ExtResource("8_bubble_cluster")
+profile = ExtResource("9_bubble_profile")
 
-[node name="ContinueButton" type="Button" parent="Center/MainContent/ButtonCenter/ButtonStack"]
+[node name="ContinueButton" type="Button" parent="Center/MainContent/ButtonCenter/BubbleField"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 44)
-layout_mode = 2
+offset_left = 123.0
+offset_top = 86.0
+offset_right = 307.0
+offset_bottom = 264.0
 text = "continue"
+script = ExtResource("7_bubble_button")
+profile = ExtResource("9_bubble_profile")
+neutral_size = Vector2(184, 178)
+desktop_anchor = Vector2(215, 175)
+compact_anchor = Vector2(215, 175)
+minimum_font_size = 19
+maximum_font_size = 30
+horizontal_amplitude = 1.8
+vertical_amplitude = 4.6
+motion_period = 5.8
+deformation_amplitude = 0.01
+deformation_period = 6.7
 
-[node name="NewGameButton" type="Button" parent="Center/MainContent/ButtonCenter/ButtonStack"]
+[node name="NewGameButton" type="Button" parent="Center/MainContent/ButtonCenter/BubbleField"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 44)
-layout_mode = 2
+offset_left = 42.0
+offset_top = 4.0
+offset_right = 170.0
+offset_bottom = 126.0
+script = ExtResource("7_bubble_button")
+profile = ExtResource("9_bubble_profile")
+neutral_size = Vector2(128, 122)
+desktop_anchor = Vector2(106, 65)
+compact_anchor = Vector2(106, 68)
+compact_minimum_size = Vector2(84, 84)
+label_control_path = NodePath("NewGameLabel")
+minimum_font_size = 15
+maximum_font_size = 23
+horizontal_amplitude = 2.3
+vertical_amplitude = 5.5
+motion_period = 6.3
+motion_phase = 1.2
+deformation_amplitude = 0.018
+deformation_period = 5.9
+
+[node name="NewGameLabel" type="Label" parent="Center/MainContent/ButtonCenter/BubbleField/NewGameButton"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.035, 0.145, 0.22, 1)
+theme_override_constants/line_spacing = -3
 text = "new game"
+horizontal_alignment = 1
+vertical_alignment = 1
 
-[node name="SettingsButton" type="Button" parent="Center/MainContent/ButtonCenter/ButtonStack"]
+[node name="SettingsButton" type="Button" parent="Center/MainContent/ButtonCenter/BubbleField"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 44)
-layout_mode = 2
+offset_left = 264.0
+offset_top = 17.0
+offset_right = 384.0
+offset_bottom = 133.0
 text = "settings"
+script = ExtResource("7_bubble_button")
+profile = ExtResource("9_bubble_profile")
+desktop_anchor = Vector2(324, 75)
+compact_anchor = Vector2(324, 68)
+compact_minimum_size = Vector2(94, 90)
+minimum_font_size = 15
+maximum_font_size = 22
+vertical_amplitude = 3.7
+motion_period = 4.9
+motion_phase = 2.5
+deformation_period = 6.3
 
-[node name="DeleteSaveButton" type="Button" parent="Center/MainContent/ButtonCenter/ButtonStack"]
+[node name="DeleteSaveButton" type="Button" parent="Center/MainContent/ButtonCenter/BubbleField"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 44)
-layout_mode = 2
+offset_left = -11.0
+offset_top = 122.0
+offset_right = 123.0
+offset_bottom = 248.0
+script = ExtResource("7_bubble_button")
+profile = ExtResource("9_bubble_profile")
+neutral_size = Vector2(134, 126)
+desktop_anchor = Vector2(56, 185)
+compact_anchor = Vector2(53, 196)
+compact_minimum_size = Vector2(86, 86)
+label_control_path = NodePath("DeleteSaveLabel")
+minimum_font_size = 15
+maximum_font_size = 23
+vertical_amplitude = 5.1
+motion_period = 5.5
+motion_phase = 3.7
+deformation_amplitude = 0.018
+deformation_period = 5.4
+
+[node name="DeleteSaveLabel" type="Label" parent="Center/MainContent/ButtonCenter/BubbleField/DeleteSaveButton"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.035, 0.145, 0.22, 1)
+theme_override_constants/line_spacing = -3
 text = "delete save"
+horizontal_alignment = 1
+vertical_alignment = 1
 
-[node name="QuitButton" type="Button" parent="Center/MainContent/ButtonCenter/ButtonStack"]
+[node name="QuitButton" type="Button" parent="Center/MainContent/ButtonCenter/BubbleField"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 44)
-layout_mode = 2
+offset_left = 275.0
+offset_top = 217.0
+offset_right = 369.0
+offset_bottom = 309.0
 text = "quit"
+script = ExtResource("7_bubble_button")
+profile = ExtResource("9_bubble_profile")
+neutral_size = Vector2(94, 92)
+desktop_anchor = Vector2(322, 263)
+compact_anchor = Vector2(322, 263)
+compact_minimum_size = Vector2(68, 68)
+minimum_font_size = 14
+maximum_font_size = 18
+horizontal_amplitude = 1.4
+vertical_amplitude = 3.2
+motion_period = 4.2
+motion_phase = 4.8
+deformation_amplitude = 0.02
+deformation_period = 4.8
 
 [node name="FeedbackLabel" type="Label" parent="Center/MainContent"]
 unique_name_in_owner = true
 visible = false
-custom_minimum_size = Vector2(0, 42)
+custom_minimum_size = Vector2(0, 44)
 layout_mode = 2
 text = ""
 horizontal_alignment = 1

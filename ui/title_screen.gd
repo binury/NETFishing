@@ -7,6 +7,12 @@ const SettingsManagerType = preload(
 	"res://settings/player_settings_manager.gd"
 )
 const SettingsPanelType = preload("res://ui/settings_panel.gd")
+const BubbleButtonType = preload(
+	"res://ui/components/bubble_menu/bubble_button.gd"
+)
+const BubbleClusterType = preload(
+	"res://ui/components/bubble_menu/bubble_cluster.gd"
+)
 const DECORATIVE_FISH_TEXTURES: Array[Texture2D] = [
 	preload("res://fish/species/bass/fish_bass_striped.png"),
 	preload("res://fish/species/bluegill/fish_bluegill.png"),
@@ -45,14 +51,19 @@ const BUBBLE_WOBBLE_MAX: float = 9.0
 const BUBBLE_EDGE_MARGIN: float = 16.0
 const MAX_DECORATIVE_BUBBLES: int = 6
 const LOGO_ASPECT_RATIO: float = 2560.0 / 760.0
-const LOGO_WIDTH_FACTOR: float = 0.52
-const LOGO_MIN_WIDTH: float = 320.0
-const LOGO_MAX_WIDTH: float = 720.0
-const BUTTON_COLUMN_WIDTH: float = 360.0
+const LOGO_WIDTH_FACTOR: float = 0.4784
+const LOGO_MIN_WIDTH: float = 294.0
+const LOGO_MAX_WIDTH: float = 662.0
 const TITLE_HORIZONTAL_MARGIN: float = 48.0
+const BUBBLE_FIELD_MAX_WIDTH: float = 396.0
+const BUBBLE_FIELD_DESKTOP_HEIGHT: float = 318.0
+const BUBBLE_FIELD_COMPACT_WIDTH: float = 294.0
+const BUBBLE_FIELD_COMPACT_HEIGHT: float = 200.0
+const BUBBLE_COMPACT_HEIGHT_THRESHOLD: float = 560.0
 const START_PROMPT_MIN_SCALE: float = 0.985
 const START_PROMPT_MAX_SCALE: float = 1.015
 const START_PROMPT_CYCLE_SECONDS: float = 3.0
+const DISABLED_BUBBLE_LABEL_ALPHA: float = 0.55
 
 signal gameplay_requested
 signal quit_requested
@@ -63,11 +74,13 @@ enum ConfirmationAction {
 	DELETE_SAVE,
 }
 
-@onready var _continue_button: Button = %ContinueButton
-@onready var _new_game_button: Button = %NewGameButton
-@onready var _settings_button: Button = %SettingsButton
-@onready var _delete_button: Button = %DeleteSaveButton
-@onready var _quit_button: Button = %QuitButton
+@onready var _continue_button: BubbleButtonType = %ContinueButton
+@onready var _new_game_button: BubbleButtonType = %NewGameButton
+@onready var _settings_button: BubbleButtonType = %SettingsButton
+@onready var _delete_button: BubbleButtonType = %DeleteSaveButton
+@onready var _quit_button: BubbleButtonType = %QuitButton
+@onready var _new_game_label: Label = %NewGameLabel
+@onready var _delete_save_label: Label = %DeleteSaveLabel
 @onready var _feedback_label: Label = %FeedbackLabel
 @onready var _confirmation_panel: PanelContainer = %ConfirmationPanel
 @onready var _confirmation_text: Label = %ConfirmationText
@@ -81,7 +94,7 @@ enum ConfirmationAction {
 @onready var _decorative_bubble_cluster_timer: Timer = %DecorativeBubbleClusterTimer
 @onready var _title_logo: TextureRect = %TitleLogo
 @onready var _button_center: CenterContainer = %ButtonCenter
-@onready var _button_stack: VBoxContainer = %ButtonStack
+@onready var _bubble_field: BubbleClusterType = %BubbleField
 @onready var _start_prompt_center: CenterContainer = %StartPromptCenter
 @onready var _start_prompt_label: Label = %StartPromptLabel
 
@@ -116,6 +129,7 @@ func _ready() -> void:
 	%CancelConfirmButton.pressed.connect(_close_confirmation)
 	_settings_panel.applied.connect(_on_settings_applied)
 	_settings_panel.closed.connect(_on_settings_closed)
+	_bubble_field.configure(_get_title_buttons())
 	_decorative_fish_timer.timeout.connect(_on_decorative_fish_timer_timeout)
 	_decorative_bubble_event_timer.timeout.connect(
 		_on_decorative_bubble_event_timer_timeout
@@ -199,11 +213,35 @@ func _update_title_layout() -> void:
 		logo_width,
 		logo_width / LOGO_ASPECT_RATIO
 	)
-	_button_stack.custom_minimum_size = Vector2(
-		minf(BUTTON_COLUMN_WIDTH, available_width),
-		0.0
+	var field_width: float = minf(BUBBLE_FIELD_MAX_WIDTH, available_width)
+	var field_height: float = (
+		BUBBLE_FIELD_COMPACT_HEIGHT
+		if size.y < BUBBLE_COMPACT_HEIGHT_THRESHOLD
+		else BUBBLE_FIELD_DESKTOP_HEIGHT
+	)
+	if size.y < BUBBLE_COMPACT_HEIGHT_THRESHOLD:
+		field_width = minf(BUBBLE_FIELD_COMPACT_WIDTH, available_width)
+	_bubble_field.custom_minimum_size = Vector2(field_width, field_height)
+	var compact_layout: bool = field_height == BUBBLE_FIELD_COMPACT_HEIGHT
+	_bubble_field.apply_layout(
+		Vector2(field_width, field_height),
+		compact_layout
+	)
+	_new_game_label.text = "new\ngame" if compact_layout else "new game"
+	_delete_save_label.text = (
+		"delete\nsave" if compact_layout else "delete save"
 	)
 	_update_world_preview_resolution()
+
+
+func _get_title_buttons() -> Array[BubbleButton]:
+	return [
+		_continue_button,
+		_new_game_button,
+		_settings_button,
+		_delete_button,
+		_quit_button,
+	]
 
 
 func set_world_pixelation(pixel_size: int) -> void:
@@ -254,24 +292,27 @@ func _snap_world_preview(value: Vector2) -> Vector2:
 
 
 func _process(delta: float) -> void:
-	if (
-		not _awaiting_start_input
-		or not visible
-		or not _start_prompt_center.visible
-	):
+	if not visible:
 		return
-	_start_prompt_elapsed = fmod(
-		_start_prompt_elapsed + delta,
-		START_PROMPT_CYCLE_SECONDS
-	)
-	var phase: float = _start_prompt_elapsed / START_PROMPT_CYCLE_SECONDS
-	var pulse_weight: float = (sin(phase * TAU - PI * 0.5) + 1.0) * 0.5
-	var prompt_scale: float = lerpf(
-		START_PROMPT_MIN_SCALE,
-		START_PROMPT_MAX_SCALE,
-		pulse_weight
-	)
-	_start_prompt_label.scale = Vector2.ONE * prompt_scale
+	if _awaiting_start_input and _start_prompt_center.visible:
+		_start_prompt_elapsed = fmod(
+			_start_prompt_elapsed + delta,
+			START_PROMPT_CYCLE_SECONDS
+		)
+		var phase: float = (
+			_start_prompt_elapsed / START_PROMPT_CYCLE_SECONDS
+		)
+		var pulse_weight: float = (
+			sin(phase * TAU - PI * 0.5) + 1.0
+		) * 0.5
+		var prompt_scale: float = lerpf(
+			START_PROMPT_MIN_SCALE,
+			START_PROMPT_MAX_SCALE,
+			pulse_weight
+		)
+		_start_prompt_label.scale = Vector2.ONE * prompt_scale
+	if _button_center.visible:
+		_bubble_field.advance_motion(delta)
 
 
 func _input(event: InputEvent) -> void:
@@ -387,7 +428,7 @@ func _start_entry_prompt_animation() -> void:
 
 
 func _stop_entry_prompt_animation() -> void:
-	set_process(false)
+	set_process(visible and _button_center.visible)
 	_start_prompt_elapsed = 0.0
 	_start_prompt_label.scale = Vector2.ONE
 
@@ -406,6 +447,7 @@ func _reveal_primary_menu() -> void:
 	_start_prompt_center.hide()
 	_button_center.show()
 	_feedback_label.show()
+	set_process(true)
 	_navigation_focus_active = false
 	_release_title_focus()
 
@@ -556,6 +598,9 @@ func _refresh_save_inspection() -> void:
 	_inspection = _save_manager.inspect_save()
 	_continue_button.disabled = not _inspection.can_continue()
 	_delete_button.disabled = not _inspection.can_delete()
+	_delete_save_label.modulate.a = (
+		DISABLED_BUBBLE_LABEL_ALPHA if _delete_button.disabled else 1.0
+	)
 	_feedback_label.text = _inspection.message
 	if _inspection.status == SaveInspectionType.Status.VALID_SUPPORTED:
 		_feedback_label.text = (
@@ -596,6 +641,7 @@ func _on_title_visibility_changed() -> void:
 	if not _decorative_presentation_ready:
 		return
 	if visible:
+		set_process(true)
 		_start_decorative_presentation()
 	else:
 		_stop_entry_prompt_animation()
