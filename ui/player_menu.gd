@@ -22,6 +22,9 @@ const ItemDragSourceType = preload("res://ui/item_drag_source.gd")
 const PlayerCoolerCapacityType = preload(
 	"res://progression/player_cooler_capacity.gd"
 )
+const FishBatchSelectionType = preload(
+	"res://ui/fish_batch_selection.gd"
+)
 
 signal menu_visibility_changed(is_open: bool)
 
@@ -68,6 +71,7 @@ enum CloseReason {
 @onready var _detail_texture: TextureRect = %DetailTexture
 @onready var _detail_name: Label = %DetailName
 @onready var _detail_data: Label = %DetailData
+@onready var _selection_summary: Label = %SelectionSummary
 @onready var _favorite_button: Button = %FavoriteButton
 @onready var _sell_button: Button = %SellButton
 @onready var _sale_unavailable: Label = %SaleUnavailable
@@ -94,7 +98,7 @@ var _cooler_capacity: PlayerCoolerCapacityType
 var _current_section: Section = Section.COOLER
 var _sort_mode: SortMode = SortMode.CATCH_ORDER
 var _sort_descending: bool = true
-var _selected_catch_id: StringName
+var _fish_selection := FishBatchSelectionType.new()
 var _selected_bag_item_id: StringName
 var _prior_movement_enabled: bool = true
 var _prior_camera_input_enabled: bool = true
@@ -102,9 +106,10 @@ var _prior_mouse_mode: Input.MouseMode = Input.MOUSE_MODE_VISIBLE
 var _control_snapshot_stored: bool = false
 var _mouse_snapshot_stored: bool = false
 var _menu_generation: int = 0
-var _confirmation_catch_id: StringName
+var _confirmation_catch_ids: Array[StringName] = []
 var _confirmation_buyer: FishBuyerProfileType
 var _confirmation_buyer_id: StringName
+var _confirmation_generation: int = -1
 var _sale_in_progress: bool = false
 
 
@@ -123,9 +128,9 @@ func _ready() -> void:
 	_sell_button.pressed.connect(_on_sell_pressed)
 	_confirm_sale_button.pressed.connect(_on_confirm_sale_pressed)
 	_cancel_sale_button.pressed.connect(_close_sale_confirmation)
-	_sort_option.add_item("Catch order", SortMode.CATCH_ORDER)
-	_sort_option.add_item("Name", SortMode.NAME)
-	_sort_option.add_item("Rarity", SortMode.RARITY)
+	_sort_option.add_item("catch order", SortMode.CATCH_ORDER)
+	_sort_option.add_item("name", SortMode.NAME)
+	_sort_option.add_item("rarity", SortMode.RARITY)
 	_sort_option.select(SortMode.CATCH_ORDER)
 	_update_sort_direction_text()
 	_show_section(_current_section)
@@ -157,6 +162,7 @@ func setup(
 	_hotbar = hotbar
 	_item_catalog = item_catalog
 	_cooler_capacity = cooler_capacity
+	_fish_selection.clear()
 	if not _inventory.catches_changed.is_connected(_on_inventory_changed):
 		_inventory.catches_changed.connect(_on_inventory_changed)
 	if not _collection_log.fish_discovered.is_connected(_on_fish_discovered):
@@ -234,6 +240,13 @@ func close_menu(
 		return
 	get_viewport().gui_cancel_drag()
 	_close_sale_confirmation()
+	if reason in [
+		CloseReason.BITE_STARTED,
+		CloseReason.WATER_RECOVERY,
+		CloseReason.SESSION_END,
+		CloseReason.TEARDOWN,
+	]:
+		_fish_selection.clear()
 	var closing_generation: int = _menu_generation
 	visible = false
 	get_viewport().gui_release_focus()
@@ -249,6 +262,7 @@ func close_menu(
 
 
 func close_for_water_recovery() -> void:
+	_fish_selection.clear()
 	close_menu(CloseReason.WATER_RECOVERY, false)
 
 
@@ -257,13 +271,14 @@ func close_for_game_menu() -> void:
 
 
 func close_for_session_end() -> void:
+	_fish_selection.clear()
 	close_menu(CloseReason.SESSION_END, false)
 
 
 func _exit_tree() -> void:
 	if visible:
 		close_menu(CloseReason.TEARDOWN, false)
-		_selected_catch_id = StringName()
+	_fish_selection.clear()
 	_menu_generation += 1
 
 
@@ -340,11 +355,11 @@ func _on_sort_direction_pressed() -> void:
 func _update_sort_direction_text() -> void:
 	match _sort_mode:
 		SortMode.CATCH_ORDER:
-			_sort_direction.text = "Newest first" if _sort_descending else "Oldest first"
+			_sort_direction.text = "newest first" if _sort_descending else "oldest first"
 		SortMode.NAME:
-			_sort_direction.text = "Z–A" if _sort_descending else "A–Z"
+			_sort_direction.text = "z–a" if _sort_descending else "a–z"
 		SortMode.RARITY:
-			_sort_direction.text = "High to low" if _sort_descending else "Low to high"
+			_sort_direction.text = "high to low" if _sort_descending else "low to high"
 
 
 func _refresh_all() -> void:
@@ -386,9 +401,9 @@ func _refresh_bag() -> void:
 			item.get_category_name(),
 		]
 		card.tooltip_text = (
-			"Drag to a hotbar slot."
+			"drag to a hotbar slot."
 			if item.hotbar_allowed
-			else "This item cannot be assigned to the hotbar."
+			else "this item cannot be assigned to the hotbar."
 		)
 		card.setup(item.item_id, item.display_name, item.icon)
 		card.pressed.connect(_select_bag_item.bind(item.item_id))
@@ -427,19 +442,19 @@ func _update_bag_detail() -> void:
 	_bag_detail_texture.texture = item.icon if item != null else null
 	_bag_detail_name.text = item.display_name if item != null else ""
 	_bag_detail_data.text = (
-		"%s\nQuantity: %d\n%s\n%s"
+		"%s\nquantity: %d\n%s\n%s"
 		% [
 			item.get_category_name(),
 			quantity,
 			item.description,
 			(
-				"Can be assigned to the hotbar."
+				"can be assigned to the hotbar."
 				if item.hotbar_allowed
-				else "Cannot be assigned to the hotbar."
+				else "cannot be assigned to the hotbar."
 			),
 		]
 		if item != null
-		else "Select a Bag item for details."
+		else "select a bag item for details."
 	)
 
 
@@ -470,8 +485,8 @@ func _refresh_economy_summary() -> void:
 		if _inventory != null
 		else 0
 	)
-	_wallet_balance.text = "Wallet: $%d" % balance
-	_held_value.text = "Held fish base value: $%d" % held_total
+	_wallet_balance.text = "wallet: $%d" % balance
+	_held_value.text = "held fish base value: $%d" % held_total
 	_cooler_count.text = "%d / %d" % [
 		_inventory.get_all_catches().size() if _inventory != null else 0,
 		_cooler_capacity.get_capacity() if _cooler_capacity != null else 0,
@@ -493,16 +508,18 @@ func _refresh_inventory() -> void:
 				catches.append(fish_catch)
 	catches.sort_custom(_compare_catches)
 	_inventory_empty.visible = catches.is_empty()
+	var visible_ids: Array[StringName] = []
+	for fish_catch: FishCatchType in catches:
+		visible_ids.append(fish_catch.catch_id)
+	_fish_selection.set_visible_order(visible_ids)
 
 	var selected: FishCatchType
 	if _inventory != null:
-		selected = _inventory.get_catch(_selected_catch_id)
-	if selected == null and not catches.is_empty():
-		selected = catches.front()
-		_selected_catch_id = selected.catch_id
+		selected = _inventory.get_catch(_fish_selection.get_focused_id())
 	for fish_catch: FishCatchType in catches:
 		_inventory_grid.add_child(_create_inventory_card(fish_catch))
 	_update_inventory_detail(selected)
+	_update_sale_summary()
 	_update_sort_direction_text()
 
 
@@ -527,11 +544,17 @@ func _create_inventory_card(fish_catch: FishCatchType) -> Button:
 	card.theme_type_variation = &"CardButton"
 	card.custom_minimum_size = Vector2(132.0, 118.0)
 	card.toggle_mode = true
-	card.button_pressed = fish_catch.catch_id == _selected_catch_id
-	card.pressed.connect(_select_catch.bind(fish_catch.catch_id))
+	var is_selected: bool = _fish_selection.is_selected(fish_catch.catch_id)
+	var is_focused: bool = (
+		fish_catch.catch_id == _fish_selection.get_focused_id()
+	)
+	card.button_pressed = is_selected
+	card.pressed.connect(_on_catch_card_pressed.bind(fish_catch.catch_id))
 	_apply_inventory_card_styles(
 		card,
-		UIPalette.get_rarity_color(fish_catch.fish.rarity)
+		UIPalette.get_rarity_color(fish_catch.fish.rarity),
+		is_selected,
+		is_focused
 	)
 
 	var content := VBoxContainer.new()
@@ -573,34 +596,83 @@ func _create_inventory_card(fish_catch: FishCatchType) -> Button:
 		favorite_marker.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		favorite_marker.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		card.add_child(favorite_marker)
+	if is_selected:
+		var selected_marker := Label.new()
+		selected_marker.text = "✓"
+		selected_marker.add_theme_color_override(
+			"font_color",
+			UIPalette.SUCCESS
+		)
+		selected_marker.add_theme_font_size_override("font_size", 18)
+		selected_marker.set_anchors_preset(Control.PRESET_TOP_LEFT)
+		selected_marker.offset_left = 8.0
+		selected_marker.offset_top = 5.0
+		selected_marker.offset_right = 30.0
+		selected_marker.offset_bottom = 29.0
+		selected_marker.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		card.add_child(selected_marker)
+	if is_focused:
+		var focus_marker := Label.new()
+		focus_marker.text = "◆"
+		focus_marker.add_theme_color_override(
+			"font_color",
+			UIPalette.PRIMARY
+		)
+		focus_marker.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+		focus_marker.offset_left = -26.0
+		focus_marker.offset_top = -25.0
+		focus_marker.offset_right = -8.0
+		focus_marker.offset_bottom = -7.0
+		focus_marker.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		focus_marker.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		card.add_child(focus_marker)
 	return card
 
 
 func _apply_inventory_card_styles(
 	card: Button,
 	rarity_color: Color,
+	is_selected: bool,
+	is_focused: bool,
 ) -> void:
 	card.add_theme_stylebox_override(
 		"normal",
-		_create_inventory_card_style(rarity_color, 0)
+		_create_inventory_card_style(
+			rarity_color,
+			0,
+			is_selected,
+			is_focused
+		)
 	)
 	card.add_theme_stylebox_override(
 		"hover",
-		_create_inventory_card_style(rarity_color, 1)
+		_create_inventory_card_style(
+			rarity_color,
+			1,
+			is_selected,
+			is_focused
+		)
 	)
 	card.add_theme_stylebox_override(
 		"focus",
-		_create_inventory_card_style(rarity_color, 1)
+		_create_inventory_card_style(
+			rarity_color,
+			1,
+			is_selected,
+			true
+		)
 	)
 	card.add_theme_stylebox_override(
 		"pressed",
-		_create_inventory_card_style(rarity_color, 2)
+		_create_inventory_card_style(rarity_color, 2, true, is_focused)
 	)
 
 
 func _create_inventory_card_style(
 	rarity_color: Color,
 	state_index: int,
+	is_selected: bool,
+	is_focused: bool,
 ) -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
 	match state_index:
@@ -609,9 +681,13 @@ func _create_inventory_card_style(
 		2:
 			style.bg_color = UIPalette.PRIMARY.darkened(0.48)
 		_:
-			style.bg_color = UIPalette.ELEVATED_PANEL
+			style.bg_color = (
+				UIPalette.PRIMARY.darkened(0.55)
+				if is_selected
+				else UIPalette.ELEVATED_PANEL
+			)
 	style.border_color = rarity_color
-	var border_width: int = 4 if state_index == 2 else 2
+	var border_width: int = 4 if state_index == 2 or is_focused else 2
 	style.set_border_width_all(border_width)
 	style.set_corner_radius_all(8)
 	style.content_margin_left = 7.0
@@ -621,13 +697,18 @@ func _create_inventory_card_style(
 	return style
 
 
-func _select_catch(catch_id: StringName) -> void:
+func _on_catch_card_pressed(catch_id: StringName) -> void:
 	if _inventory == null:
 		return
 	var selected: FishCatchType = _inventory.get_catch(catch_id)
 	if selected == null:
 		return
-	_selected_catch_id = catch_id
+	_fish_selection.apply_click(
+		catch_id,
+		Input.is_key_pressed(KEY_CTRL),
+		Input.is_key_pressed(KEY_SHIFT)
+	)
+	_transaction_feedback.text = ""
 	_refresh_inventory()
 
 
@@ -638,26 +719,28 @@ func _update_inventory_detail(fish_catch: FishCatchType) -> void:
 		_detail_name.text = ""
 		_detail_data.text = ""
 		_favorite_button.disabled = true
-		_favorite_button.text = "Favorite"
-		_sell_button.disabled = true
-		_sale_unavailable.text = ""
-		_sale_unavailable.visible = false
+		_favorite_button.text = "favorite"
 		return
 	_detail_texture.texture = fish_catch.fish.display_texture
 	_detail_texture.visible = fish_catch.fish.display_texture != null
 	_detail_name.text = fish_catch.fish.display_name
+	var individual_preview: FishSaleResultType = (
+		_sale_service.preview_batch([fish_catch.catch_id], _default_buyer)
+		if _sale_service != null
+		else null
+	)
 	var buyer_offer: int = (
-		_default_buyer.get_offer(fish_catch.sale_value)
-		if _default_buyer != null
+		individual_preview.payout
+		if individual_preview != null
 		else -1
 	)
-	var buyer_offer_text: String = "Buyer unavailable"
-	if buyer_offer >= 0:
+	var buyer_offer_text: String = "buyer unavailable"
+	if buyer_offer >= 0 and _default_buyer != null:
 		buyer_offer_text = "%s offer: $%d" % [
 			_default_buyer.display_name,
 			buyer_offer,
 		]
-	_detail_data.text = "%.2f lb\n%s\nBase value: $%d\n%s" % [
+	_detail_data.text = "%.2f lb\n%s\nbase value: $%d\n%s" % [
 		fish_catch.weight_lb,
 		fish_catch.fish.get_rarity_name(),
 		fish_catch.sale_value,
@@ -665,35 +748,68 @@ func _update_inventory_detail(fish_catch: FishCatchType) -> void:
 	]
 	_favorite_button.disabled = false
 	_favorite_button.text = (
-		"Unfavorite" if fish_catch.is_favorited else "Favorite"
+		"unfavorite" if fish_catch.is_favorited else "favorite"
 	)
-	var valid_sale_value: bool = fish_catch.sale_value >= 0
-	var valid_buyer: bool = (
-		_default_buyer != null
-		and _default_buyer.is_valid()
-		and buyer_offer >= 0
+
+
+func _update_sale_summary() -> void:
+	var selected_ids: Array[StringName] = _fish_selection.get_selected_ids()
+	var selected_count: int = selected_ids.size()
+	_sell_button.text = (
+		"sell fish"
+		if selected_count == 1
+		else "sell %d fish" % selected_count
 	)
-	_sell_button.disabled = (
-		fish_catch.is_favorited
-		or not valid_sale_value
-		or not valid_buyer
+	if selected_count == 0:
+		_selection_summary.text = "no fish selected"
+		_sell_button.text = "sell fish"
+		_sell_button.disabled = true
+		_sale_unavailable.text = ""
+		_sale_unavailable.visible = false
+		return
+	var preview: FishSaleResultType = (
+		_sale_service.preview_batch(selected_ids, _default_buyer)
+		if _sale_service != null
+		else null
 	)
-	if fish_catch.is_favorited:
-		_sale_unavailable.text = "Favorited fish cannot be sold."
-	elif not valid_sale_value:
-		_sale_unavailable.text = "Invalid sale value."
-	elif not valid_buyer:
-		_sale_unavailable.text = "Buyer is unavailable."
+	var count_text: String = (
+		"1 fish selected"
+		if selected_count == 1
+		else "%d fish selected" % selected_count
+	)
+	_selection_summary.text = count_text
+	if (
+		preview != null
+		and preview.payout >= 0
+		and _default_buyer != null
+		and (
+			preview.is_success()
+			or preview.status == FishSaleResultType.Status.FAVORITED
+		)
+	):
+		_selection_summary.text += "\n%s total offer: $%d" % [
+			_default_buyer.display_name,
+			preview.payout,
+		]
+	_sell_button.disabled = preview == null or not preview.is_success()
+	if preview != null and preview.status == FishSaleResultType.Status.FAVORITED:
+		_sale_unavailable.text = (
+			"favorited fish cannot be sold. "
+			+ "remove them from the selection first."
+		)
+	elif preview != null and not preview.is_success():
+		_sale_unavailable.text = preview.get_message()
 	else:
 		_sale_unavailable.text = ""
 	_sale_unavailable.visible = not _sale_unavailable.text.is_empty()
 
 
 func _on_favorite_pressed() -> void:
-	if _inventory == null or _selected_catch_id.is_empty():
+	var focused_id: StringName = _fish_selection.get_focused_id()
+	if _inventory == null or focused_id.is_empty():
 		return
 	var fish_catch: FishCatchType = _inventory.get_catch_by_id(
-		_selected_catch_id
+		focused_id
 	)
 	if fish_catch == null:
 		_refresh_inventory()
@@ -712,46 +828,40 @@ func _on_favorite_pressed() -> void:
 
 
 func _on_sell_pressed() -> void:
+	var selected_ids: Array[StringName] = _fish_selection.get_selected_ids()
 	if (
 		_inventory == null
 		or _sale_service == null
 		or _default_buyer == null
-		or _selected_catch_id.is_empty()
+		or selected_ids.is_empty()
 	):
 		return
-	var fish_catch: FishCatchType = _inventory.get_catch_by_id(
-		_selected_catch_id
+	var preview: FishSaleResultType = _sale_service.preview_batch(
+		selected_ids,
+		_default_buyer
 	)
-	if fish_catch == null:
-		_transaction_feedback.text = "Fish no longer exists."
+	if not preview.is_success():
+		_transaction_feedback.text = (
+			"favorited fish cannot be sold. "
+			+ "remove them from the selection first."
+			if preview.status == FishSaleResultType.Status.FAVORITED
+			else preview.get_message()
+		)
 		_refresh_inventory()
 		return
-	if fish_catch.is_favorited:
-		_transaction_feedback.text = "Favorited fish cannot be sold."
-		return
-	if fish_catch.sale_value < 0:
-		_transaction_feedback.text = "Invalid sale value."
-		return
-	if not _default_buyer.is_valid():
-		_transaction_feedback.text = "Buyer is unavailable."
-		return
-	var buyer_offer: int = _default_buyer.get_offer(
-		fish_catch.sale_value
-	)
-	if buyer_offer < 0:
-		_transaction_feedback.text = "Invalid buyer offer."
-		return
-	_confirmation_catch_id = fish_catch.catch_id
+	_confirmation_catch_ids = selected_ids.duplicate()
 	_confirmation_buyer = _default_buyer
 	_confirmation_buyer_id = _default_buyer.id
+	_confirmation_generation = _menu_generation
+	var fish_label: String = "fish"
 	_confirmation_message.text = (
-		"Sell this %.2f lb %s to the %s for $%d?\nBase value: $%d"
+		"sell %d %s to the %s for $%d?\ncombined base value: $%d"
 		% [
-			fish_catch.weight_lb,
-			fish_catch.fish.display_name,
+			preview.fish_count,
+			fish_label,
 			_get_buyer_display_group(_default_buyer),
-			buyer_offer,
-			fish_catch.sale_value,
+			preview.payout,
+			preview.base_value,
 		]
 	)
 	_sale_confirmation.visible = true
@@ -763,31 +873,39 @@ func _on_confirm_sale_pressed() -> void:
 	if (
 		_sale_in_progress
 		or _sale_service == null
-		or _confirmation_catch_id.is_empty()
+		or _confirmation_catch_ids.is_empty()
 		or _confirmation_buyer == null
 		or _confirmation_buyer.id != _confirmation_buyer_id
+		or _confirmation_generation != _menu_generation
 	):
 		return
 	_sale_in_progress = true
-	var requested_catch_id: StringName = _confirmation_catch_id
+	var requested_catch_ids: Array[StringName] = (
+		_confirmation_catch_ids.duplicate()
+	)
+	var transaction_generation: int = _menu_generation
+	var transaction_buyer: FishBuyerProfileType = _confirmation_buyer
 	_confirm_sale_button.disabled = true
-	var result: FishSaleResultType = _sale_service.sell(
-		requested_catch_id,
-		_confirmation_buyer
+	var result: FishSaleResultType = _sale_service.sell_batch(
+		requested_catch_ids,
+		transaction_buyer
 	)
 	_close_sale_confirmation()
-	_transaction_feedback.text = result.get_message()
 	_sale_in_progress = false
-	if result.is_success() and _selected_catch_id == requested_catch_id:
-		_selected_catch_id = StringName()
+	if transaction_generation != _menu_generation or not visible:
+		return
+	_transaction_feedback.text = result.get_message()
+	if result.is_success():
+		_fish_selection.remove_ids(requested_catch_ids)
 	_refresh_all()
 	_inventory_tab.grab_focus()
 
 
 func _close_sale_confirmation() -> void:
-	_confirmation_catch_id = StringName()
+	_confirmation_catch_ids.clear()
 	_confirmation_buyer = null
 	_confirmation_buyer_id = StringName()
+	_confirmation_generation = -1
 	_sale_confirmation.visible = false
 	_confirmation_message.text = ""
 	_confirm_sale_button.disabled = false
@@ -796,25 +914,35 @@ func _close_sale_confirmation() -> void:
 func _revalidate_confirmation() -> void:
 	if not _sale_confirmation.visible:
 		return
-	var fish_catch: FishCatchType
-	if _inventory != null:
-		fish_catch = _inventory.get_catch_by_id(_confirmation_catch_id)
-	if fish_catch == null:
+	if (
+		_confirmation_generation != _menu_generation
+		or _confirmation_catch_ids.is_empty()
+		or _sale_service == null
+		or _confirmation_buyer == null
+		or _confirmation_buyer.id != _confirmation_buyer_id
+	):
 		_close_sale_confirmation()
-		_transaction_feedback.text = "Fish no longer exists."
-	elif fish_catch.is_favorited:
-		_close_sale_confirmation()
-		_transaction_feedback.text = "Favorited fish cannot be sold."
-	elif fish_catch.sale_value < 0:
-		_close_sale_confirmation()
-		_transaction_feedback.text = "Invalid sale value."
-	elif (
+		_transaction_feedback.text = "sale selection is no longer available."
+		return
+	var preview: FishSaleResultType = _sale_service.preview_batch(
+		_confirmation_catch_ids,
+		_confirmation_buyer
+	)
+	if (
+		not preview.is_success()
+		or (
 		_confirmation_buyer == null
 		or _confirmation_buyer.id != _confirmation_buyer_id
 		or not _confirmation_buyer.is_valid()
+		)
 	):
 		_close_sale_confirmation()
-		_transaction_feedback.text = "Buyer is unavailable."
+		_transaction_feedback.text = (
+			"favorited fish cannot be sold. "
+			+ "remove them from the selection first."
+			if preview.status == FishSaleResultType.Status.FAVORITED
+			else preview.get_message()
+		)
 
 
 func _get_buyer_display_group(
@@ -840,9 +968,9 @@ func _refresh_logbook() -> void:
 				valid_species.append(fish)
 	_logbook_empty.visible = valid_species.is_empty()
 	_logbook_empty.text = (
-		"No fish catalog configured."
+		"no fish catalog configured."
 		if valid_species.is_empty()
-		else "No species discovered yet."
+		else "no species discovered yet."
 	)
 	if not valid_species.is_empty() and _collection_log != null:
 		var any_discovered: bool = false
@@ -881,12 +1009,12 @@ func _create_logbook_card(fish: FishDataType) -> Control:
 		var owned_count: int = (
 			_inventory.get_count(fish.id) if _inventory != null else 0
 		)
-		details.text = "%s\nOwned: %d" % [
+		details.text = "%s\nowned: %d" % [
 			fish.get_rarity_name(),
 			owned_count,
 		]
 	else:
-		details.text = "Undiscovered"
+		details.text = "undiscovered"
 	details.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	content.add_child(details)
 	return card
@@ -904,7 +1032,7 @@ func _create_texture_frame(
 	texture_frame.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	texture_frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	if texture == null:
-		texture_frame.tooltip_text = "Display texture unavailable"
+		texture_frame.tooltip_text = "display texture unavailable"
 	return texture_frame
 
 

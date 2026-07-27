@@ -63,7 +63,7 @@ theme_override_constants/separation = 8
 [node name="Title" type="Label" parent="ShopPanel/Margin/Layout/Header"]
 layout_mode = 2
 size_flags_horizontal = 3
-text = "Fishing Shop"
+text = "fishing shop"
 theme_override_font_sizes/font_size = 24
 theme_override_colors/font_color = Color(0.208, 0.725, 0.78, 1)
 
@@ -78,12 +78,12 @@ texture_filter = 1
 [node name="WalletLabel" type="Label" parent="ShopPanel/Margin/Layout/Header"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "Wallet: $0"
+text = "wallet: $0"
 
 [node name="CloseButton" type="Button" parent="ShopPanel/Margin/Layout/Header"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "Close"
+text = "close"
 custom_minimum_size = Vector2(72, 30)
 
 [node name="Feedback" type="Label" parent="ShopPanel/Margin/Layout"]
@@ -107,7 +107,7 @@ theme_override_constants/separation = 6
 [node name="SalesTitle" type="Label" parent="ShopPanel/Margin/Layout/Body/FishSales"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "Sell individual Cooler fish • Full base value"
+text = "sell individual cooler fish • full base value"
 theme_override_font_sizes/font_size = 17
 
 [node name="SalesBody" type="HSplitContainer" parent="ShopPanel/Margin/Layout/Body/FishSales"]
@@ -133,7 +133,7 @@ layout_mode = 2
 [node name="FishEmpty" type="Label" parent="ShopPanel/Margin/Layout/Body/FishSales/SalesBody/ListPanel/ListMargin/ListStack"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "Your Cooler is empty."
+text = "your cooler is empty."
 horizontal_alignment = 1
 
 [node name="FishList" type="ItemList" parent="ShopPanel/Margin/Layout/Body/FishSales/SalesBody/ListPanel/ListMargin/ListStack"]
@@ -142,6 +142,7 @@ layout_mode = 2
 size_flags_vertical = 3
 fixed_icon_size = Vector2i(48, 36)
 icon_mode = 1
+select_mode = 1
 same_column_width = true
 
 [node name="FishDetail" type="PanelContainer" parent="ShopPanel/Margin/Layout/Body/FishSales/SalesBody"]
@@ -170,22 +171,30 @@ texture_filter = 1
 [node name="FishName" type="Label" parent="ShopPanel/Margin/Layout/Body/FishSales/SalesBody/FishDetail/DetailMargin/DetailStack"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "Select a fish"
+text = "select a fish"
 horizontal_alignment = 1
 theme_override_font_sizes/font_size = 19
 
 [node name="FishDetails" type="Label" parent="ShopPanel/Margin/Layout/Body/FishSales/SalesBody/FishDetail/DetailMargin/DetailStack"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "Choose one individual fish from your Cooler."
+text = "choose one individual fish from your cooler."
 horizontal_alignment = 1
 autowrap_mode = 2
+
+[node name="SelectionSummary" type="Label" parent="ShopPanel/Margin/Layout/Body/FishSales/SalesBody/FishDetail/DetailMargin/DetailStack"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "no fish selected"
+horizontal_alignment = 1
+autowrap_mode = 2
+theme_override_colors/font_color = Color(0.208, 0.725, 0.78, 1)
 
 [node name="SellButton" type="Button" parent="ShopPanel/Margin/Layout/Body/FishSales/SalesBody/FishDetail/DetailMargin/DetailStack"]
 unique_name_in_owner = true
 layout_mode = 2
 disabled = true
-text = "Sell Selected"
+text = "sell selected"
 
 [node name="Upgrades" type="VBoxContainer" parent="ShopPanel/Margin/Layout/Body"]
 custom_minimum_size = Vector2(270, 0)
@@ -194,7 +203,7 @@ theme_override_constants/separation = 8
 
 [node name="UpgradeTitle" type="Label" parent="ShopPanel/Margin/Layout/Body/Upgrades"]
 layout_mode = 2
-text = "Fishing Upgrades"
+text = "fishing upgrades"
 theme_override_font_sizes/font_size = 17
 
 [node name="Supplies" type="VBoxContainer" parent="ShopPanel/Margin/Layout/Body"]
@@ -204,7 +213,7 @@ theme_override_constants/separation = 6
 
 [node name="Title" type="Label" parent="ShopPanel/Margin/Layout/Body/Supplies"]
 layout_mode = 2
-text = "Supplies"
+text = "supplies"
 theme_override_font_sizes/font_size = 17
 
 [node name="Scroll" type="ScrollContainer" parent="ShopPanel/Margin/Layout/Body/Supplies"]
@@ -246,13 +255,13 @@ size_flags_horizontal = 3
 
 [node name="Name" type="Label" parent="ShopPanel/Margin/Layout/Body/Upgrades/ReelCard/Margin/Row/Data"]
 layout_mode = 2
-text = "Reel Speed"
+text = "reel speed"
 theme_override_font_sizes/font_size = 17
 
 [node name="ReelLevel" type="Label" parent="ShopPanel/Margin/Layout/Body/Upgrades/ReelCard/Margin/Row/Data"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "Level 0"
+text = "level 0"
 
 [node name="ReelEffect" type="Label" parent="ShopPanel/Margin/Layout/Body/Upgrades/ReelCard/Margin/Row/Data"]
 unique_name_in_owner = true
@@ -267,7 +276,7 @@ text = "$50"
 [node name="ReelPurchase" type="Button" parent="ShopPanel/Margin/Layout/Body/Upgrades/ReelCard/Margin/Row"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "Purchase"
+text = "purchase"
 
 [node name="BarrierCard" type="PanelContainer" parent="ShopPanel/Margin/Layout/Body/Upgrades"]
 layout_mode = 2
@@ -297,13 +306,13 @@ size_flags_horizontal = 3
 
 [node name="Name" type="Label" parent="ShopPanel/Margin/Layout/Body/Upgrades/BarrierCard/Margin/Row/Data"]
 layout_mode = 2
-text = "Barrier Power"
+text = "barrier power"
 theme_override_font_sizes/font_size = 17
 
 [node name="BarrierLevel" type="Label" parent="ShopPanel/Margin/Layout/Body/Upgrades/BarrierCard/Margin/Row/Data"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "Level 0"
+text = "level 0"
 
 [node name="BarrierEffect" type="Label" parent="ShopPanel/Margin/Layout/Body/Upgrades/BarrierCard/Margin/Row/Data"]
 unique_name_in_owner = true
@@ -318,7 +327,7 @@ text = "$100"
 [node name="BarrierPurchase" type="Button" parent="ShopPanel/Margin/Layout/Body/Upgrades/BarrierCard/Margin/Row"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "Purchase"
+text = "purchase"
 
 [node name="CoolerCard" type="PanelContainer" parent="ShopPanel/Margin/Layout/Body/Upgrades"]
 layout_mode = 2
@@ -348,13 +357,13 @@ size_flags_horizontal = 3
 
 [node name="Name" type="Label" parent="ShopPanel/Margin/Layout/Body/Upgrades/CoolerCard/Margin/Row/Data"]
 layout_mode = 2
-text = "Cooler Capacity"
+text = "cooler capacity"
 theme_override_font_sizes/font_size = 17
 
 [node name="CoolerLevel" type="Label" parent="ShopPanel/Margin/Layout/Body/Upgrades/CoolerCard/Margin/Row/Data"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "Level 0"
+text = "level 0"
 
 [node name="CoolerEffect" type="Label" parent="ShopPanel/Margin/Layout/Body/Upgrades/CoolerCard/Margin/Row/Data"]
 unique_name_in_owner = true
@@ -369,7 +378,7 @@ text = "$75"
 [node name="CoolerPurchase" type="Button" parent="ShopPanel/Margin/Layout/Body/Upgrades/CoolerCard/Margin/Row"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "Purchase"
+text = "purchase"
 
 [node name="SaleConfirmation" type="PanelContainer" parent="."]
 unique_name_in_owner = true
@@ -413,10 +422,10 @@ theme_override_constants/separation = 8
 [node name="ConfirmSale" type="Button" parent="SaleConfirmation/Margin/Stack/Buttons"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "Sell Fish"
+text = "sell fish"
 theme_type_variation = &"DangerButton"
 
 [node name="CancelSale" type="Button" parent="SaleConfirmation/Margin/Stack/Buttons"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "Cancel"
+text = "cancel"

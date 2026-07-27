@@ -56,39 +56,39 @@ layout_mode = 2
 size_flags_horizontal = 3
 theme_override_colors/font_color = Color(0.208, 0.725, 0.78, 1)
 theme_override_font_sizes/font_size = 22
-text = "Player Menu"
+text = "player menu"
 
 [node name="WalletBalance" type="Label" parent="MenuPanel/Margin/Layout/Header"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "Wallet: $0"
+text = "wallet: $0"
 theme_override_colors/font_color = Color(1, 0.82, 0.4, 1)
 
 [node name="InventoryTab" type="Button" parent="MenuPanel/Margin/Layout/Header"]
 unique_name_in_owner = true
 layout_mode = 2
 toggle_mode = true
-text = "Cooler"
+text = "cooler"
 custom_minimum_size = Vector2(88, 30)
 
 [node name="BagTab" type="Button" parent="MenuPanel/Margin/Layout/Header"]
 unique_name_in_owner = true
 layout_mode = 2
 toggle_mode = true
-text = "Bag"
+text = "bag"
 custom_minimum_size = Vector2(76, 30)
 
 [node name="LogbookTab" type="Button" parent="MenuPanel/Margin/Layout/Header"]
 unique_name_in_owner = true
 layout_mode = 2
 toggle_mode = true
-text = "Logbook"
+text = "logbook"
 custom_minimum_size = Vector2(88, 30)
 
 [node name="CloseButton" type="Button" parent="MenuPanel/Margin/Layout/Header"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "Close"
+text = "close"
 custom_minimum_size = Vector2(68, 30)
 
 [node name="Separator" type="HSeparator" parent="MenuPanel/Margin/Layout"]
@@ -123,7 +123,7 @@ theme_override_constants/separation = 6
 
 [node name="SortLabel" type="Label" parent="MenuPanel/Margin/Layout/Content/InventorySection/SortBar"]
 layout_mode = 2
-text = "Sort:"
+text = "sort:"
 
 [node name="SortOption" type="OptionButton" parent="MenuPanel/Margin/Layout/Content/InventorySection/SortBar"]
 unique_name_in_owner = true
@@ -134,7 +134,7 @@ custom_minimum_size = Vector2(130, 30)
 unique_name_in_owner = true
 layout_mode = 2
 custom_minimum_size = Vector2(112, 30)
-text = "Newest first"
+text = "newest first"
 
 [node name="SortSpacer" type="Control" parent="MenuPanel/Margin/Layout/Content/InventorySection/SortBar"]
 layout_mode = 2
@@ -149,7 +149,7 @@ theme_override_colors/font_color = Color(0.208, 0.725, 0.78, 1)
 [node name="HeldValue" type="Label" parent="MenuPanel/Margin/Layout/Content/InventorySection/SortBar"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "Held fish base value: $0"
+text = "held fish base value: $0"
 theme_override_colors/font_color = Color(0.682, 0.733, 0.761, 1)
 
 [node name="InventoryBody" type="HSplitContainer" parent="MenuPanel/Margin/Layout/Content/InventorySection"]
@@ -176,7 +176,7 @@ theme_override_constants/separation = 6
 [node name="InventoryEmpty" type="Label" parent="MenuPanel/Margin/Layout/Content/InventorySection/InventoryBody/InventoryList/InventoryListMargin/InventoryStack"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "Your Cooler is empty."
+text = "your cooler is empty."
 horizontal_alignment = 1
 
 [node name="InventoryScroll" type="ScrollContainer" parent="MenuPanel/Margin/Layout/Content/InventorySection/InventoryBody/InventoryList/InventoryListMargin/InventoryStack"]
@@ -228,17 +228,25 @@ layout_mode = 2
 autowrap_mode = 2
 horizontal_alignment = 1
 
+[node name="SelectionSummary" type="Label" parent="MenuPanel/Margin/Layout/Content/InventorySection/InventoryBody/DetailPanel/DetailMargin/DetailStack"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "no fish selected"
+autowrap_mode = 2
+horizontal_alignment = 1
+theme_override_colors/font_color = Color(0.208, 0.725, 0.78, 1)
+
 [node name="FavoriteButton" type="Button" parent="MenuPanel/Margin/Layout/Content/InventorySection/InventoryBody/DetailPanel/DetailMargin/DetailStack"]
 unique_name_in_owner = true
 layout_mode = 2
 disabled = true
-text = "Favorite"
+text = "favorite"
 
 [node name="SellButton" type="Button" parent="MenuPanel/Margin/Layout/Content/InventorySection/InventoryBody/DetailPanel/DetailMargin/DetailStack"]
 unique_name_in_owner = true
 layout_mode = 2
 disabled = true
-text = "Sell"
+text = "sell"
 theme_type_variation = &"DangerButton"
 
 [node name="SaleUnavailable" type="Label" parent="MenuPanel/Margin/Layout/Content/InventorySection/InventoryBody/DetailPanel/DetailMargin/DetailStack"]
@@ -262,7 +270,7 @@ theme_override_constants/separation = 7
 
 [node name="BagHint" type="Label" parent="MenuPanel/Margin/Layout/Content/BagSection"]
 layout_mode = 2
-text = "Drag hotbar-compatible items onto a slot below. Right-click a slot to clear it."
+text = "drag hotbar-compatible items onto a slot below. right-click a slot to clear it."
 horizontal_alignment = 1
 
 [node name="BagBody" type="HSplitContainer" parent="MenuPanel/Margin/Layout/Content/BagSection"]
@@ -289,7 +297,7 @@ theme_override_constants/separation = 6
 [node name="BagEmpty" type="Label" parent="MenuPanel/Margin/Layout/Content/BagSection/BagBody/BagList/Margin/Stack"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "Your Bag is empty."
+text = "your bag is empty."
 horizontal_alignment = 1
 
 [node name="BagScroll" type="ScrollContainer" parent="MenuPanel/Margin/Layout/Content/BagSection/BagBody/BagList/Margin/Stack"]
@@ -337,7 +345,7 @@ horizontal_alignment = 1
 [node name="BagDetailData" type="Label" parent="MenuPanel/Margin/Layout/Content/BagSection/BagBody/BagDetail/Margin/Stack"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "Select a Bag item for details."
+text = "select a bag item for details."
 horizontal_alignment = 1
 autowrap_mode = 2
 
@@ -355,7 +363,7 @@ theme_override_constants/separation = 7
 [node name="LogbookEmpty" type="Label" parent="MenuPanel/Margin/Layout/Content/LogbookSection"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "No species discovered yet."
+text = "no species discovered yet."
 horizontal_alignment = 1
 
 [node name="LogbookScroll" type="ScrollContainer" parent="MenuPanel/Margin/Layout/Content/LogbookSection"]
@@ -412,12 +420,12 @@ alignment = 1
 [node name="ConfirmSaleButton" type="Button" parent="MenuPanel/Margin/Layout/Content/SaleConfirmation/ConfirmationMargin/ConfirmationLayout/ConfirmationButtons"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "Confirm"
+text = "confirm"
 theme_type_variation = &"DangerButton"
 custom_minimum_size = Vector2(120, 38)
 
 [node name="CancelSaleButton" type="Button" parent="MenuPanel/Margin/Layout/Content/SaleConfirmation/ConfirmationMargin/ConfirmationLayout/ConfirmationButtons"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "Cancel"
+text = "cancel"
 custom_minimum_size = Vector2(120, 38)

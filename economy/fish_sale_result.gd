@@ -8,12 +8,15 @@ enum Status {
 	INVALID_VALUE,
 	INVALID_BUYER,
 	INVALID_OFFER,
+	INVALID_SELECTION,
 	TRANSACTION_FAILED,
 }
 
 var success: bool = false
 var status: Status = Status.TRANSACTION_FAILED
 var catch_id: StringName
+var catch_ids: Array[StringName] = []
+var fish_count: int = 0
 var fish_name: String = ""
 var buyer_id: StringName
 var buyer_display_name: String = ""
@@ -32,14 +35,16 @@ func get_message() -> String:
 		Status.SUCCESS:
 			return sale_message
 		Status.NOT_FOUND:
-			return "Fish no longer exists."
+			return "fish no longer exists."
 		Status.FAVORITED:
-			return "Favorited fish cannot be sold."
+			return "favorited fish cannot be sold."
 		Status.INVALID_VALUE:
-			return "Invalid sale value."
+			return "invalid sale value."
 		Status.INVALID_BUYER:
-			return "Buyer is unavailable."
+			return "buyer is unavailable."
 		Status.INVALID_OFFER:
-			return "Invalid buyer offer."
+			return "invalid buyer offer."
+		Status.INVALID_SELECTION:
+			return "the fish selection is invalid."
 		_:
-			return "Transaction failed."
+			return "transaction failed."

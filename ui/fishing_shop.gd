@@ -24,6 +24,9 @@ const PlayerCoolerCapacityType = preload(
 const ShopInteractionType = preload(
 	"res://world/fishing_shop_interaction.gd"
 )
+const FishBatchSelectionType = preload(
+	"res://ui/fish_batch_selection.gd"
+)
 
 signal menu_visibility_changed(is_open: bool)
 
@@ -42,6 +45,7 @@ enum CloseReason {
 @onready var _fish_texture: TextureRect = %FishTexture
 @onready var _fish_name: Label = %FishName
 @onready var _fish_details: Label = %FishDetails
+@onready var _selection_summary: Label = %SelectionSummary
 @onready var _sell_button: Button = %SellButton
 @onready var _feedback: Label = %Feedback
 @onready var _reel_level: Label = %ReelLevel
@@ -73,14 +77,16 @@ var _interaction: ShopInteractionType
 var _bag: PlayerBagType
 var _item_catalog: ItemCatalogType
 var _cooler_capacity: PlayerCoolerCapacityType
-var _selected_catch_id: StringName
-var _confirmation_catch_id: StringName
+var _fish_selection := FishBatchSelectionType.new()
+var _confirmation_catch_ids: Array[StringName] = []
+var _confirmation_generation: int = -1
 var _prior_movement_enabled: bool = true
 var _prior_camera_enabled: bool = true
 var _prior_mouse_mode: Input.MouseMode = Input.MOUSE_MODE_VISIBLE
 var _snapshot_stored: bool = false
 var _mouse_snapshot_stored: bool = false
 var _generation: int = 0
+var _selection_input_generation: int = 0
 var _transaction_in_progress: bool = false
 var _closing: bool = false
 
@@ -88,6 +94,7 @@ var _closing: bool = false
 func _ready() -> void:
 	%CloseButton.pressed.connect(close_shop)
 	_fish_list.item_selected.connect(_on_fish_selected)
+	_fish_list.item_clicked.connect(_on_fish_clicked)
 	_sell_button.pressed.connect(_open_sale_confirmation)
 	_confirm_sale.pressed.connect(_on_confirm_sale)
 	_cancel_sale.pressed.connect(_close_sale_confirmation)
@@ -120,6 +127,7 @@ func setup(
 	_bag = bag
 	_item_catalog = item_catalog
 	_cooler_capacity = cooler_capacity
+	_fish_selection.clear()
 	if not _inventory.catches_changed.is_connected(_on_inventory_changed):
 		_inventory.catches_changed.connect(_on_inventory_changed)
 	if not _wallet.balance_changed.is_connected(_on_wallet_changed):
@@ -189,7 +197,7 @@ func close_shop(
 	_generation += 1
 	_transaction_in_progress = false
 	_close_sale_confirmation()
-	_selected_catch_id = StringName()
+	_fish_selection.clear()
 	hide()
 	get_viewport().gui_release_focus()
 	if _fishing_spot != null and is_instance_valid(_fishing_spot):
@@ -242,9 +250,9 @@ func _refresh_all() -> void:
 
 func _refresh_wallet() -> void:
 	_wallet_label.text = (
-		"Wallet: $%d" % _wallet.get_balance()
+		"wallet: $%d" % _wallet.get_balance()
 		if _wallet != null
-		else "Wallet: $0"
+		else "wallet: $0"
 	)
 
 
@@ -253,7 +261,7 @@ func _refresh_fish_list() -> void:
 	var catches: Array[FishCatchType] = (
 		_inventory.get_all_catches() if _inventory != null else []
 	)
-	_sales_title.text = "Cooler %d / %d • Full base value" % [
+	_sales_title.text = "cooler %d / %d • full base value" % [
 		catches.size(),
 		_cooler_capacity.get_capacity() if _cooler_capacity != null else 0,
 	]
@@ -261,11 +269,21 @@ func _refresh_fish_list() -> void:
 		func(a: FishCatchType, b: FishCatchType) -> bool:
 			return a.catch_sequence > b.catch_sequence
 	)
-	var selected_index: int = -1
+	var visible_ids: Array[StringName] = []
+	for fish_catch: FishCatchType in catches:
+		if fish_catch != null and fish_catch.is_valid():
+			visible_ids.append(fish_catch.catch_id)
+	_fish_selection.set_visible_order(visible_ids)
 	for fish_catch: FishCatchType in catches:
 		if fish_catch == null or not fish_catch.is_valid():
 			continue
-		var marker: String = "★ " if fish_catch.is_favorited else ""
+		var marker: String = ""
+		if _fish_selection.is_selected(fish_catch.catch_id):
+			marker += "✓ "
+		if fish_catch.catch_id == _fish_selection.get_focused_id():
+			marker += "◆ "
+		if fish_catch.is_favorited:
+			marker += "★ "
 		var index: int = _fish_list.add_item(
 			"%s%s — %.2f lb"
 			% [marker, fish_catch.fish.display_name, fish_catch.weight_lb],
@@ -277,16 +295,15 @@ func _refresh_fish_list() -> void:
 			"%s • %s"
 			% [
 				fish_catch.fish.get_rarity_name(),
-				"Favorited" if fish_catch.is_favorited else "Available",
+				"favorited" if fish_catch.is_favorited else "available",
 			]
 		)
-		if fish_catch.catch_id == _selected_catch_id:
-			selected_index = index
 	_fish_empty.visible = _fish_list.item_count == 0
-	if selected_index >= 0:
-		_fish_list.select(selected_index)
-	elif not _selected_catch_id.is_empty():
-		_selected_catch_id = StringName()
+	_fish_list.deselect_all()
+	for index: int in range(_fish_list.item_count):
+		var catch_id := StringName(str(_fish_list.get_item_metadata(index)))
+		if _fish_selection.is_selected(catch_id):
+			_fish_list.select(index, false)
 
 
 func _refresh_selected_fish() -> void:
@@ -295,27 +312,72 @@ func _refresh_selected_fish() -> void:
 		fish_catch.fish.display_texture if fish_catch != null else null
 	)
 	_fish_name.text = (
-		fish_catch.fish.display_name if fish_catch != null else "Select a fish"
+		fish_catch.fish.display_name if fish_catch != null else "select a fish"
 	)
 	if fish_catch == null:
-		_fish_details.text = "Choose one individual fish from your Cooler."
-		_sell_button.disabled = true
+		_fish_details.text = "choose one individual fish from your cooler."
+		_update_sale_summary()
 		return
-	var offer: int = _buyer.get_offer(fish_catch.sale_value)
+	var individual_preview: FishSaleResultType = (
+		_sale_service.preview_batch([fish_catch.catch_id], _buyer)
+		if _sale_service != null
+		else null
+	)
+	var offer: int = (
+		individual_preview.payout if individual_preview != null else -1
+	)
 	_fish_details.text = (
-		"%.2f lb • %s\nBase value: $%d\nMain-shop offer: $%d%s"
+		"%.2f lb • %s\nbase value: $%d\nmain-shop offer: $%d%s"
 		% [
 			fish_catch.weight_lb,
 			fish_catch.fish.get_rarity_name(),
 			fish_catch.sale_value,
 			offer,
-			"\nFavorited fish cannot be sold."
+			"\nfavorited fish cannot be sold."
 			if fish_catch.is_favorited
 			else "",
 		]
 	)
+	_update_sale_summary()
+
+
+func _update_sale_summary() -> void:
+	var selected_ids: Array[StringName] = _fish_selection.get_selected_ids()
+	var selected_count: int = selected_ids.size()
+	_sell_button.text = (
+		"sell fish"
+		if selected_count <= 1
+		else "sell %d fish" % selected_count
+	)
+	if selected_count == 0:
+		_selection_summary.text = "no fish selected"
+		_sell_button.disabled = true
+		return
+	var preview: FishSaleResultType = (
+		_sale_service.preview_batch(selected_ids, _buyer)
+		if _sale_service != null
+		else null
+	)
+	_selection_summary.text = (
+		"1 fish selected"
+		if selected_count == 1
+		else "%d fish selected" % selected_count
+	)
+	if (
+		preview != null
+		and (
+			preview.is_success()
+			or preview.status == FishSaleResultType.Status.FAVORITED
+		)
+	):
+		_selection_summary.text += "\ntotal offer: $%d" % preview.payout
+	if preview != null and preview.status == FishSaleResultType.Status.FAVORITED:
+		_selection_summary.text += (
+			"\nfavorited fish must be removed from the selection."
+		)
 	_sell_button.disabled = (
-		fish_catch.is_favorited
+		preview == null
+		or not preview.is_success()
 		or _transaction_in_progress
 		or _closing
 	)
@@ -326,7 +388,7 @@ func _refresh_upgrades() -> void:
 		return
 	var reel_level: int = _upgrades.get_reel_speed_level()
 	var reel_cost: int = _upgrades.get_next_reel_speed_cost()
-	_reel_level.text = "Level %d" % reel_level
+	_reel_level.text = "level %d" % reel_level
 	_reel_purchase.disabled = (
 		reel_cost < 0
 		or _transaction_in_progress
@@ -335,7 +397,7 @@ func _refresh_upgrades() -> void:
 	)
 	if reel_cost < 0:
 		_reel_effect.text = "%.2f×" % _upgrades.get_reel_speed_multiplier()
-		_reel_cost.text = "MAX"
+		_reel_cost.text = "max"
 	else:
 		_reel_effect.text = (
 			"%.2f× → %.2f×"
@@ -345,10 +407,10 @@ func _refresh_upgrades() -> void:
 			]
 		)
 		_reel_cost.text = "$%d" % reel_cost
-	_reel_purchase.text = "MAX" if reel_cost < 0 else "Purchase"
+	_reel_purchase.text = "max" if reel_cost < 0 else "purchase"
 	var barrier_level: int = _upgrades.get_barrier_power_level()
 	var barrier_cost: int = _upgrades.get_next_barrier_power_cost()
-	_barrier_level.text = "Level %d" % barrier_level
+	_barrier_level.text = "level %d" % barrier_level
 	_barrier_purchase.disabled = (
 		barrier_cost < 0
 		or _transaction_in_progress
@@ -357,7 +419,7 @@ func _refresh_upgrades() -> void:
 	)
 	if barrier_cost < 0:
 		_barrier_effect.text = "%d damage" % _upgrades.get_barrier_damage()
-		_barrier_cost.text = "MAX"
+		_barrier_cost.text = "max"
 	else:
 		_barrier_effect.text = (
 			"%d damage → %d damage"
@@ -367,7 +429,7 @@ func _refresh_upgrades() -> void:
 			]
 		)
 		_barrier_cost.text = "$%d" % barrier_cost
-	_barrier_purchase.text = "MAX" if barrier_cost < 0 else "Purchase"
+	_barrier_purchase.text = "max" if barrier_cost < 0 else "purchase"
 
 
 func _refresh_supplies() -> void:
@@ -385,7 +447,7 @@ func _refresh_supplies() -> void:
 		button.icon = item.icon
 		button.expand_icon = true
 		button.alignment = HORIZONTAL_ALIGNMENT_LEFT
-		button.text = "%s\n$%d • Owned %d" % [
+		button.text = "%s\n$%d • owned %d" % [
 			item.display_name,
 			FishingShopStockType.get_price(item_id),
 			_bag.get_quantity(item_id),
@@ -409,7 +471,7 @@ func _refresh_cooler_capacity() -> void:
 	var level: int = _cooler_capacity.get_level()
 	var cost: int = _cooler_capacity.get_next_cost()
 	var next_capacity: int = _cooler_capacity.get_next_capacity()
-	_cooler_level.text = "Level %d" % level
+	_cooler_level.text = "level %d" % level
 	_cooler_purchase.disabled = (
 		cost < 0
 		or _transaction_in_progress
@@ -418,46 +480,99 @@ func _refresh_cooler_capacity() -> void:
 	)
 	if cost < 0:
 		_cooler_effect.text = "%d fish" % _cooler_capacity.get_capacity()
-		_cooler_cost.text = "MAX"
-		_cooler_purchase.text = "MAX"
+		_cooler_cost.text = "max"
+		_cooler_purchase.text = "max"
 	else:
 		_cooler_effect.text = "%d → %d fish" % [
 			_cooler_capacity.get_capacity(),
 			next_capacity,
 		]
 		_cooler_cost.text = "$%d" % cost
-		_cooler_purchase.text = "Purchase"
+		_cooler_purchase.text = "purchase"
 
 
 func _on_fish_selected(index: int) -> void:
 	if index < 0 or index >= _fish_list.item_count:
 		return
-	_selected_catch_id = StringName(str(_fish_list.get_item_metadata(index)))
+	var input_generation: int = _selection_input_generation
+	call_deferred(
+		"_apply_keyboard_fish_selection",
+		index,
+		input_generation
+	)
+
+
+func _apply_keyboard_fish_selection(
+	index: int,
+	input_generation: int,
+) -> void:
+	if (
+		input_generation != _selection_input_generation
+		or index < 0
+		or index >= _fish_list.item_count
+	):
+		return
+	var catch_id := StringName(str(_fish_list.get_item_metadata(index)))
+	_fish_selection.select_only(catch_id)
 	_feedback.text = ""
+	_refresh_fish_list()
+	_refresh_selected_fish()
+
+
+func _on_fish_clicked(
+	index: int,
+	_position: Vector2,
+	mouse_button_index: int,
+) -> void:
+	if (
+		mouse_button_index != MOUSE_BUTTON_LEFT
+		or index < 0
+		or index >= _fish_list.item_count
+	):
+		return
+	_selection_input_generation += 1
+	var catch_id := StringName(str(_fish_list.get_item_metadata(index)))
+	_fish_selection.apply_click(
+		catch_id,
+		Input.is_key_pressed(KEY_CTRL),
+		Input.is_key_pressed(KEY_SHIFT)
+	)
+	_feedback.text = ""
+	_refresh_fish_list()
 	_refresh_selected_fish()
 
 
 func _open_sale_confirmation() -> void:
-	var fish_catch: FishCatchType = _get_selected_catch()
-	if not _is_transaction_context_valid() or fish_catch == null:
-		_feedback.text = "This fish is no longer available."
+	var selected_ids: Array[StringName] = _fish_selection.get_selected_ids()
+	if not _is_transaction_context_valid() or selected_ids.is_empty():
+		_feedback.text = "the fish selection is no longer available."
 		_refresh_all()
 		return
-	if fish_catch.is_favorited:
-		_feedback.text = "Favorited fish cannot be sold."
+	var preview: FishSaleResultType = _sale_service.preview_batch(
+		selected_ids,
+		_buyer
+	)
+	if not preview.is_success():
+		_feedback.text = (
+			"favorited fish cannot be sold. "
+			+ "remove them from the selection first."
+			if preview.status == FishSaleResultType.Status.FAVORITED
+			else preview.get_message()
+		)
 		return
-	_confirmation_catch_id = fish_catch.catch_id
-	var offer: int = _buyer.get_offer(fish_catch.sale_value)
+	_confirmation_catch_ids = selected_ids.duplicate()
+	_confirmation_generation = _generation
 	_confirmation_text.text = (
-		"Sell this %.2f lb %s to the Fishing Shop for $%d?"
-		% [fish_catch.weight_lb, fish_catch.fish.display_name, offer]
+		"sell %d fish to the fishing shop for $%d?"
+		% [preview.fish_count, preview.payout]
 	)
 	_confirmation.show()
 	_cancel_sale.grab_focus()
 
 
 func _close_sale_confirmation() -> void:
-	_confirmation_catch_id = StringName()
+	_confirmation_catch_ids.clear()
+	_confirmation_generation = -1
 	_confirmation.hide()
 
 
@@ -465,18 +580,23 @@ func _on_confirm_sale() -> void:
 	if _transaction_in_progress:
 		return
 	var transaction_generation: int = _generation
-	var catch_id: StringName = _confirmation_catch_id
+	var catch_ids: Array[StringName] = _confirmation_catch_ids.duplicate()
+	var confirmation_generation: int = _confirmation_generation
 	_close_sale_confirmation()
 	if (
-		catch_id.is_empty()
+		catch_ids.is_empty()
 		or not _is_transaction_context_valid()
 		or transaction_generation != _generation
+		or confirmation_generation != transaction_generation
 		or _buyer.id != MAIN_SHOP_BUYER_ID
 	):
-		_feedback.text = "Unable to complete sale."
+		_feedback.text = "unable to complete sale."
 		return
 	_transaction_in_progress = true
-	var result: FishSaleResultType = _sale_service.sell(catch_id, _buyer)
+	var result: FishSaleResultType = _sale_service.sell_batch(
+		catch_ids,
+		_buyer
+	)
 	_transaction_in_progress = false
 	if (
 		transaction_generation != _generation
@@ -484,8 +604,15 @@ func _on_confirm_sale() -> void:
 	):
 		return
 	if result.is_success():
-		_feedback.text = "Fish sold for $%d." % result.payout
-		_selected_catch_id = StringName()
+		_feedback.text = (
+			"fish sold for $%d."
+			if result.fish_count == 1
+			else "%d fish sold for $%d." % [
+				result.fish_count,
+				result.payout,
+			]
+		)
+		_fish_selection.remove_ids(catch_ids)
 	else:
 		_feedback.text = result.get_message()
 	_refresh_all()
@@ -501,14 +628,14 @@ func _purchase_barrier_power() -> void:
 
 func _purchase_supply(item_id: StringName) -> void:
 	if _transaction_in_progress or not _is_transaction_context_valid():
-		_feedback.text = "Unable to complete purchase."
+		_feedback.text = "unable to complete purchase."
 		return
 	var price: int = FishingShopStockType.get_price(item_id)
 	if not _bag.can_add_item(item_id, 1):
-		_feedback.text = "Bag cannot accept this item."
+		_feedback.text = "bag cannot accept this item."
 		return
 	if not _wallet.can_afford(price):
-		_feedback.text = "Not enough money."
+		_feedback.text = "not enough money."
 		return
 	var transaction_generation: int = _generation
 	_transaction_in_progress = true
@@ -522,21 +649,21 @@ func _purchase_supply(item_id: StringName) -> void:
 	if transaction_generation != _generation or not visible:
 		return
 	_feedback.text = (
-		"Item purchased." if purchased else "Unable to complete purchase."
+		"item purchased." if purchased else "unable to complete purchase."
 	)
 	_refresh_all()
 
 
 func _purchase_cooler_capacity() -> void:
 	if _transaction_in_progress or not _is_transaction_context_valid():
-		_feedback.text = "Unable to complete purchase."
+		_feedback.text = "unable to complete purchase."
 		return
 	var cost: int = _cooler_capacity.get_next_cost()
 	if cost < 0:
-		_feedback.text = "Maximum level reached."
+		_feedback.text = "maximum level reached."
 		return
 	if not _wallet.can_afford(cost):
-		_feedback.text = "Not enough money."
+		_feedback.text = "not enough money."
 		return
 	var transaction_generation: int = _generation
 	_transaction_in_progress = true
@@ -545,16 +672,16 @@ func _purchase_cooler_capacity() -> void:
 	if transaction_generation != _generation or not visible:
 		return
 	_feedback.text = (
-		"Upgrade purchased."
+		"upgrade purchased."
 		if purchased
-		else "Unable to complete purchase."
+		else "unable to complete purchase."
 	)
 	_refresh_all()
 
 
 func _purchase_upgrade(is_reel_speed: bool) -> void:
 	if _transaction_in_progress or not _is_transaction_context_valid():
-		_feedback.text = "Unable to complete purchase."
+		_feedback.text = "unable to complete purchase."
 		return
 	var cost: int = (
 		_upgrades.get_next_reel_speed_cost()
@@ -562,10 +689,10 @@ func _purchase_upgrade(is_reel_speed: bool) -> void:
 		else _upgrades.get_next_barrier_power_cost()
 	)
 	if cost < 0:
-		_feedback.text = "Maximum level reached."
+		_feedback.text = "maximum level reached."
 		return
 	if not _wallet.can_afford(cost):
-		_feedback.text = "Not enough money."
+		_feedback.text = "not enough money."
 		return
 	var transaction_generation: int = _generation
 	_transaction_in_progress = true
@@ -578,17 +705,18 @@ func _purchase_upgrade(is_reel_speed: bool) -> void:
 	if transaction_generation != _generation or not visible:
 		return
 	_feedback.text = (
-		"Upgrade purchased."
+		"upgrade purchased."
 		if purchased
-		else "Unable to complete purchase."
+		else "unable to complete purchase."
 	)
 	_refresh_all()
 
 
 func _get_selected_catch() -> FishCatchType:
-	if _inventory == null or _selected_catch_id.is_empty():
+	var focused_id: StringName = _fish_selection.get_focused_id()
+	if _inventory == null or focused_id.is_empty():
 		return null
-	return _inventory.get_catch_by_id(_selected_catch_id)
+	return _inventory.get_catch_by_id(focused_id)
 
 
 func _is_transaction_context_valid() -> bool:
@@ -607,12 +735,22 @@ func _is_transaction_context_valid() -> bool:
 
 func _on_inventory_changed() -> void:
 	_refresh_fish_list()
-	if (
-		not _confirmation_catch_id.is_empty()
-		and _inventory.get_catch_by_id(_confirmation_catch_id) == null
-	):
-		_close_sale_confirmation()
-		_feedback.text = "This fish is no longer available."
+	if not _confirmation_catch_ids.is_empty():
+		var preview: FishSaleResultType = _sale_service.preview_batch(
+			_confirmation_catch_ids,
+			_buyer
+		)
+		if (
+			_confirmation_generation != _generation
+			or not preview.is_success()
+		):
+			_close_sale_confirmation()
+			_feedback.text = (
+				"favorited fish cannot be sold. "
+				+ "remove them from the selection first."
+				if preview.status == FishSaleResultType.Status.FAVORITED
+				else preview.get_message()
+			)
 	_refresh_selected_fish()
 
 

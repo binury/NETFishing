@@ -95,18 +95,40 @@ func contains_catch_id(catch_id: StringName) -> bool:
 func remove_catch_by_id(catch_id: StringName) -> FishCatchType:
 	if catch_id.is_empty():
 		return null
-	for index: int in range(_catches.size()):
-		var fish_catch: FishCatchType = _catches[index]
-		if fish_catch == null or fish_catch.catch_id != catch_id:
-			continue
-		_catches.remove_at(index)
-		contents_changed.emit(
-			fish_catch.fish_id,
-			get_count(fish_catch.fish_id)
-		)
-		catches_changed.emit()
-		return fish_catch
-	return null
+	var removed: Array[FishCatchType] = remove_catches_by_ids([catch_id])
+	return removed.front() if removed.size() == 1 else null
+
+
+func remove_catches_by_ids(
+	catch_ids: Array[StringName],
+) -> Array[FishCatchType]:
+	var removed: Array[FishCatchType] = []
+	if catch_ids.is_empty():
+		return removed
+	var requested_ids: Dictionary[StringName, bool] = {}
+	for catch_id: StringName in catch_ids:
+		if catch_id.is_empty() or requested_ids.has(catch_id):
+			return removed
+		requested_ids[catch_id] = true
+	for catch_id: StringName in catch_ids:
+		var fish_catch: FishCatchType = get_catch_by_id(catch_id)
+		if fish_catch == null:
+			removed.clear()
+			return removed
+		removed.append(fish_catch)
+
+	var remaining: Array[FishCatchType] = []
+	var affected_species: Dictionary[StringName, bool] = {}
+	for fish_catch: FishCatchType in _catches:
+		if requested_ids.has(fish_catch.catch_id):
+			affected_species[fish_catch.fish_id] = true
+		else:
+			remaining.append(fish_catch)
+	_catches = remaining
+	for fish_id: StringName in affected_species:
+		contents_changed.emit(fish_id, get_count(fish_id))
+	catches_changed.emit()
+	return removed
 
 
 func set_catch_favorited(
