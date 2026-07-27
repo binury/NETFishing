@@ -21,6 +21,10 @@ config/icon="res://icon.svg"
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 
+[gui]
+
+theme/custom="res://ui/game_theme.tres"
+
 [input]
 
 move_forward={

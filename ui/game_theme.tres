@@ -1,4 +1,6 @@
-[gd_resource type="Theme" load_steps=12 format=3]
+[gd_resource type="Theme" load_steps=13 format=3]
+
+[ext_resource type="FontFile" uid="uid://ddbejmxpa3kw6" path="res://ui/fonts/seattle_avenue.otf" id="1_font"]
 
 [sub_resource type="StyleBoxFlat" id="Panel"]
 bg_color = Color(0.075, 0.145, 0.17, 0.96)
@@ -143,6 +145,7 @@ corner_radius_bottom_right = 6
 corner_radius_bottom_left = 6
 
 [resource]
+default_font = ExtResource("1_font")
 default_font_size = 15
 Label/colors/font_color = Color(0.956, 0.972, 0.976, 1)
 Label/colors/font_shadow_color = Color(0, 0, 0, 0)
