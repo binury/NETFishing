@@ -13,7 +13,7 @@ dest_files=["res://.godot/imported/as_in_four_wolves.ogg-3d5f167a45d25a52b56a9dd
 [params]
 
 loop=true
-loop_offset=0
+loop_offset=231.996145833
 bpm=0
 beat_count=0
 bar_beats=4
