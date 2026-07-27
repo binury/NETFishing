@@ -101,6 +101,17 @@ text = "press any key to start"
 horizontal_alignment = 1
 vertical_alignment = 1
 
+[node name="IntroBrandingAnchor" type="Control" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
 [node name="Center" type="CenterContainer" parent="."]
 z_index = 10
 layout_mode = 1
@@ -115,7 +126,27 @@ layout_mode = 2
 theme_override_constants/separation = 7
 alignment = 1
 
-[node name="TitleLogo" type="TextureRect" parent="Center/MainContent"]
+[node name="BrandingSlot" type="Control" parent="Center/MainContent"]
+custom_minimum_size = Vector2(640, 215)
+layout_mode = 2
+
+[node name="BrandingMotionRoot" type="Control" parent="Center/MainContent/BrandingSlot"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_right = 640.0
+offset_bottom = 215.0
+mouse_filter = 2
+
+[node name="BrandingContent" type="VBoxContainer" parent="Center/MainContent/BrandingSlot/BrandingMotionRoot"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 7
+
+[node name="TitleLogo" type="TextureRect" parent="Center/MainContent/BrandingSlot/BrandingMotionRoot/BrandingContent"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(640, 190)
 material = SubResource("ShaderMaterial_title_logo")
@@ -126,7 +157,8 @@ texture = ExtResource("5_logo")
 expand_mode = 1
 stretch_mode = 5
 
-[node name="PlaytestLabel" type="Label" parent="Center/MainContent"]
+[node name="PlaytestLabel" type="Label" parent="Center/MainContent/BrandingSlot/BrandingMotionRoot/BrandingContent"]
+unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(0.682, 0.733, 0.761, 1)
 theme_override_font_sizes/font_size = 17
@@ -142,14 +174,27 @@ unique_name_in_owner = true
 visible = false
 layout_mode = 2
 
-[node name="BubbleField" type="Control" parent="Center/MainContent/ButtonCenter"]
-unique_name_in_owner = true
+[node name="BubbleLayoutSlot" type="Control" parent="Center/MainContent/ButtonCenter"]
 custom_minimum_size = Vector2(396, 318)
 layout_mode = 2
+
+[node name="BubbleMotionRoot" type="Control" parent="Center/MainContent/ButtonCenter/BubbleLayoutSlot"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_right = 396.0
+offset_bottom = 318.0
+mouse_filter = 2
+
+[node name="BubbleField" type="Control" parent="Center/MainContent/ButtonCenter/BubbleLayoutSlot/BubbleMotionRoot"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(396, 318)
+layout_mode = 0
+offset_right = 396.0
+offset_bottom = 318.0
 script = ExtResource("8_bubble_cluster")
 profile = ExtResource("9_bubble_profile")
 
-[node name="ContinueButton" type="Button" parent="Center/MainContent/ButtonCenter/BubbleField"]
+[node name="ContinueButton" type="Button" parent="Center/MainContent/ButtonCenter/BubbleLayoutSlot/BubbleMotionRoot/BubbleField"]
 unique_name_in_owner = true
 offset_left = 123.0
 offset_top = 86.0
@@ -169,7 +214,7 @@ motion_period = 5.8
 deformation_amplitude = 0.01
 deformation_period = 6.7
 
-[node name="NewGameButton" type="Button" parent="Center/MainContent/ButtonCenter/BubbleField"]
+[node name="NewGameButton" type="Button" parent="Center/MainContent/ButtonCenter/BubbleLayoutSlot/BubbleMotionRoot/BubbleField"]
 unique_name_in_owner = true
 offset_left = 42.0
 offset_top = 4.0
@@ -191,7 +236,7 @@ motion_phase = 1.2
 deformation_amplitude = 0.018
 deformation_period = 5.9
 
-[node name="NewGameLabel" type="Label" parent="Center/MainContent/ButtonCenter/BubbleField/NewGameButton"]
+[node name="NewGameLabel" type="Label" parent="Center/MainContent/ButtonCenter/BubbleLayoutSlot/BubbleMotionRoot/BubbleField/NewGameButton"]
 unique_name_in_owner = true
 layout_mode = 1
 anchors_preset = 15
@@ -206,7 +251,7 @@ text = "new game"
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="SettingsButton" type="Button" parent="Center/MainContent/ButtonCenter/BubbleField"]
+[node name="SettingsButton" type="Button" parent="Center/MainContent/ButtonCenter/BubbleLayoutSlot/BubbleMotionRoot/BubbleField"]
 unique_name_in_owner = true
 offset_left = 264.0
 offset_top = 17.0
@@ -225,7 +270,7 @@ motion_period = 4.9
 motion_phase = 2.5
 deformation_period = 6.3
 
-[node name="DeleteSaveButton" type="Button" parent="Center/MainContent/ButtonCenter/BubbleField"]
+[node name="DeleteSaveButton" type="Button" parent="Center/MainContent/ButtonCenter/BubbleLayoutSlot/BubbleMotionRoot/BubbleField"]
 unique_name_in_owner = true
 offset_left = -11.0
 offset_top = 122.0
@@ -246,7 +291,7 @@ motion_phase = 3.7
 deformation_amplitude = 0.018
 deformation_period = 5.4
 
-[node name="DeleteSaveLabel" type="Label" parent="Center/MainContent/ButtonCenter/BubbleField/DeleteSaveButton"]
+[node name="DeleteSaveLabel" type="Label" parent="Center/MainContent/ButtonCenter/BubbleLayoutSlot/BubbleMotionRoot/BubbleField/DeleteSaveButton"]
 unique_name_in_owner = true
 layout_mode = 1
 anchors_preset = 15
@@ -261,7 +306,7 @@ text = "delete save"
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="QuitButton" type="Button" parent="Center/MainContent/ButtonCenter/BubbleField"]
+[node name="QuitButton" type="Button" parent="Center/MainContent/ButtonCenter/BubbleLayoutSlot/BubbleMotionRoot/BubbleField"]
 unique_name_in_owner = true
 offset_left = 275.0
 offset_top = 217.0

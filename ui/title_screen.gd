@@ -64,6 +64,13 @@ const START_PROMPT_MIN_SCALE: float = 0.985
 const START_PROMPT_MAX_SCALE: float = 1.015
 const START_PROMPT_CYCLE_SECONDS: float = 3.0
 const DISABLED_BUBBLE_LABEL_ALPHA: float = 0.55
+const INTRO_PROMPT_FADE_DURATION: float = 0.55
+const INTRO_BUBBLE_TRAVEL_DURATION: float = 2.40
+const INTRO_BRANDING_TRAVEL_DURATION: float = 2.0
+const INTRO_BRANDING_START_DELAY: float = 0.35
+const HOST_PRESENTATION_OUT_DURATION: float = 1.70
+const HOST_PRESENTATION_IN_DURATION: float = 1.85
+const HOST_CLUSTER_SAFE_MARGIN: float = 24.0
 
 signal gameplay_requested
 signal quit_requested
@@ -93,7 +100,16 @@ enum ConfirmationAction {
 @onready var _decorative_bubble_event_timer: Timer = %DecorativeBubbleEventTimer
 @onready var _decorative_bubble_cluster_timer: Timer = %DecorativeBubbleClusterTimer
 @onready var _title_logo: TextureRect = %TitleLogo
+@onready var _playtest_label: Label = %PlaytestLabel
+@onready var _intro_branding_anchor: Control = %IntroBrandingAnchor
+@onready var _presentation_center: CenterContainer = $Center
+@onready var _main_content: VBoxContainer = $Center/MainContent
+@onready var _branding_slot: Control = $Center/MainContent/BrandingSlot
+@onready var _branding_motion_root: Control = %BrandingMotionRoot
+@onready var _title_spacer: Control = $Center/MainContent/Spacer
 @onready var _button_center: CenterContainer = %ButtonCenter
+@onready var _bubble_layout_slot: Control = $Center/MainContent/ButtonCenter/BubbleLayoutSlot
+@onready var _bubble_motion_root: Control = %BubbleMotionRoot
 @onready var _bubble_field: BubbleClusterType = %BubbleField
 @onready var _start_prompt_center: CenterContainer = %StartPromptCenter
 @onready var _start_prompt_label: Label = %StartPromptLabel
@@ -117,10 +133,39 @@ var _start_prompt_elapsed: float = 0.0
 var _navigation_focus_active: bool = false
 var _modal_restore_navigation_focus: bool = false
 var _world_pixel_size: int = PlayerSettings.DEFAULT_WORLD_PIXEL_SIZE
+var _title_settings_transition: Tween
+var _title_settings_transition_generation: int = 0
+var _title_settings_transition_active: bool = false
+var _title_bubble_rest_position: Vector2 = Vector2.ZERO
+var _title_content_rest_position: Vector2 = Vector2.ZERO
+var _title_entry_transition: Tween
+var _title_entry_generation: int = 0
+var _title_entry_transition_active: bool = false
+var _intro_geometry_ready: bool = false
+var _intro_layout_generation: int = 0
+var _branding_intro_position: Vector2 = Vector2.ZERO
+var _bubble_intro_position: Vector2 = Vector2.ZERO
+var _feedback_visible_before_settings: bool = false
+var _feedback_text_before_settings: String = ""
+var _continue_stats_hovered: bool = false
+var _continue_stats_focused: bool = false
+var _continue_stats_fade: Tween
 
 
 func _ready() -> void:
 	_continue_button.pressed.connect(_on_continue_pressed)
+	_continue_button.mouse_entered.connect(
+		_on_continue_stats_hover_changed.bind(true)
+	)
+	_continue_button.mouse_exited.connect(
+		_on_continue_stats_hover_changed.bind(false)
+	)
+	_continue_button.focus_entered.connect(
+		_on_continue_stats_focus_changed.bind(true)
+	)
+	_continue_button.focus_exited.connect(
+		_on_continue_stats_focus_changed.bind(false)
+	)
 	_new_game_button.pressed.connect(_on_new_game_pressed)
 	_settings_button.pressed.connect(_open_settings)
 	_delete_button.pressed.connect(_on_delete_pressed)
@@ -129,6 +174,7 @@ func _ready() -> void:
 	%CancelConfirmButton.pressed.connect(_close_confirmation)
 	_settings_panel.applied.connect(_on_settings_applied)
 	_settings_panel.closed.connect(_on_settings_closed)
+	_settings_panel.opened.connect(_on_settings_opened)
 	_bubble_field.configure(_get_title_buttons())
 	_decorative_fish_timer.timeout.connect(_on_decorative_fish_timer_timeout)
 	_decorative_bubble_event_timer.timeout.connect(
@@ -144,6 +190,8 @@ func _ready() -> void:
 	set_process(false)
 	call_deferred("_update_title_layout")
 	call_deferred("_update_start_prompt_pivot")
+	call_deferred("_capture_title_bubble_rest_position")
+	call_deferred("_capture_title_content_rest_position")
 
 
 func setup(
@@ -161,6 +209,8 @@ func setup(
 
 
 func reopen() -> void:
+	_cancel_title_entry_transition()
+	_cancel_title_settings_transition()
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	_prepare_awaiting_start_input()
 	_close_confirmation()
@@ -213,6 +263,17 @@ func _update_title_layout() -> void:
 		logo_width,
 		logo_width / LOGO_ASPECT_RATIO
 	)
+	var branding_separation: float = float(
+		_main_content.get_theme_constant("separation")
+	)
+	var branding_size := Vector2(
+		logo_width,
+		logo_width / LOGO_ASPECT_RATIO
+		+ branding_separation
+		+ _playtest_label.get_combined_minimum_size().y
+	)
+	_branding_slot.custom_minimum_size = branding_size
+	_branding_motion_root.size = branding_size
 	var field_width: float = minf(BUBBLE_FIELD_MAX_WIDTH, available_width)
 	var field_height: float = (
 		BUBBLE_FIELD_COMPACT_HEIGHT
@@ -221,16 +282,22 @@ func _update_title_layout() -> void:
 	)
 	if size.y < BUBBLE_COMPACT_HEIGHT_THRESHOLD:
 		field_width = minf(BUBBLE_FIELD_COMPACT_WIDTH, available_width)
+	_bubble_layout_slot.custom_minimum_size = Vector2(field_width, field_height)
+	_bubble_motion_root.size = Vector2(field_width, field_height)
 	_bubble_field.custom_minimum_size = Vector2(field_width, field_height)
 	var compact_layout: bool = field_height == BUBBLE_FIELD_COMPACT_HEIGHT
 	_bubble_field.apply_layout(
 		Vector2(field_width, field_height),
 		compact_layout
 	)
+	if not _title_settings_transition_active:
+		call_deferred("_capture_title_bubble_rest_position")
 	_new_game_label.text = "new\ngame" if compact_layout else "new game"
 	_delete_save_label.text = (
 		"delete\nsave" if compact_layout else "delete save"
 	)
+	if _awaiting_start_input and not _title_entry_transition_active:
+		_schedule_intro_presentation()
 	_update_world_preview_resolution()
 
 
@@ -311,15 +378,21 @@ func _process(delta: float) -> void:
 			pulse_weight
 		)
 		_start_prompt_label.scale = Vector2.ONE * prompt_scale
-	if _button_center.visible:
+	if _main_content.visible and _button_center.visible:
 		_bubble_field.advance_motion(delta)
 
 
 func _input(event: InputEvent) -> void:
 	if not visible:
 		return
+	if _title_settings_transition_active or _title_entry_transition_active:
+		get_viewport().set_input_as_handled()
+		return
 	if _awaiting_start_input:
 		if not _is_start_prompt_reveal_event(event):
+			return
+		if not _intro_geometry_ready:
+			get_viewport().set_input_as_handled()
 			return
 		_reveal_primary_menu()
 		get_viewport().set_input_as_handled()
@@ -332,7 +405,7 @@ func _input(event: InputEvent) -> void:
 	if _confirmation_panel.visible:
 		_close_confirmation()
 	elif _settings_panel.visible:
-		_close_settings()
+		_settings_panel.handle_back()
 	else:
 		return
 	get_viewport().set_input_as_handled()
@@ -359,6 +432,7 @@ func _handle_primary_menu_focus_input(event: InputEvent) -> bool:
 	if event is InputEventMouseMotion:
 		_navigation_focus_active = false
 		_release_primary_menu_focus()
+		_update_continue_stats_visibility()
 		return false
 	if event is InputEventKey and (event as InputEventKey).echo:
 		return false
@@ -409,15 +483,25 @@ func _begin_title_entry() -> void:
 
 
 func _prepare_awaiting_start_input() -> void:
+	_cancel_title_entry_transition()
 	_awaiting_start_input = true
+	_intro_geometry_ready = false
 	_navigation_focus_active = false
 	_modal_restore_navigation_focus = false
-	_button_center.hide()
-	_feedback_label.hide()
+	_button_center.show()
+	_feedback_label.show()
+	_feedback_label.modulate.a = 0.0
+	_continue_stats_hovered = false
+	_continue_stats_focused = false
+	_cancel_continue_stats_fade()
+	_main_content.show()
 	_start_prompt_center.show()
+	_start_prompt_center.modulate.a = 1.0
+	_set_title_bubbles_interactive(false)
 	var focus_owner: Control = get_viewport().gui_get_focus_owner()
 	if focus_owner != null and is_ancestor_of(focus_owner):
 		focus_owner.release_focus()
+	_schedule_intro_presentation()
 
 
 func _start_entry_prompt_animation() -> void:
@@ -440,16 +524,240 @@ func _update_start_prompt_pivot() -> void:
 
 
 func _reveal_primary_menu() -> void:
-	if not _awaiting_start_input:
+	if (
+		not _awaiting_start_input
+		or not _intro_geometry_ready
+		or _title_entry_transition_active
+	):
 		return
 	_awaiting_start_input = false
 	_stop_entry_prompt_animation()
-	_start_prompt_center.hide()
-	_button_center.show()
-	_feedback_label.show()
+	_title_entry_generation += 1
+	_title_entry_transition_active = true
+	_set_title_bubbles_interactive(false)
+	var generation: int = _title_entry_generation
 	set_process(true)
 	_navigation_focus_active = false
 	_release_title_focus()
+	_title_entry_transition = create_tween()
+	_title_entry_transition.set_parallel(true)
+	_title_entry_transition.tween_property(
+		_start_prompt_center,
+		"modulate:a",
+		0.0,
+		INTRO_PROMPT_FADE_DURATION
+	).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
+	_title_entry_transition.tween_property(
+		_bubble_motion_root,
+		"position",
+		Vector2.ZERO,
+		INTRO_BUBBLE_TRAVEL_DURATION
+	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	_title_entry_transition.tween_property(
+		_branding_motion_root,
+		"position",
+		Vector2.ZERO,
+		INTRO_BRANDING_TRAVEL_DURATION
+	).set_delay(INTRO_BRANDING_START_DELAY).set_trans(
+		Tween.TRANS_QUAD
+	).set_ease(Tween.EASE_IN_OUT)
+	_title_entry_transition.finished.connect(
+		_finish_primary_menu_reveal.bind(generation),
+		CONNECT_ONE_SHOT
+	)
+
+
+func _finish_primary_menu_reveal(generation: int) -> void:
+	if (
+		generation != _title_entry_generation
+		or not _title_entry_transition_active
+	):
+		return
+	_title_entry_transition = null
+	_title_entry_transition_active = false
+	_start_prompt_center.hide()
+	_start_prompt_center.modulate.a = 1.0
+	_feedback_label.modulate.a = 0.0
+	_set_title_bubbles_interactive(true)
+
+
+func _cancel_title_entry_transition() -> void:
+	_title_entry_generation += 1
+	if _title_entry_transition != null:
+		_title_entry_transition.kill()
+		_title_entry_transition = null
+	_title_entry_transition_active = false
+	if is_node_ready():
+		_start_prompt_center.modulate.a = 1.0
+
+
+func _schedule_intro_presentation() -> void:
+	_intro_layout_generation += 1
+	_intro_geometry_ready = false
+	call_deferred(
+		"_prepare_intro_presentation",
+		_intro_layout_generation
+	)
+
+
+func _prepare_intro_presentation(generation: int) -> void:
+	await get_tree().process_frame
+	await get_tree().process_frame
+	if (
+		generation != _intro_layout_generation
+		or not is_node_ready()
+		or not _awaiting_start_input
+		or _title_entry_transition_active
+	):
+		return
+	_branding_motion_root.size = _branding_slot.size
+	_bubble_motion_root.size = _bubble_layout_slot.size
+	var intro_tail_height: float = (
+		_title_spacer.get_combined_minimum_size().y
+		+ float(_main_content.get_theme_constant("separation"))
+	)
+	var branding_target_global := Vector2(
+		floorf(
+			_intro_branding_anchor.global_position.x
+			- _branding_motion_root.size.x * 0.5
+		),
+		floorf(
+			_intro_branding_anchor.global_position.y
+			- (_branding_motion_root.size.y + intro_tail_height) * 0.5
+		)
+	)
+	_branding_intro_position = (
+		branding_target_global
+		- _branding_slot.global_position
+	)
+	var bubble_bounds: Rect2 = _get_title_bubble_global_bounds()
+	bubble_bounds.position -= _bubble_motion_root.position
+	var presentation_allowance: float = _get_bubble_offscreen_allowance()
+	_bubble_intro_position = Vector2(
+		0.0,
+		size.y
+		+ presentation_allowance
+		- bubble_bounds.position.y
+	)
+	_branding_motion_root.position = _branding_intro_position
+	_bubble_motion_root.position = _bubble_intro_position
+	_title_content_rest_position = _presentation_center.position
+	_title_bubble_rest_position = _bubble_field.position
+	_intro_geometry_ready = true
+
+
+func _get_title_bubble_global_bounds() -> Rect2:
+	var bubbles: Array[BubbleButton] = _get_title_buttons()
+	var bounds: Rect2 = bubbles[0].get_global_rect()
+	for index: int in range(1, bubbles.size()):
+		bounds = bounds.merge(bubbles[index].get_global_rect())
+	return bounds
+
+
+func _get_bubble_offscreen_allowance() -> float:
+	var maximum_vertical_amplitude: float = 0.0
+	var maximum_deformation_growth: float = 0.0
+	for bubble: BubbleButton in _get_title_buttons():
+		maximum_vertical_amplitude = maxf(
+			maximum_vertical_amplitude,
+			bubble.vertical_amplitude
+		)
+		var maximum_scale: float = (
+			1.0 + bubble.deformation_amplitude
+		) * _bubble_field.profile.hover_focus_scale
+		maximum_deformation_growth = maxf(
+			maximum_deformation_growth,
+			bubble.presented_size.y * (maximum_scale - 1.0) * 0.5
+		)
+	return (
+		HOST_CLUSTER_SAFE_MARGIN
+		+ maximum_vertical_amplitude
+		+ maximum_deformation_growth
+		+ _bubble_field.profile.hover_focus_lift
+		+ _bubble_field.profile.maximum_separation
+	)
+
+
+func _on_continue_stats_hover_changed(hovered: bool) -> void:
+	_continue_stats_hovered = hovered
+	_update_continue_stats_visibility()
+
+
+func _on_continue_stats_focus_changed(focused: bool) -> void:
+	_continue_stats_focused = focused
+	_update_continue_stats_visibility()
+
+
+func _update_continue_stats_visibility() -> void:
+	if not is_node_ready():
+		return
+	var requested_visible: bool = (
+		_continue_stats_hovered
+		or (
+			_continue_stats_focused
+			and _navigation_focus_active
+		)
+	)
+	requested_visible = (
+		requested_visible
+		and not _continue_button.disabled
+		and _inspection != null
+		and _inspection.status == SaveInspectionType.Status.VALID_SUPPORTED
+		and not _awaiting_start_input
+		and not _title_entry_transition_active
+		and not _title_settings_transition_active
+		and not _settings_panel.visible
+		and not _confirmation_panel.visible
+		and not _action_in_progress
+		and _presentation_center.visible
+	)
+	if requested_visible:
+		_feedback_label.text = _get_continue_stats_text()
+	_fade_continue_stats_to(1.0 if requested_visible else 0.0)
+
+
+func _hide_continue_stats_context() -> void:
+	_continue_stats_hovered = false
+	_continue_stats_focused = false
+	_fade_continue_stats_to(0.0)
+
+
+func _fade_continue_stats_to(target_opacity: float) -> void:
+	if not is_node_ready():
+		return
+	_cancel_continue_stats_fade()
+	if is_equal_approx(_feedback_label.modulate.a, target_opacity):
+		_feedback_label.modulate.a = target_opacity
+		return
+	_continue_stats_fade = create_tween()
+	_continue_stats_fade.tween_property(
+		_feedback_label,
+		"modulate:a",
+		target_opacity,
+		INTRO_PROMPT_FADE_DURATION
+	).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
+
+
+func _cancel_continue_stats_fade() -> void:
+	if _continue_stats_fade != null:
+		_continue_stats_fade.kill()
+		_continue_stats_fade = null
+
+
+func _get_continue_stats_text() -> String:
+	if (
+		_inspection == null
+		or _inspection.status != SaveInspectionType.Status.VALID_SUPPORTED
+	):
+		return ""
+	return (
+		"%d fish • $%d • %d discovered"
+		% [
+			_inspection.catch_count,
+			_inspection.wallet_balance,
+			_inspection.discovered_species_count,
+		]
+	)
 
 
 func _on_continue_pressed() -> void:
@@ -461,6 +769,7 @@ func _on_continue_pressed() -> void:
 		or not _inspection.can_continue()
 	):
 		return
+	_hide_continue_stats_context()
 	_action_in_progress = true
 	if _save_manager.load_player_data():
 		_feedback_label.text = "save loaded."
@@ -479,6 +788,7 @@ func _on_new_game_pressed() -> void:
 		or _inspection == null
 	):
 		return
+	_hide_continue_stats_context()
 	if _inspection.status == SaveInspectionType.Status.MISSING:
 		if _save_manager.initialize_new_game():
 			gameplay_requested.emit()
@@ -508,6 +818,7 @@ func _on_delete_pressed() -> void:
 		or not _inspection.can_delete()
 	):
 		return
+	_hide_continue_stats_context()
 	_open_confirmation(
 		ConfirmationAction.DELETE_SAVE,
 		"delete your saved progression? this cannot be undone.",
@@ -540,6 +851,7 @@ func _open_confirmation(
 	message: String,
 	confirm_text: String,
 ) -> void:
+	_hide_continue_stats_context()
 	_modal_restore_navigation_focus = _navigation_focus_active
 	_confirmation_action = action
 	_confirmation_text.text = message
@@ -563,11 +875,18 @@ func _close_confirmation() -> void:
 
 
 func _open_settings() -> void:
-	if _confirmation_panel.visible or _action_in_progress:
+	if (
+		_confirmation_panel.visible
+		or _action_in_progress
+		or _settings_panel.visible
+		or _title_settings_transition_active
+	):
 		return
+	_hide_continue_stats_context()
 	_modal_restore_navigation_focus = _navigation_focus_active
-	_feedback_label.text = ""
-	_settings_panel.open_panel(_settings_manager)
+	_feedback_visible_before_settings = _feedback_label.visible
+	_feedback_text_before_settings = _feedback_label.text
+	_begin_title_cluster_exit()
 
 
 func _close_settings() -> void:
@@ -575,12 +894,158 @@ func _close_settings() -> void:
 
 
 func _on_settings_applied() -> void:
-	_feedback_label.text = "settings saved."
-	_restore_settings_focus()
+	_begin_title_cluster_return("settings saved.")
 
 
 func _on_settings_closed() -> void:
+	_begin_title_cluster_return(_feedback_text_before_settings)
+
+
+func _on_settings_opened() -> void:
+	_title_settings_transition_active = false
+
+
+func _begin_title_cluster_exit() -> void:
+	_title_settings_transition_generation += 1
+	_cancel_title_settings_tween()
+	_title_settings_transition_active = true
+	_title_content_rest_position = _presentation_center.position
+	_title_bubble_rest_position = _bubble_field.position
+	_set_title_bubbles_interactive(false)
+	_release_primary_menu_focus()
+	var generation: int = _title_settings_transition_generation
+	var exit_distance: float = (
+		_main_content.global_position.y
+		+ _main_content.size.y
+		+ HOST_CLUSTER_SAFE_MARGIN
+	)
+	_title_settings_transition = create_tween()
+	_title_settings_transition.tween_property(
+		_presentation_center,
+		"position:y",
+		_title_content_rest_position.y - exit_distance,
+		HOST_PRESENTATION_OUT_DURATION
+	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	_title_settings_transition.finished.connect(
+		_finish_title_cluster_exit.bind(generation),
+		CONNECT_ONE_SHOT
+	)
+
+
+func _finish_title_cluster_exit(generation: int) -> void:
+	if (
+		generation != _title_settings_transition_generation
+		or not _title_settings_transition_active
+	):
+		return
+	_title_settings_transition = null
+	_presentation_center.hide()
+	_presentation_center.position = _title_content_rest_position
+	_settings_panel.open_panel(
+		_settings_manager,
+		SettingsPanelType.PresentationMode.TITLE_EMBEDDED
+	)
+
+
+func _begin_title_cluster_return(feedback_text: String) -> void:
+	_title_settings_transition_generation += 1
+	_cancel_title_settings_tween()
+	_title_settings_transition_active = true
+	if _feedback_label.text != feedback_text:
+		_feedback_label.text = feedback_text
+	_feedback_label.visible = _feedback_visible_before_settings
+	_hide_continue_stats_context()
+	_set_title_bubbles_interactive(false)
+	var generation: int = _title_settings_transition_generation
+	var rest_global_y: float = (
+		_presentation_center.global_position.y
+		- _presentation_center.position.y
+		+ _title_content_rest_position.y
+	)
+	_presentation_center.position = Vector2(
+		_title_content_rest_position.x,
+		_title_content_rest_position.y
+		+ size.y
+		+ HOST_CLUSTER_SAFE_MARGIN
+		- rest_global_y
+	)
+	_presentation_center.show()
+	_title_settings_transition = create_tween()
+	_title_settings_transition.tween_property(
+		_presentation_center,
+		"position",
+		_title_content_rest_position,
+		HOST_PRESENTATION_IN_DURATION
+	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	_title_settings_transition.finished.connect(
+		_finish_title_cluster_return.bind(generation),
+		CONNECT_ONE_SHOT
+	)
+
+
+func _finish_title_cluster_return(generation: int) -> void:
+	if (
+		generation != _title_settings_transition_generation
+		or not _title_settings_transition_active
+	):
+		return
+	_title_settings_transition = null
+	_title_settings_transition_active = false
+	_presentation_center.position = _title_content_rest_position
+	_bubble_field.position = _title_bubble_rest_position
+	_set_title_bubbles_interactive(true)
 	_restore_settings_focus()
+	_update_continue_stats_visibility()
+
+
+func _set_title_bubbles_interactive(interactive: bool) -> void:
+	for bubble: BubbleButton in _get_title_buttons():
+		bubble.focus_mode = (
+			Control.FOCUS_ALL if interactive else Control.FOCUS_NONE
+		)
+		bubble.mouse_filter = (
+			Control.MOUSE_FILTER_STOP
+			if interactive
+			else Control.MOUSE_FILTER_IGNORE
+		)
+
+
+func _capture_title_bubble_rest_position() -> void:
+	if (
+		not is_node_ready()
+		or _title_settings_transition_active
+		or not _button_center.visible
+	):
+		return
+	_title_bubble_rest_position = _bubble_field.position
+
+
+func _capture_title_content_rest_position() -> void:
+	if (
+		not is_node_ready()
+		or _title_settings_transition_active
+		or _title_entry_transition_active
+		or not _button_center.visible
+	):
+		return
+	_title_content_rest_position = _presentation_center.position
+
+
+func _cancel_title_settings_transition() -> void:
+	_title_settings_transition_generation += 1
+	_cancel_title_settings_tween()
+	_title_settings_transition_active = false
+	if is_node_ready():
+		_presentation_center.position = _title_content_rest_position
+		_presentation_center.show()
+		_bubble_field.position = _title_bubble_rest_position
+		_set_title_bubbles_interactive(true)
+
+
+func _cancel_title_settings_tween() -> void:
+	if _title_settings_transition != null:
+		_title_settings_transition.kill()
+		_title_settings_transition = null
 
 
 func _restore_settings_focus() -> void:
@@ -603,14 +1068,11 @@ func _refresh_save_inspection() -> void:
 	)
 	_feedback_label.text = _inspection.message
 	if _inspection.status == SaveInspectionType.Status.VALID_SUPPORTED:
-		_feedback_label.text = (
-			"%d fish • $%d • %d discovered"
-			% [
-				_inspection.catch_count,
-				_inspection.wallet_balance,
-				_inspection.discovered_species_count,
-			]
-		)
+		_feedback_label.text = _get_continue_stats_text()
+	if _continue_button.disabled:
+		_hide_continue_stats_context()
+	else:
+		_update_continue_stats_visibility()
 
 
 func _focus_initial_button() -> void:
@@ -626,6 +1088,7 @@ func _focus_initial_button() -> void:
 	else:
 		_new_game_button.grab_focus()
 	_navigation_focus_active = true
+	_update_continue_stats_visibility()
 
 
 func _on_quit_pressed() -> void:
@@ -634,6 +1097,7 @@ func _on_quit_pressed() -> void:
 		and not _confirmation_panel.visible
 		and not _settings_panel.visible
 	):
+		_hide_continue_stats_context()
 		quit_requested.emit()
 
 
@@ -644,6 +1108,7 @@ func _on_title_visibility_changed() -> void:
 		set_process(true)
 		_start_decorative_presentation()
 	else:
+		_hide_continue_stats_context()
 		_stop_entry_prompt_animation()
 		_navigation_focus_active = false
 		_modal_restore_navigation_focus = false

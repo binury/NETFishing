@@ -149,7 +149,7 @@ func handle_escape() -> bool:
 	if _confirmation_panel.visible:
 		_close_confirmation()
 	elif _settings_panel.visible:
-		_settings_panel.close_panel()
+		_settings_panel.handle_back()
 	else:
 		resume()
 	return true
@@ -176,7 +176,10 @@ func _open_settings() -> void:
 	if _action_in_progress or _confirmation_panel.visible:
 		return
 	_root_panel.hide()
-	_settings_panel.open_panel(_settings_manager)
+	_settings_panel.open_panel(
+		_settings_manager,
+		SettingsPanelType.PresentationMode.GAMEPLAY_MODAL
+	)
 
 
 func _on_settings_applied() -> void:

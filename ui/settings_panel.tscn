@@ -1,195 +1,563 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=7 format=3]
 
-[ext_resource type="Script" path="res://ui/settings_panel.gd" id="1_script"]
+[ext_resource type="Script" path="res://ui/settings_panel.gd" id="1_panel"]
 [ext_resource type="Theme" path="res://ui/game_theme.tres" id="2_theme"]
+[ext_resource type="Script" path="res://ui/settings/settings_bubble_page.gd" id="3_page"]
+[ext_resource type="PackedScene" path="res://ui/components/bubble_menu/bubble_button.tscn" id="4_bubble"]
+[ext_resource type="Script" path="res://ui/components/bubble_menu/bubble_cluster.gd" id="5_cluster"]
+[ext_resource type="Resource" path="res://ui/components/bubble_menu/bubble_menu_profile.tres" id="6_profile"]
 
-[node name="SettingsPanel" type="PanelContainer"]
+[node name="SettingsPanel" type="Control"]
 visible = false
-custom_minimum_size = Vector2(720, 600)
+custom_minimum_size = Vector2(960, 700)
+layout_mode = 3
+anchors_preset = 0
 theme = ExtResource("2_theme")
-script = ExtResource("1_script")
+script = ExtResource("1_panel")
 
-[node name="Margin" type="MarginContainer" parent="."]
-layout_mode = 2
-theme_override_constants/margin_left = 28
-theme_override_constants/margin_top = 24
-theme_override_constants/margin_right = 28
-theme_override_constants/margin_bottom = 24
+[node name="Backdrop" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.025, 0.085, 0.115, 0.72)
 
-[node name="Scroll" type="ScrollContainer" parent="Margin"]
-layout_mode = 2
-horizontal_scroll_mode = 0
-
-[node name="Content" type="VBoxContainer" parent="Margin/Scroll"]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_constants/separation = 12
-
-[node name="Heading" type="Label" parent="Margin/Scroll/Content"]
-layout_mode = 2
-theme_override_font_sizes/font_size = 39
-text = "settings"
+[node name="SettingsFeedback" type="Label" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 12
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_top = -42.0
+offset_bottom = -8.0
+grow_horizontal = 2
+grow_vertical = 0
+mouse_filter = 2
 horizontal_alignment = 1
+vertical_alignment = 1
 
-[node name="AutoClickToggle" type="CheckButton" parent="Margin/Scroll/Content"]
+[node name="RootPage" type="Control" parent="."]
 unique_name_in_owner = true
-layout_mode = 2
-text = "accessibility auto-click"
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("3_page")
+page_id = &"root"
+bubble_paths = Array[NodePath]([NodePath("BubbleCluster/DisplayCategory"), NodePath("BubbleCluster/ControlsCategory"), NodePath("BubbleCluster/AccessibilityCategory"), NodePath("BubbleCluster/ApplySettingsButton"), NodePath("BubbleCluster/RootBackButton")])
+focus_paths = Array[NodePath]([NodePath("BubbleCluster/DisplayCategory"), NodePath("BubbleCluster/ControlsCategory"), NodePath("BubbleCluster/AccessibilityCategory"), NodePath("BubbleCluster/ApplySettingsButton"), NodePath("BubbleCluster/RootBackButton")])
+initial_focus_path = NodePath("BubbleCluster/DisplayCategory")
+back_focus_path = NodePath("BubbleCluster/RootBackButton")
+compact_maximum_layout_size = Vector2(544, 400)
 
-[node name="AutoClickHelp" type="Label" parent="Margin/Scroll/Content"]
-layout_mode = 2
-text = "lower intervals click barriers faster while held."
-autowrap_mode = 2
+[node name="BubbleCluster" type="Control" parent="RootPage"]
+layout_mode = 0
+offset_right = 720.0
+offset_bottom = 520.0
+script = ExtResource("5_cluster")
+profile = ExtResource("6_profile")
+desktop_reference_size = Vector2(720, 520)
+compact_reference_size = Vector2(608, 448)
 
-[node name="AutoClickRow" type="HBoxContainer" parent="Margin/Scroll/Content"]
-layout_mode = 2
-theme_override_constants/separation = 12
-
-[node name="Label" type="Label" parent="Margin/Scroll/Content/AutoClickRow"]
-custom_minimum_size = Vector2(260, 0)
-layout_mode = 2
-text = "auto-click interval"
-autowrap_mode = 2
-
-[node name="AutoClickInterval" type="HSlider" parent="Margin/Scroll/Content/AutoClickRow"]
+[node name="DisplayCategory" parent="RootPage/BubbleCluster" instance=ExtResource("4_bubble")]
 unique_name_in_owner = true
-layout_mode = 2
-size_flags_horizontal = 3
-min_value = 0.1
-max_value = 0.5
-step = 0.01
-value = 0.2
+custom_minimum_size = Vector2(0, 0)
+offset_left = 135.0
+offset_top = 90.0
+offset_right = 305.0
+offset_bottom = 250.0
+text = "display"
+neutral_size = Vector2(170, 160)
+desktop_anchor = Vector2(280, 180)
+compact_anchor = Vector2(220, 150)
+compact_minimum_size = Vector2(130, 124)
+minimum_font_size = 18
+maximum_font_size = 27
+motion_phase = 0.35
 
-[node name="AutoClickIntervalValue" type="Label" parent="Margin/Scroll/Content/AutoClickRow"]
+[node name="ControlsCategory" parent="RootPage/BubbleCluster" instance=ExtResource("4_bubble")]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(100, 0)
-layout_mode = 2
-text = "0.20 s"
+custom_minimum_size = Vector2(0, 0)
+offset_left = 377.0
+offset_top = 96.0
+offset_right = 533.0
+offset_bottom = 244.0
+text = "controls"
+neutral_size = Vector2(156, 148)
+desktop_anchor = Vector2(440, 180)
+compact_anchor = Vector2(385, 150)
+compact_minimum_size = Vector2(124, 118)
+minimum_font_size = 17
+maximum_font_size = 25
+motion_phase = 1.45
 
-[node name="MouseRow" type="HBoxContainer" parent="Margin/Scroll/Content"]
-layout_mode = 2
-theme_override_constants/separation = 12
-
-[node name="Label" type="Label" parent="Margin/Scroll/Content/MouseRow"]
-custom_minimum_size = Vector2(260, 0)
-layout_mode = 2
-text = "mouse camera sensitivity"
-autowrap_mode = 2
-
-[node name="MouseSensitivity" type="HSlider" parent="Margin/Scroll/Content/MouseRow"]
+[node name="AccessibilityCategory" parent="RootPage/BubbleCluster" instance=ExtResource("4_bubble")]
 unique_name_in_owner = true
-layout_mode = 2
-size_flags_horizontal = 3
-min_value = 0.001
-max_value = 0.012
-step = 0.0005
-value = 0.005
+custom_minimum_size = Vector2(0, 0)
+offset_left = 240.0
+offset_top = 262.0
+offset_right = 420.0
+offset_bottom = 428.0
+text = "accessibility"
+neutral_size = Vector2(180, 168)
+desktop_anchor = Vector2(367, 328)
+compact_anchor = Vector2(307, 311)
+compact_minimum_size = Vector2(150, 142)
+minimum_font_size = 17
+maximum_font_size = 27
+motion_phase = 2.65
 
-[node name="MouseSensitivityValue" type="Label" parent="Margin/Scroll/Content/MouseRow"]
+[node name="ApplySettingsButton" parent="RootPage/BubbleCluster" instance=ExtResource("4_bubble")]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(100, 0)
-layout_mode = 2
-text = "0.0050"
-
-[node name="ControllerRow" type="HBoxContainer" parent="Margin/Scroll/Content"]
-layout_mode = 2
-theme_override_constants/separation = 12
-
-[node name="Label" type="Label" parent="Margin/Scroll/Content/ControllerRow"]
-custom_minimum_size = Vector2(260, 0)
-layout_mode = 2
-text = "controller camera sensitivity"
-autowrap_mode = 2
-
-[node name="ControllerSensitivity" type="HSlider" parent="Margin/Scroll/Content/ControllerRow"]
-unique_name_in_owner = true
-layout_mode = 2
-size_flags_horizontal = 3
-min_value = 0.5
-max_value = 5.0
-step = 0.1
-value = 2.5
-
-[node name="ControllerSensitivityValue" type="Label" parent="Margin/Scroll/Content/ControllerRow"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(100, 0)
-layout_mode = 2
-text = "2.5"
-
-[node name="InvertYToggle" type="CheckButton" parent="Margin/Scroll/Content"]
-unique_name_in_owner = true
-layout_mode = 2
-text = "invert vertical camera"
-
-[node name="WorldPixelRow" type="HBoxContainer" parent="Margin/Scroll/Content"]
-layout_mode = 2
-theme_override_constants/separation = 12
-
-[node name="Label" type="Label" parent="Margin/Scroll/Content/WorldPixelRow"]
-custom_minimum_size = Vector2(260, 0)
-layout_mode = 2
-text = "world pixelation"
-autowrap_mode = 2
-
-[node name="WorldPixelSize" type="HSlider" parent="Margin/Scroll/Content/WorldPixelRow"]
-unique_name_in_owner = true
-layout_mode = 2
-size_flags_horizontal = 3
-min_value = 1.0
-max_value = 5.0
-step = 1.0
-value = 3.0
-
-[node name="WorldPixelSizeValue" type="Label" parent="Margin/Scroll/Content/WorldPixelRow"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(170, 0)
-layout_mode = 2
-text = "retro"
-
-[node name="UIPixelRow" type="HBoxContainer" parent="Margin/Scroll/Content"]
-layout_mode = 2
-theme_override_constants/separation = 12
-
-[node name="Label" type="Label" parent="Margin/Scroll/Content/UIPixelRow"]
-custom_minimum_size = Vector2(260, 0)
-layout_mode = 2
-text = "ui pixelation"
-autowrap_mode = 2
-
-[node name="UIPixelSize" type="HSlider" parent="Margin/Scroll/Content/UIPixelRow"]
-unique_name_in_owner = true
-layout_mode = 2
-size_flags_horizontal = 3
-min_value = 1.0
-max_value = 5.0
-step = 1.0
-value = 3.0
-
-[node name="UIPixelSizeValue" type="Label" parent="Margin/Scroll/Content/UIPixelRow"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(170, 0)
-layout_mode = 2
-text = "retro"
-
-[node name="SettingsFeedback" type="Label" parent="Margin/Scroll/Content"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 44)
-layout_mode = 2
-horizontal_alignment = 1
-
-[node name="Buttons" type="HBoxContainer" parent="Margin/Scroll/Content"]
-layout_mode = 2
-theme_override_constants/separation = 12
-alignment = 2
-
-[node name="ApplySettingsButton" type="Button" parent="Margin/Scroll/Content/Buttons"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(150, 64)
-layout_mode = 2
+custom_minimum_size = Vector2(0, 0)
+offset_left = 474.0
+offset_top = 308.0
+offset_right = 586.0
+offset_bottom = 412.0
 text = "apply"
+neutral_size = Vector2(112, 104)
+desktop_anchor = Vector2(511, 332)
+compact_anchor = Vector2(470, 330)
+compact_minimum_size = Vector2(94, 90)
+minimum_font_size = 15
+maximum_font_size = 19
+motion_phase = 3.7
 
-[node name="CancelSettingsButton" type="Button" parent="Margin/Scroll/Content/Buttons"]
+[node name="RootBackButton" parent="RootPage/BubbleCluster" instance=ExtResource("4_bubble")]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(150, 64)
-layout_mode = 2
+custom_minimum_size = Vector2(0, 0)
+offset_left = 70.0
+offset_top = 343.0
+offset_right = 170.0
+offset_bottom = 437.0
 text = "back"
+neutral_size = Vector2(100, 94)
+desktop_anchor = Vector2(220, 300)
+compact_anchor = Vector2(155, 275)
+compact_minimum_size = Vector2(84, 80)
+minimum_font_size = 14
+maximum_font_size = 17
+motion_phase = 4.8
+
+[node name="DisplayPage" type="Control" parent="."]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("3_page")
+page_id = &"display"
+bubble_paths = Array[NodePath]([NodePath("BubbleCluster/WorldValue"), NodePath("BubbleCluster/WorldLegible"), NodePath("BubbleCluster/WorldCute"), NodePath("BubbleCluster/WorldRetro"), NodePath("BubbleCluster/WorldHardcore"), NodePath("BubbleCluster/WorldWtf"), NodePath("BubbleCluster/UIValue"), NodePath("BubbleCluster/UILegible"), NodePath("BubbleCluster/UICute"), NodePath("BubbleCluster/UIRetro"), NodePath("BubbleCluster/UIHardcore"), NodePath("BubbleCluster/UIWtf"), NodePath("BubbleCluster/DisplayBackButton")])
+focus_paths = Array[NodePath]([NodePath("BubbleCluster/WorldLegible"), NodePath("BubbleCluster/WorldCute"), NodePath("BubbleCluster/WorldRetro"), NodePath("BubbleCluster/WorldHardcore"), NodePath("BubbleCluster/WorldWtf"), NodePath("BubbleCluster/UILegible"), NodePath("BubbleCluster/UICute"), NodePath("BubbleCluster/UIRetro"), NodePath("BubbleCluster/UIHardcore"), NodePath("BubbleCluster/UIWtf"), NodePath("BubbleCluster/DisplayBackButton")])
+initial_focus_path = NodePath("BubbleCluster/WorldRetro")
+back_focus_path = NodePath("BubbleCluster/DisplayBackButton")
+compact_maximum_layout_size = Vector2(544, 400)
+
+[node name="BubbleCluster" type="Control" parent="DisplayPage"]
+layout_mode = 0
+offset_right = 720.0
+offset_bottom = 520.0
+script = ExtResource("5_cluster")
+profile = ExtResource("6_profile")
+desktop_reference_size = Vector2(720, 520)
+compact_reference_size = Vector2(608, 448)
+
+[node name="WorldValue" parent="DisplayPage/BubbleCluster" instance=ExtResource("4_bubble")]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 0)
+mouse_filter = 2
+focus_mode = 0
+text = "world\npixelation\nretro"
+neutral_size = Vector2(160, 150)
+desktop_anchor = Vector2(160, 240)
+compact_anchor = Vector2(175, 210)
+compact_minimum_size = Vector2(132, 126)
+minimum_font_size = 15
+maximum_font_size = 25
+motion_phase = 0.2
+
+[node name="WorldLegible" parent="DisplayPage/BubbleCluster" instance=ExtResource("4_bubble")]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 0)
+toggle_mode = true
+text = "legible"
+neutral_size = Vector2(90, 84)
+desktop_anchor = Vector2(55, 175)
+compact_anchor = Vector2(57, 135)
+compact_minimum_size = Vector2(76, 72)
+minimum_font_size = 12
+maximum_font_size = 15
+motion_phase = 0.8
+
+[node name="WorldCute" parent="DisplayPage/BubbleCluster" instance=ExtResource("4_bubble")]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 0)
+toggle_mode = true
+text = "cute"
+neutral_size = Vector2(82, 78)
+desktop_anchor = Vector2(130, 124)
+compact_anchor = Vector2(145, 78)
+compact_minimum_size = Vector2(70, 68)
+minimum_font_size = 12
+maximum_font_size = 14
+motion_phase = 1.35
+
+[node name="WorldRetro" parent="DisplayPage/BubbleCluster" instance=ExtResource("4_bubble")]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 0)
+toggle_mode = true
+button_pressed = true
+text = "retro"
+neutral_size = Vector2(84, 80)
+desktop_anchor = Vector2(237, 149)
+compact_anchor = Vector2(272, 115)
+compact_minimum_size = Vector2(72, 68)
+minimum_font_size = 12
+maximum_font_size = 14
+motion_phase = 1.9
+
+[node name="WorldHardcore" parent="DisplayPage/BubbleCluster" instance=ExtResource("4_bubble")]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 0)
+toggle_mode = true
+text = "hardcore"
+neutral_size = Vector2(100, 94)
+desktop_anchor = Vector2(288, 240)
+compact_anchor = Vector2(70, 310)
+compact_minimum_size = Vector2(88, 84)
+minimum_font_size = 12
+maximum_font_size = 16
+motion_phase = 2.45
+
+[node name="WorldWtf" parent="DisplayPage/BubbleCluster" instance=ExtResource("4_bubble")]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 0)
+toggle_mode = true
+text = "wtf"
+neutral_size = Vector2(76, 72)
+desktop_anchor = Vector2(225, 337)
+compact_anchor = Vector2(284, 284)
+compact_minimum_size = Vector2(66, 64)
+minimum_font_size = 12
+maximum_font_size = 13
+motion_phase = 3.0
+
+[node name="UIValue" parent="DisplayPage/BubbleCluster" instance=ExtResource("4_bubble")]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 0)
+mouse_filter = 2
+focus_mode = 0
+text = "ui\npixelation\nretro"
+neutral_size = Vector2(160, 150)
+desktop_anchor = Vector2(560, 240)
+compact_anchor = Vector2(545, 210)
+compact_minimum_size = Vector2(132, 126)
+minimum_font_size = 15
+maximum_font_size = 25
+motion_phase = 3.55
+
+[node name="UILegible" parent="DisplayPage/BubbleCluster" instance=ExtResource("4_bubble")]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 0)
+toggle_mode = true
+text = "legible"
+neutral_size = Vector2(90, 84)
+desktop_anchor = Vector2(665, 175)
+compact_anchor = Vector2(663, 135)
+compact_minimum_size = Vector2(76, 72)
+minimum_font_size = 12
+maximum_font_size = 15
+motion_phase = 4.1
+
+[node name="UICute" parent="DisplayPage/BubbleCluster" instance=ExtResource("4_bubble")]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 0)
+toggle_mode = true
+text = "cute"
+neutral_size = Vector2(82, 78)
+desktop_anchor = Vector2(590, 124)
+compact_anchor = Vector2(575, 78)
+compact_minimum_size = Vector2(70, 68)
+minimum_font_size = 12
+maximum_font_size = 14
+motion_phase = 4.65
+
+[node name="UIRetro" parent="DisplayPage/BubbleCluster" instance=ExtResource("4_bubble")]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 0)
+toggle_mode = true
+button_pressed = true
+text = "retro"
+neutral_size = Vector2(84, 80)
+desktop_anchor = Vector2(483, 149)
+compact_anchor = Vector2(448, 115)
+compact_minimum_size = Vector2(72, 68)
+minimum_font_size = 12
+maximum_font_size = 14
+motion_phase = 5.2
+
+[node name="UIHardcore" parent="DisplayPage/BubbleCluster" instance=ExtResource("4_bubble")]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 0)
+toggle_mode = true
+text = "hardcore"
+neutral_size = Vector2(100, 94)
+desktop_anchor = Vector2(432, 240)
+compact_anchor = Vector2(650, 310)
+compact_minimum_size = Vector2(88, 84)
+minimum_font_size = 12
+maximum_font_size = 16
+motion_phase = 5.75
+
+[node name="UIWtf" parent="DisplayPage/BubbleCluster" instance=ExtResource("4_bubble")]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 0)
+toggle_mode = true
+text = "wtf"
+neutral_size = Vector2(76, 72)
+desktop_anchor = Vector2(495, 337)
+compact_anchor = Vector2(436, 284)
+compact_minimum_size = Vector2(66, 64)
+minimum_font_size = 12
+maximum_font_size = 13
+motion_phase = 0.55
+
+[node name="DisplayBackButton" parent="DisplayPage/BubbleCluster" instance=ExtResource("4_bubble")]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 0)
+text = "back"
+neutral_size = Vector2(96, 90)
+desktop_anchor = Vector2(350, 445)
+compact_anchor = Vector2(315, 390)
+compact_minimum_size = Vector2(82, 78)
+minimum_font_size = 13
+maximum_font_size = 16
+motion_phase = 1.1
+
+[node name="ControlsPage" type="Control" parent="."]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("3_page")
+page_id = &"controls"
+bubble_paths = Array[NodePath]([NodePath("BubbleCluster/MouseDecrease"), NodePath("BubbleCluster/MouseValue"), NodePath("BubbleCluster/MouseIncrease"), NodePath("BubbleCluster/ControllerDecrease"), NodePath("BubbleCluster/ControllerValue"), NodePath("BubbleCluster/ControllerIncrease"), NodePath("BubbleCluster/InvertYToggle"), NodePath("BubbleCluster/ControlsBackButton")])
+focus_paths = Array[NodePath]([NodePath("BubbleCluster/MouseDecrease"), NodePath("BubbleCluster/MouseValue"), NodePath("BubbleCluster/MouseIncrease"), NodePath("BubbleCluster/ControllerDecrease"), NodePath("BubbleCluster/ControllerValue"), NodePath("BubbleCluster/ControllerIncrease"), NodePath("BubbleCluster/InvertYToggle"), NodePath("BubbleCluster/ControlsBackButton")])
+initial_focus_path = NodePath("BubbleCluster/MouseValue")
+back_focus_path = NodePath("BubbleCluster/ControlsBackButton")
+
+[node name="BubbleCluster" type="Control" parent="ControlsPage"]
+layout_mode = 0
+offset_right = 720.0
+offset_bottom = 520.0
+script = ExtResource("5_cluster")
+profile = ExtResource("6_profile")
+desktop_reference_size = Vector2(720, 520)
+compact_reference_size = Vector2(608, 448)
+
+[node name="MouseDecrease" parent="ControlsPage/BubbleCluster" instance=ExtResource("4_bubble")]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 0)
+text = "−"
+neutral_size = Vector2(80, 76)
+desktop_anchor = Vector2(75, 140)
+compact_anchor = Vector2(49, 125)
+compact_minimum_size = Vector2(68, 66)
+minimum_font_size = 17
+maximum_font_size = 24
+motion_phase = 0.3
+
+[node name="MouseValue" parent="ControlsPage/BubbleCluster" instance=ExtResource("4_bubble")]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 0)
+text = "mouse\nsensitivity\n0.0050"
+neutral_size = Vector2(190, 180)
+desktop_anchor = Vector2(210, 140)
+compact_anchor = Vector2(200, 125)
+compact_minimum_size = Vector2(160, 152)
+minimum_font_size = 15
+maximum_font_size = 25
+motion_phase = 1.0
+
+[node name="MouseIncrease" parent="ControlsPage/BubbleCluster" instance=ExtResource("4_bubble")]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 0)
+text = "+"
+neutral_size = Vector2(80, 76)
+desktop_anchor = Vector2(345, 140)
+compact_anchor = Vector2(351, 125)
+compact_minimum_size = Vector2(68, 66)
+minimum_font_size = 17
+maximum_font_size = 24
+motion_phase = 1.7
+
+[node name="ControllerDecrease" parent="ControlsPage/BubbleCluster" instance=ExtResource("4_bubble")]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 0)
+text = "−"
+neutral_size = Vector2(80, 76)
+desktop_anchor = Vector2(75, 365)
+compact_anchor = Vector2(49, 340)
+compact_minimum_size = Vector2(68, 66)
+minimum_font_size = 17
+maximum_font_size = 24
+motion_phase = 2.4
+
+[node name="ControllerValue" parent="ControlsPage/BubbleCluster" instance=ExtResource("4_bubble")]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 0)
+text = "controller\nsensitivity\n2.5"
+neutral_size = Vector2(190, 180)
+desktop_anchor = Vector2(210, 365)
+compact_anchor = Vector2(200, 340)
+compact_minimum_size = Vector2(160, 152)
+minimum_font_size = 15
+maximum_font_size = 25
+motion_phase = 3.1
+
+[node name="ControllerIncrease" parent="ControlsPage/BubbleCluster" instance=ExtResource("4_bubble")]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 0)
+text = "+"
+neutral_size = Vector2(80, 76)
+desktop_anchor = Vector2(345, 365)
+compact_anchor = Vector2(351, 340)
+compact_minimum_size = Vector2(68, 66)
+minimum_font_size = 17
+maximum_font_size = 24
+motion_phase = 3.8
+
+[node name="InvertYToggle" parent="ControlsPage/BubbleCluster" instance=ExtResource("4_bubble")]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 0)
+text = "invert\nvertical\ncamera\noff"
+neutral_size = Vector2(176, 170)
+desktop_anchor = Vector2(525, 230)
+compact_anchor = Vector2(485, 225)
+compact_minimum_size = Vector2(170, 164)
+minimum_font_size = 14
+maximum_font_size = 24
+motion_phase = 4.5
+
+[node name="ControlsBackButton" parent="ControlsPage/BubbleCluster" instance=ExtResource("4_bubble")]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 0)
+text = "back"
+neutral_size = Vector2(100, 94)
+desktop_anchor = Vector2(525, 425)
+compact_anchor = Vector2(540, 395)
+compact_minimum_size = Vector2(84, 80)
+minimum_font_size = 14
+maximum_font_size = 17
+motion_phase = 5.2
+
+[node name="AccessibilityPage" type="Control" parent="."]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("3_page")
+page_id = &"accessibility"
+bubble_paths = Array[NodePath]([NodePath("BubbleCluster/AutoClickToggle"), NodePath("BubbleCluster/IntervalDecrease"), NodePath("BubbleCluster/AutoClickIntervalValue"), NodePath("BubbleCluster/IntervalIncrease"), NodePath("BubbleCluster/IntervalHelp"), NodePath("BubbleCluster/AccessibilityBackButton")])
+focus_paths = Array[NodePath]([NodePath("BubbleCluster/AutoClickToggle"), NodePath("BubbleCluster/IntervalDecrease"), NodePath("BubbleCluster/AutoClickIntervalValue"), NodePath("BubbleCluster/IntervalIncrease"), NodePath("BubbleCluster/AccessibilityBackButton")])
+initial_focus_path = NodePath("BubbleCluster/AutoClickToggle")
+back_focus_path = NodePath("BubbleCluster/AccessibilityBackButton")
+
+[node name="BubbleCluster" type="Control" parent="AccessibilityPage"]
+layout_mode = 0
+offset_right = 720.0
+offset_bottom = 520.0
+script = ExtResource("5_cluster")
+profile = ExtResource("6_profile")
+desktop_reference_size = Vector2(720, 520)
+compact_reference_size = Vector2(608, 448)
+
+[node name="AutoClickToggle" parent="AccessibilityPage/BubbleCluster" instance=ExtResource("4_bubble")]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 0)
+text = "accessibility\nauto-click\noff"
+neutral_size = Vector2(190, 180)
+desktop_anchor = Vector2(200, 195)
+compact_anchor = Vector2(129, 185)
+compact_minimum_size = Vector2(160, 152)
+minimum_font_size = 14
+maximum_font_size = 27
+motion_phase = 0.5
+
+[node name="IntervalDecrease" parent="AccessibilityPage/BubbleCluster" instance=ExtResource("4_bubble")]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 0)
+text = "−"
+neutral_size = Vector2(80, 76)
+desktop_anchor = Vector2(340, 210)
+compact_anchor = Vector2(280, 205)
+compact_minimum_size = Vector2(68, 66)
+minimum_font_size = 17
+maximum_font_size = 24
+motion_phase = 1.4
+
+[node name="AutoClickIntervalValue" parent="AccessibilityPage/BubbleCluster" instance=ExtResource("4_bubble")]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 0)
+text = "auto-click\ninterval\n0.20 s"
+neutral_size = Vector2(190, 180)
+desktop_anchor = Vector2(475, 210)
+compact_anchor = Vector2(431, 205)
+compact_minimum_size = Vector2(160, 152)
+minimum_font_size = 14
+maximum_font_size = 26
+motion_phase = 2.3
+
+[node name="IntervalIncrease" parent="AccessibilityPage/BubbleCluster" instance=ExtResource("4_bubble")]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 0)
+text = "+"
+neutral_size = Vector2(80, 76)
+desktop_anchor = Vector2(610, 210)
+compact_anchor = Vector2(582, 205)
+compact_minimum_size = Vector2(68, 66)
+minimum_font_size = 17
+maximum_font_size = 24
+motion_phase = 3.2
+
+[node name="IntervalHelp" parent="AccessibilityPage/BubbleCluster" instance=ExtResource("4_bubble")]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 0)
+mouse_filter = 2
+focus_mode = 0
+text = "lower intervals\nclick barriers\nfaster\nwhile held"
+neutral_size = Vector2(170, 160)
+desktop_anchor = Vector2(315, 405)
+compact_anchor = Vector2(280, 370)
+compact_minimum_size = Vector2(160, 152)
+minimum_font_size = 13
+maximum_font_size = 22
+motion_phase = 4.1
+
+[node name="AccessibilityBackButton" parent="AccessibilityPage/BubbleCluster" instance=ExtResource("4_bubble")]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 0)
+text = "back"
+neutral_size = Vector2(96, 90)
+desktop_anchor = Vector2(560, 420)
+compact_anchor = Vector2(520, 380)
+compact_minimum_size = Vector2(82, 78)
+minimum_font_size = 13
+maximum_font_size = 16
+motion_phase = 5.0
