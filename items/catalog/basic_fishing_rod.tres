@@ -6,8 +6,8 @@
 [resource]
 script = ExtResource("1_script")
 item_id = &"basic_fishing_rod"
-display_name = "Basic Fishing Rod"
-description = "A dependable starter rod. Select it to cast."
+display_name = "basic fishing rod"
+description = "a dependable starter rod. select it to cast."
 category = 0
 icon = ExtResource("2_icon")
 stackable = false

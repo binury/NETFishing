@@ -385,14 +385,14 @@ func _unhandled_input(event: InputEvent) -> void:
 					get_viewport().set_input_as_handled()
 					return
 				if not has_active_fishing_rod():
-					status_changed.emit("Select a fishing rod to cast.")
+					status_changed.emit("select a fishing rod to cast.")
 					get_viewport().set_input_as_handled()
 					return
 				if (
 					_is_cooler_full()
 				):
 					status_changed.emit(
-						"Cooler full. Sell fish before casting again."
+						"cooler full. sell fish before casting again."
 					)
 					get_viewport().set_input_as_handled()
 					return
@@ -438,7 +438,7 @@ func _begin_aiming(player: PlayerType) -> void:
 	_cast_charge = 0.0
 	_cast_target = _calculate_cast_target(minimum_cast_distance)
 	state = FishingState.AIMING_CAST
-	status_changed.emit("Hold left click to aim • Release to cast")
+	status_changed.emit("hold left click to aim • release to cast")
 	var target_is_fishable: bool = is_target_fishable(_cast_target)
 	var preview_position: Vector3 = _resolve_preview_surface_position(_cast_target)
 	_presentation.begin_aim(
@@ -530,7 +530,7 @@ func _confirm_cast() -> void:
 		return
 
 	state = FishingState.CASTING
-	status_changed.emit("Casting...")
+	status_changed.emit("casting...")
 	_presentation.begin_cast(_cast_target)
 	_presentation.set_line_mode(FishingPresentationType.LineMode.TAUT)
 
@@ -542,7 +542,7 @@ func _on_cast_completed() -> void:
 	_selected_water_region = get_fishable_water_region(_cast_target)
 	_cast_landing_is_fishable = _selected_water_region != null
 	if not _cast_landing_is_fishable:
-		_cleanup_attempt("Can't fish there.", &"invalid")
+		_cleanup_attempt("can't fish there.", &"invalid")
 		return
 	_selection_context = _build_fishing_context(_selected_water_region)
 	_fish_selector.undiscovered_weight_multiplier = undiscovered_weight_multiplier
@@ -562,7 +562,7 @@ func _on_cast_completed() -> void:
 		_local_collection_log
 	)
 	if _selected_fish == null:
-		_cleanup_attempt("Nothing is biting here.", &"invalid")
+		_cleanup_attempt("nothing is biting here.", &"invalid")
 		return
 
 	state = FishingState.WAITING_FOR_BITE
@@ -580,7 +580,7 @@ func _on_cast_completed() -> void:
 		_cast_origin_position.z + _cast_direction.z * withdrawal_cancel_distance
 	)
 	_presentation.set_line_mode(FishingPresentationType.LineMode.SLACK)
-	status_changed.emit("Waiting for a bite...")
+	status_changed.emit("waiting for a bite...")
 
 
 func _update_waiting_for_bite(delta: float) -> void:
@@ -698,7 +698,7 @@ func _activate_bite() -> void:
 	_withdrawal_input_held = false
 	_fight_start_position = _bobber_water_position
 	bite_activated.emit()
-	status_changed.emit("Fish on!")
+	status_changed.emit("fish on!")
 	_presentation.set_line_mode(FishingPresentationType.LineMode.TAUT)
 	_presentation.begin_reeling()
 	_catch_controller.start_encounter(
@@ -800,9 +800,9 @@ func _on_catch_escaped() -> void:
 	if state != FishingState.FIGHTING:
 		return
 
-	var fish_name: String = "The fish"
+	var fish_name: String = "the fish"
 	if _selected_fish != null and not _selected_fish.display_name.is_empty():
-		fish_name = "The %s" % _selected_fish.display_name
+		fish_name = "the %s" % _selected_fish.display_name
 	_cleanup_attempt("%s got away!" % fish_name, &"escape")
 
 
@@ -822,7 +822,7 @@ func _on_outcome_completed(outcome: StringName) -> void:
 		_pending_catch.weight_lb,
 		true
 	)
-	status_changed.emit("Left click or Escape to put away")
+	status_changed.emit("left click or escape to put away")
 
 
 func _put_away_catch() -> void:
@@ -846,7 +846,7 @@ func _put_away_catch() -> void:
 	_active_player.end_catch_showcase(
 		_finish_showcase_put_away.bind(
 			restore_generation,
-			"Caught %s!" % caught_name
+			"caught %s!" % caught_name
 		)
 	)
 
@@ -926,7 +926,7 @@ func _return_to_ready() -> void:
 
 
 func _cancel_attempt() -> void:
-	_cleanup_attempt("Fishing cancelled.", &"cancel")
+	_cleanup_attempt("fishing cancelled.", &"cancel")
 
 
 func _cancel_from_withdrawal() -> void:

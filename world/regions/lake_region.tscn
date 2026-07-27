@@ -71,7 +71,7 @@ mesh = SubResource("DockRampMesh")
 material_override = SubResource("DockMaterial")
 [node name="LakeLabel" type="Label3D" parent="Visuals"]
 position = Vector3(-25, 3, 20)
-text = "LAKE"
+text = "lake"
 font_size = 38
 outline_size = 8
 billboard = 1

@@ -54,7 +54,7 @@ mesh = SubResource("WaterMesh")
 material_override = SubResource("WaterMaterial")
 [node name="PondLabel" type="Label3D" parent="Visuals"]
 position = Vector3(-14, 2.4, 11)
-text = "POND"
+text = "pond"
 font_size = 34
 outline_size = 7
 billboard = 1

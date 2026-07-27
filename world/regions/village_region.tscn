@@ -122,7 +122,7 @@ material_override = SubResource("RoofMaterial")
 
 [node name="VillageLabel" type="Label3D" parent="Visuals"]
 position = Vector3(0, 3.2, 7)
-text = "VILLAGE"
+text = "village"
 font_size = 42
 outline_size = 8
 billboard = 1

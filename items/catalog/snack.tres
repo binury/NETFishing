@@ -6,8 +6,8 @@
 [resource]
 script = ExtResource("1")
 item_id = &"snack"
-display_name = "Snack"
-description = "Temporarily adds one barrier damage."
+display_name = "snack"
+description = "temporarily adds one barrier damage."
 category = 3
 icon = ExtResource("2")
 stackable = true

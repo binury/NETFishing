@@ -5,7 +5,7 @@
 [resource]
 script = ExtResource("1_profile")
 id = &"trading_post"
-display_name = "Trading Post"
+display_name = "trading post"
 animal_name_singular = "otter"
 animal_name_plural = "otters"
 payout_multiplier = 0.85

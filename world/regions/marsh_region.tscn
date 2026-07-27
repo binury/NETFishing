@@ -90,7 +90,7 @@ mesh = SubResource("ReedMesh")
 material_override = SubResource("ReedMaterial")
 [node name="MarshLabel" type="Label3D" parent="Visuals"]
 position = Vector3(21, 3, 17)
-text = "MARSH"
+text = "marsh"
 font_size = 36
 outline_size = 8
 billboard = 1

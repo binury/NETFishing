@@ -6,8 +6,8 @@
 [resource]
 script = ExtResource("1")
 item_id = &"coffee"
-display_name = "Coffee"
-description = "Temporarily increases ground movement speed."
+display_name = "coffee"
+description = "temporarily increases ground movement speed."
 category = 3
 icon = ExtResource("2")
 stackable = true

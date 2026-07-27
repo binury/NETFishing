@@ -47,7 +47,7 @@ func close_panel() -> void:
 
 func _apply_settings() -> void:
 	if _settings_manager == null:
-		_feedback.text = "Settings are unavailable."
+		_feedback.text = "settings are unavailable."
 		return
 	var edited := PlayerSettings.new()
 	edited.auto_click_enabled = _auto_click_toggle.button_pressed
@@ -59,7 +59,7 @@ func _apply_settings() -> void:
 		hide()
 		applied.emit()
 	else:
-		_feedback.text = "Failed to save settings."
+		_feedback.text = "failed to save settings."
 
 
 func _load_controls() -> void:

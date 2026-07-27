@@ -33,4 +33,4 @@ func is_valid() -> bool:
 
 
 func get_category_name() -> String:
-	return Category.keys()[category].capitalize()
+	return Category.keys()[category].to_lower()

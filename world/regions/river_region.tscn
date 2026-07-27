@@ -76,7 +76,7 @@ mesh = SubResource("RailMesh")
 material_override = SubResource("RailMaterial")
 [node name="RiverLabel" type="Label3D" parent="Visuals"]
 position = Vector3(-16, 3, 20)
-text = "RIVER"
+text = "river"
 font_size = 34
 outline_size = 7
 billboard = 1

@@ -6,8 +6,8 @@
 [resource]
 script = ExtResource("1")
 item_id = &"fish_finder"
-display_name = "Fish Finder"
-description = "Temporarily shortens bite waits and improves rarity weights."
+display_name = "fish finder"
+description = "temporarily shortens bite waits and improves rarity weights."
 category = 3
 icon = ExtResource("2")
 stackable = true

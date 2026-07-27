@@ -55,45 +55,45 @@ theme_override_constants/separation = 11
 [node name="Title" type="Label" parent="RootCenter/RootPanel/Margin/Content"]
 layout_mode = 2
 theme_override_font_sizes/font_size = 30
-text = "Game Menu"
+text = "game menu"
 horizontal_alignment = 1
 
 [node name="ResumeButton" type="Button" parent="RootCenter/RootPanel/Margin/Content"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 43)
 layout_mode = 2
-text = "Return to Game"
+text = "return to game"
 
 [node name="SaveButton" type="Button" parent="RootCenter/RootPanel/Margin/Content"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 43)
 layout_mode = 2
-text = "Save Now"
+text = "save now"
 
 [node name="SettingsButton" type="Button" parent="RootCenter/RootPanel/Margin/Content"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 43)
 layout_mode = 2
-text = "Settings"
+text = "settings"
 
 [node name="ReturnToTitleButton" type="Button" parent="RootCenter/RootPanel/Margin/Content"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 43)
 layout_mode = 2
-text = "Return to Title"
+text = "return to title"
 
 [node name="ResetProgressButton" type="Button" parent="RootCenter/RootPanel/Margin/Content"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 43)
 layout_mode = 2
 theme_type_variation = &"DangerButton"
-text = "Reset Progress"
+text = "reset progress"
 
 [node name="QuitButton" type="Button" parent="RootCenter/RootPanel/Margin/Content"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 43)
 layout_mode = 2
-text = "Quit"
+text = "quit"
 
 [node name="FeedbackLabel" type="Label" parent="RootCenter/RootPanel/Margin/Content"]
 unique_name_in_owner = true
@@ -147,13 +147,13 @@ unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(0.937, 0.357, 0.384, 1)
 theme_override_font_sizes/font_size = 24
-text = "Confirm"
+text = "confirm"
 horizontal_alignment = 1
 
 [node name="ConfirmationText" type="Label" parent="ConfirmationCenter/ConfirmationPanel/Margin/Content"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "Are you sure?"
+text = "are you sure?"
 horizontal_alignment = 1
 autowrap_mode = 2
 
@@ -166,10 +166,10 @@ alignment = 1
 unique_name_in_owner = true
 custom_minimum_size = Vector2(190, 43)
 layout_mode = 2
-text = "Confirm"
+text = "confirm"
 
 [node name="CancelConfirmButton" type="Button" parent="ConfirmationCenter/ConfirmationPanel/Margin/Content/Buttons"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(130, 43)
 layout_mode = 2
-text = "Cancel"
+text = "cancel"

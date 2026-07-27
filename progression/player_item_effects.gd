@@ -117,13 +117,13 @@ func get_rarity_weight_multiplier(rarity: int) -> float:
 func get_feedback(item_id: StringName) -> String:
 	match item_id:
 		COFFEE_ID:
-			return "Coffee active: movement speed increased."
+			return "coffee active: movement speed increased."
 		ENERGY_DRINK_ID:
-			return "Energy Drink active: reeling speed increased."
+			return "energy drink active: reeling speed increased."
 		SNACK_ID:
-			return "Snack active: barrier damage increased."
+			return "snack active: barrier damage increased."
 		FISH_FINDER_ID:
-			return "Fish Finder active: bites and uncommon catches improved."
+			return "fish finder active: bites and uncommon catches improved."
 		_:
 			return ""
 

@@ -161,9 +161,9 @@ func _save_now() -> void:
 	_action_in_progress = true
 	_save_button.disabled = true
 	if _save_manager.save_now():
-		_feedback.text = "Game saved."
+		_feedback.text = "game saved."
 	else:
-		_feedback.text = "Save failed. Previous save was preserved."
+		_feedback.text = "save failed. previous save was preserved."
 	_action_in_progress = false
 	call_deferred("_reenable_save_button")
 
@@ -181,7 +181,7 @@ func _open_settings() -> void:
 
 func _on_settings_applied() -> void:
 	_root_panel.show()
-	_feedback.text = "Settings saved."
+	_feedback.text = "settings saved."
 	%SettingsButton.grab_focus()
 
 
@@ -193,9 +193,9 @@ func _on_settings_closed() -> void:
 func _confirm_return_to_title() -> void:
 	_open_confirmation(
 		ConfirmationAction.RETURN_TO_TITLE,
-		"Return to Title",
-		"Unsaved progress will be saved first.",
-		"Save and Return",
+		"return to title",
+		"unsaved progress will be saved first.",
+		"save and return",
 		false
 	)
 
@@ -203,13 +203,13 @@ func _confirm_return_to_title() -> void:
 func _confirm_reset_progress() -> void:
 	_open_confirmation(
 		ConfirmationAction.RESET_PROGRESS,
-		"Reset all progression?",
+		"reset all progression?",
 		(
-			"This permanently deletes your fish, discoveries, "
+			"this permanently deletes your fish, discoveries, "
 			+ "favorites, and wallet balance.\n\n"
-			+ "Your settings will be preserved."
+			+ "your settings will be preserved."
 		),
-		"DELETE ALL PROGRESS",
+		"delete all progress",
 		true
 	)
 
@@ -226,9 +226,9 @@ func _request_quit() -> void:
 		return
 	_open_confirmation(
 		ConfirmationAction.QUIT_ANYWAY,
-		"Save failed",
-		"Some progress or settings could not be saved. Quit anyway?",
-		"Quit Anyway",
+		"save failed",
+		"some progress or settings could not be saved. quit anyway?",
+		"quit anyway",
 		true
 	)
 
@@ -276,7 +276,7 @@ func _accept_confirmation() -> void:
 			if _save_manager.save_now():
 				return_to_title_requested.emit()
 			else:
-				_feedback.text = "Save failed. Previous save was preserved."
+				_feedback.text = "save failed. previous save was preserved."
 				_root_panel.show()
 		ConfirmationAction.RESET_PROGRESS:
 			reset_progress_requested.emit()
@@ -291,7 +291,7 @@ func report_reset_failure() -> void:
 	_action_in_progress = false
 	_root_panel.show()
 	_confirmation_panel.hide()
-	_feedback.text = "Reset failed. Your progression was preserved."
+	_feedback.text = "reset failed. your progression was preserved."
 	%ResumeButton.grab_focus()
 
 

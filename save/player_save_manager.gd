@@ -227,46 +227,46 @@ func inspect_save() -> SaveInspectionType:
 	result.has_primary_file = FileAccess.file_exists(SAVE_PATH)
 	if not result.has_primary_file:
 		result.status = SaveInspectionType.Status.MISSING
-		result.message = "No save found."
+		result.message = "no save found."
 		return result
 	var save_file := FileAccess.open(SAVE_PATH, FileAccess.READ)
 	if save_file == null:
 		result.status = SaveInspectionType.Status.IO_ERROR
-		result.message = "The save could not be read."
+		result.message = "the save could not be read."
 		return result
 	var json := JSON.new()
 	var parse_error: Error = json.parse(save_file.get_as_text())
 	save_file.close()
 	if parse_error != OK or typeof(json.data) != TYPE_DICTIONARY:
 		result.status = SaveInspectionType.Status.MALFORMED
-		result.message = "The save is corrupt and was preserved."
+		result.message = "the save is corrupt and was preserved."
 		return result
 	var save_data: Dictionary = json.data
 	result.detected_version = _read_integer(save_data.get("save_version"), -1)
 	if result.detected_version > SAVE_VERSION:
 		result.status = SaveInspectionType.Status.UNSUPPORTED_VERSION
-		result.message = "This save belongs to a newer game version."
+		result.message = "this save belongs to a newer game version."
 		return result
 	if result.detected_version < 1:
 		result.status = SaveInspectionType.Status.MALFORMED
-		result.message = "The save version is unsupported."
+		result.message = "the save version is unsupported."
 		return result
 	if result.detected_version != SAVE_VERSION:
 		save_data = _migrate_save(save_data, result.detected_version)
 		if save_data.is_empty():
 			result.status = SaveInspectionType.Status.MALFORMED
-			result.message = "The save version is unsupported."
+			result.message = "the save version is unsupported."
 			return result
 	var snapshot: LoadSnapshot = _build_load_snapshot(save_data)
 	if snapshot == null:
 		result.status = SaveInspectionType.Status.MALFORMED
-		result.message = "The save is structurally invalid and was preserved."
+		result.message = "the save is structurally invalid and was preserved."
 		return result
 	result.status = SaveInspectionType.Status.VALID_SUPPORTED
 	result.catch_count = snapshot.catches.size()
 	result.wallet_balance = snapshot.wallet_balance
 	result.discovered_species_count = snapshot.discovered_ids.size()
-	result.message = "Save ready."
+	result.message = "save ready."
 	return result
 
 

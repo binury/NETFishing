@@ -39,7 +39,7 @@ func get_sale_message(
 	var buyer_name: String = animal_name_plural
 	if buyer_name.is_empty():
 		buyer_name = display_name
-	return "You sold your %s to the %s for $%d." % [
+	return "you sold your %s to the %s for $%d." % [
 		fish_name,
 		buyer_name,
 		payout,

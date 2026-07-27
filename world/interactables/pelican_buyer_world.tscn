@@ -35,7 +35,7 @@ material_override = SubResource("WoodMaterial")
 
 [node name="Sign" type="Label3D" parent="Visuals"]
 position = Vector3(0, 2.55, 0)
-text = "Sell to Pelicans\nfrom the Cooler"
+text = "sell to pelicans\nfrom the cooler"
 font_size = 30
 outline_size = 8
 billboard = 1
@@ -43,7 +43,7 @@ no_depth_test = true
 
 [node name="ConvenienceLabel" type="Label3D" parent="Visuals"]
 position = Vector3(0, 1.65, -1.15)
-text = "Available anywhere • 0.25x"
+text = "available anywhere • 0.25x"
 font_size = 20
 outline_size = 6
 billboard = 1

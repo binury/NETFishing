@@ -60,7 +60,7 @@ material_override = SubResource("PrimaryMaterial")
 
 [node name="ShopName" type="Label3D" parent="Visuals"]
 position = Vector3(0, 3.7, 0)
-text = "Fishing Shop"
+text = "fishing shop"
 font_size = 42
 outline_size = 9
 billboard = 1

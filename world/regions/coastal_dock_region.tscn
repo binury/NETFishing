@@ -82,7 +82,7 @@ mesh = SubResource("CraneArmMesh")
 material_override = SubResource("BeaconMaterial")
 [node name="CoastLabel" type="Label3D" parent="Visuals"]
 position = Vector3(25, 3.2, 23)
-text = "COAST"
+text = "coast"
 font_size = 38
 outline_size = 8
 billboard = 1

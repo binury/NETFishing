@@ -129,10 +129,10 @@ func _process(_delta: float) -> void:
 		if remaining <= 0.0:
 			continue
 		var label: String = {
-			PlayerItemEffectsType.COFFEE_ID: "Coffee",
-			PlayerItemEffectsType.ENERGY_DRINK_ID: "Energy",
-			PlayerItemEffectsType.SNACK_ID: "Snack",
-			PlayerItemEffectsType.FISH_FINDER_ID: "Finder",
+			PlayerItemEffectsType.COFFEE_ID: "coffee",
+			PlayerItemEffectsType.ENERGY_DRINK_ID: "energy",
+			PlayerItemEffectsType.SNACK_ID: "snack",
+			PlayerItemEffectsType.FISH_FINDER_ID: "finder",
 		}.get(item_id, "")
 		parts.append(
 			"%s %d:%02d"
@@ -296,7 +296,7 @@ func _on_catch_display_changed(
 			"%d%% %s"
 			% [roundi(barrier_positions[barrier_index] * 100.0), marker]
 		)
-	_barrier_summary.text = "Barriers: %s" % "  ".join(barrier_labels)
+	_barrier_summary.text = "barriers: %s" % "  ".join(barrier_labels)
 
 	if (
 		active_barrier_index >= 0
@@ -304,14 +304,14 @@ func _on_catch_display_changed(
 		and active_barrier_index < barrier_max_health.size()
 	):
 		_barrier_health.text = (
-			"Barrier: %d / %d"
+			"barrier: %d / %d"
 			% [
 				barrier_health[active_barrier_index],
 				barrier_max_health[active_barrier_index],
 			]
 		)
 	else:
-		_barrier_health.text = "Hold left click to reel"
+		_barrier_health.text = "hold left click to reel"
 
 	var chase_gap: float = progress - chase_progress
 	if chase_gap <= 0.05:
@@ -319,7 +319,7 @@ func _on_catch_display_changed(
 			"%s%s"
 			% [
 				_barrier_health.text,
-				"\nRed is closing in!",
+				"\nred is closing in!",
 			]
 		).strip_edges()
 	_refresh_fishing_panel_visibility()
@@ -377,11 +377,11 @@ func _on_showcase_changed(
 	_barrier_health.visible = false
 	_clear_barrier_markers()
 	_showcase_details.text = (
-		"%.1f lb • %s\nLeft click or Escape to put away"
+		"%.1f lb • %s\nleft click or escape to put away"
 		% [weight_lb, rarity_name]
 	)
 	_showcase_details.visible = true
-	_set_fishing_status("You caught a %s!" % fish_name)
+	_set_fishing_status("you caught a %s!" % fish_name)
 
 
 func _on_player_menu_visibility_changed(is_open: bool) -> void:

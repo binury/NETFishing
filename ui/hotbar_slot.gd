@@ -75,7 +75,7 @@ func refresh() -> void:
 	_quantity_label.text = quantity_text
 	_quantity_label.visible = not quantity_text.is_empty()
 	tooltip_text = (
-		item.display_name if item != null else "Empty hotbar slot"
+		item.display_name if item != null else "empty hotbar slot"
 	)
 	button_pressed = slot_index == _hotbar.get_selected_slot()
 

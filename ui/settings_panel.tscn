@@ -23,17 +23,17 @@ theme_override_constants/separation = 12
 [node name="Heading" type="Label" parent="Margin/Content"]
 layout_mode = 2
 theme_override_font_sizes/font_size = 26
-text = "Settings"
+text = "settings"
 horizontal_alignment = 1
 
 [node name="AutoClickToggle" type="CheckButton" parent="Margin/Content"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "Accessibility auto-click"
+text = "accessibility auto-click"
 
 [node name="AutoClickHelp" type="Label" parent="Margin/Content"]
 layout_mode = 2
-text = "Lower intervals click barriers faster while held."
+text = "lower intervals click barriers faster while held."
 
 [node name="AutoClickRow" type="HBoxContainer" parent="Margin/Content"]
 layout_mode = 2
@@ -42,7 +42,7 @@ theme_override_constants/separation = 12
 [node name="Label" type="Label" parent="Margin/Content/AutoClickRow"]
 custom_minimum_size = Vector2(190, 0)
 layout_mode = 2
-text = "Auto-click interval"
+text = "auto-click interval"
 
 [node name="AutoClickInterval" type="HSlider" parent="Margin/Content/AutoClickRow"]
 unique_name_in_owner = true
@@ -66,7 +66,7 @@ theme_override_constants/separation = 12
 [node name="Label" type="Label" parent="Margin/Content/MouseRow"]
 custom_minimum_size = Vector2(190, 0)
 layout_mode = 2
-text = "Mouse camera sensitivity"
+text = "mouse camera sensitivity"
 
 [node name="MouseSensitivity" type="HSlider" parent="Margin/Content/MouseRow"]
 unique_name_in_owner = true
@@ -90,7 +90,7 @@ theme_override_constants/separation = 12
 [node name="Label" type="Label" parent="Margin/Content/ControllerRow"]
 custom_minimum_size = Vector2(190, 0)
 layout_mode = 2
-text = "Controller camera sensitivity"
+text = "controller camera sensitivity"
 
 [node name="ControllerSensitivity" type="HSlider" parent="Margin/Content/ControllerRow"]
 unique_name_in_owner = true
@@ -110,7 +110,7 @@ text = "2.5"
 [node name="InvertYToggle" type="CheckButton" parent="Margin/Content"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "Invert vertical camera"
+text = "invert vertical camera"
 
 [node name="SettingsFeedback" type="Label" parent="Margin/Content"]
 unique_name_in_owner = true
@@ -127,10 +127,10 @@ alignment = 2
 unique_name_in_owner = true
 custom_minimum_size = Vector2(120, 42)
 layout_mode = 2
-text = "Apply"
+text = "apply"
 
 [node name="CancelSettingsButton" type="Button" parent="Margin/Content/Buttons"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(120, 42)
 layout_mode = 2
-text = "Back"
+text = "back"

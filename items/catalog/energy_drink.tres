@@ -6,8 +6,8 @@
 [resource]
 script = ExtResource("1")
 item_id = &"energy_drink"
-display_name = "Energy Drink"
-description = "Temporarily increases reeling progress."
+display_name = "energy drink"
+description = "temporarily increases reeling progress."
 category = 3
 icon = ExtResource("2")
 stackable = true
