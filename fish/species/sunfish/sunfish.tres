@@ -3,18 +3,18 @@
 [ext_resource type="Script" path="res://fish/fish_data.gd" id="1_fish_data"]
 [ext_resource type="Resource" path="res://fishing/common_catch_profile.tres" id="2_profile"]
 [ext_resource type="Resource" path="res://fish/default_availability.tres" id="3_availability"]
-[ext_resource type="Texture2D" path="res://fish/species/bluegill/fish_bluegill.png" id="4_texture"]
+[ext_resource type="Texture2D" path="res://fish/species/sunfish/fish_sunfish.png" id="4_texture"]
 
 [resource]
 script = ExtResource("1_fish_data")
-id = &"bluegill"
-display_name = "bluegill"
+id = &"sunfish"
+display_name = "sunfish"
 rarity = 0
-base_catch_weight = 10.0
+base_catch_weight = 7.0
 catch_profile = ExtResource("2_profile")
 availability = ExtResource("3_availability")
-weight_min_lb = 0.3
-weight_max_lb = 2.0
+weight_min_lb = 0.4
+weight_max_lb = 2.5
 display_scale_min = 0.7
 display_scale_max = 1.1
 display_scale_curve = 1.0

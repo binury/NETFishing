@@ -56,6 +56,7 @@ class ShowcaseCameraSnapshot:
 @export_range(-80.0, 80.0, 1.0) var showcase_camera_pitch: float = -8.0
 @export_range(1.0, 10.0, 0.1) var showcase_camera_zoom_distance: float = 3.6
 @export_range(0.5, 3.0, 0.05) var showcase_camera_target_height: float = 1.45
+@export_range(0.01, 1.0, 0.01) var catch_presentation_base_scale: float = 0.10
 
 @export_category("Camera")
 @export var mouse_sensitivity: float = 0.005
@@ -369,7 +370,11 @@ func begin_catch_showcase(fish_catch: FishCatchType) -> void:
 		_showcase_rod_state_stored = true
 	_fishing_rod.visible = false
 	_catch_sprite.texture = fish_catch.fish.display_texture
-	_catch_display.scale = Vector3.ONE * fish_catch.display_scale
+	_catch_display.scale = (
+		Vector3.ONE
+		* fish_catch.display_scale
+		* catch_presentation_base_scale
+	)
 	_catch_display.visible = _catch_sprite.texture != null
 
 

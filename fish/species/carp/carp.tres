@@ -3,7 +3,7 @@
 [ext_resource type="Script" path="res://fish/fish_data.gd" id="1_fish_data"]
 [ext_resource type="Resource" path="res://fishing/carp_catch_profile.tres" id="2_profile"]
 [ext_resource type="Script" path="res://fish/fish_availability.gd" id="3_availability_script"]
-[ext_resource type="Texture2D" path="res://fish/species/carp/carp.svg" id="4_texture"]
+[ext_resource type="Texture2D" path="res://fish/species/carp/fish_carp_common.png" id="4_texture"]
 
 [sub_resource type="Resource" id="CarpAvailability"]
 script = ExtResource("3_availability_script")
@@ -15,7 +15,7 @@ preferred_bait_weight_multiplier = 1.5
 [resource]
 script = ExtResource("1_fish_data")
 id = &"carp"
-display_name = "Carp"
+display_name = "common carp"
 rarity = 2
 base_catch_weight = 1.5
 catch_profile = ExtResource("2_profile")

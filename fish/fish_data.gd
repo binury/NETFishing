@@ -98,4 +98,4 @@ func get_sale_value_for_weight(weight_lb: float) -> int:
 
 
 func get_rarity_name() -> String:
-	return Rarity.keys()[rarity].capitalize()
+	return Rarity.keys()[rarity].to_lower()
