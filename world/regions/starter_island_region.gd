@@ -19,8 +19,13 @@ const FishingShopInteractionType = preload(
 	^"Interactables/PelicanCoolerPerch"
 )
 
+@export_group("Grass Surface")
+@export var grass_material: Material
+@export_range(0, 16, 1) var grass_surface_index: int = 0
+
 
 func _ready() -> void:
+	_apply_grass_material()
 	_build_terrain_collision()
 
 
@@ -42,6 +47,28 @@ func has_terrain_collision() -> bool:
 		get_node_or_null(terrain_collision_shape_path) as CollisionShape3D
 	)
 	return collision_shape != null and collision_shape.shape != null
+
+
+func _apply_grass_material() -> void:
+	var visual_mesh: MeshInstance3D = (
+		get_node_or_null(visual_mesh_path) as MeshInstance3D
+	)
+	if visual_mesh == null or visual_mesh.mesh == null:
+		push_error("Starter island visual mesh is unavailable.")
+		return
+	if grass_material == null:
+		push_error("Starter island grass material is unavailable.")
+		return
+	if grass_surface_index >= visual_mesh.mesh.get_surface_count():
+		push_error("Starter island grass surface index is invalid.")
+		return
+	if visual_mesh.mesh.surface_get_name(grass_surface_index) != "grass":
+		push_error("Starter island grass surface name does not match.")
+		return
+	visual_mesh.set_surface_override_material(
+		grass_surface_index,
+		grass_material
+	)
 
 
 func _build_terrain_collision() -> void:

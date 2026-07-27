@@ -1,0 +1,10 @@
+[gd_resource type="StandardMaterial3D" load_steps=2 format=3]
+
+[ext_resource type="Texture2D" path="res://art/exported/environment/textures/grass_olive_tile.png" id="1_texture"]
+
+[resource]
+resource_name = "Starter Island Grass"
+texture_filter = 4
+albedo_texture = ExtResource("1_texture")
+roughness = 1.0
+uv1_scale = Vector3(21.406, 21.406, 21.406)

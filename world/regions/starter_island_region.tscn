@@ -8,6 +8,7 @@
 [ext_resource type="Script" path="res://world/safe_respawn_point.gd" id="6_safe"]
 [ext_resource type="PackedScene" path="res://world/interactables/fishing_shop_world.tscn" id="7_shop"]
 [ext_resource type="PackedScene" path="res://world/interactables/pelican_buyer_world.tscn" id="8_pelican"]
+[ext_resource type="Material" path="res://world/materials/starter_island_grass.tres" id="9_grass"]
 
 [sub_resource type="StandardMaterial3D" id="WaterMaterial"]
 transparency = 1
@@ -46,6 +47,7 @@ size = Vector3(11.5, 4.8, 8.5)
 
 [node name="StarterIslandRegion" type="Node3D"]
 script = ExtResource("1_region")
+grass_material = ExtResource("9_grass")
 region_id = &"starter_island"
 
 [node name="Visuals" type="Node3D" parent="."]
