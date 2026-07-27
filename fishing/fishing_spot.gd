@@ -431,6 +431,7 @@ func _begin_aiming(player: PlayerType) -> void:
 	if state != FishingState.READY or _active_player != null:
 		return
 
+	_presentation.reset_water_surface_height()
 	_active_player = player
 	_active_player.set_movement_enabled(false)
 	_cast_direction = _capture_cast_direction(_active_player)
@@ -894,6 +895,7 @@ func _cleanup_attempt(
 	_catch_controller.reset()
 	if visual_outcome.is_empty():
 		_presentation.cleanup()
+		_presentation.reset_water_surface_height()
 	else:
 		if visual_outcome in [&"catch", &"invalid", &"withdrawal"]:
 			_presentation.set_line_mode(
@@ -918,6 +920,7 @@ func _cleanup_attempt(
 
 
 func _return_to_ready() -> void:
+	_presentation.reset_water_surface_height()
 	state = FishingState.READY
 	_state_time_remaining = 0.0
 	_cooldown_status = ""
@@ -954,11 +957,21 @@ func _capture_cast_direction(player: PlayerType) -> Vector3:
 
 
 func _calculate_cast_target(distance: float) -> Vector3:
-	return Vector3(
+	var target := Vector3(
 		_cast_origin_position.x + _cast_direction.x * distance,
 		_presentation.get_water_surface_height(),
 		_cast_origin_position.z + _cast_direction.z * distance
 	)
+	var water_region: FishableWaterRegionType = get_fishable_water_region(
+		target
+	)
+	if water_region != null:
+		target.y = water_region.surface_height
+		_presentation.set_water_surface_height(target.y)
+	else:
+		_presentation.reset_water_surface_height()
+		target.y = _presentation.get_water_surface_height()
+	return target
 
 
 func is_target_fishable(target: Vector3) -> bool:

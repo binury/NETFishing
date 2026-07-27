@@ -1,13 +1,8 @@
-[gd_scene load_steps=16 format=3]
+[gd_scene load_steps=10 format=3]
 
 [ext_resource type="Script" path="res://world/test_world.gd" id="1_world"]
-[ext_resource type="PackedScene" path="res://world/regions/village_region.tscn" id="2_village"]
-[ext_resource type="PackedScene" path="res://world/regions/starter_pond_region.tscn" id="3_pond"]
-[ext_resource type="PackedScene" path="res://world/regions/river_region.tscn" id="4_river"]
-[ext_resource type="PackedScene" path="res://world/regions/lake_region.tscn" id="5_lake"]
-[ext_resource type="PackedScene" path="res://world/regions/marsh_region.tscn" id="6_marsh"]
-[ext_resource type="PackedScene" path="res://world/regions/coastal_dock_region.tscn" id="7_coast"]
-[ext_resource type="Script" path="res://world/player_water_trigger.gd" id="8_water_trigger"]
+[ext_resource type="PackedScene" path="res://world/regions/starter_island_region.tscn" id="2_island"]
+[ext_resource type="Script" path="res://world/player_water_trigger.gd" id="3_water_trigger"]
 
 [sub_resource type="Environment" id="Environment"]
 background_mode = 1
@@ -16,30 +11,14 @@ ambient_light_source = 3
 ambient_light_color = Color(0.72, 0.78, 0.84, 1)
 ambient_light_energy = 0.72
 
-[sub_resource type="BoxShape3D" id="SeabedShape"]
-size = Vector3(180, 1, 220)
-[sub_resource type="BoxMesh" id="SeabedMesh"]
-size = Vector3(180, 1, 220)
-[sub_resource type="StandardMaterial3D" id="SeabedMaterial"]
-albedo_color = Color(0.18, 0.36, 0.27, 1)
-
-[sub_resource type="BoxShape3D" id="RiverPathShape"]
-size = Vector3(40, 6, 8)
-[sub_resource type="BoxMesh" id="RiverPathMesh"]
-size = Vector3(40, 6, 8)
-[sub_resource type="BoxShape3D" id="MarshPathShape"]
-size = Vector3(5, 6, 10)
-[sub_resource type="BoxMesh" id="MarshPathMesh"]
-size = Vector3(5, 6, 10)
-[sub_resource type="StandardMaterial3D" id="PathMaterial"]
-albedo_color = Color(0.72, 0.62, 0.43, 1)
-
 [sub_resource type="BoxShape3D" id="NorthSouthBoundsShape"]
-size = Vector3(180, 12, 2)
+size = Vector3(120, 14, 2)
+
 [sub_resource type="BoxShape3D" id="EastWestBoundsShape"]
-size = Vector3(2, 12, 220)
+size = Vector3(2, 14, 90)
+
 [sub_resource type="BoxShape3D" id="FailsafeShape"]
-size = Vector3(178, 5, 218)
+size = Vector3(118, 4, 88)
 
 [node name="TestWorld" type="Node3D"]
 script = ExtResource("1_world")
@@ -54,62 +33,18 @@ rotation_degrees = Vector3(-54, -32, 0)
 light_energy = 1.1
 shadow_enabled = true
 
-[node name="SeabedBoundary" type="StaticBody3D" parent="."]
-position = Vector3(0, -6.5, -38)
-
-[node name="CollisionShape3D" type="CollisionShape3D" parent="SeabedBoundary"]
-shape = SubResource("SeabedShape")
-
-[node name="MeshInstance3D" type="MeshInstance3D" parent="SeabedBoundary"]
-mesh = SubResource("SeabedMesh")
-material_override = SubResource("SeabedMaterial")
-
 [node name="Regions" type="Node3D" parent="."]
 
-[node name="VillageRegion" parent="Regions" instance=ExtResource("2_village")]
-position = Vector3(0, 0, 15)
-
-[node name="StarterPondRegion" parent="Regions" instance=ExtResource("3_pond")]
-position = Vector3(-42, 0, 15)
-
-[node name="RiverRegion" parent="Regions" instance=ExtResource("4_river")]
-position = Vector3(0, 0, -40)
-
-[node name="LakeRegion" parent="Regions" instance=ExtResource("5_lake")]
-position = Vector3(53, 0, -25)
-
-[node name="MarshRegion" parent="Regions" instance=ExtResource("6_marsh")]
-position = Vector3(56, 0, 38)
-
-[node name="CoastalDockRegion" parent="Regions" instance=ExtResource("7_coast")]
-position = Vector3(0, 0, -103)
-
-[node name="Connectors" type="Node3D" parent="."]
-
-[node name="VillageRiverPath" type="StaticBody3D" parent="Connectors"]
-position = Vector3(0, -3, -7)
-[node name="Shape" type="CollisionShape3D" parent="Connectors/VillageRiverPath"]
-shape = SubResource("RiverPathShape")
-[node name="Mesh" type="MeshInstance3D" parent="Connectors/VillageRiverPath"]
-mesh = SubResource("RiverPathMesh")
-material_override = SubResource("PathMaterial")
-
-[node name="VillageMarshPath" type="StaticBody3D" parent="Connectors"]
-position = Vector3(26.5, -3, 28)
-[node name="Shape" type="CollisionShape3D" parent="Connectors/VillageMarshPath"]
-shape = SubResource("MarshPathShape")
-[node name="Mesh" type="MeshInstance3D" parent="Connectors/VillageMarshPath"]
-mesh = SubResource("MarshPathMesh")
-material_override = SubResource("PathMaterial")
+[node name="StarterIslandRegion" parent="Regions" instance=ExtResource("2_island")]
 
 [node name="Safety" type="Node3D" parent="."]
 
 [node name="BelowWorldFailsafe" type="Area3D" parent="Safety"]
-position = Vector3(0, -5, -38)
+position = Vector3(12, -7, 0)
 collision_layer = 8
 collision_mask = 2
-script = ExtResource("8_water_trigger")
-surface_height = 0.2
+script = ExtResource("3_water_trigger")
+surface_height = 0.3
 
 [node name="FailsafeShape" type="CollisionShape3D" parent="Safety/BelowWorldFailsafe"]
 shape = SubResource("FailsafeShape")
@@ -117,21 +52,25 @@ shape = SubResource("FailsafeShape")
 [node name="WorldBounds" type="Node3D" parent="."]
 
 [node name="North" type="StaticBody3D" parent="WorldBounds"]
-position = Vector3(0, 5, 72)
+position = Vector3(12, 5, 45)
+
 [node name="Shape" type="CollisionShape3D" parent="WorldBounds/North"]
 shape = SubResource("NorthSouthBoundsShape")
 
 [node name="South" type="StaticBody3D" parent="WorldBounds"]
-position = Vector3(0, 5, -148)
+position = Vector3(12, 5, -45)
+
 [node name="Shape" type="CollisionShape3D" parent="WorldBounds/South"]
 shape = SubResource("NorthSouthBoundsShape")
 
 [node name="West" type="StaticBody3D" parent="WorldBounds"]
-position = Vector3(-90, 5, -38)
+position = Vector3(-48, 5, 0)
+
 [node name="Shape" type="CollisionShape3D" parent="WorldBounds/West"]
 shape = SubResource("EastWestBoundsShape")
 
 [node name="East" type="StaticBody3D" parent="WorldBounds"]
-position = Vector3(90, 5, -38)
+position = Vector3(72, 5, 0)
+
 [node name="Shape" type="CollisionShape3D" parent="WorldBounds/East"]
 shape = SubResource("EastWestBoundsShape")

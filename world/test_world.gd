@@ -6,11 +6,14 @@ const FishingShopInteractionType = preload(
 )
 
 @onready var _regions_root: Node3D = $Regions
+@onready var _starter_island: StarterIslandRegion = (
+	$Regions/StarterIslandRegion
+)
 @onready var _below_world_failsafe: PlayerWaterTrigger = (
 	$Safety/BelowWorldFailsafe
 )
 @onready var _fishing_shop: FishingShopInteractionType = (
-	$Regions/VillageRegion/Interactables/FishingShopWorld/FishingShopInteraction
+	_starter_island.get_fishing_shop()
 )
 
 
@@ -33,6 +36,10 @@ func get_fishing_shop() -> FishingShopInteractionType:
 	return _fishing_shop
 
 
+func get_player_spawn_transform() -> Transform3D:
+	return _starter_island.get_player_spawn_transform()
+
+
 func get_fishable_water_regions() -> Array[FishableWaterRegion]:
 	var waters: Array[FishableWaterRegion] = []
 	for region: GrayboxRegion in _get_regions():
@@ -41,10 +48,7 @@ func get_fishable_water_regions() -> Array[FishableWaterRegion]:
 
 
 func get_pelican_convenience_landmark() -> Node3D:
-	return (
-		$Regions/VillageRegion/Interactables/PelicanCoolerPerch
-		as Node3D
-	)
+	return _starter_island.get_pelican_landmark()
 
 
 func _get_regions() -> Array[GrayboxRegion]:

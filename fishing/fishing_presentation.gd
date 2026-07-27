@@ -72,9 +72,11 @@ var _pickup_position: Vector3
 var _active_tween: Tween
 var _rod_tween: Tween
 var _bite_tween: Tween
+var _default_water_surface_offset_y: float
 
 
 func _ready() -> void:
+	_default_water_surface_offset_y = water_surface_offset_y
 	_line.mesh = _line_mesh
 	cleanup()
 
@@ -92,6 +94,14 @@ func _process(delta: float) -> void:
 
 func get_water_surface_height() -> float:
 	return global_position.y + water_surface_offset_y
+
+
+func set_water_surface_height(surface_height: float) -> void:
+	water_surface_offset_y = surface_height - global_position.y
+
+
+func reset_water_surface_height() -> void:
+	water_surface_offset_y = _default_water_surface_offset_y
 
 
 func set_line_mode(mode: LineMode) -> void:

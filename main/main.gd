@@ -54,6 +54,8 @@ var _quit_in_progress: bool = false
 
 
 func _ready() -> void:
+	_player.global_transform = _test_world.get_player_spawn_transform()
+	_player.velocity = Vector3.ZERO
 	_player.fish_sale_service.setup(
 		_player.inventory,
 		_player.wallet

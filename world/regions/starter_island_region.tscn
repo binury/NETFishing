@@ -1,0 +1,185 @@
+[gd_scene load_steps=20 format=3]
+
+[ext_resource type="Script" path="res://world/regions/starter_island_region.gd" id="1_region"]
+[ext_resource type="PackedScene" path="res://art/exported/environment/terrain/starter_island.glb" id="2_island"]
+[ext_resource type="Script" path="res://world/fishable_water_region.gd" id="3_water"]
+[ext_resource type="Resource" path="res://fish/pools/test_water_pool.tres" id="4_pool"]
+[ext_resource type="Script" path="res://world/player_water_trigger.gd" id="5_trigger"]
+[ext_resource type="Script" path="res://world/safe_respawn_point.gd" id="6_safe"]
+[ext_resource type="PackedScene" path="res://world/interactables/fishing_shop_world.tscn" id="7_shop"]
+[ext_resource type="PackedScene" path="res://world/interactables/pelican_buyer_world.tscn" id="8_pelican"]
+
+[sub_resource type="StandardMaterial3D" id="WaterMaterial"]
+transparency = 1
+albedo_color = Color(0.10, 0.50, 0.72, 0.76)
+roughness = 0.22
+
+[sub_resource type="PlaneMesh" id="OceanWaterMesh"]
+size = Vector2(120, 90)
+
+[sub_resource type="PlaneMesh" id="PondWaterMesh"]
+size = Vector2(11.5, 8.5)
+
+[sub_resource type="BoxShape3D" id="OceanWestShape"]
+size = Vector3(17, 2, 80)
+
+[sub_resource type="BoxShape3D" id="OceanEastShape"]
+size = Vector3(42, 2, 80)
+
+[sub_resource type="BoxShape3D" id="OceanNorthSouthShape"]
+size = Vector3(48, 2, 18)
+
+[sub_resource type="BoxShape3D" id="PondFishingShape"]
+size = Vector3(11.5, 4, 8.5)
+
+[sub_resource type="BoxShape3D" id="OceanWestRecoveryShape"]
+size = Vector3(17, 5, 80)
+
+[sub_resource type="BoxShape3D" id="OceanEastRecoveryShape"]
+size = Vector3(42, 5, 80)
+
+[sub_resource type="BoxShape3D" id="OceanNorthSouthRecoveryShape"]
+size = Vector3(48, 5, 18)
+
+[sub_resource type="BoxShape3D" id="PondRecoveryShape"]
+size = Vector3(11.5, 4.8, 8.5)
+
+[node name="StarterIslandRegion" type="Node3D"]
+script = ExtResource("1_region")
+region_id = &"starter_island"
+
+[node name="Visuals" type="Node3D" parent="."]
+
+[node name="StarterIslandModel" parent="Visuals" instance=ExtResource("2_island")]
+
+[node name="OceanWater" type="MeshInstance3D" parent="Visuals"]
+position = Vector3(12, -0.45, 0)
+mesh = SubResource("OceanWaterMesh")
+material_override = SubResource("WaterMaterial")
+
+[node name="PondWater" type="MeshInstance3D" parent="Visuals"]
+position = Vector3(-9.4, 2.1, 2.1)
+mesh = SubResource("PondWaterMesh")
+material_override = SubResource("WaterMaterial")
+
+[node name="StaticCollision" type="Node3D" parent="."]
+
+[node name="Terrain" type="StaticBody3D" parent="StaticCollision"]
+
+[node name="Shape" type="CollisionShape3D" parent="StaticCollision/Terrain"]
+
+[node name="FishingWater" type="Node3D" parent="."]
+
+[node name="PondWater" type="Area3D" parent="FishingWater"]
+position = Vector3(-9.4, 2.1, 2.1)
+collision_layer = 4
+collision_mask = 0
+monitoring = false
+script = ExtResource("3_water")
+location_tags = Array[StringName]([&"starter_pond"])
+fish_pool = ExtResource("4_pool")
+selection_priority = 1
+surface_height = 2.1
+
+[node name="Shape" type="CollisionShape3D" parent="FishingWater/PondWater"]
+shape = SubResource("PondFishingShape")
+
+[node name="OceanWater" type="Area3D" parent="FishingWater"]
+position = Vector3(0, -0.45, 0)
+collision_layer = 4
+collision_mask = 0
+monitoring = false
+script = ExtResource("3_water")
+location_tags = Array[StringName]([&"coast", &"ocean"])
+fish_pool = ExtResource("4_pool")
+surface_height = -0.45
+
+[node name="WestShape" type="CollisionShape3D" parent="FishingWater/OceanWater"]
+position = Vector3(-33.5, 0, 0)
+shape = SubResource("OceanWestShape")
+
+[node name="EastShape" type="CollisionShape3D" parent="FishingWater/OceanWater"]
+position = Vector3(44, 0, 0)
+shape = SubResource("OceanEastShape")
+
+[node name="NorthShape" type="CollisionShape3D" parent="FishingWater/OceanWater"]
+position = Vector3(-1, 0, 31)
+shape = SubResource("OceanNorthSouthShape")
+
+[node name="SouthShape" type="CollisionShape3D" parent="FishingWater/OceanWater"]
+position = Vector3(-1, 0, -31)
+shape = SubResource("OceanNorthSouthShape")
+
+[node name="WaterRecovery" type="Node3D" parent="."]
+
+[node name="PondRecovery" type="Area3D" parent="WaterRecovery"]
+position = Vector3(-9.4, -0.3, 2.1)
+collision_layer = 8
+collision_mask = 2
+script = ExtResource("5_trigger")
+surface_height = 2.1
+
+[node name="Shape" type="CollisionShape3D" parent="WaterRecovery/PondRecovery"]
+shape = SubResource("PondRecoveryShape")
+
+[node name="OceanRecovery" type="Area3D" parent="WaterRecovery"]
+position = Vector3(0, -2.95, 0)
+collision_layer = 8
+collision_mask = 2
+script = ExtResource("5_trigger")
+surface_height = -0.45
+
+[node name="WestShape" type="CollisionShape3D" parent="WaterRecovery/OceanRecovery"]
+position = Vector3(-33.5, 0, 0)
+shape = SubResource("OceanWestRecoveryShape")
+
+[node name="EastShape" type="CollisionShape3D" parent="WaterRecovery/OceanRecovery"]
+position = Vector3(44, 0, 0)
+shape = SubResource("OceanEastRecoveryShape")
+
+[node name="NorthShape" type="CollisionShape3D" parent="WaterRecovery/OceanRecovery"]
+position = Vector3(-1, 0, 31)
+shape = SubResource("OceanNorthSouthRecoveryShape")
+
+[node name="SouthShape" type="CollisionShape3D" parent="WaterRecovery/OceanRecovery"]
+position = Vector3(-1, 0, -31)
+shape = SubResource("OceanNorthSouthRecoveryShape")
+
+[node name="SafeRespawns" type="Node3D" parent="."]
+
+[node name="SpawnPlateau" type="Marker3D" parent="SafeRespawns"]
+position = Vector3(0, 3.95, 13)
+script = ExtResource("6_safe")
+
+[node name="PondEast" type="Marker3D" parent="SafeRespawns"]
+position = Vector3(-0.5, 3.95, 2)
+script = ExtResource("6_safe")
+
+[node name="PondSouth" type="Marker3D" parent="SafeRespawns"]
+position = Vector3(-9, 3.95, 11.5)
+script = ExtResource("6_safe")
+
+[node name="ShopApproach" type="Marker3D" parent="SafeRespawns"]
+position = Vector3(13.5, 3.95, 6)
+script = ExtResource("6_safe")
+
+[node name="SouthPlateau" type="Marker3D" parent="SafeRespawns"]
+position = Vector3(5, 3.95, 15)
+script = ExtResource("6_safe")
+
+[node name="EastShoreApproach" type="Marker3D" parent="SafeRespawns"]
+position = Vector3(15, 3.95, -11)
+script = ExtResource("6_safe")
+
+[node name="PlayerSpawn" type="Marker3D" parent="."]
+position = Vector3(0, 3.95, 13)
+
+[node name="Interactables" type="Node3D" parent="."]
+
+[node name="FishingShopWorld" parent="Interactables" instance=ExtResource("7_shop")]
+position = Vector3(8, 3.42, 6)
+rotation_degrees = Vector3(0, -25, 0)
+
+[node name="PelicanCoolerPerch" parent="Interactables" instance=ExtResource("8_pelican")]
+position = Vector3(18, 0.35, -16)
+rotation_degrees = Vector3(0, -35, 0)
