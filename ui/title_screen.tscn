@@ -1,8 +1,17 @@
-[gd_scene load_steps=4 format=3]
+[gd_scene load_steps=9 format=3]
 
 [ext_resource type="Script" path="res://ui/title_screen.gd" id="1_script"]
 [ext_resource type="Theme" path="res://ui/game_theme.tres" id="2_theme"]
 [ext_resource type="PackedScene" path="res://ui/settings_panel.tscn" id="3_settings"]
+[ext_resource type="Shader" path="res://ui/title_water_background.gdshader" id="4_water_shader"]
+[ext_resource type="Texture2D" path="res://ui/assets/title/netfishing_logo.png" id="5_logo"]
+[ext_resource type="Shader" path="res://ui/title_logo_underwater.gdshader" id="6_logo_shader"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_title_water"]
+shader = ExtResource("4_water_shader")
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_title_logo"]
+shader = ExtResource("6_logo_shader")
 
 [node name="TitleScreen" type="Control"]
 unique_name_in_owner = true
@@ -18,15 +27,78 @@ theme = ExtResource("2_theme")
 script = ExtResource("1_script")
 
 [node name="Background" type="ColorRect" parent="."]
+material = SubResource("ShaderMaterial_title_water")
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-color = Color(0.047, 0.102, 0.145, 1)
+mouse_filter = 2
+
+[node name="DecorativeFishLayer" type="Control" parent="."]
+unique_name_in_owner = true
+z_index = 1
+clip_contents = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="DecorativeFishTimer" type="Timer" parent="."]
+unique_name_in_owner = true
+one_shot = true
+
+[node name="DecorativeBubbleLayer" type="Control" parent="."]
+unique_name_in_owner = true
+z_index = 2
+clip_contents = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="DecorativeBubbleEventTimer" type="Timer" parent="."]
+unique_name_in_owner = true
+one_shot = true
+
+[node name="DecorativeBubbleClusterTimer" type="Timer" parent="."]
+unique_name_in_owner = true
+one_shot = true
+
+[node name="StartPromptCenter" type="CenterContainer" parent="."]
+unique_name_in_owner = true
+z_index = 12
+layout_mode = 1
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_top = -104.0
+offset_bottom = -48.0
+grow_horizontal = 2
+grow_vertical = 0
+mouse_filter = 2
+
+[node name="StartPromptLabel" type="Label" parent="StartPromptCenter"]
+unique_name_in_owner = true
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_colors/font_outline_color = Color(0.02, 0.075, 0.11, 0.9)
+theme_override_constants/outline_size = 3
+theme_override_font_sizes/font_size = 26
+text = "press any key to start"
+horizontal_alignment = 1
+vertical_alignment = 1
 
 [node name="Center" type="CenterContainer" parent="."]
+z_index = 10
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -34,75 +106,77 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="MainPanel" type="PanelContainer" parent="Center"]
-custom_minimum_size = Vector2(440, 0)
+[node name="MainContent" type="VBoxContainer" parent="Center"]
 layout_mode = 2
+theme_override_constants/separation = 8
+alignment = 1
 
-[node name="Margin" type="MarginContainer" parent="Center/MainPanel"]
+[node name="TitleLogo" type="TextureRect" parent="Center/MainContent"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(640, 190)
+material = SubResource("ShaderMaterial_title_logo")
 layout_mode = 2
-theme_override_constants/margin_left = 36
-theme_override_constants/margin_top = 30
-theme_override_constants/margin_right = 36
-theme_override_constants/margin_bottom = 30
+mouse_filter = 2
+texture_filter = 1
+texture = ExtResource("5_logo")
+expand_mode = 1
+stretch_mode = 5
 
-[node name="Content" type="VBoxContainer" parent="Center/MainPanel/Margin"]
-layout_mode = 2
-theme_override_constants/separation = 12
-
-[node name="Title" type="Label" parent="Center/MainPanel/Margin/Content"]
-layout_mode = 2
-theme_override_font_sizes/font_size = 36
-text = "NETFISHING"
-horizontal_alignment = 1
-
-[node name="Subtitle" type="Label" parent="Center/MainPanel/Margin/Content"]
-layout_mode = 2
-text = "A cozy social fishing game"
-horizontal_alignment = 1
-
-[node name="PlaytestLabel" type="Label" parent="Center/MainPanel/Margin/Content"]
+[node name="PlaytestLabel" type="Label" parent="Center/MainContent"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.682, 0.733, 0.761, 1)
 theme_override_font_sizes/font_size = 13
-text = "Pre-Alpha Playtest 0.1"
+text = "pre-alpha playtest 0.1"
 horizontal_alignment = 1
 
-[node name="Spacer" type="Control" parent="Center/MainPanel/Margin/Content"]
-custom_minimum_size = Vector2(0, 12)
+[node name="Spacer" type="Control" parent="Center/MainContent"]
+custom_minimum_size = Vector2(0, 4)
 layout_mode = 2
 
-[node name="ContinueButton" type="Button" parent="Center/MainPanel/Margin/Content"]
+[node name="ButtonCenter" type="CenterContainer" parent="Center/MainContent"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+
+[node name="ButtonStack" type="VBoxContainer" parent="Center/MainContent/ButtonCenter"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(360, 0)
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="ContinueButton" type="Button" parent="Center/MainContent/ButtonCenter/ButtonStack"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 44)
 layout_mode = 2
-text = "Continue"
+text = "continue"
 
-[node name="NewGameButton" type="Button" parent="Center/MainPanel/Margin/Content"]
+[node name="NewGameButton" type="Button" parent="Center/MainContent/ButtonCenter/ButtonStack"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 44)
 layout_mode = 2
-text = "New Game"
+text = "new game"
 
-[node name="SettingsButton" type="Button" parent="Center/MainPanel/Margin/Content"]
+[node name="SettingsButton" type="Button" parent="Center/MainContent/ButtonCenter/ButtonStack"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 44)
 layout_mode = 2
-text = "Settings"
+text = "settings"
 
-[node name="DeleteSaveButton" type="Button" parent="Center/MainPanel/Margin/Content"]
+[node name="DeleteSaveButton" type="Button" parent="Center/MainContent/ButtonCenter/ButtonStack"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 44)
 layout_mode = 2
-text = "Delete Save"
+text = "delete save"
 
-[node name="QuitButton" type="Button" parent="Center/MainPanel/Margin/Content"]
+[node name="QuitButton" type="Button" parent="Center/MainContent/ButtonCenter/ButtonStack"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 44)
 layout_mode = 2
-text = "Quit"
+text = "quit"
 
-[node name="FeedbackLabel" type="Label" parent="Center/MainPanel/Margin/Content"]
+[node name="FeedbackLabel" type="Label" parent="Center/MainContent"]
 unique_name_in_owner = true
+visible = false
 custom_minimum_size = Vector2(0, 42)
 layout_mode = 2
 text = ""
@@ -141,7 +215,7 @@ theme_override_constants/separation = 14
 [node name="ConfirmationText" type="Label" parent="ConfirmationPanel/Margin/Content"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "Confirm?"
+text = "confirm?"
 horizontal_alignment = 1
 autowrap_mode = 2
 
@@ -154,13 +228,13 @@ alignment = 1
 unique_name_in_owner = true
 custom_minimum_size = Vector2(150, 42)
 layout_mode = 2
-text = "Confirm"
+text = "confirm"
 
 [node name="CancelConfirmButton" type="Button" parent="ConfirmationPanel/Margin/Content/Buttons"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(120, 42)
 layout_mode = 2
-text = "Cancel"
+text = "cancel"
 
 [node name="SettingsPanel" parent="." instance=ExtResource("3_settings")]
 unique_name_in_owner = true

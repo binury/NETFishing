@@ -1,4 +1,4 @@
-[gd_scene load_steps=13 format=3]
+[gd_scene load_steps=14 format=3]
 
 [ext_resource type="PackedScene" path="res://world/test_world.tscn" id="1_world"]
 [ext_resource type="PackedScene" path="res://player/player.tscn" id="2_player"]
@@ -12,6 +12,7 @@
 [ext_resource type="Script" path="res://settings/player_settings_manager.gd" id="10_settings"]
 [ext_resource type="Resource" path="res://items/catalog/item_catalog.tres" id="11_items"]
 [ext_resource type="Resource" path="res://economy/buyers/main_fishing_shop.tres" id="12_main_shop"]
+[ext_resource type="AudioStream" path="res://audio/music/title/as_in_four_wolves.ogg" id="13_title_music"]
 
 [node name="Main" type="Node3D"]
 script = ExtResource("3_main")
@@ -43,6 +44,12 @@ script = ExtResource("9_save")
 [node name="PlayerSettingsManager" type="Node" parent="."]
 unique_name_in_owner = true
 script = ExtResource("10_settings")
+
+[node name="TitleMusic" type="AudioStreamPlayer" parent="."]
+unique_name_in_owner = true
+stream = ExtResource("13_title_music")
+volume_db = -80.0
+bus = &"Music"
 
 [node name="GameUI" parent="." instance=ExtResource("5_ui")]
 unique_name_in_owner = true

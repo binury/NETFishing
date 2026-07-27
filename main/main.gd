@@ -25,10 +25,16 @@ const FishingShopInteractionType = preload(
 	"res://world/fishing_shop_interaction.gd"
 )
 
+const TITLE_MUSIC_SILENCE_DB: float = -80.0
+
 @export var fish_catalog: FishPoolType
 @export var pelican_buyer_profile: FishBuyerProfileType
 @export var main_shop_buyer_profile: FishBuyerProfileType
 @export var item_catalog: ItemCatalogType
+@export_category("Title Music")
+@export_range(-40.0, 0.0, 0.5) var title_music_volume_db: float = -14.0
+@export_range(0.0, 5.0, 0.05) var title_music_fade_in_seconds: float = 1.0
+@export_range(0.0, 5.0, 0.05) var title_music_fade_out_seconds: float = 0.75
 
 @onready var _test_world: TestWorldType = $TestWorld
 @onready var _player: PlayerType = %Player
@@ -37,9 +43,14 @@ const FishingShopInteractionType = preload(
 @onready var _water_recovery: WaterRecoveryControllerType = %WaterRecovery
 @onready var _save_manager: PlayerSaveManagerType = %PlayerSaveManager
 @onready var _settings_manager: PlayerSettingsManagerType = %PlayerSettingsManager
+@onready var _title_music: AudioStreamPlayer = %TitleMusic
 
 var _gameplay_started: bool = false
 var _shop_interaction: FishingShopInteractionType
+var _title_music_tween: Tween
+var _title_music_transition_generation: int = 0
+var _title_music_requested: bool = false
+var _quit_in_progress: bool = false
 
 
 func _ready() -> void:
@@ -144,6 +155,7 @@ func _ready() -> void:
 		_player.hotbar.get_selected_slot(),
 		_player.hotbar.get_selected_item_id()
 	)
+	_show_title_music()
 
 
 func _input(event: InputEvent) -> void:
@@ -226,20 +238,26 @@ func _set_gameplay_active(active: bool) -> void:
 
 
 func _on_gameplay_requested() -> void:
-	if _gameplay_started:
+	if _gameplay_started or _quit_in_progress:
 		return
+	_fade_out_title_music()
 	_game_ui.get_title_screen().hide()
 	_set_gameplay_active(true)
 
 
 func _on_return_to_title_requested() -> void:
+	if _quit_in_progress:
+		return
 	var pause_menu: PauseMenuType = _game_ui.get_pause_menu()
 	pause_menu.close_for_title_transition()
 	_set_gameplay_active(false)
 	_game_ui.get_title_screen().reopen()
+	_show_title_music()
 
 
 func _on_reset_progress_requested() -> void:
+	if _quit_in_progress:
+		return
 	var pause_menu: PauseMenuType = _game_ui.get_pause_menu()
 	if not _save_manager.delete_progression_save():
 		pause_menu.report_reset_failure()
@@ -250,6 +268,7 @@ func _on_reset_progress_requested() -> void:
 	pause_menu.close_for_title_transition()
 	_set_gameplay_active(false)
 	_game_ui.get_title_screen().reopen()
+	_show_title_music()
 
 
 func _on_water_recovery_starting() -> void:
@@ -282,10 +301,114 @@ func _refresh_active_hotbar_item() -> void:
 
 
 func _on_quit_requested() -> void:
+	if _quit_in_progress:
+		return
+	_quit_in_progress = true
 	_settings_manager.save_if_dirty()
 	if _gameplay_started:
 		_save_manager.save_if_dirty()
+	_fade_out_title_music(_finish_quit)
+
+
+func _show_title_music() -> void:
+	_title_music_requested = true
+	var generation: int = _replace_title_music_transition()
+	if not _title_music.playing:
+		_title_music.volume_db = TITLE_MUSIC_SILENCE_DB
+		_title_music.play()
+	if is_equal_approx(_title_music.volume_db, title_music_volume_db):
+		return
+	if title_music_fade_in_seconds <= 0.0:
+		_title_music.volume_db = title_music_volume_db
+		return
+	_title_music_tween = create_tween()
+	_title_music_tween.set_trans(Tween.TRANS_CUBIC)
+	_title_music_tween.set_ease(Tween.EASE_OUT)
+	_title_music_tween.tween_property(
+		_title_music,
+		"volume_db",
+		title_music_volume_db,
+		title_music_fade_in_seconds
+	)
+	_title_music_tween.finished.connect(
+		_on_title_music_faded_in.bind(generation),
+		CONNECT_ONE_SHOT
+	)
+
+
+func _fade_out_title_music(on_complete: Callable = Callable()) -> void:
+	_title_music_requested = false
+	var generation: int = _replace_title_music_transition()
+	if not _title_music.playing:
+		_title_music.volume_db = title_music_volume_db
+		if on_complete.is_valid():
+			on_complete.call()
+		return
+	if title_music_fade_out_seconds <= 0.0:
+		_complete_title_music_fade_out(generation, on_complete)
+		return
+	_title_music_tween = create_tween()
+	_title_music_tween.set_trans(Tween.TRANS_CUBIC)
+	_title_music_tween.set_ease(Tween.EASE_IN)
+	_title_music_tween.tween_property(
+		_title_music,
+		"volume_db",
+		TITLE_MUSIC_SILENCE_DB,
+		title_music_fade_out_seconds
+	)
+	_title_music_tween.finished.connect(
+		_complete_title_music_fade_out.bind(generation, on_complete),
+		CONNECT_ONE_SHOT
+	)
+
+
+func _replace_title_music_transition() -> int:
+	_title_music_transition_generation += 1
+	if _title_music_tween != null:
+		_title_music_tween.kill()
+		_title_music_tween = null
+	return _title_music_transition_generation
+
+
+func _on_title_music_faded_in(generation: int) -> void:
+	if (
+		generation != _title_music_transition_generation
+		or not _title_music_requested
+	):
+		return
+	_title_music_tween = null
+	_title_music.volume_db = title_music_volume_db
+
+
+func _complete_title_music_fade_out(
+	generation: int,
+	on_complete: Callable,
+) -> void:
+	if (
+		generation != _title_music_transition_generation
+		or _title_music_requested
+	):
+		return
+	_title_music_tween = null
+	_title_music.stop()
+	_title_music.volume_db = title_music_volume_db
+	if on_complete.is_valid():
+		on_complete.call()
+
+
+func _finish_quit() -> void:
+	_title_music.queue_free()
+	await get_tree().process_frame
 	get_tree().quit()
+
+
+func _exit_tree() -> void:
+	if _title_music_tween != null:
+		_title_music_tween.kill()
+		_title_music_tween = null
+	if is_instance_valid(_title_music):
+		_title_music.stop()
+		_title_music.stream = null
 
 
 func _on_shop_range_changed(in_range: bool) -> void:
