@@ -1,0 +1,139 @@
+[gd_scene load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://ui/components/bubble_menu/bubble_confirmation_page.gd" id="1_page"]
+[ext_resource type="PackedScene" path="res://ui/components/bubble_menu/bubble_button.tscn" id="2_bubble"]
+[ext_resource type="Script" path="res://ui/components/bubble_menu/bubble_cluster.gd" id="3_cluster"]
+[ext_resource type="Script" path="res://ui/components/bubble_menu/bubble_menu_profile.gd" id="4_profile_script"]
+[ext_resource type="Resource" path="res://ui/components/bubble_menu/bubble_menu_profile.tres" id="5_profile"]
+
+[sub_resource type="Resource" id="BubbleMenuProfile_confirmation_action"]
+script = ExtResource("4_profile_script")
+normal_border_width = 3
+emphasized_border_width = 4
+
+[sub_resource type="Resource" id="BubbleMenuProfile_confirmation_message"]
+script = ExtResource("4_profile_script")
+corner_radius = 256
+
+[node name="BubbleConfirmationPage" type="Control"]
+visible = false
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("1_page")
+
+[node name="BubbleCluster" type="Control" parent="."]
+layout_mode = 0
+offset_right = 720.0
+offset_bottom = 520.0
+script = ExtResource("3_cluster")
+profile = ExtResource("5_profile")
+desktop_reference_size = Vector2(720, 520)
+compact_reference_size = Vector2(544, 400)
+
+[node name="MessageBubble" parent="BubbleCluster" instance=ExtResource("2_bubble")]
+custom_minimum_size = Vector2(0, 0)
+profile = SubResource("BubbleMenuProfile_confirmation_message")
+neutral_size = Vector2(356, 350)
+desktop_anchor = Vector2(360, 214)
+compact_anchor = Vector2(360, 196)
+compact_minimum_size = Vector2(292, 288)
+label_control_path = NodePath("MessageLabel")
+minimum_font_size = 15
+maximum_font_size = 22
+horizontal_amplitude = 0.8
+vertical_amplitude = 2.2
+motion_period = 6.8
+motion_phase = 0.45
+deformation_amplitude = 0.008
+deformation_period = 7.4
+
+[node name="MessageLabel" type="Label" parent="BubbleCluster/MessageBubble"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 38.0
+offset_top = 36.0
+offset_right = -38.0
+offset_bottom = -36.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.035, 0.145, 0.22, 1)
+theme_override_constants/line_spacing = -2
+text = "confirm?"
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 2
+
+[node name="ConfirmButton" parent="BubbleCluster" instance=ExtResource("2_bubble")]
+custom_minimum_size = Vector2(0, 0)
+profile = SubResource("BubbleMenuProfile_confirmation_action")
+neutral_size = Vector2(142, 136)
+desktop_anchor = Vector2(258, 432)
+compact_anchor = Vector2(210, 432)
+compact_minimum_size = Vector2(108, 104)
+label_control_path = NodePath("ConfirmLabel")
+minimum_font_size = 14
+maximum_font_size = 22
+horizontal_amplitude = 1.7
+vertical_amplitude = 4.2
+motion_period = 5.6
+motion_phase = 2.15
+deformation_amplitude = 0.014
+deformation_period = 5.9
+
+[node name="ConfirmLabel" type="Label" parent="BubbleCluster/ConfirmButton"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 14.0
+offset_top = 14.0
+offset_right = -14.0
+offset_bottom = -14.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+text = "confirm"
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 2
+
+[node name="CancelButton" parent="BubbleCluster" instance=ExtResource("2_bubble")]
+custom_minimum_size = Vector2(0, 0)
+neutral_size = Vector2(124, 120)
+desktop_anchor = Vector2(462, 426)
+compact_anchor = Vector2(510, 426)
+compact_minimum_size = Vector2(98, 94)
+label_control_path = NodePath("CancelLabel")
+minimum_font_size = 14
+maximum_font_size = 20
+horizontal_amplitude = 1.5
+vertical_amplitude = 3.8
+motion_period = 5.1
+motion_phase = 4.0
+deformation_amplitude = 0.015
+deformation_period = 5.4
+
+[node name="CancelLabel" type="Label" parent="BubbleCluster/CancelButton"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 12.0
+offset_top = 12.0
+offset_right = -12.0
+offset_bottom = -12.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+text = "cancel"
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 2

@@ -15,6 +15,9 @@ const SettingsManagerType = preload(
 	"res://settings/player_settings_manager.gd"
 )
 const SettingsPanelType = preload("res://ui/settings_panel.gd")
+const BubbleConfirmationPageType = preload(
+	"res://ui/components/bubble_menu/bubble_confirmation_page.gd"
+)
 const FishingSpotType = preload("res://fishing/fishing_spot.gd")
 
 signal return_to_title_requested
@@ -46,11 +49,9 @@ enum CloseReason {
 @onready var _transition_flurry: BubbleTransitionFlurry = (
 	%TransitionBubbleLayer
 )
-@onready var _confirmation_panel: PanelContainer = %ConfirmationPanel
-@onready var _confirmation_title: Label = %ConfirmationTitle
-@onready var _confirmation_text: Label = %ConfirmationText
-@onready var _confirm_button: Button = %ConfirmButton
-@onready var _cancel_button: Button = %CancelConfirmButton
+@onready var _confirmation_page: BubbleConfirmationPageType = (
+	%ConfirmationPage
+)
 @onready var _feedback: Label = %FeedbackLabel
 @onready var _save_button: BubbleButton = %SaveButton
 
@@ -70,9 +71,6 @@ var _root_transition_generation: int = 0
 var _closing_menu: bool = false
 var _backdrop_fade: Tween
 var _backdrop_fade_generation: int = 0
-var _confirmation_fade: Tween
-var _confirmation_fade_generation: int = 0
-var _confirmation_fade_active: bool = false
 
 
 func _ready() -> void:
@@ -82,16 +80,15 @@ func _ready() -> void:
 	%ReturnToTitleButton.pressed.connect(_confirm_return_to_title)
 	%ResetProgressButton.pressed.connect(_confirm_reset_progress)
 	%QuitButton.pressed.connect(_request_quit)
-	_confirm_button.pressed.connect(_accept_confirmation)
-	_cancel_button.pressed.connect(_close_confirmation)
+	_confirmation_page.confirmed.connect(_accept_confirmation)
+	_confirmation_page.cancelled.connect(_close_confirmation)
 	_settings_panel.applied.connect(_on_settings_applied)
 	_settings_panel.closed.connect(_on_settings_closed)
 	_settings_panel.navigation_transition_started.connect(
 		_emit_transition_flurry
 	)
 	_dim_background.color.a = 0.0
-	_confirmation_panel.modulate.a = 0.0
-	_set_confirmation_interactive(false)
+	_confirmation_page.hide_page()
 	resized.connect(_update_responsive_pause_stage)
 	call_deferred("_update_responsive_pause_stage")
 
@@ -124,7 +121,7 @@ func open_menu() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	_feedback.text = ""
 	_settings_panel.hide()
-	_confirmation_panel.hide()
+	_confirmation_page.hide_page()
 	_confirmation_action = ConfirmationAction.NONE
 	_action_in_progress = false
 	_root_page.hide_page()
@@ -168,9 +165,9 @@ func close_menu(
 func handle_escape() -> bool:
 	if not visible:
 		return false
-	if _root_transition_active or _confirmation_fade_active:
+	if _root_transition_active or _confirmation_page.is_transitioning():
 		return true
-	if _confirmation_panel.visible:
+	if _confirmation_page.visible:
 		_close_confirmation()
 	elif _settings_panel.visible:
 		_settings_panel.handle_back()
@@ -281,53 +278,57 @@ func _open_confirmation(
 	if _action_in_progress or _root_transition_active:
 		return
 	_confirmation_action = action
-	_confirmation_title.text = title
-	_confirmation_text.text = message
-	_confirm_button.text = confirm_text
-	_confirm_button.theme_type_variation = (
-		&"DangerButton" if dangerous else StringName()
+	_confirmation_page.configure(
+		"%s\n\n%s" % [title, message],
+		confirm_text,
+		"cancel",
+		(
+			BubbleConfirmationPageType.InitialFocus.CANCEL
+			if dangerous
+			else BubbleConfirmationPageType.InitialFocus.CONFIRM
+		)
 	)
-	_begin_root_exit(_show_confirmation.bind(dangerous))
+	_begin_root_exit(_show_confirmation)
 
 
-func _show_confirmation(dangerous: bool) -> void:
-	_fade_confirmation(
-		true,
-		_finish_confirmation_open.bind(dangerous)
+func _show_confirmation() -> void:
+	_confirmation_page.transition_in(
+		PAGE_INCOMING_DURATION,
+		_finish_confirmation_open
 	)
 
 
-func _finish_confirmation_open(dangerous: bool) -> void:
-	_set_confirmation_interactive(true)
-	if dangerous:
-		_cancel_button.grab_focus()
-	else:
-		_confirm_button.grab_focus()
+func _finish_confirmation_open() -> void:
+	pass
 
 
 func _close_confirmation() -> void:
-	if _root_transition_active or _confirmation_fade_active:
+	if _root_transition_active or _confirmation_page.is_transitioning():
 		return
 	_confirmation_action = ConfirmationAction.NONE
-	_fade_confirmation(false, _finish_confirmation_cancel)
+	_emit_transition_flurry()
+	_confirmation_page.transition_out(
+		PAGE_OUTGOING_DURATION,
+		_finish_confirmation_cancel
+	)
 
 
 func _finish_confirmation_cancel() -> void:
-	_begin_root_entry(false)
+	_begin_root_entry(true)
 
 
 func _accept_confirmation() -> void:
 	if (
 		_action_in_progress
 		or _root_transition_active
-		or _confirmation_fade_active
+		or _confirmation_page.is_transitioning()
 	):
 		return
 	var action: ConfirmationAction = _confirmation_action
 	_confirmation_action = ConfirmationAction.NONE
 	_action_in_progress = true
-	_fade_confirmation(
-		false,
+	_confirmation_page.transition_out(
+		VISIBILITY_FADE_DURATION,
 		_finish_confirmation_accept.bind(action)
 	)
 
@@ -417,14 +418,11 @@ func _finish_close(reason: CloseReason, restore_controls: bool) -> void:
 	_root_transition_generation += 1
 	_root_transition_active = false
 	_cancel_backdrop_fade()
-	_cancel_confirmation_fade()
 	_dim_background.color.a = 0.0
 	_dim_background.hide()
-	_confirmation_panel.modulate.a = 0.0
-	_set_confirmation_interactive(false)
 	_settings_panel.hide()
 	_root_page.hide_page()
-	_confirmation_panel.hide()
+	_confirmation_page.hide_page()
 	_confirmation_action = ConfirmationAction.NONE
 	_action_in_progress = false
 	_transition_flurry.clear_flurries()
@@ -481,83 +479,6 @@ func _cancel_backdrop_fade() -> void:
 	if _backdrop_fade != null:
 		_backdrop_fade.kill()
 		_backdrop_fade = null
-
-
-func _fade_confirmation(
-	fade_in: bool,
-	completed: Callable,
-) -> void:
-	_confirmation_fade_generation += 1
-	_cancel_confirmation_fade()
-	_confirmation_fade_active = true
-	_set_confirmation_interactive(false)
-	_confirmation_panel.show()
-	var target_alpha: float = 1.0 if fade_in else 0.0
-	if is_equal_approx(_confirmation_panel.modulate.a, target_alpha):
-		_finish_confirmation_fade(
-			_confirmation_fade_generation,
-			fade_in,
-			completed
-		)
-		return
-	var generation: int = _confirmation_fade_generation
-	_confirmation_fade = create_tween()
-	_confirmation_fade.tween_property(
-		_confirmation_panel,
-		"modulate:a",
-		target_alpha,
-		VISIBILITY_FADE_DURATION
-	).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
-	_confirmation_fade.finished.connect(
-		_finish_confirmation_fade.bind(
-			generation,
-			fade_in,
-			completed
-		),
-		CONNECT_ONE_SHOT
-	)
-
-
-func _finish_confirmation_fade(
-	generation: int,
-	faded_in: bool,
-	completed: Callable,
-) -> void:
-	if generation != _confirmation_fade_generation or not visible:
-		return
-	_confirmation_fade = null
-	_confirmation_fade_active = false
-	_confirmation_panel.modulate.a = 1.0 if faded_in else 0.0
-	if not faded_in:
-		_confirmation_panel.hide()
-	completed.call()
-
-
-func _cancel_confirmation_fade() -> void:
-	_confirmation_fade_generation += 1
-	_confirmation_fade_active = false
-	if _confirmation_fade != null:
-		_confirmation_fade.kill()
-		_confirmation_fade = null
-
-
-func _set_confirmation_interactive(interactive: bool) -> void:
-	_confirmation_panel.mouse_filter = (
-		Control.MOUSE_FILTER_STOP
-		if interactive
-		else Control.MOUSE_FILTER_IGNORE
-	)
-	for button: Button in [_confirm_button, _cancel_button]:
-		if not interactive and button.has_focus():
-			button.release_focus()
-		button.focus_mode = (
-			Control.FOCUS_ALL if interactive else Control.FOCUS_NONE
-		)
-		button.mouse_filter = (
-			Control.MOUSE_FILTER_STOP
-			if interactive
-			else Control.MOUSE_FILTER_IGNORE
-		)
 
 
 func _update_responsive_pause_stage() -> void:
