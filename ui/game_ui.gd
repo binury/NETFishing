@@ -56,7 +56,7 @@ signal interactive_pointer_ui_changed(is_open: bool)
 	$UIRoot/TitleScreen/ResponsiveTitleStage/TitlePresentationScaleRoot/SettingsPanel
 )
 @onready var _pause_settings_panel: SettingsPanelType = (
-	$UIRoot/PauseMenu/SettingsCenter/SettingsPanel
+	$UIRoot/PauseMenu/ResponsivePauseStage/PausePresentationScaleRoot/SettingsCenter/SettingsPanel
 )
 
 var _showcase_active: bool = false

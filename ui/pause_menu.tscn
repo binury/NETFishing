@@ -1,8 +1,13 @@
-[gd_scene load_steps=4 format=3]
+[gd_scene load_steps=9 format=3]
 
 [ext_resource type="Script" path="res://ui/pause_menu.gd" id="1_script"]
 [ext_resource type="PackedScene" path="res://ui/settings_panel.tscn" id="2_settings"]
 [ext_resource type="Theme" path="res://ui/game_theme.tres" id="3_theme"]
+[ext_resource type="Script" path="res://ui/settings/settings_bubble_page.gd" id="4_page"]
+[ext_resource type="PackedScene" path="res://ui/components/bubble_menu/bubble_button.tscn" id="5_bubble"]
+[ext_resource type="Script" path="res://ui/components/bubble_menu/bubble_cluster.gd" id="6_cluster"]
+[ext_resource type="Resource" path="res://ui/components/bubble_menu/bubble_menu_profile.tres" id="7_profile"]
+[ext_resource type="Script" path="res://ui/components/bubble_menu/bubble_transition_flurry.gd" id="8_flurry"]
 
 [node name="PauseMenu" type="Control"]
 unique_name_in_owner = true
@@ -19,6 +24,7 @@ theme = ExtResource("3_theme")
 script = ExtResource("1_script")
 
 [node name="DimBackground" type="ColorRect" parent="."]
+unique_name_in_owner = true
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -26,84 +32,162 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 0
-color = Color(0.02, 0.05, 0.07, 0.78)
+color = Color(0.025, 0.12, 0.19, 0.68)
 
-[node name="RootCenter" type="CenterContainer" parent="."]
+[node name="TransitionBubbleLayer" type="Control" parent="."]
+unique_name_in_owner = true
+z_index = 1
+clip_contents = true
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("8_flurry")
 
-[node name="RootPanel" type="PanelContainer" parent="RootCenter"]
+[node name="ResponsivePauseStage" type="Control" parent="."]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(560, 0)
-layout_mode = 2
+z_index = 2
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 1
 
-[node name="Margin" type="MarginContainer" parent="RootCenter/RootPanel"]
-layout_mode = 2
-theme_override_constants/margin_left = 32
-theme_override_constants/margin_top = 26
-theme_override_constants/margin_right = 32
-theme_override_constants/margin_bottom = 26
-
-[node name="Content" type="VBoxContainer" parent="RootCenter/RootPanel/Margin"]
-layout_mode = 2
-theme_override_constants/separation = 11
-
-[node name="Title" type="Label" parent="RootCenter/RootPanel/Margin/Content"]
-layout_mode = 2
-theme_override_font_sizes/font_size = 45
-text = "game menu"
-horizontal_alignment = 1
-
-[node name="ResumeButton" type="Button" parent="RootCenter/RootPanel/Margin/Content"]
+[node name="PausePresentationScaleRoot" type="Control" parent="ResponsivePauseStage"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 64)
-layout_mode = 2
-text = "return to game"
+layout_mode = 0
+offset_right = 1280.0
+offset_bottom = 720.0
+mouse_filter = 1
 
-[node name="SaveButton" type="Button" parent="RootCenter/RootPanel/Margin/Content"]
+[node name="RootPage" type="Control" parent="ResponsivePauseStage/PausePresentationScaleRoot"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 64)
-layout_mode = 2
-text = "save now"
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("4_page")
+page_id = &"pause"
+bubble_paths = Array[NodePath]([NodePath("BubbleCluster/ResumeButton"), NodePath("BubbleCluster/SaveButton"), NodePath("BubbleCluster/SettingsButton"), NodePath("BubbleCluster/ReturnToTitleButton"), NodePath("BubbleCluster/ResetProgressButton"), NodePath("BubbleCluster/QuitButton")])
+focus_paths = Array[NodePath]([NodePath("BubbleCluster/ResumeButton"), NodePath("BubbleCluster/SaveButton"), NodePath("BubbleCluster/SettingsButton"), NodePath("BubbleCluster/ReturnToTitleButton"), NodePath("BubbleCluster/ResetProgressButton"), NodePath("BubbleCluster/QuitButton")])
+initial_focus_path = NodePath("BubbleCluster/ResumeButton")
+back_focus_path = NodePath("BubbleCluster/ResumeButton")
+maximum_layout_size = Vector2(720, 520)
+compact_maximum_layout_size = Vector2(544, 400)
+compact_width_threshold = 680.0
+compact_height_threshold = 500.0
+outgoing_rise_duration = 1.7
+incoming_rise_duration = 1.85
 
-[node name="SettingsButton" type="Button" parent="RootCenter/RootPanel/Margin/Content"]
+[node name="BubbleCluster" type="Control" parent="ResponsivePauseStage/PausePresentationScaleRoot/RootPage"]
+layout_mode = 0
+offset_right = 720.0
+offset_bottom = 520.0
+script = ExtResource("6_cluster")
+profile = ExtResource("7_profile")
+desktop_reference_size = Vector2(720, 520)
+compact_reference_size = Vector2(608, 448)
+
+[node name="ResumeButton" parent="ResponsivePauseStage/PausePresentationScaleRoot/RootPage/BubbleCluster" instance=ExtResource("5_bubble")]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 64)
-layout_mode = 2
+custom_minimum_size = Vector2(0, 0)
+text = "return\nto game"
+accessibility_name = "return to game"
+neutral_size = Vector2(174, 164)
+desktop_anchor = Vector2(335, 220)
+compact_anchor = Vector2(350, 225)
+compact_minimum_size = Vector2(132, 126)
+minimum_font_size = 18
+maximum_font_size = 27
+motion_phase = 0.3
+
+[node name="SaveButton" parent="ResponsivePauseStage/PausePresentationScaleRoot/RootPage/BubbleCluster" instance=ExtResource("5_bubble")]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 0)
+text = "save\nnow"
+accessibility_name = "save now"
+neutral_size = Vector2(126, 120)
+desktop_anchor = Vector2(185, 185)
+compact_anchor = Vector2(165, 180)
+compact_minimum_size = Vector2(100, 96)
+minimum_font_size = 15
+maximum_font_size = 21
+motion_phase = 1.15
+
+[node name="SettingsButton" parent="ResponsivePauseStage/PausePresentationScaleRoot/RootPage/BubbleCluster" instance=ExtResource("5_bubble")]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 0)
 text = "settings"
+neutral_size = Vector2(144, 136)
+desktop_anchor = Vector2(485, 170)
+compact_anchor = Vector2(515, 175)
+compact_minimum_size = Vector2(112, 108)
+minimum_font_size = 16
+maximum_font_size = 23
+motion_phase = 2.05
 
-[node name="ReturnToTitleButton" type="Button" parent="RootCenter/RootPanel/Margin/Content"]
+[node name="ReturnToTitleButton" parent="ResponsivePauseStage/PausePresentationScaleRoot/RootPage/BubbleCluster" instance=ExtResource("5_bubble")]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 64)
-layout_mode = 2
-text = "return to title"
+custom_minimum_size = Vector2(0, 0)
+text = "return\nto title"
+accessibility_name = "return to title"
+neutral_size = Vector2(132, 126)
+desktop_anchor = Vector2(520, 340)
+compact_anchor = Vector2(535, 360)
+compact_minimum_size = Vector2(106, 102)
+minimum_font_size = 14
+maximum_font_size = 21
+motion_phase = 3.0
 
-[node name="ResetProgressButton" type="Button" parent="RootCenter/RootPanel/Margin/Content"]
+[node name="ResetProgressButton" parent="ResponsivePauseStage/PausePresentationScaleRoot/RootPage/BubbleCluster" instance=ExtResource("5_bubble")]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 64)
-layout_mode = 2
-theme_type_variation = &"DangerButton"
-text = "reset progress"
+custom_minimum_size = Vector2(0, 0)
+text = "reset\nprogress"
+accessibility_name = "reset progress"
+neutral_size = Vector2(126, 120)
+desktop_anchor = Vector2(245, 365)
+compact_anchor = Vector2(200, 380)
+compact_minimum_size = Vector2(102, 98)
+minimum_font_size = 14
+maximum_font_size = 20
+motion_phase = 3.9
 
-[node name="QuitButton" type="Button" parent="RootCenter/RootPanel/Margin/Content"]
+[node name="QuitButton" parent="ResponsivePauseStage/PausePresentationScaleRoot/RootPage/BubbleCluster" instance=ExtResource("5_bubble")]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 64)
-layout_mode = 2
+custom_minimum_size = Vector2(0, 0)
 text = "quit"
+neutral_size = Vector2(102, 98)
+desktop_anchor = Vector2(390, 395)
+compact_anchor = Vector2(390, 410)
+compact_minimum_size = Vector2(84, 82)
+minimum_font_size = 14
+maximum_font_size = 18
+motion_phase = 4.75
 
-[node name="FeedbackLabel" type="Label" parent="RootCenter/RootPanel/Margin/Content"]
+[node name="FeedbackLabel" type="Label" parent="ResponsivePauseStage/PausePresentationScaleRoot/RootPage/BubbleCluster"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 54)
-layout_mode = 2
+layout_mode = 1
+anchors_preset = 12
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_top = -38.0
+offset_bottom = -6.0
+grow_horizontal = 2
+grow_vertical = 0
+mouse_filter = 2
 horizontal_alignment = 1
 vertical_alignment = 1
 autowrap_mode = 2
 
-[node name="SettingsCenter" type="CenterContainer" parent="."]
+[node name="SettingsCenter" type="CenterContainer" parent="ResponsivePauseStage/PausePresentationScaleRoot"]
+unique_name_in_owner = true
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -112,11 +196,12 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 
-[node name="SettingsPanel" parent="SettingsCenter" instance=ExtResource("2_settings")]
+[node name="SettingsPanel" parent="ResponsivePauseStage/PausePresentationScaleRoot/SettingsCenter" instance=ExtResource("2_settings")]
 unique_name_in_owner = true
 layout_mode = 2
 
 [node name="ConfirmationCenter" type="CenterContainer" parent="."]
+z_index = 3
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0

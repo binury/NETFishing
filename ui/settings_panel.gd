@@ -69,6 +69,7 @@ var _pages: Dictionary[StringName, SettingsBubblePage] = {}
 var _page_transition_generation: int = 0
 var _page_transition_active: bool = false
 var _presentation_mode: PresentationMode = PresentationMode.GAMEPLAY_MODAL
+var _animate_gameplay_host_transitions: bool = false
 var _auto_click_enabled: bool = false
 var _auto_click_interval_value: float = 0.20
 var _mouse_sensitivity: float = 0.005
@@ -145,10 +146,16 @@ func _ready() -> void:
 func open_panel(
 	settings_manager: SettingsManagerType,
 	presentation_mode: PresentationMode = PresentationMode.GAMEPLAY_MODAL,
+	animate_gameplay_host_transitions: bool = false,
+	uses_external_backdrop: bool = false,
 ) -> void:
 	_cancel_page_transition()
 	_presentation_mode = presentation_mode
-	_backdrop.visible = presentation_mode == PresentationMode.GAMEPLAY_MODAL
+	_animate_gameplay_host_transitions = animate_gameplay_host_transitions
+	_backdrop.visible = (
+		presentation_mode == PresentationMode.GAMEPLAY_MODAL
+		and not uses_external_backdrop
+	)
 	_settings_manager = settings_manager
 	_load_controls()
 	_feedback.text = ""
@@ -156,7 +163,10 @@ func open_panel(
 	_page_stack.clear()
 	_page_stack.append(PAGE_ROOT)
 	panel_visibility_changed.emit(true)
-	if presentation_mode == PresentationMode.TITLE_EMBEDDED:
+	if (
+		presentation_mode == PresentationMode.TITLE_EMBEDDED
+		or _animate_gameplay_host_transitions
+	):
 		for page: SettingsBubblePage in _pages.values():
 			page.hide_page()
 		_page_transition_generation += 1
@@ -164,7 +174,7 @@ func open_panel(
 		var generation: int = _page_transition_generation
 		_root_page.transition_in(
 			true,
-			_finish_embedded_open.bind(generation),
+			_finish_animated_open.bind(generation),
 			TITLE_HOST_INCOMING_DURATION
 		)
 	else:
@@ -172,13 +182,19 @@ func open_panel(
 		opened.emit()
 
 
-func close_panel() -> void:
+func close_panel(immediate: bool = false) -> void:
 	if not visible:
 		return
-	if _presentation_mode == PresentationMode.TITLE_EMBEDDED:
+	if immediate:
+		_finish_panel_close(false)
+		return
+	if (
+		_presentation_mode == PresentationMode.TITLE_EMBEDDED
+		or _animate_gameplay_host_transitions
+	):
 		if _page_transition_active:
 			return
-		_begin_embedded_close(false)
+		_begin_animated_close(false)
 		return
 	_finish_panel_close(false)
 
@@ -266,14 +282,14 @@ func _finish_incoming_page(generation: int) -> void:
 	_page_transition_active = false
 
 
-func _finish_embedded_open(generation: int) -> void:
+func _finish_animated_open(generation: int) -> void:
 	if generation != _page_transition_generation or not _page_transition_active:
 		return
 	_page_transition_active = false
 	opened.emit()
 
 
-func _begin_embedded_close(applied_result: bool) -> void:
+func _begin_animated_close(applied_result: bool) -> void:
 	var active_page: SettingsBubblePage = _get_active_page()
 	if active_page == null:
 		return
@@ -282,12 +298,12 @@ func _begin_embedded_close(applied_result: bool) -> void:
 	navigation_transition_started.emit()
 	var generation: int = _page_transition_generation
 	active_page.transition_out(
-		_finish_embedded_close.bind(generation, applied_result),
+		_finish_animated_close.bind(generation, applied_result),
 		TITLE_HOST_OUTGOING_DURATION
 	)
 
 
-func _finish_embedded_close(
+func _finish_animated_close(
 	generation: int,
 	applied_result: bool,
 ) -> void:
@@ -329,8 +345,11 @@ func _apply_settings() -> void:
 	edited.world_pixel_size = _settings_manager.current_settings.world_pixel_size
 	edited.ui_pixel_size = _settings_manager.current_settings.ui_pixel_size
 	if _settings_manager.apply_settings(edited):
-		if _presentation_mode == PresentationMode.TITLE_EMBEDDED:
-			_begin_embedded_close(true)
+		if (
+			_presentation_mode == PresentationMode.TITLE_EMBEDDED
+			or _animate_gameplay_host_transitions
+		):
+			_begin_animated_close(true)
 		else:
 			_finish_panel_close(true)
 	else:
