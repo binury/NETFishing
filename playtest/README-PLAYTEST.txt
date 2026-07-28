@@ -1,6 +1,6 @@
 NETFISHING
-Pre-Alpha Playtest 0.1
-Version 0.1.0-prealpha
+Pre-Alpha Playtest 0.2
+Version 0.2.0-prealpha.2
 
 Thank you for trying this early private playtest.
 
