@@ -1,0 +1,57 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://ui/components/bubble_hotbar/bubble_hotbar_slot.gd" id="1_slot"]
+[ext_resource type="Resource" path="res://ui/components/bubble_menu/bubble_menu_profile.tres" id="2_profile"]
+[ext_resource type="Theme" path="res://ui/game_theme.tres" id="3_theme"]
+
+[node name="BubbleHotbarSlot" type="Button"]
+custom_minimum_size = Vector2(80, 78)
+focus_mode = 0
+mouse_default_cursor_shape = 2
+theme = ExtResource("3_theme")
+script = ExtResource("1_slot")
+profile = ExtResource("2_profile")
+
+[node name="ItemIcon" type="TextureRect" parent="."]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 17.0
+offset_top = 16.0
+offset_right = 63.0
+offset_bottom = 62.0
+mouse_filter = 2
+texture_filter = 1
+expand_mode = 1
+stretch_mode = 5
+
+[node name="SlotNumberLabel" type="Label" parent="."]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 8.0
+offset_top = 3.0
+offset_right = 30.0
+offset_bottom = 23.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.035, 0.145, 0.22, 1)
+theme_override_colors/font_outline_color = Color(0.91, 0.98, 1, 0.8)
+theme_override_constants/outline_size = 1
+theme_override_font_sizes/font_size = 12
+text = "1"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="QuantityLabel" type="Label" parent="."]
+unique_name_in_owner = true
+visible = false
+layout_mode = 0
+offset_left = 39.0
+offset_top = 54.0
+offset_right = 71.0
+offset_bottom = 74.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.035, 0.145, 0.22, 1)
+theme_override_colors/font_outline_color = Color(0.91, 0.98, 1, 0.9)
+theme_override_constants/outline_size = 1
+theme_override_font_sizes/font_size = 12
+horizontal_alignment = 2
+vertical_alignment = 1

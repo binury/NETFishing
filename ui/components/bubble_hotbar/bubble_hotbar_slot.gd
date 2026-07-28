@@ -1,0 +1,372 @@
+class_name BubbleHotbarSlot
+extends Button
+
+signal item_hovered(slot_index: int, item_id: StringName)
+signal item_hover_ended(slot_index: int)
+signal item_drag_started
+signal item_drag_finished
+
+const ItemCatalogType = preload("res://items/item_catalog.gd")
+const ItemDataType = preload("res://items/item_data.gd")
+const PlayerBagType = preload("res://inventory/player_bag.gd")
+const PlayerHotbarType = preload("res://inventory/player_hotbar.gd")
+
+const SELECTED_SCALE: float = 1.12
+const HOVER_SCALE: float = 1.025
+const MAXIMUM_SCALE: float = 1.14
+const SELECTED_LIFT: float = 4.0
+const HOVER_LIFT: float = 0.75
+const PRESENTATION_RESPONSE: float = 18.0
+const IDLE_AMPLITUDE: float = 1.0
+const IDLE_PERIOD: float = 6.0
+const DEFORMATION_PERIOD: float = 6.8
+const DEFORMATION_PHASE_MULTIPLIER: float = 1.37
+const DEFORMATION_X_AMPLITUDE: float = 0.009
+const DEFORMATION_Y_AMPLITUDE: float = 0.007
+
+@export_range(0, PlayerHotbarType.SLOT_COUNT - 1, 1) var slot_index: int = 0
+@export_group("Authored Layout")
+@export var desktop_size: Vector2 = Vector2(80.0, 78.0)
+@export var compact_size: Vector2 = Vector2(56.0, 54.0)
+@export var desktop_anchor: Vector2 = Vector2.ZERO
+@export var compact_anchor: Vector2 = Vector2.ZERO
+@export_group("Motion")
+@export_range(0.0, TAU, 0.01) var motion_phase: float = 0.0
+@export_group("Style")
+@export var profile: BubbleMenuProfile
+
+@onready var _item_icon: TextureRect = %ItemIcon
+@onready var _slot_number_label: Label = %SlotNumberLabel
+@onready var _quantity_label: Label = %QuantityLabel
+
+var _hotbar: PlayerHotbarType
+var _bag: PlayerBagType
+var _catalog: ItemCatalogType
+var _drag_enabled: bool = false
+var _drag_in_progress: bool = false
+var _selected: bool = false
+var _hovered: bool = false
+var _empty: bool = true
+var _selection_amount: float = 0.0
+var _hover_amount: float = 0.0
+var _base_position: Vector2 = Vector2.ZERO
+var _presented_size: Vector2 = Vector2.ZERO
+var _compact: bool = false
+var _presentation_initialized: bool = false
+
+
+func _ready() -> void:
+	focus_mode = Control.FOCUS_NONE
+	toggle_mode = false
+	pressed.connect(_select_slot)
+	mouse_entered.connect(_on_mouse_entered)
+	mouse_exited.connect(_on_mouse_exited)
+	resized.connect(_update_pivot)
+	_slot_number_label.text = str(slot_index + 1)
+	_update_pivot()
+	_apply_style()
+
+
+func setup(
+	hotbar: PlayerHotbarType,
+	bag: PlayerBagType,
+	catalog: ItemCatalogType,
+) -> void:
+	_hotbar = hotbar
+	_bag = bag
+	_catalog = catalog
+	_slot_number_label.text = str(slot_index + 1)
+	refresh()
+
+
+func apply_layout(compact: bool) -> void:
+	_compact = compact
+	_presented_size = compact_size if compact else desktop_size
+	var center: Vector2 = compact_anchor if compact else desktop_anchor
+	custom_minimum_size = _presented_size
+	size = _presented_size
+	_base_position = center - _presented_size * 0.5
+	_update_content_layout()
+	_update_pivot()
+	_apply_style()
+	if not _presentation_initialized:
+		_selection_amount = 1.0 if _selected else 0.0
+		_hover_amount = 1.0 if _hovered else 0.0
+		_presentation_initialized = true
+
+
+func advance_presentation(delta: float, elapsed: float) -> void:
+	var response_weight: float = 1.0 - exp(-PRESENTATION_RESPONSE * delta)
+	_selection_amount = lerpf(
+		_selection_amount,
+		1.0 if _selected else 0.0,
+		response_weight
+	)
+	_hover_amount = lerpf(
+		_hover_amount,
+		1.0 if _hovered else 0.0,
+		response_weight
+	)
+	var idle_offset: float = sin(
+		elapsed / IDLE_PERIOD * TAU + motion_phase
+	) * IDLE_AMPLITUDE
+	var lift: float = (
+		_selection_amount * SELECTED_LIFT
+		+ _hover_amount * HOVER_LIFT
+	)
+	position = _base_position + Vector2(0.0, idle_offset - lift)
+	var presentation_scale: float = minf(
+		MAXIMUM_SCALE,
+		1.0
+		+ _selection_amount * (SELECTED_SCALE - 1.0)
+		+ _hover_amount * (HOVER_SCALE - 1.0)
+	)
+	var breath: float = sin(
+		elapsed / DEFORMATION_PERIOD * TAU
+		+ motion_phase * DEFORMATION_PHASE_MULTIPLIER
+	)
+	var deformation := Vector2(
+		1.0 + breath * DEFORMATION_X_AMPLITUDE,
+		1.0 - breath * DEFORMATION_Y_AMPLITUDE
+	)
+	scale = deformation * presentation_scale
+
+
+func set_drag_enabled(enabled: bool) -> void:
+	_drag_enabled = enabled
+	mouse_filter = (
+		Control.MOUSE_FILTER_STOP
+		if enabled
+		else Control.MOUSE_FILTER_IGNORE
+	)
+	if not enabled:
+		_hovered = false
+
+
+func refresh() -> void:
+	if _hotbar == null:
+		return
+	var item_id: StringName = _hotbar.get_item_id(slot_index)
+	var item: ItemDataType = (
+		_catalog.get_item_by_id(item_id)
+		if _catalog != null and not item_id.is_empty()
+		else null
+	)
+	_item_icon.texture = item.icon if item != null else null
+	var quantity: int = (
+		_bag.get_quantity(item_id)
+		if _bag != null and not item_id.is_empty()
+		else 0
+	)
+	var quantity_text: String = (
+		"×%d" % quantity
+		if item != null and item.stackable and quantity > 1
+		else ""
+	)
+	_quantity_label.text = quantity_text
+	_quantity_label.visible = not quantity_text.is_empty()
+	tooltip_text = (
+		item.display_name if item != null else "empty hotbar slot"
+	)
+	var was_selected: bool = _selected
+	var was_empty: bool = _empty
+	_selected = slot_index == _hotbar.get_selected_slot()
+	_empty = item == null
+	if was_selected != _selected or was_empty != _empty:
+		_apply_style()
+
+
+func _update_content_layout() -> void:
+	if not is_node_ready():
+		return
+	if _compact:
+		_item_icon.position = Vector2(11.0, 11.0)
+		_item_icon.size = Vector2(34.0, 34.0)
+		_slot_number_label.position = Vector2(6.0, 2.0)
+		_slot_number_label.size = Vector2(18.0, 18.0)
+		_slot_number_label.add_theme_font_size_override("font_size", 10)
+		_quantity_label.position = Vector2(25.0, 35.0)
+		_quantity_label.size = Vector2(25.0, 17.0)
+		_quantity_label.add_theme_font_size_override("font_size", 10)
+	else:
+		_item_icon.position = Vector2(17.0, 16.0)
+		_item_icon.size = Vector2(46.0, 46.0)
+		_slot_number_label.position = Vector2(8.0, 3.0)
+		_slot_number_label.size = Vector2(22.0, 20.0)
+		_slot_number_label.add_theme_font_size_override("font_size", 12)
+		_quantity_label.position = Vector2(39.0, 54.0)
+		_quantity_label.size = Vector2(32.0, 20.0)
+		_quantity_label.add_theme_font_size_override("font_size", 12)
+
+
+func _apply_style() -> void:
+	if profile == null:
+		return
+	var normal_fill: Color = profile.normal_fill
+	normal_fill.a = 1.0
+	var normal_border: Color = profile.normal_border
+	var normal_border_width: int = profile.normal_border_width
+	if _selected:
+		normal_border = profile.pressed_border
+		normal_border_width = profile.emphasized_border_width
+	add_theme_stylebox_override(
+		"normal",
+		_make_style(normal_fill, normal_border, normal_border_width)
+	)
+	add_theme_stylebox_override(
+		"hover",
+		_make_style(
+			normal_fill,
+			profile.hover_border,
+			profile.emphasized_border_width
+		)
+	)
+	add_theme_stylebox_override(
+		"pressed",
+		_make_style(
+			normal_fill,
+			profile.pressed_border,
+			profile.emphasized_border_width
+		)
+	)
+	add_theme_stylebox_override(
+		"focus",
+		get_theme_stylebox("normal")
+	)
+	add_theme_stylebox_override(
+		"disabled",
+		_make_style(
+			normal_fill,
+			profile.disabled_border,
+			profile.normal_border_width
+		)
+	)
+	add_theme_color_override("font_color", profile.text_color)
+	add_theme_color_override("font_hover_color", profile.text_hover_color)
+	add_theme_color_override("font_pressed_color", profile.text_pressed_color)
+	add_theme_color_override("font_disabled_color", profile.text_disabled_color)
+
+
+func _make_style(
+	fill_color: Color,
+	border_color: Color,
+	border_width: int,
+) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = fill_color
+	style.border_color = border_color
+	style.border_width_left = border_width
+	style.border_width_top = border_width
+	style.border_width_right = border_width
+	style.border_width_bottom = border_width
+	var radius: int = ceili(maxf(_presented_size.x, _presented_size.y) * 0.5)
+	style.corner_radius_top_left = radius
+	style.corner_radius_top_right = radius
+	style.corner_radius_bottom_right = radius
+	style.corner_radius_bottom_left = radius
+	return style
+
+
+func _has_point(point: Vector2) -> bool:
+	var radius: Vector2 = size * 0.5
+	if radius.x <= 0.0 or radius.y <= 0.0:
+		return false
+	var normalized: Vector2 = (point - radius) / radius
+	return normalized.length_squared() <= 1.0
+
+
+func _gui_input(event: InputEvent) -> void:
+	if (
+		_drag_enabled
+		and event is InputEventMouseButton
+		and event.button_index == MOUSE_BUTTON_RIGHT
+		and event.pressed
+		and _hotbar != null
+	):
+		_hotbar.clear_slot(slot_index)
+		accept_event()
+
+
+func _get_drag_data(_at_position: Vector2) -> Variant:
+	if not _drag_enabled or _hotbar == null:
+		return null
+	var item_id: StringName = _hotbar.get_item_id(slot_index)
+	if item_id.is_empty():
+		return null
+	var item: ItemDataType = _catalog.get_item_by_id(item_id)
+	var preview := TextureRect.new()
+	preview.custom_minimum_size = Vector2(44.0, 44.0)
+	preview.texture = item.icon if item != null else null
+	preview.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	preview.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	preview.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	preview.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	set_drag_preview(preview)
+	_drag_in_progress = true
+	item_drag_started.emit()
+	return {
+		"kind": "hotbar_slot",
+		"slot_index": slot_index,
+		"item_id": String(item_id),
+	}
+
+
+func _can_drop_data(_at_position: Vector2, data: Variant) -> bool:
+	if not _drag_enabled or typeof(data) != TYPE_DICTIONARY:
+		return false
+	var payload: Dictionary = data
+	var kind: String = str(payload.get("kind", ""))
+	if kind == "hotbar_slot":
+		var source_index: int = int(payload.get("slot_index", -1))
+		return (
+			source_index >= 0
+			and source_index < PlayerHotbarType.SLOT_COUNT
+			and source_index != slot_index
+		)
+	if kind != "bag_item":
+		return false
+	var item_id: StringName = StringName(str(payload.get("item_id", "")))
+	if _bag == null or not _bag.owns_item(item_id) or _catalog == null:
+		return false
+	var item: ItemDataType = _catalog.get_item_by_id(item_id)
+	return item != null and item.is_valid() and item.hotbar_allowed
+
+
+func _drop_data(_at_position: Vector2, data: Variant) -> void:
+	if not _can_drop_data(Vector2.ZERO, data) or _hotbar == null:
+		return
+	var payload: Dictionary = data
+	if str(payload.get("kind", "")) == "hotbar_slot":
+		_hotbar.swap_slots(int(payload["slot_index"]), slot_index)
+	else:
+		_hotbar.assign_item(
+			slot_index,
+			StringName(str(payload["item_id"]))
+		)
+
+
+func _select_slot() -> void:
+	if _hotbar != null:
+		_hotbar.select_slot(slot_index)
+		refresh()
+
+
+func _on_mouse_entered() -> void:
+	_hovered = true
+	if _hotbar != null:
+		item_hovered.emit(slot_index, _hotbar.get_item_id(slot_index))
+
+
+func _on_mouse_exited() -> void:
+	_hovered = false
+	item_hover_ended.emit(slot_index)
+
+
+func _update_pivot() -> void:
+	pivot_offset = size * 0.5
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_DRAG_END and _drag_in_progress:
+		_drag_in_progress = false
+		item_drag_finished.emit()

@@ -4,10 +4,16 @@ extends Control
 const ItemCatalogType = preload("res://items/item_catalog.gd")
 const PlayerBagType = preload("res://inventory/player_bag.gd")
 const PlayerHotbarType = preload("res://inventory/player_hotbar.gd")
-const HotbarSlotType = preload("res://ui/hotbar_slot.gd")
+const BubbleHotbarSlotType = preload(
+	"res://ui/components/bubble_hotbar/bubble_hotbar_slot.gd"
+)
 const FishingSpotType = preload("res://fishing/fishing_spot.gd")
 
-@onready var _slot_row: HBoxContainer = %SlotRow
+const DESKTOP_REFERENCE_SIZE := Vector2(1280.0, 720.0)
+const COMPACT_REFERENCE_SIZE := Vector2(640.0, 480.0)
+
+@onready var _presentation_scale_root: Control = %HotbarPresentationScaleRoot
+@onready var _bubble_field: Control = %BubbleField
 @onready var _selected_item_label: Label = %SelectedItemLabel
 @onready var _item_name_timer: Timer = %ItemNameTimer
 
@@ -15,15 +21,26 @@ var _hotbar: PlayerHotbarType
 var _bag: PlayerBagType
 var _catalog: ItemCatalogType
 var _fishing_spot: FishingSpotType
-var _slots: Array[HotbarSlotType] = []
+var _slots: Array[BubbleHotbarSlotType] = []
 var _gameplay_input_enabled: bool = false
 var _drag_enabled: bool = false
 var _hovered_slot_index: int = -1
 var _item_name_suppressed: bool = false
+var _motion_elapsed: float = 0.0
+var _compact_layout: bool = false
 
 
 func _ready() -> void:
 	_item_name_timer.timeout.connect(_on_item_name_timer_timeout)
+	resized.connect(_apply_layout)
+	_collect_slots()
+	_apply_layout()
+
+
+func _process(delta: float) -> void:
+	_motion_elapsed += delta
+	for slot: BubbleHotbarSlotType in _slots:
+		slot.advance_presentation(delta, _motion_elapsed)
 
 
 func setup(
@@ -44,7 +61,9 @@ func setup(
 		_hotbar.selected_slot_changed.connect(_on_selected_slot_changed)
 	if not _bag.contents_changed.is_connected(_refresh):
 		_bag.contents_changed.connect(_refresh)
-	_build_slots()
+	for slot: BubbleHotbarSlotType in _slots:
+		slot.setup(_hotbar, _bag, _catalog)
+		slot.set_drag_enabled(_drag_enabled)
 	_refresh()
 
 
@@ -54,7 +73,7 @@ func set_gameplay_input_enabled(enabled: bool) -> void:
 
 func set_drag_enabled(enabled: bool) -> void:
 	_drag_enabled = enabled
-	for slot: HotbarSlotType in _slots:
+	for slot: BubbleHotbarSlotType in _slots:
 		slot.set_drag_enabled(enabled)
 	if not enabled:
 		_hovered_slot_index = -1
@@ -95,25 +114,69 @@ func _unhandled_input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 
 
-func _build_slots() -> void:
-	for child: Node in _slot_row.get_children():
-		child.queue_free()
+func _collect_slots() -> void:
 	_slots.clear()
-	for index: int in range(PlayerHotbarType.SLOT_COUNT):
-		var slot := HotbarSlotType.new()
-		slot.toggle_mode = true
-		slot.setup(index, _hotbar, _bag, _catalog)
-		slot.set_drag_enabled(_drag_enabled)
+	for child: Node in _bubble_field.get_children():
+		var slot := child as BubbleHotbarSlotType
+		if slot == null:
+			continue
 		slot.item_hovered.connect(_on_slot_item_hovered)
 		slot.item_hover_ended.connect(_on_slot_item_hover_ended)
 		slot.item_drag_started.connect(_on_slot_drag_started)
 		slot.item_drag_finished.connect(_on_slot_drag_finished)
-		_slot_row.add_child(slot)
 		_slots.append(slot)
+	_slots.sort_custom(
+		func(
+			left: BubbleHotbarSlotType,
+			right: BubbleHotbarSlotType,
+		) -> bool:
+			return left.slot_index < right.slot_index
+	)
+
+
+func _apply_layout() -> void:
+	if not is_node_ready():
+		return
+	var parent_control := get_parent_control()
+	var available_size: Vector2 = (
+		parent_control.size if parent_control != null else size
+	)
+	_compact_layout = (
+		available_size.y < PlayerSettings.COMPACT_DISPLAY_HEIGHT
+	)
+	var reference_size := (
+		COMPACT_REFERENCE_SIZE
+		if _compact_layout
+		else DESKTOP_REFERENCE_SIZE
+	)
+	var presentation_scale: float = minf(
+		available_size.x / reference_size.x,
+		available_size.y / reference_size.y
+	)
+	if _compact_layout:
+		presentation_scale = maxf(1.0, presentation_scale)
+	_presentation_scale_root.size = reference_size
+	_presentation_scale_root.scale = Vector2.ONE * presentation_scale
+	_presentation_scale_root.position = Vector2(
+		(available_size.x - reference_size.x * presentation_scale) * 0.5,
+		available_size.y - reference_size.y * presentation_scale
+	)
+	var field_size := (
+		Vector2(600.0, 82.0)
+		if _compact_layout
+		else Vector2(820.0, 104.0)
+	)
+	_bubble_field.size = field_size
+	_bubble_field.position = Vector2(
+		(reference_size.x - field_size.x) * 0.5,
+		reference_size.y - 8.0 - field_size.y
+	)
+	for slot: BubbleHotbarSlotType in _slots:
+		slot.apply_layout(_compact_layout)
 
 
 func _refresh() -> void:
-	for slot: HotbarSlotType in _slots:
+	for slot: BubbleHotbarSlotType in _slots:
 		slot.refresh()
 
 
