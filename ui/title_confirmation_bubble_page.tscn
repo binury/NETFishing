@@ -1,0 +1,129 @@
+[gd_scene load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://ui/title_confirmation_bubble_page.gd" id="1_page"]
+[ext_resource type="PackedScene" path="res://ui/components/bubble_menu/bubble_button.tscn" id="2_bubble"]
+[ext_resource type="Script" path="res://ui/components/bubble_menu/bubble_cluster.gd" id="3_cluster"]
+[ext_resource type="Script" path="res://ui/components/bubble_menu/bubble_menu_profile.gd" id="4_profile_script"]
+[ext_resource type="Resource" path="res://ui/components/bubble_menu/bubble_menu_profile.tres" id="5_profile"]
+
+[sub_resource type="Resource" id="BubbleMenuProfile_confirmation_action"]
+script = ExtResource("4_profile_script")
+normal_border_width = 3
+emphasized_border_width = 4
+
+[node name="TitleConfirmationBubblePage" type="Control"]
+visible = false
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("1_page")
+
+[node name="BubbleCluster" type="Control" parent="."]
+layout_mode = 0
+offset_right = 396.0
+offset_bottom = 318.0
+script = ExtResource("3_cluster")
+profile = ExtResource("5_profile")
+desktop_reference_size = Vector2(396, 318)
+compact_reference_size = Vector2(294, 200)
+
+[node name="PromptBubble" parent="BubbleCluster" instance=ExtResource("2_bubble")]
+custom_minimum_size = Vector2(0, 0)
+offset_left = 70.0
+offset_top = -2.0
+offset_right = 326.0
+offset_bottom = 254.0
+neutral_size = Vector2(256, 256)
+desktop_anchor = Vector2(198, 126)
+compact_anchor = Vector2(198, 119)
+compact_minimum_size = Vector2(190, 190)
+label_control_path = NodePath("PromptLabel")
+minimum_font_size = 15
+maximum_font_size = 26
+horizontal_amplitude = 1.6
+vertical_amplitude = 4.2
+motion_period = 6.4
+motion_phase = 0.45
+deformation_amplitude = 0.012
+deformation_period = 7.1
+
+[node name="PromptLabel" type="Label" parent="BubbleCluster/PromptBubble"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 22.0
+offset_top = 22.0
+offset_right = -22.0
+offset_bottom = -22.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.035, 0.145, 0.22, 1)
+theme_override_constants/line_spacing = -2
+text = "confirm?"
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 2
+
+[node name="ConfirmButton" parent="BubbleCluster" instance=ExtResource("2_bubble")]
+custom_minimum_size = Vector2(0, 0)
+offset_left = 20.0
+offset_top = 222.0
+offset_right = 136.0
+offset_bottom = 334.0
+profile = SubResource("BubbleMenuProfile_confirmation_action")
+neutral_size = Vector2(116, 112)
+desktop_anchor = Vector2(78, 278)
+compact_anchor = Vector2(34, 280)
+compact_minimum_size = Vector2(88, 86)
+label_control_path = NodePath("ConfirmLabel")
+minimum_font_size = 14
+maximum_font_size = 21
+horizontal_amplitude = 2.0
+vertical_amplitude = 4.8
+motion_period = 5.6
+motion_phase = 2.15
+deformation_amplitude = 0.016
+deformation_period = 5.9
+
+[node name="ConfirmLabel" type="Label" parent="BubbleCluster/ConfirmButton"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 12.0
+offset_top = 12.0
+offset_right = -12.0
+offset_bottom = -12.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+text = "confirm"
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 2
+
+[node name="CancelButton" parent="BubbleCluster" instance=ExtResource("2_bubble")]
+custom_minimum_size = Vector2(0, 0)
+offset_left = 262.0
+offset_top = 216.0
+offset_right = 374.0
+offset_bottom = 324.0
+text = "cancel"
+neutral_size = Vector2(112, 108)
+desktop_anchor = Vector2(318, 270)
+compact_anchor = Vector2(362, 272)
+compact_minimum_size = Vector2(86, 84)
+minimum_font_size = 14
+maximum_font_size = 20
+horizontal_amplitude = 1.7
+vertical_amplitude = 4.1
+motion_period = 5.1
+motion_phase = 4.0
+deformation_amplitude = 0.017
+deformation_period = 5.4

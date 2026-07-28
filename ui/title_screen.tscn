@@ -1,4 +1,4 @@
-[gd_scene load_steps=12 format=3]
+[gd_scene load_steps=13 format=3]
 
 [ext_resource type="Script" path="res://ui/title_screen.gd" id="1_script"]
 [ext_resource type="Theme" path="res://ui/game_theme.tres" id="2_theme"]
@@ -9,6 +9,7 @@
 [ext_resource type="Script" path="res://ui/components/bubble_menu/bubble_button.gd" id="7_bubble_button"]
 [ext_resource type="Script" path="res://ui/components/bubble_menu/bubble_cluster.gd" id="8_bubble_cluster"]
 [ext_resource type="Resource" path="res://ui/components/bubble_menu/bubble_menu_profile.tres" id="9_bubble_profile"]
+[ext_resource type="PackedScene" path="res://ui/title_confirmation_bubble_page.tscn" id="10_confirmation_page"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_title_water"]
 shader = ExtResource("4_water_shader")
@@ -76,7 +77,25 @@ one_shot = true
 unique_name_in_owner = true
 one_shot = true
 
-[node name="StartPromptCenter" type="CenterContainer" parent="."]
+[node name="ResponsiveTitleStage" type="Control" parent="."]
+unique_name_in_owner = true
+z_index = 10
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 1
+
+[node name="TitlePresentationScaleRoot" type="Control" parent="ResponsiveTitleStage"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_right = 1280.0
+offset_bottom = 720.0
+mouse_filter = 1
+
+[node name="StartPromptCenter" type="CenterContainer" parent="ResponsiveTitleStage/TitlePresentationScaleRoot"]
 unique_name_in_owner = true
 z_index = 12
 layout_mode = 1
@@ -89,7 +108,7 @@ grow_horizontal = 2
 grow_vertical = 0
 mouse_filter = 2
 
-[node name="StartPromptLabel" type="Label" parent="StartPromptCenter"]
+[node name="StartPromptLabel" type="Label" parent="ResponsiveTitleStage/TitlePresentationScaleRoot/StartPromptCenter"]
 unique_name_in_owner = true
 layout_mode = 2
 mouse_filter = 2
@@ -101,7 +120,7 @@ text = "press any key to start"
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="IntroBrandingAnchor" type="Control" parent="."]
+[node name="IntroBrandingAnchor" type="Control" parent="ResponsiveTitleStage/TitlePresentationScaleRoot"]
 unique_name_in_owner = true
 layout_mode = 1
 anchor_left = 0.5
@@ -112,7 +131,8 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 
-[node name="Center" type="CenterContainer" parent="."]
+[node name="Center" type="CenterContainer" parent="ResponsiveTitleStage/TitlePresentationScaleRoot"]
+unique_name_in_owner = true
 z_index = 10
 layout_mode = 1
 anchors_preset = 15
@@ -121,23 +141,25 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="MainContent" type="VBoxContainer" parent="Center"]
+[node name="MainContent" type="VBoxContainer" parent="ResponsiveTitleStage/TitlePresentationScaleRoot/Center"]
+unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/separation = 7
 alignment = 1
 
-[node name="BrandingSlot" type="Control" parent="Center/MainContent"]
+[node name="BrandingSlot" type="Control" parent="ResponsiveTitleStage/TitlePresentationScaleRoot/Center/MainContent"]
+unique_name_in_owner = true
 custom_minimum_size = Vector2(640, 215)
 layout_mode = 2
 
-[node name="BrandingMotionRoot" type="Control" parent="Center/MainContent/BrandingSlot"]
+[node name="BrandingMotionRoot" type="Control" parent="ResponsiveTitleStage/TitlePresentationScaleRoot/Center/MainContent/BrandingSlot"]
 unique_name_in_owner = true
 layout_mode = 0
 offset_right = 640.0
 offset_bottom = 215.0
 mouse_filter = 2
 
-[node name="BrandingContent" type="VBoxContainer" parent="Center/MainContent/BrandingSlot/BrandingMotionRoot"]
+[node name="BrandingContent" type="VBoxContainer" parent="ResponsiveTitleStage/TitlePresentationScaleRoot/Center/MainContent/BrandingSlot/BrandingMotionRoot"]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -146,7 +168,7 @@ grow_horizontal = 2
 grow_vertical = 2
 theme_override_constants/separation = 7
 
-[node name="TitleLogo" type="TextureRect" parent="Center/MainContent/BrandingSlot/BrandingMotionRoot/BrandingContent"]
+[node name="TitleLogo" type="TextureRect" parent="ResponsiveTitleStage/TitlePresentationScaleRoot/Center/MainContent/BrandingSlot/BrandingMotionRoot/BrandingContent"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(640, 190)
 material = SubResource("ShaderMaterial_title_logo")
@@ -157,35 +179,57 @@ texture = ExtResource("5_logo")
 expand_mode = 1
 stretch_mode = 5
 
-[node name="PlaytestLabel" type="Label" parent="Center/MainContent/BrandingSlot/BrandingMotionRoot/BrandingContent"]
+[node name="VersionRow" type="Control" parent="ResponsiveTitleStage/TitlePresentationScaleRoot/Center/MainContent/BrandingSlot/BrandingMotionRoot/BrandingContent"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 18)
+layout_mode = 2
+mouse_filter = 2
+
+[node name="VersionAnchor" type="CenterContainer" parent="ResponsiveTitleStage/TitlePresentationScaleRoot/Center/MainContent/BrandingSlot/BrandingMotionRoot/BrandingContent/VersionRow"]
+layout_mode = 1
+anchor_left = 0.7
+anchor_top = 0.5
+anchor_right = 0.7
+anchor_bottom = 0.5
+offset_left = -140.0
+offset_top = -17.0
+offset_right = 140.0
+offset_bottom = 11.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="PlaytestLabel" type="Label" parent="ResponsiveTitleStage/TitlePresentationScaleRoot/Center/MainContent/BrandingSlot/BrandingMotionRoot/BrandingContent/VersionRow/VersionAnchor"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(0.682, 0.733, 0.761, 1)
-theme_override_font_sizes/font_size = 17
+theme_override_font_sizes/font_size = 22
 text = "pre-alpha playtest 0.2"
 horizontal_alignment = 1
 
-[node name="Spacer" type="Control" parent="Center/MainContent"]
+[node name="Spacer" type="Control" parent="ResponsiveTitleStage/TitlePresentationScaleRoot/Center/MainContent"]
+unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 3)
 layout_mode = 2
 
-[node name="ButtonCenter" type="CenterContainer" parent="Center/MainContent"]
+[node name="ButtonCenter" type="CenterContainer" parent="ResponsiveTitleStage/TitlePresentationScaleRoot/Center/MainContent"]
 unique_name_in_owner = true
 visible = false
 layout_mode = 2
 
-[node name="BubbleLayoutSlot" type="Control" parent="Center/MainContent/ButtonCenter"]
+[node name="BubbleLayoutSlot" type="Control" parent="ResponsiveTitleStage/TitlePresentationScaleRoot/Center/MainContent/ButtonCenter"]
+unique_name_in_owner = true
 custom_minimum_size = Vector2(396, 318)
 layout_mode = 2
 
-[node name="BubbleMotionRoot" type="Control" parent="Center/MainContent/ButtonCenter/BubbleLayoutSlot"]
+[node name="BubbleMotionRoot" type="Control" parent="ResponsiveTitleStage/TitlePresentationScaleRoot/Center/MainContent/ButtonCenter/BubbleLayoutSlot"]
 unique_name_in_owner = true
 layout_mode = 0
 offset_right = 396.0
 offset_bottom = 318.0
 mouse_filter = 2
 
-[node name="BubbleField" type="Control" parent="Center/MainContent/ButtonCenter/BubbleLayoutSlot/BubbleMotionRoot"]
+[node name="BubbleField" type="Control" parent="ResponsiveTitleStage/TitlePresentationScaleRoot/Center/MainContent/ButtonCenter/BubbleLayoutSlot/BubbleMotionRoot"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(396, 318)
 layout_mode = 0
@@ -194,7 +238,7 @@ offset_bottom = 318.0
 script = ExtResource("8_bubble_cluster")
 profile = ExtResource("9_bubble_profile")
 
-[node name="ContinueButton" type="Button" parent="Center/MainContent/ButtonCenter/BubbleLayoutSlot/BubbleMotionRoot/BubbleField"]
+[node name="ContinueButton" type="Button" parent="ResponsiveTitleStage/TitlePresentationScaleRoot/Center/MainContent/ButtonCenter/BubbleLayoutSlot/BubbleMotionRoot/BubbleField"]
 unique_name_in_owner = true
 offset_left = 123.0
 offset_top = 86.0
@@ -214,7 +258,7 @@ motion_period = 5.8
 deformation_amplitude = 0.01
 deformation_period = 6.7
 
-[node name="NewGameButton" type="Button" parent="Center/MainContent/ButtonCenter/BubbleLayoutSlot/BubbleMotionRoot/BubbleField"]
+[node name="NewGameButton" type="Button" parent="ResponsiveTitleStage/TitlePresentationScaleRoot/Center/MainContent/ButtonCenter/BubbleLayoutSlot/BubbleMotionRoot/BubbleField"]
 unique_name_in_owner = true
 offset_left = 42.0
 offset_top = 4.0
@@ -236,7 +280,7 @@ motion_phase = 1.2
 deformation_amplitude = 0.018
 deformation_period = 5.9
 
-[node name="NewGameLabel" type="Label" parent="Center/MainContent/ButtonCenter/BubbleLayoutSlot/BubbleMotionRoot/BubbleField/NewGameButton"]
+[node name="NewGameLabel" type="Label" parent="ResponsiveTitleStage/TitlePresentationScaleRoot/Center/MainContent/ButtonCenter/BubbleLayoutSlot/BubbleMotionRoot/BubbleField/NewGameButton"]
 unique_name_in_owner = true
 layout_mode = 1
 anchors_preset = 15
@@ -251,7 +295,7 @@ text = "new game"
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="SettingsButton" type="Button" parent="Center/MainContent/ButtonCenter/BubbleLayoutSlot/BubbleMotionRoot/BubbleField"]
+[node name="SettingsButton" type="Button" parent="ResponsiveTitleStage/TitlePresentationScaleRoot/Center/MainContent/ButtonCenter/BubbleLayoutSlot/BubbleMotionRoot/BubbleField"]
 unique_name_in_owner = true
 offset_left = 264.0
 offset_top = 17.0
@@ -270,7 +314,7 @@ motion_period = 4.9
 motion_phase = 2.5
 deformation_period = 6.3
 
-[node name="DeleteSaveButton" type="Button" parent="Center/MainContent/ButtonCenter/BubbleLayoutSlot/BubbleMotionRoot/BubbleField"]
+[node name="DeleteSaveButton" type="Button" parent="ResponsiveTitleStage/TitlePresentationScaleRoot/Center/MainContent/ButtonCenter/BubbleLayoutSlot/BubbleMotionRoot/BubbleField"]
 unique_name_in_owner = true
 offset_left = -11.0
 offset_top = 122.0
@@ -291,7 +335,7 @@ motion_phase = 3.7
 deformation_amplitude = 0.018
 deformation_period = 5.4
 
-[node name="DeleteSaveLabel" type="Label" parent="Center/MainContent/ButtonCenter/BubbleLayoutSlot/BubbleMotionRoot/BubbleField/DeleteSaveButton"]
+[node name="DeleteSaveLabel" type="Label" parent="ResponsiveTitleStage/TitlePresentationScaleRoot/Center/MainContent/ButtonCenter/BubbleLayoutSlot/BubbleMotionRoot/BubbleField/DeleteSaveButton"]
 unique_name_in_owner = true
 layout_mode = 1
 anchors_preset = 15
@@ -306,7 +350,7 @@ text = "delete save"
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="QuitButton" type="Button" parent="Center/MainContent/ButtonCenter/BubbleLayoutSlot/BubbleMotionRoot/BubbleField"]
+[node name="QuitButton" type="Button" parent="ResponsiveTitleStage/TitlePresentationScaleRoot/Center/MainContent/ButtonCenter/BubbleLayoutSlot/BubbleMotionRoot/BubbleField"]
 unique_name_in_owner = true
 offset_left = 275.0
 offset_top = 217.0
@@ -328,7 +372,7 @@ motion_phase = 4.8
 deformation_amplitude = 0.02
 deformation_period = 4.8
 
-[node name="FeedbackLabel" type="Label" parent="Center/MainContent"]
+[node name="FeedbackLabel" type="Label" parent="ResponsiveTitleStage/TitlePresentationScaleRoot/Center/MainContent"]
 unique_name_in_owner = true
 visible = false
 custom_minimum_size = Vector2(0, 44)
@@ -338,59 +382,17 @@ horizontal_alignment = 1
 vertical_alignment = 1
 autowrap_mode = 2
 
-[node name="ConfirmationPanel" type="PanelContainer" parent="."]
+[node name="ConfirmationPage" parent="ResponsiveTitleStage/TitlePresentationScaleRoot" instance=ExtResource("10_confirmation_page")]
 unique_name_in_owner = true
-visible = false
-z_index = 210
+z_index = 11
 layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -320.0
-offset_top = -150.0
-offset_right = 320.0
-offset_bottom = 150.0
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="Margin" type="MarginContainer" parent="ConfirmationPanel"]
-layout_mode = 2
-theme_override_constants/margin_left = 24
-theme_override_constants/margin_top = 20
-theme_override_constants/margin_right = 24
-theme_override_constants/margin_bottom = 20
-
-[node name="Content" type="VBoxContainer" parent="ConfirmationPanel/Margin"]
-layout_mode = 2
-theme_override_constants/separation = 14
-
-[node name="ConfirmationText" type="Label" parent="ConfirmationPanel/Margin/Content"]
-unique_name_in_owner = true
-layout_mode = 2
-text = "confirm?"
-horizontal_alignment = 1
-autowrap_mode = 2
-
-[node name="Buttons" type="HBoxContainer" parent="ConfirmationPanel/Margin/Content"]
-layout_mode = 2
-theme_override_constants/separation = 12
-alignment = 1
-
-[node name="ConfirmButton" type="Button" parent="ConfirmationPanel/Margin/Content/Buttons"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(190, 64)
-layout_mode = 2
-text = "confirm"
-
-[node name="CancelConfirmButton" type="Button" parent="ConfirmationPanel/Margin/Content/Buttons"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(160, 64)
-layout_mode = 2
-text = "cancel"
-
-[node name="SettingsPanel" parent="." instance=ExtResource("3_settings")]
+[node name="SettingsPanel" parent="ResponsiveTitleStage/TitlePresentationScaleRoot" instance=ExtResource("3_settings")]
 unique_name_in_owner = true
 z_index = 210
 layout_mode = 1

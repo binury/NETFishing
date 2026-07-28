@@ -13,6 +13,9 @@ const BubbleButtonType = preload(
 const BubbleClusterType = preload(
 	"res://ui/components/bubble_menu/bubble_cluster.gd"
 )
+const TitleConfirmationBubblePageType = preload(
+	"res://ui/title_confirmation_bubble_page.gd"
+)
 const DECORATIVE_FISH_TEXTURES: Array[Texture2D] = [
 	preload("res://fish/species/bass/fish_bass_striped.png"),
 	preload("res://fish/species/bluegill/fish_bluegill.png"),
@@ -50,11 +53,20 @@ const BUBBLE_WOBBLE_MIN: float = 3.0
 const BUBBLE_WOBBLE_MAX: float = 9.0
 const BUBBLE_EDGE_MARGIN: float = 16.0
 const MAX_DECORATIVE_BUBBLES: int = 6
+const TRANSITION_BUBBLE_COUNT_MIN: int = 4
+const TRANSITION_BUBBLE_COUNT_MAX: int = 5
+const MAX_TRANSITION_BUBBLES: int = 30
+const TRANSITION_BUBBLE_X_MIN: float = 0.36
+const TRANSITION_BUBBLE_X_MAX: float = 0.64
+const TRANSITION_BUBBLE_Y_MIN: float = 0.60
+const TRANSITION_BUBBLE_Y_MAX: float = 0.78
 const LOGO_ASPECT_RATIO: float = 2560.0 / 760.0
 const LOGO_WIDTH_FACTOR: float = 0.4784
 const LOGO_MIN_WIDTH: float = 294.0
 const LOGO_MAX_WIDTH: float = 662.0
 const TITLE_HORIZONTAL_MARGIN: float = 48.0
+const TITLE_DESKTOP_REFERENCE_SIZE: Vector2 = Vector2(1280.0, 720.0)
+const TITLE_COMPACT_REFERENCE_SIZE: Vector2 = Vector2(640.0, 480.0)
 const BUBBLE_FIELD_MAX_WIDTH: float = 396.0
 const BUBBLE_FIELD_DESKTOP_HEIGHT: float = 318.0
 const BUBBLE_FIELD_COMPACT_WIDTH: float = 294.0
@@ -89,10 +101,13 @@ enum ConfirmationAction {
 @onready var _new_game_label: Label = %NewGameLabel
 @onready var _delete_save_label: Label = %DeleteSaveLabel
 @onready var _feedback_label: Label = %FeedbackLabel
-@onready var _confirmation_panel: PanelContainer = %ConfirmationPanel
-@onready var _confirmation_text: Label = %ConfirmationText
-@onready var _confirm_button: Button = %ConfirmButton
+@onready var _confirmation_page: TitleConfirmationBubblePageType = (
+	%ConfirmationPage
+)
 @onready var _settings_panel: SettingsPanelType = %SettingsPanel
+@onready var _title_presentation_scale_root: Control = (
+	%TitlePresentationScaleRoot
+)
 @onready var _background: ColorRect = %Background
 @onready var _decorative_fish_layer: Control = %DecorativeFishLayer
 @onready var _decorative_fish_timer: Timer = %DecorativeFishTimer
@@ -102,13 +117,14 @@ enum ConfirmationAction {
 @onready var _title_logo: TextureRect = %TitleLogo
 @onready var _playtest_label: Label = %PlaytestLabel
 @onready var _intro_branding_anchor: Control = %IntroBrandingAnchor
-@onready var _presentation_center: CenterContainer = $Center
-@onready var _main_content: VBoxContainer = $Center/MainContent
-@onready var _branding_slot: Control = $Center/MainContent/BrandingSlot
+@onready var _presentation_center: CenterContainer = %Center
+@onready var _main_content: VBoxContainer = %MainContent
+@onready var _branding_slot: Control = %BrandingSlot
 @onready var _branding_motion_root: Control = %BrandingMotionRoot
-@onready var _title_spacer: Control = $Center/MainContent/Spacer
+@onready var _version_row: Control = %VersionRow
+@onready var _title_spacer: Control = %Spacer
 @onready var _button_center: CenterContainer = %ButtonCenter
-@onready var _bubble_layout_slot: Control = $Center/MainContent/ButtonCenter/BubbleLayoutSlot
+@onready var _bubble_layout_slot: Control = %BubbleLayoutSlot
 @onready var _bubble_motion_root: Control = %BubbleMotionRoot
 @onready var _bubble_field: BubbleClusterType = %BubbleField
 @onready var _start_prompt_center: CenterContainer = %StartPromptCenter
@@ -127,6 +143,7 @@ var _decorative_presentation_active: bool = false
 var _decorative_generation: int = 0
 var _decorative_bubbles: Array[TextureRect] = []
 var _decorative_bubble_tweens: Dictionary[int, Tween] = {}
+var _transition_bubble_ids: Dictionary[int, bool] = {}
 var _pending_cluster_bubbles: int = 0
 var _awaiting_start_input: bool = false
 var _start_prompt_elapsed: float = 0.0
@@ -150,6 +167,10 @@ var _feedback_text_before_settings: String = ""
 var _continue_stats_hovered: bool = false
 var _continue_stats_focused: bool = false
 var _continue_stats_fade: Tween
+var _confirmation_transition: Tween
+var _confirmation_transition_generation: int = 0
+var _confirmation_transition_active: bool = false
+var _confirmation_title_content_rest_position: Vector2 = Vector2.ZERO
 
 
 func _ready() -> void:
@@ -170,11 +191,14 @@ func _ready() -> void:
 	_settings_button.pressed.connect(_open_settings)
 	_delete_button.pressed.connect(_on_delete_pressed)
 	%QuitButton.pressed.connect(_on_quit_pressed)
-	_confirm_button.pressed.connect(_on_confirmation_accepted)
-	%CancelConfirmButton.pressed.connect(_close_confirmation)
+	_confirmation_page.confirmed.connect(_on_confirmation_accepted)
+	_confirmation_page.cancelled.connect(_request_close_confirmation)
 	_settings_panel.applied.connect(_on_settings_applied)
 	_settings_panel.closed.connect(_on_settings_closed)
 	_settings_panel.opened.connect(_on_settings_opened)
+	_settings_panel.navigation_transition_started.connect(
+		_emit_navigation_bubble_flurry
+	)
 	_bubble_field.configure(_get_title_buttons())
 	_decorative_fish_timer.timeout.connect(_on_decorative_fish_timer_timeout)
 	_decorative_bubble_event_timer.timeout.connect(
@@ -184,11 +208,11 @@ func _ready() -> void:
 		_on_decorative_bubble_cluster_timer_timeout
 	)
 	visibility_changed.connect(_on_title_visibility_changed)
-	resized.connect(_update_title_layout)
+	resized.connect(_update_responsive_title_stage)
 	_start_prompt_label.resized.connect(_update_start_prompt_pivot)
 	_decorative_rng.randomize()
 	set_process(false)
-	call_deferred("_update_title_layout")
+	call_deferred("_update_responsive_title_stage")
 	call_deferred("_update_start_prompt_pivot")
 	call_deferred("_capture_title_bubble_rest_position")
 	call_deferred("_capture_title_content_rest_position")
@@ -213,7 +237,7 @@ func reopen() -> void:
 	_cancel_title_settings_transition()
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	_prepare_awaiting_start_input()
-	_close_confirmation()
+	_reset_confirmation()
 	_settings_panel.hide()
 	_refresh_save_inspection()
 	show()
@@ -250,10 +274,14 @@ func is_decorative_bubble_scheduler_active() -> bool:
 func _update_title_layout() -> void:
 	if not is_node_ready():
 		return
-	var available_width: float = maxf(1.0, size.x - TITLE_HORIZONTAL_MARGIN)
+	var layout_size: Vector2 = _title_presentation_scale_root.size
+	var available_width: float = maxf(
+		1.0,
+		layout_size.x - TITLE_HORIZONTAL_MARGIN
+	)
 	var logo_width: float = minf(
 		clampf(
-			size.x * LOGO_WIDTH_FACTOR,
+			layout_size.x * LOGO_WIDTH_FACTOR,
 			LOGO_MIN_WIDTH,
 			LOGO_MAX_WIDTH
 		),
@@ -270,17 +298,17 @@ func _update_title_layout() -> void:
 		logo_width,
 		logo_width / LOGO_ASPECT_RATIO
 		+ branding_separation
-		+ _playtest_label.get_combined_minimum_size().y
+		+ _version_row.get_combined_minimum_size().y
 	)
 	_branding_slot.custom_minimum_size = branding_size
 	_branding_motion_root.size = branding_size
 	var field_width: float = minf(BUBBLE_FIELD_MAX_WIDTH, available_width)
 	var field_height: float = (
 		BUBBLE_FIELD_COMPACT_HEIGHT
-		if size.y < BUBBLE_COMPACT_HEIGHT_THRESHOLD
+		if layout_size.y < BUBBLE_COMPACT_HEIGHT_THRESHOLD
 		else BUBBLE_FIELD_DESKTOP_HEIGHT
 	)
-	if size.y < BUBBLE_COMPACT_HEIGHT_THRESHOLD:
+	if layout_size.y < BUBBLE_COMPACT_HEIGHT_THRESHOLD:
 		field_width = minf(BUBBLE_FIELD_COMPACT_WIDTH, available_width)
 	_bubble_layout_slot.custom_minimum_size = Vector2(field_width, field_height)
 	_bubble_motion_root.size = Vector2(field_width, field_height)
@@ -299,6 +327,35 @@ func _update_title_layout() -> void:
 	if _awaiting_start_input and not _title_entry_transition_active:
 		_schedule_intro_presentation()
 	_update_world_preview_resolution()
+
+
+func _update_responsive_title_stage() -> void:
+	if not is_node_ready():
+		return
+	var display_size := Vector2(
+		maxf(1.0, size.x),
+		maxf(1.0, size.y)
+	)
+	var reference_size: Vector2 = (
+		TITLE_COMPACT_REFERENCE_SIZE
+		if display_size.y < BUBBLE_COMPACT_HEIGHT_THRESHOLD
+		else TITLE_DESKTOP_REFERENCE_SIZE
+	)
+	var presentation_scale: float = minf(
+		display_size.x / reference_size.x,
+		display_size.y / reference_size.y
+	)
+	_title_presentation_scale_root.size = reference_size
+	_title_presentation_scale_root.scale = Vector2.ONE * presentation_scale
+	_title_presentation_scale_root.position = (
+		display_size - reference_size * presentation_scale
+	) * 0.5
+	_update_title_layout()
+	if (
+		_is_confirmation_active()
+		and not _confirmation_page.is_transitioning()
+	):
+		_set_confirmation_stage_rect()
 
 
 func _get_title_buttons() -> Array[BubbleButton]:
@@ -385,7 +442,11 @@ func _process(delta: float) -> void:
 func _input(event: InputEvent) -> void:
 	if not visible:
 		return
-	if _title_settings_transition_active or _title_entry_transition_active:
+	if (
+		_title_settings_transition_active
+		or _title_entry_transition_active
+		or _confirmation_transition_active
+	):
 		get_viewport().set_input_as_handled()
 		return
 	if _awaiting_start_input:
@@ -402,8 +463,8 @@ func _input(event: InputEvent) -> void:
 		return
 	if not event.is_action_pressed("ui_cancel"):
 		return
-	if _confirmation_panel.visible:
-		_close_confirmation()
+	if _is_confirmation_active():
+		_request_close_confirmation()
 	elif _settings_panel.visible:
 		_settings_panel.handle_back()
 	else:
@@ -425,7 +486,7 @@ func _is_start_prompt_reveal_event(event: InputEvent) -> bool:
 func _handle_primary_menu_focus_input(event: InputEvent) -> bool:
 	if (
 		not _button_center.visible
-		or _confirmation_panel.visible
+		or _is_confirmation_active()
 		or _settings_panel.visible
 	):
 		return false
@@ -616,26 +677,37 @@ func _prepare_intro_presentation(generation: int) -> void:
 		_title_spacer.get_combined_minimum_size().y
 		+ float(_main_content.get_theme_constant("separation"))
 	)
-	var branding_target_global := Vector2(
+	var inverse_stage_transform: Transform2D = (
+		_title_presentation_scale_root.get_global_transform().affine_inverse()
+	)
+	var branding_anchor_position: Vector2 = (
+		inverse_stage_transform
+		* _intro_branding_anchor.get_global_transform().origin
+	)
+	var branding_slot_position: Vector2 = (
+		inverse_stage_transform
+		* _branding_slot.get_global_transform().origin
+	)
+	var branding_target_position := Vector2(
 		floorf(
-			_intro_branding_anchor.global_position.x
+			branding_anchor_position.x
 			- _branding_motion_root.size.x * 0.5
 		),
 		floorf(
-			_intro_branding_anchor.global_position.y
+			branding_anchor_position.y
 			- (_branding_motion_root.size.y + intro_tail_height) * 0.5
 		)
 	)
 	_branding_intro_position = (
-		branding_target_global
-		- _branding_slot.global_position
+		branding_target_position
+		- branding_slot_position
 	)
-	var bubble_bounds: Rect2 = _get_title_bubble_global_bounds()
+	var bubble_bounds: Rect2 = _get_title_bubble_stage_bounds()
 	bubble_bounds.position -= _bubble_motion_root.position
 	var presentation_allowance: float = _get_bubble_offscreen_allowance()
 	_bubble_intro_position = Vector2(
 		0.0,
-		size.y
+		_title_presentation_scale_root.size.y
 		+ presentation_allowance
 		- bubble_bounds.position.y
 	)
@@ -646,12 +718,24 @@ func _prepare_intro_presentation(generation: int) -> void:
 	_intro_geometry_ready = true
 
 
-func _get_title_bubble_global_bounds() -> Rect2:
+func _get_title_bubble_stage_bounds() -> Rect2:
 	var bubbles: Array[BubbleButton] = _get_title_buttons()
-	var bounds: Rect2 = bubbles[0].get_global_rect()
+	var bounds: Rect2 = _get_title_stage_rect(bubbles[0])
 	for index: int in range(1, bubbles.size()):
-		bounds = bounds.merge(bubbles[index].get_global_rect())
+		bounds = bounds.merge(_get_title_stage_rect(bubbles[index]))
 	return bounds
+
+
+func _get_title_stage_rect(control: Control) -> Rect2:
+	var inverse_stage_transform: Transform2D = (
+		_title_presentation_scale_root.get_global_transform().affine_inverse()
+	)
+	var global_rect: Rect2 = control.get_global_rect()
+	var local_position: Vector2 = (
+		inverse_stage_transform * global_rect.position
+	)
+	var local_end: Vector2 = inverse_stage_transform * global_rect.end
+	return Rect2(local_position, local_end - local_position)
 
 
 func _get_bubble_offscreen_allowance() -> float:
@@ -707,7 +791,7 @@ func _update_continue_stats_visibility() -> void:
 		and not _title_entry_transition_active
 		and not _title_settings_transition_active
 		and not _settings_panel.visible
-		and not _confirmation_panel.visible
+		and not _is_confirmation_active()
 		and not _action_in_progress
 		and _presentation_center.visible
 	)
@@ -763,7 +847,7 @@ func _get_continue_stats_text() -> String:
 func _on_continue_pressed() -> void:
 	if (
 		_action_in_progress
-		or _confirmation_panel.visible
+		or _is_confirmation_active()
 		or _settings_panel.visible
 		or _inspection == null
 		or not _inspection.can_continue()
@@ -783,7 +867,7 @@ func _on_continue_pressed() -> void:
 func _on_new_game_pressed() -> void:
 	if (
 		_action_in_progress
-		or _confirmation_panel.visible
+		or _is_confirmation_active()
 		or _settings_panel.visible
 		or _inspection == null
 	):
@@ -805,14 +889,15 @@ func _on_new_game_pressed() -> void:
 	_open_confirmation(
 		ConfirmationAction.NEW_GAME,
 		"start a new game? existing progression will be deleted.",
-		"start new game"
+		"start\nnew game",
+		true
 	)
 
 
 func _on_delete_pressed() -> void:
 	if (
 		_action_in_progress
-		or _confirmation_panel.visible
+		or _is_confirmation_active()
 		or _settings_panel.visible
 		or _inspection == null
 		or not _inspection.can_delete()
@@ -827,22 +912,32 @@ func _on_delete_pressed() -> void:
 
 
 func _on_confirmation_accepted() -> void:
-	if _action_in_progress:
+	if (
+		_action_in_progress
+		or _confirmation_transition_active
+		or _confirmation_action == ConfirmationAction.NONE
+	):
 		return
 	var action: ConfirmationAction = _confirmation_action
-	_close_confirmation()
+	_confirmation_page.lock_interaction()
 	_action_in_progress = true
 	if not _save_manager.delete_progression_save():
 		_feedback_label.text = "failed to delete saved progression."
 		_action_in_progress = false
 		_refresh_save_inspection()
+		_begin_confirmation_return()
 		return
 	_save_manager.initialize_new_game()
 	_refresh_save_inspection()
 	if action == ConfirmationAction.NEW_GAME:
+		_confirmation_action = ConfirmationAction.NONE
+		_confirmation_transition_generation += 1
+		_cancel_confirmation_transition()
+		_confirmation_page.hide_page()
 		gameplay_requested.emit()
 	else:
 		_feedback_label.text = "saved progression deleted."
+		_begin_confirmation_return()
 	_action_in_progress = false
 
 
@@ -850,33 +945,177 @@ func _open_confirmation(
 	action: ConfirmationAction,
 	message: String,
 	confirm_text: String,
+	use_multiline_action_layout: bool = false,
 ) -> void:
 	_hide_continue_stats_context()
 	_modal_restore_navigation_focus = _navigation_focus_active
 	_confirmation_action = action
-	_confirmation_text.text = message
-	_confirm_button.text = confirm_text
-	_confirmation_panel.visible = true
-	_confirm_button.grab_focus()
+	_confirmation_page.configure(
+		message,
+		confirm_text,
+		use_multiline_action_layout
+	)
+	_begin_confirmation_open()
 
 
-func _close_confirmation() -> void:
+func _request_close_confirmation() -> void:
+	if (
+		not _confirmation_page.visible
+		or _confirmation_transition_active
+		or _action_in_progress
+	):
+		return
+	_begin_confirmation_return()
+
+
+func _begin_confirmation_open() -> void:
+	_confirmation_transition_generation += 1
+	_cancel_confirmation_transition()
+	_confirmation_transition_active = true
+	_emit_navigation_bubble_flurry()
+	_confirmation_title_content_rest_position = _presentation_center.position
+	_set_confirmation_stage_rect()
+	_confirmation_page.hide_page()
+	_set_title_bubbles_interactive(false)
+	_release_primary_menu_focus()
+	var generation: int = _confirmation_transition_generation
+	var content_bounds: Rect2 = _get_title_stage_rect(_main_content)
+	var exit_distance: float = (
+		content_bounds.end.y + HOST_CLUSTER_SAFE_MARGIN
+	)
+	_confirmation_transition = create_tween()
+	_confirmation_transition.tween_property(
+		_presentation_center,
+		"position:y",
+		_confirmation_title_content_rest_position.y - exit_distance,
+		HOST_PRESENTATION_OUT_DURATION
+	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	_confirmation_transition.finished.connect(
+		_finish_confirmation_title_exit.bind(generation),
+		CONNECT_ONE_SHOT
+	)
+
+
+func _finish_confirmation_title_exit(generation: int) -> void:
+	if (
+		generation != _confirmation_transition_generation
+		or not _confirmation_transition_active
+	):
+		return
+	_confirmation_transition = null
+	_presentation_center.hide()
+	_presentation_center.position = _confirmation_title_content_rest_position
+	_confirmation_page.transition_in(
+		HOST_PRESENTATION_IN_DURATION,
+		_finish_confirmation_open.bind(generation)
+	)
+
+
+func _finish_confirmation_open(generation: int) -> void:
+	if (
+		generation != _confirmation_transition_generation
+		or not _confirmation_transition_active
+	):
+		return
+	_confirmation_transition_active = false
+
+
+func _begin_confirmation_return() -> void:
+	if not _confirmation_page.visible or _confirmation_transition_active:
+		return
+	_confirmation_transition_generation += 1
+	_cancel_confirmation_transition()
+	_confirmation_transition_active = true
+	_emit_navigation_bubble_flurry()
+	_confirmation_page.lock_interaction()
+	var generation: int = _confirmation_transition_generation
+	_confirmation_page.transition_out(
+		HOST_PRESENTATION_OUT_DURATION,
+		_finish_confirmation_page_exit.bind(generation)
+	)
+
+
+func _finish_confirmation_page_exit(generation: int) -> void:
+	if (
+		generation != _confirmation_transition_generation
+		or not _confirmation_transition_active
+	):
+		return
+	_confirmation_action = ConfirmationAction.NONE
+	_presentation_center.position = Vector2(
+		_confirmation_title_content_rest_position.x,
+		_title_presentation_scale_root.size.y
+		+ HOST_CLUSTER_SAFE_MARGIN
+	)
+	_presentation_center.show()
+	_confirmation_transition = create_tween()
+	_confirmation_transition.tween_property(
+		_presentation_center,
+		"position",
+		_confirmation_title_content_rest_position,
+		HOST_PRESENTATION_IN_DURATION
+	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	_confirmation_transition.finished.connect(
+		_finish_confirmation_return.bind(generation),
+		CONNECT_ONE_SHOT
+	)
+
+
+func _finish_confirmation_return(generation: int) -> void:
+	if (
+		generation != _confirmation_transition_generation
+		or not _confirmation_transition_active
+	):
+		return
+	_confirmation_transition = null
+	_confirmation_transition_active = false
+	_presentation_center.position = _confirmation_title_content_rest_position
+	_set_title_bubbles_interactive(true)
 	var restore_navigation_focus: bool = _modal_restore_navigation_focus
 	_modal_restore_navigation_focus = false
-	_confirmation_action = ConfirmationAction.NONE
-	_confirmation_panel.visible = false
-	if _awaiting_start_input:
-		return
 	if restore_navigation_focus:
 		_focus_initial_button()
 	else:
 		_navigation_focus_active = false
 		_release_title_focus()
+	_update_continue_stats_visibility()
+
+
+func _set_confirmation_stage_rect() -> void:
+	var slot_rect: Rect2 = _get_title_stage_rect(_bubble_layout_slot)
+	_confirmation_page.set_stage_rect(
+		slot_rect
+	)
+
+
+func _reset_confirmation() -> void:
+	_confirmation_transition_generation += 1
+	_cancel_confirmation_transition()
+	_confirmation_transition_active = false
+	_confirmation_action = ConfirmationAction.NONE
+	_confirmation_page.hide_page()
+	if is_node_ready():
+		_presentation_center.position = _confirmation_title_content_rest_position
+		_presentation_center.show()
+
+
+func _cancel_confirmation_transition() -> void:
+	if _confirmation_transition != null:
+		_confirmation_transition.kill()
+		_confirmation_transition = null
+
+
+func _is_confirmation_active() -> bool:
+	return (
+		_confirmation_action != ConfirmationAction.NONE
+		or _confirmation_page.visible
+		or _confirmation_transition_active
+	)
 
 
 func _open_settings() -> void:
 	if (
-		_confirmation_panel.visible
+		_is_confirmation_active()
 		or _action_in_progress
 		or _settings_panel.visible
 		or _title_settings_transition_active
@@ -909,15 +1148,15 @@ func _begin_title_cluster_exit() -> void:
 	_title_settings_transition_generation += 1
 	_cancel_title_settings_tween()
 	_title_settings_transition_active = true
+	_emit_navigation_bubble_flurry()
 	_title_content_rest_position = _presentation_center.position
 	_title_bubble_rest_position = _bubble_field.position
 	_set_title_bubbles_interactive(false)
 	_release_primary_menu_focus()
 	var generation: int = _title_settings_transition_generation
+	var content_bounds: Rect2 = _get_title_stage_rect(_main_content)
 	var exit_distance: float = (
-		_main_content.global_position.y
-		+ _main_content.size.y
-		+ HOST_CLUSTER_SAFE_MARGIN
+		content_bounds.end.y + HOST_CLUSTER_SAFE_MARGIN
 	)
 	_title_settings_transition = create_tween()
 	_title_settings_transition.tween_property(
@@ -957,17 +1196,9 @@ func _begin_title_cluster_return(feedback_text: String) -> void:
 	_hide_continue_stats_context()
 	_set_title_bubbles_interactive(false)
 	var generation: int = _title_settings_transition_generation
-	var rest_global_y: float = (
-		_presentation_center.global_position.y
-		- _presentation_center.position.y
-		+ _title_content_rest_position.y
-	)
 	_presentation_center.position = Vector2(
 		_title_content_rest_position.x,
-		_title_content_rest_position.y
-		+ size.y
-		+ HOST_CLUSTER_SAFE_MARGIN
-		- rest_global_y
+		_title_presentation_scale_root.size.y + HOST_CLUSTER_SAFE_MARGIN
 	)
 	_presentation_center.show()
 	_title_settings_transition = create_tween()
@@ -996,7 +1227,6 @@ func _finish_title_cluster_return(generation: int) -> void:
 	_set_title_bubbles_interactive(true)
 	_restore_settings_focus()
 	_update_continue_stats_visibility()
-
 
 func _set_title_bubbles_interactive(interactive: bool) -> void:
 	for bubble: BubbleButton in _get_title_buttons():
@@ -1094,7 +1324,7 @@ func _focus_initial_button() -> void:
 func _on_quit_pressed() -> void:
 	if (
 		not _action_in_progress
-		and not _confirmation_panel.visible
+		and not _is_confirmation_active()
 		and not _settings_panel.visible
 	):
 		_hide_continue_stats_context()
@@ -1112,6 +1342,7 @@ func _on_title_visibility_changed() -> void:
 		_stop_entry_prompt_animation()
 		_navigation_focus_active = false
 		_modal_restore_navigation_focus = false
+		_reset_confirmation()
 		_stop_decorative_presentation()
 
 
@@ -1155,6 +1386,7 @@ func _stop_decorative_presentation() -> void:
 		if is_instance_valid(bubble):
 			bubble.queue_free()
 	_decorative_bubbles.clear()
+	_transition_bubble_ids.clear()
 
 
 func _schedule_next_decorative_fish(
@@ -1338,7 +1570,7 @@ func _on_decorative_bubble_event_timer_timeout() -> void:
 	if not _decorative_presentation_active or not visible:
 		return
 	var available_slots: int = (
-		MAX_DECORATIVE_BUBBLES - _decorative_bubbles.size()
+		MAX_DECORATIVE_BUBBLES - _get_idle_decorative_bubble_count()
 	)
 	if available_slots <= 0:
 		_schedule_next_decorative_bubble_event(
@@ -1387,7 +1619,7 @@ func _on_decorative_bubble_cluster_timer_timeout() -> void:
 	):
 		_pending_cluster_bubbles = 0
 		return
-	if _decorative_bubbles.size() < MAX_DECORATIVE_BUBBLES:
+	if _get_idle_decorative_bubble_count() < MAX_DECORATIVE_BUBBLES:
 		_spawn_decorative_bubble(_decorative_generation)
 	_pending_cluster_bubbles -= 1
 	if _pending_cluster_bubbles > 0:
@@ -1399,14 +1631,23 @@ func _on_decorative_bubble_cluster_timer_timeout() -> void:
 		)
 
 
-func _spawn_decorative_bubble(generation: int) -> bool:
+func _spawn_decorative_bubble(
+	generation: int,
+	start_y_ratio: float = -1.0,
+	normalized_x_override: float = -1.0,
+	is_transition_bubble: bool = false,
+) -> bool:
 	if (
 		generation != _decorative_generation
 		or not _decorative_presentation_active
 		or not visible
-		or _decorative_bubbles.size() >= MAX_DECORATIVE_BUBBLES
 		or DECORATIVE_BUBBLE_TEXTURES.is_empty()
 	):
+		return false
+	if is_transition_bubble:
+		if _transition_bubble_ids.size() >= MAX_TRANSITION_BUBBLES:
+			return false
+	elif _get_idle_decorative_bubble_count() >= MAX_DECORATIVE_BUBBLES:
 		return false
 	var layer_size: Vector2 = _decorative_bubble_layer.size
 	if layer_size.x <= 1.0 or layer_size.y <= 1.0:
@@ -1436,8 +1677,12 @@ func _spawn_decorative_bubble(generation: int) -> bool:
 	)
 	_decorative_bubble_layer.add_child(bubble)
 	_decorative_bubbles.append(bubble)
+	if is_transition_bubble:
+		_transition_bubble_ids[bubble.get_instance_id()] = true
 
-	var normalized_x: float = _decorative_rng.randf_range(0.08, 0.92)
+	var normalized_x: float = normalized_x_override
+	if normalized_x < 0.0:
+		normalized_x = _decorative_rng.randf_range(0.08, 0.92)
 	var drift_direction: float = (
 		1.0 if _decorative_rng.randi_range(0, 1) == 1 else -1.0
 	)
@@ -1458,6 +1703,28 @@ func _spawn_decorative_bubble(generation: int) -> bool:
 		BUBBLE_TRAVEL_DURATION_MIN,
 		BUBBLE_TRAVEL_DURATION_MAX
 	)
+	if start_y_ratio >= 0.0:
+		var full_start_y: float = (
+			layer_size.y + presentation_size.y + BUBBLE_EDGE_MARGIN
+		)
+		var end_y: float = -presentation_size.y - BUBBLE_EDGE_MARGIN
+		var burst_start_y: float = (
+			start_y_ratio * layer_size.y - presentation_size.y * 0.5
+		)
+		var remaining_distance: float = maxf(burst_start_y - end_y, 1.0)
+		var full_distance: float = maxf(full_start_y - end_y, 1.0)
+		travel_duration *= remaining_distance / full_distance
+		_update_decorative_bubble(
+			0.0,
+			bubble,
+			normalized_x,
+			horizontal_drift,
+			wobble_amplitude,
+			wobble_cycles,
+			wobble_phase,
+			start_y_ratio,
+			generation
+		)
 	var bubble_tween: Tween = create_tween()
 	_decorative_bubble_tweens[bubble.get_instance_id()] = bubble_tween
 	bubble_tween.tween_method(
@@ -1468,6 +1735,7 @@ func _spawn_decorative_bubble(generation: int) -> bool:
 			wobble_amplitude,
 			wobble_cycles,
 			wobble_phase,
+			start_y_ratio,
 			generation
 		),
 		0.0,
@@ -1489,6 +1757,7 @@ func _update_decorative_bubble(
 	wobble_amplitude: float,
 	wobble_cycles: float,
 	wobble_phase: float,
+	start_y_ratio: float,
 	generation: int,
 ) -> void:
 	if (
@@ -1501,6 +1770,8 @@ func _update_decorative_bubble(
 	var start_y: float = (
 		layer_size.y + bubble.size.y + BUBBLE_EDGE_MARGIN
 	)
+	if start_y_ratio >= 0.0:
+		start_y = start_y_ratio * layer_size.y - bubble.size.y * 0.5
 	var end_y: float = -bubble.size.y - BUBBLE_EDGE_MARGIN
 	var base_x: float = normalized_x * layer_size.x
 	var wobble: float = sin(
@@ -1523,8 +1794,36 @@ func _on_decorative_bubble_finished(
 		return
 	if is_instance_valid(bubble):
 		_decorative_bubble_tweens.erase(bubble.get_instance_id())
+		_transition_bubble_ids.erase(bubble.get_instance_id())
 		_decorative_bubbles.erase(bubble)
 		bubble.queue_free()
+
+
+func _get_idle_decorative_bubble_count() -> int:
+	return _decorative_bubbles.size() - _transition_bubble_ids.size()
+
+
+func _emit_navigation_bubble_flurry() -> void:
+	if not _decorative_presentation_active or not visible:
+		return
+	var bubble_count: int = _decorative_rng.randi_range(
+		TRANSITION_BUBBLE_COUNT_MIN,
+		TRANSITION_BUBBLE_COUNT_MAX
+	)
+	for _bubble_index: int in bubble_count:
+		if not _spawn_decorative_bubble(
+			_decorative_generation,
+			_decorative_rng.randf_range(
+				TRANSITION_BUBBLE_Y_MIN,
+				TRANSITION_BUBBLE_Y_MAX
+			),
+			_decorative_rng.randf_range(
+				TRANSITION_BUBBLE_X_MIN,
+				TRANSITION_BUBBLE_X_MAX
+			),
+			true
+		):
+			break
 
 
 func _exit_tree() -> void:

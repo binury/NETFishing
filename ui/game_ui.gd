@@ -53,7 +53,7 @@ signal interactive_pointer_ui_changed(is_open: bool)
 @onready var _shop_prompt: PanelContainer = %ShopPrompt
 @onready var _effect_status: Label = %EffectStatus
 @onready var _title_settings_panel: SettingsPanelType = (
-	$UIRoot/TitleScreen/SettingsPanel
+	$UIRoot/TitleScreen/ResponsiveTitleStage/TitlePresentationScaleRoot/SettingsPanel
 )
 @onready var _pause_settings_panel: SettingsPanelType = (
 	$UIRoot/PauseMenu/SettingsCenter/SettingsPanel

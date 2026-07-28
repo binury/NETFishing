@@ -11,8 +11,8 @@ extends Control
 @export var compact_maximum_layout_size: Vector2 = Vector2.ZERO
 @export var compact_width_threshold: float = 680.0
 @export var compact_height_threshold: float = 500.0
-@export_range(0.1, 2.0, 0.01) var outgoing_rise_duration: float = 0.95
-@export_range(0.1, 2.0, 0.01) var incoming_rise_duration: float = 1.05
+@export_range(0.1, 2.0, 0.01) var outgoing_rise_duration: float = 1.70
+@export_range(0.1, 2.0, 0.01) var incoming_rise_duration: float = 1.85
 @export_range(0.0, 128.0, 1.0) var transition_safe_margin: float = 24.0
 
 var _cluster: BubbleCluster

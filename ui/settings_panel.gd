@@ -25,6 +25,7 @@ signal closed
 signal opened
 signal crisp_reset_focus_requested
 signal panel_visibility_changed(is_visible: bool)
+signal navigation_transition_started
 
 enum PresentationMode {
 	TITLE_EMBEDDED,
@@ -226,6 +227,7 @@ func _start_page_transition(page_id: StringName, push_page: bool) -> void:
 		return
 	_page_transition_generation += 1
 	_page_transition_active = true
+	navigation_transition_started.emit()
 	var generation: int = _page_transition_generation
 	outgoing_page.transition_out(
 		_finish_outgoing_page.bind(
@@ -277,6 +279,7 @@ func _begin_embedded_close(applied_result: bool) -> void:
 		return
 	_page_transition_generation += 1
 	_page_transition_active = true
+	navigation_transition_started.emit()
 	var generation: int = _page_transition_generation
 	active_page.transition_out(
 		_finish_embedded_close.bind(generation, applied_result),
