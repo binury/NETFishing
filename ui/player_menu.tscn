@@ -1,7 +1,15 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=9 format=3]
 
 [ext_resource type="Script" path="res://ui/player_menu.gd" id="1_menu"]
 [ext_resource type="Theme" path="res://ui/game_theme.tres" id="2_theme"]
+[ext_resource type="Script" path="res://ui/components/bubble_menu/bubble_content_shell.gd" id="3_shell"]
+[ext_resource type="Resource" path="res://ui/components/bubble_menu/bubble_menu_profile.tres" id="4_profile"]
+[ext_resource type="Script" path="res://ui/components/bubble_menu/bubble_cluster.gd" id="5_cluster"]
+[ext_resource type="Script" path="res://ui/components/bubble_menu/bubble_button.gd" id="6_bubble"]
+[ext_resource type="PackedScene" path="res://ui/components/bubble_menu/bubble_status_bubble.tscn" id="7_status"]
+[ext_resource type="Script" path="res://ui/components/bubble_menu/bubble_information_panel.gd" id="8_info"]
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_collection"]
 
 [node name="PlayerMenu" type="Control"]
 visible = false
@@ -28,13 +36,16 @@ mouse_filter = 2
 color = Color(0.015, 0.02, 0.03, 0.72)
 
 [node name="MenuPanel" type="PanelContainer" parent="."]
-layout_mode = 1
-anchor_left = 0.02
-anchor_top = 0.025
-anchor_right = 0.98
-anchor_bottom = 0.96
-grow_horizontal = 2
-grow_vertical = 2
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 42.0
+offset_top = 104.0
+offset_right = 1238.0
+offset_bottom = 582.0
+script = ExtResource("3_shell")
+profile = ExtResource("4_profile")
+content_margin = 22.0
+corner_radius = 74
 
 [node name="Margin" type="MarginContainer" parent="MenuPanel"]
 layout_mode = 2
@@ -48,50 +59,19 @@ layout_mode = 2
 theme_override_constants/separation = 8
 
 [node name="Header" type="HBoxContainer" parent="MenuPanel/Margin/Layout"]
+unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/separation = 8
-
-[node name="Title" type="Label" parent="MenuPanel/Margin/Layout/Header"]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_colors/font_color = Color(0.208, 0.725, 0.78, 1)
-theme_override_font_sizes/font_size = 33
-text = "player menu"
 
 [node name="WalletBalance" type="Label" parent="MenuPanel/Margin/Layout/Header"]
 unique_name_in_owner = true
 layout_mode = 2
+size_flags_horizontal = 3
 text = "wallet: $0"
 theme_override_colors/font_color = Color(1, 0.82, 0.4, 1)
 
-[node name="InventoryTab" type="Button" parent="MenuPanel/Margin/Layout/Header"]
-unique_name_in_owner = true
-layout_mode = 2
-toggle_mode = true
-text = "cooler"
-custom_minimum_size = Vector2(130, 58)
-
-[node name="BagTab" type="Button" parent="MenuPanel/Margin/Layout/Header"]
-unique_name_in_owner = true
-layout_mode = 2
-toggle_mode = true
-text = "bag"
-custom_minimum_size = Vector2(110, 58)
-
-[node name="LogbookTab" type="Button" parent="MenuPanel/Margin/Layout/Header"]
-unique_name_in_owner = true
-layout_mode = 2
-toggle_mode = true
-text = "logbook"
-custom_minimum_size = Vector2(140, 58)
-
-[node name="CloseButton" type="Button" parent="MenuPanel/Margin/Layout/Header"]
-unique_name_in_owner = true
-layout_mode = 2
-text = "close"
-custom_minimum_size = Vector2(110, 58)
-
 [node name="Separator" type="HSeparator" parent="MenuPanel/Margin/Layout"]
+unique_name_in_owner = true
 layout_mode = 2
 
 [node name="TransactionFeedback" type="Label" parent="MenuPanel/Margin/Layout"]
@@ -103,9 +83,25 @@ theme_override_colors/font_color = Color(1, 0.82, 0.4, 1)
 theme_override_font_sizes/font_size = 21
 
 [node name="Content" type="Control" parent="MenuPanel/Margin/Layout"]
+unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 260)
 layout_mode = 2
 size_flags_vertical = 3
+
+[node name="CoolerScroll" type="ScrollContainer" parent="MenuPanel/Margin/Layout/Content"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+horizontal_scroll_mode = 0
+
+[node name="CoolerHost" type="VBoxContainer" parent="MenuPanel/Margin/Layout/Content/CoolerScroll"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
 
 [node name="InventorySection" type="VBoxContainer" parent="MenuPanel/Margin/Layout/Content"]
 unique_name_in_owner = true
@@ -117,7 +113,26 @@ grow_horizontal = 2
 grow_vertical = 2
 theme_override_constants/separation = 7
 
+[node name="StatusShoal" type="HBoxContainer" parent="MenuPanel/Margin/Layout/Content/InventorySection"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 8
+alignment = 1
+
+[node name="WalletStatus" parent="MenuPanel/Margin/Layout/Content/InventorySection/StatusShoal" instance=ExtResource("7_status")]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="CapacityStatus" parent="MenuPanel/Margin/Layout/Content/InventorySection/StatusShoal" instance=ExtResource("7_status")]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="HeldValueStatus" parent="MenuPanel/Margin/Layout/Content/InventorySection/StatusShoal" instance=ExtResource("7_status")]
+unique_name_in_owner = true
+layout_mode = 2
+
 [node name="SortBar" type="HBoxContainer" parent="MenuPanel/Margin/Layout/Content/InventorySection"]
+unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/separation = 6
 
@@ -128,13 +143,21 @@ text = "sort:"
 [node name="SortOption" type="OptionButton" parent="MenuPanel/Margin/Layout/Content/InventorySection/SortBar"]
 unique_name_in_owner = true
 layout_mode = 2
-custom_minimum_size = Vector2(190, 58)
+custom_minimum_size = Vector2(136, 104)
 
 [node name="SortDirection" type="Button" parent="MenuPanel/Margin/Layout/Content/InventorySection/SortBar"]
 unique_name_in_owner = true
 layout_mode = 2
-custom_minimum_size = Vector2(190, 58)
+custom_minimum_size = Vector2(136, 104)
 text = "newest first"
+script = ExtResource("6_bubble")
+profile = ExtResource("4_profile")
+neutral_size = Vector2(136, 104)
+minimum_font_size = 15
+maximum_font_size = 20
+horizontal_amplitude = 0.0
+vertical_amplitude = 0.0
+deformation_amplitude = 0.0
 
 [node name="SortSpacer" type="Control" parent="MenuPanel/Margin/Layout/Content/InventorySection/SortBar"]
 layout_mode = 2
@@ -142,25 +165,29 @@ size_flags_horizontal = 3
 
 [node name="CoolerCount" type="Label" parent="MenuPanel/Margin/Layout/Content/InventorySection/SortBar"]
 unique_name_in_owner = true
+visible = false
 layout_mode = 2
 text = "0 / 12"
 theme_override_colors/font_color = Color(0.208, 0.725, 0.78, 1)
 
 [node name="HeldValue" type="Label" parent="MenuPanel/Margin/Layout/Content/InventorySection/SortBar"]
 unique_name_in_owner = true
+visible = false
 layout_mode = 2
 text = "held fish base value: $0"
 theme_override_colors/font_color = Color(0.682, 0.733, 0.761, 1)
 
-[node name="InventoryBody" type="HSplitContainer" parent="MenuPanel/Margin/Layout/Content/InventorySection"]
+[node name="InventoryBody" type="BoxContainer" parent="MenuPanel/Margin/Layout/Content/InventorySection"]
+unique_name_in_owner = true
 layout_mode = 2
 size_flags_vertical = 3
-split_offset = 510
 theme_override_constants/separation = 8
 
 [node name="InventoryList" type="PanelContainer" parent="MenuPanel/Margin/Layout/Content/InventorySection/InventoryBody"]
+unique_name_in_owner = true
 custom_minimum_size = Vector2(350, 0)
 layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxEmpty_collection")
 
 [node name="InventoryListMargin" type="MarginContainer" parent="MenuPanel/Margin/Layout/Content/InventorySection/InventoryBody/InventoryList"]
 layout_mode = 2
@@ -180,6 +207,7 @@ text = "your cooler is empty."
 horizontal_alignment = 1
 
 [node name="InventoryScroll" type="ScrollContainer" parent="MenuPanel/Margin/Layout/Content/InventorySection/InventoryBody/InventoryList/InventoryListMargin/InventoryStack"]
+unique_name_in_owner = true
 layout_mode = 2
 size_flags_vertical = 3
 horizontal_scroll_mode = 0
@@ -193,8 +221,13 @@ theme_override_constants/v_separation = 7
 columns = 3
 
 [node name="DetailPanel" type="PanelContainer" parent="MenuPanel/Margin/Layout/Content/InventorySection/InventoryBody"]
+unique_name_in_owner = true
 custom_minimum_size = Vector2(210, 0)
 layout_mode = 2
+script = ExtResource("8_info")
+profile = ExtResource("4_profile")
+content_margin = 12.0
+corner_radius = 96
 
 [node name="DetailMargin" type="MarginContainer" parent="MenuPanel/Margin/Layout/Content/InventorySection/InventoryBody/DetailPanel"]
 layout_mode = 2
@@ -221,33 +254,75 @@ layout_mode = 2
 theme_override_colors/font_color = Color(0.208, 0.725, 0.78, 1)
 theme_override_font_sizes/font_size = 29
 horizontal_alignment = 1
+theme_override_colors/font_color = Color(0.035, 0.145, 0.22, 1)
 
 [node name="DetailData" type="Label" parent="MenuPanel/Margin/Layout/Content/InventorySection/InventoryBody/DetailPanel/DetailMargin/DetailStack"]
 unique_name_in_owner = true
 layout_mode = 2
 autowrap_mode = 2
 horizontal_alignment = 1
+theme_override_colors/font_color = Color(0.035, 0.145, 0.22, 1)
 
 [node name="SelectionSummary" type="Label" parent="MenuPanel/Margin/Layout/Content/InventorySection/InventoryBody/DetailPanel/DetailMargin/DetailStack"]
 unique_name_in_owner = true
+visible = false
 layout_mode = 2
 text = "no fish selected"
 autowrap_mode = 2
 horizontal_alignment = 1
 theme_override_colors/font_color = Color(0.208, 0.725, 0.78, 1)
 
-[node name="FavoriteButton" type="Button" parent="MenuPanel/Margin/Layout/Content/InventorySection/InventoryBody/DetailPanel/DetailMargin/DetailStack"]
+[node name="ActionRow" type="HBoxContainer" parent="MenuPanel/Margin/Layout/Content/InventorySection/InventoryBody/DetailPanel/DetailMargin/DetailStack"]
+layout_mode = 2
+theme_override_constants/separation = 8
+alignment = 1
+
+[node name="FavoriteButton" type="Button" parent="MenuPanel/Margin/Layout/Content/InventorySection/InventoryBody/DetailPanel/DetailMargin/DetailStack/ActionRow"]
 unique_name_in_owner = true
 layout_mode = 2
 disabled = true
 text = "favorite"
+custom_minimum_size = Vector2(112, 104)
+size_flags_horizontal = 4
+script = ExtResource("6_bubble")
+profile = ExtResource("4_profile")
+neutral_size = Vector2(112, 104)
+minimum_font_size = 15
+maximum_font_size = 20
+horizontal_amplitude = 0.0
+vertical_amplitude = 0.0
+deformation_amplitude = 0.0
 
-[node name="SellButton" type="Button" parent="MenuPanel/Margin/Layout/Content/InventorySection/InventoryBody/DetailPanel/DetailMargin/DetailStack"]
+[node name="SellButton" type="Button" parent="MenuPanel/Margin/Layout/Content/InventorySection/InventoryBody/DetailPanel/DetailMargin/DetailStack/ActionRow"]
 unique_name_in_owner = true
 layout_mode = 2
 disabled = true
 text = "sell"
-theme_type_variation = &"DangerButton"
+custom_minimum_size = Vector2(112, 104)
+size_flags_horizontal = 4
+script = ExtResource("6_bubble")
+profile = ExtResource("4_profile")
+neutral_size = Vector2(112, 104)
+minimum_font_size = 15
+maximum_font_size = 20
+horizontal_amplitude = 0.0
+vertical_amplitude = 0.0
+deformation_amplitude = 0.0
+
+[node name="ContextStatus" type="HBoxContainer" parent="MenuPanel/Margin/Layout/Content/InventorySection/InventoryBody/DetailPanel/DetailMargin/DetailStack"]
+layout_mode = 2
+theme_override_constants/separation = 6
+alignment = 1
+
+[node name="SelectionStatus" parent="MenuPanel/Margin/Layout/Content/InventorySection/InventoryBody/DetailPanel/DetailMargin/DetailStack/ContextStatus" instance=ExtResource("7_status")]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(108, 78)
+layout_mode = 2
+
+[node name="OfferStatus" parent="MenuPanel/Margin/Layout/Content/InventorySection/InventoryBody/DetailPanel/DetailMargin/DetailStack/ContextStatus" instance=ExtResource("7_status")]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(128, 78)
+layout_mode = 2
 
 [node name="SaleUnavailable" type="Label" parent="MenuPanel/Margin/Layout/Content/InventorySection/InventoryBody/DetailPanel/DetailMargin/DetailStack"]
 unique_name_in_owner = true
@@ -272,6 +347,7 @@ theme_override_constants/separation = 7
 layout_mode = 2
 text = "drag hotbar-compatible items onto a slot below. right-click a slot to clear it."
 horizontal_alignment = 1
+autowrap_mode = 2
 
 [node name="BagBody" type="HSplitContainer" parent="MenuPanel/Margin/Layout/Content/BagSection"]
 layout_mode = 2
@@ -280,6 +356,7 @@ split_offset = 540
 theme_override_constants/separation = 8
 
 [node name="BagList" type="PanelContainer" parent="MenuPanel/Margin/Layout/Content/BagSection/BagBody"]
+unique_name_in_owner = true
 custom_minimum_size = Vector2(360, 0)
 layout_mode = 2
 
@@ -314,6 +391,7 @@ theme_override_constants/v_separation = 7
 columns = 3
 
 [node name="BagDetail" type="PanelContainer" parent="MenuPanel/Margin/Layout/Content/BagSection/BagBody"]
+unique_name_in_owner = true
 custom_minimum_size = Vector2(220, 0)
 layout_mode = 2
 
@@ -429,3 +507,99 @@ unique_name_in_owner = true
 layout_mode = 2
 text = "cancel"
 custom_minimum_size = Vector2(170, 64)
+
+[node name="NavigationCluster" type="Control" parent="."]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 260.0
+offset_top = 14.0
+offset_right = 1020.0
+offset_bottom = 110.0
+mouse_filter = 1
+script = ExtResource("5_cluster")
+profile = ExtResource("4_profile")
+desktop_reference_size = Vector2(760, 96)
+compact_reference_size = Vector2(610, 74)
+
+[node name="InventoryTab" type="Button" parent="NavigationCluster"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(148, 138)
+layout_mode = 0
+toggle_mode = true
+text = "cooler"
+script = ExtResource("6_bubble")
+profile = ExtResource("4_profile")
+neutral_size = Vector2(148, 138)
+desktop_anchor = Vector2(118, 68)
+compact_anchor = Vector2(118, 68)
+compact_minimum_size = Vector2(84, 78)
+minimum_font_size = 16
+maximum_font_size = 27
+horizontal_amplitude = 1.2
+vertical_amplitude = 2.4
+motion_period = 5.6
+motion_phase = 0.35
+deformation_amplitude = 0.012
+deformation_period = 6.4
+
+[node name="BagTab" type="Button" parent="NavigationCluster"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(122, 116)
+layout_mode = 0
+toggle_mode = true
+text = "bag"
+script = ExtResource("6_bubble")
+profile = ExtResource("4_profile")
+neutral_size = Vector2(122, 116)
+desktop_anchor = Vector2(300, 62)
+compact_anchor = Vector2(300, 62)
+compact_minimum_size = Vector2(70, 68)
+minimum_font_size = 16
+maximum_font_size = 25
+horizontal_amplitude = 1.0
+vertical_amplitude = 2.0
+motion_period = 5.1
+motion_phase = 1.65
+deformation_amplitude = 0.011
+deformation_period = 6.0
+
+[node name="LogbookTab" type="Button" parent="NavigationCluster"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(158, 146)
+layout_mode = 0
+toggle_mode = true
+text = "logbook"
+script = ExtResource("6_bubble")
+profile = ExtResource("4_profile")
+neutral_size = Vector2(158, 146)
+desktop_anchor = Vector2(478, 70)
+compact_anchor = Vector2(478, 70)
+compact_minimum_size = Vector2(88, 80)
+minimum_font_size = 16
+maximum_font_size = 27
+horizontal_amplitude = 1.3
+vertical_amplitude = 2.5
+motion_period = 5.9
+motion_phase = 2.85
+deformation_amplitude = 0.012
+deformation_period = 6.7
+
+[node name="CloseButton" type="Button" parent="NavigationCluster"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(112, 106)
+layout_mode = 0
+text = "close"
+script = ExtResource("6_bubble")
+profile = ExtResource("4_profile")
+neutral_size = Vector2(112, 106)
+desktop_anchor = Vector2(652, 61)
+compact_anchor = Vector2(652, 61)
+compact_minimum_size = Vector2(66, 64)
+minimum_font_size = 15
+maximum_font_size = 23
+horizontal_amplitude = 1.0
+vertical_amplitude = 1.9
+motion_period = 5.3
+motion_phase = 4.2
+deformation_amplitude = 0.01
+deformation_period = 6.2

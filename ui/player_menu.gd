@@ -25,6 +25,30 @@ const PlayerCoolerCapacityType = preload(
 const FishBatchSelectionType = preload(
 	"res://ui/fish_batch_selection.gd"
 )
+const BubbleButtonType = preload(
+	"res://ui/components/bubble_menu/bubble_button.gd"
+)
+const BubbleClusterType = preload(
+	"res://ui/components/bubble_menu/bubble_cluster.gd"
+)
+const BubbleContentShellType = preload(
+	"res://ui/components/bubble_menu/bubble_content_shell.gd"
+)
+const BubbleInventoryCellType = preload(
+	"res://ui/components/bubble_menu/bubble_inventory_cell.gd"
+)
+const BubbleInventoryCellScene = preload(
+	"res://ui/components/bubble_menu/bubble_inventory_cell.tscn"
+)
+const BubbleStatusBubbleType = preload(
+	"res://ui/components/bubble_menu/bubble_status_bubble.gd"
+)
+
+const MENU_ENTER_DURATION: float = 0.58
+const MENU_EXIT_DURATION: float = 0.52
+const PAGE_OUT_DURATION: float = 0.34
+const PAGE_IN_DURATION: float = 0.42
+const TRANSITION_SAFE_MARGIN: float = 28.0
 
 signal menu_visibility_changed(is_open: bool)
 
@@ -49,16 +73,32 @@ enum CloseReason {
 	TEARDOWN,
 }
 
-@onready var _inventory_tab: Button = %InventoryTab
-@onready var _bag_tab: Button = %BagTab
-@onready var _logbook_tab: Button = %LogbookTab
-@onready var _close_button: Button = %CloseButton
+@onready var _navigation_cluster: BubbleClusterType = %NavigationCluster
+@onready var _inventory_tab: BubbleButtonType = %InventoryTab
+@onready var _bag_tab: BubbleButtonType = %BagTab
+@onready var _logbook_tab: BubbleButtonType = %LogbookTab
+@onready var _close_button: BubbleButtonType = %CloseButton
+@onready var _content_shell: BubbleContentShellType = %MenuPanel
+@onready var _content_stage: Control = %Content
+@onready var _cooler_scroll: ScrollContainer = %CoolerScroll
+@onready var _cooler_host: VBoxContainer = %CoolerHost
 @onready var _wallet_balance: Label = %WalletBalance
+@onready var _header: Control = %Header
+@onready var _separator: Control = %Separator
+@onready var _wallet_status: BubbleStatusBubbleType = %WalletStatus
+@onready var _capacity_status: BubbleStatusBubbleType = %CapacityStatus
+@onready var _held_value_status: BubbleStatusBubbleType = %HeldValueStatus
+@onready var _selection_status: BubbleStatusBubbleType = %SelectionStatus
+@onready var _offer_status: BubbleStatusBubbleType = %OfferStatus
 @onready var _inventory_section: Control = %InventorySection
+@onready var _inventory_body: BoxContainer = %InventoryBody
+@onready var _inventory_scroll: ScrollContainer = %InventoryScroll
 @onready var _bag_section: Control = %BagSection
 @onready var _logbook_section: Control = %LogbookSection
 @onready var _bag_empty: Label = %BagEmpty
 @onready var _bag_grid: GridContainer = %BagGrid
+@onready var _bag_list: Control = %BagList
+@onready var _bag_detail: Control = %BagDetail
 @onready var _bag_detail_texture: TextureRect = %BagDetailTexture
 @onready var _bag_detail_name: Label = %BagDetailName
 @onready var _bag_detail_data: Label = %BagDetailData
@@ -68,6 +108,8 @@ enum CloseReason {
 @onready var _cooler_count: Label = %CoolerCount
 @onready var _inventory_empty: Label = %InventoryEmpty
 @onready var _inventory_grid: GridContainer = %InventoryGrid
+@onready var _inventory_list: Control = %InventoryList
+@onready var _detail_panel: Control = %DetailPanel
 @onready var _detail_texture: TextureRect = %DetailTexture
 @onready var _detail_name: Label = %DetailName
 @onready var _detail_data: Label = %DetailData
@@ -82,7 +124,10 @@ enum CloseReason {
 @onready var _cancel_sale_button: Button = %CancelSaleButton
 @onready var _logbook_empty: Label = %LogbookEmpty
 @onready var _logbook_grid: GridContainer = %LogbookGrid
+@onready var _status_shoal: HBoxContainer = %StatusShoal
+@onready var _sort_bar: HBoxContainer = %SortBar
 
+var _compact_layout: bool = false
 var _player: PlayerType
 var _inventory: FishInventoryType
 var _collection_log: CollectionLogType
@@ -111,9 +156,24 @@ var _confirmation_buyer: FishBuyerProfileType
 var _confirmation_buyer_id: StringName
 var _confirmation_generation: int = -1
 var _sale_in_progress: bool = false
+var _presentation_tween: Tween
+var _page_tween: Tween
+var _transition_generation: int = 0
+var _page_transition_generation: int = 0
+var _transitioning: bool = false
+var _page_transitioning: bool = false
+var _presentation_rest_position: Vector2 = Vector2.ZERO
+var _content_rest_position: Vector2 = Vector2.ZERO
 
 
 func _ready() -> void:
+	_inventory_section.reparent(_cooler_host)
+	_inventory_section.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_inventory_section.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_inventory_section.move_child(
+		_sort_bar,
+		_inventory_section.get_child_count() - 1,
+	)
 	_inventory_tab.pressed.connect(
 		_show_section.bind(Section.COOLER)
 	)
@@ -133,7 +193,18 @@ func _ready() -> void:
 	_sort_option.add_item("rarity", SortMode.RARITY)
 	_sort_option.select(SortMode.CATCH_ORDER)
 	_update_sort_direction_text()
-	_show_section(_current_section)
+	_navigation_cluster.configure([
+		_inventory_tab,
+		_bag_tab,
+		_logbook_tab,
+		_close_button,
+	])
+	_configure_navigation_focus()
+	_apply_cooler_control_styles()
+	resized.connect(_update_shell_layout)
+	_show_section_immediate(_current_section)
+	call_deferred("_update_shell_layout")
+	set_process(false)
 
 
 func setup(
@@ -185,7 +256,8 @@ func _input(event: InputEvent) -> void:
 		return
 	if visible:
 		if event.is_action_pressed("open_backpack"):
-			close_menu()
+			if not _transitioning and not _page_transitioning:
+				close_menu()
 			get_viewport().set_input_as_handled()
 			return
 	if (
@@ -200,6 +272,8 @@ func _input(event: InputEvent) -> void:
 func consume_escape() -> bool:
 	if not visible:
 		return false
+	if _transitioning or _page_transitioning:
+		return true
 	if _sale_confirmation.visible:
 		_close_sale_confirmation()
 	else:
@@ -216,6 +290,9 @@ func open_menu() -> void:
 	):
 		return
 	_menu_generation += 1
+	_transition_generation += 1
+	_cancel_presentation_tween()
+	_cancel_page_tween()
 	_prior_movement_enabled = _player.is_movement_enabled()
 	_prior_camera_input_enabled = _player.is_camera_input_enabled()
 	_prior_mouse_mode = Input.mouse_mode
@@ -227,8 +304,9 @@ func open_menu() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	visible = true
 	_refresh_all()
-	_show_section(_current_section)
-	_focus_current_section()
+	_show_section_immediate(_current_section)
+	_update_shell_layout()
+	_begin_menu_entry()
 	menu_visibility_changed.emit(true)
 
 
@@ -237,6 +315,10 @@ func close_menu(
 	restore_controls: bool = true,
 ) -> void:
 	if not visible:
+		return
+	if _transitioning:
+		if reason != CloseReason.USER:
+			_finish_close(reason, restore_controls, _menu_generation)
 		return
 	get_viewport().gui_cancel_drag()
 	_close_sale_confirmation()
@@ -247,18 +329,7 @@ func close_menu(
 		CloseReason.TEARDOWN,
 	]:
 		_fish_selection.clear()
-	var closing_generation: int = _menu_generation
-	visible = false
-	get_viewport().gui_release_focus()
-	if _fishing_spot != null and is_instance_valid(_fishing_spot):
-		_fishing_spot.set_local_menu_input_suppressed(INPUT_OWNER, false)
-	if restore_controls:
-		_restore_player_controls(closing_generation)
-	else:
-		_control_snapshot_stored = false
-	_apply_mouse_close_policy(reason)
-	_menu_generation += 1
-	menu_visibility_changed.emit(false)
+	_begin_menu_exit(reason, restore_controls)
 
 
 func close_for_water_recovery() -> void:
@@ -276,8 +347,10 @@ func close_for_session_end() -> void:
 
 
 func _exit_tree() -> void:
+	_cancel_presentation_tween()
+	_cancel_page_tween()
 	if visible:
-		close_menu(CloseReason.TEARDOWN, false)
+		_finish_close(CloseReason.TEARDOWN, false, _menu_generation)
 	_fish_selection.clear()
 	_menu_generation += 1
 
@@ -319,17 +392,32 @@ func _on_bite_activated() -> void:
 
 
 func _show_section(section: Section) -> void:
+	if (
+		section == _current_section
+		or _transitioning
+		or _page_transitioning
+		or _sale_confirmation.visible
+		or get_viewport().gui_is_dragging()
+	):
+		return
+	_begin_page_transition(section)
+
+
+func _show_section_immediate(section: Section) -> void:
 	_current_section = section
 	if not is_node_ready():
 		return
 	_inventory_section.visible = section == Section.COOLER
+	_cooler_scroll.visible = section == Section.COOLER
 	_bag_section.visible = section == Section.BAG
 	_logbook_section.visible = section == Section.LOGBOOK
+	_content_shell.set_background_visible(section != Section.COOLER)
+	_header.visible = section != Section.COOLER
+	_separator.visible = section != Section.COOLER
 	_inventory_tab.button_pressed = section == Section.COOLER
 	_bag_tab.button_pressed = section == Section.BAG
 	_logbook_tab.button_pressed = section == Section.LOGBOOK
-	if visible:
-		_focus_current_section()
+	_update_navigation_selection()
 
 
 func _focus_current_section() -> void:
@@ -339,6 +427,346 @@ func _focus_current_section() -> void:
 		_bag_tab.grab_focus()
 	else:
 		_logbook_tab.grab_focus()
+
+
+func _process(delta: float) -> void:
+	if visible:
+		_navigation_cluster.advance_motion(delta)
+
+
+func _configure_navigation_focus() -> void:
+	var navigation: Array[BubbleButtonType] = [
+		_inventory_tab,
+		_bag_tab,
+		_logbook_tab,
+		_close_button,
+	]
+	for index: int in navigation.size():
+		var bubble: BubbleButtonType = navigation[index]
+		var previous: BubbleButtonType = navigation[
+			(index - 1 + navigation.size()) % navigation.size()
+		]
+		var next: BubbleButtonType = navigation[
+			(index + 1) % navigation.size()
+		]
+		bubble.focus_neighbor_left = bubble.get_path_to(previous)
+		bubble.focus_neighbor_right = bubble.get_path_to(next)
+		bubble.focus_neighbor_top = bubble.focus_neighbor_left
+		bubble.focus_neighbor_bottom = bubble.focus_neighbor_right
+
+
+func _apply_cooler_control_styles() -> void:
+	var profile: BubbleMenuProfile = _inventory_tab.profile
+	if profile == null:
+		return
+	_sort_option.add_theme_stylebox_override(
+		"normal",
+		profile.make_normal_style(),
+	)
+	_sort_option.add_theme_stylebox_override(
+		"hover",
+		profile.make_hover_style(),
+	)
+	_sort_option.add_theme_stylebox_override(
+		"focus",
+		profile.make_hover_style(),
+	)
+	_sort_option.add_theme_stylebox_override(
+		"pressed",
+		profile.make_pressed_style(),
+	)
+	_sort_option.add_theme_color_override("font_color", profile.text_color)
+	_sort_option.add_theme_color_override(
+		"font_hover_color",
+		profile.text_hover_color,
+	)
+	_sort_option.add_theme_color_override(
+		"font_focus_color",
+		profile.text_hover_color,
+	)
+
+
+func _update_navigation_selection() -> void:
+	_set_navigation_target(_current_section)
+
+
+func _set_navigation_target(section: Section) -> void:
+	_inventory_tab.button_pressed = section == Section.COOLER
+	_bag_tab.button_pressed = section == Section.BAG
+	_logbook_tab.button_pressed = section == Section.LOGBOOK
+
+
+func _update_shell_layout() -> void:
+	if not is_node_ready():
+		return
+	var compact: bool = size.y < 560.0 or size.x < 760.0
+	_compact_layout = compact
+	var side_margin: float = 10.0 if compact else 42.0
+	var top_margin: float = 96.0 if compact else 104.0
+	var bottom_margin: float = 96.0 if compact else 138.0
+	_content_shell.position = Vector2(side_margin, top_margin)
+	_content_shell.size = Vector2(
+		maxf(1.0, size.x - side_margin * 2.0),
+		maxf(1.0, size.y - top_margin - bottom_margin)
+	)
+	_presentation_rest_position = _content_shell.position
+	var navigation_size := Vector2(
+		minf(size.x - 20.0, 610.0 if compact else 760.0),
+		52.0 if compact else 96.0
+	)
+	_navigation_cluster.position = Vector2(
+		(size.x - navigation_size.x) * 0.5,
+		4.0 if compact else 14.0
+	)
+	_navigation_cluster.size = navigation_size
+	_navigation_cluster.apply_layout(navigation_size, compact)
+	_inventory_grid.columns = 2 if compact else 3
+	_bag_grid.columns = 2 if compact else 3
+	_logbook_grid.columns = 3 if compact else 4
+	_inventory_list.custom_minimum_size.x = 292.0 if compact else 350.0
+	_inventory_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_detail_panel.custom_minimum_size.x = 176.0 if compact else 210.0
+	_bag_list.custom_minimum_size.x = 300.0 if compact else 360.0
+	_bag_detail.custom_minimum_size.x = 176.0 if compact else 220.0
+	_content_stage.custom_minimum_size.y = 220.0 if compact else 260.0
+	call_deferred("_sync_cooler_width")
+	_inventory_body.vertical = compact
+	_inventory_scroll.vertical_scroll_mode = (
+		ScrollContainer.SCROLL_MODE_DISABLED
+		if compact
+		else ScrollContainer.SCROLL_MODE_AUTO
+	)
+	_inventory_list.custom_minimum_size.y = 240.0 if compact else 0.0
+	_detail_panel.custom_minimum_size = (
+		Vector2(0.0, 310.0)
+		if compact
+		else Vector2(430.0, 0.0)
+	)
+	_status_shoal.add_theme_constant_override(
+		"separation",
+		4 if compact else 8,
+	)
+	_inventory_body.queue_sort()
+	_content_rest_position = _content_stage.position
+	if not _transitioning:
+		_content_shell.position = _presentation_rest_position
+	if not _page_transitioning:
+		_content_stage.position = _content_rest_position
+
+
+func _sync_cooler_width() -> void:
+	if not is_node_ready():
+		return
+	_cooler_host.custom_minimum_size.x = minf(
+		_content_stage.size.x,
+		1380.0,
+	)
+	_cooler_host.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+
+
+func _begin_menu_entry() -> void:
+	_transitioning = true
+	_set_shell_interactive(false)
+	set_process(true)
+	var generation: int = _transition_generation
+	var start_offset: float = size.y + TRANSITION_SAFE_MARGIN
+	_content_shell.position = _presentation_rest_position + Vector2.DOWN * start_offset
+	var navigation_rest: Vector2 = _navigation_cluster.position
+	_navigation_cluster.position = navigation_rest + Vector2.DOWN * start_offset
+	_presentation_tween = create_tween().set_parallel(true)
+	_presentation_tween.tween_property(
+		_content_shell,
+		"position",
+		_presentation_rest_position,
+		MENU_ENTER_DURATION
+	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	_presentation_tween.tween_property(
+		_navigation_cluster,
+		"position",
+		navigation_rest,
+		MENU_ENTER_DURATION
+	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	_presentation_tween.chain().tween_callback(
+		_finish_menu_entry.bind(generation)
+	)
+
+
+func _finish_menu_entry(generation: int) -> void:
+	if generation != _transition_generation or not visible:
+		return
+	_presentation_tween = null
+	_transitioning = false
+	_set_shell_interactive(true)
+	_focus_current_section()
+
+
+func _begin_menu_exit(reason: CloseReason, restore_controls: bool) -> void:
+	if reason != CloseReason.USER:
+		_finish_close(reason, restore_controls, _menu_generation)
+		return
+	_transition_generation += 1
+	_cancel_presentation_tween()
+	_transitioning = true
+	_set_shell_interactive(false)
+	get_viewport().gui_release_focus()
+	var generation: int = _transition_generation
+	var closing_generation: int = _menu_generation
+	var end_y: float = -maxf(
+		_content_shell.size.y,
+		_navigation_cluster.size.y
+	) - TRANSITION_SAFE_MARGIN
+	_presentation_tween = create_tween().set_parallel(true)
+	_presentation_tween.tween_property(
+		_content_shell,
+		"position:y",
+		end_y,
+		MENU_EXIT_DURATION
+	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	_presentation_tween.tween_property(
+		_navigation_cluster,
+		"position:y",
+		-_navigation_cluster.size.y - TRANSITION_SAFE_MARGIN,
+		MENU_EXIT_DURATION
+	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	_presentation_tween.chain().tween_callback(
+		_finish_menu_exit.bind(
+			generation,
+			reason,
+			restore_controls,
+			closing_generation,
+		)
+	)
+
+
+func _finish_menu_exit(
+	generation: int,
+	reason: CloseReason,
+	restore_controls: bool,
+	closing_generation: int,
+) -> void:
+	if generation != _transition_generation or not visible:
+		return
+	_presentation_tween = null
+	_finish_close(reason, restore_controls, closing_generation)
+
+
+func _finish_close(
+	reason: CloseReason,
+	restore_controls: bool,
+	closing_generation: int,
+) -> void:
+	_cancel_presentation_tween()
+	_cancel_page_tween()
+	_transitioning = false
+	_page_transitioning = false
+	visible = false
+	set_process(false)
+	get_viewport().gui_release_focus()
+	if _fishing_spot != null and is_instance_valid(_fishing_spot):
+		_fishing_spot.set_local_menu_input_suppressed(INPUT_OWNER, false)
+	if restore_controls:
+		_restore_player_controls(closing_generation)
+	else:
+		_control_snapshot_stored = false
+	_apply_mouse_close_policy(reason)
+	_menu_generation += 1
+	_transition_generation += 1
+	menu_visibility_changed.emit(false)
+
+
+func _begin_page_transition(section: Section) -> void:
+	_page_transition_generation += 1
+	_cancel_page_tween()
+	_page_transitioning = true
+	_set_content_interactive(false)
+	_set_navigation_target(section)
+	var generation: int = _page_transition_generation
+	_page_tween = create_tween()
+	_page_tween.tween_property(
+		_content_stage,
+		"modulate:a",
+		0.0,
+		PAGE_OUT_DURATION
+	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	_page_tween.parallel().tween_property(
+		_content_stage,
+		"position:y",
+		_content_rest_position.y - 18.0,
+		PAGE_OUT_DURATION
+	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	_page_tween.tween_callback(
+		_swap_page.bind(section, generation)
+	)
+	_page_tween.tween_property(
+		_content_stage,
+		"modulate:a",
+		1.0,
+		PAGE_IN_DURATION
+	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	_page_tween.parallel().tween_property(
+		_content_stage,
+		"position",
+		_content_rest_position,
+		PAGE_IN_DURATION
+	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	_page_tween.finished.connect(
+		_finish_page_transition.bind(generation),
+		CONNECT_ONE_SHOT
+	)
+
+
+func _swap_page(section: Section, generation: int) -> void:
+	if generation != _page_transition_generation or not visible:
+		return
+	_show_section_immediate(section)
+	_content_stage.position = _content_rest_position + Vector2.DOWN * 18.0
+
+
+func _finish_page_transition(generation: int) -> void:
+	if generation != _page_transition_generation or not visible:
+		return
+	_page_tween = null
+	_page_transitioning = false
+	_content_stage.position = _content_rest_position
+	_content_stage.modulate.a = 1.0
+	_set_content_interactive(true)
+	_focus_current_section()
+
+
+func _set_shell_interactive(interactive: bool) -> void:
+	_set_content_interactive(interactive)
+	for bubble: BubbleButtonType in [
+		_inventory_tab,
+		_bag_tab,
+		_logbook_tab,
+		_close_button,
+	]:
+		bubble.focus_mode = Control.FOCUS_ALL if interactive else Control.FOCUS_NONE
+		bubble.mouse_filter = (
+			Control.MOUSE_FILTER_STOP
+			if interactive
+			else Control.MOUSE_FILTER_IGNORE
+		)
+
+
+func _set_content_interactive(interactive: bool) -> void:
+	_content_stage.mouse_filter = (
+		Control.MOUSE_FILTER_PASS
+		if interactive
+		else Control.MOUSE_FILTER_IGNORE
+	)
+
+
+func _cancel_presentation_tween() -> void:
+	if _presentation_tween != null:
+		_presentation_tween.kill()
+		_presentation_tween = null
+
+
+func _cancel_page_tween() -> void:
+	if _page_tween != null:
+		_page_tween.kill()
+		_page_tween = null
 
 
 func _on_sort_selected(index: int) -> void:
@@ -486,6 +914,12 @@ func _refresh_economy_summary() -> void:
 		else 0
 	)
 	_wallet_balance.text = "wallet: $%d" % balance
+	_wallet_status.set_content("wallet", "$%d" % balance)
+	_capacity_status.set_content("cooler", "%d / %d" % [
+		_inventory.get_all_catches().size() if _inventory != null else 0,
+		_cooler_capacity.get_capacity() if _cooler_capacity != null else 0,
+	])
+	_held_value_status.set_content("held value", "$%d" % held_total)
 	_held_value.text = "held fish base value: $%d" % held_total
 	_cooler_count.text = "%d / %d" % [
 		_inventory.get_all_catches().size() if _inventory != null else 0,
@@ -518,9 +952,30 @@ func _refresh_inventory() -> void:
 		selected = _inventory.get_catch(_fish_selection.get_focused_id())
 	for fish_catch: FishCatchType in catches:
 		_inventory_grid.add_child(_create_inventory_card(fish_catch))
+	_configure_inventory_card_focus()
 	_update_inventory_detail(selected)
 	_update_sale_summary()
 	_update_sort_direction_text()
+
+
+func _configure_inventory_card_focus() -> void:
+	var cards: Array[Control] = []
+	for child: Node in _inventory_grid.get_children():
+		if child is Control:
+			cards.append(child as Control)
+	var columns: int = maxi(_inventory_grid.columns, 1)
+	for index: int in cards.size():
+		var card: Control = cards[index]
+		var row: int = floori(float(index) / float(columns))
+		var column: int = index % columns
+		var left_index: int = row * columns + maxi(column - 1, 0)
+		var right_index: int = mini(index + 1, cards.size() - 1)
+		var top_index: int = maxi(index - columns, 0)
+		var bottom_index: int = mini(index + columns, cards.size() - 1)
+		card.focus_neighbor_left = card.get_path_to(cards[left_index])
+		card.focus_neighbor_right = card.get_path_to(cards[right_index])
+		card.focus_neighbor_top = card.get_path_to(cards[top_index])
+		card.focus_neighbor_bottom = card.get_path_to(cards[bottom_index])
 
 
 func _compare_catches(left: FishCatchType, right: FishCatchType) -> bool:
@@ -540,92 +995,23 @@ func _compare_catches(left: FishCatchType, right: FishCatchType) -> bool:
 
 
 func _create_inventory_card(fish_catch: FishCatchType) -> Button:
-	var card := Button.new()
-	card.theme_type_variation = &"CardButton"
-	card.custom_minimum_size = Vector2(132.0, 118.0)
-	card.toggle_mode = true
+	var card := BubbleInventoryCellScene.instantiate() as BubbleInventoryCellType
+	card.set_compact(_compact_layout)
 	var is_selected: bool = _fish_selection.is_selected(fish_catch.catch_id)
 	var is_focused: bool = (
 		fish_catch.catch_id == _fish_selection.get_focused_id()
 	)
-	card.button_pressed = is_selected
-	card.pressed.connect(_on_catch_card_pressed.bind(fish_catch.catch_id))
-	_apply_inventory_card_styles(
-		card,
-		UIPalette.get_rarity_color(fish_catch.fish.rarity),
-		is_selected,
-		is_focused
-	)
-
-	var content := VBoxContainer.new()
-	content.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_MINSIZE, 8)
-	content.add_theme_constant_override("separation", 3)
-	content.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	card.add_child(content)
-	content.add_child(_create_texture_frame(
+	card.configure(
 		fish_catch.fish.display_texture,
-		Vector2(108.0, 62.0)
-	))
-	var name_label := Label.new()
-	name_label.text = fish_catch.fish.display_name
-	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	content.add_child(name_label)
-	var weight_label := Label.new()
-	weight_label.text = "%.2f lb" % fish_catch.weight_lb
-	weight_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	weight_label.add_theme_color_override(
-		"font_color",
-		UIPalette.MUTED_TEXT
+		fish_catch.fish.display_name,
+		"%.2f lb" % fish_catch.weight_lb,
 	)
-	weight_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	content.add_child(weight_label)
-	if fish_catch.is_favorited:
-		var favorite_marker := Label.new()
-		favorite_marker.text = "★"
-		favorite_marker.add_theme_color_override(
-			"font_color",
-			UIPalette.SECONDARY
-		)
-		favorite_marker.add_theme_font_size_override("font_size", 27)
-		favorite_marker.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-		favorite_marker.offset_left = -28.0
-		favorite_marker.offset_top = 5.0
-		favorite_marker.offset_right = -8.0
-		favorite_marker.offset_bottom = 29.0
-		favorite_marker.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		favorite_marker.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		card.add_child(favorite_marker)
-	if is_selected:
-		var selected_marker := Label.new()
-		selected_marker.text = "✓"
-		selected_marker.add_theme_color_override(
-			"font_color",
-			UIPalette.SUCCESS
-		)
-		selected_marker.add_theme_font_size_override("font_size", 27)
-		selected_marker.set_anchors_preset(Control.PRESET_TOP_LEFT)
-		selected_marker.offset_left = 8.0
-		selected_marker.offset_top = 5.0
-		selected_marker.offset_right = 30.0
-		selected_marker.offset_bottom = 29.0
-		selected_marker.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		card.add_child(selected_marker)
-	if is_focused:
-		var focus_marker := Label.new()
-		focus_marker.text = "◆"
-		focus_marker.add_theme_color_override(
-			"font_color",
-			UIPalette.PRIMARY
-		)
-		focus_marker.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
-		focus_marker.offset_left = -26.0
-		focus_marker.offset_top = -25.0
-		focus_marker.offset_right = -8.0
-		focus_marker.offset_bottom = -7.0
-		focus_marker.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		focus_marker.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		card.add_child(focus_marker)
+	card.set_item_state(
+		is_selected,
+		is_focused,
+		fish_catch.is_favorited,
+	)
+	card.pressed.connect(_on_catch_card_pressed.bind(fish_catch.catch_id))
 	return card
 
 
@@ -762,6 +1148,8 @@ func _update_sale_summary() -> void:
 	)
 	if selected_count == 0:
 		_selection_summary.text = "no fish selected"
+		_selection_status.set_content("selected", "none")
+		_offer_status.set_content("pelican offer", "—")
 		_sell_button.text = "sell fish"
 		_sell_button.disabled = true
 		_sale_unavailable.text = ""
@@ -778,6 +1166,7 @@ func _update_sale_summary() -> void:
 		else "%d fish selected" % selected_count
 	)
 	_selection_summary.text = count_text
+	_selection_status.set_content("selected", str(selected_count))
 	if (
 		preview != null
 		and preview.payout >= 0
@@ -791,6 +1180,9 @@ func _update_sale_summary() -> void:
 			_default_buyer.display_name,
 			preview.payout,
 		]
+		_offer_status.set_content("pelican offer", "$%d" % preview.payout)
+	else:
+		_offer_status.set_content("pelican offer", "unavailable")
 	_sell_button.disabled = preview == null or not preview.is_success()
 	if preview != null and preview.status == FishSaleResultType.Status.FAVORITED:
 		_sale_unavailable.text = (
