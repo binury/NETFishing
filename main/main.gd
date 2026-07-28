@@ -30,6 +30,9 @@ const UIPixelationPresenterType = preload(
 const PixelationResetOverlayType = preload(
 	"res://ui/pixelation_reset_overlay.gd"
 )
+const WorldPixelationPostprocessType = preload(
+	"res://main/world_pixelation_postprocess.gd"
+)
 
 const TITLE_MUSIC_SILENCE_DB: float = -80.0
 
@@ -52,6 +55,9 @@ const TITLE_MUSIC_SILENCE_DB: float = -80.0
 @onready var _ui_pixelation: UIPixelationPresenterType = %UIPresentation
 @onready var _pixelation_reset: PixelationResetOverlayType = (
 	%PixelationResetOverlay
+)
+@onready var _world_pixelation: WorldPixelationPostprocessType = (
+	%WorldPixelationPostprocess
 )
 
 var _gameplay_started: bool = false
@@ -241,14 +247,7 @@ func _process(_delta: float) -> void:
 func _apply_runtime_settings(settings: PlayerSettingsType) -> void:
 	if settings == null:
 		return
-	var root_viewport: Viewport = get_viewport()
-	root_viewport.scaling_3d_mode = Viewport.SCALING_3D_MODE_NEAREST
-	root_viewport.scaling_3d_scale = PlayerSettingsType.get_world_render_scale(
-		settings.world_pixel_size
-	)
-	root_viewport.msaa_3d = Viewport.MSAA_DISABLED
-	root_viewport.screen_space_aa = Viewport.SCREEN_SPACE_AA_DISABLED
-	root_viewport.use_taa = false
+	_apply_world_pixelation(settings.world_pixel_size)
 	_ui_pixelation.set_pixel_size(settings.ui_pixel_size)
 	_game_ui.get_title_screen().set_world_pixelation(
 		settings.world_pixel_size
@@ -262,6 +261,16 @@ func _apply_runtime_settings(settings: PlayerSettingsType) -> void:
 		settings.auto_click_enabled,
 		settings.auto_click_interval
 	)
+
+
+func _apply_world_pixelation(pixel_size: int) -> void:
+	var root_viewport: Viewport = get_viewport()
+	root_viewport.scaling_3d_mode = Viewport.SCALING_3D_MODE_NEAREST
+	root_viewport.scaling_3d_scale = 1.0
+	root_viewport.msaa_3d = Viewport.MSAA_DISABLED
+	root_viewport.screen_space_aa = Viewport.SCREEN_SPACE_AA_DISABLED
+	root_viewport.use_taa = false
+	_world_pixelation.set_pixel_size(pixel_size)
 
 
 func _on_effective_ui_pixel_size_changed(
@@ -281,6 +290,7 @@ func _reset_pixelation() -> void:
 
 func _set_gameplay_active(active: bool) -> void:
 	_gameplay_started = active
+	_world_pixelation.set_gameplay_active(active)
 	_ui_pixelation.set_gameplay_active(active)
 	if not active:
 		_player.item_effects.reset_all()

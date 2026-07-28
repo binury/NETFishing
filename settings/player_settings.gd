@@ -13,8 +13,11 @@ const DEFAULT_WORLD_PIXEL_SIZE: int = 3
 const MIN_UI_PIXEL_SIZE: int = 1
 const MAX_UI_PIXEL_SIZE: int = 5
 const DEFAULT_UI_PIXEL_SIZE: int = 3
-const WORLD_RENDER_SCALES: Array[float] = [1.0, 0.9, 0.8, 0.65, 0.45]
-const UI_RENDER_SCALES: Array[float] = [1.0, 0.975, 0.95, 0.925, 0.9]
+const COMPACT_DISPLAY_HEIGHT: int = 560
+const WORLD_DESKTOP_GRID_HEIGHTS: Array[int] = [0, 540, 360, 216, 96]
+const WORLD_COMPACT_GRID_HEIGHTS: Array[int] = [0, 360, 240, 144, 72]
+const UI_DESKTOP_RENDER_HEIGHTS: Array[int] = [0, 612, 504, 396, 288]
+const UI_COMPACT_RENDER_HEIGHTS: Array[int] = [0, 408, 336, 264, 192]
 
 @export var auto_click_enabled: bool = false
 @export_range(0.10, 0.50, 0.01) var auto_click_interval: float = 0.20
@@ -55,19 +58,89 @@ func copy() -> PlayerSettings:
 	return result
 
 
-static func get_world_render_scale(pixel_size: int) -> float:
+static func get_world_grid_height(
+	pixel_size: int,
+	displayed_height: int,
+) -> int:
 	var index: int = clampi(
 		pixel_size,
 		MIN_WORLD_PIXEL_SIZE,
 		MAX_WORLD_PIXEL_SIZE
 	) - 1
-	return WORLD_RENDER_SCALES[index]
+	if index == 0:
+		return maxi(1, displayed_height)
+	var targets: Array[int] = (
+		WORLD_COMPACT_GRID_HEIGHTS
+		if displayed_height < COMPACT_DISPLAY_HEIGHT
+		else WORLD_DESKTOP_GRID_HEIGHTS
+	)
+	return mini(maxi(1, displayed_height), targets[index])
 
 
-static func get_ui_render_scale(pixel_size: int) -> float:
+static func get_world_grid_size(
+	pixel_size: int,
+	displayed_size: Vector2i,
+) -> Vector2i:
+	var safe_size := Vector2i(
+		maxi(1, displayed_size.x),
+		maxi(1, displayed_size.y)
+	)
+	var target_height: int = get_world_grid_height(
+		pixel_size,
+		safe_size.y
+	)
+	return Vector2i(
+		maxi(
+			1,
+			roundi(
+				float(target_height)
+				* float(safe_size.x)
+				/ float(safe_size.y)
+			)
+		),
+		target_height
+	)
+
+
+static func get_ui_render_height(
+	pixel_size: int,
+	displayed_height: int,
+) -> int:
 	var index: int = clampi(
 		pixel_size,
 		MIN_UI_PIXEL_SIZE,
 		MAX_UI_PIXEL_SIZE
 	) - 1
-	return UI_RENDER_SCALES[index]
+	if index == 0:
+		return maxi(1, displayed_height)
+	var targets: Array[int] = (
+		UI_COMPACT_RENDER_HEIGHTS
+		if displayed_height < COMPACT_DISPLAY_HEIGHT
+		else UI_DESKTOP_RENDER_HEIGHTS
+	)
+	return mini(maxi(1, displayed_height), targets[index])
+
+
+static func get_ui_render_size(
+	pixel_size: int,
+	displayed_size: Vector2i,
+) -> Vector2i:
+	var safe_size := Vector2i(
+		maxi(1, displayed_size.x),
+		maxi(1, displayed_size.y)
+	)
+	var target_height: int = get_ui_render_height(
+		pixel_size,
+		safe_size.y
+	)
+	return Vector2i(
+		maxi(
+			1,
+			roundi(
+				float(target_height)
+				* float(safe_size.x)
+				/ float(safe_size.y)
+			)
+		),
+		target_height
+	)

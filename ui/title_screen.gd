@@ -379,20 +379,25 @@ func set_world_pixelation(pixel_size: int) -> void:
 
 
 func _update_world_preview_resolution() -> void:
-	var render_scale: float = PlayerSettings.get_world_render_scale(
-		_world_pixel_size
+	var displayed_size := Vector2i(
+		maxi(1, roundi(size.x)),
+		maxi(1, roundi(size.y))
+	)
+	var grid_size: Vector2i = PlayerSettings.get_world_grid_size(
+		_world_pixel_size,
+		displayed_size
 	)
 	var shader_material := _background.material as ShaderMaterial
 	if shader_material != null:
 		shader_material.set_shader_parameter(
 			"virtual_pixel_density",
-			Vector2(
-				maxf(1.0, size.x * render_scale),
-				maxf(1.0, size.y * render_scale)
-			)
+			Vector2(grid_size)
 		)
 	var logo_material := _title_logo.material as ShaderMaterial
 	if logo_material != null:
+		var render_scale: float = (
+			float(grid_size.y) / float(displayed_size.y)
+		)
 		var effect_scale: float = 1.0 / render_scale
 		logo_material.set_shader_parameter(
 			"horizontal_displacement_pixels",
@@ -405,9 +410,15 @@ func _update_world_preview_resolution() -> void:
 
 
 func _snap_world_preview(value: Vector2) -> Vector2:
-	var render_scale: float = PlayerSettings.get_world_render_scale(
-		_world_pixel_size
+	var displayed_size := Vector2i(
+		maxi(1, roundi(size.x)),
+		maxi(1, roundi(size.y))
 	)
+	var grid_size: Vector2i = PlayerSettings.get_world_grid_size(
+		_world_pixel_size,
+		displayed_size
+	)
+	var render_scale: float = float(grid_size.y) / float(displayed_size.y)
 	var step: float = 1.0 / render_scale
 	return Vector2(
 		roundf(value.x / step) * step,

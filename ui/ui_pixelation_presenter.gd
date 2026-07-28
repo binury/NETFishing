@@ -1,7 +1,7 @@
 class_name UIPixelationPresenter
 extends SubViewportContainer
 
-const MIN_UI_VIEWPORT_SIZE: Vector2i = Vector2i(320, 180)
+const MIN_UI_VIEWPORT_SIZE: Vector2i = Vector2i(256, 180)
 
 signal effective_pixel_size_changed(
 	requested_pixel_size: int,
@@ -70,12 +70,13 @@ func _resize_presentation() -> void:
 		return
 	var previous_effective_size: int = _effective_pixel_size
 	_effective_pixel_size = _resolve_effective_pixel_size(root_size)
-	var render_scale: float = PlayerSettings.get_ui_render_scale(
-		_effective_pixel_size
+	var viewport_size: Vector2i = PlayerSettings.get_ui_render_size(
+		_effective_pixel_size,
+		root_size
 	)
-	var viewport_size := Vector2i(
-		ceili(float(root_size.x) * render_scale),
-		ceili(float(root_size.y) * render_scale)
+	var render_scale: float = minf(
+		1.0,
+		float(viewport_size.y) / float(root_size.y)
 	)
 	var presentation_size: Vector2 = Vector2(viewport_size) / render_scale
 	set_anchors_preset(Control.PRESET_TOP_LEFT)
@@ -98,10 +99,9 @@ func _resize_presentation() -> void:
 
 func _resolve_effective_pixel_size(root_size: Vector2i) -> int:
 	for candidate: int in range(_requested_pixel_size, 0, -1):
-		var render_scale: float = PlayerSettings.get_ui_render_scale(candidate)
-		var candidate_size := Vector2i(
-			ceili(float(root_size.x) * render_scale),
-			ceili(float(root_size.y) * render_scale)
+		var candidate_size: Vector2i = PlayerSettings.get_ui_render_size(
+			candidate,
+			root_size
 		)
 		if (
 			candidate_size.x >= MIN_UI_VIEWPORT_SIZE.x
