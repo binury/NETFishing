@@ -5,6 +5,7 @@ extends WorldRegion
 const FishingShopInteractionType = preload(
 	"res://world/fishing_shop_interaction.gd"
 )
+const GRASS_SURFACE_NAME: String = "grass_lite"
 
 @export_group("Owned Nodes")
 @export_node_path("MeshInstance3D")
@@ -71,7 +72,10 @@ func _apply_grass_material() -> void:
 	if grass_surface_index >= visual_mesh.mesh.get_surface_count():
 		push_error("Starter island grass surface index is invalid.")
 		return
-	if visual_mesh.mesh.surface_get_name(grass_surface_index) != "grass":
+	if (
+		visual_mesh.mesh.surface_get_name(grass_surface_index)
+		!= GRASS_SURFACE_NAME
+	):
 		push_error("Starter island grass surface name does not match.")
 		return
 	visual_mesh.set_surface_override_material(
@@ -109,7 +113,10 @@ func _get_configuration_warnings() -> PackedStringArray:
 		warnings.append("Terrain/Visual must provide the island mesh.")
 	elif grass_surface_index >= visual_mesh.mesh.get_surface_count():
 		warnings.append("Grass surface index is outside the terrain mesh.")
-	elif visual_mesh.mesh.surface_get_name(grass_surface_index) != "grass":
+	elif (
+		visual_mesh.mesh.surface_get_name(grass_surface_index)
+		!= GRASS_SURFACE_NAME
+	):
 		warnings.append("Grass surface index must identify the grass surface.")
 	if grass_material == null:
 		warnings.append("Assign the starter-island grass material.")
