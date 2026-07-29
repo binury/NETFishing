@@ -5,7 +5,7 @@
 [ext_resource type="Theme" path="res://ui/game_theme.tres" id="3_theme"]
 
 [node name="BubbleHotbarSlot" type="Button"]
-custom_minimum_size = Vector2(80, 78)
+custom_minimum_size = Vector2(78, 78)
 focus_mode = 0
 mouse_default_cursor_shape = 2
 theme = ExtResource("3_theme")

@@ -162,9 +162,9 @@ func _apply_layout() -> void:
 		available_size.y - reference_size.y * presentation_scale
 	)
 	var field_size := (
-		Vector2(600.0, 82.0)
+		Vector2(580.0, 82.0)
 		if _compact_layout
-		else Vector2(820.0, 104.0)
+		else Vector2(790.0, 104.0)
 	)
 	_bubble_field.size = field_size
 	_bubble_field.position = Vector2(

@@ -26,8 +26,8 @@ const DEFORMATION_Y_AMPLITUDE: float = 0.007
 
 @export_range(0, PlayerHotbarType.SLOT_COUNT - 1, 1) var slot_index: int = 0
 @export_group("Authored Layout")
-@export var desktop_size: Vector2 = Vector2(80.0, 78.0)
-@export var compact_size: Vector2 = Vector2(56.0, 54.0)
+@export var desktop_size: Vector2 = Vector2(78.0, 78.0)
+@export var compact_size: Vector2 = Vector2(54.0, 54.0)
 @export var desktop_anchor: Vector2 = Vector2.ZERO
 @export var compact_anchor: Vector2 = Vector2.ZERO
 @export_group("Motion")
@@ -204,29 +204,31 @@ func _apply_style() -> void:
 		return
 	var normal_fill: Color = profile.normal_fill
 	normal_fill.a = 1.0
-	var normal_border: Color = profile.normal_border
-	var normal_border_width: int = profile.normal_border_width
+	var selected_fill: Color = normal_fill
 	if _selected:
-		normal_border = profile.pressed_border
-		normal_border_width = profile.emphasized_border_width
+		selected_fill = normal_fill.lightened(0.12)
 	add_theme_stylebox_override(
 		"normal",
-		_make_style(normal_fill, normal_border, normal_border_width)
+		_make_style(
+			selected_fill,
+			5 if _selected else 2,
+			0.38 if _selected else 0.20,
+		)
 	)
 	add_theme_stylebox_override(
 		"hover",
 		_make_style(
-			normal_fill,
-			profile.hover_border,
-			profile.emphasized_border_width
+			selected_fill.lightened(0.055),
+			5 if _selected else 3,
+			0.40 if _selected else 0.29,
 		)
 	)
 	add_theme_stylebox_override(
 		"pressed",
 		_make_style(
-			normal_fill,
-			profile.pressed_border,
-			profile.emphasized_border_width
+			selected_fill.lightened(0.085),
+			6,
+			0.44,
 		)
 	)
 	add_theme_stylebox_override(
@@ -237,8 +239,8 @@ func _apply_style() -> void:
 		"disabled",
 		_make_style(
 			normal_fill,
-			profile.disabled_border,
-			profile.normal_border_width
+			1,
+			0.12,
 		)
 	)
 	add_theme_color_override("font_color", profile.text_color)
@@ -249,21 +251,20 @@ func _apply_style() -> void:
 
 func _make_style(
 	fill_color: Color,
-	border_color: Color,
-	border_width: int,
+	shadow_size: int,
+	shadow_alpha: float,
 ) -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
 	style.bg_color = fill_color
-	style.border_color = border_color
-	style.border_width_left = border_width
-	style.border_width_top = border_width
-	style.border_width_right = border_width
-	style.border_width_bottom = border_width
+	style.set_border_width_all(0)
 	var radius: int = ceili(maxf(_presented_size.x, _presented_size.y) * 0.5)
 	style.corner_radius_top_left = radius
 	style.corner_radius_top_right = radius
 	style.corner_radius_bottom_right = radius
 	style.corner_radius_bottom_left = radius
+	style.shadow_color = Color(0.015, 0.06, 0.09, shadow_alpha)
+	style.shadow_size = shadow_size
+	style.shadow_offset = Vector2(0.0, 2.0)
 	return style
 
 

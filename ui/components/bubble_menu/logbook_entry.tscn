@@ -1,0 +1,66 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://ui/components/bubble_menu/logbook_entry.gd" id="1_script"]
+
+[node name="LogbookEntry" type="PanelContainer"]
+custom_minimum_size = Vector2(214, 150)
+mouse_filter = 2
+script = ExtResource("1_script")
+
+[node name="Margin" type="MarginContainer" parent="."]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/margin_left = 5
+theme_override_constants/margin_top = 4
+theme_override_constants/margin_right = 5
+theme_override_constants/margin_bottom = 4
+
+[node name="Content" type="HBoxContainer" parent="Margin"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 7
+
+[node name="Artwork" type="TextureRect" parent="Margin/Content"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(128, 76)
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+texture_filter = 1
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Text" type="VBoxContainer" parent="Margin/Content"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 4
+mouse_filter = 2
+theme_override_constants/separation = 2
+
+[node name="NameLabel" type="Label" parent="Margin/Content/Text"]
+unique_name_in_owner = true
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.20, 0.145, 0.085, 1)
+theme_override_font_sizes/font_size = 18
+text = "species"
+horizontal_alignment = 1
+autowrap_mode = 2
+
+[node name="RarityLabel" type="Label" parent="Margin/Content/Text"]
+unique_name_in_owner = true
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.34, 0.25, 0.15, 1)
+theme_override_font_sizes/font_size = 13
+text = "common"
+horizontal_alignment = 1
+
+[node name="OwnedLabel" type="Label" parent="Margin/Content/Text"]
+unique_name_in_owner = true
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.34, 0.25, 0.15, 1)
+theme_override_font_sizes/font_size = 13
+text = "owned: 0"
+horizontal_alignment = 1

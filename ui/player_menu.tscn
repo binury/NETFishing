@@ -1,4 +1,4 @@
-[gd_scene load_steps=9 format=3]
+[gd_scene load_steps=16 format=3]
 
 [ext_resource type="Script" path="res://ui/player_menu.gd" id="1_menu"]
 [ext_resource type="Theme" path="res://ui/game_theme.tres" id="2_theme"]
@@ -8,8 +8,17 @@
 [ext_resource type="Script" path="res://ui/components/bubble_menu/bubble_button.gd" id="6_bubble"]
 [ext_resource type="PackedScene" path="res://ui/components/bubble_menu/bubble_status_bubble.tscn" id="7_status"]
 [ext_resource type="Script" path="res://ui/components/bubble_menu/bubble_information_panel.gd" id="8_info"]
+[ext_resource type="PackedScene" path="res://ui/components/bubble_menu/bubble_information_panel.tscn" id="9_info_scene"]
+[ext_resource type="PackedScene" path="res://ui/components/bubble_menu/bubble_status_bubble.tscn" id="10_status_scene"]
+[ext_resource type="Script" path="res://ui/components/bubble_menu/bubble_button.gd" id="11_bubble"]
+[ext_resource type="PackedScene" path="res://ui/components/bubble_menu/notepad_ink_action.tscn" id="12_ink_action"]
+[ext_resource type="PackedScene" path="res://ui/components/bubble_menu/notepad_ink_choice.tscn" id="13_ink_choice"]
+[ext_resource type="Shader" path="res://ui/components/bubble_menu/cooler_water.gdshader" id="14_water"]
 
 [sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_collection"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_cooler_water"]
+shader = ExtResource("14_water")
 
 [node name="PlayerMenu" type="Control"]
 visible = false
@@ -35,7 +44,594 @@ grow_vertical = 2
 mouse_filter = 2
 color = Color(0.015, 0.02, 0.03, 0.72)
 
-[node name="MenuPanel" type="PanelContainer" parent="."]
+[node name="ResponsivePlayerMenuStage" type="Control" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="PlayerMenuPresentationScaleRoot" type="Control" parent="ResponsivePlayerMenuStage"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_right = 1280.0
+offset_bottom = 720.0
+mouse_filter = 2
+
+[node name="CoolerPage" type="Control" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_right = 1280.0
+offset_bottom = 720.0
+mouse_filter = 1
+
+[node name="CoolerOuterWall" type="PanelContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/CoolerPage"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 54.0
+offset_top = 126.0
+offset_right = 936.0
+offset_bottom = 602.0
+
+[node name="CoolerWallMargin" type="MarginContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/CoolerPage/CoolerOuterWall"]
+layout_mode = 2
+theme_override_constants/margin_left = 13
+theme_override_constants/margin_top = 13
+theme_override_constants/margin_right = 13
+theme_override_constants/margin_bottom = 13
+
+[node name="CoolerInnerLiner" type="PanelContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/CoolerPage/CoolerOuterWall/CoolerWallMargin"]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="CoolerInnerMargin" type="MarginContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/CoolerPage/CoolerOuterWall/CoolerWallMargin/CoolerInnerLiner"]
+layout_mode = 2
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 16
+
+[node name="CoolerScroll" type="ScrollContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/CoolerPage/CoolerOuterWall/CoolerWallMargin/CoolerInnerLiner/CoolerInnerMargin"]
+unique_name_in_owner = true
+layout_mode = 2
+horizontal_scroll_mode = 0
+
+[node name="CoolerHost" type="Control" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/CoolerPage/CoolerOuterWall/CoolerWallMargin/CoolerInnerLiner/CoolerInnerMargin/CoolerScroll"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(784, 394)
+layout_mode = 2
+mouse_filter = 1
+
+[node name="WaterSurface" type="ColorRect" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/CoolerPage/CoolerOuterWall/CoolerWallMargin/CoolerInnerLiner/CoolerInnerMargin/CoolerScroll/CoolerHost"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+material = SubResource("ShaderMaterial_cooler_water")
+color = Color(1, 1, 1, 1)
+
+[node name="FishField" type="Control" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/CoolerPage/CoolerOuterWall/CoolerWallMargin/CoolerInnerLiner/CoolerInnerMargin/CoolerScroll/CoolerHost"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 1
+
+[node name="CoolerEmpty" type="Label" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/CoolerPage/CoolerOuterWall/CoolerWallMargin/CoolerInnerLiner/CoolerInnerMargin/CoolerScroll/CoolerHost"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.91, 0.97, 0.98, 0.82)
+theme_override_font_sizes/font_size = 24
+text = "the cooler is empty"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="DetailConstellation" type="Control" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/CoolerPage"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 942.0
+offset_top = 126.0
+offset_right = 1230.0
+offset_bottom = 602.0
+mouse_filter = 1
+
+[node name="DetailBubble" type="PanelContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/CoolerPage/DetailConstellation"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="BindingDecoration" type="Label" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/CoolerPage/DetailConstellation"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 28.0
+offset_top = 4.0
+offset_right = 260.0
+offset_bottom = 31.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.31, 0.27, 0.2, 0.8)
+theme_override_font_sizes/font_size = 20
+text = "●   ●   ●   ●"
+horizontal_alignment = 1
+
+[node name="NotepadTitle" type="Label" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/CoolerPage/DetailConstellation"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 20.0
+offset_top = 31.0
+offset_right = 268.0
+offset_bottom = 59.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.16, 0.16, 0.14, 1)
+theme_override_font_sizes/font_size = 19
+text = "cooler notes"
+horizontal_alignment = 1
+
+[node name="NotepadWallet" type="Label" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/CoolerPage/DetailConstellation"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 18.0
+offset_top = 61.0
+offset_right = 140.0
+offset_bottom = 84.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.16, 0.16, 0.14, 1)
+theme_override_font_sizes/font_size = 14
+text = "wallet  $0"
+
+[node name="NotepadCapacity" type="Label" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/CoolerPage/DetailConstellation"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 146.0
+offset_top = 61.0
+offset_right = 270.0
+offset_bottom = 84.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.16, 0.16, 0.14, 1)
+theme_override_font_sizes/font_size = 14
+text = "cooler  0 / 12"
+horizontal_alignment = 2
+
+[node name="NotepadRule" type="ColorRect" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/CoolerPage/DetailConstellation"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 18.0
+offset_top = 87.0
+offset_right = 270.0
+offset_bottom = 89.0
+mouse_filter = 2
+color = Color(0.44, 0.36, 0.24, 0.34)
+
+[node name="CoolerSortControls" type="HBoxContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/CoolerPage/DetailConstellation"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 18.0
+offset_top = 98.0
+offset_right = 270.0
+offset_bottom = 136.0
+theme_override_constants/separation = 6
+
+[node name="CoolerSortLabel" type="Label" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/CoolerPage/DetailConstellation/CoolerSortControls"]
+visible = false
+layout_mode = 2
+theme_override_colors/font_color = Color(0.035, 0.145, 0.22, 1)
+text = "sort"
+vertical_alignment = 1
+
+[node name="CoolerSortOption" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/CoolerPage/DetailConstellation/CoolerSortControls" instance=ExtResource("13_ink_choice")]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(123, 38)
+layout_mode = 2
+clip_text = true
+fit_to_longest_item = false
+
+[node name="CoolerSortDirection" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/CoolerPage/DetailConstellation/CoolerSortControls" instance=ExtResource("12_ink_action")]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(123, 38)
+layout_mode = 2
+clip_text = true
+
+[node name="CoolerDetailTexture" type="TextureRect" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/CoolerPage/DetailConstellation"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 88.0
+offset_top = 143.0
+offset_right = 200.0
+offset_bottom = 235.0
+mouse_filter = 2
+texture_filter = 1
+expand_mode = 1
+stretch_mode = 5
+
+[node name="CoolerDetailName" type="Label" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/CoolerPage/DetailConstellation"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 18.0
+offset_top = 239.0
+offset_right = 270.0
+offset_bottom = 269.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.16, 0.16, 0.14, 1)
+theme_override_font_sizes/font_size = 21
+text = "select a fish"
+horizontal_alignment = 1
+text_overrun_behavior = 3
+
+[node name="CoolerDetailData" type="Label" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/CoolerPage/DetailConstellation"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 18.0
+offset_top = 269.0
+offset_right = 270.0
+offset_bottom = 344.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.16, 0.16, 0.14, 1)
+theme_override_font_sizes/font_size = 16
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="CoolerSelectionSummary" type="Label" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/CoolerPage/DetailConstellation"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 18.0
+offset_top = 346.0
+offset_right = 270.0
+offset_bottom = 382.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.2, 0.18, 0.15, 0.86)
+theme_override_font_sizes/font_size = 13
+text = "no fish selected"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="FavoriteBubble" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/CoolerPage/DetailConstellation" instance=ExtResource("12_ink_action")]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(98, 78)
+layout_mode = 0
+offset_left = 36.0
+offset_top = 386.0
+offset_right = 134.0
+offset_bottom = 464.0
+text = "favorite"
+
+[node name="SellBubble" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/CoolerPage/DetailConstellation" instance=ExtResource("12_ink_action")]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(108, 82)
+layout_mode = 0
+offset_left = 148.0
+offset_top = 382.0
+offset_right = 256.0
+offset_bottom = 464.0
+text = "sell fish"
+
+[node name="BagPage" type="Control" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 0
+offset_right = 1280.0
+offset_bottom = 720.0
+mouse_filter = 1
+
+[node name="BagOuterWall" type="PanelContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/BagPage"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 72.0
+offset_top = 132.0
+offset_right = 968.0
+offset_bottom = 574.0
+
+[node name="BagOuterMargin" type="MarginContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/BagPage/BagOuterWall"]
+layout_mode = 2
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 14
+theme_override_constants/margin_bottom = 12
+
+[node name="BagInnerLiner" type="PanelContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/BagPage/BagOuterWall/BagOuterMargin"]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="BagInnerMargin" type="MarginContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/BagPage/BagOuterWall/BagOuterMargin/BagInnerLiner"]
+layout_mode = 2
+theme_override_constants/margin_left = 18
+theme_override_constants/margin_top = 18
+theme_override_constants/margin_right = 18
+theme_override_constants/margin_bottom = 18
+
+[node name="BagScroll" type="ScrollContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/BagPage/BagOuterWall/BagOuterMargin/BagInnerLiner/BagInnerMargin"]
+unique_name_in_owner = true
+layout_mode = 2
+horizontal_scroll_mode = 0
+
+[node name="BagHost" type="Control" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/BagPage/BagOuterWall/BagOuterMargin/BagInnerLiner/BagInnerMargin/BagScroll"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(820, 350)
+layout_mode = 2
+mouse_filter = 1
+
+[node name="BagItemField" type="Control" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/BagPage/BagOuterWall/BagOuterMargin/BagInnerLiner/BagInnerMargin/BagScroll/BagHost"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 1
+
+[node name="BagEmptyState" type="Label" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/BagPage/BagOuterWall/BagOuterMargin/BagInnerLiner/BagInnerMargin/BagScroll/BagHost"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.22, 0.15, 0.08, 0.8)
+theme_override_font_sizes/font_size = 24
+text = "your bag is empty"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="BagInstructionBubble" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/BagPage" instance=ExtResource("9_info_scene")]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 992.0
+offset_top = 140.0
+offset_right = 1232.0
+offset_bottom = 238.0
+mouse_filter = 2
+
+[node name="BagInstructionText" type="Label" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/BagPage/BagInstructionBubble"]
+unique_name_in_owner = true
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.22, 0.15, 0.08, 1)
+theme_override_font_sizes/font_size = 18
+text = "drag items\nto the hotbar"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="BagDetailConstellation" type="Control" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/BagPage"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 0
+offset_left = 984.0
+offset_top = 266.0
+offset_right = 1256.0
+offset_bottom = 570.0
+mouse_filter = 2
+
+[node name="BagDetailBubble" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/BagPage/BagDetailConstellation" instance=ExtResource("9_info_scene")]
+unique_name_in_owner = true
+layout_mode = 0
+offset_right = 272.0
+offset_bottom = 304.0
+
+[node name="BagDetailLayout" type="VBoxContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/BagPage/BagDetailConstellation/BagDetailBubble"]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="BagSpriteDetailTexture" type="TextureRect" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/BagPage/BagDetailConstellation/BagDetailBubble/BagDetailLayout"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(100, 72)
+layout_mode = 2
+texture_filter = 1
+expand_mode = 1
+stretch_mode = 5
+
+[node name="BagSpriteDetailName" type="Label" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/BagPage/BagDetailConstellation/BagDetailBubble/BagDetailLayout"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.22, 0.15, 0.08, 1)
+theme_override_font_sizes/font_size = 22
+horizontal_alignment = 1
+
+[node name="BagSpriteDetailData" type="Label" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/BagPage/BagDetailConstellation/BagDetailBubble/BagDetailLayout"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.22, 0.15, 0.08, 1)
+theme_override_font_sizes/font_size = 15
+horizontal_alignment = 1
+autowrap_mode = 2
+
+[node name="LogbookPage" type="Control" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 0
+offset_right = 1280.0
+offset_bottom = 720.0
+mouse_filter = 1
+
+[node name="BookBacking" type="PanelContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/LogbookPage"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 58.0
+offset_top = 128.0
+offset_right = 1222.0
+offset_bottom = 588.0
+mouse_filter = 2
+
+[node name="BookOuterMargin" type="MarginContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/LogbookPage/BookBacking"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 12
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 12
+
+[node name="BookSpread" type="HBoxContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/LogbookPage/BookBacking/BookOuterMargin"]
+unique_name_in_owner = true
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 0
+
+[node name="LeftPage" type="PanelContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/LogbookPage/BookBacking/BookOuterMargin/BookSpread"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+
+[node name="LeftPageMargin" type="MarginContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/LogbookPage/BookBacking/BookOuterMargin/BookSpread/LeftPage"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/margin_left = 22
+theme_override_constants/margin_top = 18
+theme_override_constants/margin_right = 24
+theme_override_constants/margin_bottom = 18
+
+[node name="LeftPageLayout" type="VBoxContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/LogbookPage/BookBacking/BookOuterMargin/BookSpread/LeftPage/LeftPageMargin"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 8
+
+[node name="LeftHeading" type="Label" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/LogbookPage/BookBacking/BookOuterMargin/BookSpread/LeftPage/LeftPageMargin/LeftPageLayout"]
+unique_name_in_owner = true
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.22, 0.16, 0.09, 1)
+theme_override_font_sizes/font_size = 20
+text = "field notes"
+horizontal_alignment = 1
+
+[node name="LeftEntryField" type="BoxContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/LogbookPage/BookBacking/BookOuterMargin/BookSpread/LeftPage/LeftPageMargin/LeftPageLayout"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+mouse_filter = 2
+theme_override_constants/separation = 10
+vertical = true
+
+[node name="BookGutter" type="ColorRect" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/LogbookPage/BookBacking/BookOuterMargin/BookSpread"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(18, 0)
+layout_mode = 2
+mouse_filter = 2
+color = Color(0.44, 0.34, 0.21, 0.52)
+
+[node name="RightPage" type="PanelContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/LogbookPage/BookBacking/BookOuterMargin/BookSpread"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+
+[node name="RightPageMargin" type="MarginContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/LogbookPage/BookBacking/BookOuterMargin/BookSpread/RightPage"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/margin_left = 24
+theme_override_constants/margin_top = 18
+theme_override_constants/margin_right = 22
+theme_override_constants/margin_bottom = 18
+
+[node name="RightPageLayout" type="VBoxContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/LogbookPage/BookBacking/BookOuterMargin/BookSpread/RightPage/RightPageMargin"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 8
+
+[node name="RightHeading" type="Label" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/LogbookPage/BookBacking/BookOuterMargin/BookSpread/RightPage/RightPageMargin/RightPageLayout"]
+unique_name_in_owner = true
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.22, 0.16, 0.09, 1)
+theme_override_font_sizes/font_size = 20
+text = "catch record"
+horizontal_alignment = 1
+
+[node name="RightEntryField" type="BoxContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/LogbookPage/BookBacking/BookOuterMargin/BookSpread/RightPage/RightPageMargin/RightPageLayout"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+mouse_filter = 2
+theme_override_constants/separation = 10
+vertical = true
+
+[node name="LogbookEmptyState" type="Label" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/LogbookPage"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 0
+offset_left = 402.0
+offset_top = 314.0
+offset_right = 878.0
+offset_bottom = 366.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.28, 0.21, 0.13, 0.82)
+theme_override_font_sizes/font_size = 20
+text = "no fish catalog configured"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="LogbookPrevious" type="Button" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/LogbookPage"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(76, 72)
+layout_mode = 0
+offset_left = 78.0
+offset_top = 494.0
+offset_right = 154.0
+offset_bottom = 566.0
+text = "previous"
+script = ExtResource("11_bubble")
+profile = ExtResource("4_profile")
+neutral_size = Vector2(76, 72)
+desktop_anchor = Vector2(116, 530)
+compact_anchor = Vector2(58, 332)
+compact_minimum_size = Vector2(66, 62)
+minimum_font_size = 11
+maximum_font_size = 15
+horizontal_amplitude = 0.0
+vertical_amplitude = 0.5
+deformation_amplitude = 0.006
+
+[node name="LogbookNext" type="Button" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/LogbookPage"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(76, 72)
+layout_mode = 0
+offset_left = 1126.0
+offset_top = 494.0
+offset_right = 1202.0
+offset_bottom = 566.0
+text = "next"
+script = ExtResource("11_bubble")
+profile = ExtResource("4_profile")
+neutral_size = Vector2(76, 72)
+desktop_anchor = Vector2(1164, 530)
+compact_anchor = Vector2(582, 332)
+compact_minimum_size = Vector2(66, 62)
+minimum_font_size = 11
+maximum_font_size = 15
+horizontal_amplitude = 0.0
+vertical_amplitude = 0.5
+motion_phase = 2.2
+deformation_amplitude = 0.006
+
+[node name="LogbookPageStatus" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/LogbookPage" instance=ExtResource("10_status_scene")]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 555.0
+offset_top = 524.0
+offset_right = 725.0
+offset_bottom = 580.0
+mouse_filter = 2
+
+[node name="MenuPanel" type="PanelContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot"]
 unique_name_in_owner = true
 layout_mode = 0
 offset_left = 42.0
@@ -47,34 +643,34 @@ profile = ExtResource("4_profile")
 content_margin = 22.0
 corner_radius = 74
 
-[node name="Margin" type="MarginContainer" parent="MenuPanel"]
+[node name="Margin" type="MarginContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/MenuPanel"]
 layout_mode = 2
 theme_override_constants/margin_left = 14
 theme_override_constants/margin_top = 12
 theme_override_constants/margin_right = 14
 theme_override_constants/margin_bottom = 12
 
-[node name="Layout" type="VBoxContainer" parent="MenuPanel/Margin"]
+[node name="Layout" type="VBoxContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/MenuPanel/Margin"]
 layout_mode = 2
 theme_override_constants/separation = 8
 
-[node name="Header" type="HBoxContainer" parent="MenuPanel/Margin/Layout"]
+[node name="Header" type="HBoxContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/MenuPanel/Margin/Layout"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/separation = 8
 
-[node name="WalletBalance" type="Label" parent="MenuPanel/Margin/Layout/Header"]
+[node name="WalletBalance" type="Label" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/MenuPanel/Margin/Layout/Header"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 text = "wallet: $0"
 theme_override_colors/font_color = Color(1, 0.82, 0.4, 1)
 
-[node name="Separator" type="HSeparator" parent="MenuPanel/Margin/Layout"]
+[node name="Separator" type="HSeparator" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/MenuPanel/Margin/Layout"]
 unique_name_in_owner = true
 layout_mode = 2
 
-[node name="TransactionFeedback" type="Label" parent="MenuPanel/Margin/Layout"]
+[node name="TransactionFeedback" type="Label" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/MenuPanel/Margin/Layout"]
 unique_name_in_owner = true
 layout_mode = 2
 text = ""
@@ -82,28 +678,13 @@ horizontal_alignment = 1
 theme_override_colors/font_color = Color(1, 0.82, 0.4, 1)
 theme_override_font_sizes/font_size = 21
 
-[node name="Content" type="Control" parent="MenuPanel/Margin/Layout"]
+[node name="Content" type="Control" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/MenuPanel/Margin/Layout"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 260)
 layout_mode = 2
 size_flags_vertical = 3
 
-[node name="CoolerScroll" type="ScrollContainer" parent="MenuPanel/Margin/Layout/Content"]
-unique_name_in_owner = true
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-horizontal_scroll_mode = 0
-
-[node name="CoolerHost" type="VBoxContainer" parent="MenuPanel/Margin/Layout/Content/CoolerScroll"]
-unique_name_in_owner = true
-layout_mode = 2
-size_flags_horizontal = 3
-
-[node name="InventorySection" type="VBoxContainer" parent="MenuPanel/Margin/Layout/Content"]
+[node name="InventorySection" type="VBoxContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/MenuPanel/Margin/Layout/Content"]
 unique_name_in_owner = true
 layout_mode = 1
 anchors_preset = 15
@@ -113,39 +694,39 @@ grow_horizontal = 2
 grow_vertical = 2
 theme_override_constants/separation = 7
 
-[node name="StatusShoal" type="HBoxContainer" parent="MenuPanel/Margin/Layout/Content/InventorySection"]
+[node name="StatusShoal" type="HBoxContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/MenuPanel/Margin/Layout/Content/InventorySection"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/separation = 8
 alignment = 1
 
-[node name="WalletStatus" parent="MenuPanel/Margin/Layout/Content/InventorySection/StatusShoal" instance=ExtResource("7_status")]
+[node name="WalletStatus" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/MenuPanel/Margin/Layout/Content/InventorySection/StatusShoal" instance=ExtResource("7_status")]
 unique_name_in_owner = true
 layout_mode = 2
 
-[node name="CapacityStatus" parent="MenuPanel/Margin/Layout/Content/InventorySection/StatusShoal" instance=ExtResource("7_status")]
+[node name="CapacityStatus" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/MenuPanel/Margin/Layout/Content/InventorySection/StatusShoal" instance=ExtResource("7_status")]
 unique_name_in_owner = true
 layout_mode = 2
 
-[node name="HeldValueStatus" parent="MenuPanel/Margin/Layout/Content/InventorySection/StatusShoal" instance=ExtResource("7_status")]
+[node name="HeldValueStatus" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/MenuPanel/Margin/Layout/Content/InventorySection/StatusShoal" instance=ExtResource("7_status")]
 unique_name_in_owner = true
 layout_mode = 2
 
-[node name="SortBar" type="HBoxContainer" parent="MenuPanel/Margin/Layout/Content/InventorySection"]
+[node name="SortBar" type="HBoxContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/MenuPanel/Margin/Layout/Content/InventorySection"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/separation = 6
 
-[node name="SortLabel" type="Label" parent="MenuPanel/Margin/Layout/Content/InventorySection/SortBar"]
+[node name="SortLabel" type="Label" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/MenuPanel/Margin/Layout/Content/InventorySection/SortBar"]
 layout_mode = 2
 text = "sort:"
 
-[node name="SortOption" type="OptionButton" parent="MenuPanel/Margin/Layout/Content/InventorySection/SortBar"]
+[node name="SortOption" type="OptionButton" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/MenuPanel/Margin/Layout/Content/InventorySection/SortBar"]
 unique_name_in_owner = true
 layout_mode = 2
 custom_minimum_size = Vector2(136, 104)
 
-[node name="SortDirection" type="Button" parent="MenuPanel/Margin/Layout/Content/InventorySection/SortBar"]
+[node name="SortDirection" type="Button" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/MenuPanel/Margin/Layout/Content/InventorySection/SortBar"]
 unique_name_in_owner = true
 layout_mode = 2
 custom_minimum_size = Vector2(136, 104)
@@ -159,60 +740,60 @@ horizontal_amplitude = 0.0
 vertical_amplitude = 0.0
 deformation_amplitude = 0.0
 
-[node name="SortSpacer" type="Control" parent="MenuPanel/Margin/Layout/Content/InventorySection/SortBar"]
+[node name="SortSpacer" type="Control" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/MenuPanel/Margin/Layout/Content/InventorySection/SortBar"]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="CoolerCount" type="Label" parent="MenuPanel/Margin/Layout/Content/InventorySection/SortBar"]
+[node name="CoolerCount" type="Label" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/MenuPanel/Margin/Layout/Content/InventorySection/SortBar"]
 unique_name_in_owner = true
 visible = false
 layout_mode = 2
 text = "0 / 12"
 theme_override_colors/font_color = Color(0.208, 0.725, 0.78, 1)
 
-[node name="HeldValue" type="Label" parent="MenuPanel/Margin/Layout/Content/InventorySection/SortBar"]
+[node name="HeldValue" type="Label" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/MenuPanel/Margin/Layout/Content/InventorySection/SortBar"]
 unique_name_in_owner = true
 visible = false
 layout_mode = 2
 text = "held fish base value: $0"
 theme_override_colors/font_color = Color(0.682, 0.733, 0.761, 1)
 
-[node name="InventoryBody" type="BoxContainer" parent="MenuPanel/Margin/Layout/Content/InventorySection"]
+[node name="InventoryBody" type="BoxContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/MenuPanel/Margin/Layout/Content/InventorySection"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_vertical = 3
 theme_override_constants/separation = 8
 
-[node name="InventoryList" type="PanelContainer" parent="MenuPanel/Margin/Layout/Content/InventorySection/InventoryBody"]
+[node name="InventoryList" type="PanelContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/MenuPanel/Margin/Layout/Content/InventorySection/InventoryBody"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(350, 0)
 layout_mode = 2
 theme_override_styles/panel = SubResource("StyleBoxEmpty_collection")
 
-[node name="InventoryListMargin" type="MarginContainer" parent="MenuPanel/Margin/Layout/Content/InventorySection/InventoryBody/InventoryList"]
+[node name="InventoryListMargin" type="MarginContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/MenuPanel/Margin/Layout/Content/InventorySection/InventoryBody/InventoryList"]
 layout_mode = 2
 theme_override_constants/margin_left = 8
 theme_override_constants/margin_top = 8
 theme_override_constants/margin_right = 8
 theme_override_constants/margin_bottom = 8
 
-[node name="InventoryStack" type="VBoxContainer" parent="MenuPanel/Margin/Layout/Content/InventorySection/InventoryBody/InventoryList/InventoryListMargin"]
+[node name="InventoryStack" type="VBoxContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/MenuPanel/Margin/Layout/Content/InventorySection/InventoryBody/InventoryList/InventoryListMargin"]
 layout_mode = 2
 theme_override_constants/separation = 6
 
-[node name="InventoryEmpty" type="Label" parent="MenuPanel/Margin/Layout/Content/InventorySection/InventoryBody/InventoryList/InventoryListMargin/InventoryStack"]
+[node name="InventoryEmpty" type="Label" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/MenuPanel/Margin/Layout/Content/InventorySection/InventoryBody/InventoryList/InventoryListMargin/InventoryStack"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "your cooler is empty."
 horizontal_alignment = 1
 
-[node name="InventoryScroll" type="ScrollContainer" parent="MenuPanel/Margin/Layout/Content/InventorySection/InventoryBody/InventoryList/InventoryListMargin/InventoryStack"]
+[node name="InventoryScroll" type="ScrollContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/MenuPanel/Margin/Layout/Content/InventorySection/InventoryBody/InventoryList/InventoryListMargin/InventoryStack"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_vertical = 3
 horizontal_scroll_mode = 0
 
-[node name="InventoryGrid" type="GridContainer" parent="MenuPanel/Margin/Layout/Content/InventorySection/InventoryBody/InventoryList/InventoryListMargin/InventoryStack/InventoryScroll"]
+[node name="InventoryGrid" type="GridContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/MenuPanel/Margin/Layout/Content/InventorySection/InventoryBody/InventoryList/InventoryListMargin/InventoryStack/InventoryScroll"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
@@ -220,7 +801,7 @@ theme_override_constants/h_separation = 7
 theme_override_constants/v_separation = 7
 columns = 3
 
-[node name="DetailPanel" type="PanelContainer" parent="MenuPanel/Margin/Layout/Content/InventorySection/InventoryBody"]
+[node name="DetailPanel" type="PanelContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/MenuPanel/Margin/Layout/Content/InventorySection/InventoryBody"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(210, 0)
 layout_mode = 2
@@ -229,18 +810,18 @@ profile = ExtResource("4_profile")
 content_margin = 12.0
 corner_radius = 96
 
-[node name="DetailMargin" type="MarginContainer" parent="MenuPanel/Margin/Layout/Content/InventorySection/InventoryBody/DetailPanel"]
+[node name="DetailMargin" type="MarginContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/MenuPanel/Margin/Layout/Content/InventorySection/InventoryBody/DetailPanel"]
 layout_mode = 2
 theme_override_constants/margin_left = 10
 theme_override_constants/margin_top = 9
 theme_override_constants/margin_right = 10
 theme_override_constants/margin_bottom = 9
 
-[node name="DetailStack" type="VBoxContainer" parent="MenuPanel/Margin/Layout/Content/InventorySection/InventoryBody/DetailPanel/DetailMargin"]
+[node name="DetailStack" type="VBoxContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/MenuPanel/Margin/Layout/Content/InventorySection/InventoryBody/DetailPanel/DetailMargin"]
 layout_mode = 2
 theme_override_constants/separation = 6
 
-[node name="DetailTexture" type="TextureRect" parent="MenuPanel/Margin/Layout/Content/InventorySection/InventoryBody/DetailPanel/DetailMargin/DetailStack"]
+[node name="DetailTexture" type="TextureRect" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/MenuPanel/Margin/Layout/Content/InventorySection/InventoryBody/DetailPanel/DetailMargin/DetailStack"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(178, 100)
 layout_mode = 2
@@ -248,7 +829,7 @@ expand_mode = 1
 stretch_mode = 5
 texture_filter = 1
 
-[node name="DetailName" type="Label" parent="MenuPanel/Margin/Layout/Content/InventorySection/InventoryBody/DetailPanel/DetailMargin/DetailStack"]
+[node name="DetailName" type="Label" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/MenuPanel/Margin/Layout/Content/InventorySection/InventoryBody/DetailPanel/DetailMargin/DetailStack"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(0.208, 0.725, 0.78, 1)
@@ -256,14 +837,14 @@ theme_override_font_sizes/font_size = 29
 horizontal_alignment = 1
 theme_override_colors/font_color = Color(0.035, 0.145, 0.22, 1)
 
-[node name="DetailData" type="Label" parent="MenuPanel/Margin/Layout/Content/InventorySection/InventoryBody/DetailPanel/DetailMargin/DetailStack"]
+[node name="DetailData" type="Label" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/MenuPanel/Margin/Layout/Content/InventorySection/InventoryBody/DetailPanel/DetailMargin/DetailStack"]
 unique_name_in_owner = true
 layout_mode = 2
 autowrap_mode = 2
 horizontal_alignment = 1
 theme_override_colors/font_color = Color(0.035, 0.145, 0.22, 1)
 
-[node name="SelectionSummary" type="Label" parent="MenuPanel/Margin/Layout/Content/InventorySection/InventoryBody/DetailPanel/DetailMargin/DetailStack"]
+[node name="SelectionSummary" type="Label" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/MenuPanel/Margin/Layout/Content/InventorySection/InventoryBody/DetailPanel/DetailMargin/DetailStack"]
 unique_name_in_owner = true
 visible = false
 layout_mode = 2
@@ -272,12 +853,12 @@ autowrap_mode = 2
 horizontal_alignment = 1
 theme_override_colors/font_color = Color(0.208, 0.725, 0.78, 1)
 
-[node name="ActionRow" type="HBoxContainer" parent="MenuPanel/Margin/Layout/Content/InventorySection/InventoryBody/DetailPanel/DetailMargin/DetailStack"]
+[node name="ActionRow" type="HBoxContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/MenuPanel/Margin/Layout/Content/InventorySection/InventoryBody/DetailPanel/DetailMargin/DetailStack"]
 layout_mode = 2
 theme_override_constants/separation = 8
 alignment = 1
 
-[node name="FavoriteButton" type="Button" parent="MenuPanel/Margin/Layout/Content/InventorySection/InventoryBody/DetailPanel/DetailMargin/DetailStack/ActionRow"]
+[node name="FavoriteButton" type="Button" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/MenuPanel/Margin/Layout/Content/InventorySection/InventoryBody/DetailPanel/DetailMargin/DetailStack/ActionRow"]
 unique_name_in_owner = true
 layout_mode = 2
 disabled = true
@@ -293,7 +874,7 @@ horizontal_amplitude = 0.0
 vertical_amplitude = 0.0
 deformation_amplitude = 0.0
 
-[node name="SellButton" type="Button" parent="MenuPanel/Margin/Layout/Content/InventorySection/InventoryBody/DetailPanel/DetailMargin/DetailStack/ActionRow"]
+[node name="SellButton" type="Button" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/MenuPanel/Margin/Layout/Content/InventorySection/InventoryBody/DetailPanel/DetailMargin/DetailStack/ActionRow"]
 unique_name_in_owner = true
 layout_mode = 2
 disabled = true
@@ -309,22 +890,22 @@ horizontal_amplitude = 0.0
 vertical_amplitude = 0.0
 deformation_amplitude = 0.0
 
-[node name="ContextStatus" type="HBoxContainer" parent="MenuPanel/Margin/Layout/Content/InventorySection/InventoryBody/DetailPanel/DetailMargin/DetailStack"]
+[node name="ContextStatus" type="HBoxContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/MenuPanel/Margin/Layout/Content/InventorySection/InventoryBody/DetailPanel/DetailMargin/DetailStack"]
 layout_mode = 2
 theme_override_constants/separation = 6
 alignment = 1
 
-[node name="SelectionStatus" parent="MenuPanel/Margin/Layout/Content/InventorySection/InventoryBody/DetailPanel/DetailMargin/DetailStack/ContextStatus" instance=ExtResource("7_status")]
+[node name="SelectionStatus" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/MenuPanel/Margin/Layout/Content/InventorySection/InventoryBody/DetailPanel/DetailMargin/DetailStack/ContextStatus" instance=ExtResource("7_status")]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(108, 78)
 layout_mode = 2
 
-[node name="OfferStatus" parent="MenuPanel/Margin/Layout/Content/InventorySection/InventoryBody/DetailPanel/DetailMargin/DetailStack/ContextStatus" instance=ExtResource("7_status")]
+[node name="OfferStatus" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/MenuPanel/Margin/Layout/Content/InventorySection/InventoryBody/DetailPanel/DetailMargin/DetailStack/ContextStatus" instance=ExtResource("7_status")]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(128, 78)
 layout_mode = 2
 
-[node name="SaleUnavailable" type="Label" parent="MenuPanel/Margin/Layout/Content/InventorySection/InventoryBody/DetailPanel/DetailMargin/DetailStack"]
+[node name="SaleUnavailable" type="Label" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/MenuPanel/Margin/Layout/Content/InventorySection/InventoryBody/DetailPanel/DetailMargin/DetailStack"]
 unique_name_in_owner = true
 visible = false
 layout_mode = 2
@@ -332,7 +913,7 @@ autowrap_mode = 2
 horizontal_alignment = 1
 theme_override_colors/font_color = Color(1, 0.702, 0.278, 1)
 
-[node name="BagSection" type="VBoxContainer" parent="MenuPanel/Margin/Layout/Content"]
+[node name="BagSection" type="VBoxContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/MenuPanel/Margin/Layout/Content"]
 unique_name_in_owner = true
 visible = false
 layout_mode = 1
@@ -343,46 +924,46 @@ grow_horizontal = 2
 grow_vertical = 2
 theme_override_constants/separation = 7
 
-[node name="BagHint" type="Label" parent="MenuPanel/Margin/Layout/Content/BagSection"]
+[node name="BagHint" type="Label" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/MenuPanel/Margin/Layout/Content/BagSection"]
 layout_mode = 2
 text = "drag hotbar-compatible items onto a slot below. right-click a slot to clear it."
 horizontal_alignment = 1
 autowrap_mode = 2
 
-[node name="BagBody" type="HSplitContainer" parent="MenuPanel/Margin/Layout/Content/BagSection"]
+[node name="BagBody" type="HSplitContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/MenuPanel/Margin/Layout/Content/BagSection"]
 layout_mode = 2
 size_flags_vertical = 3
 split_offset = 540
 theme_override_constants/separation = 8
 
-[node name="BagList" type="PanelContainer" parent="MenuPanel/Margin/Layout/Content/BagSection/BagBody"]
+[node name="BagList" type="PanelContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/MenuPanel/Margin/Layout/Content/BagSection/BagBody"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(360, 0)
 layout_mode = 2
 
-[node name="Margin" type="MarginContainer" parent="MenuPanel/Margin/Layout/Content/BagSection/BagBody/BagList"]
+[node name="Margin" type="MarginContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/MenuPanel/Margin/Layout/Content/BagSection/BagBody/BagList"]
 layout_mode = 2
 theme_override_constants/margin_left = 8
 theme_override_constants/margin_top = 8
 theme_override_constants/margin_right = 8
 theme_override_constants/margin_bottom = 8
 
-[node name="Stack" type="VBoxContainer" parent="MenuPanel/Margin/Layout/Content/BagSection/BagBody/BagList/Margin"]
+[node name="Stack" type="VBoxContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/MenuPanel/Margin/Layout/Content/BagSection/BagBody/BagList/Margin"]
 layout_mode = 2
 theme_override_constants/separation = 6
 
-[node name="BagEmpty" type="Label" parent="MenuPanel/Margin/Layout/Content/BagSection/BagBody/BagList/Margin/Stack"]
+[node name="BagEmpty" type="Label" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/MenuPanel/Margin/Layout/Content/BagSection/BagBody/BagList/Margin/Stack"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "your bag is empty."
 horizontal_alignment = 1
 
-[node name="BagScroll" type="ScrollContainer" parent="MenuPanel/Margin/Layout/Content/BagSection/BagBody/BagList/Margin/Stack"]
+[node name="BagScroll" type="ScrollContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/MenuPanel/Margin/Layout/Content/BagSection/BagBody/BagList/Margin/Stack"]
 layout_mode = 2
 size_flags_vertical = 3
 horizontal_scroll_mode = 0
 
-[node name="BagGrid" type="GridContainer" parent="MenuPanel/Margin/Layout/Content/BagSection/BagBody/BagList/Margin/Stack/BagScroll"]
+[node name="BagGrid" type="GridContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/MenuPanel/Margin/Layout/Content/BagSection/BagBody/BagList/Margin/Stack/BagScroll"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
@@ -390,23 +971,23 @@ theme_override_constants/h_separation = 7
 theme_override_constants/v_separation = 7
 columns = 3
 
-[node name="BagDetail" type="PanelContainer" parent="MenuPanel/Margin/Layout/Content/BagSection/BagBody"]
+[node name="BagDetail" type="PanelContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/MenuPanel/Margin/Layout/Content/BagSection/BagBody"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(220, 0)
 layout_mode = 2
 
-[node name="Margin" type="MarginContainer" parent="MenuPanel/Margin/Layout/Content/BagSection/BagBody/BagDetail"]
+[node name="Margin" type="MarginContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/MenuPanel/Margin/Layout/Content/BagSection/BagBody/BagDetail"]
 layout_mode = 2
 theme_override_constants/margin_left = 10
 theme_override_constants/margin_top = 9
 theme_override_constants/margin_right = 10
 theme_override_constants/margin_bottom = 9
 
-[node name="Stack" type="VBoxContainer" parent="MenuPanel/Margin/Layout/Content/BagSection/BagBody/BagDetail/Margin"]
+[node name="Stack" type="VBoxContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/MenuPanel/Margin/Layout/Content/BagSection/BagBody/BagDetail/Margin"]
 layout_mode = 2
 theme_override_constants/separation = 6
 
-[node name="BagDetailTexture" type="TextureRect" parent="MenuPanel/Margin/Layout/Content/BagSection/BagBody/BagDetail/Margin/Stack"]
+[node name="BagDetailTexture" type="TextureRect" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/MenuPanel/Margin/Layout/Content/BagSection/BagBody/BagDetail/Margin/Stack"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(180, 96)
 layout_mode = 2
@@ -414,20 +995,20 @@ expand_mode = 1
 stretch_mode = 5
 texture_filter = 1
 
-[node name="BagDetailName" type="Label" parent="MenuPanel/Margin/Layout/Content/BagSection/BagBody/BagDetail/Margin/Stack"]
+[node name="BagDetailName" type="Label" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/MenuPanel/Margin/Layout/Content/BagSection/BagBody/BagDetail/Margin/Stack"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_font_sizes/font_size = 29
 horizontal_alignment = 1
 
-[node name="BagDetailData" type="Label" parent="MenuPanel/Margin/Layout/Content/BagSection/BagBody/BagDetail/Margin/Stack"]
+[node name="BagDetailData" type="Label" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/MenuPanel/Margin/Layout/Content/BagSection/BagBody/BagDetail/Margin/Stack"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "select a bag item for details."
 horizontal_alignment = 1
 autowrap_mode = 2
 
-[node name="LogbookSection" type="VBoxContainer" parent="MenuPanel/Margin/Layout/Content"]
+[node name="LogbookSection" type="VBoxContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/MenuPanel/Margin/Layout/Content"]
 unique_name_in_owner = true
 visible = false
 layout_mode = 1
@@ -438,18 +1019,18 @@ grow_horizontal = 2
 grow_vertical = 2
 theme_override_constants/separation = 7
 
-[node name="LogbookEmpty" type="Label" parent="MenuPanel/Margin/Layout/Content/LogbookSection"]
+[node name="LogbookEmpty" type="Label" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/MenuPanel/Margin/Layout/Content/LogbookSection"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "no species discovered yet."
 horizontal_alignment = 1
 
-[node name="LogbookScroll" type="ScrollContainer" parent="MenuPanel/Margin/Layout/Content/LogbookSection"]
+[node name="LogbookScroll" type="ScrollContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/MenuPanel/Margin/Layout/Content/LogbookSection"]
 layout_mode = 2
 size_flags_vertical = 3
 horizontal_scroll_mode = 0
 
-[node name="LogbookGrid" type="GridContainer" parent="MenuPanel/Margin/Layout/Content/LogbookSection/LogbookScroll"]
+[node name="LogbookGrid" type="GridContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/MenuPanel/Margin/Layout/Content/LogbookSection/LogbookScroll"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
@@ -457,58 +1038,51 @@ theme_override_constants/h_separation = 7
 theme_override_constants/v_separation = 7
 columns = 4
 
-[node name="SaleConfirmation" type="PanelContainer" parent="MenuPanel/Margin/Layout/Content"]
+[node name="SaleConfirmation" type="PanelContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot"]
 unique_name_in_owner = true
 visible = false
 z_index = 40
-layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -320.0
-offset_top = -160.0
-offset_right = 320.0
-offset_bottom = 160.0
-grow_horizontal = 2
-grow_vertical = 2
+layout_mode = 0
+offset_left = 320.0
+offset_top = 200.0
+offset_right = 960.0
+offset_bottom = 520.0
 
-[node name="ConfirmationMargin" type="MarginContainer" parent="MenuPanel/Margin/Layout/Content/SaleConfirmation"]
+[node name="ConfirmationMargin" type="MarginContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/SaleConfirmation"]
 layout_mode = 2
 theme_override_constants/margin_left = 22
 theme_override_constants/margin_top = 20
 theme_override_constants/margin_right = 22
 theme_override_constants/margin_bottom = 20
 
-[node name="ConfirmationLayout" type="VBoxContainer" parent="MenuPanel/Margin/Layout/Content/SaleConfirmation/ConfirmationMargin"]
+[node name="ConfirmationLayout" type="VBoxContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/SaleConfirmation/ConfirmationMargin"]
 layout_mode = 2
 theme_override_constants/separation = 12
 
-[node name="ConfirmationMessage" type="Label" parent="MenuPanel/Margin/Layout/Content/SaleConfirmation/ConfirmationMargin/ConfirmationLayout"]
+[node name="ConfirmationMessage" type="Label" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/SaleConfirmation/ConfirmationMargin/ConfirmationLayout"]
 unique_name_in_owner = true
 layout_mode = 2
 autowrap_mode = 2
 horizontal_alignment = 1
 
-[node name="ConfirmationButtons" type="HBoxContainer" parent="MenuPanel/Margin/Layout/Content/SaleConfirmation/ConfirmationMargin/ConfirmationLayout"]
+[node name="ConfirmationButtons" type="HBoxContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/SaleConfirmation/ConfirmationMargin/ConfirmationLayout"]
 layout_mode = 2
 alignment = 1
 
-[node name="ConfirmSaleButton" type="Button" parent="MenuPanel/Margin/Layout/Content/SaleConfirmation/ConfirmationMargin/ConfirmationLayout/ConfirmationButtons"]
+[node name="ConfirmSaleButton" type="Button" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/SaleConfirmation/ConfirmationMargin/ConfirmationLayout/ConfirmationButtons"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "confirm"
 theme_type_variation = &"DangerButton"
 custom_minimum_size = Vector2(170, 64)
 
-[node name="CancelSaleButton" type="Button" parent="MenuPanel/Margin/Layout/Content/SaleConfirmation/ConfirmationMargin/ConfirmationLayout/ConfirmationButtons"]
+[node name="CancelSaleButton" type="Button" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/SaleConfirmation/ConfirmationMargin/ConfirmationLayout/ConfirmationButtons"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "cancel"
 custom_minimum_size = Vector2(170, 64)
 
-[node name="NavigationCluster" type="Control" parent="."]
+[node name="NavigationCluster" type="Control" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot"]
 unique_name_in_owner = true
 layout_mode = 0
 offset_left = 260.0
@@ -518,21 +1092,20 @@ offset_bottom = 110.0
 mouse_filter = 1
 script = ExtResource("5_cluster")
 profile = ExtResource("4_profile")
-desktop_reference_size = Vector2(760, 96)
-compact_reference_size = Vector2(610, 74)
+desktop_reference_size = Vector2(620, 100)
+compact_reference_size = Vector2(620, 100)
 
-[node name="InventoryTab" type="Button" parent="NavigationCluster"]
+[node name="InventoryTab" type="Button" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/NavigationCluster"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(148, 138)
 layout_mode = 0
 toggle_mode = true
 text = "cooler"
 script = ExtResource("6_bubble")
 profile = ExtResource("4_profile")
-neutral_size = Vector2(148, 138)
-desktop_anchor = Vector2(118, 68)
-compact_anchor = Vector2(118, 68)
-compact_minimum_size = Vector2(84, 78)
+neutral_size = Vector2(124, 120)
+desktop_anchor = Vector2(116, 60)
+compact_anchor = Vector2(118, 73.3333)
+compact_minimum_size = Vector2(84, 82)
 minimum_font_size = 16
 maximum_font_size = 27
 horizontal_amplitude = 1.2
@@ -542,18 +1115,17 @@ motion_phase = 0.35
 deformation_amplitude = 0.012
 deformation_period = 6.4
 
-[node name="BagTab" type="Button" parent="NavigationCluster"]
+[node name="BagTab" type="Button" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/NavigationCluster"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(122, 116)
 layout_mode = 0
 toggle_mode = true
 text = "bag"
 script = ExtResource("6_bubble")
 profile = ExtResource("4_profile")
-neutral_size = Vector2(122, 116)
-desktop_anchor = Vector2(300, 62)
-compact_anchor = Vector2(300, 62)
-compact_minimum_size = Vector2(70, 68)
+neutral_size = Vector2(124, 120)
+desktop_anchor = Vector2(248, 60)
+compact_anchor = Vector2(251.333, 73.3333)
+compact_minimum_size = Vector2(84, 82)
 minimum_font_size = 16
 maximum_font_size = 25
 horizontal_amplitude = 1.0
@@ -563,18 +1135,17 @@ motion_phase = 1.65
 deformation_amplitude = 0.011
 deformation_period = 6.0
 
-[node name="LogbookTab" type="Button" parent="NavigationCluster"]
+[node name="LogbookTab" type="Button" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/NavigationCluster"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(158, 146)
 layout_mode = 0
 toggle_mode = true
 text = "logbook"
 script = ExtResource("6_bubble")
 profile = ExtResource("4_profile")
-neutral_size = Vector2(158, 146)
-desktop_anchor = Vector2(478, 70)
-compact_anchor = Vector2(478, 70)
-compact_minimum_size = Vector2(88, 80)
+neutral_size = Vector2(124, 120)
+desktop_anchor = Vector2(380, 60)
+compact_anchor = Vector2(384.667, 73.3333)
+compact_minimum_size = Vector2(84, 82)
 minimum_font_size = 16
 maximum_font_size = 27
 horizontal_amplitude = 1.3
@@ -584,17 +1155,16 @@ motion_phase = 2.85
 deformation_amplitude = 0.012
 deformation_period = 6.7
 
-[node name="CloseButton" type="Button" parent="NavigationCluster"]
+[node name="CloseButton" type="Button" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/NavigationCluster"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(112, 106)
 layout_mode = 0
 text = "close"
 script = ExtResource("6_bubble")
 profile = ExtResource("4_profile")
-neutral_size = Vector2(112, 106)
-desktop_anchor = Vector2(652, 61)
-compact_anchor = Vector2(652, 61)
-compact_minimum_size = Vector2(66, 64)
+neutral_size = Vector2(110, 106)
+desktop_anchor = Vector2(504, 57)
+compact_anchor = Vector2(512.667, 73.3333)
+compact_minimum_size = Vector2(76, 74)
 minimum_font_size = 15
 maximum_font_size = 23
 horizontal_amplitude = 1.0

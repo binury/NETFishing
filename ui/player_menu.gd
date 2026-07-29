@@ -18,7 +18,6 @@ const ItemDataType = preload("res://items/item_data.gd")
 const OwnedItemType = preload("res://items/owned_item.gd")
 const PlayerBagType = preload("res://inventory/player_bag.gd")
 const PlayerHotbarType = preload("res://inventory/player_hotbar.gd")
-const ItemDragSourceType = preload("res://ui/item_drag_source.gd")
 const PlayerCoolerCapacityType = preload(
 	"res://progression/player_cooler_capacity.gd"
 )
@@ -34,21 +33,48 @@ const BubbleClusterType = preload(
 const BubbleContentShellType = preload(
 	"res://ui/components/bubble_menu/bubble_content_shell.gd"
 )
-const BubbleInventoryCellType = preload(
-	"res://ui/components/bubble_menu/bubble_inventory_cell.gd"
-)
-const BubbleInventoryCellScene = preload(
-	"res://ui/components/bubble_menu/bubble_inventory_cell.tscn"
-)
 const BubbleStatusBubbleType = preload(
 	"res://ui/components/bubble_menu/bubble_status_bubble.gd"
+)
+const NotepadInkActionType = preload(
+	"res://ui/components/bubble_menu/notepad_ink_action.gd"
+)
+const NotepadInkChoiceType = preload(
+	"res://ui/components/bubble_menu/notepad_ink_choice.gd"
+)
+const CoolerFishSpriteType = preload(
+	"res://ui/components/bubble_menu/cooler_fish_sprite.gd"
+)
+const CoolerFishSpriteScene = preload(
+	"res://ui/components/bubble_menu/cooler_fish_sprite.tscn"
+)
+const BagItemSpriteType = preload(
+	"res://ui/components/bubble_menu/bag_item_sprite.gd"
+)
+const BagItemSpriteScene = preload(
+	"res://ui/components/bubble_menu/bag_item_sprite.tscn"
+)
+const LogbookEntryType = preload(
+	"res://ui/components/bubble_menu/logbook_entry.gd"
+)
+const LogbookEntryScene = preload(
+	"res://ui/components/bubble_menu/logbook_entry.tscn"
 )
 
 const MENU_ENTER_DURATION: float = 0.58
 const MENU_EXIT_DURATION: float = 0.52
 const PAGE_OUT_DURATION: float = 0.34
 const PAGE_IN_DURATION: float = 0.42
+const LOGBOOK_PAGE_DURATION: float = 0.18
 const TRANSITION_SAFE_MARGIN: float = 28.0
+const DESKTOP_REFERENCE_SIZE := Vector2(1280.0, 720.0)
+const COMPACT_REFERENCE_SIZE := Vector2(640.0, 480.0)
+const COMPACT_HEIGHT_THRESHOLD: float = 560.0
+const COOLER_RARITY_COMMON := Color("e8eef0")
+const COOLER_RARITY_UNCOMMON := Color("64c87c")
+const COOLER_RARITY_RARE := Color("6098dd")
+const COOLER_RARITY_EPIC := Color("a979cf")
+const COOLER_RARITY_LEGENDARY := Color("db78a7")
 
 signal menu_visibility_changed(is_open: bool)
 
@@ -74,6 +100,55 @@ enum CloseReason {
 }
 
 @onready var _navigation_cluster: BubbleClusterType = %NavigationCluster
+@onready var _presentation_scale_root: Control = %PlayerMenuPresentationScaleRoot
+@onready var _cooler_page: Control = %CoolerPage
+@onready var _cooler_outer_wall: PanelContainer = %CoolerOuterWall
+@onready var _cooler_inner_liner: PanelContainer = %CoolerInnerLiner
+@onready var _fish_field: Control = %FishField
+@onready var _cooler_empty: Label = %CoolerEmpty
+@onready var _cooler_sort_controls: HBoxContainer = %CoolerSortControls
+@onready var _cooler_sort_option: NotepadInkChoiceType = %CoolerSortOption
+@onready var _cooler_sort_direction: NotepadInkActionType = %CoolerSortDirection
+@onready var _detail_constellation: Control = %DetailConstellation
+@onready var _detail_bubble: Control = %DetailBubble
+@onready var _notepad_binding: Label = %BindingDecoration
+@onready var _notepad_title: Label = %NotepadTitle
+@onready var _notepad_rule: ColorRect = %NotepadRule
+@onready var _notepad_wallet: Label = %NotepadWallet
+@onready var _notepad_capacity: Label = %NotepadCapacity
+@onready var _cooler_detail_texture: TextureRect = %CoolerDetailTexture
+@onready var _cooler_detail_name: Label = %CoolerDetailName
+@onready var _cooler_detail_data: Label = %CoolerDetailData
+@onready var _cooler_selection_summary: Label = %CoolerSelectionSummary
+@onready var _favorite_bubble: NotepadInkActionType = %FavoriteBubble
+@onready var _sell_bubble: NotepadInkActionType = %SellBubble
+@onready var _bag_page: Control = %BagPage
+@onready var _bag_outer_wall: PanelContainer = %BagOuterWall
+@onready var _bag_inner_liner: PanelContainer = %BagInnerLiner
+@onready var _bag_scroll: ScrollContainer = %BagScroll
+@onready var _bag_host: Control = %BagHost
+@onready var _bag_item_field: Control = %BagItemField
+@onready var _bag_empty_state: Label = %BagEmptyState
+@onready var _bag_instruction_bubble: PanelContainer = %BagInstructionBubble
+@onready var _bag_detail_constellation: Control = %BagDetailConstellation
+@onready var _bag_sprite_detail_bubble: Control = %BagDetailBubble
+@onready var _bag_sprite_detail_texture: TextureRect = %BagSpriteDetailTexture
+@onready var _bag_sprite_detail_name: Label = %BagSpriteDetailName
+@onready var _bag_sprite_detail_data: Label = %BagSpriteDetailData
+@onready var _logbook_page: Control = %LogbookPage
+@onready var _book_backing: PanelContainer = %BookBacking
+@onready var _book_spread: BoxContainer = %BookSpread
+@onready var _left_page: PanelContainer = %LeftPage
+@onready var _right_page: PanelContainer = %RightPage
+@onready var _book_gutter: ColorRect = %BookGutter
+@onready var _left_heading: Label = %LeftHeading
+@onready var _right_heading: Label = %RightHeading
+@onready var _left_entry_field: BoxContainer = %LeftEntryField
+@onready var _right_entry_field: BoxContainer = %RightEntryField
+@onready var _logbook_empty_state: Label = %LogbookEmptyState
+@onready var _logbook_previous: BubbleButtonType = %LogbookPrevious
+@onready var _logbook_next: BubbleButtonType = %LogbookNext
+@onready var _logbook_page_status: BubbleStatusBubbleType = %LogbookPageStatus
 @onready var _inventory_tab: BubbleButtonType = %InventoryTab
 @onready var _bag_tab: BubbleButtonType = %BagTab
 @onready var _logbook_tab: BubbleButtonType = %LogbookTab
@@ -81,7 +156,7 @@ enum CloseReason {
 @onready var _content_shell: BubbleContentShellType = %MenuPanel
 @onready var _content_stage: Control = %Content
 @onready var _cooler_scroll: ScrollContainer = %CoolerScroll
-@onready var _cooler_host: VBoxContainer = %CoolerHost
+@onready var _cooler_host: Control = %CoolerHost
 @onready var _wallet_balance: Label = %WalletBalance
 @onready var _header: Control = %Header
 @onready var _separator: Control = %Separator
@@ -164,16 +239,27 @@ var _transitioning: bool = false
 var _page_transitioning: bool = false
 var _presentation_rest_position: Vector2 = Vector2.ZERO
 var _content_rest_position: Vector2 = Vector2.ZERO
+var _cooler_rest_position: Vector2 = Vector2.ZERO
+var _bag_rest_position: Vector2 = Vector2.ZERO
+var _logbook_rest_position: Vector2 = Vector2.ZERO
+var _page_outgoing_root: Control
+var _page_incoming_root: Control
+var _page_hosts_shared: bool = false
+var _fish_nodes: Dictionary[StringName, CoolerFishSpriteType] = {}
+var _sorted_catches: Array[FishCatchType] = []
+var _bag_item_nodes: Dictionary[StringName, BagItemSpriteType] = {}
+var _sorted_bag_items: Array[OwnedItemType] = []
+var _bag_drag_active: bool = false
+var _motion_elapsed: float = 0.0
+var _logbook_species: Array[FishDataType] = []
+var _logbook_current_page: int = 0
+var _logbook_page_count: int = 1
+var _logbook_page_transitioning: bool = false
+var _logbook_page_generation: int = 0
+var _logbook_page_tween: Tween
 
 
 func _ready() -> void:
-	_inventory_section.reparent(_cooler_host)
-	_inventory_section.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_inventory_section.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_inventory_section.move_child(
-		_sort_bar,
-		_inventory_section.get_child_count() - 1,
-	)
 	_inventory_tab.pressed.connect(
 		_show_section.bind(Section.COOLER)
 	)
@@ -182,16 +268,27 @@ func _ready() -> void:
 		_show_section.bind(Section.LOGBOOK)
 	)
 	_close_button.pressed.connect(close_menu)
-	_sort_option.item_selected.connect(_on_sort_selected)
+	_sort_option.item_selected.connect(_on_sort_selected.bind(_sort_option))
 	_sort_direction.pressed.connect(_on_sort_direction_pressed)
+	_cooler_sort_option.item_selected.connect(
+		_on_sort_selected.bind(_cooler_sort_option)
+	)
+	_cooler_sort_direction.pressed.connect(_on_sort_direction_pressed)
 	_favorite_button.pressed.connect(_on_favorite_pressed)
 	_sell_button.pressed.connect(_on_sell_pressed)
+	_favorite_bubble.pressed.connect(_on_favorite_pressed)
+	_sell_bubble.pressed.connect(_on_sell_pressed)
 	_confirm_sale_button.pressed.connect(_on_confirm_sale_pressed)
 	_cancel_sale_button.pressed.connect(_close_sale_confirmation)
+	_configure_sale_confirmation_focus()
 	_sort_option.add_item("catch order", SortMode.CATCH_ORDER)
 	_sort_option.add_item("name", SortMode.NAME)
 	_sort_option.add_item("rarity", SortMode.RARITY)
 	_sort_option.select(SortMode.CATCH_ORDER)
+	_cooler_sort_option.add_item("catch order", SortMode.CATCH_ORDER)
+	_cooler_sort_option.add_item("name", SortMode.NAME)
+	_cooler_sort_option.add_item("rarity", SortMode.RARITY)
+	_cooler_sort_option.select(SortMode.CATCH_ORDER)
 	_update_sort_direction_text()
 	_navigation_cluster.configure([
 		_inventory_tab,
@@ -200,7 +297,16 @@ func _ready() -> void:
 		_close_button,
 	])
 	_configure_navigation_focus()
+	_apply_navigation_styles()
 	_apply_cooler_control_styles()
+	_apply_cooler_wall_styles()
+	_apply_cooler_notepad_style()
+	_fish_field.gui_input.connect(_on_fish_field_gui_input)
+	_apply_bag_styles()
+	_bag_item_field.gui_input.connect(_on_bag_field_gui_input)
+	_apply_logbook_styles()
+	_logbook_previous.pressed.connect(_request_logbook_page.bind(-1))
+	_logbook_next.pressed.connect(_request_logbook_page.bind(1))
 	resized.connect(_update_shell_layout)
 	_show_section_immediate(_current_section)
 	call_deferred("_update_shell_layout")
@@ -407,17 +513,33 @@ func _show_section_immediate(section: Section) -> void:
 	_current_section = section
 	if not is_node_ready():
 		return
-	_inventory_section.visible = section == Section.COOLER
-	_cooler_scroll.visible = section == Section.COOLER
-	_bag_section.visible = section == Section.BAG
+	_configure_navigation_focus()
+	_cooler_page.visible = section == Section.COOLER
+	_bag_page.visible = section == Section.BAG
+	_logbook_page.visible = section == Section.LOGBOOK
+	_content_shell.visible = false
+	_inventory_section.visible = false
+	_bag_section.visible = false
 	_logbook_section.visible = section == Section.LOGBOOK
-	_content_shell.set_background_visible(section != Section.COOLER)
+	_content_shell.set_background_visible(true)
 	_header.visible = section != Section.COOLER
 	_separator.visible = section != Section.COOLER
+	if section == Section.COOLER:
+		_refresh_inventory()
+	else:
+		_fish_selection.clear()
+		_close_detail_constellation()
+	if section != Section.BAG:
+		_close_bag_detail()
+	else:
+		_update_bag_detail()
+	if section != Section.LOGBOOK:
+		_cancel_logbook_page_transition(true)
 	_inventory_tab.button_pressed = section == Section.COOLER
 	_bag_tab.button_pressed = section == Section.BAG
 	_logbook_tab.button_pressed = section == Section.LOGBOOK
 	_update_navigation_selection()
+	_configure_active_page_focus()
 
 
 func _focus_current_section() -> void:
@@ -431,7 +553,21 @@ func _focus_current_section() -> void:
 
 func _process(delta: float) -> void:
 	if visible:
+		_motion_elapsed += delta
 		_navigation_cluster.advance_motion(delta)
+		_apply_navigation_selection_presentation()
+		for fish_node: CoolerFishSpriteType in _fish_nodes.values():
+			fish_node.advance_presentation(delta, _motion_elapsed)
+		var bag_motion_enabled: bool = (
+			not _bag_drag_active and not get_viewport().gui_is_dragging()
+		)
+		for item_node: BagItemSpriteType in _bag_item_nodes.values():
+			item_node.advance_presentation(
+				_motion_elapsed,
+				bag_motion_enabled,
+			)
+		if _current_section == Section.LOGBOOK:
+			_advance_logbook_page_controls(delta)
 
 
 func _configure_navigation_focus() -> void:
@@ -453,6 +589,47 @@ func _configure_navigation_focus() -> void:
 		bubble.focus_neighbor_right = bubble.get_path_to(next)
 		bubble.focus_neighbor_top = bubble.focus_neighbor_left
 		bubble.focus_neighbor_bottom = bubble.focus_neighbor_right
+
+
+func _configure_sale_confirmation_focus() -> void:
+	_confirm_sale_button.focus_neighbor_left = (
+		_confirm_sale_button.get_path_to(_cancel_sale_button)
+	)
+	_confirm_sale_button.focus_neighbor_right = (
+		_confirm_sale_button.focus_neighbor_left
+	)
+	_confirm_sale_button.focus_neighbor_top = (
+		_confirm_sale_button.focus_neighbor_left
+	)
+	_confirm_sale_button.focus_neighbor_bottom = (
+		_confirm_sale_button.focus_neighbor_left
+	)
+	_cancel_sale_button.focus_neighbor_left = (
+		_cancel_sale_button.get_path_to(_confirm_sale_button)
+	)
+	_cancel_sale_button.focus_neighbor_right = (
+		_cancel_sale_button.focus_neighbor_left
+	)
+	_cancel_sale_button.focus_neighbor_top = (
+		_cancel_sale_button.focus_neighbor_left
+	)
+	_cancel_sale_button.focus_neighbor_bottom = (
+		_cancel_sale_button.focus_neighbor_left
+	)
+	if not _sale_confirmation.visible:
+		for button: Button in [_confirm_sale_button, _cancel_sale_button]:
+			button.focus_mode = Control.FOCUS_NONE
+			button.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+
+func _configure_active_page_focus() -> void:
+	match _current_section:
+		Section.COOLER:
+			_configure_cooler_fish_focus()
+		Section.BAG:
+			_configure_bag_item_focus()
+		Section.LOGBOOK:
+			_configure_logbook_focus()
 
 
 func _apply_cooler_control_styles() -> void:
@@ -484,6 +661,189 @@ func _apply_cooler_control_styles() -> void:
 		"font_focus_color",
 		profile.text_hover_color,
 	)
+func _apply_cooler_wall_styles() -> void:
+	var outer := StyleBoxFlat.new()
+	outer.bg_color = Color(0.76, 0.9, 0.96, 1.0)
+	outer.border_color = Color(0.91, 0.98, 1.0, 1.0)
+	outer.set_border_width_all(7)
+	outer.set_corner_radius_all(58)
+	_cooler_outer_wall.add_theme_stylebox_override("panel", outer)
+	var inner := StyleBoxFlat.new()
+	inner.bg_color = Color(0.018, 0.16, 0.25, 1.0)
+	inner.border_color = Color(0.56, 0.78, 0.86, 1.0)
+	inner.set_border_width_all(5)
+	inner.set_corner_radius_all(45)
+	_cooler_inner_liner.add_theme_stylebox_override("panel", inner)
+	var scroll_bar := _cooler_scroll.get_v_scroll_bar()
+	var scroll_grabber := StyleBoxFlat.new()
+	scroll_grabber.bg_color = Color(0.56, 0.78, 0.86, 0.58)
+	scroll_grabber.set_corner_radius_all(6)
+	scroll_bar.add_theme_stylebox_override("grabber", scroll_grabber)
+	scroll_bar.add_theme_stylebox_override("grabber_highlight", scroll_grabber)
+	scroll_bar.add_theme_stylebox_override("grabber_pressed", scroll_grabber)
+	var scroll_track := StyleBoxFlat.new()
+	scroll_track.bg_color = Color(0.02, 0.1, 0.14, 0.28)
+	scroll_track.set_corner_radius_all(6)
+	scroll_bar.add_theme_stylebox_override("scroll", scroll_track)
+
+
+func _apply_cooler_notepad_style() -> void:
+	var paper := StyleBoxFlat.new()
+	paper.bg_color = Color(0.93, 0.885, 0.73, 1.0)
+	paper.border_color = Color(0.22, 0.19, 0.15, 1.0)
+	paper.set_border_width_all(4)
+	paper.corner_radius_top_left = 9
+	paper.corner_radius_top_right = 7
+	paper.corner_radius_bottom_right = 11
+	paper.corner_radius_bottom_left = 8
+	paper.shadow_color = Color(0.10, 0.08, 0.06, 0.46)
+	paper.shadow_size = 4
+	paper.shadow_offset = Vector2(3.0, 4.0)
+	_detail_bubble.add_theme_stylebox_override("panel", paper)
+
+
+func _apply_navigation_styles() -> void:
+	var profile: BubbleMenuProfile = _inventory_tab.profile
+	if profile == null:
+		return
+	var normal := _make_navigation_style(profile.normal_fill, 2, 0.24)
+	var hover := _make_navigation_style(
+		profile.hover_fill.lightened(0.025),
+		4,
+		0.34,
+	)
+	var pressed := _make_navigation_style(
+		profile.pressed_fill.lightened(0.055),
+		5,
+		0.40,
+	)
+	var disabled := _make_navigation_style(profile.disabled_fill, 1, 0.14)
+	for bubble: BubbleButtonType in [
+		_inventory_tab,
+		_bag_tab,
+		_logbook_tab,
+		_close_button,
+	]:
+		bubble.add_theme_stylebox_override("normal", normal)
+		bubble.add_theme_stylebox_override("hover", hover)
+		bubble.add_theme_stylebox_override("focus", hover)
+		bubble.add_theme_stylebox_override("pressed", pressed)
+		bubble.add_theme_stylebox_override("disabled", disabled)
+
+
+func _make_navigation_style(
+	fill: Color,
+	shadow_size: int,
+	shadow_alpha: float,
+) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = fill
+	style.set_corner_radius_all(128)
+	style.set_border_width_all(0)
+	style.shadow_color = Color(0.015, 0.06, 0.09, shadow_alpha)
+	style.shadow_size = shadow_size
+	style.shadow_offset = Vector2(0.0, 2.0)
+	return style
+
+
+func _apply_navigation_selection_presentation() -> void:
+	for bubble: BubbleButtonType in [
+		_inventory_tab,
+		_bag_tab,
+		_logbook_tab,
+	]:
+		if not bubble.button_pressed:
+			continue
+		bubble.position.y -= 2.0
+		bubble.scale *= 1.025
+
+
+func _apply_bag_styles() -> void:
+	var outer := StyleBoxFlat.new()
+	outer.bg_color = Color(0.39, 0.31, 0.2, 1.0)
+	outer.border_color = Color(0.67, 0.54, 0.33, 1.0)
+	outer.set_border_width_all(7)
+	outer.corner_radius_top_left = 88
+	outer.corner_radius_top_right = 64
+	outer.corner_radius_bottom_right = 94
+	outer.corner_radius_bottom_left = 70
+	_bag_outer_wall.add_theme_stylebox_override("panel", outer)
+	var inner := StyleBoxFlat.new()
+	inner.bg_color = Color(0.92, 0.85, 0.68, 1.0)
+	inner.border_color = Color(0.75, 0.62, 0.38, 1.0)
+	inner.set_border_width_all(4)
+	inner.corner_radius_top_left = 68
+	inner.corner_radius_top_right = 48
+	inner.corner_radius_bottom_right = 72
+	inner.corner_radius_bottom_left = 52
+	_bag_inner_liner.add_theme_stylebox_override("panel", inner)
+	var bubble := StyleBoxFlat.new()
+	bubble.bg_color = Color(0.96, 0.91, 0.78, 0.98)
+	bubble.border_color = Color(0.55, 0.41, 0.23, 1.0)
+	bubble.set_border_width_all(3)
+	bubble.set_corner_radius_all(54)
+	bubble.content_margin_left = 12.0
+	bubble.content_margin_top = 9.0
+	bubble.content_margin_right = 12.0
+	bubble.content_margin_bottom = 9.0
+	_bag_instruction_bubble.add_theme_stylebox_override("panel", bubble)
+	_bag_sprite_detail_bubble.add_theme_stylebox_override(
+		"panel",
+		bubble.duplicate(),
+	)
+
+
+func _apply_logbook_styles() -> void:
+	var backing := StyleBoxFlat.new()
+	backing.bg_color = Color(0.54, 0.42, 0.27, 1.0)
+	backing.border_color = Color(0.72, 0.59, 0.39, 1.0)
+	backing.set_border_width_all(6)
+	backing.corner_radius_top_left = 42
+	backing.corner_radius_top_right = 34
+	backing.corner_radius_bottom_right = 46
+	backing.corner_radius_bottom_left = 36
+	_book_backing.add_theme_stylebox_override("panel", backing)
+	var left_paper := StyleBoxFlat.new()
+	left_paper.bg_color = Color(0.95, 0.91, 0.79, 1.0)
+	left_paper.border_color = Color(0.80, 0.70, 0.52, 1.0)
+	left_paper.set_border_width_all(3)
+	left_paper.corner_radius_top_left = 30
+	left_paper.corner_radius_bottom_left = 38
+	left_paper.corner_radius_top_right = 8
+	left_paper.corner_radius_bottom_right = 6
+	_left_page.add_theme_stylebox_override("panel", left_paper)
+	var right_paper := StyleBoxFlat.new()
+	right_paper.bg_color = Color(0.925, 0.875, 0.74, 1.0)
+	right_paper.border_color = Color(0.77, 0.66, 0.48, 1.0)
+	right_paper.set_border_width_all(3)
+	right_paper.corner_radius_top_left = 8
+	right_paper.corner_radius_bottom_left = 6
+	right_paper.corner_radius_top_right = 34
+	right_paper.corner_radius_bottom_right = 40
+	_right_page.add_theme_stylebox_override("panel", right_paper)
+	for label: Label in [_left_heading, _right_heading, _logbook_empty_state]:
+		label.add_theme_color_override(
+			"font_color",
+			Color(0.22, 0.16, 0.09, 1.0),
+		)
+	var page_profile: BubbleMenuProfile = _logbook_previous.profile
+	if page_profile != null:
+		var disabled_style: StyleBoxFlat = page_profile.make_normal_style()
+		disabled_style.bg_color.a = 0.82
+		disabled_style.border_color.a = 0.72
+		for control: BubbleButtonType in [
+			_logbook_previous,
+			_logbook_next,
+		]:
+			control.add_theme_stylebox_override(
+				"disabled",
+				disabled_style.duplicate(),
+			)
+			control.add_theme_color_override(
+				"font_disabled_color",
+				Color(0.035, 0.145, 0.22, 0.68),
+			)
+	_logbook_page_status.set_content("pages", "1 / 1")
 
 
 func _update_navigation_selection() -> void:
@@ -499,69 +859,256 @@ func _set_navigation_target(section: Section) -> void:
 func _update_shell_layout() -> void:
 	if not is_node_ready():
 		return
-	var compact: bool = size.y < 560.0 or size.x < 760.0
+	_cancel_logbook_page_transition(true)
+	var display_size := Vector2(maxf(size.x, 1.0), maxf(size.y, 1.0))
+	var compact: bool = display_size.y < COMPACT_HEIGHT_THRESHOLD
 	_compact_layout = compact
-	var side_margin: float = 10.0 if compact else 42.0
-	var top_margin: float = 96.0 if compact else 104.0
-	var bottom_margin: float = 96.0 if compact else 138.0
-	_content_shell.position = Vector2(side_margin, top_margin)
-	_content_shell.size = Vector2(
-		maxf(1.0, size.x - side_margin * 2.0),
-		maxf(1.0, size.y - top_margin - bottom_margin)
+	var reference_size := (
+		COMPACT_REFERENCE_SIZE if compact else DESKTOP_REFERENCE_SIZE
 	)
+	var presentation_scale: float = minf(
+		display_size.x / reference_size.x,
+		display_size.y / reference_size.y,
+	)
+	presentation_scale = clampf(presentation_scale, 0.85, 3.0)
+	_presentation_scale_root.size = reference_size
+	_presentation_scale_root.scale = Vector2.ONE * presentation_scale
+	_presentation_scale_root.position = (
+		display_size - reference_size * presentation_scale
+	) * 0.5
+	_content_shell.position = Vector2(14.0, 92.0) if compact else Vector2(42.0, 104.0)
+	_content_shell.size = Vector2(612.0, 286.0) if compact else Vector2(1196.0, 478.0)
 	_presentation_rest_position = _content_shell.position
-	var navigation_size := Vector2(
-		minf(size.x - 20.0, 610.0 if compact else 760.0),
-		52.0 if compact else 96.0
+	var navigation_size := (
+		Vector2(620.0, 75.0) if compact else Vector2(620.0, 100.0)
 	)
 	_navigation_cluster.position = Vector2(
-		(size.x - navigation_size.x) * 0.5,
-		4.0 if compact else 14.0
+		(reference_size.x - navigation_size.x) * 0.5,
+		4.0 if compact else 8.0
 	)
 	_navigation_cluster.size = navigation_size
 	_navigation_cluster.apply_layout(navigation_size, compact)
-	_inventory_grid.columns = 2 if compact else 3
+	_cooler_page.size = reference_size
+	_cooler_page.position = Vector2.ZERO
+	_cooler_rest_position = Vector2.ZERO
+	_layout_cooler_fish(false)
+	_cooler_outer_wall.position = (
+		Vector2(14.0, 154.0) if compact else Vector2(54.0, 126.0)
+	)
+	_cooler_outer_wall.size = (
+		Vector2(300.0, 206.0) if compact else Vector2(866.0, 476.0)
+	)
+	_detail_constellation.position = (
+		Vector2(320.0, 154.0) if compact else Vector2(942.0, 126.0)
+	)
+	_detail_constellation.size = (
+		Vector2(306.0, 196.0) if compact else Vector2(288.0, 476.0)
+	)
+	_notepad_binding.position = Vector2(44.0, 1.0) if compact else Vector2(28.0, 4.0)
+	_notepad_binding.size = Vector2(218.0, 20.0) if compact else Vector2(232.0, 27.0)
+	_notepad_binding.add_theme_font_size_override("font_size", 13 if compact else 20)
+	_notepad_title.position = Vector2(10.0, 16.0) if compact else Vector2(20.0, 31.0)
+	_notepad_title.size = Vector2(286.0, 18.0) if compact else Vector2(248.0, 28.0)
+	_notepad_title.add_theme_font_size_override("font_size", 12 if compact else 19)
+	_notepad_rule.position = Vector2(10.0, 46.0) if compact else Vector2(18.0, 87.0)
+	_notepad_rule.size = Vector2(286.0, 2.0) if compact else Vector2(252.0, 2.0)
+	_cooler_sort_controls.position = (
+		Vector2(10.0, 48.0) if compact else Vector2(18.0, 98.0)
+	)
+	_cooler_sort_controls.size = (
+		Vector2(286.0, 31.0) if compact else Vector2(252.0, 38.0)
+	)
+	_cooler_sort_controls.get_child(0).visible = false
+	_cooler_sort_option.custom_minimum_size = (
+		Vector2(140.0, 31.0) if compact else Vector2(123.0, 38.0)
+	)
+	_cooler_sort_direction.custom_minimum_size = (
+		Vector2(140.0, 31.0) if compact else Vector2(123.0, 38.0)
+	)
+	for sort_control: Control in [
+		_cooler_sort_option,
+		_cooler_sort_direction,
+	]:
+		sort_control.add_theme_font_size_override(
+			"font_size",
+			9 if compact else 10,
+		)
+	_notepad_wallet.position = Vector2(10.0, 31.0) if compact else Vector2(18.0, 61.0)
+	_notepad_wallet.size = Vector2(138.0, 17.0) if compact else Vector2(122.0, 23.0)
+	_notepad_capacity.position = Vector2(154.0, 31.0) if compact else Vector2(146.0, 61.0)
+	_notepad_capacity.size = Vector2(142.0, 17.0) if compact else Vector2(124.0, 23.0)
+	for status_label: Label in [_notepad_wallet, _notepad_capacity]:
+		status_label.add_theme_font_size_override("font_size", 10 if compact else 14)
+	_cooler_detail_texture.position = (
+		Vector2(10.0, 84.0) if compact else Vector2(88.0, 143.0)
+	)
+	_cooler_detail_texture.size = (
+		Vector2(66.0, 52.0) if compact else Vector2(112.0, 92.0)
+	)
+	_cooler_detail_name.position = (
+		Vector2(82.0, 82.0) if compact else Vector2(18.0, 239.0)
+	)
+	_cooler_detail_name.size = (
+		Vector2(214.0, 24.0) if compact else Vector2(252.0, 30.0)
+	)
+	_cooler_detail_name.add_theme_font_size_override(
+		"font_size", 14 if compact else 21,
+	)
+	_cooler_detail_data.position = (
+		Vector2(82.0, 105.0) if compact else Vector2(18.0, 269.0)
+	)
+	_cooler_detail_data.size = (
+		Vector2(214.0, 43.0) if compact else Vector2(252.0, 75.0)
+	)
+	_cooler_detail_data.add_theme_font_size_override(
+		"font_size", 9 if compact else 16,
+	)
+	_cooler_selection_summary.position = (
+		Vector2(10.0, 151.0) if compact else Vector2(18.0, 346.0)
+	)
+	_cooler_selection_summary.size = (
+		Vector2(130.0, 35.0) if compact else Vector2(252.0, 36.0)
+	)
+	_cooler_selection_summary.add_theme_font_size_override(
+		"font_size", 9 if compact else 13,
+	)
+	_favorite_bubble.custom_minimum_size = (
+		Vector2(72.0, 42.0) if compact else Vector2(108.0, 50.0)
+	)
+	_sell_bubble.custom_minimum_size = (
+		Vector2(74.0, 42.0) if compact else Vector2(118.0, 50.0)
+	)
+	_favorite_bubble.position = (
+		Vector2(144.0, 148.0) if compact else Vector2(26.0, 400.0)
+	)
+	_favorite_bubble.size = (
+		Vector2(72.0, 42.0) if compact else Vector2(108.0, 50.0)
+	)
+	_sell_bubble.position = (
+		Vector2(222.0, 148.0) if compact else Vector2(144.0, 400.0)
+	)
+	_sell_bubble.size = (
+		Vector2(74.0, 42.0) if compact else Vector2(118.0, 50.0)
+	)
+	_favorite_bubble.add_theme_font_size_override(
+		"font_size", 10 if compact else 15,
+	)
+	_sell_bubble.add_theme_font_size_override(
+		"font_size", 10 if compact else 15,
+	)
+	_update_sort_direction_text()
+	_bag_page.size = reference_size
+	_bag_page.position = Vector2.ZERO
+	_bag_rest_position = Vector2.ZERO
+	_bag_outer_wall.position = (
+		Vector2(14.0, 170.0) if compact else Vector2(72.0, 132.0)
+	)
+	_bag_outer_wall.size = (
+		Vector2(612.0, 200.0) if compact else Vector2(896.0, 442.0)
+	)
+	_bag_host.custom_minimum_size = (
+		Vector2(520.0, 140.0) if compact else Vector2(820.0, 350.0)
+	)
+	_bag_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_bag_instruction_bubble.position = (
+		Vector2(218.0, 145.0) if compact else Vector2(992.0, 140.0)
+	)
+	_bag_instruction_bubble.size = (
+		Vector2(204.0, 48.0) if compact else Vector2(240.0, 98.0)
+	)
+	_bag_detail_constellation.position = (
+		Vector2.ZERO if compact else Vector2(984.0, 266.0)
+	)
+	_bag_detail_constellation.size = (
+		Vector2(640.0, 390.0) if compact else Vector2(272.0, 304.0)
+	)
+	_bag_sprite_detail_bubble.position = (
+		Vector2(170.0, 164.0) if compact else Vector2.ZERO
+	)
+	_bag_sprite_detail_bubble.size = (
+		Vector2(300.0, 188.0) if compact else Vector2(272.0, 304.0)
+	)
+	_bag_sprite_detail_texture.custom_minimum_size = (
+		Vector2(72.0, 48.0) if compact else Vector2(100.0, 72.0)
+	)
+	_bag_sprite_detail_name.add_theme_font_size_override(
+		"font_size",
+		18 if compact else 22,
+	)
+	_bag_sprite_detail_data.add_theme_font_size_override(
+		"font_size",
+		12 if compact else 15,
+	)
+	_logbook_page.size = reference_size
+	_logbook_page.position = Vector2.ZERO
+	_logbook_rest_position = Vector2.ZERO
+	_book_backing.position = (
+		Vector2(14.0, 164.0) if compact else Vector2(58.0, 128.0)
+	)
+	_book_backing.size = (
+		Vector2(612.0, 210.0) if compact else Vector2(1164.0, 460.0)
+	)
+	_right_page.visible = not compact
+	_book_gutter.visible = not compact
+	_left_entry_field.vertical = not compact
+	_right_entry_field.vertical = true
+	_left_heading.text = "field notes" if not compact else "field notes • page"
+	_left_heading.add_theme_font_size_override(
+		"font_size",
+		17 if compact else 20,
+	)
+	_right_heading.add_theme_font_size_override("font_size", 20)
+	_logbook_empty_state.position = (
+		Vector2(120.0, 240.0) if compact else Vector2(402.0, 314.0)
+	)
+	_logbook_empty_state.size = (
+		Vector2(400.0, 52.0) if compact else Vector2(476.0, 52.0)
+	)
+	_logbook_previous.apply_layout(
+		Vector2(58.0, 310.0) if compact else Vector2(116.0, 530.0),
+		Vector2(66.0, 62.0) if compact else Vector2(76.0, 72.0),
+		0.18,
+	)
+	_logbook_next.apply_layout(
+		Vector2(582.0, 310.0) if compact else Vector2(1164.0, 530.0),
+		Vector2(66.0, 62.0) if compact else Vector2(76.0, 72.0),
+		0.18,
+	)
+	_logbook_page_status.position = (
+		Vector2(255.0, 286.0) if compact else Vector2(555.0, 524.0)
+	)
+	_logbook_page_status.size = (
+		Vector2(130.0, 46.0) if compact else Vector2(170.0, 56.0)
+	)
+	_refresh_logbook_page(false)
+	_sale_confirmation.position = (
+		Vector2(70.0, 128.0) if compact else Vector2(320.0, 200.0)
+	)
+	_sale_confirmation.size = (
+		Vector2(500.0, 250.0) if compact else Vector2(640.0, 320.0)
+	)
+	_cooler_host.custom_minimum_size = Vector2(
+		520.0 if compact else 810.0,
+		500.0 if compact else 412.0,
+	)
 	_bag_grid.columns = 2 if compact else 3
 	_logbook_grid.columns = 3 if compact else 4
-	_inventory_list.custom_minimum_size.x = 292.0 if compact else 350.0
-	_inventory_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_detail_panel.custom_minimum_size.x = 176.0 if compact else 210.0
 	_bag_list.custom_minimum_size.x = 300.0 if compact else 360.0
 	_bag_detail.custom_minimum_size.x = 176.0 if compact else 220.0
 	_content_stage.custom_minimum_size.y = 220.0 if compact else 260.0
-	call_deferred("_sync_cooler_width")
-	_inventory_body.vertical = compact
-	_inventory_scroll.vertical_scroll_mode = (
-		ScrollContainer.SCROLL_MODE_DISABLED
-		if compact
-		else ScrollContainer.SCROLL_MODE_AUTO
-	)
-	_inventory_list.custom_minimum_size.y = 240.0 if compact else 0.0
-	_detail_panel.custom_minimum_size = (
-		Vector2(0.0, 310.0)
-		if compact
-		else Vector2(430.0, 0.0)
-	)
-	_status_shoal.add_theme_constant_override(
-		"separation",
-		4 if compact else 8,
-	)
-	_inventory_body.queue_sort()
 	_content_rest_position = _content_stage.position
 	if not _transitioning:
 		_content_shell.position = _presentation_rest_position
+		_cooler_page.position = _cooler_rest_position
+		_bag_page.position = _bag_rest_position
+		_logbook_page.position = _logbook_rest_position
+		_cooler_page.modulate.a = 1.0
+		_bag_page.modulate.a = 1.0
+		_logbook_page.modulate.a = 1.0
 	if not _page_transitioning:
 		_content_stage.position = _content_rest_position
-
-
-func _sync_cooler_width() -> void:
-	if not is_node_ready():
-		return
-	_cooler_host.custom_minimum_size.x = minf(
-		_content_stage.size.x,
-		1380.0,
-	)
-	_cooler_host.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	_layout_cooler_fish(false)
+	_layout_bag_items()
 
 
 func _begin_menu_entry() -> void:
@@ -569,8 +1116,13 @@ func _begin_menu_entry() -> void:
 	_set_shell_interactive(false)
 	set_process(true)
 	var generation: int = _transition_generation
-	var start_offset: float = size.y + TRANSITION_SAFE_MARGIN
+	var start_offset: float = (
+		_presentation_scale_root.size.y + TRANSITION_SAFE_MARGIN
+	)
 	_content_shell.position = _presentation_rest_position + Vector2.DOWN * start_offset
+	_cooler_page.position = _cooler_rest_position + Vector2.DOWN * start_offset
+	_bag_page.position = _bag_rest_position + Vector2.DOWN * start_offset
+	_logbook_page.position = _logbook_rest_position + Vector2.DOWN * start_offset
 	var navigation_rest: Vector2 = _navigation_cluster.position
 	_navigation_cluster.position = navigation_rest + Vector2.DOWN * start_offset
 	_presentation_tween = create_tween().set_parallel(true)
@@ -578,6 +1130,24 @@ func _begin_menu_entry() -> void:
 		_content_shell,
 		"position",
 		_presentation_rest_position,
+		MENU_ENTER_DURATION
+	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	_presentation_tween.tween_property(
+		_cooler_page,
+		"position",
+		_cooler_rest_position,
+		MENU_ENTER_DURATION
+	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	_presentation_tween.tween_property(
+		_bag_page,
+		"position",
+		_bag_rest_position,
+		MENU_ENTER_DURATION
+	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	_presentation_tween.tween_property(
+		_logbook_page,
+		"position",
+		_logbook_rest_position,
 		MENU_ENTER_DURATION
 	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	_presentation_tween.tween_property(
@@ -623,6 +1193,24 @@ func _begin_menu_exit(reason: CloseReason, restore_controls: bool) -> void:
 		MENU_EXIT_DURATION
 	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	_presentation_tween.tween_property(
+		_cooler_page,
+		"position:y",
+		-_cooler_page.size.y - TRANSITION_SAFE_MARGIN,
+		MENU_EXIT_DURATION
+	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	_presentation_tween.tween_property(
+		_bag_page,
+		"position:y",
+		-_bag_page.size.y - TRANSITION_SAFE_MARGIN,
+		MENU_EXIT_DURATION
+	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	_presentation_tween.tween_property(
+		_logbook_page,
+		"position:y",
+		-_logbook_page.size.y - TRANSITION_SAFE_MARGIN,
+		MENU_EXIT_DURATION
+	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	_presentation_tween.tween_property(
 		_navigation_cluster,
 		"position:y",
 		-_navigation_cluster.size.y - TRANSITION_SAFE_MARGIN,
@@ -657,8 +1245,11 @@ func _finish_close(
 ) -> void:
 	_cancel_presentation_tween()
 	_cancel_page_tween()
+	_cancel_logbook_page_transition(true)
 	_transitioning = false
 	_page_transitioning = false
+	_bag_drag_active = false
+	_reset_page_transition_visuals()
 	visible = false
 	set_process(false)
 	get_viewport().gui_release_focus()
@@ -674,39 +1265,68 @@ func _finish_close(
 	menu_visibility_changed.emit(false)
 
 
+func _get_section_root(section: Section) -> Control:
+	match section:
+		Section.COOLER:
+			return _cooler_page
+		Section.BAG:
+			return _bag_page
+		_:
+			return _logbook_page
+
+
+func _get_section_rest_position(section: Section) -> Vector2:
+	match section:
+		Section.COOLER:
+			return _cooler_rest_position
+		Section.BAG:
+			return _bag_rest_position
+		_:
+			return _logbook_rest_position
+
+
 func _begin_page_transition(section: Section) -> void:
+	_cancel_logbook_page_transition(true)
 	_page_transition_generation += 1
 	_cancel_page_tween()
 	_page_transitioning = true
 	_set_content_interactive(false)
 	_set_navigation_target(section)
 	var generation: int = _page_transition_generation
+	_page_outgoing_root = _get_section_root(_current_section)
+	_page_incoming_root = _get_section_root(section)
+	_page_hosts_shared = _page_outgoing_root == _page_incoming_root
+	var outgoing_rest: Vector2 = _get_section_rest_position(_current_section)
+	var incoming_rest: Vector2 = _get_section_rest_position(section)
+	if not _page_hosts_shared:
+		_page_incoming_root.position = incoming_rest + Vector2.DOWN * 18.0
+		_page_incoming_root.modulate.a = 0.0
 	_page_tween = create_tween()
 	_page_tween.tween_property(
-		_content_stage,
+		_page_outgoing_root,
 		"modulate:a",
 		0.0,
 		PAGE_OUT_DURATION
 	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	_page_tween.parallel().tween_property(
-		_content_stage,
+		_page_outgoing_root,
 		"position:y",
-		_content_rest_position.y - 18.0,
+		outgoing_rest.y - 18.0,
 		PAGE_OUT_DURATION
 	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	_page_tween.tween_callback(
 		_swap_page.bind(section, generation)
 	)
 	_page_tween.tween_property(
-		_content_stage,
+		_page_incoming_root,
 		"modulate:a",
 		1.0,
 		PAGE_IN_DURATION
 	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	_page_tween.parallel().tween_property(
-		_content_stage,
+		_page_incoming_root,
 		"position",
-		_content_rest_position,
+		incoming_rest,
 		PAGE_IN_DURATION
 	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	_page_tween.finished.connect(
@@ -719,7 +1339,11 @@ func _swap_page(section: Section, generation: int) -> void:
 	if generation != _page_transition_generation or not visible:
 		return
 	_show_section_immediate(section)
-	_content_stage.position = _content_rest_position + Vector2.DOWN * 18.0
+	if _page_hosts_shared:
+		_page_incoming_root.position = (
+			_presentation_rest_position + Vector2.DOWN * 18.0
+		)
+		_page_incoming_root.modulate.a = 0.0
 
 
 func _finish_page_transition(generation: int) -> void:
@@ -727,8 +1351,7 @@ func _finish_page_transition(generation: int) -> void:
 		return
 	_page_tween = null
 	_page_transitioning = false
-	_content_stage.position = _content_rest_position
-	_content_stage.modulate.a = 1.0
+	_reset_page_transition_visuals()
 	_set_content_interactive(true)
 	_focus_current_section()
 
@@ -755,6 +1378,75 @@ func _set_content_interactive(interactive: bool) -> void:
 		if interactive
 		else Control.MOUSE_FILTER_IGNORE
 	)
+	_cooler_page.mouse_filter = (
+		Control.MOUSE_FILTER_PASS
+		if interactive and _current_section == Section.COOLER
+		else Control.MOUSE_FILTER_IGNORE
+	)
+	_bag_page.mouse_filter = (
+		Control.MOUSE_FILTER_PASS
+		if interactive and _current_section == Section.BAG
+		else Control.MOUSE_FILTER_IGNORE
+	)
+	_logbook_page.mouse_filter = (
+		Control.MOUSE_FILTER_PASS
+		if interactive and _current_section == Section.LOGBOOK
+		else Control.MOUSE_FILTER_IGNORE
+	)
+	var cooler_interactive: bool = (
+		interactive and _current_section == Section.COOLER
+	)
+	_cooler_sort_option.disabled = not cooler_interactive
+	_cooler_sort_direction.disabled = not cooler_interactive
+	_cooler_sort_option.refresh_ink_state()
+	_cooler_sort_direction.refresh_ink_state()
+	for fish_node: CoolerFishSpriteType in _fish_nodes.values():
+		fish_node.focus_mode = (
+			Control.FOCUS_ALL
+			if cooler_interactive
+			else Control.FOCUS_NONE
+		)
+		fish_node.mouse_filter = (
+			Control.MOUSE_FILTER_STOP
+			if cooler_interactive
+			else Control.MOUSE_FILTER_IGNORE
+		)
+	var detail_interactive: bool = (
+		cooler_interactive and _detail_constellation.visible
+	)
+	for action: NotepadInkActionType in [_favorite_bubble, _sell_bubble]:
+		var action_interactive: bool = detail_interactive and not action.disabled
+		action.focus_mode = (
+			Control.FOCUS_ALL
+			if action_interactive
+			else Control.FOCUS_NONE
+		)
+		action.mouse_filter = (
+			Control.MOUSE_FILTER_STOP
+			if action_interactive
+			else Control.MOUSE_FILTER_IGNORE
+		)
+		action.refresh_ink_state()
+	var bag_interactive: bool = (
+		interactive
+		and _current_section == Section.BAG
+		and not _bag_drag_active
+	)
+	for item_node: BagItemSpriteType in _bag_item_nodes.values():
+		item_node.focus_mode = (
+			Control.FOCUS_ALL if bag_interactive else Control.FOCUS_NONE
+		)
+		item_node.mouse_filter = (
+			Control.MOUSE_FILTER_STOP
+			if bag_interactive
+			else Control.MOUSE_FILTER_IGNORE
+		)
+	var logbook_interactive: bool = (
+		interactive
+		and _current_section == Section.LOGBOOK
+		and not _logbook_page_transitioning
+	)
+	_update_logbook_page_control_state(logbook_interactive)
 
 
 func _cancel_presentation_tween() -> void:
@@ -767,10 +1459,22 @@ func _cancel_page_tween() -> void:
 	if _page_tween != null:
 		_page_tween.kill()
 		_page_tween = null
+	_reset_page_transition_visuals()
 
 
-func _on_sort_selected(index: int) -> void:
-	_sort_mode = _sort_option.get_item_id(index)
+func _reset_page_transition_visuals() -> void:
+	for section: Section in [Section.COOLER, Section.BAG, Section.LOGBOOK]:
+		var page: Control = _get_section_root(section)
+		page.position = _get_section_rest_position(section)
+		page.modulate.a = 1.0
+	_page_outgoing_root = null
+	_page_incoming_root = null
+
+
+func _on_sort_selected(index: int, source: OptionButton) -> void:
+	_sort_mode = source.get_item_id(index)
+	_sort_option.select(_sort_mode)
+	_cooler_sort_option.select(_sort_mode)
 	_refresh_inventory()
 
 
@@ -781,13 +1485,26 @@ func _on_sort_direction_pressed() -> void:
 
 
 func _update_sort_direction_text() -> void:
+	var direction_text: String
 	match _sort_mode:
 		SortMode.CATCH_ORDER:
-			_sort_direction.text = "newest first" if _sort_descending else "oldest first"
+			if _compact_layout:
+				direction_text = "newest" if _sort_descending else "oldest"
+			else:
+				direction_text = (
+					"newest first" if _sort_descending else "oldest first"
+				)
 		SortMode.NAME:
-			_sort_direction.text = "z–a" if _sort_descending else "a–z"
+			direction_text = "z–a" if _sort_descending else "a–z"
 		SortMode.RARITY:
-			_sort_direction.text = "high to low" if _sort_descending else "low to high"
+			if _compact_layout:
+				direction_text = "high–low" if _sort_descending else "low–high"
+			else:
+				direction_text = (
+					"high to low" if _sort_descending else "low to high"
+				)
+	_sort_direction.text = direction_text
+	_cooler_sort_direction.text = direction_text
 
 
 func _refresh_all() -> void:
@@ -804,39 +1521,158 @@ func _on_bag_changed() -> void:
 func _refresh_bag() -> void:
 	if not is_node_ready():
 		return
-	_clear_container(_bag_grid)
 	var owned_items: Array[OwnedItemType] = (
 		_bag.get_all_items() if _bag != null else []
 	)
 	owned_items.sort_custom(_sort_bag_items)
+	_sorted_bag_items = owned_items
 	_bag_empty.visible = owned_items.is_empty()
+	_bag_empty_state.visible = owned_items.is_empty()
 	if (
 		not _selected_bag_item_id.is_empty()
 		and (_bag == null or not _bag.owns_item(_selected_bag_item_id))
 	):
 		_selected_bag_item_id = StringName()
+	_sync_bag_item_nodes(owned_items)
+	_update_bag_detail()
+
+
+func _sync_bag_item_nodes(owned_items: Array[OwnedItemType]) -> void:
+	var retained: Dictionary[StringName, bool] = {}
 	for owned: OwnedItemType in owned_items:
 		var item: ItemDataType = _item_catalog.get_item_by_id(owned.item_id)
 		if item == null:
 			continue
-		var card := ItemDragSourceType.new()
-		card.custom_minimum_size = Vector2(140, 88)
-		card.expand_icon = true
-		card.icon = item.icon
-		card.text = "%s%s\n%s" % [
+		retained[owned.item_id] = true
+		var item_node := _bag_item_nodes.get(
+			owned.item_id
+		) as BagItemSpriteType
+		if item_node == null:
+			item_node = BagItemSpriteScene.instantiate()
+			_bag_item_field.add_child(item_node)
+			_bag_item_nodes[owned.item_id] = item_node
+			item_node.pressed.connect(
+				_select_bag_item.bind(owned.item_id)
+			)
+			item_node.focus_entered.connect(
+				_select_bag_item.bind(owned.item_id)
+			)
+			item_node.drag_started.connect(_on_bag_drag_started)
+			item_node.drag_finished.connect(_on_bag_drag_finished)
+		var identity_hash: int = absi(String(owned.item_id).hash())
+		item_node.configure_item(
+			item.item_id,
 			item.display_name,
-			" ×%d" % owned.quantity if owned.quantity > 1 else "",
-			item.get_category_name(),
-		]
-		card.tooltip_text = (
+			item.icon,
+			owned.quantity,
+			item.hotbar_allowed,
+			float(identity_hash % 628) / 100.0,
+			0.97 + float(identity_hash % 7) * 0.01,
+		)
+		item_node.tooltip_text = (
 			"drag to a hotbar slot."
 			if item.hotbar_allowed
 			else "this item cannot be assigned to the hotbar."
 		)
-		card.setup(item.item_id, item.display_name, item.icon)
-		card.pressed.connect(_select_bag_item.bind(item.item_id))
-		_bag_grid.add_child(card)
-	_update_bag_detail()
+		item_node.disabled = false
+		item_node.set_selected(item.item_id == _selected_bag_item_id)
+	for item_id: StringName in _bag_item_nodes.keys():
+		if retained.has(item_id):
+			continue
+		var removed := _bag_item_nodes[item_id] as BagItemSpriteType
+		_bag_item_nodes.erase(item_id)
+		_release_focus_from(removed, _bag_tab)
+		removed.queue_free()
+	_layout_bag_items()
+	_configure_bag_item_focus()
+
+
+func _layout_bag_items() -> void:
+	if not is_node_ready() or _sorted_bag_items.is_empty():
+		return
+	_bag_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	var columns: int = 3
+	var cell_size := (
+		Vector2(166.0, 72.0)
+		if _compact_layout
+		else Vector2(246.0, 154.0)
+	)
+	var item_size := (
+		Vector2(86.0, 62.0)
+		if _compact_layout
+		else Vector2(138.0, 102.0)
+	)
+	var origin := (
+		Vector2(16.0, 4.0)
+		if _compact_layout
+		else Vector2(54.0, 44.0)
+	)
+	_bag_item_field.custom_minimum_size = (
+		Vector2(520.0, 140.0)
+		if _compact_layout
+		else Vector2(820.0, 350.0)
+	)
+	for index: int in _sorted_bag_items.size():
+		var owned: OwnedItemType = _sorted_bag_items[index]
+		var item_node := _bag_item_nodes.get(
+			owned.item_id
+		) as BagItemSpriteType
+		if item_node == null:
+			continue
+		var identity_hash: int = absi(String(owned.item_id).hash())
+		var column: int = index % columns
+		var row: int = floori(float(index) / float(columns))
+		var stable_offset := Vector2(
+			float(identity_hash % 13) - 6.0,
+			float((identity_hash / 19) % 11) - 5.0,
+		)
+		var lane_offset: float = 18.0 if row % 2 == 1 else 0.0
+		item_node.custom_minimum_size = item_size
+		item_node.size = item_size
+		item_node.position = (
+			origin
+			+ Vector2(
+				float(column) * cell_size.x + lane_offset,
+				float(row) * cell_size.y,
+			)
+			+ stable_offset
+		)
+
+
+func _configure_bag_item_focus() -> void:
+	if _current_section != Section.BAG:
+		return
+	var controls: Array[BagItemSpriteType] = []
+	for owned: OwnedItemType in _sorted_bag_items:
+		var item_node := _bag_item_nodes.get(
+			owned.item_id
+		) as BagItemSpriteType
+		if item_node != null:
+			controls.append(item_node)
+	if controls.is_empty():
+		_bag_tab.focus_neighbor_bottom = NodePath()
+		return
+	_bag_tab.focus_neighbor_bottom = _bag_tab.get_path_to(controls.front())
+	for index: int in controls.size():
+		var control: BagItemSpriteType = controls[index]
+		var column: int = index % 3
+		var row: int = floori(float(index) / 3.0)
+		var left_index: int = row * 3 + maxi(column - 1, 0)
+		var right_index: int = mini(index + 1, controls.size() - 1)
+		control.focus_neighbor_left = control.get_path_to(
+			controls[left_index]
+		)
+		control.focus_neighbor_right = control.get_path_to(
+			controls[right_index]
+		)
+		control.focus_neighbor_top = (
+			control.get_path_to(_bag_tab)
+			if index < 3
+			else control.get_path_to(controls[index - 3])
+		)
+		control.focus_neighbor_bottom = control.get_path_to(
+			controls[mini(index + 3, controls.size() - 1)]
+		)
 
 
 func _sort_bag_items(a: OwnedItemType, b: OwnedItemType) -> bool:
@@ -852,7 +1688,12 @@ func _sort_bag_items(a: OwnedItemType, b: OwnedItemType) -> bool:
 
 
 func _select_bag_item(item_id: StringName) -> void:
+	if _bag_drag_active or get_viewport().gui_is_dragging():
+		return
 	_selected_bag_item_id = item_id
+	for candidate_id: StringName in _bag_item_nodes:
+		var item_node := _bag_item_nodes[candidate_id] as BagItemSpriteType
+		item_node.set_selected(candidate_id == item_id)
 	_update_bag_detail()
 
 
@@ -884,6 +1725,61 @@ func _update_bag_detail() -> void:
 		if item != null
 		else "select a bag item for details."
 	)
+	_bag_sprite_detail_texture.texture = item.icon if item != null else null
+	_bag_sprite_detail_name.text = item.display_name if item != null else ""
+	_bag_sprite_detail_data.text = (
+		"%s • quantity: %d\n%s\n%s"
+		% [
+			item.get_category_name(),
+			quantity,
+			item.description,
+			(
+				"drag to any hotbar slot."
+				if item.hotbar_allowed
+				else "not compatible with the hotbar."
+			),
+		]
+		if item != null
+		else ""
+	)
+	_bag_detail_constellation.visible = (
+		item != null and _current_section == Section.BAG
+	)
+	_bag_instruction_bubble.visible = (
+		item == null and _current_section == Section.BAG
+	)
+
+
+func _close_bag_detail() -> void:
+	_bag_detail_constellation.visible = false
+	_bag_instruction_bubble.visible = _current_section == Section.BAG
+
+
+func _on_bag_field_gui_input(event: InputEvent) -> void:
+	if (
+		event is InputEventMouseButton
+		and event.button_index == MOUSE_BUTTON_LEFT
+		and event.pressed
+		and not get_viewport().gui_is_dragging()
+	):
+		_selected_bag_item_id = StringName()
+		for item_node: BagItemSpriteType in _bag_item_nodes.values():
+			item_node.set_selected(false)
+		_update_bag_detail()
+
+
+func _on_bag_drag_started() -> void:
+	_bag_drag_active = true
+	_close_bag_detail()
+	_set_content_interactive(false)
+
+
+func _on_bag_drag_finished() -> void:
+	_bag_drag_active = false
+	if visible and _current_section == Section.BAG:
+		_set_content_interactive(
+			not _transitioning and not _page_transitioning
+		)
 
 
 func _on_inventory_changed() -> void:
@@ -915,10 +1811,15 @@ func _refresh_economy_summary() -> void:
 	)
 	_wallet_balance.text = "wallet: $%d" % balance
 	_wallet_status.set_content("wallet", "$%d" % balance)
+	_notepad_wallet.text = "wallet  $%d" % balance
 	_capacity_status.set_content("cooler", "%d / %d" % [
 		_inventory.get_all_catches().size() if _inventory != null else 0,
 		_cooler_capacity.get_capacity() if _cooler_capacity != null else 0,
 	])
+	_notepad_capacity.text = "cooler  %d / %d" % [
+		_inventory.get_all_catches().size() if _inventory != null else 0,
+		_cooler_capacity.get_capacity() if _cooler_capacity != null else 0,
+	]
 	_held_value_status.set_content("held value", "$%d" % held_total)
 	_held_value.text = "held fish base value: $%d" % held_total
 	_cooler_count.text = "%d / %d" % [
@@ -934,48 +1835,207 @@ func _on_cooler_capacity_changed(_level: int, _capacity: int) -> void:
 func _refresh_inventory() -> void:
 	if not is_node_ready():
 		return
-	_clear_container(_inventory_grid)
 	var catches: Array[FishCatchType] = []
 	if _inventory != null:
 		for fish_catch: FishCatchType in _inventory.get_all_catches():
 			if fish_catch != null and fish_catch.is_valid():
 				catches.append(fish_catch)
 	catches.sort_custom(_compare_catches)
+	_sorted_catches = catches
 	_inventory_empty.visible = catches.is_empty()
+	_cooler_empty.visible = catches.is_empty()
 	var visible_ids: Array[StringName] = []
 	for fish_catch: FishCatchType in catches:
 		visible_ids.append(fish_catch.catch_id)
 	_fish_selection.set_visible_order(visible_ids)
 
-	var selected: FishCatchType
-	if _inventory != null:
-		selected = _inventory.get_catch(_fish_selection.get_focused_id())
-	for fish_catch: FishCatchType in catches:
-		_inventory_grid.add_child(_create_inventory_card(fish_catch))
-	_configure_inventory_card_focus()
+	_sync_cooler_fish_nodes(catches)
+	var selected: FishCatchType = (
+		_inventory.get_catch(_fish_selection.get_focused_id())
+		if _inventory != null
+		else null
+	)
 	_update_inventory_detail(selected)
 	_update_sale_summary()
 	_update_sort_direction_text()
 
 
-func _configure_inventory_card_focus() -> void:
-	var cards: Array[Control] = []
-	for child: Node in _inventory_grid.get_children():
-		if child is Control:
-			cards.append(child as Control)
-	var columns: int = maxi(_inventory_grid.columns, 1)
-	for index: int in cards.size():
-		var card: Control = cards[index]
-		var row: int = floori(float(index) / float(columns))
+func _sync_cooler_fish_nodes(catches: Array[FishCatchType]) -> void:
+	var retained: Dictionary[StringName, bool] = {}
+	for fish_catch: FishCatchType in catches:
+		retained[fish_catch.catch_id] = true
+		var fish_node := _fish_nodes.get(
+			fish_catch.catch_id
+		) as CoolerFishSpriteType
+		var is_new: bool = fish_node == null
+		if is_new:
+			fish_node = CoolerFishSpriteScene.instantiate()
+			_fish_field.add_child(fish_node)
+			_fish_nodes[fish_catch.catch_id] = fish_node
+			fish_node.set_meta("new_cooler_fish", true)
+			fish_node.pressed.connect(
+				_on_catch_card_pressed.bind(fish_catch.catch_id)
+			)
+		var identity_hash: int = absi(String(fish_catch.catch_id).hash())
+		fish_node.configure(
+			fish_catch.catch_id,
+			fish_catch.fish.display_texture,
+			float(identity_hash % 628) / 100.0,
+			0.96 + float(identity_hash % 9) * 0.01,
+			_get_cooler_rarity_color(fish_catch.fish.rarity),
+		)
+		fish_node.set_item_state(
+			_fish_selection.is_selected(fish_catch.catch_id),
+			fish_catch.catch_id == _fish_selection.get_focused_id(),
+			fish_catch.is_favorited,
+		)
+	for catch_id: StringName in _fish_nodes.keys():
+		if retained.has(catch_id):
+			continue
+		var removed := _fish_nodes[catch_id] as CoolerFishSpriteType
+		_fish_nodes.erase(catch_id)
+		_release_focus_from(removed, _inventory_tab)
+		removed.queue_free()
+	_layout_cooler_fish(true)
+	_configure_cooler_fish_focus()
+
+
+func _get_cooler_rarity_color(rarity: int) -> Color:
+	match rarity:
+		FishDataType.Rarity.UNCOMMON:
+			return COOLER_RARITY_UNCOMMON
+		FishDataType.Rarity.RARE:
+			return COOLER_RARITY_RARE
+		FishDataType.Rarity.EPIC:
+			return COOLER_RARITY_EPIC
+		FishDataType.Rarity.LEGENDARY:
+			return COOLER_RARITY_LEGENDARY
+		_:
+			return COOLER_RARITY_COMMON
+
+
+func _layout_cooler_fish(animate: bool = true) -> void:
+	if not is_node_ready():
+		return
+	var columns: int = 3 if _compact_layout else 9
+	var cell_size := (
+		Vector2(68.0, 58.0) if _compact_layout else Vector2(84.0, 80.0)
+	)
+	var fish_size := (
+		Vector2(52.0, 52.0) if _compact_layout else Vector2(72.0, 72.0)
+	)
+	var visible_field_size := (
+		Vector2(218.0, 124.0)
+		if _compact_layout
+		else Vector2(784.0, 394.0)
+	)
+	var side_margin: float = 2.0 if _compact_layout else 8.0
+	var top_margin: float = 4.0 if _compact_layout else 6.0
+	var required_rows: int = ceili(
+		float(_sorted_catches.size()) / float(columns)
+	) if not _sorted_catches.is_empty() else 0
+	var required_height: float = (
+		top_margin * 2.0 + float(required_rows) * cell_size.y
+	)
+	var content_size := Vector2(
+		visible_field_size.x,
+		maxf(visible_field_size.y, required_height),
+	)
+	_cooler_host.custom_minimum_size = content_size
+	_fish_field.custom_minimum_size = content_size
+	_cooler_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	for index: int in _sorted_catches.size():
+		var fish_catch: FishCatchType = _sorted_catches[index]
+		var fish_node := _fish_nodes.get(
+			fish_catch.catch_id
+		) as CoolerFishSpriteType
+		if fish_node == null:
+			continue
+		var identity_hash: int = absi(String(fish_catch.catch_id).hash())
 		var column: int = index % columns
-		var left_index: int = row * columns + maxi(column - 1, 0)
-		var right_index: int = mini(index + 1, cards.size() - 1)
-		var top_index: int = maxi(index - columns, 0)
-		var bottom_index: int = mini(index + columns, cards.size() - 1)
-		card.focus_neighbor_left = card.get_path_to(cards[left_index])
-		card.focus_neighbor_right = card.get_path_to(cards[right_index])
-		card.focus_neighbor_top = card.get_path_to(cards[top_index])
-		card.focus_neighbor_bottom = card.get_path_to(cards[bottom_index])
+		var row: int = floori(float(index) / float(columns))
+		var offset_span: int = 5 if _compact_layout else 7
+		var offset_center: float = 2.0 if _compact_layout else 3.0
+		var stable_offset := Vector2(
+			float(identity_hash % offset_span) - offset_center,
+			float((identity_hash / 17) % offset_span) - offset_center,
+		)
+		var lane_offset: float = 5.0 if row % 2 == 1 else 0.0
+		var target := Vector2(
+			side_margin + float(column) * cell_size.x + lane_offset,
+			top_margin + float(row) * cell_size.y,
+		) + stable_offset
+		fish_node.custom_minimum_size = fish_size
+		fish_node.size = fish_size
+		var immediate: bool = (
+			not animate or fish_node.has_meta("new_cooler_fish")
+		)
+		fish_node.set_target_position(target, immediate)
+		if fish_node.has_meta("new_cooler_fish"):
+			fish_node.remove_meta("new_cooler_fish")
+
+
+func _configure_cooler_fish_focus() -> void:
+	if _current_section != Section.COOLER:
+		return
+	var controls: Array[CoolerFishSpriteType] = []
+	for fish_catch: FishCatchType in _sorted_catches:
+		var fish_node := _fish_nodes.get(
+			fish_catch.catch_id
+		) as CoolerFishSpriteType
+		if fish_node != null:
+			controls.append(fish_node)
+	var columns: int = 3 if _compact_layout else 9
+	if controls.is_empty():
+		_inventory_tab.focus_neighbor_bottom = NodePath()
+		return
+	_inventory_tab.focus_neighbor_bottom = _inventory_tab.get_path_to(
+		controls.front()
+	)
+	for index: int in controls.size():
+		var control: CoolerFishSpriteType = controls[index]
+		control.focus_neighbor_left = control.get_path_to(
+			controls[maxi(index - 1, 0)]
+		)
+		control.focus_neighbor_right = control.get_path_to(
+			controls[mini(index + 1, controls.size() - 1)]
+		)
+		control.focus_neighbor_top = (
+			control.get_path_to(_inventory_tab)
+			if index < columns
+			else control.get_path_to(controls[index - columns])
+		)
+		control.focus_neighbor_bottom = (
+			control.get_path_to(_favorite_bubble)
+			if (
+				not _favorite_bubble.disabled
+				and index + columns >= controls.size()
+			)
+			else control.get_path_to(
+				controls[mini(index + columns, controls.size() - 1)]
+			)
+		)
+	var focused_node := _fish_nodes.get(
+		_fish_selection.get_focused_id()
+	) as CoolerFishSpriteType
+	if focused_node == null:
+		focused_node = controls.front()
+	_favorite_bubble.focus_neighbor_left = (
+		_favorite_bubble.get_path_to(focused_node)
+	)
+	_favorite_bubble.focus_neighbor_right = (
+		_favorite_bubble.get_path_to(_sell_bubble)
+	)
+	_favorite_bubble.focus_neighbor_top = (
+		_favorite_bubble.get_path_to(focused_node)
+	)
+	_sell_bubble.focus_neighbor_left = (
+		_sell_bubble.get_path_to(_favorite_bubble)
+	)
+	_sell_bubble.focus_neighbor_right = (
+		_sell_bubble.get_path_to(_close_button)
+	)
+	_sell_bubble.focus_neighbor_top = _sell_bubble.get_path_to(focused_node)
 
 
 func _compare_catches(left: FishCatchType, right: FishCatchType) -> bool:
@@ -994,95 +2054,6 @@ func _compare_catches(left: FishCatchType, right: FishCatchType) -> bool:
 	return comparison > 0 if _sort_descending else comparison < 0
 
 
-func _create_inventory_card(fish_catch: FishCatchType) -> Button:
-	var card := BubbleInventoryCellScene.instantiate() as BubbleInventoryCellType
-	card.set_compact(_compact_layout)
-	var is_selected: bool = _fish_selection.is_selected(fish_catch.catch_id)
-	var is_focused: bool = (
-		fish_catch.catch_id == _fish_selection.get_focused_id()
-	)
-	card.configure(
-		fish_catch.fish.display_texture,
-		fish_catch.fish.display_name,
-		"%.2f lb" % fish_catch.weight_lb,
-	)
-	card.set_item_state(
-		is_selected,
-		is_focused,
-		fish_catch.is_favorited,
-	)
-	card.pressed.connect(_on_catch_card_pressed.bind(fish_catch.catch_id))
-	return card
-
-
-func _apply_inventory_card_styles(
-	card: Button,
-	rarity_color: Color,
-	is_selected: bool,
-	is_focused: bool,
-) -> void:
-	card.add_theme_stylebox_override(
-		"normal",
-		_create_inventory_card_style(
-			rarity_color,
-			0,
-			is_selected,
-			is_focused
-		)
-	)
-	card.add_theme_stylebox_override(
-		"hover",
-		_create_inventory_card_style(
-			rarity_color,
-			1,
-			is_selected,
-			is_focused
-		)
-	)
-	card.add_theme_stylebox_override(
-		"focus",
-		_create_inventory_card_style(
-			rarity_color,
-			1,
-			is_selected,
-			true
-		)
-	)
-	card.add_theme_stylebox_override(
-		"pressed",
-		_create_inventory_card_style(rarity_color, 2, true, is_focused)
-	)
-
-
-func _create_inventory_card_style(
-	rarity_color: Color,
-	state_index: int,
-	is_selected: bool,
-	is_focused: bool,
-) -> StyleBoxFlat:
-	var style := StyleBoxFlat.new()
-	match state_index:
-		1:
-			style.bg_color = UIPalette.ELEVATED_PANEL.lightened(0.1)
-		2:
-			style.bg_color = UIPalette.PRIMARY.darkened(0.48)
-		_:
-			style.bg_color = (
-				UIPalette.PRIMARY.darkened(0.55)
-				if is_selected
-				else UIPalette.ELEVATED_PANEL
-			)
-	style.border_color = rarity_color
-	var border_width: int = 4 if state_index == 2 or is_focused else 2
-	style.set_border_width_all(border_width)
-	style.set_corner_radius_all(8)
-	style.content_margin_left = 7.0
-	style.content_margin_top = 7.0
-	style.content_margin_right = 7.0
-	style.content_margin_bottom = 7.0
-	return style
-
-
 func _on_catch_card_pressed(catch_id: StringName) -> void:
 	if _inventory == null:
 		return
@@ -1098,18 +2069,63 @@ func _on_catch_card_pressed(catch_id: StringName) -> void:
 	_refresh_inventory()
 
 
+func _on_fish_field_gui_input(event: InputEvent) -> void:
+	if (
+		event is InputEventMouseButton
+		and event.button_index == MOUSE_BUTTON_LEFT
+		and event.pressed
+		and not get_viewport().gui_is_dragging()
+	):
+		_fish_selection.clear()
+		_transaction_feedback.text = ""
+		_refresh_inventory()
+
+
+func _close_detail_constellation() -> void:
+	_detail_constellation.visible = _current_section == Section.COOLER
+	_cooler_detail_texture.texture = null
+	_cooler_detail_texture.visible = false
+	_cooler_detail_name.text = "select a fish"
+	_cooler_detail_data.text = ""
+	_cooler_selection_summary.text = "no fish selected"
+	_favorite_bubble.disabled = true
+	_favorite_bubble.text = "favorite"
+	_favorite_bubble.persistent_mark = false
+	_sell_bubble.disabled = true
+	_sell_bubble.text = "sell fish"
+	_sell_bubble.persistent_mark = false
+	_favorite_bubble.focus_mode = Control.FOCUS_NONE
+	_sell_bubble.focus_mode = Control.FOCUS_NONE
+	_favorite_bubble.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_sell_bubble.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_favorite_bubble.refresh_ink_state()
+	_sell_bubble.refresh_ink_state()
+	_configure_cooler_fish_focus()
+
+
 func _update_inventory_detail(fish_catch: FishCatchType) -> void:
 	if fish_catch == null:
-		_detail_texture.texture = null
-		_detail_texture.visible = false
-		_detail_name.text = ""
-		_detail_data.text = ""
+		_cooler_detail_texture.texture = null
+		_cooler_detail_texture.visible = false
+		_cooler_detail_name.text = "select a fish"
+		_cooler_detail_data.text = ""
 		_favorite_button.disabled = true
 		_favorite_button.text = "favorite"
+		_favorite_bubble.disabled = true
+		_favorite_bubble.text = "favorite"
+		_favorite_bubble.persistent_mark = false
+		_detail_constellation.visible = _current_section == Section.COOLER
+		_favorite_bubble.focus_mode = Control.FOCUS_NONE
+		_sell_bubble.focus_mode = Control.FOCUS_NONE
+		_favorite_bubble.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_sell_bubble.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_favorite_bubble.refresh_ink_state()
+		_sell_bubble.refresh_ink_state()
+		_configure_cooler_fish_focus()
 		return
-	_detail_texture.texture = fish_catch.fish.display_texture
-	_detail_texture.visible = fish_catch.fish.display_texture != null
-	_detail_name.text = fish_catch.fish.display_name
+	_cooler_detail_texture.texture = fish_catch.fish.display_texture
+	_cooler_detail_texture.visible = fish_catch.fish.display_texture != null
+	_cooler_detail_name.text = fish_catch.fish.display_name
 	var individual_preview: FishSaleResultType = (
 		_sale_service.preview_batch([fish_catch.catch_id], _default_buyer)
 		if _sale_service != null
@@ -1126,7 +2142,7 @@ func _update_inventory_detail(fish_catch: FishCatchType) -> void:
 			_default_buyer.display_name,
 			buyer_offer,
 		]
-	_detail_data.text = "%.2f lb\n%s\nbase value: $%d\n%s" % [
+	_cooler_detail_data.text = "%.2f lb • %s\nbase value: $%d\n%s" % [
 		fish_catch.weight_lb,
 		fish_catch.fish.get_rarity_name(),
 		fish_catch.sale_value,
@@ -1136,6 +2152,31 @@ func _update_inventory_detail(fish_catch: FishCatchType) -> void:
 	_favorite_button.text = (
 		"unfavorite" if fish_catch.is_favorited else "favorite"
 	)
+	_favorite_bubble.disabled = false
+	_favorite_bubble.text = _favorite_button.text
+	_favorite_bubble.persistent_mark = fish_catch.is_favorited
+	_favorite_bubble.refresh_ink_state()
+	_detail_constellation.visible = _current_section == Section.COOLER
+	_cooler_sort_controls.visible = true
+	var detail_interactive: bool = (
+		_detail_constellation.visible
+		and not _transitioning
+		and not _page_transitioning
+	)
+	for action: NotepadInkActionType in [_favorite_bubble, _sell_bubble]:
+		var action_interactive: bool = detail_interactive and not action.disabled
+		action.focus_mode = (
+			Control.FOCUS_ALL
+			if action_interactive
+			else Control.FOCUS_NONE
+		)
+		action.mouse_filter = (
+			Control.MOUSE_FILTER_STOP
+			if action_interactive
+			else Control.MOUSE_FILTER_IGNORE
+		)
+		action.refresh_ink_state()
+	_configure_cooler_fish_focus()
 
 
 func _update_sale_summary() -> void:
@@ -1146,12 +2187,18 @@ func _update_sale_summary() -> void:
 		if selected_count == 1
 		else "sell %d fish" % selected_count
 	)
+	_sell_bubble.text = _sell_button.text
 	if selected_count == 0:
 		_selection_summary.text = "no fish selected"
 		_selection_status.set_content("selected", "none")
 		_offer_status.set_content("pelican offer", "—")
 		_sell_button.text = "sell fish"
 		_sell_button.disabled = true
+		_sell_bubble.disabled = true
+		_sell_bubble.text = "sell fish"
+		_sell_bubble.persistent_mark = false
+		_sell_bubble.refresh_ink_state()
+		_cooler_selection_summary.text = "no fish selected"
 		_sale_unavailable.text = ""
 		_sale_unavailable.visible = false
 		return
@@ -1166,6 +2213,7 @@ func _update_sale_summary() -> void:
 		else "%d fish selected" % selected_count
 	)
 	_selection_summary.text = count_text
+	_cooler_selection_summary.text = count_text
 	_selection_status.set_content("selected", str(selected_count))
 	if (
 		preview != null
@@ -1180,10 +2228,17 @@ func _update_sale_summary() -> void:
 			_default_buyer.display_name,
 			preview.payout,
 		]
+		_cooler_selection_summary.text += (
+			"\ncombined offer: $%d" % preview.payout
+		)
 		_offer_status.set_content("pelican offer", "$%d" % preview.payout)
 	else:
+		_cooler_selection_summary.text += "\noffer unavailable"
 		_offer_status.set_content("pelican offer", "unavailable")
 	_sell_button.disabled = preview == null or not preview.is_success()
+	_sell_bubble.disabled = _sell_button.disabled
+	_sell_bubble.persistent_mark = false
+	_sell_bubble.refresh_ink_state()
 	if preview != null and preview.status == FishSaleResultType.Status.FAVORITED:
 		_sale_unavailable.text = (
 			"favorited fish cannot be sold. "
@@ -1257,8 +2312,12 @@ func _on_sell_pressed() -> void:
 		]
 	)
 	_sale_confirmation.visible = true
+	_set_shell_interactive(false)
+	for button: Button in [_confirm_sale_button, _cancel_sale_button]:
+		button.focus_mode = Control.FOCUS_ALL
+		button.mouse_filter = Control.MOUSE_FILTER_STOP
 	_confirm_sale_button.disabled = false
-	_confirm_sale_button.grab_focus()
+	_cancel_sale_button.grab_focus()
 
 
 func _on_confirm_sale_pressed() -> void:
@@ -1294,6 +2353,7 @@ func _on_confirm_sale_pressed() -> void:
 
 
 func _close_sale_confirmation() -> void:
+	var was_visible: bool = _sale_confirmation.visible
 	_confirmation_catch_ids.clear()
 	_confirmation_buyer = null
 	_confirmation_buyer_id = StringName()
@@ -1301,6 +2361,17 @@ func _close_sale_confirmation() -> void:
 	_sale_confirmation.visible = false
 	_confirmation_message.text = ""
 	_confirm_sale_button.disabled = false
+	for button: Button in [_confirm_sale_button, _cancel_sale_button]:
+		button.focus_mode = Control.FOCUS_NONE
+		button.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if (
+		was_visible
+		and visible
+		and not _transitioning
+		and not _page_transitioning
+	):
+		_set_shell_interactive(true)
+		_focus_current_section()
 
 
 func _revalidate_confirmation() -> void:
@@ -1352,64 +2423,282 @@ func _get_buyer_display_group(
 func _refresh_logbook() -> void:
 	if not is_node_ready():
 		return
-	_clear_container(_logbook_grid)
 	var valid_species: Array[FishDataType] = []
 	if _catalog != null:
 		for fish: FishDataType in _catalog.candidates:
 			if fish != null and not fish.id.is_empty():
 				valid_species.append(fish)
+	_logbook_species = valid_species
 	_logbook_empty.visible = valid_species.is_empty()
 	_logbook_empty.text = (
 		"no fish catalog configured."
 		if valid_species.is_empty()
 		else "no species discovered yet."
 	)
-	if not valid_species.is_empty() and _collection_log != null:
-		var any_discovered: bool = false
-		for fish: FishDataType in valid_species:
-			if _collection_log.has_discovered(fish.id):
-				any_discovered = true
-				break
-		_logbook_empty.visible = not any_discovered
-	for fish: FishDataType in valid_species:
-		_logbook_grid.add_child(_create_logbook_card(fish))
+	_logbook_empty_state.visible = valid_species.is_empty()
+	_logbook_empty_state.text = (
+		"no fish catalog configured"
+		if valid_species.is_empty()
+		else ""
+	)
+	_refresh_logbook_page(false)
 
 
-func _create_logbook_card(fish: FishDataType) -> Control:
+func _refresh_logbook_page(keep_transition_state: bool = true) -> void:
+	if not is_node_ready():
+		return
+	var entries_per_spread: int = 2 if _compact_layout else 4
+	_logbook_page_count = maxi(
+		1,
+		ceili(float(_logbook_species.size()) / float(entries_per_spread)),
+	)
+	_logbook_current_page = clampi(
+		_logbook_current_page,
+		0,
+		_logbook_page_count - 1,
+	)
+	_clear_logbook_entries()
+	var start_index: int = _logbook_current_page * entries_per_spread
+	var end_index: int = mini(
+		start_index + entries_per_spread,
+		_logbook_species.size(),
+	)
+	var visible_species: Array[FishDataType] = []
+	for index: int in range(start_index, end_index):
+		visible_species.append(_logbook_species[index])
+	if _compact_layout:
+		for fish: FishDataType in visible_species:
+			_left_entry_field.add_child(_create_logbook_entry(fish))
+	else:
+		var left_count: int = mini(2, visible_species.size())
+		for index: int in visible_species.size():
+			var destination: BoxContainer = (
+				_left_entry_field
+				if index < left_count
+				else _right_entry_field
+			)
+			destination.add_child(_create_logbook_entry(
+				visible_species[index]
+			))
+	_logbook_page_status.set_content(
+		"pages",
+		"%d / %d" % [_logbook_current_page + 1, _logbook_page_count],
+	)
+	_logbook_page_status.visible = _logbook_page_count > 1
+	_update_logbook_page_control_state(
+		keep_transition_state
+		and visible
+		and _current_section == Section.LOGBOOK
+		and not _transitioning
+		and not _page_transitioning
+		and not _logbook_page_transitioning
+	)
+	_configure_logbook_focus()
+
+
+func _create_logbook_entry(fish: FishDataType) -> LogbookEntryType:
 	var discovered: bool = (
 		_collection_log != null
 		and _collection_log.has_discovered(fish.id)
 	)
-	var card := PanelContainer.new()
-	card.custom_minimum_size = Vector2(158.0, 154.0)
-	var content := VBoxContainer.new()
-	content.add_theme_constant_override("separation", 4)
-	card.add_child(content)
-	var texture_frame: TextureRect = _create_texture_frame(
+	var entry := LogbookEntryScene.instantiate() as LogbookEntryType
+	entry.set_meta("fish_id", fish.id)
+	entry.configure(
 		fish.display_texture,
-		Vector2(142.0, 82.0)
+		fish.display_name,
+		fish.get_rarity_name(),
+		_inventory.get_count(fish.id) if _inventory != null else 0,
+		discovered,
 	)
-	if not discovered:
-		texture_frame.modulate = UIPalette.PANEL
-	content.add_child(texture_frame)
-	var name_label := Label.new()
-	name_label.text = fish.display_name if discovered else "???"
-	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	content.add_child(name_label)
-	var details := Label.new()
-	if discovered:
-		var owned_count: int = (
-			_inventory.get_count(fish.id) if _inventory != null else 0
+	entry.apply_compact_layout(_compact_layout)
+	return entry
+
+
+func _clear_logbook_entries() -> void:
+	for field: BoxContainer in [_left_entry_field, _right_entry_field]:
+		for child: Node in field.get_children():
+			_release_focus_from(child, _logbook_tab)
+			field.remove_child(child)
+			child.queue_free()
+
+
+func _release_focus_from(node: Node, fallback: Control) -> void:
+	var focus_owner: Control = get_viewport().gui_get_focus_owner()
+	if (
+		focus_owner == null
+		or (
+			focus_owner != node
+			and not node.is_ancestor_of(focus_owner)
 		)
-		details.text = "%s\nowned: %d" % [
-			fish.get_rarity_name(),
-			owned_count,
-		]
-	else:
-		details.text = "undiscovered"
-	details.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	content.add_child(details)
-	return card
+	):
+		return
+	get_viewport().gui_release_focus()
+	if (
+		visible
+		and not _transitioning
+		and not _page_transitioning
+		and fallback != null
+		and fallback.focus_mode != Control.FOCUS_NONE
+	):
+		fallback.call_deferred("grab_focus")
+
+
+func _request_logbook_page(direction: int) -> void:
+	if (
+		_current_section != Section.LOGBOOK
+		or _logbook_page_transitioning
+		or _transitioning
+		or _page_transitioning
+	):
+		return
+	var target_page: int = clampi(
+		_logbook_current_page + direction,
+		0,
+		_logbook_page_count - 1,
+	)
+	if target_page == _logbook_current_page:
+		return
+	_logbook_page_generation += 1
+	_logbook_page_transitioning = true
+	_update_logbook_page_control_state(false)
+	var generation: int = _logbook_page_generation
+	var travel: float = -12.0 if direction > 0 else 12.0
+	_logbook_page_tween = create_tween()
+	_logbook_page_tween.tween_property(
+		_book_spread,
+		"modulate:a",
+		0.0,
+		LOGBOOK_PAGE_DURATION * 0.5,
+	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	_logbook_page_tween.parallel().tween_property(
+		_book_spread,
+		"position:x",
+		travel,
+		LOGBOOK_PAGE_DURATION * 0.5,
+	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	_logbook_page_tween.tween_callback(
+		_swap_logbook_page.bind(target_page, travel, generation)
+	)
+	_logbook_page_tween.tween_property(
+		_book_spread,
+		"modulate:a",
+		1.0,
+		LOGBOOK_PAGE_DURATION * 0.5,
+	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	_logbook_page_tween.parallel().tween_property(
+		_book_spread,
+		"position:x",
+		0.0,
+		LOGBOOK_PAGE_DURATION * 0.5,
+	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	_logbook_page_tween.finished.connect(
+		_finish_logbook_page_transition.bind(generation),
+		CONNECT_ONE_SHOT,
+	)
+
+
+func _swap_logbook_page(
+	target_page: int,
+	travel: float,
+	generation: int,
+) -> void:
+	if (
+		generation != _logbook_page_generation
+		or not visible
+		or _current_section != Section.LOGBOOK
+	):
+		return
+	_logbook_current_page = target_page
+	_refresh_logbook_page(false)
+	_book_spread.position.x = -travel
+	_book_spread.modulate.a = 0.0
+
+
+func _finish_logbook_page_transition(generation: int) -> void:
+	if generation != _logbook_page_generation:
+		return
+	_logbook_page_tween = null
+	_logbook_page_transitioning = false
+	_book_spread.position.x = 0.0
+	_book_spread.modulate.a = 1.0
+	_update_logbook_page_control_state(
+		visible and _current_section == Section.LOGBOOK
+	)
+	_configure_logbook_focus()
+	if _logbook_next.visible and not _logbook_next.disabled:
+		_logbook_next.grab_focus()
+	elif _logbook_previous.visible and not _logbook_previous.disabled:
+		_logbook_previous.grab_focus()
+
+
+func _cancel_logbook_page_transition(reset_visuals: bool) -> void:
+	_logbook_page_generation += 1
+	if _logbook_page_tween != null:
+		_logbook_page_tween.kill()
+		_logbook_page_tween = null
+	_logbook_page_transitioning = false
+	if reset_visuals and is_instance_valid(_book_spread):
+		_book_spread.position.x = 0.0
+		_book_spread.modulate.a = 1.0
+
+
+func _update_logbook_page_control_state(interactive: bool) -> void:
+	var has_multiple_pages: bool = _logbook_page_count > 1
+	_logbook_previous.visible = has_multiple_pages
+	_logbook_next.visible = has_multiple_pages
+	_logbook_previous.disabled = (
+		not interactive or _logbook_current_page <= 0
+	)
+	_logbook_next.disabled = (
+		not interactive
+		or _logbook_current_page >= _logbook_page_count - 1
+	)
+	for control: BubbleButtonType in [_logbook_previous, _logbook_next]:
+		control.focus_mode = (
+			Control.FOCUS_ALL
+			if control.visible and not control.disabled
+			else Control.FOCUS_NONE
+		)
+		control.mouse_filter = (
+			Control.MOUSE_FILTER_STOP
+			if control.visible and not control.disabled
+			else Control.MOUSE_FILTER_IGNORE
+		)
+
+
+func _configure_logbook_focus() -> void:
+	if _current_section != Section.LOGBOOK:
+		return
+	_logbook_tab.focus_neighbor_bottom = _logbook_tab.focus_neighbor_right
+	if _logbook_page_count <= 1:
+		return
+	var first_control: BubbleButtonType = (
+		_logbook_previous
+		if not _logbook_previous.disabled
+		else _logbook_next
+	)
+	_logbook_tab.focus_neighbor_bottom = _logbook_tab.get_path_to(
+		first_control
+	)
+	for control: BubbleButtonType in [_logbook_previous, _logbook_next]:
+		control.focus_neighbor_top = control.get_path_to(_logbook_tab)
+		control.focus_neighbor_bottom = control.focus_neighbor_top
+		control.focus_neighbor_left = control.get_path_to(
+			_logbook_previous
+		)
+		control.focus_neighbor_right = control.get_path_to(_logbook_next)
+
+
+func _advance_logbook_page_controls(delta: float) -> void:
+	for control: BubbleButtonType in [_logbook_previous, _logbook_next]:
+		if not control.visible:
+			continue
+		control.advance_emphasis(delta)
+		control.apply_presentation(
+			control.calculate_target(_motion_elapsed, 1.0, 1.0),
+			control.calculate_visual_scale(_motion_elapsed, 1.0),
+			minf(1.0, delta * 10.0),
+		)
 
 
 func _create_texture_frame(
