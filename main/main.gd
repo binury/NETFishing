@@ -46,6 +46,9 @@ const PlayerSpawnServiceType = preload(
 const NetworkFishingServiceType = preload(
 	"res://network/network_fishing_service.gd"
 )
+const NetworkSaleServiceType = preload(
+	"res://network/network_sale_service.gd"
+)
 
 const TITLE_MUSIC_SILENCE_DB: float = -80.0
 
@@ -83,6 +86,7 @@ const TITLE_MUSIC_SILENCE_DB: float = -80.0
 @onready var _network_fishing: NetworkFishingServiceType = (
 	%NetworkFishingService
 )
+@onready var _network_sale: NetworkSaleServiceType = %NetworkSaleService
 @onready var _players_root: Node3D = $Players
 
 var _gameplay_started: bool = false
@@ -153,6 +157,18 @@ func _ready() -> void:
 		item_catalog,
 		fish_catalog
 	)
+	_network_sale.setup(
+		_network_session,
+		_player_spawn_service,
+		_network_fishing,
+		_player.inventory,
+		_player.wallet,
+		_player.fish_sale_service,
+		_save_manager,
+		fish_catalog,
+		pelican_buyer_profile,
+		_test_world.get_pelican_convenience_landmark()
+	)
 	_fishing_spot.setup(
 		_player,
 		_player.inventory,
@@ -183,7 +199,8 @@ func _ready() -> void:
 		_shop_interaction,
 		_player.item_effects,
 		_player.cooler_capacity,
-		_network_session
+		_network_session,
+		_network_sale
 	)
 	_water_recovery.setup(
 		_player,

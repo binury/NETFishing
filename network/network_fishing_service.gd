@@ -150,6 +150,10 @@ func has_local_attempt() -> bool:
 	)
 
 
+func has_peer_attempt(peer_id: int) -> bool:
+	return _attempts.has(peer_id)
+
+
 func _process(delta: float) -> void:
 	if _session == null or not _session.is_host():
 		return

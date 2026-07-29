@@ -59,6 +59,7 @@ var _last_server_max_players: int = DEFAULT_SESSION_MAX_PLAYERS
 var _last_server_player_count: int = 0
 var _last_server_display_name: String = ""
 var _last_server_protocol_version: int = 0
+var _server_capabilities: PackedStringArray = PackedStringArray()
 var _profile_ready: bool = false
 
 
@@ -268,6 +269,14 @@ func get_session_id() -> String:
 
 func get_operation_generation() -> int:
 	return _operation_generation
+
+
+func supports_server_capability(capability: StringName) -> bool:
+	if is_host():
+		return str(capability) in PackedStringArray([
+			"movement_v1", "fishing_v1", "sale_v1",
+		])
+	return str(capability) in _server_capabilities
 
 
 func get_local_peer_id() -> int:
@@ -503,6 +512,16 @@ func receive_server_hello(data: Dictionary) -> void:
 	_last_server_protocol_version = int(data.get(
 		"protocol_version", NetworkProtocol.PROTOCOL_VERSION
 	))
+	_server_capabilities = PackedStringArray()
+	var advertised_capabilities: Variant = data.get(
+		"capability_flags", PackedStringArray()
+	)
+	if typeof(advertised_capabilities) in [
+		TYPE_ARRAY, TYPE_PACKED_STRING_ARRAY
+	]:
+		for value: Variant in advertised_capabilities:
+			if typeof(value) in [TYPE_STRING, TYPE_STRING_NAME]:
+				_server_capabilities.append(str(value))
 	var local_peer_id: int = multiplayer.get_unique_id()
 	_registry.clear()
 	_registry.add_peer(
@@ -855,3 +874,4 @@ func _teardown_peer() -> void:
 	_connection_deadline = 0.0
 	_input_accumulator = 0.0
 	_snapshot_accumulator = 0.0
+	_server_capabilities = PackedStringArray()

@@ -65,6 +65,17 @@ func to_save_dict() -> Dictionary:
 	}
 
 
+func to_network_dict() -> Dictionary:
+	return {
+		"catch_id": String(catch_id),
+		"fish_id": String(fish_id),
+		"weight_lb": weight_lb,
+		"display_scale": display_scale,
+		"sale_value": sale_value,
+		"is_favorited": is_favorited,
+	}
+
+
 static func from_save_dict(
 	data: Dictionary,
 	resolved_fish: FishDataType,

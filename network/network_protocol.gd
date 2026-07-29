@@ -6,6 +6,9 @@ const GAME_BUILD: String = "prealpha"
 const MAX_DISPLAY_NAME_LENGTH: int = 48
 const MAX_PROFILE_ID_LENGTH: int = 96
 const MAX_NONCE_LENGTH: int = 96
+# ENet channels: 0 reliable lifecycle, 1 movement input, 2 movement
+# snapshots, 3 fishing input, 4 fishing snapshots, 5 reliable sales.
+const SALE_RELIABLE_CHANNEL: int = 5
 
 enum RejectionCode {
 	NONE,
@@ -102,6 +105,7 @@ static func make_server_hello(
 		"capability_flags": PackedStringArray([
 			"movement_v1",
 			"fishing_v1",
+			"sale_v1",
 		]),
 	}
 

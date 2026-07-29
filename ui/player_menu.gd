@@ -227,6 +227,7 @@ var _collection_log: CollectionLogType
 var _wallet: PlayerWalletType
 var _sale_service: FishSaleServiceType
 var _network_session: NetworkSessionType
+var _network_sale_service: NetworkSaleService
 var _default_buyer: FishBuyerProfileType
 var _catalog: FishPoolType
 var _fishing_spot: FishingSpotType
@@ -356,6 +357,7 @@ func setup(
 	item_catalog: ItemCatalogType,
 	cooler_capacity: PlayerCoolerCapacityType,
 	network_session: NetworkSessionType,
+	network_sale_service: NetworkSaleService,
 ) -> void:
 	_player = player
 	_inventory = inventory
@@ -370,6 +372,19 @@ func setup(
 	_item_catalog = item_catalog
 	_cooler_capacity = cooler_capacity
 	_network_session = network_session
+	_network_sale_service = network_sale_service
+	if (
+		_network_sale_service != null
+		and not _network_sale_service.local_sale_pending.is_connected(
+			_on_network_sale_pending
+		)
+	):
+		_network_sale_service.local_sale_pending.connect(
+			_on_network_sale_pending
+		)
+		_network_sale_service.local_sale_finished.connect(
+			_on_network_sale_finished
+		)
 	_fish_selection.clear()
 	if not _inventory.catches_changed.is_connected(_on_inventory_changed):
 		_inventory.catches_changed.connect(_on_inventory_changed)
@@ -2341,20 +2356,42 @@ func _update_sale_summary() -> void:
 		_sale_unavailable.text = ""
 		_sale_unavailable.visible = false
 		return
-	if not _can_use_shared_world_actions():
+	if (
+		_sale_in_progress
+		or (
+			_network_sale_service != null
+			and _network_sale_service.is_local_sale_pending()
+		)
+	):
 		_selection_summary.text = (
 			"1 fish selected"
 			if selected_count == 1
 			else "%d fish selected" % selected_count
 		)
 		_selection_status.set_content("selected", str(selected_count))
-		_offer_status.set_content("pelican offer", "host only")
+		_offer_status.set_content("pelican offer", "pending")
+		_sell_button.disabled = true
+		_sell_bubble.disabled = true
+		_sale_unavailable.text = "Selling…"
+		_sale_unavailable.visible = true
+		return
+	if (
+		_network_sale_service == null
+		or not _network_sale_service.can_request_sale()
+	):
+		_selection_summary.text = (
+			"1 fish selected"
+			if selected_count == 1
+			else "%d fish selected" % selected_count
+		)
+		_selection_status.set_content("selected", str(selected_count))
+		_offer_status.set_content("pelican offer", "unavailable")
 		_sell_button.disabled = true
 		_sell_bubble.disabled = true
 		_sell_bubble.persistent_mark = false
 		_sell_bubble.refresh_ink_state()
 		_sale_unavailable.text = (
-			"Selling in joined games is coming in a later multiplayer phase."
+			"Selling is not supported by this server."
 		)
 		_sale_unavailable.visible = true
 		return
@@ -2428,9 +2465,21 @@ func _on_favorite_pressed() -> void:
 
 
 func _on_sell_pressed() -> void:
-	if not _can_use_shared_world_actions():
+	if (
+		_sale_in_progress
+		or (
+			_network_sale_service != null
+			and _network_sale_service.is_local_sale_pending()
+		)
+	):
+		_transaction_feedback.text = "Selling…"
+		return
+	if (
+		_network_sale_service == null
+		or not _network_sale_service.can_request_sale()
+	):
 		_transaction_feedback.text = (
-			"Selling in joined games is coming in a later multiplayer phase."
+			"Selling is not supported by this server."
 		)
 		return
 	var selected_ids: Array[StringName] = _fish_selection.get_selected_ids()
@@ -2481,7 +2530,8 @@ func _on_sell_pressed() -> void:
 func _on_confirm_sale_pressed() -> void:
 	if (
 		_sale_in_progress
-		or not _can_use_shared_world_actions()
+		or _network_sale_service == null
+		or not _network_sale_service.can_request_sale()
 		or _sale_service == null
 		or _confirmation_catch_ids.is_empty()
 		or _confirmation_buyer == null
@@ -2494,28 +2544,56 @@ func _on_confirm_sale_pressed() -> void:
 		_confirmation_catch_ids.duplicate()
 	)
 	var transaction_generation: int = _menu_generation
-	var transaction_buyer: FishBuyerProfileType = _confirmation_buyer
 	_confirm_sale_button.disabled = true
-	var result: FishSaleResultType = _sale_service.sell_batch(
-		requested_catch_ids,
-		transaction_buyer
-	)
 	_close_sale_confirmation()
-	_sale_in_progress = false
-	if transaction_generation != _menu_generation or not visible:
+	var request_id: String = _network_sale_service.request_local_sale(
+		requested_catch_ids
+	)
+	if request_id.is_empty():
+		_sale_in_progress = false
 		return
-	_transaction_feedback.text = result.get_message()
-	if result.is_success():
-		_fish_selection.remove_ids(requested_catch_ids)
-	_refresh_all()
-	_inventory_tab.grab_focus()
+	if (
+		_network_sale_service.is_local_sale_pending()
+		and transaction_generation == _menu_generation
+		and visible
+	):
+		_transaction_feedback.text = "Selling…"
 
 
 func _can_use_shared_world_actions() -> bool:
 	return (
-		_network_session == null
-		or _network_session.can_use_host_gameplay()
+		_network_sale_service != null
+		and _network_sale_service.can_request_sale()
 	)
+
+
+func _on_network_sale_pending(_request_id: String) -> void:
+	_sale_in_progress = true
+	if visible:
+		_transaction_feedback.text = "Selling…"
+		_update_sale_summary()
+
+
+func _on_network_sale_finished(
+	_request_id: String,
+	accepted: bool,
+	message: String,
+	catch_ids: Array[StringName],
+	payout: int,
+) -> void:
+	_sale_in_progress = false
+	if accepted:
+		_fish_selection.remove_ids(catch_ids)
+	if not visible:
+		return
+	_transaction_feedback.text = (
+		"Sale complete. $%d received." % payout
+		if accepted
+		else message
+	)
+	_refresh_all()
+	if _current_section == Section.COOLER:
+		_inventory_tab.grab_focus()
 
 
 func _close_sale_confirmation() -> void:

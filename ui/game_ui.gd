@@ -102,6 +102,7 @@ func setup(
 	item_effects: PlayerItemEffectsType,
 	cooler_capacity: PlayerCoolerCapacityType,
 	network_session: NetworkSessionType,
+	network_sale_service: NetworkSaleService,
 ) -> void:
 	_fishing_spot = fishing_spot
 	_item_effects = item_effects
@@ -124,7 +125,8 @@ func setup(
 		hotbar,
 		item_catalog,
 		cooler_capacity,
-		network_session
+		network_session,
+		network_sale_service
 	)
 	_hotbar_ui.setup(hotbar, bag, item_catalog, fishing_spot)
 	_fishing_shop.setup(

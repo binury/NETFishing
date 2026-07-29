@@ -1,4 +1,4 @@
-[gd_scene load_steps=22 format=3]
+[gd_scene load_steps=23 format=3]
 
 [ext_resource type="PackedScene" path="res://world/test_world.tscn" id="1_world"]
 [ext_resource type="PackedScene" path="res://player/player.tscn" id="2_player"]
@@ -21,6 +21,7 @@
 [ext_resource type="Script" path="res://network/saved_server_store.gd" id="19_saved_servers"]
 [ext_resource type="Script" path="res://network/player_spawn_service.gd" id="20_spawn_service"]
 [ext_resource type="Script" path="res://network/network_fishing_service.gd" id="21_network_fishing"]
+[ext_resource type="Script" path="res://network/network_sale_service.gd" id="22_network_sale"]
 
 [node name="Main" type="Node3D"]
 script = ExtResource("3_main")
@@ -48,6 +49,10 @@ script = ExtResource("20_spawn_service")
 [node name="NetworkFishingService" type="Node" parent="."]
 unique_name_in_owner = true
 script = ExtResource("21_network_fishing")
+
+[node name="NetworkSaleService" type="Node" parent="."]
+unique_name_in_owner = true
+script = ExtResource("22_network_sale")
 
 [node name="TestWorld" parent="." instance=ExtResource("1_world")]
 
