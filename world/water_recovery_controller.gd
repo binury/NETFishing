@@ -2,6 +2,7 @@ class_name WaterRecoveryController
 extends Node
 
 signal recovery_starting
+signal local_respawn_completed(entry_position: Vector3)
 
 enum RecoveryState {
 	IDLE,
@@ -165,6 +166,7 @@ func _respawn_player() -> void:
 	_player.global_transform = respawn_transform
 	_player.restore_gameplay_orientation_after_recovery()
 	_player.velocity = Vector3.ZERO
+	local_respawn_completed.emit(_entry_position)
 
 
 func _finish_recovery() -> void:

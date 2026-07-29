@@ -8,6 +8,7 @@ const FishDataType = preload("res://fish/fish_data.gd")
 const FishBuyerProfileType = preload("res://economy/fish_buyer_profile.gd")
 const FishSaleResultType = preload("res://economy/fish_sale_result.gd")
 const FishSaleServiceType = preload("res://economy/fish_sale_service.gd")
+const NetworkSessionType = preload("res://network/network_session.gd")
 const FishInventoryType = preload("res://inventory/fish_inventory.gd")
 const FishPoolType = preload("res://fish/fish_pool.gd")
 const FishingSpotType = preload("res://fishing/fishing_spot.gd")
@@ -225,6 +226,7 @@ var _inventory: FishInventoryType
 var _collection_log: CollectionLogType
 var _wallet: PlayerWalletType
 var _sale_service: FishSaleServiceType
+var _network_session: NetworkSessionType
 var _default_buyer: FishBuyerProfileType
 var _catalog: FishPoolType
 var _fishing_spot: FishingSpotType
@@ -353,6 +355,7 @@ func setup(
 	hotbar: PlayerHotbarType,
 	item_catalog: ItemCatalogType,
 	cooler_capacity: PlayerCoolerCapacityType,
+	network_session: NetworkSessionType,
 ) -> void:
 	_player = player
 	_inventory = inventory
@@ -366,6 +369,7 @@ func setup(
 	_hotbar = hotbar
 	_item_catalog = item_catalog
 	_cooler_capacity = cooler_capacity
+	_network_session = network_session
 	_fish_selection.clear()
 	if not _inventory.catches_changed.is_connected(_on_inventory_changed):
 		_inventory.catches_changed.connect(_on_inventory_changed)
@@ -2337,6 +2341,23 @@ func _update_sale_summary() -> void:
 		_sale_unavailable.text = ""
 		_sale_unavailable.visible = false
 		return
+	if not _can_use_shared_world_actions():
+		_selection_summary.text = (
+			"1 fish selected"
+			if selected_count == 1
+			else "%d fish selected" % selected_count
+		)
+		_selection_status.set_content("selected", str(selected_count))
+		_offer_status.set_content("pelican offer", "host only")
+		_sell_button.disabled = true
+		_sell_bubble.disabled = true
+		_sell_bubble.persistent_mark = false
+		_sell_bubble.refresh_ink_state()
+		_sale_unavailable.text = (
+			"Selling in joined games is coming in a later multiplayer phase."
+		)
+		_sale_unavailable.visible = true
+		return
 	var preview: FishSaleResultType = (
 		_sale_service.preview_batch(selected_ids, _default_buyer)
 		if _sale_service != null
@@ -2407,6 +2428,11 @@ func _on_favorite_pressed() -> void:
 
 
 func _on_sell_pressed() -> void:
+	if not _can_use_shared_world_actions():
+		_transaction_feedback.text = (
+			"Selling in joined games is coming in a later multiplayer phase."
+		)
+		return
 	var selected_ids: Array[StringName] = _fish_selection.get_selected_ids()
 	if (
 		_inventory == null
@@ -2455,6 +2481,7 @@ func _on_sell_pressed() -> void:
 func _on_confirm_sale_pressed() -> void:
 	if (
 		_sale_in_progress
+		or not _can_use_shared_world_actions()
 		or _sale_service == null
 		or _confirmation_catch_ids.is_empty()
 		or _confirmation_buyer == null
@@ -2482,6 +2509,13 @@ func _on_confirm_sale_pressed() -> void:
 		_fish_selection.remove_ids(requested_catch_ids)
 	_refresh_all()
 	_inventory_tab.grab_focus()
+
+
+func _can_use_shared_world_actions() -> bool:
+	return (
+		_network_session == null
+		or _network_session.can_use_host_gameplay()
+	)
 
 
 func _close_sale_confirmation() -> void:

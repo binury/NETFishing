@@ -19,17 +19,22 @@ const BubbleConfirmationPageType = preload(
 	"res://ui/components/bubble_menu/bubble_confirmation_page.gd"
 )
 const FishingSpotType = preload("res://fishing/fishing_spot.gd")
+const NetworkSessionType = preload("res://network/network_session.gd")
+const SavedServerStoreType = preload("res://network/saved_server_store.gd")
+const JoinGamePageType = preload("res://ui/network/join_game_page.gd")
 
 signal return_to_title_requested
 signal reset_progress_requested
 signal quit_requested
 signal menu_visibility_changed(is_open: bool)
+signal join_game_requested(endpoint: String)
 
 enum ConfirmationAction {
 	NONE,
 	RETURN_TO_TITLE,
 	RESET_PROGRESS,
 	QUIT_ANYWAY,
+	JOIN_ANOTHER,
 }
 
 enum CloseReason {
@@ -54,11 +59,14 @@ enum CloseReason {
 )
 @onready var _feedback: Label = %FeedbackLabel
 @onready var _save_button: BubbleButton = %SaveButton
+@onready var _join_game_page: JoinGamePageType = %JoinGamePage
 
 var _player: PlayerType
 var _save_manager: SaveManagerType
 var _settings_manager: SettingsManagerType
 var _fishing_spot: FishingSpotType
+var _network_session: NetworkSessionType
+var _saved_servers: SavedServerStoreType
 var _prior_movement_enabled: bool = true
 var _prior_camera_enabled: bool = true
 var _prior_mouse_mode: Input.MouseMode = Input.MOUSE_MODE_VISIBLE
@@ -71,12 +79,14 @@ var _root_transition_generation: int = 0
 var _closing_menu: bool = false
 var _backdrop_fade: Tween
 var _backdrop_fade_generation: int = 0
+var _pending_join_endpoint: String = ""
 
 
 func _ready() -> void:
 	%ResumeButton.pressed.connect(resume)
 	_save_button.pressed.connect(_save_now)
 	%SettingsButton.pressed.connect(_open_settings)
+	%JoinGameButton.pressed.connect(_open_join_game)
 	%ReturnToTitleButton.pressed.connect(_confirm_return_to_title)
 	%ResetProgressButton.pressed.connect(_confirm_reset_progress)
 	%QuitButton.pressed.connect(_request_quit)
@@ -87,6 +97,8 @@ func _ready() -> void:
 	_settings_panel.navigation_transition_started.connect(
 		_emit_transition_flurry
 	)
+	_join_game_page.join_requested.connect(_on_join_game_requested)
+	_join_game_page.back_requested.connect(_close_join_game)
 	_dim_background.color.a = 0.0
 	_confirmation_page.hide_page()
 	resized.connect(_update_responsive_pause_stage)
@@ -98,11 +110,16 @@ func setup(
 	save_manager: SaveManagerType,
 	settings_manager: SettingsManagerType,
 	fishing_spot: FishingSpotType,
+	network_session: NetworkSessionType,
+	saved_servers: SavedServerStoreType,
 ) -> void:
 	_player = player
 	_save_manager = save_manager
 	_settings_manager = settings_manager
 	_fishing_spot = fishing_spot
+	_network_session = network_session
+	_saved_servers = saved_servers
+	_join_game_page.setup(network_session, saved_servers, true)
 	if not _fishing_spot.bite_activated.is_connected(_on_bite_activated):
 		_fishing_spot.bite_activated.connect(_on_bite_activated)
 
@@ -121,6 +138,7 @@ func open_menu() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	_feedback.text = ""
 	_settings_panel.hide()
+	_join_game_page.close_page()
 	_confirmation_page.hide_page()
 	_confirmation_action = ConfirmationAction.NONE
 	_action_in_progress = false
@@ -169,6 +187,8 @@ func handle_escape() -> bool:
 		return true
 	if _confirmation_page.visible:
 		_close_confirmation()
+	elif _join_game_page.visible:
+		_close_join_game()
 	elif _settings_panel.visible:
 		_settings_panel.handle_back()
 	else:
@@ -201,6 +221,47 @@ func _open_settings() -> void:
 	):
 		return
 	_begin_root_exit(_finish_open_settings)
+
+
+func _open_join_game() -> void:
+	if (
+		_action_in_progress
+		or _root_transition_active
+		or _confirmation_action != ConfirmationAction.NONE
+	):
+		return
+	_begin_root_exit(_finish_open_join_game)
+
+
+func _finish_open_join_game() -> void:
+	_join_game_page.open_page()
+
+
+func _close_join_game() -> void:
+	_join_game_page.close_page()
+	_begin_root_entry(true)
+
+
+func _on_join_game_requested(endpoint: String) -> void:
+	if _action_in_progress or _root_transition_active:
+		return
+	_pending_join_endpoint = endpoint
+	_open_confirmation(
+		ConfirmationAction.JOIN_ANOTHER,
+		"join another game?",
+		(
+			"your progression will be saved first. "
+			+ "current players will be disconnected if you are hosting."
+		),
+		"save and join",
+		false
+	)
+
+
+func report_network_error(message: String) -> void:
+	_feedback.text = message
+	if _join_game_page.visible:
+		_join_game_page.set_status(message)
 
 
 func _finish_open_settings() -> void:
@@ -347,6 +408,10 @@ func _finish_confirmation_accept(action: ConfirmationAction) -> void:
 			reset_progress_requested.emit()
 		ConfirmationAction.QUIT_ANYWAY:
 			quit_requested.emit()
+		ConfirmationAction.JOIN_ANOTHER:
+			_join_game_page.close_page()
+			join_game_requested.emit(_pending_join_endpoint)
+			_pending_join_endpoint = ""
 		_:
 			_action_in_progress = false
 			_begin_root_entry(false)
@@ -421,6 +486,7 @@ func _finish_close(reason: CloseReason, restore_controls: bool) -> void:
 	_dim_background.color.a = 0.0
 	_dim_background.hide()
 	_settings_panel.hide()
+	_join_game_page.close_page()
 	_root_page.hide_page()
 	_confirmation_page.hide_page()
 	_confirmation_action = ConfirmationAction.NONE

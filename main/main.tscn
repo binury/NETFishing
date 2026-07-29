@@ -1,4 +1,4 @@
-[gd_scene load_steps=17 format=3]
+[gd_scene load_steps=21 format=3]
 
 [ext_resource type="PackedScene" path="res://world/test_world.tscn" id="1_world"]
 [ext_resource type="PackedScene" path="res://player/player.tscn" id="2_player"]
@@ -16,6 +16,10 @@
 [ext_resource type="Script" path="res://ui/ui_pixelation_presenter.gd" id="14_pixelation"]
 [ext_resource type="PackedScene" path="res://ui/pixelation_reset_overlay.tscn" id="15_reset"]
 [ext_resource type="PackedScene" path="res://main/world_pixelation_postprocess.tscn" id="16_world_pixelation"]
+[ext_resource type="Script" path="res://network/network_session.gd" id="17_network_session"]
+[ext_resource type="Script" path="res://network/network_profile_preferences.gd" id="18_network_profile"]
+[ext_resource type="Script" path="res://network/saved_server_store.gd" id="19_saved_servers"]
+[ext_resource type="Script" path="res://network/player_spawn_service.gd" id="20_spawn_service"]
 
 [node name="Main" type="Node3D"]
 script = ExtResource("3_main")
@@ -23,6 +27,22 @@ fish_catalog = ExtResource("6_pool")
 pelican_buyer_profile = ExtResource("7_pelicans")
 main_shop_buyer_profile = ExtResource("12_main_shop")
 item_catalog = ExtResource("11_items")
+
+[node name="NetworkSession" type="Node" parent="."]
+unique_name_in_owner = true
+script = ExtResource("17_network_session")
+
+[node name="NetworkProfilePreferences" type="Node" parent="."]
+unique_name_in_owner = true
+script = ExtResource("18_network_profile")
+
+[node name="SavedServerStore" type="Node" parent="."]
+unique_name_in_owner = true
+script = ExtResource("19_saved_servers")
+
+[node name="PlayerSpawnService" type="Node" parent="."]
+unique_name_in_owner = true
+script = ExtResource("20_spawn_service")
 
 [node name="TestWorld" parent="." instance=ExtResource("1_world")]
 

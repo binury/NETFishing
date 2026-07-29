@@ -16,6 +16,7 @@ const PlayerHotbarType = preload("res://inventory/player_hotbar.gd")
 const HotbarUIType = preload("res://ui/hotbar.gd")
 const TitleScreenType = preload("res://ui/title_screen.gd")
 const PauseMenuType = preload("res://ui/pause_menu.gd")
+const NetworkSessionType = preload("res://network/network_session.gd")
 const FishingShopType = preload("res://ui/fishing_shop.gd")
 const SettingsPanelType = preload("res://ui/settings_panel.gd")
 const PlayerFishingUpgradesType = preload(
@@ -100,6 +101,7 @@ func setup(
 	shop_interaction: ShopInteractionType,
 	item_effects: PlayerItemEffectsType,
 	cooler_capacity: PlayerCoolerCapacityType,
+	network_session: NetworkSessionType,
 ) -> void:
 	_fishing_spot = fishing_spot
 	_item_effects = item_effects
@@ -121,7 +123,8 @@ func setup(
 		bag,
 		hotbar,
 		item_catalog,
-		cooler_capacity
+		cooler_capacity,
+		network_session
 	)
 	_hotbar_ui.setup(hotbar, bag, item_catalog, fishing_spot)
 	_fishing_shop.setup(

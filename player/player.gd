@@ -105,6 +105,20 @@ var _showcase_restore_tween: Tween
 var _showcase_camera_tween: Tween
 var _showcase_camera_snapshot: ShowcaseCameraSnapshot
 var _showcase_restore_generation: int = 0
+var _network_peer_id: int = 0
+var _network_authoritative_simulation: bool = false
+var _network_interpolation_enabled: bool = false
+var _network_axis: Vector2 = Vector2.ZERO
+var _network_camera_yaw: float = 0.0
+var _network_jump_pending: bool = false
+var _network_sprint: bool = false
+var _network_sneak: bool = false
+var _network_slow_walk: bool = false
+var _last_network_input_sequence: int = 0
+var _network_target_position: Vector3
+var _network_target_velocity: Vector3
+var _network_target_visual_yaw: float = 0.0
+var _network_snapshot_ready: bool = false
 
 
 func _ready() -> void:
@@ -114,6 +128,9 @@ func _ready() -> void:
 
 
 func _physics_process(delta: float) -> void:
+	if _network_interpolation_enabled:
+		_update_network_interpolation(delta)
+		return
 	if _water_recovery_active:
 		velocity = Vector3.ZERO
 		return
@@ -125,34 +142,50 @@ func _physics_process(delta: float) -> void:
 			else fall_gravity_multiplier
 		)
 		velocity.y -= _gravity * gravity_multiplier * delta
-	elif (
-		local_control_enabled
-		and _movement_enabled
-		and Input.is_action_just_pressed("jump")
+	elif _movement_enabled and (
+		(
+			local_control_enabled
+			and Input.is_action_just_pressed("jump")
+		)
+		or (
+			_network_authoritative_simulation
+			and _network_jump_pending
+		)
 	):
 		velocity.y = jump_velocity
+	_network_jump_pending = false
 
-	if not local_control_enabled or not _movement_enabled:
+	if not _movement_enabled:
 		velocity.x = 0.0
 		velocity.z = 0.0
 		move_and_slide()
 		return
 
-	var input_vector: Vector2 = Input.get_vector(
-		"move_left",
-		"move_right",
-		"move_forward",
-		"move_backward"
-	)
-	var camera_basis: Basis = _camera_yaw.global_basis
+	var input_vector: Vector2
+	var camera_basis: Basis
+	if local_control_enabled:
+		input_vector = Input.get_vector(
+			"move_left",
+			"move_right",
+			"move_forward",
+			"move_backward"
+		)
+		camera_basis = _camera_yaw.global_basis
+	elif _network_authoritative_simulation:
+		input_vector = _network_axis
+		camera_basis = Basis(Vector3.UP, _network_camera_yaw)
+	else:
+		velocity.x = 0.0
+		velocity.z = 0.0
+		return
 	var move_direction: Vector3 = camera_basis.x * input_vector.x + camera_basis.z * input_vector.y
 	move_direction.y = 0.0
 	var input_strength: float = minf(input_vector.length(), 1.0)
 	move_direction = move_direction.normalized()
 
-	var speed: float = (
-		_get_current_speed() * item_effects.get_movement_multiplier()
-	)
+	var speed: float = _get_network_aware_speed()
+	if item_effects != null:
+		speed *= item_effects.get_movement_multiplier()
 	velocity.x = move_direction.x * speed * input_strength
 	velocity.z = move_direction.z * speed * input_strength
 
@@ -243,6 +276,18 @@ func _get_current_speed() -> float:
 	return walk_speed
 
 
+func _get_network_aware_speed() -> float:
+	if local_control_enabled:
+		return _get_current_speed()
+	if _network_sneak:
+		return sneak_speed
+	if _network_slow_walk:
+		return slow_walk_speed
+	if _network_sprint:
+		return sprint_speed
+	return walk_speed
+
+
 func _rotate_camera(delta_rotation: Vector2) -> void:
 	_camera_yaw.rotation.y -= delta_rotation.x
 	var vertical_direction: float = -1.0 if invert_camera_y else 1.0
@@ -263,6 +308,158 @@ func set_local_control(enabled: bool) -> void:
 		_camera.current = enabled
 	if not enabled:
 		_camera_dragging = false
+
+
+func set_network_peer_id(peer_id: int) -> void:
+	_network_peer_id = peer_id
+
+
+func get_network_peer_id() -> int:
+	return _network_peer_id
+
+
+func configure_network_remote(authoritative_simulation: bool) -> void:
+	set_local_control(false)
+	_network_authoritative_simulation = authoritative_simulation
+	_network_interpolation_enabled = not authoritative_simulation
+	_network_snapshot_ready = false
+	_camera.current = false
+
+
+func capture_network_input(sequence: int) -> Dictionary:
+	var axis: Vector2 = Input.get_vector(
+		"move_left",
+		"move_right",
+		"move_forward",
+		"move_backward"
+	)
+	return {
+		"sequence": sequence,
+		"axis": [axis.x, axis.y],
+		"camera_yaw": _camera_yaw.global_rotation.y,
+		"jump": Input.is_action_just_pressed("jump"),
+		"sprint": Input.is_action_pressed("sprint"),
+		"sneak": Input.is_action_pressed("sneak"),
+		"slow_walk": Input.is_action_pressed("slow_walk"),
+	}
+
+
+func apply_authoritative_network_input(data: Dictionary) -> void:
+	var sequence: int = int(data.get("sequence", 0))
+	if sequence <= _last_network_input_sequence:
+		return
+	var axis: Array = data.get("axis", [])
+	if axis.size() != 2:
+		return
+	_last_network_input_sequence = sequence
+	_network_axis = Vector2(float(axis[0]), float(axis[1])).limit_length(1.0)
+	_network_camera_yaw = float(data.get("camera_yaw", 0.0))
+	_network_jump_pending = bool(data.get("jump", false))
+	_network_sprint = bool(data.get("sprint", false))
+	_network_sneak = bool(data.get("sneak", false))
+	_network_slow_walk = bool(data.get("slow_walk", false))
+
+
+func make_network_snapshot(peer_id: int) -> Dictionary:
+	return {
+		"peer_id": peer_id,
+		"acknowledged_input": _last_network_input_sequence,
+		"position": [global_position.x, global_position.y, global_position.z],
+		"velocity": [velocity.x, velocity.y, velocity.z],
+		"visual_yaw": _visuals.rotation.y,
+		"grounded": is_on_floor(),
+	}
+
+
+func push_network_snapshot(snapshot: Dictionary) -> void:
+	var parsed: Dictionary = _parse_network_snapshot(snapshot)
+	if parsed.is_empty():
+		return
+	_network_target_position = parsed["position"]
+	_network_target_velocity = parsed["velocity"]
+	_network_target_visual_yaw = parsed["visual_yaw"]
+	if not _network_snapshot_ready:
+		global_position = _network_target_position
+		velocity = _network_target_velocity
+		_visuals.rotation.y = _network_target_visual_yaw
+	_network_snapshot_ready = true
+
+
+func apply_local_prediction_correction(snapshot: Dictionary) -> void:
+	var parsed: Dictionary = _parse_network_snapshot(snapshot)
+	if parsed.is_empty():
+		return
+	var authoritative_position: Vector3 = parsed["position"]
+	var error_distance: float = global_position.distance_to(
+		authoritative_position
+	)
+	if error_distance > 2.0:
+		global_position = authoritative_position
+	elif error_distance > 0.05:
+		global_position = global_position.lerp(authoritative_position, 0.18)
+
+
+func apply_network_teleport(snapshot: Dictionary) -> void:
+	var parsed: Dictionary = _parse_network_snapshot(snapshot)
+	if parsed.is_empty():
+		return
+	global_position = parsed["position"]
+	velocity = parsed["velocity"]
+	_visuals.rotation.y = parsed["visual_yaw"]
+	_network_target_position = global_position
+	_network_target_velocity = velocity
+	_network_target_visual_yaw = _visuals.rotation.y
+	_network_snapshot_ready = true
+
+
+func _parse_network_snapshot(snapshot: Dictionary) -> Dictionary:
+	var position: Variant = snapshot.get("position")
+	var network_velocity: Variant = snapshot.get("velocity")
+	if (
+		typeof(position) != TYPE_ARRAY
+		or typeof(network_velocity) != TYPE_ARRAY
+		or position.size() != 3
+		or network_velocity.size() != 3
+	):
+		return {}
+	var parsed_position := Vector3(
+		float(position[0]),
+		float(position[1]),
+		float(position[2])
+	)
+	var parsed_velocity := Vector3(
+		float(network_velocity[0]),
+		float(network_velocity[1]),
+		float(network_velocity[2])
+	)
+	var visual_yaw: float = float(snapshot.get("visual_yaw", 0.0))
+	if (
+		not parsed_position.is_finite()
+		or not parsed_velocity.is_finite()
+		or not is_finite(visual_yaw)
+	):
+		return {}
+	return {
+		"position": parsed_position,
+		"velocity": parsed_velocity,
+		"visual_yaw": visual_yaw,
+	}
+
+
+func _update_network_interpolation(delta: float) -> void:
+	if not _network_snapshot_ready:
+		return
+	var position_weight: float = 1.0 - exp(-12.0 * delta)
+	global_position = global_position.lerp(
+		_network_target_position,
+		position_weight
+	)
+	velocity = _network_target_velocity
+	_visuals.rotation.y = lerp_angle(
+		_visuals.rotation.y,
+		_network_target_visual_yaw,
+		1.0 - exp(-14.0 * delta)
+	)
 
 
 func is_local_control_enabled() -> bool:

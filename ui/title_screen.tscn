@@ -1,4 +1,4 @@
-[gd_scene load_steps=13 format=3]
+[gd_scene load_steps=14 format=3]
 
 [ext_resource type="Script" path="res://ui/title_screen.gd" id="1_script"]
 [ext_resource type="Theme" path="res://ui/game_theme.tres" id="2_theme"]
@@ -10,6 +10,7 @@
 [ext_resource type="Script" path="res://ui/components/bubble_menu/bubble_cluster.gd" id="8_bubble_cluster"]
 [ext_resource type="Resource" path="res://ui/components/bubble_menu/bubble_menu_profile.tres" id="9_bubble_profile"]
 [ext_resource type="PackedScene" path="res://ui/title_confirmation_bubble_page.tscn" id="10_confirmation_page"]
+[ext_resource type="PackedScene" path="res://ui/network/join_game_page.tscn" id="11_join_page"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_title_water"]
 shader = ExtResource("4_water_shader")
@@ -314,6 +315,28 @@ motion_period = 4.9
 motion_phase = 2.5
 deformation_period = 6.3
 
+[node name="JoinGameButton" type="Button" parent="ResponsiveTitleStage/TitlePresentationScaleRoot/Center/MainContent/ButtonCenter/BubbleLayoutSlot/BubbleMotionRoot/BubbleField"]
+unique_name_in_owner = true
+offset_left = 126.0
+offset_top = 224.0
+offset_right = 248.0
+offset_bottom = 342.0
+text = "join\ngame"
+script = ExtResource("7_bubble_button")
+profile = ExtResource("9_bubble_profile")
+neutral_size = Vector2(122, 118)
+desktop_anchor = Vector2(187, 268)
+compact_anchor = Vector2(187, 268)
+compact_minimum_size = Vector2(82, 80)
+minimum_font_size = 15
+maximum_font_size = 22
+horizontal_amplitude = 1.7
+vertical_amplitude = 3.8
+motion_period = 5.2
+motion_phase = 3.1
+deformation_amplitude = 0.015
+deformation_period = 5.7
+
 [node name="DeleteSaveButton" type="Button" parent="ResponsiveTitleStage/TitlePresentationScaleRoot/Center/MainContent/ButtonCenter/BubbleLayoutSlot/BubbleMotionRoot/BubbleField"]
 unique_name_in_owner = true
 offset_left = -11.0
@@ -405,5 +428,15 @@ offset_left = -360.0
 offset_top = -300.0
 offset_right = 360.0
 offset_bottom = 300.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="JoinGamePage" parent="ResponsiveTitleStage/TitlePresentationScaleRoot" instance=ExtResource("11_join_page")]
+unique_name_in_owner = true
+z_index = 220
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2

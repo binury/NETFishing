@@ -33,6 +33,16 @@ const PixelationResetOverlayType = preload(
 const WorldPixelationPostprocessType = preload(
 	"res://main/world_pixelation_postprocess.gd"
 )
+const NetworkSessionType = preload("res://network/network_session.gd")
+const NetworkProfilePreferencesType = preload(
+	"res://network/network_profile_preferences.gd"
+)
+const SavedServerStoreType = preload(
+	"res://network/saved_server_store.gd"
+)
+const PlayerSpawnServiceType = preload(
+	"res://network/player_spawn_service.gd"
+)
 
 const TITLE_MUSIC_SILENCE_DB: float = -80.0
 
@@ -59,6 +69,15 @@ const TITLE_MUSIC_SILENCE_DB: float = -80.0
 @onready var _world_pixelation: WorldPixelationPostprocessType = (
 	%WorldPixelationPostprocess
 )
+@onready var _network_session: NetworkSessionType = %NetworkSession
+@onready var _network_profile: NetworkProfilePreferencesType = (
+	%NetworkProfilePreferences
+)
+@onready var _saved_servers: SavedServerStoreType = %SavedServerStore
+@onready var _player_spawn_service: PlayerSpawnServiceType = (
+	%PlayerSpawnService
+)
+@onready var _players_root: Node3D = $Players
 
 var _gameplay_started: bool = false
 var _shop_interaction: FishingShopInteractionType
@@ -66,11 +85,34 @@ var _title_music_tween: Tween
 var _title_music_transition_generation: int = 0
 var _title_music_requested: bool = false
 var _quit_in_progress: bool = false
+var _join_requested_from_title: bool = false
+var _join_requested_from_pause: bool = false
+var _pending_join_endpoint: String = ""
 
 
 func _ready() -> void:
 	_player.global_transform = _test_world.get_player_spawn_transform()
 	_player.velocity = Vector3.ZERO
+	_player_spawn_service.setup(
+		_players_root,
+		_player,
+		_test_world.get_player_spawn_transform()
+	)
+	_network_session.setup(
+		_network_profile,
+		_saved_servers,
+		_player_spawn_service
+	)
+	_network_session.join_authenticated.connect(
+		_on_network_join_authenticated
+	)
+	_network_session.connection_error.connect(
+		_on_network_connection_error
+	)
+	_network_session.server_lost.connect(_on_network_server_lost)
+	_network_session.remote_recovery_requested.connect(
+		_on_remote_recovery_requested
+	)
 	_player.fish_sale_service.setup(
 		_player.inventory,
 		_player.wallet
@@ -103,7 +145,8 @@ func _ready() -> void:
 		item_catalog,
 		_player.fishing_upgrades,
 		_player.item_effects,
-		_player.cooler_capacity
+		_player.cooler_capacity,
+		_network_session
 	)
 	_game_ui.setup(
 		_player,
@@ -121,7 +164,8 @@ func _ready() -> void:
 		_player.fishing_upgrades,
 		_shop_interaction,
 		_player.item_effects,
-		_player.cooler_capacity
+		_player.cooler_capacity,
+		_network_session
 	)
 	_water_recovery.setup(
 		_player,
@@ -155,16 +199,26 @@ func _ready() -> void:
 	_apply_runtime_settings(_settings_manager.current_settings)
 	_set_gameplay_active(false)
 	var title_screen: TitleScreenType = _game_ui.get_title_screen()
-	title_screen.gameplay_requested.connect(_on_gameplay_requested)
+	title_screen.new_game_requested.connect(_on_new_game_requested)
+	title_screen.continue_game_requested.connect(_on_continue_game_requested)
 	title_screen.quit_requested.connect(_on_quit_requested)
-	title_screen.setup(_save_manager, _settings_manager)
+	title_screen.setup(
+		_save_manager,
+		_settings_manager,
+		_network_session,
+		_saved_servers
+	)
 	var pause_menu: PauseMenuType = _game_ui.get_pause_menu()
 	pause_menu.setup(
 		_player,
 		_save_manager,
 		_settings_manager,
-		_fishing_spot
+		_fishing_spot,
+		_network_session,
+		_saved_servers
 	)
+	title_screen.join_game_requested.connect(_on_title_join_game_requested)
+	pause_menu.join_game_requested.connect(_on_pause_join_game_requested)
 	pause_menu.return_to_title_requested.connect(
 		_on_return_to_title_requested
 	)
@@ -183,6 +237,9 @@ func _ready() -> void:
 	)
 	_water_recovery.recovery_starting.connect(
 		_on_water_recovery_starting
+	)
+	_water_recovery.local_respawn_completed.connect(
+		_on_local_respawn_completed
 	)
 	_on_active_hotbar_item_changed(
 		_player.hotbar.get_selected_slot(),
@@ -302,9 +359,54 @@ func _set_gameplay_active(active: bool) -> void:
 	_save_manager.set_autosave_enabled(active)
 
 
-func _on_gameplay_requested() -> void:
+func _on_new_game_requested() -> void:
 	if _gameplay_started or _quit_in_progress:
 		return
+	if not _prepare_private_host():
+		return
+	if (
+		not _save_manager.delete_progression_save()
+		or not _save_manager.initialize_new_game()
+	):
+		_network_session.disconnect_session("New Game setup failed.")
+		_game_ui.get_title_screen().report_network_error(
+			"Could not initialize local progression. Existing data was preserved where possible."
+		)
+		return
+	_enter_gameplay()
+
+
+func _on_continue_game_requested() -> void:
+	if _gameplay_started or _quit_in_progress:
+		return
+	if not _prepare_private_host():
+		return
+	if not _save_manager.load_player_data():
+		_network_session.disconnect_session("Continue failed.")
+		_game_ui.get_title_screen().report_network_error(
+			"Failed to load save. The original was preserved."
+		)
+		return
+	_enter_gameplay()
+
+
+func _prepare_private_host() -> bool:
+	_join_requested_from_title = false
+	_join_requested_from_pause = false
+	if _network_session.state in [
+		NetworkSessionType.State.CONNECTION_FAILED,
+		NetworkSessionType.State.SERVER_LOST,
+	]:
+		_network_session.reset_failure()
+	if not _network_session.start_private_host():
+		_game_ui.get_title_screen().report_network_error(
+			"Could not start the private multiplayer session."
+		)
+		return false
+	return true
+
+
+func _enter_gameplay() -> void:
 	_fade_out_title_music()
 	_game_ui.get_title_screen().hide()
 	_set_gameplay_active(true)
@@ -315,9 +417,131 @@ func _on_return_to_title_requested() -> void:
 		return
 	var pause_menu: PauseMenuType = _game_ui.get_pause_menu()
 	pause_menu.close_for_title_transition()
+	_network_session.disconnect_session("Returned to title.")
 	_set_gameplay_active(false)
 	_game_ui.get_title_screen().reopen()
 	_show_title_music(true)
+
+
+func _on_title_join_game_requested(endpoint: String) -> void:
+	if _quit_in_progress or _gameplay_started:
+		return
+	if _network_session.state != NetworkSessionType.State.INACTIVE:
+		_network_session.disconnect_session("Preparing direct connection.")
+	_join_requested_from_title = true
+	_join_requested_from_pause = false
+	_pending_join_endpoint = endpoint
+	if not _network_session.join_direct(endpoint):
+		_join_requested_from_title = false
+
+
+func _on_pause_join_game_requested(endpoint: String) -> void:
+	if _quit_in_progress or not _gameplay_started:
+		return
+	if not _save_manager.save_if_dirty():
+		_game_ui.get_pause_menu().report_network_error(
+			"Could not save progression before leaving this session."
+		)
+		return
+	_join_requested_from_pause = true
+	_join_requested_from_title = false
+	_pending_join_endpoint = endpoint
+	_game_ui.get_pause_menu().close_for_title_transition()
+	_network_session.disconnect_session("Connecting to another game.")
+	if not _network_session.join_direct(endpoint):
+		_handle_failed_session_switch(
+			"Could not begin the direct connection."
+		)
+
+
+func _on_network_join_authenticated() -> void:
+	if _join_requested_from_title:
+		var inspection = _save_manager.inspect_save()
+		var progression_ready: bool = (
+			_save_manager.load_player_data()
+			if inspection.can_continue()
+			else _save_manager.initialize_new_game()
+		)
+		if not progression_ready:
+			_network_session.disconnect_session(
+				"Local progression could not be prepared."
+			)
+			_game_ui.get_title_screen().report_network_error(
+				"Your local progression could not be prepared."
+			)
+			_join_requested_from_title = false
+			return
+		_fade_out_title_music()
+		_game_ui.get_title_screen().hide()
+		_set_gameplay_active(true)
+	elif _join_requested_from_pause:
+		_set_gameplay_active(true)
+	_join_requested_from_title = false
+	_join_requested_from_pause = false
+	_pending_join_endpoint = ""
+
+
+func _on_network_connection_error(message: String) -> void:
+	if _join_requested_from_title:
+		_game_ui.get_title_screen().report_network_error(message)
+	elif _join_requested_from_pause:
+		_handle_failed_session_switch(message)
+
+
+func _handle_failed_session_switch(message: String) -> void:
+	_join_requested_from_pause = false
+	_set_gameplay_active(false)
+	var title_screen: TitleScreenType = _game_ui.get_title_screen()
+	title_screen.reopen()
+	title_screen.open_join_game_page(_pending_join_endpoint)
+	title_screen.report_network_error(message)
+	_show_title_music(true)
+
+
+func _on_network_server_lost() -> void:
+	if not _gameplay_started:
+		return
+	_set_gameplay_active(false)
+	var title_screen: TitleScreenType = _game_ui.get_title_screen()
+	title_screen.reopen()
+	title_screen.open_join_game_page(_pending_join_endpoint)
+	title_screen.report_network_error("The server connection was lost.")
+	_show_title_music(true)
+
+
+func _on_local_respawn_completed(entry_position: Vector3) -> void:
+	if _network_session.is_host():
+		_network_session.publish_authoritative_teleport(
+			_player.get_network_peer_id()
+		)
+	elif _network_session.is_joined_client():
+		_network_session.request_safe_respawn(entry_position)
+
+
+func _on_remote_recovery_requested(
+	peer_id: int,
+	entry_position: Vector3,
+) -> void:
+	if not _network_session.is_host():
+		return
+	var avatar: PlayerType = _player_spawn_service.get_avatar(peer_id)
+	if avatar == null:
+		return
+	var target_position: Vector3 = _test_world.get_player_spawn_transform().origin
+	var nearest_distance: float = INF
+	for point: SafeRespawnPoint in _test_world.get_safe_respawn_points():
+		if point == null or not point.enabled:
+			continue
+		var distance: float = point.get_horizontal_distance_squared(
+			entry_position
+		)
+		if distance < nearest_distance:
+			nearest_distance = distance
+			target_position = point.global_position
+	target_position.y += _water_recovery.respawn_height_offset
+	avatar.global_position = target_position
+	avatar.velocity = Vector3.ZERO
+	_network_session.publish_authoritative_teleport(peer_id)
 
 
 func _on_reset_progress_requested() -> void:
@@ -372,6 +596,7 @@ func _on_quit_requested() -> void:
 	_settings_manager.save_if_dirty()
 	if _gameplay_started:
 		_save_manager.save_if_dirty()
+	_network_session.disconnect_session("Application closing.")
 	_title_music_requested = false
 	_replace_title_music_transition()
 	_finish_quit()

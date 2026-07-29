@@ -26,6 +26,7 @@ const PlayerType = preload("res://player/player.gd")
 const FishableWaterRegionType = preload(
 	"res://world/fishable_water_region.gd"
 )
+const NetworkSessionType = preload("res://network/network_session.gd")
 
 signal status_changed(status: String)
 signal catch_display_changed(
@@ -104,6 +105,7 @@ var _item_catalog: ItemCatalogType
 var _fishing_upgrades: PlayerFishingUpgradesType
 var _item_effects: PlayerItemEffectsType
 var _cooler_capacity: PlayerCoolerCapacityType
+var _network_session: NetworkSessionType
 var _active_player: PlayerType
 var _state_time_remaining: float = 0.0
 var _cast_charge: float = 0.0
@@ -147,6 +149,7 @@ func setup(
 	fishing_upgrades: PlayerFishingUpgradesType,
 	item_effects: PlayerItemEffectsType,
 	cooler_capacity: PlayerCoolerCapacityType,
+	network_session: NetworkSessionType = null,
 ) -> void:
 	_local_player = local_player
 	_local_inventory = local_inventory
@@ -157,6 +160,7 @@ func setup(
 	_fishing_upgrades = fishing_upgrades
 	_item_effects = item_effects
 	_cooler_capacity = cooler_capacity
+	_network_session = network_session
 	if not _local_inventory.catches_changed.is_connected(
 		_on_cooler_availability_changed
 	):
@@ -195,6 +199,8 @@ func can_open_system_menu() -> bool:
 
 func can_open_fishing_shop() -> bool:
 	return (
+		_can_use_shared_gameplay()
+		and
 		_gameplay_input_enabled
 		and not _external_input_blocked
 		and _local_menu_input_owners.is_empty()
@@ -204,6 +210,8 @@ func can_open_fishing_shop() -> bool:
 
 func is_ready_for_shop_transaction() -> bool:
 	return (
+		_can_use_shared_gameplay()
+		and
 		_gameplay_input_enabled
 		and not _external_input_blocked
 		and state == FishingState.READY
@@ -367,6 +375,13 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if not event.is_action("fish_primary"):
 		return
+	if not _can_use_shared_gameplay():
+		if event.is_pressed():
+			status_changed.emit(
+				"Fishing in joined games is coming in the next multiplayer phase."
+			)
+			get_viewport().set_input_as_handled()
+		return
 
 	if event.is_pressed():
 		match state:
@@ -448,6 +463,10 @@ func _begin_aiming(player: PlayerType) -> void:
 		preview_position,
 		target_is_fishable
 	)
+
+
+func _can_use_shared_gameplay() -> bool:
+	return _network_session == null or _network_session.can_use_host_gameplay()
 
 
 func has_active_fishing_rod() -> bool:

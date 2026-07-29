@@ -1,4 +1,4 @@
-[gd_scene load_steps=10 format=3]
+[gd_scene load_steps=11 format=3]
 
 [ext_resource type="Script" path="res://ui/pause_menu.gd" id="1_script"]
 [ext_resource type="PackedScene" path="res://ui/settings_panel.tscn" id="2_settings"]
@@ -9,6 +9,7 @@
 [ext_resource type="Resource" path="res://ui/components/bubble_menu/bubble_menu_profile.tres" id="7_profile"]
 [ext_resource type="Script" path="res://ui/components/bubble_menu/bubble_transition_flurry.gd" id="8_flurry"]
 [ext_resource type="PackedScene" path="res://ui/components/bubble_menu/bubble_confirmation_page.tscn" id="9_confirmation"]
+[ext_resource type="PackedScene" path="res://ui/network/join_game_page.tscn" id="10_join_page"]
 
 [node name="PauseMenu" type="Control"]
 unique_name_in_owner = true
@@ -76,8 +77,8 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("4_page")
 page_id = &"pause"
-bubble_paths = Array[NodePath]([NodePath("BubbleCluster/ResumeButton"), NodePath("BubbleCluster/SaveButton"), NodePath("BubbleCluster/SettingsButton"), NodePath("BubbleCluster/ReturnToTitleButton"), NodePath("BubbleCluster/ResetProgressButton"), NodePath("BubbleCluster/QuitButton")])
-focus_paths = Array[NodePath]([NodePath("BubbleCluster/ResumeButton"), NodePath("BubbleCluster/SaveButton"), NodePath("BubbleCluster/SettingsButton"), NodePath("BubbleCluster/ReturnToTitleButton"), NodePath("BubbleCluster/ResetProgressButton"), NodePath("BubbleCluster/QuitButton")])
+bubble_paths = Array[NodePath]([NodePath("BubbleCluster/ResumeButton"), NodePath("BubbleCluster/SaveButton"), NodePath("BubbleCluster/JoinGameButton"), NodePath("BubbleCluster/SettingsButton"), NodePath("BubbleCluster/ReturnToTitleButton"), NodePath("BubbleCluster/ResetProgressButton"), NodePath("BubbleCluster/QuitButton")])
+focus_paths = Array[NodePath]([NodePath("BubbleCluster/ResumeButton"), NodePath("BubbleCluster/SaveButton"), NodePath("BubbleCluster/JoinGameButton"), NodePath("BubbleCluster/SettingsButton"), NodePath("BubbleCluster/ReturnToTitleButton"), NodePath("BubbleCluster/ResetProgressButton"), NodePath("BubbleCluster/QuitButton")])
 initial_focus_path = NodePath("BubbleCluster/ResumeButton")
 back_focus_path = NodePath("BubbleCluster/ResumeButton")
 maximum_layout_size = Vector2(720, 520)
@@ -133,6 +134,19 @@ compact_minimum_size = Vector2(112, 108)
 minimum_font_size = 16
 maximum_font_size = 23
 motion_phase = 2.05
+
+[node name="JoinGameButton" parent="ResponsivePauseStage/PausePresentationScaleRoot/RootPage/BubbleCluster" instance=ExtResource("5_bubble")]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 0)
+text = "join\ngame"
+accessibility_name = "join game"
+neutral_size = Vector2(126, 120)
+desktop_anchor = Vector2(105, 320)
+compact_anchor = Vector2(105, 320)
+compact_minimum_size = Vector2(96, 92)
+minimum_font_size = 15
+maximum_font_size = 21
+motion_phase = 2.55
 
 [node name="ReturnToTitleButton" parent="ResponsivePauseStage/PausePresentationScaleRoot/RootPage/BubbleCluster" instance=ExtResource("5_bubble")]
 unique_name_in_owner = true
@@ -203,6 +217,16 @@ layout_mode = 2
 
 [node name="ConfirmationPage" parent="ResponsivePauseStage/PausePresentationScaleRoot" instance=ExtResource("9_confirmation")]
 unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="JoinGamePage" parent="ResponsivePauseStage/PausePresentationScaleRoot" instance=ExtResource("10_join_page")]
+unique_name_in_owner = true
+z_index = 4
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0

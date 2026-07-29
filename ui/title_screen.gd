@@ -16,6 +16,9 @@ const BubbleClusterType = preload(
 const TitleConfirmationBubblePageType = preload(
 	"res://ui/title_confirmation_bubble_page.gd"
 )
+const NetworkSessionType = preload("res://network/network_session.gd")
+const SavedServerStoreType = preload("res://network/saved_server_store.gd")
+const JoinGamePageType = preload("res://ui/network/join_game_page.gd")
 const DECORATIVE_FISH_TEXTURES: Array[Texture2D] = [
 	preload("res://fish/species/bass/fish_bass_striped.png"),
 	preload("res://fish/species/bluegill/fish_bluegill.png"),
@@ -84,8 +87,10 @@ const HOST_PRESENTATION_OUT_DURATION: float = 1.70
 const HOST_PRESENTATION_IN_DURATION: float = 1.85
 const HOST_CLUSTER_SAFE_MARGIN: float = 24.0
 
-signal gameplay_requested
+signal new_game_requested
+signal continue_game_requested
 signal quit_requested
+signal join_game_requested(endpoint: String)
 
 enum ConfirmationAction {
 	NONE,
@@ -98,6 +103,7 @@ enum ConfirmationAction {
 @onready var _settings_button: BubbleButtonType = %SettingsButton
 @onready var _delete_button: BubbleButtonType = %DeleteSaveButton
 @onready var _quit_button: BubbleButtonType = %QuitButton
+@onready var _join_game_button: BubbleButtonType = %JoinGameButton
 @onready var _new_game_label: Label = %NewGameLabel
 @onready var _delete_save_label: Label = %DeleteSaveLabel
 @onready var _feedback_label: Label = %FeedbackLabel
@@ -129,6 +135,7 @@ enum ConfirmationAction {
 @onready var _bubble_field: BubbleClusterType = %BubbleField
 @onready var _start_prompt_center: CenterContainer = %StartPromptCenter
 @onready var _start_prompt_label: Label = %StartPromptLabel
+@onready var _join_game_page: JoinGamePageType = %JoinGamePage
 
 var _save_manager: SaveManagerType
 var _settings_manager: SettingsManagerType
@@ -188,6 +195,7 @@ func _ready() -> void:
 		_on_continue_stats_focus_changed.bind(false)
 	)
 	_new_game_button.pressed.connect(_on_new_game_pressed)
+	_join_game_button.pressed.connect(_open_join_game)
 	_settings_button.pressed.connect(_open_settings)
 	_delete_button.pressed.connect(_on_delete_pressed)
 	%QuitButton.pressed.connect(_on_quit_pressed)
@@ -221,9 +229,14 @@ func _ready() -> void:
 func setup(
 	save_manager: SaveManagerType,
 	settings_manager: SettingsManagerType,
+	network_session: NetworkSessionType,
+	saved_servers: SavedServerStoreType,
 ) -> void:
 	_save_manager = save_manager
 	_settings_manager = settings_manager
+	_join_game_page.setup(network_session, saved_servers, false)
+	_join_game_page.join_requested.connect(join_game_requested.emit)
+	_join_game_page.back_requested.connect(_close_join_game)
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	_refresh_save_inspection()
 	show()
@@ -239,10 +252,43 @@ func reopen() -> void:
 	_prepare_awaiting_start_input()
 	_reset_confirmation()
 	_settings_panel.hide()
+	_join_game_page.close_page()
 	_refresh_save_inspection()
 	show()
 	_start_decorative_presentation()
 	_start_entry_prompt_animation()
+
+
+func open_join_game_page(endpoint: String = "") -> void:
+	_cancel_title_entry_transition()
+	_awaiting_start_input = false
+	_start_prompt_center.hide()
+	_presentation_center.hide()
+	_settings_panel.hide()
+	_confirmation_page.hide_page()
+	_join_game_page.open_page(endpoint)
+
+
+func report_network_error(message: String) -> void:
+	_join_game_page.set_status(message)
+	if not _join_game_page.visible:
+		_feedback_label.text = message
+		_feedback_label.show()
+		_feedback_label.modulate.a = 1.0
+
+
+func _open_join_game() -> void:
+	if _action_in_progress or _is_confirmation_active():
+		return
+	open_join_game_page()
+
+
+func _close_join_game() -> void:
+	_join_game_page.close_page()
+	_presentation_center.show()
+	_button_center.show()
+	_start_prompt_center.hide()
+	_focus_initial_button()
 
 
 func is_awaiting_start_input() -> bool:
@@ -347,6 +393,7 @@ func _get_title_buttons() -> Array[BubbleButton]:
 	return [
 		_continue_button,
 		_new_game_button,
+		_join_game_button,
 		_settings_button,
 		_delete_button,
 		_quit_button,
@@ -437,6 +484,11 @@ func _process(delta: float) -> void:
 
 func _input(event: InputEvent) -> void:
 	if not visible:
+		return
+	if _join_game_page.visible:
+		if event.is_action_pressed("ui_cancel"):
+			_close_join_game()
+			get_viewport().set_input_as_handled()
 		return
 	if (
 		_title_settings_transition_active
@@ -851,12 +903,7 @@ func _on_continue_pressed() -> void:
 		return
 	_hide_continue_stats_context()
 	_action_in_progress = true
-	if _save_manager.load_player_data():
-		_feedback_label.text = "save loaded."
-		gameplay_requested.emit()
-	else:
-		_refresh_save_inspection()
-		_feedback_label.text = "failed to load save. the original was preserved."
+	continue_game_requested.emit()
 	_action_in_progress = false
 
 
@@ -870,8 +917,7 @@ func _on_new_game_pressed() -> void:
 		return
 	_hide_continue_stats_context()
 	if _inspection.status == SaveInspectionType.Status.MISSING:
-		if _save_manager.initialize_new_game():
-			gameplay_requested.emit()
+		new_game_requested.emit()
 		return
 	if _inspection.status == SaveInspectionType.Status.UNSUPPORTED_VERSION:
 		_feedback_label.text = (
@@ -917,6 +963,14 @@ func _on_confirmation_accepted() -> void:
 	var action: ConfirmationAction = _confirmation_action
 	_confirmation_page.lock_interaction()
 	_action_in_progress = true
+	if action == ConfirmationAction.NEW_GAME:
+		_confirmation_action = ConfirmationAction.NONE
+		_confirmation_transition_generation += 1
+		_cancel_confirmation_transition()
+		_confirmation_page.hide_page()
+		new_game_requested.emit()
+		_action_in_progress = false
+		return
 	if not _save_manager.delete_progression_save():
 		_feedback_label.text = "failed to delete saved progression."
 		_action_in_progress = false
@@ -925,15 +979,8 @@ func _on_confirmation_accepted() -> void:
 		return
 	_save_manager.initialize_new_game()
 	_refresh_save_inspection()
-	if action == ConfirmationAction.NEW_GAME:
-		_confirmation_action = ConfirmationAction.NONE
-		_confirmation_transition_generation += 1
-		_cancel_confirmation_transition()
-		_confirmation_page.hide_page()
-		gameplay_requested.emit()
-	else:
-		_feedback_label.text = "saved progression deleted."
-		_begin_confirmation_return()
+	_feedback_label.text = "saved progression deleted."
+	_begin_confirmation_return()
 	_action_in_progress = false
 
 

@@ -1,0 +1,145 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://ui/network/join_game_page.gd" id="1_script"]
+[ext_resource type="Theme" path="res://ui/game_theme.tres" id="2_theme"]
+[ext_resource type="PackedScene" path="res://ui/components/bubble_menu/bubble_button.tscn" id="3_bubble"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBox_paper"]
+bg_color = Color(0.93, 0.885, 0.73, 1)
+shadow_color = Color(0.02, 0.075, 0.11, 0.42)
+shadow_size = 10
+shadow_offset = Vector2(7, 8)
+corner_radius_top_left = 54
+corner_radius_top_right = 46
+corner_radius_bottom_right = 58
+corner_radius_bottom_left = 48
+
+[node name="JoinGamePage" type="Control"]
+visible = false
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme = ExtResource("2_theme")
+script = ExtResource("1_script")
+
+[node name="Paper" type="PanelContainer" parent="."]
+layout_mode = 0
+offset_left = 340.0
+offset_top = 132.0
+offset_right = 940.0
+offset_bottom = 570.0
+theme_override_styles/panel = SubResource("StyleBox_paper")
+
+[node name="Margin" type="MarginContainer" parent="Paper"]
+layout_mode = 2
+theme_override_constants/margin_left = 70
+theme_override_constants/margin_top = 52
+theme_override_constants/margin_right = 70
+theme_override_constants/margin_bottom = 52
+
+[node name="Layout" type="VBoxContainer" parent="Paper/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 18
+alignment = 1
+
+[node name="Title" type="Label" parent="Paper/Margin/Layout"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.035, 0.145, 0.22, 1)
+theme_override_font_sizes/font_size = 34
+text = "join game"
+horizontal_alignment = 1
+
+[node name="Hint" type="Label" parent="Paper/Margin/Layout"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.035, 0.145, 0.22, 1)
+theme_override_font_sizes/font_size = 17
+text = "hostname or IP address • optional port"
+horizontal_alignment = 1
+
+[node name="Address" type="LineEdit" parent="Paper/Margin/Layout"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.035, 0.145, 0.22, 1)
+theme_override_font_sizes/font_size = 22
+placeholder_text = "example.net:7777"
+alignment = 1
+max_length = 300
+
+[node name="Status" type="Label" parent="Paper/Margin/Layout"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 42)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.035, 0.145, 0.22, 1)
+theme_override_font_sizes/font_size = 17
+text = "Direct UDP connection • default port 7777"
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 2
+
+[node name="SessionSummary" type="Label" parent="Paper/Margin/Layout"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+theme_override_colors/font_color = Color(0.035, 0.145, 0.22, 1)
+theme_override_font_sizes/font_size = 17
+text = "1 / 8 players"
+horizontal_alignment = 1
+
+[node name="Actions" type="HBoxContainer" parent="Paper/Margin/Layout"]
+layout_mode = 2
+theme_override_constants/separation = 12
+alignment = 1
+
+[node name="JoinButton" parent="Paper/Margin/Layout/Actions" instance=ExtResource("3_bubble")]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(112, 106)
+layout_mode = 2
+text = "join"
+neutral_size = Vector2(112, 106)
+minimum_font_size = 18
+maximum_font_size = 24
+horizontal_amplitude = 0.0
+vertical_amplitude = 0.0
+deformation_amplitude = 0.0
+
+[node name="OpenCloseButton" parent="Paper/Margin/Layout/Actions" instance=ExtResource("3_bubble")]
+unique_name_in_owner = true
+visible = false
+custom_minimum_size = Vector2(112, 106)
+layout_mode = 2
+text = "open\ngame"
+neutral_size = Vector2(112, 106)
+minimum_font_size = 17
+maximum_font_size = 22
+horizontal_amplitude = 0.0
+vertical_amplitude = 0.0
+deformation_amplitude = 0.0
+
+[node name="CancelButton" parent="Paper/Margin/Layout/Actions" instance=ExtResource("3_bubble")]
+unique_name_in_owner = true
+visible = false
+custom_minimum_size = Vector2(98, 94)
+layout_mode = 2
+text = "cancel"
+neutral_size = Vector2(98, 94)
+minimum_font_size = 16
+maximum_font_size = 20
+horizontal_amplitude = 0.0
+vertical_amplitude = 0.0
+deformation_amplitude = 0.0
+
+[node name="BackButton" parent="Paper/Margin/Layout/Actions" instance=ExtResource("3_bubble")]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(98, 94)
+layout_mode = 2
+text = "back"
+neutral_size = Vector2(98, 94)
+minimum_font_size = 16
+maximum_font_size = 20
+horizontal_amplitude = 0.0
+vertical_amplitude = 0.0
+deformation_amplitude = 0.0
