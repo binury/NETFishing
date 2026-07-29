@@ -506,6 +506,10 @@ func set_water_recovery_active(active: bool) -> void:
 	velocity = Vector3.ZERO
 
 
+func is_water_recovery_active() -> bool:
+	return _water_recovery_active
+
+
 func prepare_for_water_recovery() -> void:
 	_restore_gameplay_presentation_for_recovery()
 

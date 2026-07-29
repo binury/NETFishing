@@ -43,6 +43,9 @@ const SavedServerStoreType = preload(
 const PlayerSpawnServiceType = preload(
 	"res://network/player_spawn_service.gd"
 )
+const NetworkFishingServiceType = preload(
+	"res://network/network_fishing_service.gd"
+)
 
 const TITLE_MUSIC_SILENCE_DB: float = -80.0
 
@@ -76,6 +79,9 @@ const TITLE_MUSIC_SILENCE_DB: float = -80.0
 @onready var _saved_servers: SavedServerStoreType = %SavedServerStore
 @onready var _player_spawn_service: PlayerSpawnServiceType = (
 	%PlayerSpawnService
+)
+@onready var _network_fishing: NetworkFishingServiceType = (
+	%NetworkFishingService
 )
 @onready var _players_root: Node3D = $Players
 
@@ -136,6 +142,17 @@ func _ready() -> void:
 		_player.cooler_capacity
 	)
 	_save_manager.set_autosave_enabled(false)
+	_network_fishing.setup(
+		_network_session,
+		_player_spawn_service,
+		_fishing_spot,
+		_player.inventory,
+		_player.collection_log,
+		_player.cooler_capacity,
+		_save_manager,
+		item_catalog,
+		fish_catalog
+	)
 	_fishing_spot.setup(
 		_player,
 		_player.inventory,
@@ -146,7 +163,8 @@ func _ready() -> void:
 		_player.fishing_upgrades,
 		_player.item_effects,
 		_player.cooler_capacity,
-		_network_session
+		_network_session,
+		_network_fishing
 	)
 	_game_ui.setup(
 		_player,
@@ -562,6 +580,10 @@ func _on_remote_recovery_requested(
 	var avatar: PlayerType = _player_spawn_service.get_avatar(peer_id)
 	if avatar == null:
 		return
+	_network_fishing.cancel_peer_attempt(
+		peer_id,
+		"Fishing attempt ended."
+	)
 	var target_position: Vector3 = _test_world.get_player_spawn_transform().origin
 	var nearest_distance: float = INF
 	for point: SafeRespawnPoint in _test_world.get_safe_respawn_points():

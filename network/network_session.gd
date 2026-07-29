@@ -254,6 +254,26 @@ func can_use_host_gameplay() -> bool:
 	return is_host()
 
 
+func is_gameplay_session_active() -> bool:
+	return state in [State.PRIVATE_HOST, State.OPEN_HOST, State.JOINED_CLIENT]
+
+
+func is_authenticated_peer(peer_id: int) -> bool:
+	return _registry.has_peer(peer_id)
+
+
+func get_session_id() -> String:
+	return _session_id
+
+
+func get_operation_generation() -> int:
+	return _operation_generation
+
+
+func get_local_peer_id() -> int:
+	return multiplayer.get_unique_id() if is_gameplay_session_active() else 0
+
+
 func _process(delta: float) -> void:
 	var now: float = Time.get_ticks_msec() / 1000.0
 	if (

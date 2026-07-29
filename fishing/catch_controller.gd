@@ -122,6 +122,21 @@ func start_encounter(
 	_emit_encounter_update()
 
 
+func start_authoritative_encounter(
+	profile: CatchDifficultyProfileType,
+	reel_speed: float,
+	click_power: int,
+	seed: int,
+) -> void:
+	var previous_test_mode: bool = use_deterministic_test_seed
+	var previous_seed: int = deterministic_test_seed
+	use_deterministic_test_seed = true
+	deterministic_test_seed = seed
+	start_encounter(profile, reel_speed, click_power)
+	use_deterministic_test_seed = previous_test_mode
+	deterministic_test_seed = previous_seed
+
+
 func set_reel_input(held: bool) -> void:
 	_reel_input_held = held
 	if not held:

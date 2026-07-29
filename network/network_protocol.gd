@@ -1,7 +1,7 @@
 class_name NetworkProtocol
 extends RefCounted
 
-const PROTOCOL_VERSION: int = 1
+const PROTOCOL_VERSION: int = 2
 const GAME_BUILD: String = "prealpha"
 const MAX_DISPLAY_NAME_LENGTH: int = 48
 const MAX_PROFILE_ID_LENGTH: int = 96
@@ -99,7 +99,10 @@ static func make_server_hello(
 		"server_display_name": "NETFISHING",
 		"player_count": player_count,
 		"max_players": max_players,
-		"capability_flags": PackedStringArray(["movement_v1"]),
+		"capability_flags": PackedStringArray([
+			"movement_v1",
+			"fishing_v1",
+		]),
 	}
 
 

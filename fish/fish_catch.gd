@@ -135,6 +135,53 @@ static func from_save_dict(
 	return fish_catch if fish_catch.is_valid() else null
 
 
+static func from_network_dict(
+	data: Dictionary,
+	resolved_fish: FishDataType,
+) -> FishCatch:
+	if resolved_fish == null:
+		return null
+	for required_key: String in [
+		"catch_id",
+		"fish_id",
+		"weight_lb",
+		"display_scale",
+		"sale_value",
+	]:
+		if not data.has(required_key):
+			return null
+	var loaded_id := StringName(str(data.get("catch_id", "")))
+	var loaded_fish_id := StringName(str(data.get("fish_id", "")))
+	var loaded_weight: float = _read_safe_float(
+		data.get("weight_lb"), 0.0, MAX_SAFE_WEIGHT_LB
+	)
+	var loaded_scale: float = _read_safe_float(
+		data.get("display_scale"), 0.0, MAX_SAFE_DISPLAY_SCALE
+	)
+	var loaded_value: int = _read_safe_integer(
+		data.get("sale_value"), -1, MAX_SAFE_SALE_VALUE
+	)
+	if (
+		loaded_id.is_empty()
+		or loaded_id.length() > 160
+		or loaded_fish_id != resolved_fish.id
+		or loaded_weight <= 0.0
+		or loaded_scale <= 0.0
+		or loaded_value < 0
+	):
+		return null
+	var fish_catch := FishCatch.new()
+	fish_catch.fish = resolved_fish
+	fish_catch.fish_id = loaded_fish_id
+	fish_catch.catch_id = loaded_id
+	fish_catch.catch_sequence = 0
+	fish_catch.weight_lb = loaded_weight
+	fish_catch.display_scale = loaded_scale
+	fish_catch.sale_value = loaded_value
+	fish_catch.is_favorited = false
+	return fish_catch if fish_catch.is_valid() else null
+
+
 static func _read_safe_integer(
 	value: Variant,
 	invalid_value: int,

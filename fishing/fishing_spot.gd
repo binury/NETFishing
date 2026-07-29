@@ -27,6 +27,9 @@ const FishableWaterRegionType = preload(
 	"res://world/fishable_water_region.gd"
 )
 const NetworkSessionType = preload("res://network/network_session.gd")
+const NetworkFishingServiceType = preload(
+	"res://network/network_fishing_service.gd"
+)
 
 signal status_changed(status: String)
 signal catch_display_changed(
@@ -106,6 +109,7 @@ var _fishing_upgrades: PlayerFishingUpgradesType
 var _item_effects: PlayerItemEffectsType
 var _cooler_capacity: PlayerCoolerCapacityType
 var _network_session: NetworkSessionType
+var _network_fishing: NetworkFishingServiceType
 var _active_player: PlayerType
 var _state_time_remaining: float = 0.0
 var _cast_charge: float = 0.0
@@ -129,6 +133,8 @@ var _pending_catch: FishCatchType
 var _showcase_ready: bool = false
 var _put_away_press_armed: bool = false
 var _showcase_restore_generation: int = 0
+var _network_auto_click_accumulator: float = 0.0
+var _network_active_barrier_index: int = -1
 
 
 func _ready() -> void:
@@ -150,6 +156,7 @@ func setup(
 	item_effects: PlayerItemEffectsType,
 	cooler_capacity: PlayerCoolerCapacityType,
 	network_session: NetworkSessionType = null,
+	network_fishing: NetworkFishingServiceType = null,
 ) -> void:
 	_local_player = local_player
 	_local_inventory = local_inventory
@@ -161,6 +168,26 @@ func setup(
 	_item_effects = item_effects
 	_cooler_capacity = cooler_capacity
 	_network_session = network_session
+	_network_fishing = network_fishing
+	if _network_fishing != null:
+		_network_fishing.local_cast_accepted.connect(
+			_on_network_cast_accepted
+		)
+		_network_fishing.local_cast_rejected.connect(
+			_on_network_cast_rejected
+		)
+		_network_fishing.local_bite_started.connect(
+			_on_network_bite_started
+		)
+		_network_fishing.local_snapshot_received.connect(
+			_on_network_fishing_snapshot
+		)
+		_network_fishing.local_catch_received.connect(
+			_on_network_catch_received
+		)
+		_network_fishing.local_attempt_ended.connect(
+			_on_network_attempt_ended
+		)
 	if not _local_inventory.catches_changed.is_connected(
 		_on_cooler_availability_changed
 	):
@@ -350,14 +377,18 @@ func _process(delta: float) -> void:
 			if not Input.is_action_pressed("fish_primary"):
 				_confirm_cast()
 		FishingState.WAITING_FOR_BITE:
-			_update_waiting_for_bite(delta)
+			if _network_fishing == null:
+				_update_waiting_for_bite(delta)
 		FishingState.FIGHTING:
-			_catch_controller.set_effective_stats(
-				_get_effective_reel_speed(),
-				_get_effective_barrier_damage()
-			)
-			if not Input.is_action_pressed("fish_primary"):
-				_catch_controller.set_reel_input(false)
+			if _network_fishing == null:
+				_catch_controller.set_effective_stats(
+					_get_effective_reel_speed(),
+					_get_effective_barrier_damage()
+				)
+				if not Input.is_action_pressed("fish_primary"):
+					_catch_controller.set_reel_input(false)
+			else:
+				_update_network_auto_click(delta)
 		FishingState.COOLDOWN:
 			_state_time_remaining -= delta
 			if _state_time_remaining <= 0.0:
@@ -375,14 +406,6 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if not event.is_action("fish_primary"):
 		return
-	if not _can_use_shared_gameplay():
-		if event.is_pressed():
-			status_changed.emit(
-				"Fishing in joined games is coming in the next multiplayer phase."
-			)
-			get_viewport().set_input_as_handled()
-		return
-
 	if event.is_pressed():
 		match state:
 			FishingState.READY:
@@ -414,11 +437,16 @@ func _unhandled_input(event: InputEvent) -> void:
 				_begin_aiming(_local_player)
 			FishingState.WAITING_FOR_BITE:
 				_withdrawal_input_held = true
+				if _network_fishing != null:
+					_network_fishing.submit_local_input(true, true)
 				_presentation.set_line_mode(
 					FishingPresentationType.LineMode.TAUT
 				)
 			FishingState.FIGHTING:
-				_catch_controller.handle_primary_pressed()
+				if _network_fishing != null:
+					_network_fishing.submit_local_input(true, true)
+				else:
+					_catch_controller.handle_primary_pressed()
 				_presentation.set_line_mode(
 					FishingPresentationType.LineMode.TAUT
 				)
@@ -435,10 +463,15 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 	elif state == FishingState.WAITING_FOR_BITE:
 		_withdrawal_input_held = false
+		if _network_fishing != null:
+			_network_fishing.submit_local_input(false, false)
 		_presentation.set_line_mode(FishingPresentationType.LineMode.SLACK)
 		get_viewport().set_input_as_handled()
 	elif state == FishingState.FIGHTING:
-		_catch_controller.set_reel_input(false)
+		if _network_fishing != null:
+			_network_fishing.submit_local_input(false, false)
+		else:
+			_catch_controller.set_reel_input(false)
 		get_viewport().set_input_as_handled()
 
 
@@ -558,6 +591,15 @@ func _confirm_cast() -> void:
 func _on_cast_completed() -> void:
 	if state != FishingState.CASTING:
 		return
+	if _network_fishing != null:
+		_network_fishing.request_local_cast(
+			_cast_origin_position,
+			_cast_target,
+			_cast_charge,
+			_build_network_evidence()
+		)
+		status_changed.emit("checking the water...")
+		return
 
 	_selected_water_region = get_fishable_water_region(_cast_target)
 	_cast_landing_is_fishable = _selected_water_region != null
@@ -593,6 +635,8 @@ func _on_cast_completed() -> void:
 	)
 	_withdrawal_progress = 0.0
 	_withdrawal_input_held = false
+	_network_auto_click_accumulator = 0.0
+	_network_active_barrier_index = -1
 	_bobber_water_position = _cast_target
 	_withdrawal_endpoint = Vector3(
 		_cast_origin_position.x + _cast_direction.x * withdrawal_cancel_distance,
@@ -948,6 +992,9 @@ func _return_to_ready() -> void:
 
 
 func _cancel_attempt() -> void:
+	if _network_fishing != null and _network_fishing.has_local_attempt():
+		_network_fishing.cancel_local_attempt("Fishing cancelled.")
+		return
 	_cleanup_attempt("fishing cancelled.", &"cancel")
 
 
@@ -1043,6 +1090,169 @@ func _build_fishing_context(
 	context.is_night = context_is_night
 	context.is_raining = context_is_raining
 	return context
+
+
+func build_network_context(
+	region: FishableWaterRegionType,
+) -> FishingContextType:
+	return _build_fishing_context(region)
+
+
+func _build_network_evidence() -> Dictionary:
+	var rarity_multipliers: Array[float] = []
+	for rarity: int in range(FishDataType.Rarity.size()):
+		rarity_multipliers.append(
+			_item_effects.get_rarity_weight_multiplier(rarity)
+			if _item_effects != null
+			else 1.0
+		)
+	var discovered_ids: Array[String] = []
+	if _local_collection_log != null:
+		for fish_id: StringName in _local_collection_log.get_discovered_ids():
+			discovered_ids.append(str(fish_id))
+	var item: ItemDataType = _get_active_item()
+	return {
+		"rod_id": str(item.item_id) if item != null else "",
+		"reel_speed": _get_effective_reel_speed(),
+		"barrier_damage": _get_effective_barrier_damage(),
+		"bite_multiplier": (
+			_item_effects.get_bite_time_multiplier()
+			if _item_effects != null
+			else 1.0
+		),
+		"rarity_multipliers": rarity_multipliers,
+		"discovered_fish_ids": discovered_ids,
+		"capacity_available": not _is_cooler_full(),
+	}
+
+
+func _on_network_cast_accepted(
+	_attempt_id: String,
+	target: Vector3,
+) -> void:
+	if state != FishingState.CASTING:
+		return
+	_cast_target = target
+	_bobber_water_position = target
+	state = FishingState.WAITING_FOR_BITE
+	_presentation.set_line_mode(FishingPresentationType.LineMode.SLACK)
+	status_changed.emit("waiting for a bite...")
+
+
+func _on_network_cast_rejected(message: String) -> void:
+	if state not in [FishingState.CASTING, FishingState.AIMING_CAST]:
+		return
+	_cleanup_attempt(message, &"invalid")
+
+
+func _on_network_bite_started(_attempt_id: String) -> void:
+	if state != FishingState.WAITING_FOR_BITE:
+		return
+	state = FishingState.FIGHTING
+	_withdrawal_input_held = false
+	_network_auto_click_accumulator = 0.0
+	_network_active_barrier_index = -1
+	_fight_start_position = _bobber_water_position
+	bite_activated.emit()
+	status_changed.emit("fish on!")
+	_presentation.set_line_mode(FishingPresentationType.LineMode.TAUT)
+	_presentation.begin_reeling()
+	_presentation.show_bite()
+	_network_fishing.submit_local_input(
+		Input.is_action_pressed("fish_primary"),
+		false
+	)
+
+
+func _on_network_fishing_snapshot(snapshot: Dictionary) -> void:
+	if state not in [
+		FishingState.WAITING_FOR_BITE,
+		FishingState.FIGHTING,
+	]:
+		return
+	var positions := PackedFloat32Array(snapshot.get("barrier_positions", []))
+	var health := PackedInt32Array(snapshot.get("barrier_health", []))
+	var maximum_health := PackedInt32Array(
+		snapshot.get("barrier_max_health", [])
+	)
+	var progress: float = float(snapshot.get("progress", 0.0))
+	var chase_progress: float = float(snapshot.get("chase_progress", 0.0))
+	if state == FishingState.FIGHTING:
+		_network_active_barrier_index = int(
+			snapshot.get("active_barrier_index", -1)
+		)
+		catch_display_changed.emit(
+			progress,
+			chase_progress,
+			positions,
+			health,
+			maximum_health,
+			int(snapshot.get("active_barrier_index", -1)),
+			bool(snapshot.get("visible", false))
+		)
+	var bobber_data: Array = snapshot.get("bobber_position", [])
+	if bobber_data.size() == 3:
+		_bobber_water_position = Vector3(
+			float(bobber_data[0]),
+			float(bobber_data[1]),
+			float(bobber_data[2])
+		)
+		if state == FishingState.WAITING_FOR_BITE:
+			_presentation.show_withdrawal_position(_bobber_water_position)
+		else:
+			_presentation.show_reel_position(
+				_bobber_water_position,
+				Input.is_action_pressed("fish_primary")
+			)
+
+
+func _update_network_auto_click(delta: float) -> void:
+	if (
+		not _catch_controller.auto_click_enabled
+		or not Input.is_action_pressed("fish_primary")
+		or _network_active_barrier_index < 0
+	):
+		_network_auto_click_accumulator = 0.0
+		return
+	_network_auto_click_accumulator += delta
+	var interval: float = maxf(
+		_catch_controller.auto_click_interval,
+		0.05
+	)
+	while _network_auto_click_accumulator >= interval:
+		_network_auto_click_accumulator -= interval
+		_network_fishing.submit_local_input(true, true)
+
+
+func _on_network_catch_received(fish_catch: FishCatchType) -> void:
+	if state != FishingState.FIGHTING or fish_catch == null:
+		return
+	_pending_catch = fish_catch
+	state = FishingState.SHOWING_CATCH
+	_showcase_ready = false
+	_put_away_press_armed = false
+	catch_display_changed.emit(
+		0.0, 0.0, PackedFloat32Array(), PackedInt32Array(),
+		PackedInt32Array(), -1, false
+	)
+	_presentation.set_line_mode(FishingPresentationType.LineMode.TAUT)
+	_presentation.play_outcome(&"catch")
+
+
+func _on_network_attempt_ended(
+	outcome: StringName,
+	message: String,
+) -> void:
+	if state not in [
+		FishingState.CASTING,
+		FishingState.WAITING_FOR_BITE,
+		FishingState.FIGHTING,
+	]:
+		return
+	_cleanup_attempt(
+		message if not message.is_empty() else "Fishing attempt ended.",
+		&"escape" if outcome == &"escape" else &"cancel"
+	)
 
 
 func find_last_fishable_position(from: Vector3, to: Vector3) -> Vector3:
