@@ -38,6 +38,7 @@ enum PresentationMode {
 @onready var _controls_page: SettingsBubblePage = %ControlsPage
 @onready var _accessibility_page: SettingsBubblePage = %AccessibilityPage
 @onready var _feedback: Label = %SettingsFeedback
+@onready var _display_name_edit: LineEdit = %DisplayNameEdit
 
 @onready var _world_value: BubbleButton = %WorldValue
 @onready var _ui_value: BubbleButton = %UIValue
@@ -75,6 +76,8 @@ var _auto_click_interval_value: float = 0.20
 var _mouse_sensitivity: float = 0.005
 var _controller_sensitivity: float = 2.5
 var _invert_camera_y: bool = false
+var _network_profile: NetworkProfilePreferences
+var _network_session: NetworkSession
 
 
 func _ready() -> void:
@@ -98,6 +101,10 @@ func _ready() -> void:
 	%DisplayBackButton.gui_input.connect(_on_back_bubble_gui_input)
 	%ControlsBackButton.gui_input.connect(_on_back_bubble_gui_input)
 	%AccessibilityBackButton.gui_input.connect(_on_back_bubble_gui_input)
+	_display_name_edit.text_submitted.connect(
+		func(_value: String) -> void: _apply_display_name()
+	)
+	_display_name_edit.focus_exited.connect(_apply_display_name)
 	for index: int in _world_options.size():
 		_world_options[index].pressed.connect(
 			_set_world_pixelation.bind(index + 1)
@@ -143,6 +150,33 @@ func _ready() -> void:
 	call_deferred("_refresh_panel_size")
 
 
+func setup_network_profile(
+	profile: NetworkProfilePreferences,
+	session: NetworkSession,
+) -> void:
+	_network_profile = profile
+	_network_session = session
+	if _network_profile != null:
+		_display_name_edit.text = _network_profile.display_name
+
+
+func _apply_display_name() -> void:
+	if _network_profile == null:
+		return
+	var value := _display_name_edit.text.strip_edges()
+	var accepted := (
+		_network_session.update_local_display_name(value)
+		if _network_session != null
+		else _network_profile.set_display_name(value)
+	)
+	if accepted:
+		_display_name_edit.text = _network_profile.display_name
+		_feedback.text = "display name saved."
+	else:
+		_display_name_edit.text = _network_profile.display_name
+		_feedback.text = "display name must be 1–24 plain-text characters."
+
+
 func open_panel(
 	settings_manager: SettingsManagerType,
 	presentation_mode: PresentationMode = PresentationMode.GAMEPLAY_MODAL,
@@ -158,6 +192,8 @@ func open_panel(
 	)
 	_settings_manager = settings_manager
 	_load_controls()
+	if _network_profile != null:
+		_display_name_edit.text = _network_profile.display_name
 	_feedback.text = ""
 	show()
 	_page_stack.clear()

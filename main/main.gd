@@ -52,6 +52,12 @@ const NetworkSaleServiceType = preload(
 const NetworkShopServiceType = preload(
 	"res://network/network_shop_service.gd"
 )
+const NetworkItemUseServiceType = preload(
+	"res://network/network_item_use_service.gd"
+)
+const NetworkChatServiceType = preload(
+	"res://network/network_chat_service.gd"
+)
 
 const TITLE_MUSIC_SILENCE_DB: float = -80.0
 
@@ -91,6 +97,10 @@ const TITLE_MUSIC_SILENCE_DB: float = -80.0
 )
 @onready var _network_sale: NetworkSaleServiceType = %NetworkSaleService
 @onready var _network_shop: NetworkShopServiceType = %NetworkShopService
+@onready var _network_item_use: NetworkItemUseServiceType = (
+	%NetworkItemUseService
+)
+@onready var _network_chat: NetworkChatServiceType = %NetworkChatService
 @onready var _players_root: Node3D = $Players
 
 var _gameplay_started: bool = false
@@ -150,6 +160,15 @@ func _ready() -> void:
 		_player.cooler_capacity
 	)
 	_save_manager.set_autosave_enabled(false)
+	_network_item_use.setup(
+		_network_session,
+		_player_spawn_service,
+		item_catalog,
+		_player.bag,
+		_player.item_effects,
+		_save_manager
+	)
+	_network_chat.setup(_network_session)
 	_network_fishing.setup(
 		_network_session,
 		_player_spawn_service,
@@ -159,7 +178,8 @@ func _ready() -> void:
 		_player.cooler_capacity,
 		_save_manager,
 		item_catalog,
-		fish_catalog
+		fish_catalog,
+		_network_item_use
 	)
 	_network_sale.setup(
 		_network_session,
@@ -194,6 +214,7 @@ func _ready() -> void:
 		item_catalog,
 		_player.fishing_upgrades,
 		_player.item_effects,
+		_network_item_use,
 		_player.cooler_capacity,
 		_network_session,
 		_network_fishing
@@ -217,7 +238,10 @@ func _ready() -> void:
 		_player.cooler_capacity,
 		_network_session,
 		_network_sale,
-		_network_shop
+		_network_shop,
+		_network_chat,
+		_network_profile,
+		_player_spawn_service
 	)
 	_water_recovery.setup(
 		_player,
@@ -284,6 +308,7 @@ func _ready() -> void:
 	_player.hotbar.selected_slot_changed.connect(
 		_on_active_hotbar_item_changed
 	)
+	_player.bag.contents_changed.connect(_refresh_active_hotbar_item)
 	_fishing_spot.ready_for_equipment_refresh.connect(
 		_refresh_active_hotbar_item
 	)
@@ -409,6 +434,8 @@ func _set_gameplay_active(active: bool) -> void:
 	_water_recovery.set_recovery_enabled(active)
 	_game_ui.set_gameplay_ui_enabled(active)
 	_save_manager.set_autosave_enabled(active)
+	if active:
+		_refresh_active_hotbar_item()
 
 
 func _on_new_game_requested() -> void:
@@ -670,6 +697,9 @@ func _on_active_hotbar_item_changed(
 		and _player.bag.owns_item(item_id)
 	)
 	_player.set_active_item_is_rod(active_is_rod)
+	_network_item_use.submit_local_equipped(item_id, active_is_rod or (
+		item != null and _player.bag.owns_item(item_id)
+	))
 	_fishing_spot.refresh_active_item_status()
 
 

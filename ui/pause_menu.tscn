@@ -77,8 +77,8 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("4_page")
 page_id = &"pause"
-bubble_paths = Array[NodePath]([NodePath("BubbleCluster/ResumeButton"), NodePath("BubbleCluster/SaveButton"), NodePath("BubbleCluster/JoinGameButton"), NodePath("BubbleCluster/SettingsButton"), NodePath("BubbleCluster/ReturnToTitleButton"), NodePath("BubbleCluster/ResetProgressButton"), NodePath("BubbleCluster/QuitButton")])
-focus_paths = Array[NodePath]([NodePath("BubbleCluster/ResumeButton"), NodePath("BubbleCluster/SaveButton"), NodePath("BubbleCluster/JoinGameButton"), NodePath("BubbleCluster/SettingsButton"), NodePath("BubbleCluster/ReturnToTitleButton"), NodePath("BubbleCluster/ResetProgressButton"), NodePath("BubbleCluster/QuitButton")])
+bubble_paths = Array[NodePath]([NodePath("BubbleCluster/ResumeButton"), NodePath("BubbleCluster/SaveButton"), NodePath("BubbleCluster/JoinGameButton"), NodePath("BubbleCluster/ChatButton"), NodePath("BubbleCluster/SettingsButton"), NodePath("BubbleCluster/ReturnToTitleButton"), NodePath("BubbleCluster/ResetProgressButton"), NodePath("BubbleCluster/QuitButton")])
+focus_paths = Array[NodePath]([NodePath("BubbleCluster/ResumeButton"), NodePath("BubbleCluster/SaveButton"), NodePath("BubbleCluster/JoinGameButton"), NodePath("BubbleCluster/ChatButton"), NodePath("BubbleCluster/SettingsButton"), NodePath("BubbleCluster/ReturnToTitleButton"), NodePath("BubbleCluster/ResetProgressButton"), NodePath("BubbleCluster/QuitButton")])
 initial_focus_path = NodePath("BubbleCluster/ResumeButton")
 back_focus_path = NodePath("BubbleCluster/ResumeButton")
 maximum_layout_size = Vector2(720, 520)
@@ -134,6 +134,18 @@ compact_minimum_size = Vector2(112, 108)
 minimum_font_size = 16
 maximum_font_size = 23
 motion_phase = 2.05
+
+[node name="ChatButton" parent="ResponsivePauseStage/PausePresentationScaleRoot/RootPage/BubbleCluster" instance=ExtResource("5_bubble")]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 0)
+text = "chat"
+neutral_size = Vector2(112, 106)
+desktop_anchor = Vector2(620, 255)
+compact_anchor = Vector2(595, 270)
+compact_minimum_size = Vector2(92, 88)
+minimum_font_size = 15
+maximum_font_size = 20
+motion_phase = 2.3
 
 [node name="JoinGameButton" parent="ResponsivePauseStage/PausePresentationScaleRoot/RootPage/BubbleCluster" instance=ExtResource("5_bubble")]
 unique_name_in_owner = true

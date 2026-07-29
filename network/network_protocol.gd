@@ -3,14 +3,18 @@ extends RefCounted
 
 const PROTOCOL_VERSION: int = 2
 const GAME_BUILD: String = "prealpha"
-const MAX_DISPLAY_NAME_LENGTH: int = 48
+const MAX_DISPLAY_NAME_LENGTH: int = 24
 const MAX_PROFILE_ID_LENGTH: int = 96
 const MAX_NONCE_LENGTH: int = 96
 # ENet channels: 0 reliable lifecycle, 1 movement input, 2 movement
 # snapshots, 3 fishing input, 4 fishing snapshots, 5 reliable sales,
-# 6 reliable shop transactions.
+# 6 reliable shop transactions, 7 reliable item/equipment lifecycle,
+# 8 reliable ordered session chat.
 const SALE_RELIABLE_CHANNEL: int = 5
 const SHOP_RELIABLE_CHANNEL: int = 6
+const ITEM_RELIABLE_CHANNEL: int = 7
+const CHAT_RELIABLE_CHANNEL: int = 8
+const ENET_CHANNEL_COUNT: int = 9
 
 enum RejectionCode {
 	NONE,
@@ -109,6 +113,9 @@ static func make_server_hello(
 			"fishing_v1",
 			"sale_v1",
 			"shop_v1",
+			"item_use_v1",
+			"equipment_v1",
+			"chat_v1",
 		]),
 	}
 

@@ -16,6 +16,7 @@ signal peer_authenticated(peer_id: int, display_name: String)
 signal peer_removed(peer_id: int)
 signal host_openness_changed(is_open: bool)
 signal peer_count_changed(player_count: int, max_players: int)
+signal peer_display_name_changed(peer_id: int, display_name: String)
 signal join_authenticated
 signal server_lost
 signal remote_recovery_requested(peer_id: int, entry_position: Vector3)
@@ -275,8 +276,48 @@ func supports_server_capability(capability: StringName) -> bool:
 	if is_host():
 		return str(capability) in PackedStringArray([
 			"movement_v1", "fishing_v1", "sale_v1", "shop_v1",
+			"item_use_v1", "equipment_v1", "chat_v1",
 		])
 	return str(capability) in _server_capabilities
+
+
+func get_peer_record(peer_id: int) -> PeerRegistry.PeerRecord:
+	return _registry.get_peer(peer_id)
+
+
+func update_local_display_name(value: String) -> bool:
+	if _profile == null or not _profile.set_display_name(value):
+		return false
+	var peer_id := get_local_peer_id()
+	if is_host():
+		_apply_display_name(peer_id, _profile.display_name)
+		receive_display_name.rpc(peer_id, _profile.display_name)
+	elif is_joined_client() and supports_server_capability(&"chat_v1"):
+		submit_display_name.rpc_id(1, _profile.display_name)
+	return true
+
+
+@rpc("any_peer", "call_remote", "reliable", 0)
+func submit_display_name(value: String) -> void:
+	var sender_id := multiplayer.get_remote_sender_id()
+	if (
+		is_host()
+		and is_authenticated_peer(sender_id)
+		and NetworkProfilePreferences.is_valid_display_name(value)
+	):
+		_apply_display_name(sender_id, value.strip_edges())
+		receive_display_name.rpc(sender_id, value.strip_edges())
+
+
+@rpc("authority", "call_remote", "reliable", 0)
+func receive_display_name(peer_id: int, value: String) -> void:
+	if NetworkProfilePreferences.is_valid_display_name(value):
+		_apply_display_name(peer_id, value.strip_edges())
+
+
+func _apply_display_name(peer_id: int, value: String) -> void:
+	if _registry.update_display_name(peer_id, value):
+		peer_display_name_changed.emit(peer_id, value)
 
 
 func get_local_peer_id() -> int:
@@ -414,6 +455,12 @@ func submit_client_hello(data: Dictionary) -> void:
 		)
 		return
 	var display_name: String = data["display_name"]
+	if not NetworkProfilePreferences.is_valid_display_name(display_name):
+		_reject_peer(
+			sender_id,
+			NetworkProtocol.RejectionCode.MALFORMED_HANDSHAKE
+		)
+		return
 	if not _registry.add_peer(
 		sender_id,
 		profile_id,

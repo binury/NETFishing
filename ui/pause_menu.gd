@@ -28,6 +28,7 @@ signal reset_progress_requested
 signal quit_requested
 signal menu_visibility_changed(is_open: bool)
 signal join_game_requested(endpoint: String)
+signal chat_requested
 
 enum ConfirmationAction {
 	NONE,
@@ -87,6 +88,7 @@ func _ready() -> void:
 	_save_button.pressed.connect(_save_now)
 	%SettingsButton.pressed.connect(_open_settings)
 	%JoinGameButton.pressed.connect(_open_join_game)
+	%ChatButton.pressed.connect(_request_chat)
 	%ReturnToTitleButton.pressed.connect(_confirm_return_to_title)
 	%ResetProgressButton.pressed.connect(_confirm_reset_progress)
 	%QuitButton.pressed.connect(_request_quit)
@@ -103,6 +105,13 @@ func _ready() -> void:
 	_confirmation_page.hide_page()
 	resized.connect(_update_responsive_pause_stage)
 	call_deferred("_update_responsive_pause_stage")
+
+
+func _request_chat() -> void:
+	if not visible or _action_in_progress or _root_transition_active:
+		return
+	close_menu(CloseReason.USER_RETURN, true)
+	chat_requested.emit()
 
 
 func setup(

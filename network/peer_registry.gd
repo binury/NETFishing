@@ -42,6 +42,14 @@ func get_peer(peer_id: int) -> PeerRecord:
 	return _records.get(peer_id)
 
 
+func update_display_name(peer_id: int, display_name: String) -> bool:
+	var record: PeerRecord = _records.get(peer_id)
+	if record == null or display_name.is_empty():
+		return false
+	record.display_name = display_name
+	return true
+
+
 func has_peer(peer_id: int) -> bool:
 	return _records.has(peer_id)
 

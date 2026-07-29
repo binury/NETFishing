@@ -107,6 +107,7 @@ var _local_hotbar: PlayerHotbarType
 var _item_catalog: ItemCatalogType
 var _fishing_upgrades: PlayerFishingUpgradesType
 var _item_effects: PlayerItemEffectsType
+var _network_item_use: NetworkItemUseService
 var _cooler_capacity: PlayerCoolerCapacityType
 var _network_session: NetworkSessionType
 var _network_fishing: NetworkFishingServiceType
@@ -154,6 +155,7 @@ func setup(
 	item_catalog: ItemCatalogType,
 	fishing_upgrades: PlayerFishingUpgradesType,
 	item_effects: PlayerItemEffectsType,
+	network_item_use: NetworkItemUseService,
 	cooler_capacity: PlayerCoolerCapacityType,
 	network_session: NetworkSessionType = null,
 	network_fishing: NetworkFishingServiceType = null,
@@ -166,6 +168,11 @@ func setup(
 	_item_catalog = item_catalog
 	_fishing_upgrades = fishing_upgrades
 	_item_effects = item_effects
+	_network_item_use = network_item_use
+	if _network_item_use != null:
+		_network_item_use.local_item_use_finished.connect(
+			_on_network_item_use_finished
+		)
 	_cooler_capacity = cooler_capacity
 	_network_session = network_session
 	_network_fishing = network_fishing
@@ -416,10 +423,12 @@ func _unhandled_input(event: InputEvent) -> void:
 					active_item != null
 					and active_item.category == ItemDataType.Category.CONSUMABLE
 				):
-					if _item_effects.use_consumable(active_item, _local_bag):
-						status_changed.emit(
-							_item_effects.get_feedback(active_item.item_id)
-						)
+					if _network_item_use != null:
+						_network_item_use.request_use(active_item.item_id)
+					elif _item_effects.use_consumable(active_item, _local_bag):
+						status_changed.emit(_item_effects.get_feedback(
+							active_item.item_id
+						))
 					get_viewport().set_input_as_handled()
 					return
 				if not has_active_fishing_rod():
@@ -1112,11 +1121,7 @@ func build_network_context(
 func _build_network_evidence() -> Dictionary:
 	var rarity_multipliers: Array[float] = []
 	for rarity: int in range(FishDataType.Rarity.size()):
-		rarity_multipliers.append(
-			_item_effects.get_rarity_weight_multiplier(rarity)
-			if _item_effects != null
-			else 1.0
-		)
+		rarity_multipliers.append(1.0)
 	var discovered_ids: Array[String] = []
 	if _local_collection_log != null:
 		for fish_id: StringName in _local_collection_log.get_discovered_ids():
@@ -1124,17 +1129,28 @@ func _build_network_evidence() -> Dictionary:
 	var item: ItemDataType = _get_active_item()
 	return {
 		"rod_id": str(item.item_id) if item != null else "",
-		"reel_speed": _get_effective_reel_speed(),
-		"barrier_damage": _get_effective_barrier_damage(),
-		"bite_multiplier": (
-			_item_effects.get_bite_time_multiplier()
-			if _item_effects != null
-			else 1.0
+		"reel_speed": _active_player.reel_speed * (
+			_fishing_upgrades.get_reel_speed_multiplier()
+			if _fishing_upgrades != null else 1.0
 		),
+		"barrier_damage": (
+			_fishing_upgrades.get_barrier_damage()
+			if _fishing_upgrades != null else _active_player.click_power
+		),
+		"bite_multiplier": 1.0,
 		"rarity_multipliers": rarity_multipliers,
 		"discovered_fish_ids": discovered_ids,
 		"capacity_available": not _is_cooler_full(),
 	}
+
+
+func _on_network_item_use_finished(
+	accepted: bool,
+	message: String,
+) -> void:
+	status_changed.emit(message)
+	if accepted:
+		refresh_active_item_status()
 
 
 func _on_network_cast_accepted(

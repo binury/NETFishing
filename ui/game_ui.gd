@@ -31,6 +31,7 @@ const PlayerItemEffectsType = preload(
 const PlayerCoolerCapacityType = preload(
 	"res://progression/player_cooler_capacity.gd"
 )
+const ChatUIType = preload("res://ui/chat_ui.gd")
 
 signal pixelation_settings_visibility_changed(is_visible: bool)
 signal crisp_reset_focus_requested
@@ -53,6 +54,7 @@ signal interactive_pointer_ui_changed(is_open: bool)
 @onready var _fishing_shop: FishingShopType = %FishingShop
 @onready var _shop_prompt: PanelContainer = %ShopPrompt
 @onready var _effect_status: Label = %EffectStatus
+@onready var _chat_ui: ChatUIType = %ChatUI
 @onready var _title_settings_panel: SettingsPanelType = (
 	$UIRoot/TitleScreen/ResponsiveTitleStage/TitlePresentationScaleRoot/SettingsPanel
 )
@@ -70,6 +72,9 @@ var _item_effects: PlayerItemEffectsType
 
 
 func _ready() -> void:
+	_pause_menu.chat_requested.connect(
+		func() -> void: call_deferred("_open_chat_from_pause")
+	)
 	_title_settings_panel.panel_visibility_changed.connect(
 		_on_settings_visibility_changed
 	)
@@ -82,6 +87,10 @@ func _ready() -> void:
 	_pause_settings_panel.crisp_reset_focus_requested.connect(
 		crisp_reset_focus_requested.emit
 	)
+
+
+func _open_chat_from_pause() -> void:
+	_chat_ui.open_chat()
 
 
 func setup(
@@ -104,9 +113,22 @@ func setup(
 	network_session: NetworkSessionType,
 	network_sale_service: NetworkSaleService,
 	network_shop_service: NetworkShopService,
+	network_chat_service: NetworkChatService,
+	network_profile: NetworkProfilePreferences,
+	spawn_service: PlayerSpawnService,
 ) -> void:
 	_fishing_spot = fishing_spot
 	_item_effects = item_effects
+	_chat_ui.setup(
+		network_chat_service, network_session, spawn_service, player,
+		fishing_spot
+	)
+	_title_settings_panel.setup_network_profile(
+		network_profile, network_session
+	)
+	_pause_settings_panel.setup_network_profile(
+		network_profile, network_session
+	)
 	fishing_spot.status_changed.connect(_on_fishing_status_changed)
 	fishing_spot.catch_display_changed.connect(_on_catch_display_changed)
 	fishing_spot.showcase_changed.connect(_on_showcase_changed)
@@ -202,6 +224,7 @@ func get_pause_menu() -> PauseMenuType:
 
 func set_gameplay_ui_enabled(enabled: bool) -> void:
 	_gameplay_ui_enabled = enabled
+	_refresh_chat_availability()
 	if not enabled:
 		close_player_menu_for_session_end()
 		_fishing_shop.close_for_session_end()
@@ -217,6 +240,7 @@ func set_gameplay_ui_enabled(enabled: bool) -> void:
 
 func set_system_menu_open(is_open: bool) -> void:
 	_system_menu_open = is_open
+	_refresh_chat_availability()
 	_hotbar_ui.visible = (
 		_gameplay_ui_enabled and not is_open and not _shop_open
 	)
@@ -444,6 +468,7 @@ func _on_showcase_changed(
 
 func _on_player_menu_visibility_changed(is_open: bool) -> void:
 	_player_menu_open = is_open
+	_refresh_chat_availability()
 	_hotbar_ui.set_gameplay_input_enabled(
 		_gameplay_ui_enabled and not is_open
 	)
@@ -456,6 +481,7 @@ func _on_player_menu_visibility_changed(is_open: bool) -> void:
 
 func _on_shop_visibility_changed(is_open: bool) -> void:
 	_shop_open = is_open
+	_refresh_chat_availability()
 	_hotbar_ui.visible = (
 		_gameplay_ui_enabled and not is_open and not _system_menu_open
 	)
@@ -473,4 +499,15 @@ func _on_shop_visibility_changed(is_open: bool) -> void:
 func _emit_interactive_pointer_ui_changed() -> void:
 	interactive_pointer_ui_changed.emit(
 		_system_menu_open or _player_menu_open or _shop_open
+	)
+
+
+func _refresh_chat_availability() -> void:
+	if _chat_ui == null:
+		return
+	_chat_ui.set_available(
+		_gameplay_ui_enabled
+		and not _system_menu_open
+		and not _player_menu_open
+		and not _shop_open
 	)

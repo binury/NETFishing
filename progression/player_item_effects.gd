@@ -61,6 +61,28 @@ func use_consumable(
 	return true
 
 
+func activate_authoritative(item_id: StringName, duration: float) -> bool:
+	if not _remaining.has(item_id) or not is_finite(duration) or duration <= 0.0:
+		return false
+	_remaining[item_id] = duration
+	effects_changed.emit()
+	return true
+
+
+func restore_remaining(snapshot: Dictionary[StringName, float]) -> void:
+	for item_id: StringName in _remaining:
+		_remaining[item_id] = maxf(snapshot.get(item_id, 0.0), 0.0)
+	effects_changed.emit()
+
+
+func get_remaining_snapshot() -> Dictionary[StringName, float]:
+	return _remaining.duplicate()
+
+
+func get_effect_duration(item_id: StringName) -> float:
+	return _get_duration(item_id)
+
+
 func reset_all() -> void:
 	var changed: bool = false
 	for item_id: StringName in _remaining:

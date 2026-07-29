@@ -34,6 +34,29 @@ func load_or_create() -> bool:
 	return _save_atomic()
 
 
+func set_display_name(value: String) -> bool:
+	var clean_name: String = value.strip_edges()
+	if not is_valid_display_name(clean_name):
+		return false
+	var previous: String = display_name
+	display_name = clean_name
+	if _save_atomic():
+		return true
+	display_name = previous
+	return false
+
+
+static func is_valid_display_name(value: String) -> bool:
+	var clean_name := value.strip_edges()
+	if clean_name.is_empty() or clean_name.length() > 24:
+		return false
+	for index: int in clean_name.length():
+		var codepoint: int = clean_name.unicode_at(index)
+		if codepoint < 32 or codepoint == 127:
+			return false
+	return true
+
+
 func _load_existing() -> bool:
 	var file := FileAccess.open(PROFILE_PATH, FileAccess.READ)
 	if file == null:

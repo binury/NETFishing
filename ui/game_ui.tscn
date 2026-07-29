@@ -1,4 +1,4 @@
-[gd_scene load_steps=13 format=3]
+[gd_scene load_steps=14 format=3]
 
 [ext_resource type="Script" path="res://ui/game_ui.gd" id="1_ui"]
 [ext_resource type="PackedScene" path="res://ui/player_menu.tscn" id="2_menu"]
@@ -8,6 +8,7 @@
 [ext_resource type="PackedScene" path="res://ui/pause_menu.tscn" id="6_pause"]
 [ext_resource type="PackedScene" path="res://ui/hotbar.tscn" id="7_hotbar"]
 [ext_resource type="PackedScene" path="res://ui/fishing_shop.tscn" id="8_shop"]
+[ext_resource type="Script" path="res://ui/chat_ui.gd" id="9_chat"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBox_chase_background"]
 bg_color = Color(0.055, 0.105, 0.125, 1)
@@ -184,6 +185,17 @@ theme = ExtResource("3_theme")
 theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.9)
 theme_override_constants/shadow_offset_x = 2
 theme_override_constants/shadow_offset_y = 2
+
+[node name="ChatUI" type="Control" parent="UIRoot"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("9_chat")
 
 [node name="ScreenFade" type="ColorRect" parent="UIRoot"]
 unique_name_in_owner = true

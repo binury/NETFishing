@@ -11,7 +11,9 @@ func start_host(
 	var enet_peer := ENetMultiplayerPeer.new()
 	if not bind_address.is_empty() and bind_address != "*":
 		enet_peer.set_bind_ip(bind_address)
-	var error: Error = enet_peer.create_server(port, max_clients, 5)
+	var error: Error = enet_peer.create_server(
+		port, max_clients, NetworkProtocol.ENET_CHANNEL_COUNT
+	)
 	if error != OK:
 		transport_error.emit("Unable to host UDP port %d." % port)
 		return error
@@ -27,7 +29,9 @@ func connect_to_route(route: ConnectionRoute) -> Error:
 		return ERR_INVALID_PARAMETER
 	var endpoint: ConnectionEndpoint = route.direct_endpoint
 	var enet_peer := ENetMultiplayerPeer.new()
-	var error: Error = enet_peer.create_client(endpoint.host, endpoint.port, 5)
+	var error: Error = enet_peer.create_client(
+		endpoint.host, endpoint.port, NetworkProtocol.ENET_CHANNEL_COUNT
+	)
 	if error != OK:
 		transport_error.emit(
 			"Unable to connect to %s." % endpoint.normalized_display

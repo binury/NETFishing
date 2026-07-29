@@ -536,6 +536,10 @@ func get_body_center_height() -> float:
 	return body_center_height
 
 
+func get_gameplay_camera() -> Camera3D:
+	return _camera
+
+
 func get_fishing_rod_tip() -> Marker3D:
 	return _fishing_rod_tip
 

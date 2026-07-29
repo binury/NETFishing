@@ -32,6 +32,7 @@ var _local_capacity: PlayerCoolerCapacity
 var _save_manager: PlayerSaveManager
 var _item_catalog: ItemCatalog
 var _fish_catalog: FishPoolType
+var _item_use: NetworkItemUseService
 var _attempts: Dictionary[int, NetworkFishingAttempt] = {}
 var _request_ledgers: Dictionary[int, Dictionary] = {}
 var _result_ledgers: Dictionary[String, bool] = {}
@@ -53,6 +54,7 @@ func setup(
 	save_manager: PlayerSaveManager,
 	item_catalog: ItemCatalog,
 	fish_catalog: FishPoolType,
+	item_use: NetworkItemUseService,
 ) -> void:
 	_session = session
 	_spawn_service = spawn_service
@@ -63,6 +65,7 @@ func setup(
 	_save_manager = save_manager
 	_item_catalog = item_catalog
 	_fish_catalog = fish_catalog
+	_item_use = item_use
 	if not _session.peer_removed.is_connected(_on_peer_removed):
 		_session.peer_removed.connect(_on_peer_removed)
 	if not _session.state_changed.is_connected(_on_session_state_changed):
@@ -259,8 +262,12 @@ func _handle_cast_request(peer_id: int, data: Dictionary) -> void:
 	if region == null or region.fish_pool == null:
 		_record_and_reject(peer_id, request_id, "Cannot fish here.")
 		return
+	var effects: PlayerItemEffects = (
+		_item_use.get_effects_for_peer(peer_id)
+		if _item_use != null else null
+	)
 	var selected_fish: FishDataType = _select_authoritative_fish(
-		region, data
+		region, data, effects
 	)
 	if selected_fish == null:
 		_record_and_reject(peer_id, request_id, "Nothing is biting here.")
@@ -275,10 +282,14 @@ func _handle_cast_request(peer_id: int, data: Dictionary) -> void:
 	attempt.target = target
 	attempt.bobber_position = target
 	attempt.fish_id = selected_fish.id
-	attempt.reel_speed = float(data["reel_speed"])
-	attempt.barrier_damage = int(data["barrier_damage"])
+	attempt.reel_speed = float(data["reel_speed"]) * (
+		effects.get_reel_multiplier() if effects != null else 1.0
+	)
+	attempt.barrier_damage = int(data["barrier_damage"]) + (
+		effects.get_barrier_bonus() if effects != null else 0
+	)
 	attempt.bite_time_remaining = _fishing_spot.wait_time * float(
-		data["bite_multiplier"]
+		effects.get_bite_time_multiplier() if effects != null else 1.0
 	)
 	attempt.controller = CatchController.new()
 	add_child(attempt.controller)
@@ -359,6 +370,7 @@ func _make_waiting_snapshot(
 func _select_authoritative_fish(
 	region: FishableWaterRegion,
 	data: Dictionary,
+	effects: PlayerItemEffects,
 ) -> FishDataType:
 	var evidence_log := CollectionLogType.new()
 	for value: Variant in data["discovered_fish_ids"]:
@@ -370,8 +382,11 @@ func _select_authoritative_fish(
 	selector.undiscovered_weight_multiplier = (
 		_fishing_spot.undiscovered_weight_multiplier
 	)
-	for value: Variant in data["rarity_multipliers"]:
-		selector.rarity_weight_multipliers.append(float(value))
+	for rarity: int in range(FishDataType.Rarity.size()):
+		selector.rarity_weight_multipliers.append(
+			effects.get_rarity_weight_multiplier(rarity)
+			if effects != null else 1.0
+		)
 	selector.begin_roll()
 	var context: FishingContextType = _fishing_spot.build_network_context(region)
 	return selector.select_fish(region.fish_pool, context, evidence_log)
