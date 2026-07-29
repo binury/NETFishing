@@ -226,7 +226,7 @@ func can_open_system_menu() -> bool:
 
 func can_open_fishing_shop() -> bool:
 	return (
-		_can_use_shared_gameplay()
+		_can_use_shop_gameplay()
 		and
 		_gameplay_input_enabled
 		and not _external_input_blocked
@@ -237,7 +237,7 @@ func can_open_fishing_shop() -> bool:
 
 func is_ready_for_shop_transaction() -> bool:
 	return (
-		_can_use_shared_gameplay()
+		_can_use_shop_gameplay()
 		and
 		_gameplay_input_enabled
 		and not _external_input_blocked
@@ -500,6 +500,17 @@ func _begin_aiming(player: PlayerType) -> void:
 
 func _can_use_shared_gameplay() -> bool:
 	return _network_session == null or _network_session.can_use_host_gameplay()
+
+
+func _can_use_shop_gameplay() -> bool:
+	return (
+		_network_session == null
+		or _network_session.is_host()
+		or (
+			_network_session.is_joined_client()
+			and _network_session.supports_server_capability(&"shop_v1")
+		)
+	)
 
 
 func has_active_fishing_rod() -> bool:

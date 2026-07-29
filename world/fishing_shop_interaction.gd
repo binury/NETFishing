@@ -21,6 +21,14 @@ func is_local_player_in_range() -> bool:
 	return _local_player_in_range
 
 
+func is_avatar_in_range(avatar: Player) -> bool:
+	return (
+		avatar != null
+		and is_instance_valid(avatar)
+		and avatar in get_overlapping_bodies()
+	)
+
+
 func _refresh_overlaps() -> void:
 	var is_overlapping: bool = (
 		_local_player != null

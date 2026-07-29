@@ -7,8 +7,10 @@ const MAX_DISPLAY_NAME_LENGTH: int = 48
 const MAX_PROFILE_ID_LENGTH: int = 96
 const MAX_NONCE_LENGTH: int = 96
 # ENet channels: 0 reliable lifecycle, 1 movement input, 2 movement
-# snapshots, 3 fishing input, 4 fishing snapshots, 5 reliable sales.
+# snapshots, 3 fishing input, 4 fishing snapshots, 5 reliable sales,
+# 6 reliable shop transactions.
 const SALE_RELIABLE_CHANNEL: int = 5
+const SHOP_RELIABLE_CHANNEL: int = 6
 
 enum RejectionCode {
 	NONE,
@@ -106,6 +108,7 @@ static func make_server_hello(
 			"movement_v1",
 			"fishing_v1",
 			"sale_v1",
+			"shop_v1",
 		]),
 	}
 

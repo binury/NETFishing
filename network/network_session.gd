@@ -274,7 +274,7 @@ func get_operation_generation() -> int:
 func supports_server_capability(capability: StringName) -> bool:
 	if is_host():
 		return str(capability) in PackedStringArray([
-			"movement_v1", "fishing_v1", "sale_v1",
+			"movement_v1", "fishing_v1", "sale_v1", "shop_v1",
 		])
 	return str(capability) in _server_capabilities
 

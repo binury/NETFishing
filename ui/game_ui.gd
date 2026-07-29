@@ -103,6 +103,7 @@ func setup(
 	cooler_capacity: PlayerCoolerCapacityType,
 	network_session: NetworkSessionType,
 	network_sale_service: NetworkSaleService,
+	network_shop_service: NetworkShopService,
 ) -> void:
 	_fishing_spot = fishing_spot
 	_item_effects = item_effects
@@ -140,7 +141,9 @@ func setup(
 		shop_interaction,
 		bag,
 		item_catalog,
-		cooler_capacity
+		cooler_capacity,
+		network_session,
+		network_shop_service
 	)
 	_fishing_shop.menu_visibility_changed.connect(_on_shop_visibility_changed)
 

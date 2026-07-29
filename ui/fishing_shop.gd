@@ -77,6 +77,8 @@ var _interaction: ShopInteractionType
 var _bag: PlayerBagType
 var _item_catalog: ItemCatalogType
 var _cooler_capacity: PlayerCoolerCapacityType
+var _network_session: NetworkSession
+var _network_shop: NetworkShopService
 var _fish_selection := FishBatchSelectionType.new()
 var _confirmation_catch_ids: Array[StringName] = []
 var _confirmation_generation: int = -1
@@ -115,6 +117,8 @@ func setup(
 	bag: PlayerBagType,
 	item_catalog: ItemCatalogType,
 	cooler_capacity: PlayerCoolerCapacityType,
+	network_session: NetworkSession,
+	network_shop: NetworkShopService,
 ) -> void:
 	_player = player
 	_inventory = inventory
@@ -127,6 +131,20 @@ func setup(
 	_bag = bag
 	_item_catalog = item_catalog
 	_cooler_capacity = cooler_capacity
+	_network_session = network_session
+	_network_shop = network_shop
+	if (
+		_network_shop != null
+		and not _network_shop.local_purchase_pending.is_connected(
+			_on_network_purchase_pending
+		)
+	):
+		_network_shop.local_purchase_pending.connect(
+			_on_network_purchase_pending
+		)
+		_network_shop.local_purchase_finished.connect(
+			_on_network_purchase_finished
+		)
 	_fish_selection.clear()
 	if not _inventory.catches_changed.is_connected(_on_inventory_changed):
 		_inventory.catches_changed.connect(_on_inventory_changed)
@@ -158,7 +176,10 @@ func open_shop() -> bool:
 		return false
 	_generation += 1
 	_closing = false
-	_transaction_in_progress = false
+	_transaction_in_progress = (
+		_network_shop != null
+		and _network_shop.is_local_purchase_pending()
+	)
 	_prior_movement_enabled = _player.is_movement_enabled()
 	_prior_camera_enabled = _player.is_camera_input_enabled()
 	_prior_mouse_mode = Input.mouse_mode
@@ -353,6 +374,17 @@ func _update_sale_summary() -> void:
 		_selection_summary.text = "no fish selected"
 		_sell_button.disabled = true
 		return
+	if _network_session != null and _network_session.is_joined_client():
+		_selection_summary.text = (
+			"1 fish selected"
+			if selected_count == 1
+			else "%d fish selected" % selected_count
+		)
+		_selection_summary.text += (
+			"\nSell catches to the nearby pelicans."
+		)
+		_sell_button.disabled = true
+		return
 	var preview: FishSaleResultType = (
 		_sale_service.preview_batch(selected_ids, _buyer)
 		if _sale_service != null
@@ -543,6 +575,9 @@ func _on_fish_clicked(
 
 
 func _open_sale_confirmation() -> void:
+	if _network_session != null and _network_session.is_joined_client():
+		_feedback.text = "Sell catches to the nearby pelicans."
+		return
 	var selected_ids: Array[StringName] = _fish_selection.get_selected_ids()
 	if not _is_transaction_context_valid() or selected_ids.is_empty():
 		_feedback.text = "the fish selection is no longer available."
@@ -577,7 +612,13 @@ func _close_sale_confirmation() -> void:
 
 
 func _on_confirm_sale() -> void:
-	if _transaction_in_progress:
+	if (
+		_transaction_in_progress
+		or (
+			_network_session != null
+			and _network_session.is_joined_client()
+		)
+	):
 		return
 	var transaction_generation: int = _generation
 	var catch_ids: Array[StringName] = _confirmation_catch_ids.duplicate()
@@ -630,28 +671,16 @@ func _purchase_supply(item_id: StringName) -> void:
 	if _transaction_in_progress or not _is_transaction_context_valid():
 		_feedback.text = "unable to complete purchase."
 		return
-	var price: int = FishingShopStockType.get_price(item_id)
 	if not _bag.can_add_item(item_id, 1):
-		_feedback.text = "bag cannot accept this item."
+		_feedback.text = "Your Bag is full."
 		return
-	if not _wallet.can_afford(price):
-		_feedback.text = "not enough money."
+	if not _wallet.can_afford(FishingShopStockType.get_price(item_id)):
+		_feedback.text = "Not enough fish coin."
 		return
-	var transaction_generation: int = _generation
-	_transaction_in_progress = true
-	var purchased: bool = FishingShopStockType.purchase_one(
-		item_id,
-		_wallet,
-		_bag,
-		_item_catalog
-	)
-	_transaction_in_progress = false
-	if transaction_generation != _generation or not visible:
+	if _network_shop == null:
+		_feedback.text = "Purchase could not be completed."
 		return
-	_feedback.text = (
-		"item purchased." if purchased else "unable to complete purchase."
-	)
-	_refresh_all()
+	_network_shop.request_supply(item_id)
 
 
 func _purchase_cooler_capacity() -> void:
@@ -660,23 +689,15 @@ func _purchase_cooler_capacity() -> void:
 		return
 	var cost: int = _cooler_capacity.get_next_cost()
 	if cost < 0:
-		_feedback.text = "maximum level reached."
+		_feedback.text = "Upgrade is already at maximum."
 		return
 	if not _wallet.can_afford(cost):
-		_feedback.text = "not enough money."
+		_feedback.text = "Not enough fish coin."
 		return
-	var transaction_generation: int = _generation
-	_transaction_in_progress = true
-	var purchased: bool = _cooler_capacity.purchase(_wallet)
-	_transaction_in_progress = false
-	if transaction_generation != _generation or not visible:
+	if _network_shop == null:
+		_feedback.text = "Purchase could not be completed."
 		return
-	_feedback.text = (
-		"upgrade purchased."
-		if purchased
-		else "unable to complete purchase."
-	)
-	_refresh_all()
+	_network_shop.request_cooler_capacity_upgrade()
 
 
 func _purchase_upgrade(is_reel_speed: bool) -> void:
@@ -689,25 +710,43 @@ func _purchase_upgrade(is_reel_speed: bool) -> void:
 		else _upgrades.get_next_barrier_power_cost()
 	)
 	if cost < 0:
-		_feedback.text = "maximum level reached."
+		_feedback.text = "Upgrade is already at maximum."
 		return
 	if not _wallet.can_afford(cost):
-		_feedback.text = "not enough money."
+		_feedback.text = "Not enough fish coin."
 		return
-	var transaction_generation: int = _generation
+	if _network_shop == null:
+		_feedback.text = "Purchase could not be completed."
+		return
+	if is_reel_speed:
+		_network_shop.request_reel_speed_upgrade()
+	else:
+		_network_shop.request_barrier_power_upgrade()
+
+
+func _on_network_purchase_pending(_request_id: String) -> void:
 	_transaction_in_progress = true
-	var purchased: bool = (
-		_upgrades.purchase_reel_speed(_wallet)
-		if is_reel_speed
-		else _upgrades.purchase_barrier_power(_wallet)
-	)
+	if visible:
+		_feedback.text = "Purchasing…"
+		_refresh_all()
+
+
+func _on_network_purchase_finished(
+	_request_id: String,
+	accepted: bool,
+	message: String,
+	_product_id: StringName,
+	_category: int,
+	_quantity: int,
+	total_cost: int,
+) -> void:
 	_transaction_in_progress = false
-	if transaction_generation != _generation or not visible:
+	if not visible:
 		return
 	_feedback.text = (
-		"upgrade purchased."
-		if purchased
-		else "unable to complete purchase."
+		"Purchase complete. $%d spent." % total_cost
+		if accepted
+		else message
 	)
 	_refresh_all()
 
