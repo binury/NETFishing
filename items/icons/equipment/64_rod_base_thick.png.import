@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://c6krnuo5lp861"
-path="res://.godot/imported/basic_fishing_rod.svg-bc9101c1a69623deb55f1b3189ae4567.ctex"
+uid="uid://02t4tyyt0vwi"
+path="res://.godot/imported/64_rod_base_thick.png-60188964cb71ab30683aa983d1300765.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://items/icons/placeholder/basic_fishing_rod.svg"
-dest_files=["res://.godot/imported/basic_fishing_rod.svg-bc9101c1a69623deb55f1b3189ae4567.ctex"]
+source_file="res://items/icons/equipment/64_rod_base_thick.png"
+dest_files=["res://.godot/imported/64_rod_base_thick.png-60188964cb71ab30683aa983d1300765.ctex"]
 
 [params]
 
@@ -38,6 +38,3 @@ process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
 process/size_limit=0
 detect_3d/compress_to=1
-svg/scale=1.0
-editor/scale_with_editor_scale=false
-editor/convert_colors_with_editor_theme=false
