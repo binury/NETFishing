@@ -36,7 +36,6 @@ const DEFORMATION_Y_AMPLITUDE: float = 0.007
 @export var profile: BubbleMenuProfile
 
 @onready var _item_icon: TextureRect = %ItemIcon
-@onready var _slot_number_label: Label = %SlotNumberLabel
 @onready var _quantity_label: Label = %QuantityLabel
 
 var _hotbar: PlayerHotbarType
@@ -62,7 +61,6 @@ func _ready() -> void:
 	mouse_entered.connect(_on_mouse_entered)
 	mouse_exited.connect(_on_mouse_exited)
 	resized.connect(_update_pivot)
-	_slot_number_label.text = str(slot_index + 1)
 	_update_pivot()
 	_apply_style()
 
@@ -75,7 +73,6 @@ func setup(
 	_hotbar = hotbar
 	_bag = bag
 	_catalog = catalog
-	_slot_number_label.text = str(slot_index + 1)
 	refresh()
 
 
@@ -182,18 +179,12 @@ func _update_content_layout() -> void:
 	if _compact:
 		_item_icon.position = Vector2(11.0, 11.0)
 		_item_icon.size = Vector2(34.0, 34.0)
-		_slot_number_label.position = Vector2(6.0, 2.0)
-		_slot_number_label.size = Vector2(18.0, 18.0)
-		_slot_number_label.add_theme_font_size_override("font_size", 10)
 		_quantity_label.position = Vector2(25.0, 35.0)
 		_quantity_label.size = Vector2(25.0, 17.0)
 		_quantity_label.add_theme_font_size_override("font_size", 10)
 	else:
 		_item_icon.position = Vector2(17.0, 16.0)
 		_item_icon.size = Vector2(46.0, 46.0)
-		_slot_number_label.position = Vector2(8.0, 3.0)
-		_slot_number_label.size = Vector2(22.0, 20.0)
-		_slot_number_label.add_theme_font_size_override("font_size", 12)
 		_quantity_label.position = Vector2(39.0, 54.0)
 		_quantity_label.size = Vector2(32.0, 20.0)
 		_quantity_label.add_theme_font_size_override("font_size", 12)

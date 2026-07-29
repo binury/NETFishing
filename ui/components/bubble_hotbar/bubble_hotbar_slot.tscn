@@ -24,22 +24,6 @@ texture_filter = 1
 expand_mode = 1
 stretch_mode = 5
 
-[node name="SlotNumberLabel" type="Label" parent="."]
-unique_name_in_owner = true
-layout_mode = 0
-offset_left = 8.0
-offset_top = 3.0
-offset_right = 30.0
-offset_bottom = 23.0
-mouse_filter = 2
-theme_override_colors/font_color = Color(0.035, 0.145, 0.22, 1)
-theme_override_colors/font_outline_color = Color(0.91, 0.98, 1, 0.8)
-theme_override_constants/outline_size = 1
-theme_override_font_sizes/font_size = 12
-text = "1"
-horizontal_alignment = 1
-vertical_alignment = 1
-
 [node name="QuantityLabel" type="Label" parent="."]
 unique_name_in_owner = true
 visible = false
