@@ -1,12 +1,11 @@
 class_name PixelationResetOverlay
 extends CanvasLayer
 
-const DISPLAY_REFERENCE_SIZE: Vector2 = Vector2(1280.0, 720.0)
-const MINIMUM_PRESENTATION_SCALE: float = 0.90
-const MAXIMUM_PRESENTATION_SCALE: float = 1.35
-const LARGE_DISPLAY_GROWTH: float = 0.45
 const SCREEN_MARGIN: float = 16.0
 const FADE_DURATION: float = 0.55
+const UIReferencePresentationType = preload(
+	"res://ui/ui_reference_presentation.gd"
+)
 
 signal reset_requested
 signal return_to_settings_requested
@@ -77,27 +76,17 @@ func _update_responsive_layout() -> void:
 	var display_size: Vector2 = Vector2(get_window().size)
 	if display_size.x <= 1.0 or display_size.y <= 1.0:
 		return
-	var responsive_scale: float = minf(
-		display_size.x / DISPLAY_REFERENCE_SIZE.x,
-		display_size.y / DISPLAY_REFERENCE_SIZE.y
+	var presentation_scale: float = (
+		UIReferencePresentationType.get_scale(display_size)
 	)
-	var presentation_scale: float
-	if responsive_scale < 1.0:
-		presentation_scale = lerpf(
-			MINIMUM_PRESENTATION_SCALE,
-			1.0,
-			clampf((responsive_scale - 0.5) / 0.5, 0.0, 1.0)
-		)
-	else:
-		presentation_scale = minf(
-			MAXIMUM_PRESENTATION_SCALE,
-			1.0 + (responsive_scale - 1.0) * LARGE_DISPLAY_GROWTH
-		)
 	_presentation_root.scale = Vector2.ONE * presentation_scale
 	_presentation_root.position = (
-		display_size
-		- _presentation_root.size * presentation_scale
-		- Vector2.ONE * SCREEN_MARGIN
+		UIReferencePresentationType.get_offset(display_size)
+		+ (
+			UIReferencePresentationType.REFERENCE_SIZE
+			- _presentation_root.size
+			- Vector2.ONE * SCREEN_MARGIN
+		) * presentation_scale
 	)
 
 

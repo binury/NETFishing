@@ -3,9 +3,14 @@ extends Button
 
 @export var ink_color := Color(0.19, 0.16, 0.12, 1.0)
 @export var disabled_ink_color := Color(0.31, 0.28, 0.23, 0.46)
+@export var allow_persistent_mark: bool = false:
+	set(value):
+		allow_persistent_mark = value
+		if not allow_persistent_mark:
+			persistent_mark = false
 @export var persistent_mark: bool = false:
 	set(value):
-		persistent_mark = value
+		persistent_mark = value and allow_persistent_mark
 		_refresh_ink()
 
 @onready var _ink_outline: NotepadInkOutline = %InkOutline
@@ -22,6 +27,7 @@ func _ready() -> void:
 	focus_exited.connect(_set_focused.bind(false))
 	button_down.connect(_set_pressed.bind(true))
 	button_up.connect(_set_pressed.bind(false))
+	gui_input.connect(_on_gui_input)
 	_apply_paper_style()
 	_refresh_ink()
 
@@ -43,6 +49,22 @@ func _set_focused(value: bool) -> void:
 
 func _set_pressed(value: bool) -> void:
 	_pressed = value
+	_refresh_ink()
+
+
+func _on_gui_input(event: InputEvent) -> void:
+	if (
+		event is InputEventMouseButton
+		and event.button_index == MOUSE_BUTTON_LEFT
+		and not event.pressed
+	):
+		call_deferred("_finish_mouse_activation")
+
+
+func _finish_mouse_activation() -> void:
+	_pressed = false
+	if has_focus():
+		release_focus()
 	_refresh_ink()
 
 

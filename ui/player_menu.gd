@@ -70,6 +70,9 @@ const TRANSITION_SAFE_MARGIN: float = 28.0
 const DESKTOP_REFERENCE_SIZE := Vector2(1280.0, 720.0)
 const COMPACT_REFERENCE_SIZE := Vector2(640.0, 480.0)
 const COMPACT_HEIGHT_THRESHOLD: float = 560.0
+const NAVIGATION_PRESENTATION_SCALE: float = 0.60
+const NAVIGATION_CANONICAL_POSITION := Vector2(463.0, 44.0)
+const NAVIGATION_SELECTED_SCALE: float = 1.02
 const COOLER_RARITY_COMMON := Color("e8eef0")
 const COOLER_RARITY_UNCOMMON := Color("64c87c")
 const COOLER_RARITY_RARE := Color("6098dd")
@@ -104,6 +107,7 @@ enum CloseReason {
 @onready var _cooler_page: Control = %CoolerPage
 @onready var _cooler_outer_wall: PanelContainer = %CoolerOuterWall
 @onready var _cooler_inner_liner: PanelContainer = %CoolerInnerLiner
+@onready var _cooler_water_surface: ColorRect = %WaterSurface
 @onready var _fish_field: Control = %FishField
 @onready var _cooler_empty: Label = %CoolerEmpty
 @onready var _cooler_sort_controls: HBoxContainer = %CoolerSortControls
@@ -114,12 +118,25 @@ enum CloseReason {
 @onready var _notepad_binding: Label = %BindingDecoration
 @onready var _notepad_title: Label = %NotepadTitle
 @onready var _notepad_rule: ColorRect = %NotepadRule
-@onready var _notepad_wallet: Label = %NotepadWallet
-@onready var _notepad_capacity: Label = %NotepadCapacity
+@onready var _notepad_wallet_value: Label = %NotepadWalletValue
+@onready var _notepad_capacity_value: Label = %NotepadCapacityValue
 @onready var _cooler_detail_texture: TextureRect = %CoolerDetailTexture
 @onready var _cooler_detail_name: Label = %CoolerDetailName
-@onready var _cooler_detail_data: Label = %CoolerDetailData
-@onready var _cooler_selection_summary: Label = %CoolerSelectionSummary
+@onready var _cooler_detail_stats: Control = %CoolerDetailStats
+@onready var _cooler_weight_row: HBoxContainer = %CoolerWeightRow
+@onready var _cooler_weight_value: Label = %CoolerWeightValue
+@onready var _cooler_weight_unit: Label = %CoolerWeightUnit
+@onready var _cooler_offer_row: HBoxContainer = %CoolerOfferRow
+@onready var _cooler_offer_label: Label = %CoolerOfferLabel
+@onready var _cooler_offer_value: Label = %CoolerOfferValue
+@onready var _cooler_selection_summary: Control = %CoolerSelectionSummary
+@onready var _cooler_selection_empty: Label = %CoolerSelectionEmpty
+@onready var _cooler_selected_count_row: HBoxContainer = %CoolerSelectedCountRow
+@onready var _cooler_selected_count_value: Label = %CoolerSelectedCountValue
+@onready var _cooler_selected_count_label: Label = %CoolerSelectedCountLabel
+@onready var _cooler_combined_offer_row: HBoxContainer = %CoolerCombinedOfferRow
+@onready var _cooler_combined_offer_label: Label = %CoolerCombinedOfferLabel
+@onready var _cooler_combined_offer_value: Label = %CoolerCombinedOfferValue
 @onready var _favorite_bubble: NotepadInkActionType = %FavoriteBubble
 @onready var _sell_bubble: NotepadInkActionType = %SellBubble
 @onready var _bag_page: Control = %BagPage
@@ -270,9 +287,7 @@ func _ready() -> void:
 	_close_button.pressed.connect(close_menu)
 	_sort_option.item_selected.connect(_on_sort_selected.bind(_sort_option))
 	_sort_direction.pressed.connect(_on_sort_direction_pressed)
-	_cooler_sort_option.item_selected.connect(
-		_on_sort_selected.bind(_cooler_sort_option)
-	)
+	_cooler_sort_option.item_selected.connect(_on_cooler_sort_selected)
 	_cooler_sort_direction.pressed.connect(_on_sort_direction_pressed)
 	_favorite_button.pressed.connect(_on_favorite_pressed)
 	_sell_button.pressed.connect(_on_sell_pressed)
@@ -301,6 +316,7 @@ func _ready() -> void:
 	_apply_cooler_control_styles()
 	_apply_cooler_wall_styles()
 	_apply_cooler_notepad_style()
+	_cooler_water_surface.resized.connect(_update_cooler_water_mask)
 	_fish_field.gui_input.connect(_on_fish_field_gui_input)
 	_apply_bag_styles()
 	_bag_item_field.gui_input.connect(_on_bag_field_gui_input)
@@ -310,7 +326,18 @@ func _ready() -> void:
 	resized.connect(_update_shell_layout)
 	_show_section_immediate(_current_section)
 	call_deferred("_update_shell_layout")
+	call_deferred("_update_cooler_water_mask")
 	set_process(false)
+
+
+func _update_cooler_water_mask() -> void:
+	var shader_material := _cooler_water_surface.material as ShaderMaterial
+	if shader_material == null:
+		return
+	shader_material.set_shader_parameter(
+		"rendered_size",
+		_cooler_water_surface.size,
+	)
 
 
 func setup(
@@ -754,8 +781,7 @@ func _apply_navigation_selection_presentation() -> void:
 	]:
 		if not bubble.button_pressed:
 			continue
-		bubble.position.y -= 2.0
-		bubble.scale *= 1.025
+		bubble.scale *= NAVIGATION_SELECTED_SCALE
 
 
 func _apply_bag_styles() -> void:
@@ -860,33 +886,23 @@ func _update_shell_layout() -> void:
 	if not is_node_ready():
 		return
 	_cancel_logbook_page_transition(true)
-	var display_size := Vector2(maxf(size.x, 1.0), maxf(size.y, 1.0))
-	var compact: bool = display_size.y < COMPACT_HEIGHT_THRESHOLD
+	var compact: bool = false
 	_compact_layout = compact
-	var reference_size := (
-		COMPACT_REFERENCE_SIZE if compact else DESKTOP_REFERENCE_SIZE
-	)
-	var presentation_scale: float = minf(
-		display_size.x / reference_size.x,
-		display_size.y / reference_size.y,
-	)
-	presentation_scale = clampf(presentation_scale, 0.85, 3.0)
+	var reference_size := DESKTOP_REFERENCE_SIZE
 	_presentation_scale_root.size = reference_size
-	_presentation_scale_root.scale = Vector2.ONE * presentation_scale
-	_presentation_scale_root.position = (
-		display_size - reference_size * presentation_scale
-	) * 0.5
+	_presentation_scale_root.scale = Vector2.ONE
+	_presentation_scale_root.position = Vector2.ZERO
 	_content_shell.position = Vector2(14.0, 92.0) if compact else Vector2(42.0, 104.0)
 	_content_shell.size = Vector2(612.0, 286.0) if compact else Vector2(1196.0, 478.0)
 	_presentation_rest_position = _content_shell.position
 	var navigation_size := (
 		Vector2(620.0, 75.0) if compact else Vector2(620.0, 100.0)
 	)
-	_navigation_cluster.position = Vector2(
-		(reference_size.x - navigation_size.x) * 0.5,
-		4.0 if compact else 8.0
-	)
+	_navigation_cluster.position = NAVIGATION_CANONICAL_POSITION
 	_navigation_cluster.size = navigation_size
+	_navigation_cluster.scale = (
+		Vector2.ONE * NAVIGATION_PRESENTATION_SCALE
+	)
 	_navigation_cluster.apply_layout(navigation_size, compact)
 	_cooler_page.size = reference_size
 	_cooler_page.position = Vector2.ZERO
@@ -907,13 +923,13 @@ func _update_shell_layout() -> void:
 	_notepad_binding.position = Vector2(44.0, 1.0) if compact else Vector2(28.0, 4.0)
 	_notepad_binding.size = Vector2(218.0, 20.0) if compact else Vector2(232.0, 27.0)
 	_notepad_binding.add_theme_font_size_override("font_size", 13 if compact else 20)
-	_notepad_title.position = Vector2(10.0, 16.0) if compact else Vector2(20.0, 31.0)
+	_notepad_title.position = Vector2(10.0, 14.0) if compact else Vector2(20.0, 31.0)
 	_notepad_title.size = Vector2(286.0, 18.0) if compact else Vector2(248.0, 28.0)
-	_notepad_title.add_theme_font_size_override("font_size", 12 if compact else 19)
-	_notepad_rule.position = Vector2(10.0, 46.0) if compact else Vector2(18.0, 87.0)
+	_notepad_title.add_theme_font_size_override("font_size", 14 if compact else 20)
+	_notepad_rule.position = Vector2(10.0, 49.0) if compact else Vector2(18.0, 87.0)
 	_notepad_rule.size = Vector2(286.0, 2.0) if compact else Vector2(252.0, 2.0)
 	_cooler_sort_controls.position = (
-		Vector2(10.0, 48.0) if compact else Vector2(18.0, 98.0)
+		Vector2(10.0, 51.0) if compact else Vector2(18.0, 98.0)
 	)
 	_cooler_sort_controls.size = (
 		Vector2(286.0, 31.0) if compact else Vector2(252.0, 38.0)
@@ -925,53 +941,60 @@ func _update_shell_layout() -> void:
 	_cooler_sort_direction.custom_minimum_size = (
 		Vector2(140.0, 31.0) if compact else Vector2(123.0, 38.0)
 	)
-	for sort_control: Control in [
-		_cooler_sort_option,
-		_cooler_sort_direction,
+	_cooler_sort_option.set_choice_font_size(12 if compact else 15)
+	_cooler_sort_direction.add_theme_font_size_override(
+		"font_size",
+		12 if compact else 14,
+	)
+	_notepad_wallet_value.position = (
+		Vector2(10.0, 33.0) if compact else Vector2(18.0, 61.0)
+	)
+	_notepad_wallet_value.size = (
+		Vector2(138.0, 17.0) if compact else Vector2(120.0, 23.0)
+	)
+	_notepad_capacity_value.position = (
+		Vector2(154.0, 33.0) if compact else Vector2(146.0, 61.0)
+	)
+	_notepad_capacity_value.size = (
+		Vector2(142.0, 17.0) if compact else Vector2(124.0, 23.0)
+	)
+	for status_value: Label in [
+		_notepad_wallet_value,
+		_notepad_capacity_value,
 	]:
-		sort_control.add_theme_font_size_override(
+		status_value.add_theme_font_size_override(
 			"font_size",
-			9 if compact else 10,
+			10 if compact else 14,
 		)
-	_notepad_wallet.position = Vector2(10.0, 31.0) if compact else Vector2(18.0, 61.0)
-	_notepad_wallet.size = Vector2(138.0, 17.0) if compact else Vector2(122.0, 23.0)
-	_notepad_capacity.position = Vector2(154.0, 31.0) if compact else Vector2(146.0, 61.0)
-	_notepad_capacity.size = Vector2(142.0, 17.0) if compact else Vector2(124.0, 23.0)
-	for status_label: Label in [_notepad_wallet, _notepad_capacity]:
-		status_label.add_theme_font_size_override("font_size", 10 if compact else 14)
 	_cooler_detail_texture.position = (
-		Vector2(10.0, 84.0) if compact else Vector2(88.0, 143.0)
+		Vector2(5.0, 84.0) if compact else Vector2(80.0, 137.0)
 	)
 	_cooler_detail_texture.size = (
-		Vector2(66.0, 52.0) if compact else Vector2(112.0, 92.0)
+		Vector2(74.0, 58.0) if compact else Vector2(128.0, 100.0)
 	)
 	_cooler_detail_name.position = (
-		Vector2(82.0, 82.0) if compact else Vector2(18.0, 239.0)
+		Vector2(82.0, 82.0) if compact else Vector2(18.0, 241.0)
 	)
 	_cooler_detail_name.size = (
-		Vector2(214.0, 24.0) if compact else Vector2(252.0, 30.0)
+		Vector2(214.0, 26.0) if compact else Vector2(252.0, 32.0)
 	)
 	_cooler_detail_name.add_theme_font_size_override(
-		"font_size", 14 if compact else 21,
+		"font_size", 18 if compact else 25,
 	)
-	_cooler_detail_data.position = (
-		Vector2(82.0, 105.0) if compact else Vector2(18.0, 269.0)
+	_cooler_detail_stats.position = (
+		Vector2(82.0, 109.0) if compact else Vector2(18.0, 274.0)
 	)
-	_cooler_detail_data.size = (
-		Vector2(214.0, 43.0) if compact else Vector2(252.0, 75.0)
+	_cooler_detail_stats.size = (
+		Vector2(214.0, 39.0) if compact else Vector2(252.0, 65.0)
 	)
-	_cooler_detail_data.add_theme_font_size_override(
-		"font_size", 9 if compact else 16,
-	)
+	_layout_cooler_detail_text(compact)
 	_cooler_selection_summary.position = (
 		Vector2(10.0, 151.0) if compact else Vector2(18.0, 346.0)
 	)
 	_cooler_selection_summary.size = (
-		Vector2(130.0, 35.0) if compact else Vector2(252.0, 36.0)
+		Vector2(130.0, 35.0) if compact else Vector2(252.0, 40.0)
 	)
-	_cooler_selection_summary.add_theme_font_size_override(
-		"font_size", 9 if compact else 13,
-	)
+	_layout_cooler_selection_text(compact)
 	_favorite_bubble.custom_minimum_size = (
 		Vector2(72.0, 42.0) if compact else Vector2(108.0, 50.0)
 	)
@@ -991,10 +1014,10 @@ func _update_shell_layout() -> void:
 		Vector2(74.0, 42.0) if compact else Vector2(118.0, 50.0)
 	)
 	_favorite_bubble.add_theme_font_size_override(
-		"font_size", 10 if compact else 15,
+		"font_size", 11 if compact else 17,
 	)
 	_sell_bubble.add_theme_font_size_override(
-		"font_size", 10 if compact else 15,
+		"font_size", 11 if compact else 17,
 	)
 	_update_sort_direction_text()
 	_bag_page.size = reference_size
@@ -1109,6 +1132,70 @@ func _update_shell_layout() -> void:
 		_content_stage.position = _content_rest_position
 	_layout_cooler_fish(false)
 	_layout_bag_items()
+
+
+func _layout_cooler_detail_text(compact: bool) -> void:
+	var weight_row_height: float = 17.0 if compact else 24.0
+	_cooler_weight_row.position = Vector2.ZERO
+	_cooler_weight_row.size = Vector2(
+		_cooler_detail_stats.size.x,
+		weight_row_height,
+	)
+	_cooler_offer_row.position = Vector2(
+		0.0,
+		17.0 if compact else 27.0,
+	)
+	_cooler_offer_row.size = Vector2(
+		_cooler_detail_stats.size.x,
+		22.0 if compact else 30.0,
+	)
+	_cooler_weight_value.add_theme_font_size_override(
+		"font_size",
+		9 if compact else 12,
+	)
+	_cooler_weight_unit.add_theme_font_size_override(
+		"font_size",
+		10 if compact else 14,
+	)
+	_cooler_offer_label.add_theme_font_size_override(
+		"font_size",
+		13 if compact else 18,
+	)
+	_cooler_offer_value.add_theme_font_size_override(
+		"font_size",
+		10 if compact else 15,
+	)
+
+
+func _layout_cooler_selection_text(compact: bool) -> void:
+	var row_height: float = 17.5 if compact else 20.0
+	for numeric_label: Label in [
+		_cooler_selected_count_value,
+		_cooler_combined_offer_value,
+	]:
+		numeric_label.add_theme_font_size_override(
+			"font_size",
+			10 if compact else 14,
+		)
+	for word_label: Label in [
+		_cooler_selection_empty,
+		_cooler_selected_count_label,
+		_cooler_combined_offer_label,
+	]:
+		word_label.add_theme_font_size_override(
+			"font_size",
+			12 if compact else 18,
+		)
+	_cooler_selected_count_row.position = Vector2.ZERO
+	_cooler_selected_count_row.size = Vector2(
+		_cooler_selection_summary.size.x,
+		row_height,
+	)
+	_cooler_combined_offer_row.position = Vector2(0.0, row_height)
+	_cooler_combined_offer_row.size = Vector2(
+		_cooler_selection_summary.size.x,
+		row_height,
+	)
 
 
 func _begin_menu_entry() -> void:
@@ -1478,6 +1565,13 @@ func _on_sort_selected(index: int, source: OptionButton) -> void:
 	_refresh_inventory()
 
 
+func _on_cooler_sort_selected(sort_id: int) -> void:
+	_sort_mode = sort_id
+	_sort_option.select(_sort_mode)
+	_cooler_sort_option.select(_sort_mode)
+	_refresh_inventory()
+
+
 func _on_sort_direction_pressed() -> void:
 	_sort_descending = not _sort_descending
 	_update_sort_direction_text()
@@ -1811,12 +1905,12 @@ func _refresh_economy_summary() -> void:
 	)
 	_wallet_balance.text = "wallet: $%d" % balance
 	_wallet_status.set_content("wallet", "$%d" % balance)
-	_notepad_wallet.text = "wallet  $%d" % balance
+	_notepad_wallet_value.text = "$%d" % balance
 	_capacity_status.set_content("cooler", "%d / %d" % [
 		_inventory.get_all_catches().size() if _inventory != null else 0,
 		_cooler_capacity.get_capacity() if _cooler_capacity != null else 0,
 	])
-	_notepad_capacity.text = "cooler  %d / %d" % [
+	_notepad_capacity_value.text = "%d / %d" % [
 		_inventory.get_all_catches().size() if _inventory != null else 0,
 		_cooler_capacity.get_capacity() if _cooler_capacity != null else 0,
 	]
@@ -1855,8 +1949,8 @@ func _refresh_inventory() -> void:
 		if _inventory != null
 		else null
 	)
-	_update_inventory_detail(selected)
 	_update_sale_summary()
+	_update_inventory_detail(selected)
 	_update_sort_direction_text()
 
 
@@ -2086,8 +2180,8 @@ func _close_detail_constellation() -> void:
 	_cooler_detail_texture.texture = null
 	_cooler_detail_texture.visible = false
 	_cooler_detail_name.text = "select a fish"
-	_cooler_detail_data.text = ""
-	_cooler_selection_summary.text = "no fish selected"
+	_clear_cooler_detail_stats()
+	_set_cooler_selection_summary_empty()
 	_favorite_bubble.disabled = true
 	_favorite_bubble.text = "favorite"
 	_favorite_bubble.persistent_mark = false
@@ -2103,12 +2197,57 @@ func _close_detail_constellation() -> void:
 	_configure_cooler_fish_focus()
 
 
+func _clear_cooler_detail_stats() -> void:
+	for label: Label in [
+		_cooler_weight_value,
+		_cooler_weight_unit,
+		_cooler_offer_label,
+		_cooler_offer_value,
+	]:
+		label.text = ""
+
+
+func _set_cooler_selection_summary_empty() -> void:
+	_cooler_selection_empty.visible = true
+	_cooler_selected_count_row.visible = false
+	_cooler_combined_offer_row.visible = false
+	for label: Label in [
+		_cooler_selected_count_value,
+		_cooler_selected_count_label,
+		_cooler_combined_offer_label,
+		_cooler_combined_offer_value,
+	]:
+		label.visible = false
+		label.text = ""
+
+
+func _set_cooler_selection_summary(
+	selected_count: int,
+	offer_value: int,
+) -> void:
+	_cooler_selection_empty.visible = false
+	_cooler_selected_count_row.visible = true
+	_cooler_combined_offer_row.visible = true
+	_cooler_selected_count_value.visible = true
+	_cooler_selected_count_label.visible = true
+	_cooler_combined_offer_label.visible = true
+	_cooler_combined_offer_value.visible = offer_value >= 0
+	_cooler_selected_count_value.text = str(selected_count)
+	_cooler_selected_count_label.text = "fish selected"
+	if offer_value >= 0:
+		_cooler_combined_offer_label.text = "combined offer"
+		_cooler_combined_offer_value.text = "$%d" % offer_value
+	else:
+		_cooler_combined_offer_label.text = "offer unavailable"
+		_cooler_combined_offer_value.text = ""
+
+
 func _update_inventory_detail(fish_catch: FishCatchType) -> void:
 	if fish_catch == null:
 		_cooler_detail_texture.texture = null
 		_cooler_detail_texture.visible = false
 		_cooler_detail_name.text = "select a fish"
-		_cooler_detail_data.text = ""
+		_clear_cooler_detail_stats()
 		_favorite_button.disabled = true
 		_favorite_button.text = "favorite"
 		_favorite_bubble.disabled = true
@@ -2136,18 +2275,14 @@ func _update_inventory_detail(fish_catch: FishCatchType) -> void:
 		if individual_preview != null
 		else -1
 	)
-	var buyer_offer_text: String = "buyer unavailable"
+	_cooler_weight_value.text = "%.2f" % fish_catch.weight_lb
+	_cooler_weight_unit.text = "lb"
 	if buyer_offer >= 0 and _default_buyer != null:
-		buyer_offer_text = "%s offer: $%d" % [
-			_default_buyer.display_name,
-			buyer_offer,
-		]
-	_cooler_detail_data.text = "%.2f lb • %s\nbase value: $%d\n%s" % [
-		fish_catch.weight_lb,
-		fish_catch.fish.get_rarity_name(),
-		fish_catch.sale_value,
-		buyer_offer_text,
-	]
+		_cooler_offer_label.text = "%s offer" % _default_buyer.display_name
+		_cooler_offer_value.text = "$%d" % buyer_offer
+	else:
+		_cooler_offer_label.text = "buyer unavailable"
+		_cooler_offer_value.text = ""
 	_favorite_button.disabled = false
 	_favorite_button.text = (
 		"unfavorite" if fish_catch.is_favorited else "favorite"
@@ -2198,7 +2333,7 @@ func _update_sale_summary() -> void:
 		_sell_bubble.text = "sell fish"
 		_sell_bubble.persistent_mark = false
 		_sell_bubble.refresh_ink_state()
-		_cooler_selection_summary.text = "no fish selected"
+		_set_cooler_selection_summary_empty()
 		_sale_unavailable.text = ""
 		_sale_unavailable.visible = false
 		return
@@ -2213,7 +2348,6 @@ func _update_sale_summary() -> void:
 		else "%d fish selected" % selected_count
 	)
 	_selection_summary.text = count_text
-	_cooler_selection_summary.text = count_text
 	_selection_status.set_content("selected", str(selected_count))
 	if (
 		preview != null
@@ -2228,12 +2362,10 @@ func _update_sale_summary() -> void:
 			_default_buyer.display_name,
 			preview.payout,
 		]
-		_cooler_selection_summary.text += (
-			"\ncombined offer: $%d" % preview.payout
-		)
+		_set_cooler_selection_summary(selected_count, preview.payout)
 		_offer_status.set_content("pelican offer", "$%d" % preview.payout)
 	else:
-		_cooler_selection_summary.text += "\noffer unavailable"
+		_set_cooler_selection_summary(selected_count, -1)
 		_offer_status.set_content("pelican offer", "unavailable")
 	_sell_button.disabled = preview == null or not preview.is_success()
 	_sell_bubble.disabled = _sell_button.disabled

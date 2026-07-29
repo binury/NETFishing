@@ -332,24 +332,9 @@ func _update_title_layout() -> void:
 func _update_responsive_title_stage() -> void:
 	if not is_node_ready():
 		return
-	var display_size := Vector2(
-		maxf(1.0, size.x),
-		maxf(1.0, size.y)
-	)
-	var reference_size: Vector2 = (
-		TITLE_COMPACT_REFERENCE_SIZE
-		if display_size.y < BUBBLE_COMPACT_HEIGHT_THRESHOLD
-		else TITLE_DESKTOP_REFERENCE_SIZE
-	)
-	var presentation_scale: float = minf(
-		display_size.x / reference_size.x,
-		display_size.y / reference_size.y
-	)
-	_title_presentation_scale_root.size = reference_size
-	_title_presentation_scale_root.scale = Vector2.ONE * presentation_scale
-	_title_presentation_scale_root.position = (
-		display_size - reference_size * presentation_scale
-	) * 0.5
+	_title_presentation_scale_root.size = TITLE_DESKTOP_REFERENCE_SIZE
+	_title_presentation_scale_root.scale = Vector2.ONE
+	_title_presentation_scale_root.position = Vector2.ZERO
 	_update_title_layout()
 	if (
 		_is_confirmation_active()

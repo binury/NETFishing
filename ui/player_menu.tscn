@@ -1,4 +1,4 @@
-[gd_scene load_steps=16 format=3]
+[gd_scene load_steps=19 format=3]
 
 [ext_resource type="Script" path="res://ui/player_menu.gd" id="1_menu"]
 [ext_resource type="Theme" path="res://ui/game_theme.tres" id="2_theme"]
@@ -14,11 +14,19 @@
 [ext_resource type="PackedScene" path="res://ui/components/bubble_menu/notepad_ink_action.tscn" id="12_ink_action"]
 [ext_resource type="PackedScene" path="res://ui/components/bubble_menu/notepad_ink_choice.tscn" id="13_ink_choice"]
 [ext_resource type="Shader" path="res://ui/components/bubble_menu/cooler_water.gdshader" id="14_water"]
+[ext_resource type="Texture2D" path="res://ui/assets/title/bubbles/bubble1.png" id="15_bubble1"]
+[ext_resource type="Texture2D" path="res://ui/assets/title/bubbles/bubble2.png" id="16_bubble2"]
+[ext_resource type="Texture2D" path="res://ui/assets/title/bubbles/bubble3.png" id="17_bubble3"]
 
 [sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_collection"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_cooler_water"]
 shader = ExtResource("14_water")
+shader_parameter/decorative_bubble_1 = ExtResource("15_bubble1")
+shader_parameter/decorative_bubble_2 = ExtResource("16_bubble2")
+shader_parameter/decorative_bubble_3 = ExtResource("17_bubble3")
+shader_parameter/corner_radius = 29.0
+shader_parameter/corner_softness = 0.75
 
 [node name="PlayerMenu" type="Control"]
 visible = false
@@ -93,6 +101,13 @@ theme_override_constants/margin_top = 16
 theme_override_constants/margin_right = 16
 theme_override_constants/margin_bottom = 16
 
+[node name="WaterSurface" type="ColorRect" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/CoolerPage/CoolerOuterWall/CoolerWallMargin/CoolerInnerLiner/CoolerInnerMargin"]
+unique_name_in_owner = true
+layout_mode = 2
+mouse_filter = 2
+material = SubResource("ShaderMaterial_cooler_water")
+color = Color(1, 1, 1, 1)
+
 [node name="CoolerScroll" type="ScrollContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/CoolerPage/CoolerOuterWall/CoolerWallMargin/CoolerInnerLiner/CoolerInnerMargin"]
 unique_name_in_owner = true
 layout_mode = 2
@@ -103,17 +118,6 @@ unique_name_in_owner = true
 custom_minimum_size = Vector2(784, 394)
 layout_mode = 2
 mouse_filter = 1
-
-[node name="WaterSurface" type="ColorRect" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/CoolerPage/CoolerOuterWall/CoolerWallMargin/CoolerInnerLiner/CoolerInnerMargin/CoolerScroll/CoolerHost"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-mouse_filter = 2
-material = SubResource("ShaderMaterial_cooler_water")
-color = Color(1, 1, 1, 1)
 
 [node name="FishField" type="Control" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/CoolerPage/CoolerOuterWall/CoolerWallMargin/CoolerInnerLiner/CoolerInnerMargin/CoolerScroll/CoolerHost"]
 unique_name_in_owner = true
@@ -185,19 +189,19 @@ theme_override_font_sizes/font_size = 19
 text = "cooler notes"
 horizontal_alignment = 1
 
-[node name="NotepadWallet" type="Label" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/CoolerPage/DetailConstellation"]
+[node name="NotepadWalletValue" type="Label" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/CoolerPage/DetailConstellation"]
 unique_name_in_owner = true
 layout_mode = 0
 offset_left = 18.0
 offset_top = 61.0
-offset_right = 140.0
+offset_right = 138.0
 offset_bottom = 84.0
 mouse_filter = 2
 theme_override_colors/font_color = Color(0.16, 0.16, 0.14, 1)
 theme_override_font_sizes/font_size = 14
-text = "wallet  $0"
+text = "$0"
 
-[node name="NotepadCapacity" type="Label" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/CoolerPage/DetailConstellation"]
+[node name="NotepadCapacityValue" type="Label" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/CoolerPage/DetailConstellation"]
 unique_name_in_owner = true
 layout_mode = 0
 offset_left = 146.0
@@ -207,7 +211,7 @@ offset_bottom = 84.0
 mouse_filter = 2
 theme_override_colors/font_color = Color(0.16, 0.16, 0.14, 1)
 theme_override_font_sizes/font_size = 14
-text = "cooler  0 / 12"
+text = "0 / 12"
 horizontal_alignment = 2
 
 [node name="NotepadRule" type="ColorRect" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/CoolerPage/DetailConstellation"]
@@ -242,6 +246,8 @@ custom_minimum_size = Vector2(123, 38)
 layout_mode = 2
 clip_text = true
 fit_to_longest_item = false
+outline_padding = 1.5
+outline_outsets = Vector4(6, 2, 2, 2)
 
 [node name="CoolerSortDirection" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/CoolerPage/DetailConstellation/CoolerSortControls" instance=ExtResource("12_ink_action")]
 unique_name_in_owner = true
@@ -252,10 +258,10 @@ clip_text = true
 [node name="CoolerDetailTexture" type="TextureRect" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/CoolerPage/DetailConstellation"]
 unique_name_in_owner = true
 layout_mode = 0
-offset_left = 88.0
-offset_top = 143.0
-offset_right = 200.0
-offset_bottom = 235.0
+offset_left = 80.0
+offset_top = 137.0
+offset_right = 208.0
+offset_bottom = 237.0
 mouse_filter = 2
 texture_filter = 1
 expand_mode = 1
@@ -265,42 +271,147 @@ stretch_mode = 5
 unique_name_in_owner = true
 layout_mode = 0
 offset_left = 18.0
-offset_top = 239.0
+offset_top = 241.0
 offset_right = 270.0
-offset_bottom = 269.0
+offset_bottom = 273.0
 mouse_filter = 2
 theme_override_colors/font_color = Color(0.16, 0.16, 0.14, 1)
-theme_override_font_sizes/font_size = 21
+theme_override_font_sizes/font_size = 25
 text = "select a fish"
 horizontal_alignment = 1
 text_overrun_behavior = 3
 
-[node name="CoolerDetailData" type="Label" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/CoolerPage/DetailConstellation"]
+[node name="CoolerDetailStats" type="Control" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/CoolerPage/DetailConstellation"]
 unique_name_in_owner = true
 layout_mode = 0
 offset_left = 18.0
-offset_top = 269.0
+offset_top = 274.0
 offset_right = 270.0
-offset_bottom = 344.0
+offset_bottom = 339.0
+mouse_filter = 2
+
+[node name="CoolerWeightRow" type="HBoxContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/CoolerPage/DetailConstellation/CoolerDetailStats"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_right = 252.0
+offset_bottom = 24.0
+mouse_filter = 2
+theme_override_constants/separation = 2
+alignment = 1
+
+[node name="CoolerWeightValue" type="Label" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/CoolerPage/DetailConstellation/CoolerDetailStats/CoolerWeightRow"]
+unique_name_in_owner = true
+layout_mode = 2
 mouse_filter = 2
 theme_override_colors/font_color = Color(0.16, 0.16, 0.14, 1)
-theme_override_font_sizes/font_size = 16
-horizontal_alignment = 1
-vertical_alignment = 1
+theme_override_font_sizes/font_size = 12
 
-[node name="CoolerSelectionSummary" type="Label" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/CoolerPage/DetailConstellation"]
+[node name="CoolerWeightUnit" type="Label" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/CoolerPage/DetailConstellation/CoolerDetailStats/CoolerWeightRow"]
+unique_name_in_owner = true
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.16, 0.16, 0.14, 1)
+theme_override_font_sizes/font_size = 14
+text = "lb"
+
+[node name="CoolerOfferRow" type="HBoxContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/CoolerPage/DetailConstellation/CoolerDetailStats"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_top = 27.0
+offset_right = 252.0
+offset_bottom = 57.0
+mouse_filter = 2
+theme_override_constants/separation = 4
+alignment = 1
+
+[node name="CoolerOfferLabel" type="Label" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/CoolerPage/DetailConstellation/CoolerDetailStats/CoolerOfferRow"]
+unique_name_in_owner = true
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.16, 0.16, 0.14, 1)
+theme_override_font_sizes/font_size = 18
+
+[node name="CoolerOfferValue" type="Label" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/CoolerPage/DetailConstellation/CoolerDetailStats/CoolerOfferRow"]
+unique_name_in_owner = true
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.16, 0.16, 0.14, 1)
+theme_override_font_sizes/font_size = 15
+
+[node name="CoolerSelectionSummary" type="Control" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/CoolerPage/DetailConstellation"]
 unique_name_in_owner = true
 layout_mode = 0
 offset_left = 18.0
 offset_top = 346.0
 offset_right = 270.0
-offset_bottom = 382.0
+offset_bottom = 386.0
+mouse_filter = 2
+
+[node name="CoolerSelectionEmpty" type="Label" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/CoolerPage/DetailConstellation/CoolerSelectionSummary"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 mouse_filter = 2
 theme_override_colors/font_color = Color(0.2, 0.18, 0.15, 0.86)
-theme_override_font_sizes/font_size = 13
+theme_override_font_sizes/font_size = 18
 text = "no fish selected"
 horizontal_alignment = 1
 vertical_alignment = 1
+
+[node name="CoolerSelectedCountRow" type="HBoxContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/CoolerPage/DetailConstellation/CoolerSelectionSummary"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 0
+offset_right = 252.0
+offset_bottom = 20.0
+mouse_filter = 2
+theme_override_constants/separation = 4
+alignment = 1
+
+[node name="CoolerSelectedCountValue" type="Label" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/CoolerPage/DetailConstellation/CoolerSelectionSummary/CoolerSelectedCountRow"]
+unique_name_in_owner = true
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.2, 0.18, 0.15, 0.86)
+theme_override_font_sizes/font_size = 14
+
+[node name="CoolerSelectedCountLabel" type="Label" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/CoolerPage/DetailConstellation/CoolerSelectionSummary/CoolerSelectedCountRow"]
+unique_name_in_owner = true
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.2, 0.18, 0.15, 0.86)
+theme_override_font_sizes/font_size = 18
+text = "fish selected"
+
+[node name="CoolerCombinedOfferRow" type="HBoxContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/CoolerPage/DetailConstellation/CoolerSelectionSummary"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 0
+offset_top = 20.0
+offset_right = 252.0
+offset_bottom = 40.0
+mouse_filter = 2
+theme_override_constants/separation = 4
+alignment = 1
+
+[node name="CoolerCombinedOfferLabel" type="Label" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/CoolerPage/DetailConstellation/CoolerSelectionSummary/CoolerCombinedOfferRow"]
+unique_name_in_owner = true
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.2, 0.18, 0.15, 0.86)
+theme_override_font_sizes/font_size = 18
+text = "combined offer"
+
+[node name="CoolerCombinedOfferValue" type="Label" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/CoolerPage/DetailConstellation/CoolerSelectionSummary/CoolerCombinedOfferRow"]
+unique_name_in_owner = true
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.2, 0.18, 0.15, 0.86)
+theme_override_font_sizes/font_size = 14
 
 [node name="FavoriteBubble" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/CoolerPage/DetailConstellation" instance=ExtResource("12_ink_action")]
 unique_name_in_owner = true
@@ -311,6 +422,7 @@ offset_top = 386.0
 offset_right = 134.0
 offset_bottom = 464.0
 text = "favorite"
+allow_persistent_mark = true
 
 [node name="SellBubble" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/CoolerPage/DetailConstellation" instance=ExtResource("12_ink_action")]
 unique_name_in_owner = true
@@ -1085,10 +1197,10 @@ custom_minimum_size = Vector2(170, 64)
 [node name="NavigationCluster" type="Control" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot"]
 unique_name_in_owner = true
 layout_mode = 0
-offset_left = 260.0
-offset_top = 14.0
-offset_right = 1020.0
-offset_bottom = 110.0
+offset_left = 463.0
+offset_top = 44.0
+offset_right = 1083.0
+offset_bottom = 144.0
 mouse_filter = 1
 script = ExtResource("5_cluster")
 profile = ExtResource("4_profile")
@@ -1106,8 +1218,8 @@ neutral_size = Vector2(124, 120)
 desktop_anchor = Vector2(116, 60)
 compact_anchor = Vector2(118, 73.3333)
 compact_minimum_size = Vector2(84, 82)
-minimum_font_size = 16
-maximum_font_size = 27
+minimum_font_size = 25
+maximum_font_size = 25
 horizontal_amplitude = 1.2
 vertical_amplitude = 2.4
 motion_period = 5.6
@@ -1123,10 +1235,10 @@ text = "bag"
 script = ExtResource("6_bubble")
 profile = ExtResource("4_profile")
 neutral_size = Vector2(124, 120)
-desktop_anchor = Vector2(248, 60)
+desktop_anchor = Vector2(244, 60)
 compact_anchor = Vector2(251.333, 73.3333)
 compact_minimum_size = Vector2(84, 82)
-minimum_font_size = 16
+minimum_font_size = 25
 maximum_font_size = 25
 horizontal_amplitude = 1.0
 vertical_amplitude = 2.0
@@ -1143,11 +1255,11 @@ text = "logbook"
 script = ExtResource("6_bubble")
 profile = ExtResource("4_profile")
 neutral_size = Vector2(124, 120)
-desktop_anchor = Vector2(380, 60)
+desktop_anchor = Vector2(372, 60)
 compact_anchor = Vector2(384.667, 73.3333)
 compact_minimum_size = Vector2(84, 82)
-minimum_font_size = 16
-maximum_font_size = 27
+minimum_font_size = 25
+maximum_font_size = 25
 horizontal_amplitude = 1.3
 vertical_amplitude = 2.5
 motion_period = 5.9
@@ -1161,11 +1273,11 @@ layout_mode = 0
 text = "close"
 script = ExtResource("6_bubble")
 profile = ExtResource("4_profile")
-neutral_size = Vector2(110, 106)
-desktop_anchor = Vector2(504, 57)
+neutral_size = Vector2(96, 94)
+desktop_anchor = Vector2(489, 57)
 compact_anchor = Vector2(512.667, 73.3333)
 compact_minimum_size = Vector2(76, 74)
-minimum_font_size = 15
+minimum_font_size = 23
 maximum_font_size = 23
 horizontal_amplitude = 1.0
 vertical_amplitude = 1.9

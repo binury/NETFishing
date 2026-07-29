@@ -95,7 +95,7 @@ func set_stage_rect(stage_rect: Rect2) -> void:
 	_cluster.size = field_size
 	_cluster.apply_layout(
 		field_size,
-		field_size.y < compact_height_threshold
+		false
 	)
 	if not _is_transitioning:
 		_cluster.position = _resting_cluster_position

@@ -158,10 +158,7 @@ func _process(delta: float) -> void:
 func _update_layout() -> void:
 	if not is_node_ready() or _cluster == null:
 		return
-	var compact: bool = (
-		size.x < compact_width_threshold
-		or size.y < compact_height_threshold
-	)
+	var compact: bool = false
 	var layout_maximum: Vector2 = (
 		compact_maximum_layout_size
 		if compact

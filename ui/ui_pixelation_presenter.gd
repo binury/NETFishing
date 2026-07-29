@@ -2,6 +2,9 @@ class_name UIPixelationPresenter
 extends SubViewportContainer
 
 const MIN_UI_VIEWPORT_SIZE: Vector2i = Vector2i(256, 180)
+const UIReferencePresentationType = preload(
+	"res://ui/ui_reference_presentation.gd"
+)
 
 signal effective_pixel_size_changed(
 	requested_pixel_size: int,
@@ -68,25 +71,35 @@ func _resize_presentation() -> void:
 	var root_size: Vector2i = get_window().size
 	if root_size.x <= 0 or root_size.y <= 0:
 		return
+	var display_size := Vector2(root_size)
+	var reference_scale: float = (
+		UIReferencePresentationType.get_scale(display_size)
+	)
 	var previous_effective_size: int = _effective_pixel_size
-	_effective_pixel_size = _resolve_effective_pixel_size(root_size)
-	var viewport_size: Vector2i = PlayerSettings.get_ui_render_size(
+	_effective_pixel_size = _resolve_effective_pixel_size(reference_scale)
+	var render_height: int = _get_render_height(
 		_effective_pixel_size,
-		root_size
+		reference_scale,
 	)
-	var render_scale: float = minf(
-		1.0,
-		float(viewport_size.y) / float(root_size.y)
+	var render_scale: float = (
+		float(render_height)
+		/ UIReferencePresentationType.REFERENCE_SIZE.y
 	)
-	var presentation_size: Vector2 = Vector2(viewport_size) / render_scale
+	var viewport_size := Vector2i(
+		roundi(
+			UIReferencePresentationType.REFERENCE_SIZE.x
+			* render_scale
+		),
+		render_height,
+	)
 	set_anchors_preset(Control.PRESET_TOP_LEFT)
-	position = (Vector2(root_size) - presentation_size) * 0.5
+	position = UIReferencePresentationType.get_offset(display_size)
 	size = Vector2(viewport_size)
-	scale = Vector2.ONE / render_scale
+	scale = Vector2.ONE * (reference_scale / render_scale)
 	stretch_shrink = 1
 	_ui_root.position = Vector2.ZERO
 	_ui_root.scale = Vector2.ONE * render_scale
-	_ui_root.size = Vector2(root_size)
+	_ui_root.size = UIReferencePresentationType.REFERENCE_SIZE
 	if (
 		previous_effective_size != _effective_pixel_size
 		or _requested_pixel_size != _effective_pixel_size
@@ -97,11 +110,36 @@ func _resize_presentation() -> void:
 		)
 
 
-func _resolve_effective_pixel_size(root_size: Vector2i) -> int:
+func _get_render_height(pixel_size: int, reference_scale: float) -> int:
+	var displayed_canvas_height: int = maxi(
+		1,
+		roundi(
+			UIReferencePresentationType.REFERENCE_SIZE.y
+			* reference_scale
+		),
+	)
+	if pixel_size == PlayerSettings.MIN_UI_PIXEL_SIZE:
+		return displayed_canvas_height
+	var target_height: int = PlayerSettings.get_ui_render_height(
+		pixel_size,
+		roundi(UIReferencePresentationType.REFERENCE_SIZE.y),
+	)
+	return mini(displayed_canvas_height, target_height)
+
+
+func _resolve_effective_pixel_size(reference_scale: float) -> int:
 	for candidate: int in range(_requested_pixel_size, 0, -1):
-		var candidate_size: Vector2i = PlayerSettings.get_ui_render_size(
+		var candidate_height: int = _get_render_height(
 			candidate,
-			root_size
+			reference_scale,
+		)
+		var candidate_size := Vector2i(
+			roundi(
+				UIReferencePresentationType.REFERENCE_SIZE.x
+				* float(candidate_height)
+				/ UIReferencePresentationType.REFERENCE_SIZE.y
+			),
+			candidate_height,
 		)
 		if (
 			candidate_size.x >= MIN_UI_VIEWPORT_SIZE.x

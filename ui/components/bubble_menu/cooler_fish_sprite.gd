@@ -104,6 +104,7 @@ func _update_visual_pivot() -> void:
 
 
 func _refresh_style() -> void:
+	var idle := StyleBoxEmpty.new()
 	var normal := _make_rarity_style(_rarity_color, 2, 0.25)
 	var hover := _make_rarity_style(_rarity_color.lightened(0.08), 4, 0.34)
 	var selected_fill: Color = (
@@ -116,9 +117,21 @@ func _refresh_style() -> void:
 		6 if _batch_selected else 4,
 		0.46 if _batch_selected else 0.34,
 	)
+	var circle_visible: bool = (
+		_batch_selected
+		or _hovered
+		or has_focus()
+	)
+	var base_style: StyleBox = idle
+	if circle_visible:
+		base_style = (
+			selected
+			if _batch_selected or _focused_catch
+			else normal
+		)
 	add_theme_stylebox_override(
 		"normal",
-		selected if _batch_selected or _focused_catch else normal,
+		base_style,
 	)
 	add_theme_stylebox_override("hover", selected if _batch_selected else hover)
 	add_theme_stylebox_override("focus", selected)

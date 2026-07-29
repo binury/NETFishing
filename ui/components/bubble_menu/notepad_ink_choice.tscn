@@ -1,15 +1,34 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=6 format=3]
 
 [ext_resource type="Script" path="res://ui/components/bubble_menu/notepad_ink_choice.gd" id="1_choice"]
 [ext_resource type="Script" path="res://ui/components/bubble_menu/notepad_ink_outline.gd" id="2_outline"]
 
-[node name="NotepadInkChoice" type="OptionButton"]
+[sub_resource type="StyleBoxFlat" id="StyleBox_shadow"]
+bg_color = Color(0.1, 0.08, 0.06, 0.24)
+
+[sub_resource type="StyleBoxFlat" id="StyleBox_paper"]
+bg_color = Color(0.93, 0.885, 0.73, 1)
+
+[sub_resource type="StyleBoxEmpty" id="StyleBox_empty"]
+
+[node name="NotepadInkChoice" type="Control"]
 custom_minimum_size = Vector2(124, 38)
 focus_mode = 1
 mouse_default_cursor_shape = 2
-clip_text = true
-fit_to_longest_item = false
 script = ExtResource("1_choice")
+
+[node name="DisplayedValue" type="Label" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+text = "catch order"
+horizontal_alignment = 1
+vertical_alignment = 1
 
 [node name="InkOutline" type="Control" parent="."]
 unique_name_in_owner = true
@@ -22,3 +41,67 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 script = ExtResource("2_outline")
+
+[node name="ChoicePanel" type="Control" parent="."]
+unique_name_in_owner = true
+visible = false
+z_index = 30
+layout_mode = 0
+offset_left = -8.0
+offset_top = 40.0
+offset_right = 132.0
+offset_bottom = 139.0
+mouse_filter = 1
+
+[node name="Shadow" type="Panel" parent="ChoicePanel"]
+layout_mode = 0
+offset_left = 3.0
+offset_top = 4.0
+offset_right = 143.0
+offset_bottom = 103.0
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBox_shadow")
+
+[node name="Paper" type="Panel" parent="ChoicePanel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBox_paper")
+
+[node name="Choices" type="VBoxContainer" parent="ChoicePanel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 1
+theme_override_constants/separation = 0
+
+[node name="CatchOrderChoice" type="Button" parent="ChoicePanel/Choices"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(140, 33)
+layout_mode = 2
+focus_mode = 1
+theme_override_styles/normal = SubResource("StyleBox_empty")
+text = "catch order"
+
+[node name="NameChoice" type="Button" parent="ChoicePanel/Choices"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(140, 33)
+layout_mode = 2
+focus_mode = 1
+theme_override_styles/normal = SubResource("StyleBox_empty")
+text = "name"
+
+[node name="RarityChoice" type="Button" parent="ChoicePanel/Choices"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(140, 33)
+layout_mode = 2
+focus_mode = 1
+theme_override_styles/normal = SubResource("StyleBox_empty")
+text = "rarity"

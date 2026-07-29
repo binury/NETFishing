@@ -11,6 +11,8 @@ const FishingSpotType = preload("res://fishing/fishing_spot.gd")
 
 const DESKTOP_REFERENCE_SIZE := Vector2(1280.0, 720.0)
 const COMPACT_REFERENCE_SIZE := Vector2(640.0, 480.0)
+const HOTBAR_PRESENTATION_SCALE: float = 0.60
+const HOTBAR_CANONICAL_POSITION := Vector2(256.0, 288.0)
 
 @onready var _presentation_scale_root: Control = %HotbarPresentationScaleRoot
 @onready var _bubble_field: Control = %BubbleField
@@ -137,30 +139,13 @@ func _collect_slots() -> void:
 func _apply_layout() -> void:
 	if not is_node_ready():
 		return
-	var parent_control := get_parent_control()
-	var available_size: Vector2 = (
-		parent_control.size if parent_control != null else size
-	)
-	_compact_layout = (
-		available_size.y < PlayerSettings.COMPACT_DISPLAY_HEIGHT
-	)
-	var reference_size := (
-		COMPACT_REFERENCE_SIZE
-		if _compact_layout
-		else DESKTOP_REFERENCE_SIZE
-	)
-	var presentation_scale: float = minf(
-		available_size.x / reference_size.x,
-		available_size.y / reference_size.y
-	)
-	if _compact_layout:
-		presentation_scale = maxf(1.0, presentation_scale)
+	_compact_layout = false
+	var reference_size := DESKTOP_REFERENCE_SIZE
 	_presentation_scale_root.size = reference_size
-	_presentation_scale_root.scale = Vector2.ONE * presentation_scale
-	_presentation_scale_root.position = Vector2(
-		(available_size.x - reference_size.x * presentation_scale) * 0.5,
-		available_size.y - reference_size.y * presentation_scale
+	_presentation_scale_root.scale = (
+		Vector2.ONE * HOTBAR_PRESENTATION_SCALE
 	)
+	_presentation_scale_root.position = HOTBAR_CANONICAL_POSITION
 	var field_size := (
 		Vector2(580.0, 82.0)
 		if _compact_layout
