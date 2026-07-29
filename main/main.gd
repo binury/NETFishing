@@ -455,6 +455,20 @@ func _on_pause_join_game_requested(endpoint: String) -> void:
 
 
 func _on_network_join_authenticated() -> void:
+	var connected_endpoint: ConnectionEndpoint = (
+		_network_session.get_current_endpoint()
+	)
+	var server_metadata: Dictionary = (
+		_network_session.get_last_server_metadata()
+	)
+	if connected_endpoint != null:
+		_saved_servers.record_successful_connection(
+			connected_endpoint,
+			int(server_metadata.get("max_players", 0)),
+			str(server_metadata.get("server_display_name", "")),
+			int(server_metadata.get("protocol_version", 0)),
+			int(server_metadata.get("player_count", 0)),
+		)
 	if _join_requested_from_title:
 		var inspection = _save_manager.inspect_save()
 		var progression_ready: bool = (
@@ -482,10 +496,31 @@ func _on_network_join_authenticated() -> void:
 
 
 func _on_network_connection_error(message: String) -> void:
+	var failed_endpoint: ConnectionEndpoint = (
+		_network_session.get_current_endpoint()
+	)
+	if failed_endpoint != null:
+		_saved_servers.record_connection_failure(
+			failed_endpoint,
+			_connection_result_code(message),
+		)
 	if _join_requested_from_title:
 		_game_ui.get_title_screen().report_network_error(message)
 	elif _join_requested_from_pause:
 		_handle_failed_session_switch(message)
+
+
+func _connection_result_code(message: String) -> String:
+	var lowered: String = message.to_lower()
+	if lowered.contains("protocol"):
+		return "PROTOCOL_MISMATCH"
+	if lowered.contains("full"):
+		return "SERVER_FULL"
+	if lowered.contains("cancel"):
+		return "CANCELLED"
+	if lowered.contains("timed out"):
+		return "TIMEOUT"
+	return "UNAVAILABLE"
 
 
 func _handle_failed_session_switch(message: String) -> void:

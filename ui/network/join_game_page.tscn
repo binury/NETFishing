@@ -1,8 +1,9 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=13 format=3]
 
 [ext_resource type="Script" path="res://ui/network/join_game_page.gd" id="1_script"]
 [ext_resource type="Theme" path="res://ui/game_theme.tres" id="2_theme"]
 [ext_resource type="PackedScene" path="res://ui/components/bubble_menu/bubble_button.tscn" id="3_bubble"]
+[ext_resource type="PackedScene" path="res://ui/components/bubble_menu/bubble_confirmation_page.tscn" id="4_confirmation"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBox_paper"]
 bg_color = Color(0.93, 0.885, 0.73, 1)
@@ -13,6 +14,76 @@ corner_radius_top_left = 54
 corner_radius_top_right = 46
 corner_radius_bottom_right = 58
 corner_radius_bottom_left = 48
+
+[sub_resource type="StyleBoxFlat" id="StyleBox_list"]
+bg_color = Color(0.89, 0.835, 0.67, 1)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.035, 0.145, 0.22, 0.36)
+corner_radius_top_left = 12
+corner_radius_top_right = 9
+corner_radius_bottom_right = 13
+corner_radius_bottom_left = 10
+
+[sub_resource type="StyleBoxFlat" id="StyleBox_selected"]
+bg_color = Color(0.08, 0.24, 0.31, 0.92)
+corner_radius_top_left = 8
+corner_radius_top_right = 7
+corner_radius_bottom_right = 9
+corner_radius_bottom_left = 6
+
+[sub_resource type="StyleBoxEmpty" id="StyleBox_focus"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBox_input"]
+content_margin_left = 12.0
+content_margin_top = 7.0
+content_margin_right = 12.0
+content_margin_bottom = 7.0
+bg_color = Color(0.035, 0.145, 0.22, 1)
+corner_radius_top_left = 8
+corner_radius_top_right = 7
+corner_radius_bottom_right = 9
+corner_radius_bottom_left = 6
+
+[sub_resource type="StyleBoxFlat" id="StyleBox_input_focus"]
+content_margin_left = 12.0
+content_margin_top = 7.0
+content_margin_right = 12.0
+content_margin_bottom = 7.0
+bg_color = Color(0.035, 0.145, 0.22, 1)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.93, 0.885, 0.73, 0.9)
+corner_radius_top_left = 8
+corner_radius_top_right = 7
+corner_radius_bottom_right = 9
+corner_radius_bottom_left = 6
+
+[sub_resource type="StyleBoxFlat" id="StyleBox_input_read_only"]
+content_margin_left = 12.0
+content_margin_top = 7.0
+content_margin_right = 12.0
+content_margin_bottom = 7.0
+bg_color = Color(0.035, 0.145, 0.22, 0.82)
+corner_radius_top_left = 8
+corner_radius_top_right = 7
+corner_radius_bottom_right = 9
+corner_radius_bottom_left = 6
+
+[sub_resource type="StyleBoxFlat" id="StyleBox_status"]
+content_margin_left = 10.0
+content_margin_top = 4.0
+content_margin_right = 10.0
+content_margin_bottom = 4.0
+bg_color = Color(0.89, 0.835, 0.67, 0.72)
+corner_radius_top_left = 7
+corner_radius_top_right = 6
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 5
 
 [node name="JoinGamePage" type="Control"]
 visible = false
@@ -27,54 +98,179 @@ script = ExtResource("1_script")
 
 [node name="Paper" type="PanelContainer" parent="."]
 layout_mode = 0
-offset_left = 340.0
-offset_top = 132.0
-offset_right = 940.0
-offset_bottom = 570.0
+offset_left = 230.0
+offset_top = 64.0
+offset_right = 1050.0
+offset_bottom = 656.0
 theme_override_styles/panel = SubResource("StyleBox_paper")
 
 [node name="Margin" type="MarginContainer" parent="Paper"]
 layout_mode = 2
-theme_override_constants/margin_left = 70
-theme_override_constants/margin_top = 52
-theme_override_constants/margin_right = 70
-theme_override_constants/margin_bottom = 52
+theme_override_constants/margin_left = 54
+theme_override_constants/margin_top = 30
+theme_override_constants/margin_right = 54
+theme_override_constants/margin_bottom = 30
 
 [node name="Layout" type="VBoxContainer" parent="Paper/Margin"]
 layout_mode = 2
-theme_override_constants/separation = 18
+theme_override_constants/separation = 10
 alignment = 1
 
 [node name="Title" type="Label" parent="Paper/Margin/Layout"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.035, 0.145, 0.22, 1)
-theme_override_font_sizes/font_size = 34
+theme_override_font_sizes/font_size = 30
 text = "join game"
 horizontal_alignment = 1
 
-[node name="Hint" type="Label" parent="Paper/Margin/Layout"]
+[node name="Modes" type="HBoxContainer" parent="Paper/Margin/Layout"]
+layout_mode = 2
+theme_override_constants/separation = 14
+alignment = 1
+
+[node name="DirectButton" parent="Paper/Margin/Layout/Modes" instance=ExtResource("3_bubble")]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(100, 72)
+layout_mode = 2
+text = "direct"
+neutral_size = Vector2(100, 72)
+minimum_font_size = 16
+maximum_font_size = 19
+horizontal_amplitude = 0.0
+vertical_amplitude = 0.0
+deformation_amplitude = 0.0
+
+[node name="SavedButton" parent="Paper/Margin/Layout/Modes" instance=ExtResource("3_bubble")]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(100, 72)
+layout_mode = 2
+text = "saved"
+neutral_size = Vector2(100, 72)
+minimum_font_size = 16
+maximum_font_size = 19
+horizontal_amplitude = 0.0
+vertical_amplitude = 0.0
+deformation_amplitude = 0.0
+
+[node name="RecentButton" parent="Paper/Margin/Layout/Modes" instance=ExtResource("3_bubble")]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(100, 72)
+layout_mode = 2
+text = "recent"
+neutral_size = Vector2(100, 72)
+minimum_font_size = 16
+maximum_font_size = 19
+horizontal_amplitude = 0.0
+vertical_amplitude = 0.0
+deformation_amplitude = 0.0
+
+[node name="AddressLabel" type="Label" parent="Paper/Margin/Layout"]
+unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(0.035, 0.145, 0.22, 1)
 theme_override_font_sizes/font_size = 17
-text = "hostname or IP address • optional port"
+text = "server address"
 horizontal_alignment = 1
 
 [node name="Address" type="LineEdit" parent="Paper/Margin/Layout"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 52)
+custom_minimum_size = Vector2(0, 42)
 layout_mode = 2
-theme_override_colors/font_color = Color(0.035, 0.145, 0.22, 1)
-theme_override_font_sizes/font_size = 22
-placeholder_text = "example.net:7777"
+theme_override_colors/font_color = Color(0.96, 0.93, 0.82, 1)
+theme_override_colors/font_uneditable_color = Color(0.8, 0.77, 0.68, 0.9)
+theme_override_colors/font_selected_color = Color(1, 0.98, 0.9, 1)
+theme_override_colors/font_placeholder_color = Color(0.78, 0.75, 0.66, 0.86)
+theme_override_colors/caret_color = Color(1, 0.96, 0.8, 1)
+theme_override_colors/selection_color = Color(0.2, 0.48, 0.59, 0.9)
+theme_override_font_sizes/font_size = 19
+theme_override_styles/normal = SubResource("StyleBox_input")
+theme_override_styles/focus = SubResource("StyleBox_input_focus")
+theme_override_styles/read_only = SubResource("StyleBox_input_read_only")
+placeholder_text = "example.net or 192.168.1.50:7777"
 alignment = 1
 max_length = 300
 
-[node name="Status" type="Label" parent="Paper/Margin/Layout"]
+[node name="AddressHelper" type="Label" parent="Paper/Margin/Layout"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 42)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.035, 0.145, 0.22, 0.78)
+theme_override_font_sizes/font_size = 13
+text = "Hostname, IPv4, or [IPv6]. Port 7777 is used when omitted.\nJoin Now connects once; Save Server stores this address locally."
+horizontal_alignment = 1
+autowrap_mode = 2
+
+[node name="NameLabel" type="Label" parent="Paper/Margin/Layout"]
+unique_name_in_owner = true
+visible = false
 layout_mode = 2
 theme_override_colors/font_color = Color(0.035, 0.145, 0.22, 1)
 theme_override_font_sizes/font_size = 17
+text = "server name"
+horizontal_alignment = 1
+
+[node name="NameEdit" type="LineEdit" parent="Paper/Margin/Layout"]
+unique_name_in_owner = true
+visible = false
+custom_minimum_size = Vector2(0, 42)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.96, 0.93, 0.82, 1)
+theme_override_colors/font_uneditable_color = Color(0.8, 0.77, 0.68, 0.9)
+theme_override_colors/font_selected_color = Color(1, 0.98, 0.9, 1)
+theme_override_colors/font_placeholder_color = Color(0.78, 0.75, 0.66, 0.86)
+theme_override_colors/caret_color = Color(1, 0.96, 0.8, 1)
+theme_override_colors/selection_color = Color(0.2, 0.48, 0.59, 0.9)
+theme_override_font_sizes/font_size = 19
+theme_override_styles/normal = SubResource("StyleBox_input")
+theme_override_styles/focus = SubResource("StyleBox_input_focus")
+theme_override_styles/read_only = SubResource("StyleBox_input_read_only")
+placeholder_text = "Friend's server"
+alignment = 1
+max_length = 80
+
+[node name="NameHelper" type="Label" parent="Paper/Margin/Layout"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+theme_override_colors/font_color = Color(0.035, 0.145, 0.22, 0.78)
+theme_override_font_sizes/font_size = 13
+text = "Only visible on this device."
+horizontal_alignment = 1
+
+[node name="ServerList" type="ItemList" parent="Paper/Margin/Layout"]
+unique_name_in_owner = true
+visible = false
+custom_minimum_size = Vector2(0, 145)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.035, 0.145, 0.22, 1)
+theme_override_colors/font_selected_color = Color(0.93, 0.885, 0.73, 1)
+theme_override_colors/guide_color = Color(0.035, 0.145, 0.22, 0.25)
+theme_override_font_sizes/font_size = 17
+theme_override_styles/panel = SubResource("StyleBox_list")
+theme_override_styles/focus = SubResource("StyleBox_focus")
+theme_override_styles/selected = SubResource("StyleBox_selected")
+theme_override_styles/selected_focus = SubResource("StyleBox_selected")
+allow_reselect = true
+same_column_width = true
+
+[node name="Details" type="Label" parent="Paper/Margin/Layout"]
+unique_name_in_owner = true
+visible = false
+custom_minimum_size = Vector2(0, 92)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.035, 0.145, 0.22, 1)
+theme_override_font_sizes/font_size = 16
+text = "Select a server."
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 2
+
+[node name="Status" type="Label" parent="Paper/Margin/Layout"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 38)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.035, 0.145, 0.22, 1)
+theme_override_font_sizes/font_size = 15
+theme_override_styles/normal = SubResource("StyleBox_status")
 text = "Direct UDP connection • default port 7777"
 horizontal_alignment = 1
 vertical_alignment = 1
@@ -85,23 +281,74 @@ unique_name_in_owner = true
 visible = false
 layout_mode = 2
 theme_override_colors/font_color = Color(0.035, 0.145, 0.22, 1)
-theme_override_font_sizes/font_size = 17
+theme_override_font_sizes/font_size = 15
 text = "1 / 8 players"
 horizontal_alignment = 1
 
 [node name="Actions" type="HBoxContainer" parent="Paper/Margin/Layout"]
 layout_mode = 2
-theme_override_constants/separation = 12
+theme_override_constants/separation = 7
 alignment = 1
 
 [node name="JoinButton" parent="Paper/Margin/Layout/Actions" instance=ExtResource("3_bubble")]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(112, 106)
+custom_minimum_size = Vector2(82, 72)
 layout_mode = 2
 text = "join"
-neutral_size = Vector2(112, 106)
-minimum_font_size = 18
-maximum_font_size = 24
+neutral_size = Vector2(82, 72)
+minimum_font_size = 15
+maximum_font_size = 18
+horizontal_amplitude = 0.0
+vertical_amplitude = 0.0
+deformation_amplitude = 0.0
+
+[node name="SaveButton" parent="Paper/Margin/Layout/Actions" instance=ExtResource("3_bubble")]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(82, 72)
+layout_mode = 2
+text = "save\nserver"
+neutral_size = Vector2(82, 72)
+minimum_font_size = 14
+maximum_font_size = 17
+horizontal_amplitude = 0.0
+vertical_amplitude = 0.0
+deformation_amplitude = 0.0
+
+[node name="EditButton" parent="Paper/Margin/Layout/Actions" instance=ExtResource("3_bubble")]
+unique_name_in_owner = true
+visible = false
+custom_minimum_size = Vector2(76, 68)
+layout_mode = 2
+text = "edit"
+neutral_size = Vector2(76, 68)
+minimum_font_size = 14
+maximum_font_size = 17
+horizontal_amplitude = 0.0
+vertical_amplitude = 0.0
+deformation_amplitude = 0.0
+
+[node name="FavoriteButton" parent="Paper/Margin/Layout/Actions" instance=ExtResource("3_bubble")]
+unique_name_in_owner = true
+visible = false
+custom_minimum_size = Vector2(88, 68)
+layout_mode = 2
+text = "favorite"
+neutral_size = Vector2(88, 68)
+minimum_font_size = 13
+maximum_font_size = 16
+horizontal_amplitude = 0.0
+vertical_amplitude = 0.0
+deformation_amplitude = 0.0
+
+[node name="DeleteButton" parent="Paper/Margin/Layout/Actions" instance=ExtResource("3_bubble")]
+unique_name_in_owner = true
+visible = false
+custom_minimum_size = Vector2(82, 68)
+layout_mode = 2
+text = "delete"
+neutral_size = Vector2(82, 68)
+minimum_font_size = 13
+maximum_font_size = 16
 horizontal_amplitude = 0.0
 vertical_amplitude = 0.0
 deformation_amplitude = 0.0
@@ -109,12 +356,12 @@ deformation_amplitude = 0.0
 [node name="OpenCloseButton" parent="Paper/Margin/Layout/Actions" instance=ExtResource("3_bubble")]
 unique_name_in_owner = true
 visible = false
-custom_minimum_size = Vector2(112, 106)
+custom_minimum_size = Vector2(88, 72)
 layout_mode = 2
 text = "open\ngame"
-neutral_size = Vector2(112, 106)
-minimum_font_size = 17
-maximum_font_size = 22
+neutral_size = Vector2(88, 72)
+minimum_font_size = 14
+maximum_font_size = 17
 horizontal_amplitude = 0.0
 vertical_amplitude = 0.0
 deformation_amplitude = 0.0
@@ -122,24 +369,27 @@ deformation_amplitude = 0.0
 [node name="CancelButton" parent="Paper/Margin/Layout/Actions" instance=ExtResource("3_bubble")]
 unique_name_in_owner = true
 visible = false
-custom_minimum_size = Vector2(98, 94)
+custom_minimum_size = Vector2(76, 68)
 layout_mode = 2
 text = "cancel"
-neutral_size = Vector2(98, 94)
-minimum_font_size = 16
-maximum_font_size = 20
+neutral_size = Vector2(76, 68)
+minimum_font_size = 14
+maximum_font_size = 17
 horizontal_amplitude = 0.0
 vertical_amplitude = 0.0
 deformation_amplitude = 0.0
 
 [node name="BackButton" parent="Paper/Margin/Layout/Actions" instance=ExtResource("3_bubble")]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(98, 94)
+custom_minimum_size = Vector2(76, 68)
 layout_mode = 2
 text = "back"
-neutral_size = Vector2(98, 94)
-minimum_font_size = 16
-maximum_font_size = 20
+neutral_size = Vector2(76, 68)
+minimum_font_size = 14
+maximum_font_size = 17
 horizontal_amplitude = 0.0
 vertical_amplitude = 0.0
 deformation_amplitude = 0.0
+
+[node name="DeleteConfirmation" parent="." instance=ExtResource("4_confirmation")]
+unique_name_in_owner = true

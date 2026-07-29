@@ -56,6 +56,9 @@ var _input_sequence: int = 0
 var _input_accumulator: float = 0.0
 var _snapshot_accumulator: float = 0.0
 var _last_server_max_players: int = DEFAULT_SESSION_MAX_PLAYERS
+var _last_server_player_count: int = 0
+var _last_server_display_name: String = ""
+var _last_server_protocol_version: int = 0
 var _profile_ready: bool = false
 
 
@@ -227,6 +230,24 @@ func get_current_route_display() -> String:
 		if _current_route != null
 		else _transport.get_route_description() if _transport != null else ""
 	)
+
+
+func get_current_endpoint() -> ConnectionEndpoint:
+	return (
+		_current_route.direct_endpoint
+		if _current_route != null
+		and _current_route.kind == ConnectionRoute.Kind.DIRECT
+		else null
+	)
+
+
+func get_last_server_metadata() -> Dictionary:
+	return {
+		"server_display_name": _last_server_display_name,
+		"protocol_version": _last_server_protocol_version,
+		"player_count": _last_server_player_count,
+		"max_players": _last_server_max_players,
+	}
 
 
 func can_use_host_gameplay() -> bool:
@@ -457,6 +478,11 @@ func receive_server_hello(data: Dictionary) -> void:
 		"max_players",
 		DEFAULT_SESSION_MAX_PLAYERS
 	))
+	_last_server_player_count = int(data.get("player_count", 1))
+	_last_server_display_name = str(data.get("server_display_name", ""))
+	_last_server_protocol_version = int(data.get(
+		"protocol_version", NetworkProtocol.PROTOCOL_VERSION
+	))
 	var local_peer_id: int = multiplayer.get_unique_id()
 	_registry.clear()
 	_registry.add_peer(
@@ -475,11 +501,6 @@ func receive_server_hello(data: Dictionary) -> void:
 			_last_server_max_players,
 		]
 	)
-	if _current_route != null and _saved_servers != null:
-		_saved_servers.record_successful_connection(
-			_current_route.direct_endpoint,
-			_last_server_max_players
-		)
 	join_authenticated.emit()
 
 
