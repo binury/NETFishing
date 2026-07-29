@@ -6,6 +6,7 @@ const FishingShopInteractionType = preload(
 	"res://world/fishing_shop_interaction.gd"
 )
 const GRASS_SURFACE_NAME: String = "grass_lite"
+const SAND_SURFACE_NAME: String = "sand"
 
 @export_group("Owned Nodes")
 @export_node_path("MeshInstance3D")
@@ -31,9 +32,14 @@ var pelican_landmark_path: NodePath = (
 @export var grass_material: Material
 @export_range(0, 16, 1) var grass_surface_index: int = 0
 
+@export_group("Sand Surface")
+@export var sand_material: Material
+@export_range(0, 16, 1) var sand_surface_index: int = 2
+
 
 func _ready() -> void:
 	_apply_grass_material()
+	_apply_sand_material()
 	_build_terrain_collision()
 	if Engine.is_editor_hint():
 		update_configuration_warnings()
@@ -84,6 +90,31 @@ func _apply_grass_material() -> void:
 	)
 
 
+func _apply_sand_material() -> void:
+	var visual_mesh: MeshInstance3D = (
+		get_node_or_null(visual_mesh_path) as MeshInstance3D
+	)
+	if visual_mesh == null or visual_mesh.mesh == null:
+		push_error("Starter island visual mesh is unavailable.")
+		return
+	if sand_material == null:
+		push_error("Starter island sand material is unavailable.")
+		return
+	if sand_surface_index >= visual_mesh.mesh.get_surface_count():
+		push_error("Starter island sand surface index is invalid.")
+		return
+	if (
+		visual_mesh.mesh.surface_get_name(sand_surface_index)
+		!= SAND_SURFACE_NAME
+	):
+		push_error("Starter island sand surface name does not match.")
+		return
+	visual_mesh.set_surface_override_material(
+		sand_surface_index,
+		sand_material
+	)
+
+
 func _build_terrain_collision() -> void:
 	var visual_mesh: MeshInstance3D = (
 		get_node_or_null(visual_mesh_path) as MeshInstance3D
@@ -120,6 +151,16 @@ func _get_configuration_warnings() -> PackedStringArray:
 		warnings.append("Grass surface index must identify the grass surface.")
 	if grass_material == null:
 		warnings.append("Assign the starter-island grass material.")
+	if visual_mesh != null and visual_mesh.mesh != null:
+		if sand_surface_index >= visual_mesh.mesh.get_surface_count():
+			warnings.append("Sand surface index is outside the terrain mesh.")
+		elif (
+			visual_mesh.mesh.surface_get_name(sand_surface_index)
+			!= SAND_SURFACE_NAME
+		):
+			warnings.append("Sand surface index must identify the sand surface.")
+	if sand_material == null:
+		warnings.append("Assign the starter-island sand material.")
 	if get_node_or_null(terrain_collision_shape_path) == null:
 		warnings.append("Terrain/Collision must provide a collision shape.")
 	if get_node_or_null(player_spawn_path) == null:
