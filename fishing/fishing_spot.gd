@@ -433,7 +433,6 @@ func _unhandled_input(event: InputEvent) -> void:
 					get_viewport().set_input_as_handled()
 					return
 				if not has_active_fishing_rod():
-					status_changed.emit("select a fishing rod to cast.")
 					get_viewport().set_input_as_handled()
 					return
 				if (

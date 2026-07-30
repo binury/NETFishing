@@ -13,6 +13,7 @@ const DESKTOP_REFERENCE_SIZE := Vector2(1280.0, 720.0)
 const COMPACT_REFERENCE_SIZE := Vector2(640.0, 480.0)
 const HOTBAR_PRESENTATION_SCALE: float = 0.60
 const HOTBAR_CANONICAL_POSITION := Vector2(256.0, 288.0)
+const HOTBAR_MENU_POSITION := Vector2(80.0, 198.0)
 
 @onready var _presentation_scale_root: Control = %HotbarPresentationScaleRoot
 @onready var _bubble_field: Control = %BubbleField
@@ -30,6 +31,9 @@ var _hovered_slot_index: int = -1
 var _item_name_suppressed: bool = false
 var _motion_elapsed: float = 0.0
 var _compact_layout: bool = false
+var _player_menu_context: bool = false
+var _visibility_tween: Tween
+var _visibility_generation: int = 0
 
 
 func _ready() -> void:
@@ -80,6 +84,57 @@ func set_drag_enabled(enabled: bool) -> void:
 	if not enabled:
 		_hovered_slot_index = -1
 		_hide_item_name()
+
+
+func set_player_menu_context(enabled: bool) -> void:
+	if _player_menu_context == enabled:
+		return
+	_player_menu_context = enabled
+	_presentation_scale_root.position = (
+		HOTBAR_MENU_POSITION if enabled else HOTBAR_CANONICAL_POSITION
+	)
+
+
+func set_presentation_visible(should_show: bool, animate: bool = true) -> void:
+	_visibility_generation += 1
+	var generation: int = _visibility_generation
+	if _visibility_tween != null:
+		_visibility_tween.kill()
+		_visibility_tween = null
+	if should_show:
+		visible = true
+		if not animate:
+			modulate.a = 1.0
+			return
+		_visibility_tween = create_tween()
+		_visibility_tween.tween_property(
+			self,
+			"modulate:a",
+			1.0,
+			UIMotion.UTILITY_ENTER_DURATION,
+		)
+	else:
+		if not visible:
+			return
+		if not animate:
+			visible = false
+			modulate.a = 1.0
+			return
+		_visibility_tween = create_tween()
+		_visibility_tween.tween_property(
+			self,
+			"modulate:a",
+			0.0,
+			UIMotion.UTILITY_EXIT_DURATION,
+		)
+		_visibility_tween.finished.connect(
+			func() -> void:
+				if generation != _visibility_generation:
+					return
+				visible = false
+				modulate.a = 1.0
+				_visibility_tween = null
+		)
 
 
 func set_item_name_suppressed(suppressed: bool) -> void:
@@ -145,7 +200,11 @@ func _apply_layout() -> void:
 	_presentation_scale_root.scale = (
 		Vector2.ONE * HOTBAR_PRESENTATION_SCALE
 	)
-	_presentation_scale_root.position = HOTBAR_CANONICAL_POSITION
+	_presentation_scale_root.position = (
+		HOTBAR_MENU_POSITION
+		if _player_menu_context
+		else HOTBAR_CANONICAL_POSITION
+	)
 	var field_size := (
 		Vector2(580.0, 82.0)
 		if _compact_layout

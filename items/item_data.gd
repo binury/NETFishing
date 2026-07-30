@@ -9,6 +9,7 @@ enum Category {
 	UTILITY,
 	QUEST,
 	COSMETIC,
+	LURE,
 }
 
 @export var item_id: StringName

@@ -60,6 +60,42 @@ offset_right = 1280.0
 offset_bottom = 720.0
 mouse_filter = 2
 
+[node name="InventorySubTabs" type="HBoxContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot"]
+unique_name_in_owner = true
+visible = false
+z_index = 50
+layout_mode = 0
+offset_left = 54.0
+offset_top = 118.0
+offset_right = 504.0
+offset_bottom = 158.0
+mouse_filter = 1
+theme_override_constants/separation = 8
+
+[node name="CoolerSubTab" type="Button" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/InventorySubTabs"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(132, 40)
+layout_mode = 2
+toggle_mode = true
+button_group = null
+text = "Cooler"
+
+[node name="BagSubTab" type="Button" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/InventorySubTabs"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(132, 40)
+layout_mode = 2
+toggle_mode = true
+button_group = null
+text = "Bag"
+
+[node name="TackleSubTab" type="Button" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/InventorySubTabs"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(154, 40)
+layout_mode = 2
+toggle_mode = true
+button_group = null
+text = "Tackle Box"
+
 [node name="CoolerPage" type="Control" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot"]
 unique_name_in_owner = true
 layout_mode = 0
@@ -434,6 +470,29 @@ offset_right = 1280.0
 offset_bottom = 720.0
 mouse_filter = 1
 
+[node name="BagFilterTabs" type="HBoxContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/BagPage"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 122.0
+offset_top = 166.0
+offset_right = 442.0
+offset_bottom = 206.0
+theme_override_constants/separation = 8
+
+[node name="EquipmentFilter" type="Button" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/BagPage/BagFilterTabs"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(150, 40)
+layout_mode = 2
+toggle_mode = true
+text = "Equipment"
+
+[node name="ConsumablesFilter" type="Button" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/BagPage/BagFilterTabs"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(150, 40)
+layout_mode = 2
+toggle_mode = true
+text = "Consumables"
+
 [node name="BagOuterWall" type="PanelContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/BagPage"]
 unique_name_in_owner = true
 layout_mode = 0
@@ -538,6 +597,94 @@ theme_override_colors/font_color = Color(0.22, 0.15, 0.08, 1)
 theme_override_font_sizes/font_size = 15
 horizontal_alignment = 1
 autowrap_mode = 2
+
+[node name="TackleBoxPage" type="Control" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 0
+offset_right = 1280.0
+offset_bottom = 720.0
+mouse_filter = 1
+
+[node name="TackleMainPanel" type="PanelContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/TackleBoxPage"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 54.0
+offset_top = 166.0
+offset_right = 936.0
+offset_bottom = 602.0
+
+[node name="Margin" type="MarginContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/TackleBoxPage/TackleMainPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 24
+theme_override_constants/margin_top = 20
+theme_override_constants/margin_right = 24
+theme_override_constants/margin_bottom = 20
+
+[node name="Layout" type="VBoxContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/TackleBoxPage/TackleMainPanel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 14
+
+[node name="TackleFilterTabs" type="HBoxContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/TackleBoxPage/TackleMainPanel/Margin/Layout"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="BaitFilter" type="Button" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/TackleBoxPage/TackleMainPanel/Margin/Layout/TackleFilterTabs"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(150, 40)
+layout_mode = 2
+toggle_mode = true
+text = "Bait"
+
+[node name="LuresFilter" type="Button" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/TackleBoxPage/TackleMainPanel/Margin/Layout/TackleFilterTabs"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(150, 40)
+layout_mode = 2
+toggle_mode = true
+text = "Lures"
+
+[node name="TackleScroll" type="ScrollContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/TackleBoxPage/TackleMainPanel/Margin/Layout"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="TackleItemList" type="VBoxContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/TackleBoxPage/TackleMainPanel/Margin/Layout/TackleScroll"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 8
+
+[node name="TackleEmpty" type="Label" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/TackleBoxPage/TackleMainPanel/Margin/Layout"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+text = "No bait collected."
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="TackleDetailPanel" type="PanelContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/TackleBoxPage"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 952.0
+offset_top = 166.0
+offset_right = 1230.0
+offset_bottom = 602.0
+
+[node name="Margin" type="MarginContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/TackleBoxPage/TackleDetailPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 20
+theme_override_constants/margin_right = 20
+theme_override_constants/margin_bottom = 20
+
+[node name="TackleDetailText" type="Label" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/TackleBoxPage/TackleDetailPanel/Margin"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Select bait or a lure for details."
+autowrap_mode = 2
+vertical_alignment = 1
 
 [node name="LogbookPage" type="Control" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot"]
 unique_name_in_owner = true
@@ -1209,41 +1356,21 @@ compact_reference_size = Vector2(840, 100)
 unique_name_in_owner = true
 layout_mode = 0
 toggle_mode = true
-text = "cooler"
+text = "inventory"
 script = ExtResource("6_bubble")
 profile = ExtResource("4_profile")
 neutral_size = Vector2(112, 108)
 desktop_anchor = Vector2(70, 60)
 compact_anchor = Vector2(70, 73.3333)
 compact_minimum_size = Vector2(84, 82)
-minimum_font_size = 25
-maximum_font_size = 25
+minimum_font_size = 20
+maximum_font_size = 22
 horizontal_amplitude = 1.2
 vertical_amplitude = 2.4
 motion_period = 5.6
 motion_phase = 0.35
 deformation_amplitude = 0.012
 deformation_period = 6.4
-
-[node name="BagTab" type="Button" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/NavigationCluster"]
-unique_name_in_owner = true
-layout_mode = 0
-toggle_mode = true
-text = "bag"
-script = ExtResource("6_bubble")
-profile = ExtResource("4_profile")
-neutral_size = Vector2(112, 108)
-desktop_anchor = Vector2(182, 60)
-compact_anchor = Vector2(182, 73.3333)
-compact_minimum_size = Vector2(84, 82)
-minimum_font_size = 25
-maximum_font_size = 25
-horizontal_amplitude = 1.0
-vertical_amplitude = 2.0
-motion_period = 5.1
-motion_phase = 1.65
-deformation_amplitude = 0.011
-deformation_period = 6.0
 
 [node name="LogbookTab" type="Button" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/NavigationCluster"]
 unique_name_in_owner = true
@@ -1253,8 +1380,8 @@ text = "logbook"
 script = ExtResource("6_bubble")
 profile = ExtResource("4_profile")
 neutral_size = Vector2(112, 108)
-desktop_anchor = Vector2(294, 60)
-compact_anchor = Vector2(294, 73.3333)
+desktop_anchor = Vector2(210, 60)
+compact_anchor = Vector2(210, 73.3333)
 compact_minimum_size = Vector2(84, 82)
 minimum_font_size = 25
 maximum_font_size = 25
@@ -1273,8 +1400,8 @@ text = "mail"
 script = ExtResource("6_bubble")
 profile = ExtResource("4_profile")
 neutral_size = Vector2(112, 108)
-desktop_anchor = Vector2(406, 60)
-compact_anchor = Vector2(406, 73.3333)
+desktop_anchor = Vector2(350, 60)
+compact_anchor = Vector2(350, 73.3333)
 compact_minimum_size = Vector2(84, 82)
 minimum_font_size = 25
 maximum_font_size = 25
@@ -1309,8 +1436,8 @@ text = "profile"
 script = ExtResource("6_bubble")
 profile = ExtResource("4_profile")
 neutral_size = Vector2(112, 108)
-desktop_anchor = Vector2(518, 60)
-compact_anchor = Vector2(518, 73.3333)
+desktop_anchor = Vector2(490, 60)
+compact_anchor = Vector2(490, 73.3333)
 compact_minimum_size = Vector2(84, 82)
 minimum_font_size = 23
 maximum_font_size = 25

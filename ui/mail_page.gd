@@ -110,7 +110,7 @@ func set_interactive(value: bool) -> void:
 func _build_ui() -> void:
 	var paper := PanelContainer.new()
 	paper.position = Vector2(116, 126)
-	paper.size = Vector2(1048, 470)
+	paper.size = Vector2(1048, 540)
 	paper.add_theme_stylebox_override("panel", UtilityPageStyle.panel_style())
 	add_child(paper)
 	var margin := MarginContainer.new()
@@ -128,7 +128,7 @@ func _build_ui() -> void:
 		page.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		root.add_child(page)
 	_status = Label.new()
-	_status.position = Vector2(18, 430)
+	_status.position = Vector2(18, 448)
 	_status.size = Vector2(900, 28)
 	_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_status.add_theme_color_override("font_color", Color("4a3f31"))
@@ -163,7 +163,7 @@ func _build_inbox() -> Control:
 	page.add_child(archive_view)
 	var scroll := ScrollContainer.new()
 	scroll.position = Vector2(12, 62)
-	scroll.size = Vector2(958, 342)
+	scroll.size = Vector2(958, 374)
 	page.add_child(scroll)
 	_inbox_list = VBoxContainer.new()
 	_inbox_list.custom_minimum_size = Vector2(930, 0)

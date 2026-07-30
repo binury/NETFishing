@@ -79,14 +79,27 @@ const COOLER_RARITY_EPIC := Color("a979cf")
 const COOLER_RARITY_LEGENDARY := Color("db78a7")
 
 signal menu_visibility_changed(is_open: bool)
+signal inventory_hotbar_context_changed(show_hotbar: bool)
+signal menu_exit_started
 
 enum Section {
 	COOLER,
 	BAG,
+	TACKLE_BOX,
 	LOGBOOK,
 	MAIL,
 	PROFILE,
 	PLAYERS,
+}
+
+enum BagView {
+	EQUIPMENT,
+	CONSUMABLES,
+}
+
+enum TackleView {
+	BAIT,
+	LURES,
 }
 
 enum SortMode {
@@ -142,6 +155,21 @@ enum CloseReason {
 @onready var _favorite_bubble: NotepadInkActionType = %FavoriteBubble
 @onready var _sell_bubble: NotepadInkActionType = %SellBubble
 @onready var _bag_page: Control = %BagPage
+@onready var _tackle_box_page: Control = %TackleBoxPage
+@onready var _inventory_sub_tabs: HBoxContainer = %InventorySubTabs
+@onready var _cooler_sub_tab: Button = %CoolerSubTab
+@onready var _bag_sub_tab: Button = %BagSubTab
+@onready var _tackle_sub_tab: Button = %TackleSubTab
+@onready var _bag_filter_tabs: HBoxContainer = %BagFilterTabs
+@onready var _equipment_filter: Button = %EquipmentFilter
+@onready var _consumables_filter: Button = %ConsumablesFilter
+@onready var _tackle_main_panel: PanelContainer = %TackleMainPanel
+@onready var _tackle_detail_panel: PanelContainer = %TackleDetailPanel
+@onready var _bait_filter: Button = %BaitFilter
+@onready var _lures_filter: Button = %LuresFilter
+@onready var _tackle_empty: Label = %TackleEmpty
+@onready var _tackle_detail_text: Label = %TackleDetailText
+@onready var _tackle_item_list: VBoxContainer = %TackleItemList
 @onready var _bag_outer_wall: PanelContainer = %BagOuterWall
 @onready var _bag_inner_liner: PanelContainer = %BagInnerLiner
 @onready var _bag_scroll: ScrollContainer = %BagScroll
@@ -171,7 +199,6 @@ enum CloseReason {
 @onready var _logbook_next: BubbleButtonType = %LogbookNext
 @onready var _logbook_page_status: BubbleStatusBubbleType = %LogbookPageStatus
 @onready var _inventory_tab: BubbleButtonType = %InventoryTab
-@onready var _bag_tab: BubbleButtonType = %BagTab
 @onready var _logbook_tab: BubbleButtonType = %LogbookTab
 @onready var _mail_tab: BubbleButtonType = %MailTab
 @onready var _profile_tab: BubbleButtonType = %ProfileTab
@@ -240,6 +267,10 @@ var _hotbar: PlayerHotbarType
 var _item_catalog: ItemCatalogType
 var _cooler_capacity: PlayerCoolerCapacityType
 var _current_section: Section = Section.COOLER
+var _last_inventory_section: Section = Section.COOLER
+var _bag_view: BagView = BagView.EQUIPMENT
+var _tackle_view: TackleView = TackleView.BAIT
+var _selected_tackle_item_id: StringName
 var _sort_mode: SortMode = SortMode.CATCH_ORDER
 var _sort_descending: bool = true
 var _fish_selection := FishBatchSelectionType.new()
@@ -265,6 +296,7 @@ var _presentation_rest_position: Vector2 = Vector2.ZERO
 var _content_rest_position: Vector2 = Vector2.ZERO
 var _cooler_rest_position: Vector2 = Vector2.ZERO
 var _bag_rest_position: Vector2 = Vector2.ZERO
+var _tackle_rest_position: Vector2 = Vector2.ZERO
 var _logbook_rest_position: Vector2 = Vector2.ZERO
 var _mail_rest_position: Vector2 = Vector2.ZERO
 var _profile_rest_position: Vector2 = Vector2.ZERO
@@ -286,10 +318,16 @@ var _logbook_page_tween: Tween
 
 
 func _ready() -> void:
-	_inventory_tab.pressed.connect(
-		_show_section.bind(Section.COOLER)
+	_inventory_tab.pressed.connect(_show_last_inventory_section)
+	_cooler_sub_tab.pressed.connect(_show_section.bind(Section.COOLER))
+	_bag_sub_tab.pressed.connect(_show_section.bind(Section.BAG))
+	_tackle_sub_tab.pressed.connect(_show_section.bind(Section.TACKLE_BOX))
+	_equipment_filter.pressed.connect(_set_bag_view.bind(BagView.EQUIPMENT))
+	_consumables_filter.pressed.connect(
+		_set_bag_view.bind(BagView.CONSUMABLES)
 	)
-	_bag_tab.pressed.connect(_show_section.bind(Section.BAG))
+	_bait_filter.pressed.connect(_set_tackle_view.bind(TackleView.BAIT))
+	_lures_filter.pressed.connect(_set_tackle_view.bind(TackleView.LURES))
 	_logbook_tab.pressed.connect(
 		_show_section.bind(Section.LOGBOOK)
 	)
@@ -319,7 +357,6 @@ func _ready() -> void:
 	_update_sort_direction_text()
 	_navigation_cluster.configure([
 		_inventory_tab,
-		_bag_tab,
 		_logbook_tab,
 		_mail_tab,
 		_profile_tab,
@@ -328,6 +365,10 @@ func _ready() -> void:
 	])
 	_configure_navigation_focus()
 	_apply_navigation_styles()
+	_apply_inventory_styles()
+	# Full-page Inventory controls are later siblings and otherwise win GUI
+	# picking over the tab row even though the tabs draw above them.
+	_inventory_sub_tabs.move_to_front()
 	_apply_cooler_control_styles()
 	_apply_cooler_wall_styles()
 	_apply_cooler_notepad_style()
@@ -442,6 +483,8 @@ func setup(
 		_fishing_spot.bite_activated.connect(_on_bite_activated)
 	if not _bag.contents_changed.is_connected(_on_bag_changed):
 		_bag.contents_changed.connect(_on_bag_changed)
+	if not _hotbar.slots_changed.is_connected(_on_hotbar_changed):
+		_hotbar.slots_changed.connect(_on_hotbar_changed)
 	if not _cooler_capacity.capacity_changed.is_connected(
 		_on_cooler_capacity_changed
 	):
@@ -451,6 +494,9 @@ func setup(
 
 func _input(event: InputEvent) -> void:
 	if event is InputEventKey and event.echo:
+		return
+	if _handle_inventory_shortcut(event):
+		get_viewport().set_input_as_handled()
 		return
 	if visible:
 		if event.is_action_pressed("open_backpack"):
@@ -465,6 +511,54 @@ func _input(event: InputEvent) -> void:
 	):
 		open_menu()
 		get_viewport().set_input_as_handled()
+
+
+func _handle_inventory_shortcut(event: InputEvent) -> bool:
+	var key_event := event as InputEventKey
+	if (
+		key_event == null
+		or not key_event.pressed
+		or _is_text_input_active()
+	):
+		return false
+	var physical_key: Key = key_event.physical_keycode
+	var inventory_requested: bool = physical_key == KEY_I
+	var tackle_requested: bool = (
+		physical_key == KEY_V
+		or event.is_action_pressed("open_tacklebox")
+	)
+	if not inventory_requested and not tackle_requested:
+		return false
+	var requested_section: Section = (
+		Section.TACKLE_BOX if tackle_requested else _last_inventory_section
+	)
+	if visible:
+		if (
+			_current_section == requested_section
+			and not _transitioning
+			and not _page_transitioning
+		):
+			close_menu()
+		elif not _transitioning and not _page_transitioning:
+			_show_section(requested_section)
+	else:
+		if (
+			_fishing_spot == null
+			or not _fishing_spot.can_open_player_menu()
+		):
+			return false
+		_current_section = requested_section
+		open_menu()
+	return true
+
+
+func _is_text_input_active() -> bool:
+	var focus_owner: Control = get_viewport().gui_get_focus_owner()
+	return (
+		focus_owner != null
+		and focus_owner.is_visible_in_tree()
+		and (focus_owner is LineEdit or focus_owner is TextEdit)
+	)
 
 
 func consume_escape() -> bool:
@@ -537,6 +631,7 @@ func close_menu(
 		CloseReason.TEARDOWN,
 	]:
 		_fish_selection.clear()
+	menu_exit_started.emit()
 	_begin_menu_exit(reason, restore_controls)
 
 
@@ -618,11 +713,15 @@ func _show_section(section: Section) -> void:
 
 func _show_section_immediate(section: Section) -> void:
 	_current_section = section
+	if _is_inventory_section(section):
+		_last_inventory_section = section
 	if not is_node_ready():
 		return
 	_configure_navigation_focus()
 	_cooler_page.visible = section == Section.COOLER
 	_bag_page.visible = section == Section.BAG
+	_tackle_box_page.visible = section == Section.TACKLE_BOX
+	_inventory_sub_tabs.visible = _is_inventory_section(section)
 	_logbook_page.visible = section == Section.LOGBOOK
 	_mail_page.visible = section == Section.MAIL
 	_profile_page.visible = section == Section.PROFILE
@@ -643,6 +742,7 @@ func _show_section_immediate(section: Section) -> void:
 		_close_bag_detail()
 	else:
 		_update_bag_detail()
+	_refresh_tackle_box()
 	if section != Section.LOGBOOK:
 		_cancel_logbook_page_transition(true)
 	if section == Section.MAIL:
@@ -657,21 +757,36 @@ func _show_section_immediate(section: Section) -> void:
 		_players_page.activate()
 	else:
 		_players_page.deactivate()
-	_inventory_tab.button_pressed = section == Section.COOLER
-	_bag_tab.button_pressed = section == Section.BAG
+	_inventory_tab.button_pressed = _is_inventory_section(section)
+	_cooler_sub_tab.button_pressed = section == Section.COOLER
+	_bag_sub_tab.button_pressed = section == Section.BAG
+	_tackle_sub_tab.button_pressed = section == Section.TACKLE_BOX
 	_logbook_tab.button_pressed = section == Section.LOGBOOK
 	_mail_tab.button_pressed = section == Section.MAIL
 	_profile_tab.button_pressed = section == Section.PROFILE
 	_players_tab.button_pressed = section == Section.PLAYERS
 	_update_navigation_selection()
 	_configure_active_page_focus()
+	inventory_hotbar_context_changed.emit(
+		section in [Section.COOLER, Section.BAG]
+	)
+
+
+func _is_inventory_section(section: Section) -> bool:
+	return section in [Section.COOLER, Section.BAG, Section.TACKLE_BOX]
+
+
+func _show_last_inventory_section() -> void:
+	_show_section(_last_inventory_section)
 
 
 func _focus_current_section() -> void:
 	if _current_section == Section.COOLER:
-		_inventory_tab.grab_focus()
+		_cooler_sub_tab.grab_focus()
 	elif _current_section == Section.BAG:
-		_bag_tab.grab_focus()
+		_bag_sub_tab.grab_focus()
+	elif _current_section == Section.TACKLE_BOX:
+		_tackle_sub_tab.grab_focus()
 	elif _current_section == Section.LOGBOOK:
 		_logbook_tab.grab_focus()
 	elif _current_section == Section.MAIL:
@@ -704,7 +819,6 @@ func _process(delta: float) -> void:
 func _configure_navigation_focus() -> void:
 	var navigation: Array[BubbleButtonType] = [
 		_inventory_tab,
-		_bag_tab,
 		_logbook_tab,
 		_mail_tab,
 		_profile_tab,
@@ -723,6 +837,26 @@ func _configure_navigation_focus() -> void:
 		bubble.focus_neighbor_right = bubble.get_path_to(next)
 		bubble.focus_neighbor_top = bubble.focus_neighbor_left
 		bubble.focus_neighbor_bottom = bubble.focus_neighbor_right
+	var inventory_tabs: Array[Button] = [
+		_cooler_sub_tab,
+		_bag_sub_tab,
+		_tackle_sub_tab,
+	]
+	for index: int in inventory_tabs.size():
+		var tab: Button = inventory_tabs[index]
+		tab.focus_neighbor_left = tab.get_path_to(
+			inventory_tabs[maxi(index - 1, 0)]
+		)
+		tab.focus_neighbor_right = tab.get_path_to(
+			inventory_tabs[mini(index + 1, inventory_tabs.size() - 1)]
+		)
+		tab.focus_neighbor_top = tab.get_path_to(_inventory_tab)
+	_inventory_tab.focus_neighbor_bottom = _inventory_tab.get_path_to(
+		inventory_tabs[int(_last_inventory_section)]
+	)
+	_tackle_sub_tab.focus_neighbor_bottom = _tackle_sub_tab.get_path_to(
+		_bait_filter
+	)
 
 
 func _configure_sale_confirmation_focus() -> void:
@@ -762,12 +896,140 @@ func _configure_active_page_focus() -> void:
 			_configure_cooler_fish_focus()
 		Section.BAG:
 			_configure_bag_item_focus()
+		Section.TACKLE_BOX:
+			_bait_filter.grab_focus()
 		Section.LOGBOOK:
 			_configure_logbook_focus()
 		Section.MAIL:
 			_mail_page.activate()
 		Section.PROFILE:
 			_profile_page.activate()
+
+
+func _apply_inventory_styles() -> void:
+	for button: Button in [
+		_cooler_sub_tab,
+		_bag_sub_tab,
+		_tackle_sub_tab,
+		_equipment_filter,
+		_consumables_filter,
+		_bait_filter,
+		_lures_filter,
+	]:
+		UtilityPageStyle.apply_button(button)
+	for panel: PanelContainer in [_tackle_main_panel, _tackle_detail_panel]:
+		panel.add_theme_stylebox_override(
+			"panel",
+			UtilityPageStyle.panel_style(),
+		)
+	for label: Label in [_tackle_empty, _tackle_detail_text]:
+		label.add_theme_font_override("font", UtilityPageStyle.TuffyFont)
+		label.add_theme_color_override(
+			"font_color",
+			UtilityPageStyle.INK,
+		)
+
+
+func _set_bag_view(view: BagView) -> void:
+	if _bag_view == view:
+		return
+	_bag_view = view
+	_selected_bag_item_id = StringName()
+	_refresh_bag()
+
+
+func _set_tackle_view(view: TackleView) -> void:
+	_tackle_view = view
+	_selected_tackle_item_id = StringName()
+	_refresh_tackle_box()
+
+
+func _refresh_tackle_box() -> void:
+	if not is_node_ready():
+		return
+	_bait_filter.button_pressed = _tackle_view == TackleView.BAIT
+	_lures_filter.button_pressed = _tackle_view == TackleView.LURES
+	for child: Node in _tackle_item_list.get_children():
+		child.queue_free()
+	var matching_items: Array[OwnedItemType] = []
+	if _bag != null and _item_catalog != null:
+		for owned: OwnedItemType in _bag.get_all_items():
+			var item: ItemDataType = _item_catalog.get_item_by_id(
+				owned.item_id
+			)
+			if item == null:
+				continue
+			if (
+				_tackle_view == TackleView.BAIT
+				and item.category == ItemDataType.Category.BAIT
+			):
+				matching_items.append(owned)
+			elif (
+				_tackle_view == TackleView.LURES
+				and item.category == ItemDataType.Category.LURE
+			):
+				matching_items.append(owned)
+	matching_items.sort_custom(_sort_bag_items)
+	for owned: OwnedItemType in matching_items:
+		var item: ItemDataType = _item_catalog.get_item_by_id(owned.item_id)
+		var row := Button.new()
+		row.text = "%s  ×%d" % [item.display_name, owned.quantity]
+		row.icon = item.icon
+		row.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		row.toggle_mode = true
+		row.button_pressed = owned.item_id == _selected_tackle_item_id
+		UtilityPageStyle.apply_button(row)
+		row.pressed.connect(_select_tackle_item.bind(owned.item_id))
+		_tackle_item_list.add_child(row)
+	_tackle_empty.text = (
+		"No bait collected."
+		if _tackle_view == TackleView.BAIT
+		else "No lures collected."
+	)
+	_tackle_empty.visible = matching_items.is_empty()
+	_update_tackle_detail()
+
+
+func _select_tackle_item(item_id: StringName) -> void:
+	_selected_tackle_item_id = item_id
+	_refresh_tackle_box()
+
+
+func _update_tackle_detail() -> void:
+	var item: ItemDataType = (
+		_item_catalog.get_item_by_id(_selected_tackle_item_id)
+		if _item_catalog != null and not _selected_tackle_item_id.is_empty()
+		else null
+	)
+	if item == null:
+		_tackle_detail_text.text = (
+			"Select bait for details."
+			if _tackle_view == TackleView.BAIT
+			else "Select a lure for details."
+		)
+		return
+	var quantity: int = _bag.get_quantity(item.item_id) if _bag != null else 0
+	var assigned_slot: int = -1
+	if _hotbar != null:
+		for slot_index: int in range(PlayerHotbarType.SLOT_COUNT):
+			if _hotbar.get_item_id(slot_index) == item.item_id:
+				assigned_slot = slot_index
+				break
+	var state_text: String = (
+		"hotbar slot %d" % (assigned_slot + 1)
+		if assigned_slot >= 0
+		else "not assigned"
+	)
+	_tackle_detail_text.text = (
+		"%s\n\nType: %s\nQuantity: %d\n%s\n\n%s"
+		% [
+			item.display_name,
+			item.get_category_name(),
+			quantity,
+			state_text,
+			item.description,
+		]
+	)
 
 
 func _apply_cooler_control_styles() -> void:
@@ -858,7 +1120,6 @@ func _apply_navigation_styles() -> void:
 	var disabled := _make_navigation_style(profile.disabled_fill, 1, 0.14)
 	for bubble: BubbleButtonType in [
 		_inventory_tab,
-		_bag_tab,
 		_logbook_tab,
 		_mail_tab,
 		_profile_tab,
@@ -890,7 +1151,6 @@ func _make_navigation_style(
 func _apply_navigation_selection_presentation() -> void:
 	for bubble: BubbleButtonType in [
 		_inventory_tab,
-		_bag_tab,
 		_logbook_tab,
 		_mail_tab,
 		_profile_tab,
@@ -998,8 +1258,7 @@ func _on_mail_unread_count_changed(count: int) -> void:
 
 
 func _set_navigation_target(section: Section) -> void:
-	_inventory_tab.button_pressed = section == Section.COOLER
-	_bag_tab.button_pressed = section == Section.BAG
+	_inventory_tab.button_pressed = _is_inventory_section(section)
 	_logbook_tab.button_pressed = section == Section.LOGBOOK
 	_mail_tab.button_pressed = section == Section.MAIL
 	_profile_tab.button_pressed = section == Section.PROFILE
@@ -1033,16 +1292,16 @@ func _update_shell_layout() -> void:
 	_cooler_rest_position = Vector2.ZERO
 	_layout_cooler_fish(false)
 	_cooler_outer_wall.position = (
-		Vector2(14.0, 154.0) if compact else Vector2(54.0, 126.0)
+		Vector2(14.0, 154.0) if compact else Vector2(54.0, 166.0)
 	)
 	_cooler_outer_wall.size = (
-		Vector2(300.0, 206.0) if compact else Vector2(866.0, 476.0)
+		Vector2(300.0, 218.0) if compact else Vector2(882.0, 484.0)
 	)
 	_detail_constellation.position = (
-		Vector2(320.0, 154.0) if compact else Vector2(942.0, 126.0)
+		Vector2(320.0, 154.0) if compact else Vector2(952.0, 166.0)
 	)
 	_detail_constellation.size = (
-		Vector2(306.0, 196.0) if compact else Vector2(288.0, 476.0)
+		Vector2(306.0, 196.0) if compact else Vector2(278.0, 436.0)
 	)
 	_notepad_binding.position = Vector2(44.0, 1.0) if compact else Vector2(28.0, 4.0)
 	_notepad_binding.size = Vector2(218.0, 20.0) if compact else Vector2(232.0, 27.0)
@@ -1126,13 +1385,13 @@ func _update_shell_layout() -> void:
 		Vector2(74.0, 42.0) if compact else Vector2(118.0, 50.0)
 	)
 	_favorite_bubble.position = (
-		Vector2(144.0, 148.0) if compact else Vector2(26.0, 400.0)
+		Vector2(144.0, 148.0) if compact else Vector2(26.0, 378.0)
 	)
 	_favorite_bubble.size = (
 		Vector2(72.0, 42.0) if compact else Vector2(108.0, 50.0)
 	)
 	_sell_bubble.position = (
-		Vector2(222.0, 148.0) if compact else Vector2(144.0, 400.0)
+		Vector2(222.0, 148.0) if compact else Vector2(144.0, 378.0)
 	)
 	_sell_bubble.size = (
 		Vector2(74.0, 42.0) if compact else Vector2(118.0, 50.0)
@@ -1147,27 +1406,30 @@ func _update_shell_layout() -> void:
 	_bag_page.size = reference_size
 	_bag_page.position = Vector2.ZERO
 	_bag_rest_position = Vector2.ZERO
+	_tackle_box_page.size = reference_size
+	_tackle_box_page.position = Vector2.ZERO
+	_tackle_rest_position = Vector2.ZERO
 	_bag_outer_wall.position = (
-		Vector2(14.0, 170.0) if compact else Vector2(122.0, 132.0)
+		Vector2(14.0, 170.0) if compact else Vector2(54.0, 214.0)
 	)
 	_bag_outer_wall.size = (
-		Vector2(612.0, 200.0) if compact else Vector2(896.0, 442.0)
+		Vector2(612.0, 212.0) if compact else Vector2(882.0, 436.0)
 	)
 	_bag_host.custom_minimum_size = (
-		Vector2(520.0, 140.0) if compact else Vector2(820.0, 350.0)
+		Vector2(520.0, 152.0) if compact else Vector2(820.0, 380.0)
 	)
 	_bag_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	_bag_detail_constellation.position = (
-		Vector2.ZERO if compact else Vector2(984.0, 266.0)
+		Vector2.ZERO if compact else Vector2(952.0, 166.0)
 	)
 	_bag_detail_constellation.size = (
-		Vector2(640.0, 390.0) if compact else Vector2(272.0, 304.0)
+		Vector2(640.0, 390.0) if compact else Vector2(278.0, 436.0)
 	)
 	_bag_sprite_detail_bubble.position = (
 		Vector2(170.0, 164.0) if compact else Vector2.ZERO
 	)
 	_bag_sprite_detail_bubble.size = (
-		Vector2(300.0, 188.0) if compact else Vector2(272.0, 304.0)
+		Vector2(300.0, 188.0) if compact else Vector2(278.0, 436.0)
 	)
 	_bag_sprite_detail_texture.custom_minimum_size = (
 		Vector2(72.0, 48.0) if compact else Vector2(100.0, 72.0)
@@ -1180,6 +1442,18 @@ func _update_shell_layout() -> void:
 		"font_size",
 		12 if compact else 15,
 	)
+	_tackle_main_panel.position = (
+		Vector2(14.0, 154.0) if compact else Vector2(54.0, 166.0)
+	)
+	_tackle_main_panel.size = (
+		Vector2(418.0, 218.0) if compact else Vector2(882.0, 484.0)
+	)
+	_tackle_detail_panel.position = (
+		Vector2(438.0, 154.0) if compact else Vector2(952.0, 166.0)
+	)
+	_tackle_detail_panel.size = (
+		Vector2(188.0, 218.0) if compact else Vector2(278.0, 484.0)
+	)
 	_logbook_page.size = reference_size
 	_logbook_page.position = Vector2.ZERO
 	_logbook_rest_position = Vector2.ZERO
@@ -1191,11 +1465,14 @@ func _update_shell_layout() -> void:
 	_profile_page.position = Vector2(42.0, 104.0)
 	_profile_page.size = Vector2(1196.0, 608.0)
 	_profile_rest_position = _profile_page.position
+	_players_page.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	_players_page.position = Vector2.ZERO
+	_players_page.size = reference_size
 	_book_backing.position = (
 		Vector2(14.0, 164.0) if compact else Vector2(58.0, 128.0)
 	)
 	_book_backing.size = (
-		Vector2(612.0, 210.0) if compact else Vector2(1164.0, 460.0)
+		Vector2(612.0, 232.0) if compact else Vector2(1164.0, 522.0)
 	)
 	_right_page.visible = not compact
 	_book_gutter.visible = not compact
@@ -1214,17 +1491,17 @@ func _update_shell_layout() -> void:
 		Vector2(400.0, 52.0) if compact else Vector2(476.0, 52.0)
 	)
 	_logbook_previous.apply_layout(
-		Vector2(58.0, 310.0) if compact else Vector2(116.0, 530.0),
+		Vector2(58.0, 332.0) if compact else Vector2(116.0, 622.0),
 		Vector2(66.0, 62.0) if compact else Vector2(76.0, 72.0),
 		0.18,
 	)
 	_logbook_next.apply_layout(
-		Vector2(582.0, 310.0) if compact else Vector2(1164.0, 530.0),
+		Vector2(582.0, 332.0) if compact else Vector2(1164.0, 622.0),
 		Vector2(66.0, 62.0) if compact else Vector2(76.0, 72.0),
 		0.18,
 	)
 	_logbook_page_status.position = (
-		Vector2(255.0, 286.0) if compact else Vector2(555.0, 524.0)
+		Vector2(255.0, 308.0) if compact else Vector2(555.0, 608.0)
 	)
 	_logbook_page_status.size = (
 		Vector2(130.0, 46.0) if compact else Vector2(170.0, 56.0)
@@ -1238,7 +1515,7 @@ func _update_shell_layout() -> void:
 	)
 	_cooler_host.custom_minimum_size = Vector2(
 		520.0 if compact else 810.0,
-		500.0 if compact else 412.0,
+		512.0 if compact else 420.0,
 	)
 	_bag_grid.columns = 2 if compact else 3
 	_logbook_grid.columns = 3 if compact else 4
@@ -1250,14 +1527,18 @@ func _update_shell_layout() -> void:
 		_content_shell.position = _presentation_rest_position
 		_cooler_page.position = _cooler_rest_position
 		_bag_page.position = _bag_rest_position
+		_tackle_box_page.position = _tackle_rest_position
 		_logbook_page.position = _logbook_rest_position
 		_mail_page.position = _mail_rest_position
 		_profile_page.position = _profile_rest_position
+		_players_page.position = Vector2.ZERO
 		_cooler_page.modulate.a = 1.0
 		_bag_page.modulate.a = 1.0
+		_tackle_box_page.modulate.a = 1.0
 		_logbook_page.modulate.a = 1.0
 		_mail_page.modulate.a = 1.0
 		_profile_page.modulate.a = 1.0
+		_players_page.modulate.a = 1.0
 	if not _page_transitioning:
 		_content_stage.position = _content_rest_position
 	_layout_cooler_fish(false)
@@ -1339,9 +1620,13 @@ func _begin_menu_entry() -> void:
 	_content_shell.position = _presentation_rest_position + Vector2.DOWN * start_offset
 	_cooler_page.position = _cooler_rest_position + Vector2.DOWN * start_offset
 	_bag_page.position = _bag_rest_position + Vector2.DOWN * start_offset
+	_tackle_box_page.position = (
+		_tackle_rest_position + Vector2.DOWN * start_offset
+	)
 	_logbook_page.position = _logbook_rest_position + Vector2.DOWN * start_offset
 	_mail_page.position = _mail_rest_position + Vector2.DOWN * start_offset
 	_profile_page.position = _profile_rest_position + Vector2.DOWN * start_offset
+	_players_page.position = Vector2.DOWN * start_offset
 	var navigation_rest: Vector2 = _navigation_cluster.position
 	_navigation_cluster.position = navigation_rest + Vector2.DOWN * start_offset
 	var transition_duration := UIMotion.bubble_duration(start_offset)
@@ -1365,6 +1650,12 @@ func _begin_menu_entry() -> void:
 		transition_duration
 	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	_presentation_tween.tween_property(
+		_tackle_box_page,
+		"position",
+		_tackle_rest_position,
+		transition_duration
+	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	_presentation_tween.tween_property(
 		_logbook_page,
 		"position",
 		_logbook_rest_position,
@@ -1380,6 +1671,12 @@ func _begin_menu_entry() -> void:
 		_profile_page,
 		"position",
 		_profile_rest_position,
+		transition_duration
+	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	_presentation_tween.tween_property(
+		_players_page,
+		"position",
+		Vector2.ZERO,
 		transition_duration
 	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	_presentation_tween.tween_property(
@@ -1440,6 +1737,12 @@ func _begin_menu_exit(reason: CloseReason, restore_controls: bool) -> void:
 		transition_duration
 	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	_presentation_tween.tween_property(
+		_tackle_box_page,
+		"position:y",
+		-_tackle_box_page.size.y - TRANSITION_SAFE_MARGIN,
+		transition_duration
+	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	_presentation_tween.tween_property(
 		_logbook_page,
 		"position:y",
 		-_logbook_page.size.y - TRANSITION_SAFE_MARGIN,
@@ -1455,6 +1758,12 @@ func _begin_menu_exit(reason: CloseReason, restore_controls: bool) -> void:
 		_profile_page,
 		"position:y",
 		-_profile_page.size.y - TRANSITION_SAFE_MARGIN,
+		transition_duration
+	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	_presentation_tween.tween_property(
+		_players_page,
+		"position:y",
+		-_players_page.size.y - TRANSITION_SAFE_MARGIN,
 		transition_duration
 	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	_presentation_tween.tween_property(
@@ -1518,12 +1827,16 @@ func _get_section_root(section: Section) -> Control:
 			return _cooler_page
 		Section.BAG:
 			return _bag_page
+		Section.TACKLE_BOX:
+			return _tackle_box_page
 		Section.LOGBOOK:
 			return _logbook_page
 		Section.MAIL:
 			return _mail_page
-		_:
+		Section.PROFILE:
 			return _profile_page
+		_:
+			return _players_page
 
 
 func _get_section_rest_position(section: Section) -> Vector2:
@@ -1532,12 +1845,16 @@ func _get_section_rest_position(section: Section) -> Vector2:
 			return _cooler_rest_position
 		Section.BAG:
 			return _bag_rest_position
+		Section.TACKLE_BOX:
+			return _tackle_rest_position
 		Section.LOGBOOK:
 			return _logbook_rest_position
 		Section.MAIL:
 			return _mail_rest_position
-		_:
+		Section.PROFILE:
 			return _profile_rest_position
+		_:
+			return Vector2.ZERO
 
 
 func _begin_page_transition(section: Section) -> void:
@@ -1615,7 +1932,6 @@ func _set_shell_interactive(interactive: bool) -> void:
 	_set_content_interactive(interactive)
 	for bubble: BubbleButtonType in [
 		_inventory_tab,
-		_bag_tab,
 		_logbook_tab,
 		_mail_tab,
 		_profile_tab,
@@ -1646,6 +1962,25 @@ func _set_content_interactive(interactive: bool) -> void:
 		if interactive and _current_section == Section.BAG
 		else Control.MOUSE_FILTER_IGNORE
 	)
+	_tackle_box_page.mouse_filter = (
+		Control.MOUSE_FILTER_PASS
+		if interactive and _current_section == Section.TACKLE_BOX
+		else Control.MOUSE_FILTER_IGNORE
+	)
+	for tab: Button in [
+		_cooler_sub_tab, _bag_sub_tab, _tackle_sub_tab,
+	]:
+		var tab_interactive: bool = (
+			interactive and _is_inventory_section(_current_section)
+		)
+		tab.focus_mode = (
+			Control.FOCUS_ALL if tab_interactive else Control.FOCUS_NONE
+		)
+		tab.mouse_filter = (
+			Control.MOUSE_FILTER_STOP
+			if tab_interactive
+			else Control.MOUSE_FILTER_IGNORE
+		)
 	_logbook_page.mouse_filter = (
 		Control.MOUSE_FILTER_PASS
 		if interactive and _current_section == Section.LOGBOOK
@@ -1728,8 +2063,13 @@ func _cancel_page_tween() -> void:
 
 func _reset_page_transition_visuals() -> void:
 	for section: Section in [
-		Section.COOLER, Section.BAG, Section.LOGBOOK, Section.MAIL,
+		Section.COOLER,
+		Section.BAG,
+		Section.TACKLE_BOX,
+		Section.LOGBOOK,
+		Section.MAIL,
 		Section.PROFILE,
+		Section.PLAYERS,
 	]:
 		var page: Control = _get_section_root(section)
 		page.position = _get_section_rest_position(section)
@@ -1793,6 +2133,12 @@ func _refresh_all() -> void:
 
 func _on_bag_changed() -> void:
 	_refresh_bag()
+	_refresh_tackle_box()
+
+
+func _on_hotbar_changed() -> void:
+	_update_bag_detail()
+	_update_tackle_detail()
 
 
 func _refresh_bag() -> void:
@@ -1801,10 +2147,42 @@ func _refresh_bag() -> void:
 	var owned_items: Array[OwnedItemType] = (
 		_bag.get_all_items() if _bag != null else []
 	)
+	var filtered_items: Array[OwnedItemType] = []
+	for owned: OwnedItemType in owned_items:
+		var item: ItemDataType = (
+			_item_catalog.get_item_by_id(owned.item_id)
+			if _item_catalog != null
+			else null
+		)
+		if item == null:
+			continue
+		var is_consumable: bool = (
+			item.category == ItemDataType.Category.CONSUMABLE
+		)
+		if (
+			(_bag_view == BagView.CONSUMABLES and is_consumable)
+			or (
+				_bag_view == BagView.EQUIPMENT
+				and not is_consumable
+				and item.category != ItemDataType.Category.BAIT
+				and item.category != ItemDataType.Category.LURE
+			)
+		):
+			filtered_items.append(owned)
+	owned_items = filtered_items
 	owned_items.sort_custom(_sort_bag_items)
 	_sorted_bag_items = owned_items
+	_equipment_filter.button_pressed = _bag_view == BagView.EQUIPMENT
+	_consumables_filter.button_pressed = (
+		_bag_view == BagView.CONSUMABLES
+	)
 	_bag_empty.visible = owned_items.is_empty()
 	_bag_empty_state.visible = owned_items.is_empty()
+	_bag_empty_state.text = (
+		"No equipment in your Bag."
+		if _bag_view == BagView.EQUIPMENT
+		else "No consumables in your Bag."
+	)
 	if (
 		not _selected_bag_item_id.is_empty()
 		and (_bag == null or not _bag.owns_item(_selected_bag_item_id))
@@ -1858,7 +2236,7 @@ func _sync_bag_item_nodes(owned_items: Array[OwnedItemType]) -> void:
 			continue
 		var removed := _bag_item_nodes[item_id] as BagItemSpriteType
 		_bag_item_nodes.erase(item_id)
-		_release_focus_from(removed, _bag_tab)
+		_release_focus_from(removed, _bag_sub_tab)
 		removed.queue_free()
 	_layout_bag_items()
 	_configure_bag_item_focus()
@@ -1887,7 +2265,7 @@ func _layout_bag_items() -> void:
 	_bag_item_field.custom_minimum_size = (
 		Vector2(520.0, 140.0)
 		if _compact_layout
-		else Vector2(820.0, 350.0)
+		else Vector2(820.0, 240.0)
 	)
 	for index: int in _sorted_bag_items.size():
 		var owned: OwnedItemType = _sorted_bag_items[index]
@@ -1927,9 +2305,11 @@ func _configure_bag_item_focus() -> void:
 		if item_node != null:
 			controls.append(item_node)
 	if controls.is_empty():
-		_bag_tab.focus_neighbor_bottom = NodePath()
+		_bag_sub_tab.focus_neighbor_bottom = NodePath()
 		return
-	_bag_tab.focus_neighbor_bottom = _bag_tab.get_path_to(controls.front())
+	_bag_sub_tab.focus_neighbor_bottom = _bag_sub_tab.get_path_to(
+		controls.front()
+	)
 	for index: int in controls.size():
 		var control: BagItemSpriteType = controls[index]
 		var column: int = index % 3
@@ -1943,7 +2323,7 @@ func _configure_bag_item_focus() -> void:
 			controls[right_index]
 		)
 		control.focus_neighbor_top = (
-			control.get_path_to(_bag_tab)
+			control.get_path_to(_bag_sub_tab)
 			if index < 3
 			else control.get_path_to(controls[index - 3])
 		)
@@ -1985,42 +2365,50 @@ func _update_bag_detail() -> void:
 		if _bag != null and item != null
 		else 0
 	)
+	var hotbar_assignment: String = "not assigned"
+	if item != null and _hotbar != null:
+		for slot_index: int in range(PlayerHotbarType.SLOT_COUNT):
+			if _hotbar.get_item_id(slot_index) == item.item_id:
+				hotbar_assignment = "hotbar slot %d" % (slot_index + 1)
+				break
+	var item_state: String = ""
+	if item != null:
+		if item.equippable:
+			item_state = "equippable"
+		elif item.usable:
+			item_state = "usable"
 	_bag_detail_texture.texture = item.icon if item != null else null
 	_bag_detail_name.text = item.display_name if item != null else ""
 	_bag_detail_data.text = (
-		"%s\nquantity: %d\n%s\n%s"
+		"%s\nquantity: %d\n%s\n%s\n%s"
 		% [
 			item.get_category_name(),
 			quantity,
+			item_state,
+			hotbar_assignment,
 			item.description,
-			(
-				"can be assigned to the hotbar."
-				if item.hotbar_allowed
-				else "cannot be assigned to the hotbar."
-			),
 		]
 		if item != null
 		else "select a bag item for details."
 	)
 	_bag_sprite_detail_texture.texture = item.icon if item != null else null
-	_bag_sprite_detail_name.text = item.display_name if item != null else ""
+	_bag_sprite_detail_name.text = (
+		item.display_name if item != null else "bag notes"
+	)
 	_bag_sprite_detail_data.text = (
-		"%s • quantity: %d\n%s\n%s"
+		"%s • quantity: %d\n%s • %s\n%s"
 		% [
 			item.get_category_name(),
 			quantity,
+			item_state,
+			hotbar_assignment,
 			item.description,
-			(
-				"drag to any hotbar slot."
-				if item.hotbar_allowed
-				else "not compatible with the hotbar."
-			),
 		]
 		if item != null
-		else ""
+		else "select an item for details."
 	)
 	_bag_detail_constellation.visible = (
-		item != null and _current_section == Section.BAG
+		_current_section == Section.BAG
 	)
 
 
@@ -2200,7 +2588,7 @@ func _layout_cooler_fish(animate: bool = true) -> void:
 	var visible_field_size := (
 		Vector2(218.0, 124.0)
 		if _compact_layout
-		else Vector2(784.0, 394.0)
+		else Vector2(810.0, 280.0)
 	)
 	var side_margin: float = 2.0 if _compact_layout else 8.0
 	var top_margin: float = 4.0 if _compact_layout else 6.0
@@ -2260,9 +2648,9 @@ func _configure_cooler_fish_focus() -> void:
 			controls.append(fish_node)
 	var columns: int = 3 if _compact_layout else 9
 	if controls.is_empty():
-		_inventory_tab.focus_neighbor_bottom = NodePath()
+		_cooler_sub_tab.focus_neighbor_bottom = NodePath()
 		return
-	_inventory_tab.focus_neighbor_bottom = _inventory_tab.get_path_to(
+	_cooler_sub_tab.focus_neighbor_bottom = _cooler_sub_tab.get_path_to(
 		controls.front()
 	)
 	for index: int in controls.size():
@@ -2274,7 +2662,7 @@ func _configure_cooler_fish_focus() -> void:
 			controls[mini(index + 1, controls.size() - 1)]
 		)
 		control.focus_neighbor_top = (
-			control.get_path_to(_inventory_tab)
+			control.get_path_to(_cooler_sub_tab)
 			if index < columns
 			else control.get_path_to(controls[index - columns])
 		)
@@ -2460,7 +2848,7 @@ func _update_inventory_detail(fish_catch: FishCatchType) -> void:
 		and _reservations.is_fish_reserved(fish_catch.catch_id)
 	):
 		_cooler_detail_name.text += " • reserved in mail"
-	_cooler_weight_unit.text = "lb"
+	_cooler_weight_unit.text = "lb • %s" % fish_catch.fish.get_rarity_name()
 	if buyer_offer >= 0 and _default_buyer != null:
 		_cooler_offer_label.text = "%s offer" % _default_buyer.display_name
 		_cooler_offer_value.text = "$%d" % buyer_offer

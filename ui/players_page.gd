@@ -38,7 +38,7 @@ func deactivate() -> void:
 func _build() -> void:
 	var paper := PanelContainer.new()
 	paper.position = Vector2(58, 128)
-	paper.size = Vector2(1164, 476)
+	paper.size = Vector2(1164, 538)
 	add_child(paper)
 	paper.add_theme_stylebox_override("panel", UtilityPageStyle.panel_style())
 	var root := VBoxContainer.new()
@@ -59,7 +59,7 @@ func _build() -> void:
 		UtilityPageStyle.apply_button(button)
 		_tabs.add_child(button)
 	var scroll := ScrollContainer.new()
-	scroll.custom_minimum_size = Vector2(0, 330)
+	scroll.custom_minimum_size = Vector2(0, 392)
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	root.add_child(scroll)
 	_list = VBoxContainer.new()

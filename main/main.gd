@@ -72,6 +72,8 @@ const NetworkProfileServiceType = preload(
 )
 
 const TITLE_MUSIC_SILENCE_DB: float = -80.0
+const PLAYER_MENU_PATTERN_SCALE: float = 0.85
+const PLAYER_MENU_PATTERN_SCROLL_VELOCITY := Vector2(-7.0, -5.0)
 
 @export var fish_catalog: FishPoolType
 @export var pelican_buyer_profile: FishBuyerProfileType
@@ -143,6 +145,7 @@ var _title_music_requested: bool = false
 var _quit_in_progress: bool = false
 var _join_requested_from_title: bool = false
 var _join_requested_from_pause: bool = false
+var _player_menu_backdrop_tween: Tween
 var _pending_join_endpoint: String = ""
 var _server_trust_dialog: ConfirmationDialog
 var _pending_trust_changed: bool = false
@@ -158,6 +161,18 @@ var _local_recovery_attempt_id: String = ""
 
 func _ready() -> void:
 	DisplayServer.window_set_title("NETfishing")
+	var menu_pattern_material := (
+		_player_menu_backdrop.material as ShaderMaterial
+	)
+	if menu_pattern_material != null:
+		menu_pattern_material.set_shader_parameter(
+			"display_scale",
+			PLAYER_MENU_PATTERN_SCALE,
+		)
+		menu_pattern_material.set_shader_parameter(
+			"scroll_velocity_pixels",
+			PLAYER_MENU_PATTERN_SCROLL_VELOCITY,
+		)
 	get_window().size_changed.connect(_resize_native_overlays)
 	_resize_native_overlays()
 	if not _settings_manager.settings_changed.is_connected(
@@ -906,7 +921,38 @@ func _set_gameplay_active(active: bool) -> void:
 
 
 func _set_player_menu_backdrop_visible(is_visible: bool) -> void:
-	_player_menu_backdrop.visible = is_visible and _gameplay_started
+	if _player_menu_backdrop_tween != null:
+		_player_menu_backdrop_tween.kill()
+		_player_menu_backdrop_tween = null
+	var should_show: bool = is_visible and _gameplay_started
+	if should_show:
+		var was_visible: bool = _player_menu_backdrop.visible
+		_player_menu_backdrop.visible = true
+		if not was_visible:
+			_player_menu_backdrop.modulate.a = 0.0
+		_player_menu_backdrop_tween = create_tween()
+		_player_menu_backdrop_tween.tween_property(
+			_player_menu_backdrop,
+			"modulate:a",
+			1.0,
+			UIMotion.UTILITY_ENTER_DURATION,
+		).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		return
+	if not _player_menu_backdrop.visible:
+		return
+	_player_menu_backdrop_tween = create_tween()
+	_player_menu_backdrop_tween.tween_property(
+		_player_menu_backdrop,
+		"modulate:a",
+		0.0,
+		UIMotion.UTILITY_EXIT_DURATION,
+	).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	_player_menu_backdrop_tween.finished.connect(
+		func() -> void:
+			_player_menu_backdrop.visible = false
+			_player_menu_backdrop.modulate.a = 1.0
+			_player_menu_backdrop_tween = null
+	)
 
 
 func _resize_native_overlays() -> void:
