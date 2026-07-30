@@ -70,6 +70,10 @@ func cleanup() -> void:
 
 
 func _process(_delta: float) -> void:
+	if _owner != null and not _owner.is_remote_presentation_visible():
+		_bobber.visible = false
+		_line.visible = false
+		return
 	if _active:
 		_redraw_line()
 

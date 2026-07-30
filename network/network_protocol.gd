@@ -30,6 +30,7 @@ enum RejectionCode {
 	AUTHENTICATION_TIMEOUT,
 	SERVER_SHUTTING_DOWN,
 	UNSUPPORTED_CLIENT,
+	BANNED,
 }
 
 
@@ -212,5 +213,7 @@ static func rejection_text(code: int) -> String:
 			return "The server is shutting down."
 		RejectionCode.UNSUPPORTED_CLIENT:
 			return "This game build is not supported by the server."
+		RejectionCode.BANNED:
+			return "You are not permitted to join this server."
 		_:
 			return "The server rejected the connection."

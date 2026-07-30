@@ -28,6 +28,7 @@ var _pending_local_send: Dictionary = {}
 var _pending_transfers: Dictionary[String, Dictionary] = {}
 var _local_removal_snapshots: Dictionary[String, Dictionary] = {}
 var _received_awards: Dictionary[String, bool] = {}
+var _relationship_policy: NetworkPlayerListService
 
 
 func setup(
@@ -62,10 +63,22 @@ func setup(
 	_session.state_changed.connect(_on_session_state_changed)
 
 
+func set_relationship_policy(policy: NetworkPlayerListService) -> void:
+	_relationship_policy = policy
+
+
+func refresh_relationship_filters() -> void:
+	_emit_mailbox()
+	peers_changed.emit()
+
+
 func get_local_letters() -> Array[Dictionary]:
 	var values: Array[Dictionary] = []
 	for letter: Dictionary in _local_letters.values():
-		if int(letter["recipient_peer_id"]) == _session.get_local_peer_id():
+		if (
+			int(letter["recipient_peer_id"]) == _session.get_local_peer_id()
+			and not _letter_is_locally_blocked(letter)
+		):
 			values.append(letter.duplicate(true))
 	values.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
 		var a_unread := int(a["state"]) == NetworkMailProtocol.State.SENT_UNREAD
@@ -87,6 +100,7 @@ func get_unread_count() -> int:
 		if (
 			int(letter["recipient_peer_id"]) == _session.get_local_peer_id()
 			and int(letter["state"]) == NetworkMailProtocol.State.SENT_UNREAD
+			and not _letter_is_locally_blocked(letter)
 		):
 			count += 1
 	return count
@@ -111,7 +125,12 @@ func get_recipient_choices() -> Array[Dictionary]:
 		if peer_id == local_id:
 			continue
 		var record := _session.get_peer_record(peer_id)
-		if record != null:
+		if record != null and (
+			_relationship_policy == null
+			or not _relationship_policy.is_locally_blocked(
+				record.identity_fingerprint
+			)
+		):
 			choices.append({
 				"peer_id": peer_id,
 				"name": record.display_name,
@@ -148,6 +167,12 @@ func send_letter(
 		or not _session.is_gameplay_session_active()
 		or recipient_peer_id == _session.get_local_peer_id()
 		or not _session.is_authenticated_peer(recipient_peer_id)
+		or (
+			_relationship_policy != null
+			and _relationship_policy.is_locally_blocked(
+				_session.get_peer_record(recipient_peer_id).identity_fingerprint
+			)
+		)
 		or (
 			not _session.is_host()
 			and not _session.supports_server_capability(
@@ -235,6 +260,15 @@ func _handle_send(sender: int, data: Dictionary) -> void:
 		)
 	):
 		error = "Letter identity could not be verified."
+	if (
+		error.is_empty()
+		and _relationship_policy != null
+		and _relationship_policy.pair_is_blocked(
+			sender_record.identity_fingerprint,
+			recipient_record.identity_fingerprint,
+		)
+	):
+		error = "That player is unavailable."
 	if error.is_empty() and _letters.size() >= NetworkMailProtocol.MAX_SESSION_LETTERS:
 		error = "The session mailbox is full."
 	var recipient_count := 0
@@ -325,6 +359,27 @@ func _receive_letter(letter: Dictionary) -> void:
 		return
 	_local_letters[letter["mail_id"]] = letter.duplicate(true)
 	_emit_mailbox()
+
+
+func cancel_unaccepted_between(first: String, second: String) -> void:
+	if not _session.is_host():
+		return
+	for letter: Dictionary in _letters.values():
+		if not (
+			str(letter.get("sender_fingerprint", "")) in [first, second]
+			and str(letter.get("recipient_fingerprint", "")) in [first, second]
+		):
+			continue
+		if int(letter.get("state", -1)) not in [
+			NetworkMailProtocol.State.SENT_UNREAD,
+			NetworkMailProtocol.State.READ,
+		]:
+			continue
+		letter["state"] = NetworkMailProtocol.State.CANCELLED
+		_request_release(
+			int(letter["sender_peer_id"]), str(letter.get("reservation_id", ""))
+		)
+		_update_participants(letter)
 
 
 func _deliver_send_result(peer_id: int, result: Dictionary) -> void:
@@ -870,6 +925,18 @@ func _restore_assets(snapshot: Dictionary) -> void:
 func _emit_mailbox() -> void:
 	mailbox_changed.emit()
 	unread_count_changed.emit(get_unread_count())
+
+
+func _letter_is_locally_blocked(letter: Dictionary) -> bool:
+	if _relationship_policy == null:
+		return false
+	var local_id := _session.get_local_peer_id()
+	var other_fingerprint := (
+		str(letter.get("sender_fingerprint", ""))
+		if int(letter.get("sender_peer_id", 0)) != local_id
+		else str(letter.get("recipient_fingerprint", ""))
+	)
+	return _relationship_policy.is_locally_blocked(other_fingerprint)
 
 
 func _on_peer_removed(peer_id: int) -> void:

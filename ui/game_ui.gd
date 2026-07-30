@@ -119,6 +119,7 @@ func setup(
 	network_mail_service: NetworkMailService,
 	reservations: PlayerAssetReservationService,
 	network_profile_service: NetworkProfileService,
+	network_player_list: NetworkPlayerListService,
 ) -> void:
 	_fishing_spot = fishing_spot
 	_item_effects = item_effects
@@ -155,7 +156,8 @@ func setup(
 		network_sale_service,
 		network_mail_service,
 		reservations,
-		network_profile_service
+		network_profile_service,
+		network_player_list,
 	)
 	_hotbar_ui.setup(hotbar, bag, item_catalog, fishing_spot)
 	_fishing_shop.setup(

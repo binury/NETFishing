@@ -1,0 +1,266 @@
+class_name NetworkPlayerListService
+extends Node
+
+signal entries_changed
+signal moderation_finished(success: bool, message: String)
+
+var _session: NetworkSession
+var _relationships: PlayerRelationshipStore
+var _bans: HostBanStore
+var _known: KnownPlayerStore
+var _spawn: PlayerSpawnService
+var _chat: NetworkChatService
+var _mail: NetworkMailService
+var _revision := 0
+var _host_block_pairs: Dictionary[String, bool] = {}
+var _peer_fingerprints: Dictionary[int, String] = {}
+
+
+func setup(
+	session: NetworkSession,
+	relationships: PlayerRelationshipStore,
+	bans: HostBanStore,
+	known: KnownPlayerStore,
+	spawn: PlayerSpawnService,
+	chat: NetworkChatService,
+	mail: NetworkMailService,
+) -> void:
+	_session = session
+	_relationships = relationships
+	_bans = bans
+	_known = known
+	_spawn = spawn
+	_chat = chat
+	_mail = mail
+	_session.peer_authenticated.connect(_on_peer_authenticated)
+	_session.peer_removed.connect(_on_peer_removed)
+	_session.peer_display_name_changed.connect(func(_id: int, _name: String) -> void: _changed())
+	_session.peer_count_changed.connect(
+		func(_count: int, _maximum: int) -> void: _sync_authenticated_peers()
+	)
+	_session.state_changed.connect(_on_session_state_changed)
+	_relationships.relationship_changed.connect(_on_relationship_changed)
+	_bans.bans_changed.connect(_changed)
+	_chat.set_relationship_store(_relationships)
+	_mail.set_relationship_policy(self)
+	for peer_id: int in _session.get_authenticated_peer_ids():
+		_on_peer_authenticated(peer_id, "")
+
+
+func get_entries() -> Array[PlayerListEntry]:
+	var result: Array[PlayerListEntry] = []
+	var local_id := _session.get_local_peer_id()
+	for peer_id: int in _session.get_authenticated_peer_ids():
+		var record := _session.get_peer_record(peer_id)
+		if record == null or not record.identity_authenticated:
+			continue
+		var blocked := _relationships.is_blocked(record.identity_fingerprint)
+		if blocked and peer_id != local_id:
+			continue
+		var entry := PlayerListEntry.new()
+		entry.peer_id = peer_id
+		entry.full_fingerprint = record.identity_fingerprint
+		entry.compact_fingerprint = NetworkIdentityCrypto.compact_suffix(record.identity_fingerprint)
+		entry.display_name = record.display_name
+		entry.is_host = peer_id == 1
+		entry.is_local_player = peer_id == local_id
+		entry.continuity_state = _known.identity_status(record.identity_fingerprint, record.display_name)
+		entry.ping_to_host_ms = _session.get_peer_rtt_ms(peer_id)
+		entry.muted = _relationships.is_muted(record.identity_fingerprint)
+		entry.blocked = blocked
+		entry.can_kick = _session.is_host() and peer_id != local_id and peer_id != 1
+		entry.can_ban = entry.can_kick
+		entry.revision = _revision
+		result.append(entry)
+	result.sort_custom(_entry_before)
+	return result
+
+
+func get_connected_count() -> int:
+	return _session.get_player_count()
+
+
+func get_max_players() -> int:
+	return _session.get_session_max_players()
+
+
+func is_local_host() -> bool:
+	return _session.is_host()
+
+
+func get_relationships() -> Array[Dictionary]:
+	return _relationships.get_records()
+
+
+func get_bans() -> Array[Dictionary]:
+	return _bans.get_bans(_session.get_host_identity_fingerprint()) if _session.is_host() else []
+
+
+func set_muted(fingerprint: String, display_name: String, value: bool) -> bool:
+	if fingerprint == _session.get_local_identity_fingerprint():
+		return false
+	return _relationships.set_muted(fingerprint, display_name, value)
+
+
+func set_blocked(fingerprint: String, display_name: String, value: bool) -> bool:
+	if fingerprint == _session.get_local_identity_fingerprint():
+		return false
+	return _relationships.set_blocked(fingerprint, display_name, value)
+
+
+func kick(peer_id: int, fingerprint: String, revision: int) -> bool:
+	if not _valid_moderation_target(peer_id, fingerprint, revision):
+		moderation_finished.emit(false, "That player is no longer connected.")
+		return false
+	var ok := _session.kick_authenticated_peer(peer_id, fingerprint)
+	moderation_finished.emit(ok, "Player removed." if ok else "Player could not be removed.")
+	return ok
+
+
+func ban(peer_id: int, fingerprint: String, name: String, revision: int) -> bool:
+	if not _valid_moderation_target(peer_id, fingerprint, revision):
+		moderation_finished.emit(false, "That player is no longer connected.")
+		return false
+	var host_fingerprint := _session.get_host_identity_fingerprint()
+	if not _bans.ban(host_fingerprint, fingerprint, name):
+		moderation_finished.emit(false, "Ban could not be saved.")
+		return false
+	var ok := _session.kick_authenticated_peer(peer_id, fingerprint, true)
+	moderation_finished.emit(ok, "Player banned." if ok else "Ban saved.")
+	return true
+
+
+func unban(fingerprint: String) -> bool:
+	if not _session.is_host():
+		return false
+	return _bans.unban(_session.get_host_identity_fingerprint(), fingerprint)
+
+
+func is_locally_blocked(fingerprint: String) -> bool:
+	return _relationships.is_blocked(fingerprint)
+
+
+func pair_is_blocked(first: String, second: String) -> bool:
+	if first.is_empty() or second.is_empty():
+		return false
+	return _host_block_pairs.has(_pair_key(first, second))
+
+
+@rpc("any_peer", "call_remote", "reliable", 0)
+func submit_block_policy(target_fingerprint: String, blocked: bool) -> void:
+	var sender := multiplayer.get_remote_sender_id()
+	if not _session.is_host() or not _session.is_authenticated_peer(sender):
+		return
+	var record := _session.get_peer_record(sender)
+	if (
+		record == null
+		or not NetworkIdentityCrypto.valid_fingerprint(target_fingerprint)
+		or record.identity_fingerprint == target_fingerprint
+	):
+		return
+	_set_host_pair(record.identity_fingerprint, target_fingerprint, blocked)
+
+
+func _on_relationship_changed(fingerprint: String) -> void:
+	var blocked := _relationships.is_blocked(fingerprint)
+	var avatar_peer := _peer_for_fingerprint(fingerprint)
+	if avatar_peer > 0:
+		_spawn.set_peer_presentation_visible(avatar_peer, not blocked)
+	var local_fingerprint := _session.get_local_identity_fingerprint()
+	if _session.is_host():
+		_set_host_pair(local_fingerprint, fingerprint, blocked)
+	elif _session.is_gameplay_session_active():
+		submit_block_policy.rpc_id(1, fingerprint, blocked)
+	_chat.refresh_relationship_filters()
+	_mail.refresh_relationship_filters()
+	_changed()
+
+
+func _on_peer_authenticated(peer_id: int, _display_name: String) -> void:
+	var record := _session.get_peer_record(peer_id)
+	if record != null:
+		_peer_fingerprints[peer_id] = record.identity_fingerprint
+		var blocked := _relationships.is_blocked(record.identity_fingerprint)
+		_spawn.set_peer_presentation_visible(peer_id, not blocked)
+		if blocked and peer_id != _session.get_local_peer_id():
+			var local_fingerprint := _session.get_local_identity_fingerprint()
+			if _session.is_host():
+				_set_host_pair(
+					local_fingerprint, record.identity_fingerprint, true
+				)
+			else:
+				submit_block_policy.rpc_id(
+					1, record.identity_fingerprint, true
+				)
+	_changed()
+
+
+func _sync_authenticated_peers() -> void:
+	for peer_id: int in _session.get_authenticated_peer_ids():
+		if not _peer_fingerprints.has(peer_id):
+			_on_peer_authenticated(peer_id, "")
+	_changed()
+
+
+func _on_peer_removed(peer_id: int) -> void:
+	var fingerprint := str(_peer_fingerprints.get(peer_id, ""))
+	_peer_fingerprints.erase(peer_id)
+	if _session.is_host() and not fingerprint.is_empty():
+		for key: String in _host_block_pairs.keys():
+			if fingerprint in key.split(":"):
+				_host_block_pairs.erase(key)
+	_changed()
+
+
+func _on_session_state_changed(state: NetworkSession.State) -> void:
+	if state in [
+		NetworkSession.State.INACTIVE,
+		NetworkSession.State.DISCONNECTING,
+		NetworkSession.State.CONNECTION_FAILED,
+		NetworkSession.State.SERVER_LOST,
+	]:
+		_host_block_pairs.clear()
+		_peer_fingerprints.clear()
+	_changed()
+
+
+func _set_host_pair(first: String, second: String, blocked: bool) -> void:
+	var key := _pair_key(first, second)
+	if blocked:
+		_host_block_pairs[key] = true
+		_mail.cancel_unaccepted_between(first, second)
+	else:
+		_host_block_pairs.erase(key)
+
+
+func _pair_key(first: String, second: String) -> String:
+	return "%s:%s" % ([first, second] if first < second else [second, first])
+
+
+func _peer_for_fingerprint(fingerprint: String) -> int:
+	for peer_id: int in _session.get_authenticated_peer_ids():
+		var record := _session.get_peer_record(peer_id)
+		if record != null and record.identity_fingerprint == fingerprint:
+			return peer_id
+	return 0
+
+
+func _valid_moderation_target(peer_id: int, fingerprint: String, revision: int) -> bool:
+	if not _session.is_host() or revision != _revision or peer_id == 1:
+		return false
+	var record := _session.get_peer_record(peer_id)
+	return record != null and record.identity_fingerprint == fingerprint
+
+
+func _entry_before(a: PlayerListEntry, b: PlayerListEntry) -> bool:
+	if a.is_host != b.is_host:
+		return a.is_host
+	if a.is_local_player != b.is_local_player:
+		return a.is_local_player
+	var compared := a.display_name.naturalnocasecmp_to(b.display_name)
+	return compared < 0 if compared != 0 else a.full_fingerprint < b.full_fingerprint
+
+
+func _changed() -> void:
+	_revision += 1
+	entries_changed.emit()

@@ -1,4 +1,4 @@
-[gd_scene load_steps=34 format=3]
+[gd_scene load_steps=37 format=3]
 
 [ext_resource type="PackedScene" path="res://world/test_world.tscn" id="1_world"]
 [ext_resource type="PackedScene" path="res://player/player.tscn" id="2_player"]
@@ -33,6 +33,9 @@
 [ext_resource type="Script" path="res://network/host_identity_store.gd" id="31_host_identity"]
 [ext_resource type="Script" path="res://network/known_player_store.gd" id="32_known_players"]
 [ext_resource type="Script" path="res://network/server_trust_store.gd" id="33_server_trust"]
+[ext_resource type="Script" path="res://network/player_relationship_store.gd" id="34_relationships"]
+[ext_resource type="Script" path="res://network/host_ban_store.gd" id="35_bans"]
+[ext_resource type="Script" path="res://network/network_player_list_service.gd" id="36_player_list"]
 
 [node name="Main" type="Node3D"]
 script = ExtResource("3_main")
@@ -64,6 +67,14 @@ script = ExtResource("32_known_players")
 [node name="ServerTrustStore" type="Node" parent="."]
 unique_name_in_owner = true
 script = ExtResource("33_server_trust")
+
+[node name="PlayerRelationshipStore" type="Node" parent="."]
+unique_name_in_owner = true
+script = ExtResource("34_relationships")
+
+[node name="HostBanStore" type="Node" parent="."]
+unique_name_in_owner = true
+script = ExtResource("35_bans")
 
 [node name="PlayerAppearanceStore" type="Node" parent="."]
 unique_name_in_owner = true
@@ -108,6 +119,10 @@ script = ExtResource("27_reservations")
 [node name="NetworkMailService" type="Node" parent="."]
 unique_name_in_owner = true
 script = ExtResource("26_network_mail")
+
+[node name="NetworkPlayerListService" type="Node" parent="."]
+unique_name_in_owner = true
+script = ExtResource("36_player_list")
 
 [node name="TestWorld" parent="." instance=ExtResource("1_world")]
 

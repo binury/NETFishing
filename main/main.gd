@@ -104,6 +104,8 @@ const TITLE_MUSIC_SILENCE_DB: float = -80.0
 @onready var _host_identity: HostIdentityStore = %HostIdentityStore
 @onready var _known_players: KnownPlayerStore = %KnownPlayerStore
 @onready var _server_trust: ServerTrustStore = %ServerTrustStore
+@onready var _relationships: PlayerRelationshipStore = %PlayerRelationshipStore
+@onready var _host_bans: HostBanStore = %HostBanStore
 @onready var _saved_servers: SavedServerStoreType = %SavedServerStore
 @onready var _player_spawn_service: PlayerSpawnServiceType = (
 	%PlayerSpawnService
@@ -118,6 +120,7 @@ const TITLE_MUSIC_SILENCE_DB: float = -80.0
 )
 @onready var _network_chat: NetworkChatServiceType = %NetworkChatService
 @onready var _network_mail: NetworkMailServiceType = %NetworkMailService
+@onready var _network_player_list: NetworkPlayerListService = %NetworkPlayerListService
 @onready var _asset_reservations: PlayerAssetReservationServiceType = (
 	%PlayerAssetReservationService
 )
@@ -157,12 +160,22 @@ func _ready() -> void:
 		_host_identity,
 		_known_players,
 		_server_trust,
+		_host_bans,
 	)
 	_network_profile_service.setup(
 		_network_session,
 		_network_profile,
 		_appearance_store,
 		_player_spawn_service,
+	)
+	_network_player_list.setup(
+		_network_session,
+		_relationships,
+		_host_bans,
+		_known_players,
+		_player_spawn_service,
+		_network_chat,
+		_network_mail,
 	)
 	_network_session.set_local_appearance_snapshot(
 		_appearance_store.get_snapshot()
@@ -310,7 +323,8 @@ func _ready() -> void:
 		_player_spawn_service,
 		_network_mail,
 		_asset_reservations,
-		_network_profile_service
+		_network_profile_service,
+		_network_player_list,
 	)
 	_water_recovery.setup(
 		_player,

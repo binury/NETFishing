@@ -1,4 +1,4 @@
-[gd_scene load_steps=21 format=3]
+[gd_scene load_steps=22 format=3]
 
 [ext_resource type="Script" path="res://ui/player_menu.gd" id="1_menu"]
 [ext_resource type="Theme" path="res://ui/game_theme.tres" id="2_theme"]
@@ -19,6 +19,7 @@
 [ext_resource type="Texture2D" path="res://ui/assets/title/bubbles/bubble3.png" id="17_bubble3"]
 [ext_resource type="Script" path="res://ui/mail_page.gd" id="18_mail_page"]
 [ext_resource type="PackedScene" path="res://ui/profile_page.tscn" id="19_profile_page"]
+[ext_resource type="Script" path="res://ui/players_page.gd" id="20_players_page"]
 
 [sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_collection"]
 
@@ -591,6 +592,15 @@ layout_mode = 0
 offset_top = 112.0
 offset_right = 1280.0
 offset_bottom = 710.0
+
+[node name="PlayersPage" type="Control" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot"]
+visible = false
+unique_name_in_owner = true
+layout_mode = 0
+offset_right = 1280.0
+offset_bottom = 720.0
+mouse_filter = 1
+script = ExtResource("20_players_page")
 
 [node name="BookBacking" type="PanelContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/LogbookPage"]
 unique_name_in_owner = true
@@ -1232,9 +1242,9 @@ toggle_mode = true
 text = "cooler"
 script = ExtResource("6_bubble")
 profile = ExtResource("4_profile")
-neutral_size = Vector2(124, 120)
-desktop_anchor = Vector2(92, 60)
-compact_anchor = Vector2(92, 73.3333)
+neutral_size = Vector2(112, 108)
+desktop_anchor = Vector2(70, 60)
+compact_anchor = Vector2(70, 73.3333)
 compact_minimum_size = Vector2(84, 82)
 minimum_font_size = 25
 maximum_font_size = 25
@@ -1252,9 +1262,9 @@ toggle_mode = true
 text = "bag"
 script = ExtResource("6_bubble")
 profile = ExtResource("4_profile")
-neutral_size = Vector2(124, 120)
-desktop_anchor = Vector2(220, 60)
-compact_anchor = Vector2(220, 73.3333)
+neutral_size = Vector2(112, 108)
+desktop_anchor = Vector2(182, 60)
+compact_anchor = Vector2(182, 73.3333)
 compact_minimum_size = Vector2(84, 82)
 minimum_font_size = 25
 maximum_font_size = 25
@@ -1272,9 +1282,9 @@ toggle_mode = true
 text = "logbook"
 script = ExtResource("6_bubble")
 profile = ExtResource("4_profile")
-neutral_size = Vector2(124, 120)
-desktop_anchor = Vector2(348, 60)
-compact_anchor = Vector2(348, 73.3333)
+neutral_size = Vector2(112, 108)
+desktop_anchor = Vector2(294, 60)
+compact_anchor = Vector2(294, 73.3333)
 compact_minimum_size = Vector2(84, 82)
 minimum_font_size = 25
 maximum_font_size = 25
@@ -1292,9 +1302,9 @@ toggle_mode = true
 text = "mail"
 script = ExtResource("6_bubble")
 profile = ExtResource("4_profile")
-neutral_size = Vector2(124, 120)
-desktop_anchor = Vector2(476, 60)
-compact_anchor = Vector2(476, 73.3333)
+neutral_size = Vector2(112, 108)
+desktop_anchor = Vector2(406, 60)
+compact_anchor = Vector2(406, 73.3333)
 compact_minimum_size = Vector2(84, 82)
 minimum_font_size = 25
 maximum_font_size = 25
@@ -1328,9 +1338,9 @@ toggle_mode = true
 text = "profile"
 script = ExtResource("6_bubble")
 profile = ExtResource("4_profile")
-neutral_size = Vector2(124, 120)
-desktop_anchor = Vector2(604, 60)
-compact_anchor = Vector2(604, 73.3333)
+neutral_size = Vector2(112, 108)
+desktop_anchor = Vector2(518, 60)
+compact_anchor = Vector2(518, 73.3333)
 compact_minimum_size = Vector2(84, 82)
 minimum_font_size = 23
 maximum_font_size = 25
@@ -1341,6 +1351,26 @@ motion_phase = 4.05
 deformation_amplitude = 0.011
 deformation_period = 6.5
 
+[node name="PlayersTab" type="Button" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/NavigationCluster"]
+unique_name_in_owner = true
+layout_mode = 0
+toggle_mode = true
+text = "players"
+script = ExtResource("6_bubble")
+profile = ExtResource("4_profile")
+neutral_size = Vector2(112, 108)
+desktop_anchor = Vector2(630, 60)
+compact_anchor = Vector2(630, 73.3333)
+compact_minimum_size = Vector2(84, 82)
+minimum_font_size = 22
+maximum_font_size = 24
+horizontal_amplitude = 1.1
+vertical_amplitude = 2.2
+motion_period = 5.8
+motion_phase = 4.35
+deformation_amplitude = 0.011
+deformation_period = 6.4
+
 [node name="CloseButton" type="Button" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/NavigationCluster"]
 unique_name_in_owner = true
 layout_mode = 0
@@ -1348,8 +1378,8 @@ text = "close"
 script = ExtResource("6_bubble")
 profile = ExtResource("4_profile")
 neutral_size = Vector2(96, 94)
-desktop_anchor = Vector2(744, 57)
-compact_anchor = Vector2(744, 73.3333)
+desktop_anchor = Vector2(770, 57)
+compact_anchor = Vector2(770, 73.3333)
 compact_minimum_size = Vector2(76, 74)
 minimum_font_size = 23
 maximum_font_size = 23

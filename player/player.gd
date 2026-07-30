@@ -108,6 +108,7 @@ var _movement_enabled: bool = true
 var _water_recovery_active: bool = false
 var _target_zoom: float = 5.0
 var _showcase_rod_visibility: bool = true
+var _remote_presentation_visible := true
 var _showcase_rod_state_stored: bool = false
 var _showcase_visual_rotation: Vector3
 var _showcase_visual_rotation_stored: bool = false
@@ -549,6 +550,17 @@ func get_body_center_height() -> float:
 
 func get_gameplay_camera() -> Camera3D:
 	return _camera
+
+
+func set_remote_presentation_visible(value: bool) -> void:
+	if local_control_enabled:
+		return
+	_remote_presentation_visible = value
+	_visuals.visible = value
+
+
+func is_remote_presentation_visible() -> bool:
+	return _remote_presentation_visible
 
 
 func get_fishing_rod_tip() -> Marker3D:

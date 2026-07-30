@@ -16,6 +16,7 @@ var _request_ledgers: Dictionary[int, Dictionary] = {}
 var _rate_times: Dictionary[int, Array] = {}
 var _sequence: int = 0
 var _peer_names: Dictionary[int, String] = {}
+var _relationships: PlayerRelationshipStore
 
 
 func setup(session: NetworkSession) -> void:
@@ -26,6 +27,21 @@ func setup(session: NetworkSession) -> void:
 	_session.peer_display_name_changed.connect(
 		func(peer_id: int, display_name: String) -> void:
 			_peer_names[peer_id] = display_name
+	)
+
+
+func set_relationship_store(store: PlayerRelationshipStore) -> void:
+	_relationships = store
+
+
+func refresh_relationship_filters() -> void:
+	history_replaced.emit(get_history())
+
+
+func is_sender_filtered(fingerprint: String) -> bool:
+	return (
+		_relationships != null
+		and _relationships.is_muted(fingerprint)
 	)
 
 
@@ -63,7 +79,11 @@ func send_local_message(body: String) -> bool:
 
 
 func get_history() -> Array[Dictionary]:
-	return _history.duplicate(true)
+	var result: Array[Dictionary] = []
+	for message: Dictionary in _history:
+		if _message_is_visible(message):
+			result.append(message.duplicate(true))
+	return result
 
 
 @rpc("any_peer", "call_remote", "reliable", NetworkChatProtocol.RELIABLE_CHANNEL)
@@ -193,7 +213,8 @@ func _apply_message(data: Dictionary) -> void:
 	_history.append(data.duplicate(true))
 	while _history.size() > NetworkChatProtocol.MAX_HISTORY:
 		_history.pop_front()
-	message_received.emit(data.duplicate(true))
+	if _message_is_visible(data):
+		message_received.emit(data.duplicate(true))
 
 
 func _send_rejection(peer_id: int, message: String) -> void:
@@ -240,7 +261,17 @@ func receive_chat_history(values: Array) -> void:
 	for value: Variant in values:
 		if NetworkChatProtocol.validate_message(value):
 			_apply_message(value)
-	history_replaced.emit(_history.duplicate(true))
+	history_replaced.emit(get_history())
+
+
+func _message_is_visible(message: Dictionary) -> bool:
+	if int(message.get("kind", -1)) == NetworkChatProtocol.Kind.SYSTEM:
+		return true
+	if _relationships == null:
+		return true
+	return not _relationships.is_muted(
+		str(message.get("sender_fingerprint", ""))
+	)
 
 
 func _consume_rate(peer_id: int) -> bool:

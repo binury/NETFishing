@@ -187,12 +187,19 @@ func _on_message(message: Dictionary) -> void:
 	_speech[peer_id] = {
 		"label": label,
 		"expires": Time.get_ticks_msec() / 1000.0 + SPEECH_SECONDS,
+		"fingerprint": str(message.get("sender_fingerprint", "")),
 	}
 
 
 func _on_history(_messages: Array) -> void:
-	if _messages.is_empty():
-		for peer_id: int in _speech.keys():
+	for peer_id: int in _speech.keys():
+		var state: Dictionary = _speech[peer_id]
+		if (
+			_messages.is_empty()
+			or _service.is_sender_filtered(
+				str(state.get("fingerprint", ""))
+			)
+		):
 			_on_peer_removed(peer_id)
 	_refresh_history()
 

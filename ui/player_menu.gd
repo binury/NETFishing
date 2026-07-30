@@ -88,6 +88,7 @@ enum Section {
 	LOGBOOK,
 	MAIL,
 	PROFILE,
+	PLAYERS,
 }
 
 enum SortMode {
@@ -158,6 +159,7 @@ enum CloseReason {
 @onready var _logbook_page: Control = %LogbookPage
 @onready var _mail_page: MailPage = %MailPage
 @onready var _profile_page: ProfilePage = %ProfilePage
+@onready var _players_page: PlayersPage = %PlayersPage
 @onready var _book_backing: PanelContainer = %BookBacking
 @onready var _book_spread: BoxContainer = %BookSpread
 @onready var _left_page: PanelContainer = %LeftPage
@@ -176,6 +178,7 @@ enum CloseReason {
 @onready var _logbook_tab: BubbleButtonType = %LogbookTab
 @onready var _mail_tab: BubbleButtonType = %MailTab
 @onready var _profile_tab: BubbleButtonType = %ProfileTab
+@onready var _players_tab: BubbleButtonType = %PlayersTab
 @onready var _mail_unread_badge: Label = %MailUnreadBadge
 @onready var _close_button: BubbleButtonType = %CloseButton
 @onready var _content_shell: BubbleContentShellType = %MenuPanel
@@ -237,6 +240,7 @@ var _network_session: NetworkSessionType
 var _network_sale_service: NetworkSaleService
 var _network_mail_service: NetworkMailService
 var _network_profile_service: NetworkProfileService
+var _network_player_list: NetworkPlayerListService
 var _default_buyer: FishBuyerProfileType
 var _catalog: FishPoolType
 var _fishing_spot: FishingSpotType
@@ -300,6 +304,7 @@ func _ready() -> void:
 	)
 	_mail_tab.pressed.connect(_show_section.bind(Section.MAIL))
 	_profile_tab.pressed.connect(_show_section.bind(Section.PROFILE))
+	_players_tab.pressed.connect(_show_section.bind(Section.PLAYERS))
 	_close_button.pressed.connect(close_menu)
 	_sort_option.item_selected.connect(_on_sort_selected.bind(_sort_option))
 	_sort_direction.pressed.connect(_on_sort_direction_pressed)
@@ -327,6 +332,7 @@ func _ready() -> void:
 		_logbook_tab,
 		_mail_tab,
 		_profile_tab,
+		_players_tab,
 		_close_button,
 	])
 	_configure_navigation_focus()
@@ -376,6 +382,7 @@ func setup(
 	network_mail_service: NetworkMailService,
 	reservations: PlayerAssetReservationService,
 	network_profile_service: NetworkProfileService,
+	network_player_list: NetworkPlayerListService,
 ) -> void:
 	_player = player
 	_inventory = inventory
@@ -393,10 +400,12 @@ func setup(
 	_network_sale_service = network_sale_service
 	_network_mail_service = network_mail_service
 	_network_profile_service = network_profile_service
+	_network_player_list = network_player_list
 	_mail_page.setup(
 		network_mail_service, reservations, inventory, wallet, bag, item_catalog
 	)
 	_profile_page.setup(network_profile_service)
+	_players_page.setup(network_player_list)
 	_network_mail_service.unread_count_changed.connect(
 		_on_mail_unread_count_changed
 	)
@@ -608,6 +617,7 @@ func _show_section_immediate(section: Section) -> void:
 	_logbook_page.visible = section == Section.LOGBOOK
 	_mail_page.visible = section == Section.MAIL
 	_profile_page.visible = section == Section.PROFILE
+	_players_page.visible = section == Section.PLAYERS
 	_content_shell.visible = false
 	_inventory_section.visible = false
 	_bag_section.visible = false
@@ -634,11 +644,16 @@ func _show_section_immediate(section: Section) -> void:
 		_profile_page.activate()
 	else:
 		_profile_page.deactivate()
+	if section == Section.PLAYERS:
+		_players_page.activate()
+	else:
+		_players_page.deactivate()
 	_inventory_tab.button_pressed = section == Section.COOLER
 	_bag_tab.button_pressed = section == Section.BAG
 	_logbook_tab.button_pressed = section == Section.LOGBOOK
 	_mail_tab.button_pressed = section == Section.MAIL
 	_profile_tab.button_pressed = section == Section.PROFILE
+	_players_tab.button_pressed = section == Section.PLAYERS
 	_update_navigation_selection()
 	_configure_active_page_focus()
 
@@ -652,6 +667,8 @@ func _focus_current_section() -> void:
 		_logbook_tab.grab_focus()
 	elif _current_section == Section.MAIL:
 		_mail_tab.grab_focus()
+	elif _current_section == Section.PLAYERS:
+		_players_tab.grab_focus()
 	else:
 		_profile_tab.grab_focus()
 
@@ -682,6 +699,7 @@ func _configure_navigation_focus() -> void:
 		_logbook_tab,
 		_mail_tab,
 		_profile_tab,
+		_players_tab,
 		_close_button,
 	]
 	for index: int in navigation.size():
@@ -835,6 +853,7 @@ func _apply_navigation_styles() -> void:
 		_logbook_tab,
 		_mail_tab,
 		_profile_tab,
+		_players_tab,
 		_close_button,
 	]:
 		bubble.add_theme_stylebox_override("normal", normal)
@@ -866,6 +885,7 @@ func _apply_navigation_selection_presentation() -> void:
 		_logbook_tab,
 		_mail_tab,
 		_profile_tab,
+		_players_tab,
 	]:
 		if not bubble.button_pressed:
 			continue
@@ -975,6 +995,7 @@ func _set_navigation_target(section: Section) -> void:
 	_logbook_tab.button_pressed = section == Section.LOGBOOK
 	_mail_tab.button_pressed = section == Section.MAIL
 	_profile_tab.button_pressed = section == Section.PROFILE
+	_players_tab.button_pressed = section == Section.PLAYERS
 
 
 func _update_shell_layout() -> void:
@@ -1591,6 +1612,7 @@ func _set_shell_interactive(interactive: bool) -> void:
 		_logbook_tab,
 		_mail_tab,
 		_profile_tab,
+		_players_tab,
 		_close_button,
 	]:
 		bubble.focus_mode = Control.FOCUS_ALL if interactive else Control.FOCUS_NONE

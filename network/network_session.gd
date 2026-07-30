@@ -79,6 +79,7 @@ var _player_identity: PlayerIdentityStore
 var _host_identity: HostIdentityStore
 var _known_players: KnownPlayerStore
 var _server_trust: ServerTrustStore
+var _host_bans: HostBanStore
 var _pending_identity_challenges: Dictionary[int, Dictionary] = {}
 var _authenticated_identity_cache: Dictionary[int, Dictionary] = {}
 var _client_identity_attempt: Dictionary = {}
@@ -89,6 +90,7 @@ var _session_identity_keys: Dictionary[String, String] = {}
 var _local_appearance_snapshot: Dictionary = (
 	CharacterCustomizationCatalog.default_snapshot()
 )
+var _moderation_disconnect_message := ""
 
 
 func _ready() -> void:
@@ -107,6 +109,7 @@ func setup(
 	host_identity: HostIdentityStore,
 	known_players: KnownPlayerStore,
 	server_trust: ServerTrustStore,
+	host_bans: HostBanStore,
 ) -> void:
 	_profile = profile
 	_saved_servers = saved_servers
@@ -115,6 +118,7 @@ func setup(
 	_host_identity = host_identity
 	_known_players = known_players
 	_server_trust = server_trust
+	_host_bans = host_bans
 	if _profile != null:
 		_profile_ready = _profile.load_or_create()
 	if _player_identity != null:
@@ -293,7 +297,7 @@ func get_player_count() -> int:
 
 
 func get_session_max_players() -> int:
-	return session_max_players
+	return _last_server_max_players if is_joined_client() else session_max_players
 
 
 func get_current_route_display() -> String:
@@ -360,6 +364,50 @@ func get_peer_record(peer_id: int) -> PeerRegistry.PeerRecord:
 
 func get_authenticated_peer_ids() -> Array[int]:
 	return _registry.get_peer_ids()
+
+
+func get_peer_rtt_ms(peer_id: int) -> int:
+	if peer_id == 1:
+		return 0
+	var enet := multiplayer.multiplayer_peer as ENetMultiplayerPeer
+	if (
+		enet == null
+		or enet.get_connection_status()
+			!= MultiplayerPeer.CONNECTION_CONNECTED
+	):
+		return -1
+	var measurable := is_host() or (
+		is_joined_client() and peer_id == get_local_peer_id()
+	)
+	if not measurable:
+		return -1
+	if is_joined_client() and not _registry.has_peer(1):
+		return -1
+	var packet_peer: ENetPacketPeer = enet.get_peer(peer_id if is_host() else 1)
+	if packet_peer == null:
+		return -1
+	return int(packet_peer.get_statistic(ENetPacketPeer.PEER_ROUND_TRIP_TIME))
+
+
+func kick_authenticated_peer(
+	peer_id: int,
+	fingerprint: String,
+	banned: bool = false,
+) -> bool:
+	if not is_host() or peer_id <= 1:
+		return false
+	var record := _registry.get_peer(peer_id)
+	if record == null or record.identity_fingerprint != fingerprint:
+		return false
+	receive_moderation_disconnect.rpc_id(
+		peer_id,
+		(
+			"You are not permitted to join this server."
+			if banned else "You were removed by the host."
+		),
+	)
+	call_deferred("_disconnect_rejected_peer", peer_id)
+	return true
 
 
 func get_local_identity_fingerprint() -> String:
@@ -601,9 +649,15 @@ func _on_server_disconnected() -> void:
 	]:
 		_fail("The server rejected or ended authentication.")
 		return
-	_set_state(State.SERVER_LOST, "The server connection was lost.")
+	var message := (
+		_moderation_disconnect_message
+		if not _moderation_disconnect_message.is_empty()
+		else "The server connection was lost."
+	)
+	_moderation_disconnect_message = ""
+	_set_state(State.SERVER_LOST, message)
 	server_lost.emit()
-	connection_error.emit("The server connection was lost.")
+	connection_error.emit(message)
 
 
 func _on_peer_disconnected(peer_id: int) -> void:
@@ -782,7 +836,22 @@ func submit_client_identity_proof(data: Dictionary) -> void:
 		"fingerprint": challenge["client_fingerprint"],
 		"public_key": challenge["client_public_key"],
 	}
+	if (
+		_host_bans != null
+		and _host_bans.is_banned(
+			_host_identity.fingerprint,
+			str(challenge["client_fingerprint"]),
+		)
+	):
+		_reject_peer(sender_id, NetworkProtocol.RejectionCode.BANNED)
+		return
 	request_client_profile.rpc_id(sender_id)
+
+
+@rpc("authority", "call_remote", "reliable", 0)
+func receive_moderation_disconnect(message: String) -> void:
+	_moderation_disconnect_message = message.left(120)
+	connection_error.emit(_moderation_disconnect_message)
 
 
 @rpc("authority", "call_remote", "reliable", 0)
@@ -913,11 +982,13 @@ func _reject_peer(
 
 
 func _disconnect_rejected_peer(peer_id: int) -> void:
+	await get_tree().create_timer(0.15).timeout
 	if (
 		is_host()
 		and multiplayer.multiplayer_peer != null
 		and multiplayer.multiplayer_peer.get_connection_status()
 		== MultiplayerPeer.CONNECTION_CONNECTED
+		and peer_id in multiplayer.get_peers()
 	):
 		multiplayer.multiplayer_peer.disconnect_peer(peer_id)
 

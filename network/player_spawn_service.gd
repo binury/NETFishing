@@ -78,6 +78,12 @@ func get_avatar(peer_id: int) -> Player:
 	return _avatars.get(peer_id)
 
 
+func set_peer_presentation_visible(peer_id: int, visible: bool) -> void:
+	var avatar: Player = _avatars.get(peer_id)
+	if avatar != null and is_instance_valid(avatar):
+		avatar.set_remote_presentation_visible(visible)
+
+
 func get_peer_ids() -> Array[int]:
 	var result: Array[int] = []
 	for peer_id: int in _avatars:
