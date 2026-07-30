@@ -50,7 +50,11 @@ func send_local_message(body: String) -> bool:
 		"request_id": _new_id("chat_request"),
 		"session_id": _session.get_session_id(),
 		"body": clean,
+		"sender_fingerprint": _session.get_local_identity_fingerprint(),
 	}
+	request["sender_signature"] = _session.sign_local_action(
+		"chat_send", NetworkChatProtocol.signature_fields(request)
+	)
 	if _session.is_host():
 		_handle_request(_session.get_local_peer_id(), request)
 	else:
@@ -76,6 +80,19 @@ func _handle_request(peer_id: int, data: Dictionary) -> void:
 	):
 		_send_rejection(peer_id, "Message could not be sent.")
 		return
+	var record := _session.get_peer_record(peer_id)
+	if (
+		record == null
+		or record.identity_fingerprint != str(data["sender_fingerprint"])
+		or not _session.verify_peer_action(
+			peer_id,
+			"chat_send",
+			NetworkChatProtocol.signature_fields(data),
+			data["sender_signature"],
+		)
+	):
+		_send_rejection(peer_id, "Message identity could not be verified.")
+		return
 	var request_id: String = data["request_id"]
 	var ledger: Dictionary = _request_ledgers.get(peer_id, {})
 	if ledger.has(request_id):
@@ -84,15 +101,15 @@ func _handle_request(peer_id: int, data: Dictionary) -> void:
 	if not _consume_rate(peer_id):
 		_send_rejection(peer_id, "Slow down.")
 		return
-	var record := _session.get_peer_record(peer_id)
-	if record == null:
-		return
 	var message := _make_message(
 		NetworkChatProtocol.Kind.PLAYER,
 		peer_id,
 		record.display_name,
 		NetworkChatProtocol.sanitize_body(data["body"])
 	)
+	message["request_id"] = request_id
+	message["sender_fingerprint"] = data["sender_fingerprint"]
+	message["sender_signature"] = data["sender_signature"]
 	ledger[request_id] = message.duplicate(true)
 	while ledger.size() > 64:
 		ledger.erase(ledger.keys().front())
@@ -107,15 +124,22 @@ func _make_message(
 	body: String,
 ) -> Dictionary:
 	_sequence += 1
-	return {
+	var message := {
 		"message_id": _new_id("chat"),
+		"request_id": _new_id("chat_system"),
 		"session_id": _session.get_session_id(),
 		"sequence": _sequence,
 		"kind": kind,
 		"sender_peer_id": peer_id,
 		"sender_display_name": display_name.left(24),
 		"body": body,
+		"sender_fingerprint": _session.get_host_identity_fingerprint(),
 	}
+	if kind == NetworkChatProtocol.Kind.SYSTEM:
+		message["sender_signature"] = _session.sign_host_action(
+			"chat_system", NetworkChatProtocol.signature_fields(message)
+		)
+	return message
 
 
 func _broadcast(message: Dictionary) -> void:
@@ -141,6 +165,29 @@ func _apply_message(data: Dictionary) -> void:
 		or str(data["session_id"]) != _session.get_session_id()
 		or _seen_messages.has(str(data["message_id"]))
 	):
+		return
+	var kind := int(data["kind"])
+	var valid_signature := false
+	if kind == NetworkChatProtocol.Kind.SYSTEM:
+		valid_signature = _session.verify_host_action(
+			"chat_system",
+			NetworkChatProtocol.signature_fields(data),
+			data["sender_signature"],
+		)
+	else:
+		var sender_id := int(data["sender_peer_id"])
+		var record := _session.get_peer_record(sender_id)
+		valid_signature = (
+			record != null
+			and record.identity_fingerprint == str(data["sender_fingerprint"])
+			and _session.verify_peer_action(
+				sender_id,
+				"chat_send",
+				NetworkChatProtocol.signature_fields(data),
+				data["sender_signature"],
+			)
+		)
+	if not valid_signature:
 		return
 	_seen_messages[data["message_id"]] = true
 	_history.append(data.duplicate(true))

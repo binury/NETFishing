@@ -112,16 +112,25 @@ func get_recipient_choices() -> Array[Dictionary]:
 			continue
 		var record := _session.get_peer_record(peer_id)
 		if record != null:
-			choices.append({"peer_id": peer_id, "name": record.display_name})
+			choices.append({
+				"peer_id": peer_id,
+				"name": record.display_name,
+				"fingerprint": record.identity_fingerprint,
+			})
 	choices.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
 		return str(a["name"]).naturalnocasecmp_to(str(b["name"])) < 0
 	)
-	var seen: Dictionary[String, int] = {}
+	var counts: Dictionary[String, int] = {}
+	for choice: Dictionary in choices:
+		var normalized := str(choice["name"]).to_lower()
+		counts[normalized] = int(counts.get(normalized, 0)) + 1
 	for choice: Dictionary in choices:
 		var name: String = choice["name"]
-		seen[name] = int(seen.get(name, 0)) + 1
-		if seen[name] > 1:
-			choice["label"] = "%s (%d)" % [name, seen[name]]
+		if int(counts.get(name.to_lower(), 0)) > 1:
+			choice["label"] = "%s · %s" % [
+				name,
+				NetworkIdentityCrypto.compact_suffix(choice["fingerprint"]),
+			]
 		else:
 			choice["label"] = name
 	return choices
@@ -164,7 +173,14 @@ func send_letter(
 		"salutation_id": salutation_id,
 		"reservation_id": reservation_id,
 		"attachment": attachment.duplicate(true),
+		"sender_fingerprint": _session.get_local_identity_fingerprint(),
+		"recipient_fingerprint": (
+			_session.get_peer_record(recipient_peer_id).identity_fingerprint
+		),
 	}
+	request["sender_signature"] = _session.sign_local_action(
+		"mail_send", NetworkMailProtocol.mail_signature_fields(request)
+	)
 	if not NetworkMailProtocol.validate_send_request(request):
 		if not reservation_id.is_empty():
 			_reservations.release(reservation_id)
@@ -202,6 +218,23 @@ func _handle_send(sender: int, data: Dictionary) -> void:
 		recipient == sender or not _session.is_authenticated_peer(recipient)
 	):
 		error = "That player is no longer connected."
+	var sender_record := _session.get_peer_record(sender)
+	var recipient_record := _session.get_peer_record(recipient)
+	if error.is_empty() and (
+		sender_record == null
+		or recipient_record == null
+		or sender_record.identity_fingerprint
+			!= str(data.get("sender_fingerprint", ""))
+		or recipient_record.identity_fingerprint
+			!= str(data.get("recipient_fingerprint", ""))
+		or not _session.verify_peer_action(
+			sender,
+			"mail_send",
+			NetworkMailProtocol.mail_signature_fields(data),
+			data.get("sender_signature", PackedByteArray()),
+		)
+	):
+		error = "Letter identity could not be verified."
 	if error.is_empty() and _letters.size() >= NetworkMailProtocol.MAX_SESSION_LETTERS:
 		error = "The session mailbox is full."
 	var recipient_count := 0
@@ -224,14 +257,12 @@ func _handle_send(sender: int, data: Dictionary) -> void:
 	}
 	if error.is_empty():
 		_sequence += 1
-		var record := _session.get_peer_record(sender)
-		var recipient_record := _session.get_peer_record(recipient)
 		var letter := {
 			"mail_id": _new_id("mail"),
 			"session_id": _session.get_session_id(),
 			"sequence": _sequence,
 			"sender_peer_id": sender,
-			"sender_display_name": record.display_name,
+			"sender_display_name": sender_record.display_name,
 			"recipient_peer_id": recipient,
 			"recipient_display_name": recipient_record.display_name,
 			"greeting_id": str(data["greeting_id"]),
@@ -240,6 +271,11 @@ func _handle_send(sender: int, data: Dictionary) -> void:
 			"reservation_id": str(data["reservation_id"]),
 			"attachment": attachment.duplicate(true),
 			"state": NetworkMailProtocol.State.SENT_UNREAD,
+			"request_id": request_id,
+			"sender_fingerprint": data["sender_fingerprint"],
+			"recipient_fingerprint": data["recipient_fingerprint"],
+			"sender_signature": data["sender_signature"],
+			"sender_public_key": sender_record.identity_public_key,
 		}
 		_letters[letter["mail_id"]] = letter
 		result["mail"] = letter
@@ -270,6 +306,21 @@ func _receive_letter(letter: Dictionary) -> void:
 		or _session.get_local_peer_id() not in [
 			int(letter["sender_peer_id"]), int(letter["recipient_peer_id"]),
 		]
+	):
+		return
+	var sender_public := NetworkIdentityCrypto.normalize_public_pem(
+		str(letter.get("sender_public_key", ""))
+	)
+	if (
+		not _session.matches_authenticated_session_identity(
+			str(letter["sender_fingerprint"]), sender_public
+		)
+		or not NetworkIdentityCrypto.verify_fields(
+			NetworkIdentityCrypto.load_public_key(sender_public),
+			"mail_send",
+			NetworkMailProtocol.mail_signature_fields(letter),
+			letter["sender_signature"],
+		)
 	):
 		return
 	_local_letters[letter["mail_id"]] = letter.duplicate(true)
@@ -344,6 +395,15 @@ func accept_gift(mail_id: String) -> void:
 	var request := _action_request(mail_id)
 	if request.is_empty():
 		return
+	var letter: Dictionary = _local_letters.get(mail_id, {})
+	request["recipient_signature"] = _session.sign_local_action(
+		"mail_accept",
+		NetworkMailProtocol.acceptance_signature_fields(
+			request,
+			str(letter.get("sender_fingerprint", "")),
+			str(letter.get("recipient_fingerprint", "")),
+		),
+	)
 	if _session.is_host():
 		_handle_accept(_session.get_local_peer_id(), request)
 	else:
@@ -373,9 +433,27 @@ func _handle_accept(peer_id: int, data: Dictionary) -> void:
 		or not _session.is_authenticated_peer(int(letter["sender_peer_id"]))
 	):
 		return
+	var recipient_record := _session.get_peer_record(peer_id)
+	if (
+		recipient_record == null
+		or recipient_record.identity_fingerprint
+			!= str(letter.get("recipient_fingerprint", ""))
+		or not _session.verify_peer_action(
+			peer_id,
+			"mail_accept",
+			NetworkMailProtocol.acceptance_signature_fields(
+				data,
+				str(letter.get("sender_fingerprint", "")),
+				str(letter.get("recipient_fingerprint", "")),
+			),
+			data.get("recipient_signature", PackedByteArray()),
+		)
+	):
+		return
 	_action_ledger[action_id] = true
 	var transfer_id := _new_id("mail_transfer")
 	letter["state"] = NetworkMailProtocol.State.ACCEPTANCE_PENDING
+	letter["transfer_id"] = transfer_id
 	_pending_transfers[transfer_id] = {
 		"letter": letter,
 		"recipient_prepared": false,
@@ -462,28 +540,66 @@ func _award_recipient(transfer_id: String, letter: Dictionary) -> void:
 
 
 func _send_phase_ack(phase: String, transfer_id: String, applied: bool) -> void:
+	var letter := _find_local_transfer_letter(transfer_id)
+	var fields := _gift_phase_fields(phase, transfer_id, applied, letter)
+	var fingerprint := _session.get_local_identity_fingerprint()
+	var signature := _session.sign_local_action(
+		"gift_%s" % phase, fields
+	)
 	if _session.is_host():
-		_handle_phase_ack(_session.get_local_peer_id(), phase, transfer_id, applied)
+		_handle_phase_ack(
+			_session.get_local_peer_id(),
+			phase,
+			transfer_id,
+			applied,
+			fingerprint,
+			signature,
+		)
 	else:
-		acknowledge_transfer_phase.rpc_id(1, phase, transfer_id, applied)
+		acknowledge_transfer_phase.rpc_id(
+			1, phase, transfer_id, applied, fingerprint, signature
+		)
 
 
 @rpc("any_peer", "call_remote", "reliable", NetworkMailProtocol.RELIABLE_CHANNEL)
 func acknowledge_transfer_phase(
-	phase: String, transfer_id: String, applied: bool
+	phase: String,
+	transfer_id: String,
+	applied: bool,
+	fingerprint: String,
+	signature: PackedByteArray,
 ) -> void:
 	var sender := multiplayer.get_remote_sender_id()
 	if _session.is_host() and _session.is_authenticated_peer(sender):
-		_handle_phase_ack(sender, phase, transfer_id, applied)
+		_handle_phase_ack(
+			sender, phase, transfer_id, applied, fingerprint, signature
+		)
 
 
 func _handle_phase_ack(
-	peer_id: int, phase: String, transfer_id: String, applied: bool
+	peer_id: int,
+	phase: String,
+	transfer_id: String,
+	applied: bool,
+	fingerprint: String,
+	signature: PackedByteArray,
 ) -> void:
 	var transfer: Dictionary = _pending_transfers.get(transfer_id, {})
 	if transfer.is_empty():
 		return
 	var letter: Dictionary = transfer["letter"]
+	var record := _session.get_peer_record(peer_id)
+	if (
+		record == null
+		or record.identity_fingerprint != fingerprint
+		or not _session.verify_peer_action(
+			peer_id,
+			"gift_%s" % phase,
+			_gift_phase_fields(phase, transfer_id, applied, letter),
+			signature,
+		)
+	):
+		return
 	if phase == "recipient_prepared":
 		if peer_id != int(letter["recipient_peer_id"]):
 			return
@@ -512,6 +628,30 @@ func _handle_phase_ack(
 				int(letter["sender_peer_id"]), transfer_id
 			)
 			_finish_transfer(transfer_id, false, "Gift could not be transferred.")
+
+
+func _find_local_transfer_letter(transfer_id: String) -> Dictionary:
+	for value: Dictionary in _local_letters.values():
+		if str(value.get("transfer_id", "")) == transfer_id:
+			return value
+	return {}
+
+
+func _gift_phase_fields(
+	phase: String,
+	transfer_id: String,
+	applied: bool,
+	letter: Dictionary,
+) -> Array:
+	return [
+		_session.get_session_id(),
+		transfer_id,
+		str(letter.get("mail_id", "")),
+		str(letter.get("sender_fingerprint", "")),
+		str(letter.get("recipient_fingerprint", "")),
+		phase,
+		applied,
+	]
 
 
 func _request_sender_rollback(peer_id: int, transfer_id: String) -> void:

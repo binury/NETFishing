@@ -43,6 +43,13 @@ func setup(service: NetworkProfileService) -> void:
 		_service.conflict_result.connect(_on_conflict_result)
 		_service.apply_finished.connect(_on_apply_finished)
 	_load_persisted()
+	var identity_value := find_child("IdentityFingerprint", true, false) as Label
+	if identity_value != null:
+		identity_value.text = "%s  •  Stored on this device" % (
+			NetworkIdentityCrypto.format_fingerprint(
+				_service.get_identity_fingerprint()
+			)
+		)
 
 
 func activate() -> void:
@@ -161,6 +168,19 @@ func _build_ui() -> void:
 	_suggestions = HBoxContainer.new()
 	_suggestions.add_theme_constant_override("separation", 8)
 	layout.add_child(_suggestions)
+
+	var identity_label := Label.new()
+	identity_label.text = "identity"
+	identity_label.add_theme_color_override("font_color", Color("302b27"))
+	layout.add_child(identity_label)
+	var identity_value := Label.new()
+	identity_value.name = "IdentityFingerprint"
+	identity_value.text = "Stored on this device"
+	identity_value.tooltip_text = (
+		"This identity helps other players recognize you between sessions."
+	)
+	identity_value.add_theme_color_override("font_color", Color("665e52"))
+	layout.add_child(identity_value)
 
 	var body := HBoxContainer.new()
 	body.size_flags_vertical = Control.SIZE_EXPAND_FILL

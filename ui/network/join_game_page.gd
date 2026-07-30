@@ -45,6 +45,7 @@ const DIRECT_WORKFLOW_HELP: String = (
 
 var _network_session: NetworkSession
 var _saved_servers: SavedServerStore
+var _server_trust: ServerTrustStore
 var _gameplay_context: bool = false
 var _mode: Mode = Mode.DIRECT
 var _visible_entries: Array[SavedServerEntry] = []
@@ -89,10 +90,12 @@ func setup(
 	network_session: NetworkSession,
 	saved_servers: SavedServerStore,
 	gameplay_context: bool,
+	server_trust: ServerTrustStore = null,
 ) -> void:
 	_network_session = network_session
 	_saved_servers = saved_servers
 	_gameplay_context = gameplay_context
+	_server_trust = server_trust
 	if not _network_session.state_changed.is_connected(_on_state_changed):
 		_network_session.state_changed.connect(_on_state_changed)
 	if not _network_session.status_message_changed.is_connected(
@@ -447,6 +450,17 @@ func _format_entry_details(entry: SavedServerEntry) -> String:
 	if _mode == Mode.SAVED:
 		parts.append("Name: %s" % entry.display_name)
 	parts.append("Address: %s" % entry.normalized_endpoint)
+	if _server_trust != null:
+		var trust := _server_trust.get_record(entry.get_endpoint())
+		if trust.is_empty():
+			parts.append("Host identity: Not verified yet")
+		else:
+			parts.append(
+				"Host identity: %s"
+				% NetworkIdentityCrypto.format_fingerprint(
+					str(trust.get("fingerprint", ""))
+				)
+			)
 	if (
 		not entry.last_observed_server_name.is_empty()
 		and (

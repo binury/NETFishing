@@ -100,6 +100,10 @@ const TITLE_MUSIC_SILENCE_DB: float = -80.0
 @onready var _network_profile: NetworkProfilePreferencesType = (
 	%NetworkProfilePreferences
 )
+@onready var _player_identity: PlayerIdentityStore = %PlayerIdentityStore
+@onready var _host_identity: HostIdentityStore = %HostIdentityStore
+@onready var _known_players: KnownPlayerStore = %KnownPlayerStore
+@onready var _server_trust: ServerTrustStore = %ServerTrustStore
 @onready var _saved_servers: SavedServerStoreType = %SavedServerStore
 @onready var _player_spawn_service: PlayerSpawnServiceType = (
 	%PlayerSpawnService
@@ -132,6 +136,9 @@ var _quit_in_progress: bool = false
 var _join_requested_from_title: bool = false
 var _join_requested_from_pause: bool = false
 var _pending_join_endpoint: String = ""
+var _server_trust_dialog: ConfirmationDialog
+var _pending_trust_changed: bool = false
+var _identity_notice_dialog: AcceptDialog
 
 
 func _ready() -> void:
@@ -145,7 +152,11 @@ func _ready() -> void:
 	_network_session.setup(
 		_network_profile,
 		_saved_servers,
-		_player_spawn_service
+		_player_spawn_service,
+		_player_identity,
+		_host_identity,
+		_known_players,
+		_server_trust,
 	)
 	_network_profile_service.setup(
 		_network_session,
@@ -162,10 +173,18 @@ func _ready() -> void:
 	_network_session.connection_error.connect(
 		_on_network_connection_error
 	)
+	_network_session.server_trust_required.connect(
+		_on_server_trust_required
+	)
+	_network_session.peer_identity_observed.connect(
+		_on_peer_identity_observed
+	)
 	_network_session.server_lost.connect(_on_network_server_lost)
 	_network_session.remote_recovery_requested.connect(
 		_on_remote_recovery_requested
 	)
+
+
 	_player.fish_sale_service.setup(
 		_player.inventory,
 		_player.wallet
@@ -332,7 +351,8 @@ func _ready() -> void:
 		_save_manager,
 		_settings_manager,
 		_network_session,
-		_saved_servers
+		_saved_servers,
+		_server_trust,
 	)
 	var pause_menu: PauseMenuType = _game_ui.get_pause_menu()
 	pause_menu.setup(
@@ -341,7 +361,8 @@ func _ready() -> void:
 		_settings_manager,
 		_fishing_spot,
 		_network_session,
-		_saved_servers
+		_saved_servers,
+		_server_trust,
 	)
 	title_screen.join_game_requested.connect(_on_title_join_game_requested)
 	pause_menu.join_game_requested.connect(_on_pause_join_game_requested)
@@ -373,6 +394,73 @@ func _ready() -> void:
 		_player.hotbar.get_selected_item_id()
 	)
 	_show_title_music(true)
+
+
+func _on_server_trust_required(
+	endpoint: String,
+	expected_fingerprint: String,
+	received_fingerprint: String,
+	is_changed: bool,
+) -> void:
+	if _server_trust_dialog == null:
+		_server_trust_dialog = ConfirmationDialog.new()
+		_server_trust_dialog.title = "Server identity"
+		_server_trust_dialog.ok_button_text = "Trust & Connect"
+		_server_trust_dialog.cancel_button_text = "Cancel"
+		_server_trust_dialog.confirmed.connect(_confirm_server_trust)
+		_server_trust_dialog.canceled.connect(
+			_network_session.resolve_server_trust.bind(false)
+		)
+		_game_ui.add_child(_server_trust_dialog)
+	_pending_trust_changed = is_changed
+	if is_changed:
+		_server_trust_dialog.dialog_text = (
+			"Server identity changed.\n\n"
+			+ "This may mean the server was reinstalled, moved, or is being "
+			+ "impersonated.\n\nExpected:\n%s\n\nReceived:\n%s"
+			% [
+				NetworkIdentityCrypto.format_fingerprint(expected_fingerprint),
+				NetworkIdentityCrypto.format_fingerprint(received_fingerprint),
+			]
+		)
+		_server_trust_dialog.ok_button_text = "Trust New Identity"
+	else:
+		_server_trust_dialog.dialog_text = (
+			"First time connecting to this server.\n\n%s\n\nHost identity:\n%s"
+			% [
+				endpoint,
+				NetworkIdentityCrypto.format_fingerprint(received_fingerprint),
+			]
+		)
+		_server_trust_dialog.ok_button_text = "Trust & Connect"
+	_server_trust_dialog.popup_centered(Vector2i(560, 360))
+
+
+func _confirm_server_trust() -> void:
+	if _pending_trust_changed:
+		_pending_trust_changed = false
+		_server_trust_dialog.dialog_text = (
+			"Replace the saved server identity pin?\n\n"
+			+ "Only continue if you expected this server identity to change."
+		)
+		_server_trust_dialog.ok_button_text = "Replace Pin"
+		_server_trust_dialog.popup_centered(Vector2i(520, 260))
+		return
+	_network_session.resolve_server_trust(true)
+
+
+func _on_peer_identity_observed(_peer_id: int, status: String) -> void:
+	if status != "New identity using a familiar name":
+		return
+	if _identity_notice_dialog == null:
+		_identity_notice_dialog = AcceptDialog.new()
+		_identity_notice_dialog.title = "Player identity"
+		_game_ui.add_child(_identity_notice_dialog)
+	_identity_notice_dialog.dialog_text = (
+		"New identity using a familiar name.\n\n"
+		+ "This may be a different player using the same display name."
+	)
+	_identity_notice_dialog.popup_centered(Vector2i(480, 240))
 
 
 func _input(event: InputEvent) -> void:

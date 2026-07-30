@@ -231,10 +231,11 @@ func setup(
 	settings_manager: SettingsManagerType,
 	network_session: NetworkSessionType,
 	saved_servers: SavedServerStoreType,
+	server_trust: ServerTrustStore,
 ) -> void:
 	_save_manager = save_manager
 	_settings_manager = settings_manager
-	_join_game_page.setup(network_session, saved_servers, false)
+	_join_game_page.setup(network_session, saved_servers, false, server_trust)
 	_join_game_page.join_requested.connect(join_game_requested.emit)
 	_join_game_page.back_requested.connect(_close_join_game)
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE

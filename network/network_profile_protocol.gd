@@ -34,4 +34,26 @@ static func valid_apply_request(data: Variant) -> bool:
 		and typeof(data.get("appearance")) == TYPE_DICTIONARY
 		and valid_snapshot(data["appearance"])
 		and typeof(data.get("use_anyway")) == TYPE_BOOL
+		and NetworkIdentityCrypto.valid_fingerprint(
+			data.get("sender_fingerprint")
+		)
+		and typeof(data.get("sender_signature")) == TYPE_PACKED_BYTE_ARRAY
 	)
+
+
+static func signature_fields(data: Dictionary) -> Array:
+	var appearance: Dictionary = data.get("appearance", {})
+	return [
+		str(data.get("session_id", "")),
+		str(data.get("request_id", "")),
+		str(data.get("sender_fingerprint", "")),
+		str(data.get("display_name", "")),
+		str(appearance.get("species", "")),
+		str(appearance.get("fur_pattern", "")),
+		str(appearance.get("ears", "")),
+		str(appearance.get("eyes", "")),
+		str(appearance.get("nose", "")),
+		str(appearance.get("mouth", "")),
+		str(appearance.get("tail", "")),
+		bool(data.get("use_anyway", false)),
+	]

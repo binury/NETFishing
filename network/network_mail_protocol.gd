@@ -71,6 +71,13 @@ static func validate_send_request(data: Variant) -> bool:
 		and str(value["reservation_id"]).length() <= MAX_ID_LENGTH
 		and typeof(value.get("attachment")) == TYPE_DICTIONARY
 		and Dictionary(value["attachment"]).size() <= 3
+		and NetworkIdentityCrypto.valid_fingerprint(
+			value.get("sender_fingerprint")
+		)
+		and NetworkIdentityCrypto.valid_fingerprint(
+			value.get("recipient_fingerprint")
+		)
+		and typeof(value.get("sender_signature")) == TYPE_PACKED_BYTE_ARRAY
 	)
 
 
@@ -94,4 +101,64 @@ static func validate_mail(data: Variant) -> bool:
 		and typeof(value.get("state")) == TYPE_INT
 		and int(value["state"]) >= 0
 		and int(value["state"]) < State.size()
+		and NetworkIdentityCrypto.valid_fingerprint(
+			value.get("sender_fingerprint")
+		)
+		and NetworkIdentityCrypto.valid_fingerprint(
+			value.get("recipient_fingerprint")
+		)
+		and typeof(value.get("sender_signature")) == TYPE_PACKED_BYTE_ARRAY
+		and typeof(value.get("sender_public_key")) == TYPE_STRING
+		and str(value["sender_public_key"]).to_utf8_buffer().size()
+			<= NetworkIdentityCrypto.MAX_PUBLIC_KEY_BYTES
 	)
+
+
+static func mail_signature_fields(data: Dictionary) -> Array:
+	var result: Array = [
+		str(data.get("session_id", "")),
+		str(data.get("request_id", "")),
+		str(data.get("sender_fingerprint", "")),
+		str(data.get("recipient_fingerprint", "")),
+		str(data.get("greeting_id", "")),
+		sanitize_body(data.get("body")),
+		str(data.get("salutation_id", "")),
+		str(data.get("reservation_id", "")),
+	]
+	result.append_array(attachment_signature_fields(data.get("attachment", {})))
+	return result
+
+
+static func attachment_signature_fields(value: Variant) -> Array:
+	if typeof(value) != TYPE_DICTIONARY:
+		return [0]
+	var attachment: Dictionary = value
+	var type := int(attachment.get("type", 0))
+	var result: Array = [type]
+	match type:
+		1:
+			result.append(int(attachment.get("amount", 0)))
+		2:
+			var fish: Dictionary = attachment.get("catch", {})
+			result.append(str(attachment.get("catch_id", "")))
+			result.append(str(fish.get("fish_id", "")))
+			result.append(str(fish.get("weight_lb", "")))
+			result.append(str(fish.get("display_scale", "")))
+			result.append(int(fish.get("sale_value", 0)))
+			result.append(bool(fish.get("is_favorited", false)))
+		3:
+			result.append(str(attachment.get("item_id", "")))
+			result.append(int(attachment.get("quantity", 0)))
+	return result
+
+
+static func acceptance_signature_fields(
+	data: Dictionary, sender_fingerprint: String, recipient_fingerprint: String
+) -> Array:
+	return [
+		str(data.get("session_id", "")),
+		str(data.get("request_id", "")),
+		str(data.get("mail_id", "")),
+		sender_fingerprint,
+		recipient_fingerprint,
+	]

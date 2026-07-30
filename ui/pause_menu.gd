@@ -121,6 +121,7 @@ func setup(
 	fishing_spot: FishingSpotType,
 	network_session: NetworkSessionType,
 	saved_servers: SavedServerStoreType,
+	server_trust: ServerTrustStore,
 ) -> void:
 	_player = player
 	_save_manager = save_manager
@@ -128,7 +129,7 @@ func setup(
 	_fishing_spot = fishing_spot
 	_network_session = network_session
 	_saved_servers = saved_servers
-	_join_game_page.setup(network_session, saved_servers, true)
+	_join_game_page.setup(network_session, saved_servers, true, server_trust)
 	if not _fishing_spot.bite_activated.is_connected(_on_bite_activated):
 		_fishing_spot.bite_activated.connect(_on_bite_activated)
 

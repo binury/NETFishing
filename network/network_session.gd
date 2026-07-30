@@ -5,7 +5,7 @@ const DEFAULT_PORT: int = 7777
 const DEFAULT_SESSION_MAX_PLAYERS: int = 8
 const DEFAULT_TRANSPORT_MAX_CLIENTS: int = 31
 const CONNECTION_TIMEOUT_SECONDS: float = 10.0
-const AUTHENTICATION_TIMEOUT_SECONDS: float = 8.0
+const AUTHENTICATION_TIMEOUT_SECONDS: float = 60.0
 const INPUT_INTERVAL: float = 1.0 / 25.0
 const SNAPSHOT_INTERVAL: float = 1.0 / 15.0
 
@@ -23,6 +23,13 @@ signal peer_profile_changed(
 	appearance: Dictionary,
 )
 signal join_authenticated
+signal server_trust_required(
+	endpoint: String,
+	expected_fingerprint: String,
+	received_fingerprint: String,
+	is_changed: bool,
+)
+signal peer_identity_observed(peer_id: int, status: String)
 signal server_lost
 signal remote_recovery_requested(peer_id: int, entry_position: Vector3)
 
@@ -33,6 +40,7 @@ enum State {
 	OPEN_HOST,
 	CONNECTING,
 	AUTHENTICATING,
+	VERIFYING_SERVER_IDENTITY,
 	JOINED_CLIENT,
 	DISCONNECTING,
 	CONNECTION_FAILED,
@@ -67,6 +75,17 @@ var _last_server_display_name: String = ""
 var _last_server_protocol_version: int = 0
 var _server_capabilities: PackedStringArray = PackedStringArray()
 var _profile_ready: bool = false
+var _player_identity: PlayerIdentityStore
+var _host_identity: HostIdentityStore
+var _known_players: KnownPlayerStore
+var _server_trust: ServerTrustStore
+var _pending_identity_challenges: Dictionary[int, Dictionary] = {}
+var _authenticated_identity_cache: Dictionary[int, Dictionary] = {}
+var _client_identity_attempt: Dictionary = {}
+var _pending_server_proof: Dictionary = {}
+var _server_identity_fingerprint: String = ""
+var _server_identity_public_key: String = ""
+var _session_identity_keys: Dictionary[String, String] = {}
 var _local_appearance_snapshot: Dictionary = (
 	CharacterCustomizationCatalog.default_snapshot()
 )
@@ -84,12 +103,22 @@ func setup(
 	profile: NetworkProfilePreferences,
 	saved_servers: SavedServerStore,
 	spawn_service: PlayerSpawnService,
+	player_identity: PlayerIdentityStore,
+	host_identity: HostIdentityStore,
+	known_players: KnownPlayerStore,
+	server_trust: ServerTrustStore,
 ) -> void:
 	_profile = profile
 	_saved_servers = saved_servers
 	_spawn_service = spawn_service
+	_player_identity = player_identity
+	_host_identity = host_identity
+	_known_players = known_players
+	_server_trust = server_trust
 	if _profile != null:
 		_profile_ready = _profile.load_or_create()
+	if _player_identity != null:
+		_profile_ready = _profile_ready and _player_identity.load_or_create()
 
 
 func start_private_host(port: int = DEFAULT_PORT) -> bool:
@@ -98,7 +127,11 @@ func start_private_host(port: int = DEFAULT_PORT) -> bool:
 		or not _profile_ready
 		or _profile == null
 		or _spawn_service == null
+		or _host_identity == null
 	):
+		return false
+	if not _host_identity.load_or_create():
+		_fail(_host_identity.error_message)
 		return false
 	if port < 1 or port > 65535:
 		_fail("The hosting port must be from 1 to 65535.")
@@ -122,9 +155,30 @@ func start_private_host(port: int = DEFAULT_PORT) -> bool:
 		1,
 		_profile.profile_id,
 		_profile.display_name,
-		NetworkProtocol.PROTOCOL_VERSION
+		NetworkProtocol.PROTOCOL_VERSION,
+		_player_identity.fingerprint,
+		_player_identity.public_pem,
 	)
 	_registry.update_appearance(1, _local_appearance_snapshot)
+	var host_profile_hello := NetworkProtocol.make_client_hello(
+		_profile.profile_id,
+		_profile.display_name,
+		NetworkIdentityCrypto.secure_id(32),
+		_local_appearance_snapshot,
+		_player_identity.fingerprint,
+	)
+	host_profile_hello["identity_signature"] = _player_identity.sign(
+		"handshake_client_profile",
+		NetworkProtocol.client_profile_fields(host_profile_hello),
+	)
+	var host_record := _registry.get_peer(1)
+	if host_record != null:
+		host_record.profile_authorization = {
+			"domain": "handshake_client_profile",
+			"signature": host_profile_hello["identity_signature"],
+			"client_nonce": host_profile_hello["client_nonce"],
+		}
+		_archive_authenticated_identity(host_record)
 	_spawn_service.clear_remote_players()
 	_spawn_service.register_local_player(1)
 	var host_avatar := _spawn_service.get_avatar(1)
@@ -172,7 +226,11 @@ func join_direct(endpoint_text: String) -> bool:
 
 
 func cancel_connection() -> void:
-	if state not in [State.CONNECTING, State.AUTHENTICATING]:
+	if state not in [
+		State.CONNECTING,
+		State.AUTHENTICATING,
+		State.VERIFYING_SERVER_IDENTITY,
+	]:
 		return
 	_operation_generation += 1
 	_teardown_peer()
@@ -291,6 +349,7 @@ func supports_server_capability(capability: StringName) -> bool:
 			"item_use_v1", "equipment_v1", "chat_v1",
 			"mail_v1",
 			"profile_v1",
+			"identity_v1",
 		])
 	return str(capability) in _server_capabilities
 
@@ -301,6 +360,77 @@ func get_peer_record(peer_id: int) -> PeerRegistry.PeerRecord:
 
 func get_authenticated_peer_ids() -> Array[int]:
 	return _registry.get_peer_ids()
+
+
+func get_local_identity_fingerprint() -> String:
+	return _player_identity.fingerprint if _player_identity != null else ""
+
+
+func sign_local_action(domain: String, fields: Array) -> PackedByteArray:
+	return (
+		_player_identity.sign(domain, fields)
+		if _player_identity != null else PackedByteArray()
+	)
+
+
+func verify_peer_action(
+	peer_id: int,
+	domain: String,
+	fields: Array,
+	signature: PackedByteArray,
+) -> bool:
+	var record := _registry.get_peer(peer_id)
+	if record == null or not record.identity_authenticated:
+		return false
+	return NetworkIdentityCrypto.verify_fields(
+		NetworkIdentityCrypto.load_public_key(record.identity_public_key),
+		domain,
+		fields,
+		signature,
+	)
+
+
+func matches_authenticated_session_identity(
+	fingerprint: String, public_pem: String
+) -> bool:
+	var normalized := NetworkIdentityCrypto.normalize_public_pem(public_pem)
+	return (
+		NetworkIdentityCrypto.valid_fingerprint(fingerprint)
+		and NetworkIdentityCrypto.fingerprint_public_pem(normalized)
+			== fingerprint
+		and _session_identity_keys.get(fingerprint, "") == normalized
+	)
+
+
+func sign_host_action(domain: String, fields: Array) -> PackedByteArray:
+	return (
+		_host_identity.sign(domain, fields)
+		if is_host() and _host_identity != null else PackedByteArray()
+	)
+
+
+func get_host_identity_fingerprint() -> String:
+	return (
+		_host_identity.fingerprint
+		if is_host() and _host_identity != null
+		else _server_identity_fingerprint
+	)
+
+
+func verify_host_action(
+	domain: String, fields: Array, signature: PackedByteArray
+) -> bool:
+	var public_pem: String = (
+		_host_identity.public_pem
+		if is_host() and _host_identity != null
+		else _server_identity_public_key
+	)
+	return NetworkIdentityCrypto.verify_fields(
+		NetworkIdentityCrypto.load_public_key(public_pem),
+		domain,
+		fields,
+		signature,
+	)
 
 
 func update_local_display_name(value: String) -> bool:
@@ -372,7 +502,11 @@ func get_local_peer_id() -> int:
 func _process(delta: float) -> void:
 	var now: float = Time.get_ticks_msec() / 1000.0
 	if (
-		state in [State.CONNECTING, State.AUTHENTICATING]
+		state in [
+			State.CONNECTING,
+			State.AUTHENTICATING,
+			State.VERIFYING_SERVER_IDENTITY,
+		]
 		and _connection_deadline > 0.0
 		and now >= _connection_deadline
 	):
@@ -434,18 +568,22 @@ func _on_connected_to_server() -> void:
 	if state != State.CONNECTING:
 		return
 	_set_state(State.AUTHENTICATING, "Authenticating...")
-	_client_nonce = Crypto.new().generate_random_bytes(16).hex_encode()
-	var hello: Dictionary = NetworkProtocol.make_client_hello(
-		_profile.profile_id,
-		_profile.display_name,
+	_client_nonce = NetworkIdentityCrypto.secure_id(32)
+	_client_identity_attempt = NetworkProtocol.make_identity_hello(
+		_player_identity.public_pem,
+		_player_identity.fingerprint,
 		_client_nonce,
-		_local_appearance_snapshot,
+		NetworkIdentityCrypto.secure_id(16),
 	)
-	submit_client_hello.rpc_id(1, hello)
+	submit_identity_hello.rpc_id(1, _client_identity_attempt)
 
 
 func _on_connection_failed() -> void:
-	if state not in [State.CONNECTING, State.AUTHENTICATING]:
+	if state not in [
+		State.CONNECTING,
+		State.AUTHENTICATING,
+		State.VERIFYING_SERVER_IDENTITY,
+	]:
 		return
 	_teardown_peer()
 	_fail("Could not connect. The server may be private, unavailable, or unreachable.")
@@ -456,6 +594,13 @@ func _on_server_disconnected() -> void:
 		return
 	_operation_generation += 1
 	_teardown_peer()
+	if state in [
+		State.CONNECTING,
+		State.AUTHENTICATING,
+		State.VERIFYING_SERVER_IDENTITY,
+	]:
+		_fail("The server rejected or ended authentication.")
+		return
 	_set_state(State.SERVER_LOST, "The server connection was lost.")
 	server_lost.emit()
 	connection_error.emit("The server connection was lost.")
@@ -463,6 +608,8 @@ func _on_server_disconnected() -> void:
 
 func _on_peer_disconnected(peer_id: int) -> void:
 	_pending_authentication.erase(peer_id)
+	_pending_identity_challenges.erase(peer_id)
+	_authenticated_identity_cache.erase(peer_id)
 	if _registry.has_peer(peer_id):
 		_registry.remove_peer(peer_id)
 		_spawn_service.remove_peer(peer_id)
@@ -473,33 +620,217 @@ func _on_peer_disconnected(peer_id: int) -> void:
 
 
 @rpc("any_peer", "call_remote", "reliable", 0)
+func submit_identity_hello(data: Dictionary) -> void:
+	var sender_id: int = multiplayer.get_remote_sender_id()
+	if not is_host() or sender_id <= 1 or not _pending_authentication.has(sender_id):
+		return
+	if (
+		not NetworkProtocol.validate_identity_hello(data)
+		or int(data["protocol_version"]) != NetworkProtocol.PROTOCOL_VERSION
+	):
+		_reject_peer(
+			sender_id,
+			NetworkProtocol.RejectionCode.PROTOCOL_MISMATCH
+		)
+		return
+	var public_pem := NetworkIdentityCrypto.normalize_public_pem(data["public_key"])
+	var fingerprint := NetworkIdentityCrypto.fingerprint_public_pem(public_pem)
+	if (
+		fingerprint != str(data["fingerprint"])
+		or NetworkIdentityCrypto.load_public_key(public_pem) == null
+	):
+		_reject_peer(
+			sender_id,
+			NetworkProtocol.RejectionCode.INVALID_IDENTITY_PROOF
+		)
+		return
+	if _registry.has_fingerprint(fingerprint):
+		_reject_peer(sender_id, NetworkProtocol.RejectionCode.DUPLICATE_IDENTITY)
+		return
+	var server_nonce := NetworkIdentityCrypto.secure_id(32)
+	var challenge := {
+		"peer_id": sender_id,
+		"attempt_id": str(data["attempt_id"]),
+		"client_nonce": str(data["client_nonce"]),
+		"client_fingerprint": fingerprint,
+		"client_public_key": public_pem,
+		"server_nonce": server_nonce,
+		"server_fingerprint": _host_identity.fingerprint,
+		"session_id": _session_id,
+		"generation": _operation_generation,
+		"expires_at_msec": Time.get_ticks_msec() + 60000,
+	}
+	var fields := _identity_proof_fields(challenge)
+	var proof := challenge.duplicate(true)
+	proof["server_public_key"] = _host_identity.public_pem
+	proof["server_signature"] = _host_identity.sign(
+		"handshake_server_proof", fields
+	)
+	_pending_identity_challenges[sender_id] = challenge
+	receive_server_identity_proof.rpc_id(sender_id, proof)
+
+
+@rpc("authority", "call_remote", "reliable", 0)
+func receive_server_identity_proof(data: Dictionary) -> void:
+	if state != State.AUTHENTICATING or not _valid_server_proof_shape(data):
+		return
+	if (
+		str(data["attempt_id"]) != str(_client_identity_attempt.get("attempt_id", ""))
+		or str(data["client_nonce"]) != _client_nonce
+	):
+		_fail_identity("The server identity proof did not match this connection.")
+		return
+	var public_pem := NetworkIdentityCrypto.normalize_public_pem(data["server_public_key"])
+	var fingerprint := NetworkIdentityCrypto.fingerprint_public_pem(public_pem)
+	var public_key := NetworkIdentityCrypto.load_public_key(public_pem)
+	if (
+		fingerprint != str(data["server_fingerprint"])
+		or not NetworkIdentityCrypto.verify_fields(
+			public_key,
+			"handshake_server_proof",
+			_identity_proof_fields(data),
+			data["server_signature"],
+		)
+	):
+		_fail_identity("The server identity proof was invalid.")
+		return
+	_pending_server_proof = data.duplicate(true)
+	_server_identity_fingerprint = fingerprint
+	_server_identity_public_key = public_pem
+	var verification := _server_trust.verify(
+		get_current_endpoint(), fingerprint
+	)
+	if verification == ServerTrustStore.Verification.MATCH:
+		_server_trust.touch(get_current_endpoint())
+		_send_client_identity_proof()
+		return
+	_set_state(
+		State.VERIFYING_SERVER_IDENTITY,
+		"Confirm this server identity before continuing.",
+	)
+	_connection_deadline = 0.0
+	var expected := str(
+		_server_trust.get_record(get_current_endpoint()).get("fingerprint", "")
+	)
+	server_trust_required.emit(
+		get_current_route_display(),
+		expected,
+		fingerprint,
+		verification == ServerTrustStore.Verification.CHANGED,
+	)
+
+
+func resolve_server_trust(accepted: bool) -> void:
+	if state != State.VERIFYING_SERVER_IDENTITY:
+		return
+	if not accepted:
+		cancel_connection()
+		return
+	if not _server_trust.trust(
+		get_current_endpoint(),
+		str(_pending_server_proof["server_fingerprint"]),
+		"NETFISHING",
+	):
+		_fail_identity("The server identity could not be pinned.")
+		return
+	_set_state(State.AUTHENTICATING, "Authenticating identity...")
+	_connection_deadline = (
+		Time.get_ticks_msec() / 1000.0 + CONNECTION_TIMEOUT_SECONDS
+	)
+	_send_client_identity_proof()
+
+
+func _send_client_identity_proof() -> void:
+	var proof := {
+		"attempt_id": _pending_server_proof["attempt_id"],
+		"session_id": _pending_server_proof["session_id"],
+		"client_fingerprint": _player_identity.fingerprint,
+		"client_signature": _player_identity.sign(
+			"handshake_client_proof",
+			_identity_proof_fields(_pending_server_proof),
+		),
+	}
+	submit_client_identity_proof.rpc_id(1, proof)
+
+
+@rpc("any_peer", "call_remote", "reliable", 0)
+func submit_client_identity_proof(data: Dictionary) -> void:
+	var sender_id := multiplayer.get_remote_sender_id()
+	var challenge: Dictionary = _pending_identity_challenges.get(sender_id, {})
+	if (
+		not is_host()
+		or challenge.is_empty()
+		or Time.get_ticks_msec() > int(challenge["expires_at_msec"])
+		or data.get("attempt_id") != challenge["attempt_id"]
+		or data.get("session_id") != _session_id
+		or data.get("client_fingerprint") != challenge["client_fingerprint"]
+		or typeof(data.get("client_signature")) != TYPE_PACKED_BYTE_ARRAY
+	):
+		_reject_peer(sender_id, NetworkProtocol.RejectionCode.INVALID_IDENTITY_PROOF)
+		return
+	var verified := NetworkIdentityCrypto.verify_fields(
+		NetworkIdentityCrypto.load_public_key(challenge["client_public_key"]),
+		"handshake_client_proof",
+		_identity_proof_fields(challenge),
+		data["client_signature"],
+	)
+	_pending_identity_challenges.erase(sender_id)
+	if not verified:
+		_reject_peer(sender_id, NetworkProtocol.RejectionCode.INVALID_IDENTITY_PROOF)
+		return
+	_authenticated_identity_cache[sender_id] = {
+		"fingerprint": challenge["client_fingerprint"],
+		"public_key": challenge["client_public_key"],
+	}
+	request_client_profile.rpc_id(sender_id)
+
+
+@rpc("authority", "call_remote", "reliable", 0)
+func request_client_profile() -> void:
+	if state != State.AUTHENTICATING:
+		return
+	var hello := NetworkProtocol.make_client_hello(
+		_profile.profile_id,
+		_profile.display_name,
+		_client_nonce,
+		_local_appearance_snapshot,
+		_player_identity.fingerprint,
+	)
+	hello["identity_signature"] = _player_identity.sign(
+		"handshake_client_profile",
+		NetworkProtocol.client_profile_fields(hello),
+	)
+	submit_client_hello.rpc_id(1, hello)
+
+
+@rpc("any_peer", "call_remote", "reliable", 0)
 func submit_client_hello(data: Dictionary) -> void:
 	var sender_id: int = multiplayer.get_remote_sender_id()
 	if not is_host() or sender_id <= 1 or not _pending_authentication.has(sender_id):
 		return
 	var validation_error: String = NetworkProtocol.validate_client_hello(data)
 	if not validation_error.is_empty():
-		_reject_peer(
-			sender_id,
-			NetworkProtocol.RejectionCode.MALFORMED_HANDSHAKE
-		)
+		_reject_peer(sender_id, NetworkProtocol.RejectionCode.MALFORMED_HANDSHAKE)
 		return
-	if int(data["protocol_version"]) != NetworkProtocol.PROTOCOL_VERSION:
-		_reject_peer(
-			sender_id,
-			NetworkProtocol.RejectionCode.PROTOCOL_MISMATCH
+	var identity: Dictionary = _authenticated_identity_cache.get(sender_id, {})
+	if identity.is_empty():
+		_reject_peer(sender_id, NetworkProtocol.RejectionCode.INVALID_IDENTITY_PROOF)
+		return
+	if (
+		data["identity_fingerprint"] != identity["fingerprint"]
+		or not NetworkIdentityCrypto.verify_fields(
+			NetworkIdentityCrypto.load_public_key(identity["public_key"]),
+			"handshake_client_profile",
+			NetworkProtocol.client_profile_fields(data),
+			data["identity_signature"],
 		)
+	):
+		_reject_peer(sender_id, NetworkProtocol.RejectionCode.INVALID_IDENTITY_PROOF)
 		return
 	if _registry.size() >= session_max_players:
 		_reject_peer(sender_id, NetworkProtocol.RejectionCode.SERVER_FULL)
 		return
 	var profile_id: String = data["local_profile_id"]
-	if _registry.has_profile(profile_id):
-		_reject_peer(
-			sender_id,
-			NetworkProtocol.RejectionCode.DUPLICATE_PROFILE
-		)
-		return
 	var display_name: String = data["display_name"]
 	if not NetworkProfilePreferences.is_valid_display_name(display_name):
 		_reject_peer(
@@ -511,7 +842,9 @@ func submit_client_hello(data: Dictionary) -> void:
 		sender_id,
 		profile_id,
 		display_name,
-		NetworkProtocol.PROTOCOL_VERSION
+		NetworkProtocol.PROTOCOL_VERSION,
+		identity["fingerprint"],
+		identity["public_key"],
 	):
 		_reject_peer(
 			sender_id,
@@ -522,7 +855,20 @@ func submit_client_hello(data: Dictionary) -> void:
 		data["cosmetic_snapshot"]
 	)
 	_registry.update_appearance(sender_id, submitted_appearance)
+	var peer_record := _registry.get_peer(sender_id)
+	if peer_record != null:
+		peer_record.profile_authorization = {
+			"domain": "handshake_client_profile",
+			"signature": data["identity_signature"],
+			"client_nonce": data["client_nonce"],
+		}
+		_archive_authenticated_identity(peer_record)
+	var identity_status := _known_players.observe(
+		str(identity["fingerprint"]), display_name
+	)
+	peer_identity_observed.emit(sender_id, identity_status)
 	_pending_authentication.erase(sender_id)
+	_authenticated_identity_cache.erase(sender_id)
 	var spawn_index: int = _registry.get_peer_ids().find(sender_id)
 	var spawn_transform: Transform3D = (
 		_spawn_service.get_spawn_transform_for_index(spawn_index)
@@ -625,9 +971,14 @@ func receive_server_hello(data: Dictionary) -> void:
 		local_peer_id,
 		_profile.profile_id,
 		_profile.display_name,
-		NetworkProtocol.PROTOCOL_VERSION
+		NetworkProtocol.PROTOCOL_VERSION,
+		_player_identity.fingerprint,
+		_player_identity.public_pem,
 	)
 	_registry.update_appearance(local_peer_id, _local_appearance_snapshot)
+	var local_record := _registry.get_peer(local_peer_id)
+	if local_record != null:
+		_archive_authenticated_identity(local_record)
 	_spawn_service.clear_remote_players()
 	_spawn_service.register_local_player(local_peer_id)
 	var local_avatar := _spawn_service.get_avatar(local_peer_id)
@@ -681,6 +1032,8 @@ func _apply_spawn_entry(entry: Dictionary) -> void:
 		or typeof(entry.get("yaw")) not in [TYPE_FLOAT, TYPE_INT]
 	):
 		return
+	if not _verify_spawn_identity(entry):
+		return
 	var peer_id: int = entry["peer_id"]
 	if peer_id == multiplayer.get_unique_id():
 		var own_position: Array = entry["position"]
@@ -699,8 +1052,18 @@ func _apply_spawn_entry(entry: Dictionary) -> void:
 			peer_id,
 			entry["profile_id"],
 			entry["display_name"],
-			NetworkProtocol.PROTOCOL_VERSION
+			NetworkProtocol.PROTOCOL_VERSION,
+			str(entry.get("identity_fingerprint", "")),
+			str(entry.get("identity_public_key", "")),
 		)
+		var added_record := _registry.get_peer(peer_id)
+		if added_record != null and added_record.identity_authenticated:
+			_archive_authenticated_identity(added_record)
+			var status := _known_players.observe(
+				added_record.identity_fingerprint,
+				added_record.display_name,
+			)
+			peer_identity_observed.emit(peer_id, status)
 	if typeof(entry.get("appearance")) == TYPE_DICTIONARY:
 		var appearance := CharacterCustomizationCatalog.sanitized_snapshot(
 			entry["appearance"]
@@ -757,7 +1120,119 @@ func _make_spawn_entry(
 			if record != null
 			else CharacterCustomizationCatalog.default_snapshot()
 		),
+		"identity_fingerprint": (
+			record.identity_fingerprint if record != null else ""
+		),
+		"identity_public_key": (
+			record.identity_public_key if record != null else ""
+		),
+		"profile_authorization": (
+			record.profile_authorization.duplicate(true)
+			if record != null else {}
+		),
 	}
+
+
+func _verify_spawn_identity(entry: Dictionary) -> bool:
+	var fingerprint := str(entry.get("identity_fingerprint", ""))
+	var public_pem := NetworkIdentityCrypto.normalize_public_pem(
+		str(entry.get("identity_public_key", ""))
+	)
+	if (
+		NetworkIdentityCrypto.fingerprint_public_pem(public_pem) != fingerprint
+		or typeof(entry.get("profile_authorization")) != TYPE_DICTIONARY
+	):
+		return false
+	var authorization: Dictionary = entry["profile_authorization"]
+	if authorization.is_empty():
+		return int(entry.get("peer_id", 0)) == 1
+	if authorization.get("domain") == "handshake_client_profile":
+		var hello := NetworkProtocol.make_client_hello(
+			str(entry.get("profile_id", "")),
+			str(entry.get("display_name", "")),
+			str(authorization.get("client_nonce", "")),
+			Dictionary(entry.get("appearance", {})),
+			fingerprint,
+			authorization.get("signature", PackedByteArray()),
+		)
+		return NetworkIdentityCrypto.verify_fields(
+			NetworkIdentityCrypto.load_public_key(public_pem),
+			"handshake_client_profile",
+			NetworkProtocol.client_profile_fields(hello),
+			hello["identity_signature"],
+		)
+	if authorization.has("sender_signature"):
+		var signed := authorization.duplicate(true)
+		signed["display_name"] = entry.get("display_name", "")
+		signed["appearance"] = entry.get("appearance", {})
+		return NetworkIdentityCrypto.verify_fields(
+			NetworkIdentityCrypto.load_public_key(public_pem),
+			"profile_update",
+			NetworkProfileProtocol.signature_fields(signed),
+			signed["sender_signature"],
+		)
+	return false
+
+
+func _identity_proof_fields(data: Dictionary) -> Array:
+	return [
+		NetworkProtocol.PROTOCOL_VERSION,
+		str(data.get("attempt_id", "")),
+		str(data.get("client_fingerprint", "")),
+		str(data.get("client_nonce", "")),
+		str(data.get("server_fingerprint", "")),
+		str(data.get("server_nonce", "")),
+		str(data.get("session_id", "")),
+		int(data.get("peer_id", 0)),
+		int(data.get("generation", 0)),
+		int(data.get("expires_at_msec", 0)),
+	]
+
+
+func _archive_authenticated_identity(record: PeerRegistry.PeerRecord) -> void:
+	if (
+		record != null
+		and record.identity_authenticated
+		and NetworkIdentityCrypto.fingerprint_public_pem(
+			record.identity_public_key
+		) == record.identity_fingerprint
+	):
+		_session_identity_keys[record.identity_fingerprint] = (
+			NetworkIdentityCrypto.normalize_public_pem(
+				record.identity_public_key
+			)
+		)
+
+
+func _valid_server_proof_shape(data: Variant) -> bool:
+	if typeof(data) != TYPE_DICTIONARY:
+		return false
+	var value: Dictionary = data
+	return (
+		typeof(value.get("attempt_id")) == TYPE_STRING
+		and str(value["attempt_id"]).length() == 32
+		and typeof(value.get("client_nonce")) == TYPE_STRING
+		and str(value["client_nonce"]).length() == 64
+		and typeof(value.get("server_nonce")) == TYPE_STRING
+		and str(value["server_nonce"]).length() == 64
+		and NetworkIdentityCrypto.valid_fingerprint(value.get("client_fingerprint"))
+		and NetworkIdentityCrypto.valid_fingerprint(value.get("server_fingerprint"))
+		and typeof(value.get("server_public_key")) == TYPE_STRING
+		and str(value["server_public_key"]).to_utf8_buffer().size()
+			<= NetworkProtocol.MAX_PUBLIC_KEY_LENGTH
+		and typeof(value.get("server_signature")) == TYPE_PACKED_BYTE_ARRAY
+		and PackedByteArray(value["server_signature"]).size()
+			<= NetworkIdentityCrypto.MAX_SIGNATURE_BYTES
+		and typeof(value.get("session_id")) == TYPE_STRING
+		and typeof(value.get("peer_id")) == TYPE_INT
+		and typeof(value.get("generation")) == TYPE_INT
+		and typeof(value.get("expires_at_msec")) == TYPE_INT
+	)
+
+
+func _fail_identity(message: String) -> void:
+	_teardown_peer()
+	_fail(message)
 
 
 func _send_local_input() -> void:
@@ -944,12 +1419,19 @@ func _is_transition_allowed(from_state: State, to_state: State) -> bool:
 			State.DISCONNECTING,
 			State.INACTIVE,
 		],
-		State.AUTHENTICATING: [
-			State.JOINED_CLIENT,
+			State.AUTHENTICATING: [
+				State.VERIFYING_SERVER_IDENTITY,
+				State.JOINED_CLIENT,
 			State.CONNECTION_FAILED,
 			State.DISCONNECTING,
 			State.INACTIVE,
-		],
+			],
+			State.VERIFYING_SERVER_IDENTITY: [
+				State.AUTHENTICATING,
+				State.CONNECTION_FAILED,
+				State.DISCONNECTING,
+				State.INACTIVE,
+			],
 		State.JOINED_CLIENT: [
 			State.DISCONNECTING,
 			State.SERVER_LOST,
@@ -979,6 +1461,10 @@ func _fail(message: String) -> void:
 
 func _teardown_peer() -> void:
 	_pending_authentication.clear()
+	_pending_identity_challenges.clear()
+	_authenticated_identity_cache.clear()
+	_client_identity_attempt.clear()
+	_pending_server_proof.clear()
 	_registry.clear()
 	if _spawn_service != null:
 		_spawn_service.clear_remote_players()
@@ -989,3 +1475,6 @@ func _teardown_peer() -> void:
 	_input_accumulator = 0.0
 	_snapshot_accumulator = 0.0
 	_server_capabilities = PackedStringArray()
+	_server_identity_fingerprint = ""
+	_server_identity_public_key = ""
+	_session_identity_keys.clear()

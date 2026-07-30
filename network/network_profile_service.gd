@@ -50,6 +50,13 @@ func get_persisted_appearance() -> Dictionary:
 	return _appearance_store.get_snapshot()
 
 
+func get_identity_fingerprint() -> String:
+	return (
+		_session.get_local_identity_fingerprint()
+		if _session != null else ""
+	)
+
+
 func request_name_check(display_name: String) -> String:
 	var request_id := _new_id()
 	_latest_check_id = request_id
@@ -95,7 +102,11 @@ func apply_profile(
 		"display_name": clean_name,
 		"appearance": appearance.duplicate(true),
 		"use_anyway": use_anyway,
+		"sender_fingerprint": _session.get_local_identity_fingerprint(),
 	}
+	request["sender_signature"] = _session.sign_local_action(
+		"profile_update", NetworkProfileProtocol.signature_fields(request)
+	)
 	_pending_apply[request_id] = request
 	if _session == null or not _session.is_gameplay_session_active():
 		_apply_local_result(request_id, true, "", false, PackedStringArray())
@@ -145,6 +156,18 @@ func submit_profile_apply(data: Dictionary) -> void:
 		or str(data["session_id"]) != _session.get_session_id()
 	):
 		return
+	var record := _session.get_peer_record(sender_id)
+	if (
+		record == null
+		or record.identity_fingerprint != str(data["sender_fingerprint"])
+		or not _session.verify_peer_action(
+			sender_id,
+			"profile_update",
+			NetworkProfileProtocol.signature_fields(data),
+			data["sender_signature"],
+		)
+	):
+		return
 	_process_apply_request(sender_id, data)
 
 
@@ -163,6 +186,13 @@ func _process_apply_request(peer_id: int, data: Dictionary) -> void:
 				"peer_id": peer_id,
 				"display_name": name,
 				"appearance": Dictionary(data["appearance"]).duplicate(true),
+				"authorization": {
+					"request_id": data["request_id"],
+					"session_id": data["session_id"],
+					"sender_fingerprint": data["sender_fingerprint"],
+					"sender_signature": data["sender_signature"],
+					"use_anyway": data["use_anyway"],
+				},
 			}
 		receive_profile_result.rpc_id(peer_id, {
 			"request_id": data["request_id"],
@@ -187,8 +217,16 @@ func confirm_profile_saved(request_id: String) -> void:
 	var name := str(pending["display_name"])
 	var appearance := Dictionary(pending["appearance"])
 	_session.apply_canonical_profile(sender_id, name, appearance)
+	var record := _session.get_peer_record(sender_id)
+	if record != null:
+		record.profile_authorization = pending.get("authorization", {}).duplicate(true)
 	_apply_to_avatar(sender_id, appearance)
-	broadcast_profile_snapshot.rpc(sender_id, name, appearance)
+	broadcast_profile_snapshot.rpc(
+		sender_id,
+		name,
+		appearance,
+		pending.get("authorization", {}),
+	)
 
 
 @rpc("authority", "call_remote", "reliable", NetworkProfileProtocol.RELIABLE_CHANNEL)
@@ -243,10 +281,16 @@ func _apply_local_result(
 				_preferences.display_name,
 				_appearance_store.get_snapshot(),
 			)
+			var record := _session.get_peer_record(
+				_session.get_local_peer_id()
+			)
+			if record != null:
+				record.profile_authorization = request.duplicate(true)
 			broadcast_profile_snapshot.rpc(
 				_session.get_local_peer_id(),
 				_preferences.display_name,
 				_appearance_store.get_snapshot(),
+				request,
 			)
 		elif _session.supports_server_capability(&"profile_v1"):
 			confirm_profile_saved.rpc_id(1, request_id)
@@ -264,12 +308,30 @@ func broadcast_profile_snapshot(
 	peer_id: int,
 	display_name: String,
 	appearance: Dictionary,
+	authorization: Dictionary = {},
 ) -> void:
 	if (
 		not NetworkProfilePreferences.is_valid_display_name(display_name)
 		or not CharacterCustomizationCatalog.validate_snapshot(appearance)
 	):
 		return
+	if not authorization.is_empty():
+		var signed := authorization.duplicate(true)
+		signed["display_name"] = display_name
+		signed["appearance"] = appearance
+		var record := _session.get_peer_record(peer_id)
+		if (
+			record == null
+			or record.identity_fingerprint
+				!= str(signed.get("sender_fingerprint", ""))
+			or not _session.verify_peer_action(
+				peer_id,
+				"profile_update",
+				NetworkProfileProtocol.signature_fields(signed),
+				signed.get("sender_signature", PackedByteArray()),
+			)
+		):
+			return
 	_session.apply_canonical_profile(peer_id, display_name, appearance)
 	_apply_to_avatar(peer_id, appearance)
 	profile_snapshot_changed.emit(peer_id, display_name, appearance.duplicate(true))
@@ -287,6 +349,7 @@ func _on_peer_authenticated(peer_id: int, _display_name: String) -> void:
 			existing_id,
 			record.display_name,
 			record.appearance_snapshot,
+			record.profile_authorization,
 		)
 
 

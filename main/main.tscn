@@ -1,4 +1,4 @@
-[gd_scene load_steps=30 format=3]
+[gd_scene load_steps=34 format=3]
 
 [ext_resource type="PackedScene" path="res://world/test_world.tscn" id="1_world"]
 [ext_resource type="PackedScene" path="res://player/player.tscn" id="2_player"]
@@ -29,6 +29,10 @@
 [ext_resource type="Script" path="res://progression/player_asset_reservation_service.gd" id="27_reservations"]
 [ext_resource type="Script" path="res://progression/player_appearance_store.gd" id="28_appearance"]
 [ext_resource type="Script" path="res://network/network_profile_service.gd" id="29_profile_service"]
+[ext_resource type="Script" path="res://network/player_identity_store.gd" id="30_player_identity"]
+[ext_resource type="Script" path="res://network/host_identity_store.gd" id="31_host_identity"]
+[ext_resource type="Script" path="res://network/known_player_store.gd" id="32_known_players"]
+[ext_resource type="Script" path="res://network/server_trust_store.gd" id="33_server_trust"]
 
 [node name="Main" type="Node3D"]
 script = ExtResource("3_main")
@@ -44,6 +48,22 @@ script = ExtResource("17_network_session")
 [node name="NetworkProfilePreferences" type="Node" parent="."]
 unique_name_in_owner = true
 script = ExtResource("18_network_profile")
+
+[node name="PlayerIdentityStore" type="Node" parent="."]
+unique_name_in_owner = true
+script = ExtResource("30_player_identity")
+
+[node name="HostIdentityStore" type="Node" parent="."]
+unique_name_in_owner = true
+script = ExtResource("31_host_identity")
+
+[node name="KnownPlayerStore" type="Node" parent="."]
+unique_name_in_owner = true
+script = ExtResource("32_known_players")
+
+[node name="ServerTrustStore" type="Node" parent="."]
+unique_name_in_owner = true
+script = ExtResource("33_server_trust")
 
 [node name="PlayerAppearanceStore" type="Node" parent="."]
 unique_name_in_owner = true

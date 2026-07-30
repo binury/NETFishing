@@ -12,6 +12,10 @@ class PeerRecord:
 	var appearance_snapshot: Dictionary = (
 		CharacterCustomizationCatalog.default_snapshot()
 	)
+	var identity_fingerprint: String = ""
+	var identity_public_key: String = ""
+	var identity_authenticated: bool = false
+	var profile_authorization: Dictionary = {}
 
 
 var _records: Dictionary[int, PeerRecord] = {}
@@ -22,8 +26,17 @@ func add_peer(
 	profile_id: String,
 	display_name: String,
 	protocol_version: int,
+	identity_fingerprint: String = "",
+	identity_public_key: String = "",
 ) -> bool:
-	if peer_id <= 0 or profile_id.is_empty() or has_profile(profile_id):
+	if (
+		peer_id <= 0
+		or profile_id.is_empty()
+		or (
+			not identity_fingerprint.is_empty()
+			and has_fingerprint(identity_fingerprint)
+		)
+	):
 		return false
 	var record := PeerRecord.new()
 	record.peer_id = peer_id
@@ -31,6 +44,11 @@ func add_peer(
 	record.display_name = display_name
 	record.protocol_version = protocol_version
 	record.joined_at_unix = int(Time.get_unix_time_from_system())
+	record.identity_fingerprint = identity_fingerprint
+	record.identity_public_key = identity_public_key
+	record.identity_authenticated = NetworkIdentityCrypto.valid_fingerprint(
+		identity_fingerprint
+	)
 	_records[peer_id] = record
 	return true
 
@@ -68,6 +86,13 @@ func has_peer(peer_id: int) -> bool:
 func has_profile(profile_id: String) -> bool:
 	for record: PeerRecord in _records.values():
 		if record.profile_id == profile_id:
+			return true
+	return false
+
+
+func has_fingerprint(fingerprint: String) -> bool:
+	for record: PeerRecord in _records.values():
+		if record.identity_fingerprint == fingerprint:
 			return true
 	return false
 

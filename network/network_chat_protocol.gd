@@ -34,6 +34,12 @@ static func validate_request(data: Variant) -> bool:
 		and _valid_id(data.get("request_id"))
 		and _valid_id(data.get("session_id"))
 		and not sanitize_body(data.get("body")).is_empty()
+		and NetworkIdentityCrypto.valid_fingerprint(
+			data.get("sender_fingerprint")
+		)
+		and typeof(data.get("sender_signature")) == TYPE_PACKED_BYTE_ARRAY
+		and PackedByteArray(data["sender_signature"]).size()
+			<= NetworkIdentityCrypto.MAX_SIGNATURE_BYTES
 	)
 
 
@@ -50,7 +56,20 @@ static func validate_message(data: Variant) -> bool:
 		and typeof(data.get("sender_display_name")) == TYPE_STRING
 		and str(data["sender_display_name"]).length() <= 24
 		and not sanitize_body(data.get("body")).is_empty()
+		and NetworkIdentityCrypto.valid_fingerprint(
+			data.get("sender_fingerprint")
+		)
+		and typeof(data.get("sender_signature")) == TYPE_PACKED_BYTE_ARRAY
 	)
+
+
+static func signature_fields(data: Dictionary) -> Array:
+	return [
+		str(data.get("session_id", "")),
+		str(data.get("request_id", "")),
+		str(data.get("sender_fingerprint", "")),
+		sanitize_body(data.get("body")),
+	]
 
 
 static func _valid_id(value: Variant) -> bool:
