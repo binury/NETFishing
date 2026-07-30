@@ -17,6 +17,11 @@ signal peer_removed(peer_id: int)
 signal host_openness_changed(is_open: bool)
 signal peer_count_changed(player_count: int, max_players: int)
 signal peer_display_name_changed(peer_id: int, display_name: String)
+signal peer_profile_changed(
+	peer_id: int,
+	display_name: String,
+	appearance: Dictionary,
+)
 signal join_authenticated
 signal server_lost
 signal remote_recovery_requested(peer_id: int, entry_position: Vector3)
@@ -62,6 +67,9 @@ var _last_server_display_name: String = ""
 var _last_server_protocol_version: int = 0
 var _server_capabilities: PackedStringArray = PackedStringArray()
 var _profile_ready: bool = false
+var _local_appearance_snapshot: Dictionary = (
+	CharacterCustomizationCatalog.default_snapshot()
+)
 
 
 func _ready() -> void:
@@ -116,8 +124,12 @@ func start_private_host(port: int = DEFAULT_PORT) -> bool:
 		_profile.display_name,
 		NetworkProtocol.PROTOCOL_VERSION
 	)
+	_registry.update_appearance(1, _local_appearance_snapshot)
 	_spawn_service.clear_remote_players()
 	_spawn_service.register_local_player(1)
+	var host_avatar := _spawn_service.get_avatar(1)
+	if host_avatar != null:
+		host_avatar.apply_appearance_snapshot(_local_appearance_snapshot)
 	_set_state(State.PRIVATE_HOST, "Private game • UDP %d" % port)
 	host_openness_changed.emit(false)
 	_emit_peer_count()
@@ -278,6 +290,7 @@ func supports_server_capability(capability: StringName) -> bool:
 			"movement_v1", "fishing_v1", "sale_v1", "shop_v1",
 			"item_use_v1", "equipment_v1", "chat_v1",
 			"mail_v1",
+			"profile_v1",
 		])
 	return str(capability) in _server_capabilities
 
@@ -300,6 +313,33 @@ func update_local_display_name(value: String) -> bool:
 	elif is_joined_client() and supports_server_capability(&"chat_v1"):
 		submit_display_name.rpc_id(1, _profile.display_name)
 	return true
+
+
+func set_local_appearance_snapshot(snapshot: Dictionary) -> void:
+	if CharacterCustomizationCatalog.validate_snapshot(snapshot):
+		_local_appearance_snapshot = snapshot.duplicate(true)
+		var local_id := get_local_peer_id()
+		if local_id > 0:
+			_registry.update_appearance(local_id, _local_appearance_snapshot)
+
+
+func apply_canonical_profile(
+	peer_id: int,
+	display_name: String,
+	appearance: Dictionary,
+) -> bool:
+	if (
+		not NetworkProfilePreferences.is_valid_display_name(display_name)
+		or not CharacterCustomizationCatalog.validate_snapshot(appearance)
+	):
+		return false
+	var name_changed := _registry.update_display_name(peer_id, display_name)
+	var appearance_changed := _registry.update_appearance(peer_id, appearance)
+	if name_changed:
+		peer_display_name_changed.emit(peer_id, display_name)
+	if name_changed and appearance_changed:
+		peer_profile_changed.emit(peer_id, display_name, appearance.duplicate(true))
+	return name_changed and appearance_changed
 
 
 @rpc("any_peer", "call_remote", "reliable", 0)
@@ -398,7 +438,8 @@ func _on_connected_to_server() -> void:
 	var hello: Dictionary = NetworkProtocol.make_client_hello(
 		_profile.profile_id,
 		_profile.display_name,
-		_client_nonce
+		_client_nonce,
+		_local_appearance_snapshot,
 	)
 	submit_client_hello.rpc_id(1, hello)
 
@@ -477,6 +518,10 @@ func submit_client_hello(data: Dictionary) -> void:
 			NetworkProtocol.RejectionCode.MALFORMED_HANDSHAKE
 		)
 		return
+	var submitted_appearance := CharacterCustomizationCatalog.sanitized_snapshot(
+		data["cosmetic_snapshot"]
+	)
+	_registry.update_appearance(sender_id, submitted_appearance)
 	_pending_authentication.erase(sender_id)
 	var spawn_index: int = _registry.get_peer_ids().find(sender_id)
 	var spawn_transform: Transform3D = (
@@ -582,8 +627,12 @@ func receive_server_hello(data: Dictionary) -> void:
 		_profile.display_name,
 		NetworkProtocol.PROTOCOL_VERSION
 	)
+	_registry.update_appearance(local_peer_id, _local_appearance_snapshot)
 	_spawn_service.clear_remote_players()
 	_spawn_service.register_local_player(local_peer_id)
+	var local_avatar := _spawn_service.get_avatar(local_peer_id)
+	if local_avatar != null:
+		local_avatar.apply_appearance_snapshot(_local_appearance_snapshot)
 	_connection_deadline = 0.0
 	_set_state(
 		State.JOINED_CLIENT,
@@ -652,6 +701,11 @@ func _apply_spawn_entry(entry: Dictionary) -> void:
 			entry["display_name"],
 			NetworkProtocol.PROTOCOL_VERSION
 		)
+	if typeof(entry.get("appearance")) == TYPE_DICTIONARY:
+		var appearance := CharacterCustomizationCatalog.sanitized_snapshot(
+			entry["appearance"]
+		)
+		_registry.update_appearance(peer_id, appearance)
 	var transform: Transform3D = _spawn_service.get_spawn_transform_for_index(0)
 	var position: Array = entry["position"]
 	if position.size() != 3:
@@ -662,7 +716,10 @@ func _apply_spawn_entry(entry: Dictionary) -> void:
 		float(position[2])
 	)
 	transform.basis = Basis(Vector3.UP, float(entry["yaw"]))
-	_spawn_service.spawn_remote_player(peer_id, transform, false)
+	var avatar := _spawn_service.spawn_remote_player(peer_id, transform, false)
+	var record := _registry.get_peer(peer_id)
+	if avatar != null and record != null:
+		avatar.apply_appearance_snapshot(record.appearance_snapshot)
 
 
 func _build_spawn_list() -> Array[Dictionary]:
@@ -695,6 +752,11 @@ func _make_spawn_entry(
 			transform.origin.z,
 		],
 		"yaw": transform.basis.get_euler().y,
+		"appearance": (
+			record.appearance_snapshot.duplicate(true)
+			if record != null
+			else CharacterCustomizationCatalog.default_snapshot()
+		),
 	}
 
 

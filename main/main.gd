@@ -64,6 +64,12 @@ const NetworkMailServiceType = preload(
 const PlayerAssetReservationServiceType = preload(
 	"res://progression/player_asset_reservation_service.gd"
 )
+const PlayerAppearanceStoreType = preload(
+	"res://progression/player_appearance_store.gd"
+)
+const NetworkProfileServiceType = preload(
+	"res://network/network_profile_service.gd"
+)
 
 const TITLE_MUSIC_SILENCE_DB: float = -80.0
 
@@ -111,6 +117,10 @@ const TITLE_MUSIC_SILENCE_DB: float = -80.0
 @onready var _asset_reservations: PlayerAssetReservationServiceType = (
 	%PlayerAssetReservationService
 )
+@onready var _appearance_store: PlayerAppearanceStoreType = %PlayerAppearanceStore
+@onready var _network_profile_service: NetworkProfileServiceType = (
+	%NetworkProfileService
+)
 @onready var _players_root: Node3D = $Players
 
 var _gameplay_started: bool = false
@@ -136,6 +146,15 @@ func _ready() -> void:
 		_network_profile,
 		_saved_servers,
 		_player_spawn_service
+	)
+	_network_profile_service.setup(
+		_network_session,
+		_network_profile,
+		_appearance_store,
+		_player_spawn_service,
+	)
+	_network_session.set_local_appearance_snapshot(
+		_appearance_store.get_snapshot()
 	)
 	_network_session.join_authenticated.connect(
 		_on_network_join_authenticated
@@ -271,7 +290,8 @@ func _ready() -> void:
 		_network_profile,
 		_player_spawn_service,
 		_network_mail,
-		_asset_reservations
+		_asset_reservations,
+		_network_profile_service
 	)
 	_water_recovery.setup(
 		_player,

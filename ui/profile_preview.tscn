@@ -1,0 +1,57 @@
+[gd_scene load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://ui/profile_preview.gd" id="1"]
+
+[sub_resource type="CapsuleMesh" id="Capsule"]
+radius = 0.62
+height = 2.25
+
+[sub_resource type="StandardMaterial3D" id="Material"]
+albedo_color = Color(0.38, 0.67, 0.74, 1)
+roughness = 0.72
+
+[sub_resource type="Environment" id="Environment"]
+background_mode = 1
+background_color = Color(0.075, 0.13, 0.16, 1)
+ambient_light_source = 3
+ambient_light_color = Color(0.72, 0.82, 0.86, 1)
+ambient_light_energy = 0.65
+
+[sub_resource type="World3D" id="PreviewWorld"]
+environment = SubResource("Environment")
+
+[node name="ProfilePreview" type="SubViewportContainer"]
+custom_minimum_size = Vector2(360, 250)
+stretch = true
+script = ExtResource("1")
+
+[node name="Viewport" type="SubViewport" parent="."]
+transparent_bg = false
+size = Vector2i(360, 390)
+render_target_update_mode = 4
+world_3d = SubResource("PreviewWorld")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="Viewport"]
+environment = SubResource("Environment")
+
+[node name="KeyLight" type="DirectionalLight3D" parent="Viewport"]
+rotation_degrees = Vector3(-38, -32, 0)
+light_energy = 1.15
+shadow_enabled = true
+
+[node name="FillLight" type="OmniLight3D" parent="Viewport"]
+position = Vector3(-1.8, 1.6, 2.2)
+light_color = Color(0.72, 0.84, 1, 1)
+omni_range = 5.0
+light_energy = 1.3
+
+[node name="PreviewRoot" type="Node3D" parent="Viewport"]
+unique_name_in_owner = true
+
+[node name="Capsule" type="MeshInstance3D" parent="Viewport/PreviewRoot"]
+mesh = SubResource("Capsule")
+material_override = SubResource("Material")
+
+[node name="Camera3D" type="Camera3D" parent="Viewport"]
+position = Vector3(0, 0.15, 4.25)
+current = true

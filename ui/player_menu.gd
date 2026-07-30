@@ -87,6 +87,7 @@ enum Section {
 	BAG,
 	LOGBOOK,
 	MAIL,
+	PROFILE,
 }
 
 enum SortMode {
@@ -156,6 +157,7 @@ enum CloseReason {
 @onready var _bag_sprite_detail_data: Label = %BagSpriteDetailData
 @onready var _logbook_page: Control = %LogbookPage
 @onready var _mail_page: MailPage = %MailPage
+@onready var _profile_page: ProfilePage = %ProfilePage
 @onready var _book_backing: PanelContainer = %BookBacking
 @onready var _book_spread: BoxContainer = %BookSpread
 @onready var _left_page: PanelContainer = %LeftPage
@@ -173,6 +175,7 @@ enum CloseReason {
 @onready var _bag_tab: BubbleButtonType = %BagTab
 @onready var _logbook_tab: BubbleButtonType = %LogbookTab
 @onready var _mail_tab: BubbleButtonType = %MailTab
+@onready var _profile_tab: BubbleButtonType = %ProfileTab
 @onready var _mail_unread_badge: Label = %MailUnreadBadge
 @onready var _close_button: BubbleButtonType = %CloseButton
 @onready var _content_shell: BubbleContentShellType = %MenuPanel
@@ -233,6 +236,7 @@ var _sale_service: FishSaleServiceType
 var _network_session: NetworkSessionType
 var _network_sale_service: NetworkSaleService
 var _network_mail_service: NetworkMailService
+var _network_profile_service: NetworkProfileService
 var _default_buyer: FishBuyerProfileType
 var _catalog: FishPoolType
 var _fishing_spot: FishingSpotType
@@ -268,6 +272,7 @@ var _cooler_rest_position: Vector2 = Vector2.ZERO
 var _bag_rest_position: Vector2 = Vector2.ZERO
 var _logbook_rest_position: Vector2 = Vector2.ZERO
 var _mail_rest_position: Vector2 = Vector2.ZERO
+var _profile_rest_position: Vector2 = Vector2.ZERO
 var _page_outgoing_root: Control
 var _page_incoming_root: Control
 var _page_hosts_shared: bool = false
@@ -294,6 +299,7 @@ func _ready() -> void:
 		_show_section.bind(Section.LOGBOOK)
 	)
 	_mail_tab.pressed.connect(_show_section.bind(Section.MAIL))
+	_profile_tab.pressed.connect(_show_section.bind(Section.PROFILE))
 	_close_button.pressed.connect(close_menu)
 	_sort_option.item_selected.connect(_on_sort_selected.bind(_sort_option))
 	_sort_direction.pressed.connect(_on_sort_direction_pressed)
@@ -320,6 +326,7 @@ func _ready() -> void:
 		_bag_tab,
 		_logbook_tab,
 		_mail_tab,
+		_profile_tab,
 		_close_button,
 	])
 	_configure_navigation_focus()
@@ -368,6 +375,7 @@ func setup(
 	network_sale_service: NetworkSaleService,
 	network_mail_service: NetworkMailService,
 	reservations: PlayerAssetReservationService,
+	network_profile_service: NetworkProfileService,
 ) -> void:
 	_player = player
 	_inventory = inventory
@@ -384,9 +392,11 @@ func setup(
 	_network_session = network_session
 	_network_sale_service = network_sale_service
 	_network_mail_service = network_mail_service
+	_network_profile_service = network_profile_service
 	_mail_page.setup(
 		network_mail_service, reservations, inventory, wallet, bag, item_catalog
 	)
+	_profile_page.setup(network_profile_service)
 	_network_mail_service.unread_count_changed.connect(
 		_on_mail_unread_count_changed
 	)
@@ -448,6 +458,8 @@ func consume_escape() -> bool:
 		_close_sale_confirmation()
 	elif _current_section == Section.MAIL and _mail_page.consume_escape():
 		pass
+	elif _current_section == Section.PROFILE and _profile_page.consume_escape():
+		pass
 	else:
 		close_menu()
 	return true
@@ -487,6 +499,12 @@ func close_menu(
 	restore_controls: bool = true,
 ) -> void:
 	if not visible:
+		return
+	if (
+		reason == CloseReason.USER
+		and _current_section == Section.PROFILE
+		and _profile_page.request_close_confirmation()
+	):
 		return
 	if _transitioning:
 		if reason != CloseReason.USER:
@@ -572,6 +590,11 @@ func _show_section(section: Section) -> void:
 		or get_viewport().gui_is_dragging()
 	):
 		return
+	if (
+		_current_section == Section.PROFILE
+		and _profile_page.request_close_confirmation()
+	):
+		return
 	_begin_page_transition(section)
 
 
@@ -584,6 +607,7 @@ func _show_section_immediate(section: Section) -> void:
 	_bag_page.visible = section == Section.BAG
 	_logbook_page.visible = section == Section.LOGBOOK
 	_mail_page.visible = section == Section.MAIL
+	_profile_page.visible = section == Section.PROFILE
 	_content_shell.visible = false
 	_inventory_section.visible = false
 	_bag_section.visible = false
@@ -606,10 +630,15 @@ func _show_section_immediate(section: Section) -> void:
 		_mail_page.activate()
 	else:
 		_mail_page.deactivate()
+	if section == Section.PROFILE:
+		_profile_page.activate()
+	else:
+		_profile_page.deactivate()
 	_inventory_tab.button_pressed = section == Section.COOLER
 	_bag_tab.button_pressed = section == Section.BAG
 	_logbook_tab.button_pressed = section == Section.LOGBOOK
 	_mail_tab.button_pressed = section == Section.MAIL
+	_profile_tab.button_pressed = section == Section.PROFILE
 	_update_navigation_selection()
 	_configure_active_page_focus()
 
@@ -621,8 +650,10 @@ func _focus_current_section() -> void:
 		_bag_tab.grab_focus()
 	elif _current_section == Section.LOGBOOK:
 		_logbook_tab.grab_focus()
-	else:
+	elif _current_section == Section.MAIL:
 		_mail_tab.grab_focus()
+	else:
+		_profile_tab.grab_focus()
 
 
 func _process(delta: float) -> void:
@@ -650,6 +681,7 @@ func _configure_navigation_focus() -> void:
 		_bag_tab,
 		_logbook_tab,
 		_mail_tab,
+		_profile_tab,
 		_close_button,
 	]
 	for index: int in navigation.size():
@@ -707,6 +739,8 @@ func _configure_active_page_focus() -> void:
 			_configure_logbook_focus()
 		Section.MAIL:
 			_mail_page.activate()
+		Section.PROFILE:
+			_profile_page.activate()
 
 
 func _apply_cooler_control_styles() -> void:
@@ -800,6 +834,7 @@ func _apply_navigation_styles() -> void:
 		_bag_tab,
 		_logbook_tab,
 		_mail_tab,
+		_profile_tab,
 		_close_button,
 	]:
 		bubble.add_theme_stylebox_override("normal", normal)
@@ -830,6 +865,7 @@ func _apply_navigation_selection_presentation() -> void:
 		_bag_tab,
 		_logbook_tab,
 		_mail_tab,
+		_profile_tab,
 	]:
 		if not bubble.button_pressed:
 			continue
@@ -938,6 +974,7 @@ func _set_navigation_target(section: Section) -> void:
 	_bag_tab.button_pressed = section == Section.BAG
 	_logbook_tab.button_pressed = section == Section.LOGBOOK
 	_mail_tab.button_pressed = section == Section.MAIL
+	_profile_tab.button_pressed = section == Section.PROFILE
 
 
 func _update_shell_layout() -> void:
@@ -954,7 +991,7 @@ func _update_shell_layout() -> void:
 	_content_shell.size = Vector2(612.0, 286.0) if compact else Vector2(1196.0, 478.0)
 	_presentation_rest_position = _content_shell.position
 	var navigation_size := (
-		Vector2(720.0, 75.0) if compact else Vector2(720.0, 100.0)
+		Vector2(840.0, 75.0) if compact else Vector2(840.0, 100.0)
 	)
 	_navigation_cluster.position = NAVIGATION_CANONICAL_POSITION
 	_navigation_cluster.size = navigation_size
@@ -1126,6 +1163,10 @@ func _update_shell_layout() -> void:
 	_mail_page.size = reference_size
 	_mail_page.position = Vector2.ZERO
 	_mail_rest_position = Vector2.ZERO
+	_profile_page.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	_profile_page.position = Vector2(42.0, 104.0)
+	_profile_page.size = Vector2(1196.0, 608.0)
+	_profile_rest_position = _profile_page.position
 	_book_backing.position = (
 		Vector2(14.0, 164.0) if compact else Vector2(58.0, 128.0)
 	)
@@ -1187,10 +1228,12 @@ func _update_shell_layout() -> void:
 		_bag_page.position = _bag_rest_position
 		_logbook_page.position = _logbook_rest_position
 		_mail_page.position = _mail_rest_position
+		_profile_page.position = _profile_rest_position
 		_cooler_page.modulate.a = 1.0
 		_bag_page.modulate.a = 1.0
 		_logbook_page.modulate.a = 1.0
 		_mail_page.modulate.a = 1.0
+		_profile_page.modulate.a = 1.0
 	if not _page_transitioning:
 		_content_stage.position = _content_rest_position
 	_layout_cooler_fish(false)
@@ -1274,6 +1317,7 @@ func _begin_menu_entry() -> void:
 	_bag_page.position = _bag_rest_position + Vector2.DOWN * start_offset
 	_logbook_page.position = _logbook_rest_position + Vector2.DOWN * start_offset
 	_mail_page.position = _mail_rest_position + Vector2.DOWN * start_offset
+	_profile_page.position = _profile_rest_position + Vector2.DOWN * start_offset
 	var navigation_rest: Vector2 = _navigation_cluster.position
 	_navigation_cluster.position = navigation_rest + Vector2.DOWN * start_offset
 	_presentation_tween = create_tween().set_parallel(true)
@@ -1305,6 +1349,12 @@ func _begin_menu_entry() -> void:
 		_mail_page,
 		"position",
 		_mail_rest_position,
+		MENU_ENTER_DURATION
+	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	_presentation_tween.tween_property(
+		_profile_page,
+		"position",
+		_profile_rest_position,
 		MENU_ENTER_DURATION
 	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	_presentation_tween.tween_property(
@@ -1374,6 +1424,12 @@ func _begin_menu_exit(reason: CloseReason, restore_controls: bool) -> void:
 		MENU_EXIT_DURATION
 	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	_presentation_tween.tween_property(
+		_profile_page,
+		"position:y",
+		-_profile_page.size.y - TRANSITION_SAFE_MARGIN,
+		MENU_EXIT_DURATION
+	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	_presentation_tween.tween_property(
 		_navigation_cluster,
 		"position:y",
 		-_navigation_cluster.size.y - TRANSITION_SAFE_MARGIN,
@@ -1436,8 +1492,10 @@ func _get_section_root(section: Section) -> Control:
 			return _bag_page
 		Section.LOGBOOK:
 			return _logbook_page
-		_:
+		Section.MAIL:
 			return _mail_page
+		_:
+			return _profile_page
 
 
 func _get_section_rest_position(section: Section) -> Vector2:
@@ -1448,8 +1506,10 @@ func _get_section_rest_position(section: Section) -> Vector2:
 			return _bag_rest_position
 		Section.LOGBOOK:
 			return _logbook_rest_position
-		_:
+		Section.MAIL:
 			return _mail_rest_position
+		_:
+			return _profile_rest_position
 
 
 func _begin_page_transition(section: Section) -> void:
@@ -1530,6 +1590,7 @@ func _set_shell_interactive(interactive: bool) -> void:
 		_bag_tab,
 		_logbook_tab,
 		_mail_tab,
+		_profile_tab,
 		_close_button,
 	]:
 		bubble.focus_mode = Control.FOCUS_ALL if interactive else Control.FOCUS_NONE
@@ -1563,6 +1624,9 @@ func _set_content_interactive(interactive: bool) -> void:
 	)
 	_mail_page.set_interactive(
 		interactive and _current_section == Section.MAIL
+	)
+	_profile_page.set_interactive(
+		interactive and _current_section == Section.PROFILE
 	)
 	var cooler_interactive: bool = (
 		interactive and _current_section == Section.COOLER
@@ -1636,6 +1700,7 @@ func _cancel_page_tween() -> void:
 func _reset_page_transition_visuals() -> void:
 	for section: Section in [
 		Section.COOLER, Section.BAG, Section.LOGBOOK, Section.MAIL,
+		Section.PROFILE,
 	]:
 		var page: Control = _get_section_root(section)
 		page.position = _get_section_rest_position(section)

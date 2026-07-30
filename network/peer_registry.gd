@@ -9,6 +9,9 @@ class PeerRecord:
 	var display_name: String = ""
 	var protocol_version: int = 0
 	var joined_at_unix: int = 0
+	var appearance_snapshot: Dictionary = (
+		CharacterCustomizationCatalog.default_snapshot()
+	)
 
 
 var _records: Dictionary[int, PeerRecord] = {}
@@ -47,6 +50,14 @@ func update_display_name(peer_id: int, display_name: String) -> bool:
 	if record == null or display_name.is_empty():
 		return false
 	record.display_name = display_name
+	return true
+
+
+func update_appearance(peer_id: int, snapshot: Dictionary) -> bool:
+	var record: PeerRecord = _records.get(peer_id)
+	if record == null or not CharacterCustomizationCatalog.validate_snapshot(snapshot):
+		return false
+	record.appearance_snapshot = snapshot.duplicate(true)
 	return true
 
 

@@ -1,4 +1,4 @@
-[gd_scene load_steps=28 format=3]
+[gd_scene load_steps=30 format=3]
 
 [ext_resource type="PackedScene" path="res://world/test_world.tscn" id="1_world"]
 [ext_resource type="PackedScene" path="res://player/player.tscn" id="2_player"]
@@ -27,6 +27,8 @@
 [ext_resource type="Script" path="res://network/network_chat_service.gd" id="25_network_chat"]
 [ext_resource type="Script" path="res://network/network_mail_service.gd" id="26_network_mail"]
 [ext_resource type="Script" path="res://progression/player_asset_reservation_service.gd" id="27_reservations"]
+[ext_resource type="Script" path="res://progression/player_appearance_store.gd" id="28_appearance"]
+[ext_resource type="Script" path="res://network/network_profile_service.gd" id="29_profile_service"]
 
 [node name="Main" type="Node3D"]
 script = ExtResource("3_main")
@@ -42,6 +44,14 @@ script = ExtResource("17_network_session")
 [node name="NetworkProfilePreferences" type="Node" parent="."]
 unique_name_in_owner = true
 script = ExtResource("18_network_profile")
+
+[node name="PlayerAppearanceStore" type="Node" parent="."]
+unique_name_in_owner = true
+script = ExtResource("28_appearance")
+
+[node name="NetworkProfileService" type="Node" parent="."]
+unique_name_in_owner = true
+script = ExtResource("29_profile_service")
 
 [node name="SavedServerStore" type="Node" parent="."]
 unique_name_in_owner = true

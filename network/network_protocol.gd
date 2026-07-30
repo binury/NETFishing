@@ -33,6 +33,7 @@ static func make_client_hello(
 	profile_id: String,
 	display_name: String,
 	client_nonce: String,
+	cosmetic_snapshot: Dictionary = {},
 ) -> Dictionary:
 	return {
 		"protocol_version": PROTOCOL_VERSION,
@@ -41,7 +42,7 @@ static func make_client_hello(
 		"display_name": display_name,
 		"client_nonce": client_nonce,
 		"capability_flags": PackedStringArray(),
-		"cosmetic_snapshot": {},
+		"cosmetic_snapshot": cosmetic_snapshot,
 	}
 
 
@@ -118,6 +119,7 @@ static func make_server_hello(
 			"equipment_v1",
 			"chat_v1",
 			"mail_v1",
+			"profile_v1",
 		]),
 	}
 

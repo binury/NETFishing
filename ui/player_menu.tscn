@@ -1,4 +1,4 @@
-[gd_scene load_steps=20 format=3]
+[gd_scene load_steps=21 format=3]
 
 [ext_resource type="Script" path="res://ui/player_menu.gd" id="1_menu"]
 [ext_resource type="Theme" path="res://ui/game_theme.tres" id="2_theme"]
@@ -18,6 +18,7 @@
 [ext_resource type="Texture2D" path="res://ui/assets/title/bubbles/bubble2.png" id="16_bubble2"]
 [ext_resource type="Texture2D" path="res://ui/assets/title/bubbles/bubble3.png" id="17_bubble3"]
 [ext_resource type="Script" path="res://ui/mail_page.gd" id="18_mail_page"]
+[ext_resource type="PackedScene" path="res://ui/profile_page.tscn" id="19_profile_page"]
 
 [sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_collection"]
 
@@ -582,6 +583,14 @@ offset_right = 1280.0
 offset_bottom = 720.0
 mouse_filter = 1
 script = ExtResource("18_mail_page")
+
+[node name="ProfilePage" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot" instance=ExtResource("19_profile_page")]
+unique_name_in_owner = true
+visible = false
+layout_mode = 0
+offset_top = 112.0
+offset_right = 1280.0
+offset_bottom = 710.0
 
 [node name="BookBacking" type="PanelContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/LogbookPage"]
 unique_name_in_owner = true
@@ -1206,15 +1215,15 @@ custom_minimum_size = Vector2(170, 64)
 [node name="NavigationCluster" type="Control" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot"]
 unique_name_in_owner = true
 layout_mode = 0
-offset_left = 390.0
+offset_left = 330.0
 offset_top = 44.0
-offset_right = 1110.0
+offset_right = 1170.0
 offset_bottom = 144.0
 mouse_filter = 1
 script = ExtResource("5_cluster")
 profile = ExtResource("4_profile")
-desktop_reference_size = Vector2(720, 100)
-compact_reference_size = Vector2(720, 100)
+desktop_reference_size = Vector2(840, 100)
+compact_reference_size = Vector2(840, 100)
 
 [node name="InventoryTab" type="Button" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/NavigationCluster"]
 unique_name_in_owner = true
@@ -1224,8 +1233,8 @@ text = "cooler"
 script = ExtResource("6_bubble")
 profile = ExtResource("4_profile")
 neutral_size = Vector2(124, 120)
-desktop_anchor = Vector2(116, 60)
-compact_anchor = Vector2(118, 73.3333)
+desktop_anchor = Vector2(92, 60)
+compact_anchor = Vector2(92, 73.3333)
 compact_minimum_size = Vector2(84, 82)
 minimum_font_size = 25
 maximum_font_size = 25
@@ -1244,8 +1253,8 @@ text = "bag"
 script = ExtResource("6_bubble")
 profile = ExtResource("4_profile")
 neutral_size = Vector2(124, 120)
-desktop_anchor = Vector2(244, 60)
-compact_anchor = Vector2(251.333, 73.3333)
+desktop_anchor = Vector2(220, 60)
+compact_anchor = Vector2(220, 73.3333)
 compact_minimum_size = Vector2(84, 82)
 minimum_font_size = 25
 maximum_font_size = 25
@@ -1264,8 +1273,8 @@ text = "logbook"
 script = ExtResource("6_bubble")
 profile = ExtResource("4_profile")
 neutral_size = Vector2(124, 120)
-desktop_anchor = Vector2(372, 60)
-compact_anchor = Vector2(384.667, 73.3333)
+desktop_anchor = Vector2(348, 60)
+compact_anchor = Vector2(348, 73.3333)
 compact_minimum_size = Vector2(84, 82)
 minimum_font_size = 25
 maximum_font_size = 25
@@ -1284,8 +1293,8 @@ text = "mail"
 script = ExtResource("6_bubble")
 profile = ExtResource("4_profile")
 neutral_size = Vector2(124, 120)
-desktop_anchor = Vector2(500, 60)
-compact_anchor = Vector2(501, 73.3333)
+desktop_anchor = Vector2(476, 60)
+compact_anchor = Vector2(476, 73.3333)
 compact_minimum_size = Vector2(84, 82)
 minimum_font_size = 25
 maximum_font_size = 25
@@ -1312,6 +1321,26 @@ text = "1"
 horizontal_alignment = 1
 vertical_alignment = 1
 
+[node name="ProfileTab" type="Button" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/NavigationCluster"]
+unique_name_in_owner = true
+layout_mode = 0
+toggle_mode = true
+text = "profile"
+script = ExtResource("6_bubble")
+profile = ExtResource("4_profile")
+neutral_size = Vector2(124, 120)
+desktop_anchor = Vector2(604, 60)
+compact_anchor = Vector2(604, 73.3333)
+compact_minimum_size = Vector2(84, 82)
+minimum_font_size = 23
+maximum_font_size = 25
+horizontal_amplitude = 1.2
+vertical_amplitude = 2.1
+motion_period = 5.7
+motion_phase = 4.05
+deformation_amplitude = 0.011
+deformation_period = 6.5
+
 [node name="CloseButton" type="Button" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/NavigationCluster"]
 unique_name_in_owner = true
 layout_mode = 0
@@ -1319,8 +1348,8 @@ text = "close"
 script = ExtResource("6_bubble")
 profile = ExtResource("4_profile")
 neutral_size = Vector2(96, 94)
-desktop_anchor = Vector2(626, 57)
-compact_anchor = Vector2(616, 73.3333)
+desktop_anchor = Vector2(744, 57)
+compact_anchor = Vector2(744, 73.3333)
 compact_minimum_size = Vector2(76, 74)
 minimum_font_size = 23
 maximum_font_size = 23

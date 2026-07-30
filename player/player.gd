@@ -18,6 +18,17 @@ const PlayerCoolerCapacityType = preload(
 	"res://progression/player_cooler_capacity.gd"
 )
 
+var appearance_snapshot: Dictionary = (
+	CharacterCustomizationCatalog.default_snapshot()
+)
+
+
+func apply_appearance_snapshot(snapshot: Dictionary) -> void:
+	if CharacterCustomizationCatalog.validate_snapshot(snapshot):
+		appearance_snapshot = snapshot.duplicate(true)
+	# Current gameplay art is monolithic. This seam intentionally stores the
+	# validated state until modular visual parts are available.
+
 class ShowcaseCameraSnapshot:
 	extends RefCounted
 
