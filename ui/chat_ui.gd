@@ -60,6 +60,9 @@ func open_chat() -> void:
 	_player.set_movement_enabled(false)
 	_player.set_camera_input_enabled(false)
 	_fishing_spot.set_local_menu_input_suppressed(INPUT_OWNER, true)
+	# Send the host a zeroed frame immediately so it cannot keep applying the
+	# last movement state while this LineEdit owns keyboard input.
+	_session.submit_neutral_local_movement()
 	_panel.show()
 	_entry.show()
 	_entry.grab_focus()

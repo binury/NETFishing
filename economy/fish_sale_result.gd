@@ -9,6 +9,7 @@ enum Status {
 	INVALID_BUYER,
 	INVALID_OFFER,
 	INVALID_SELECTION,
+	RESERVED,
 	TRANSACTION_FAILED,
 }
 
@@ -46,5 +47,7 @@ func get_message() -> String:
 			return "invalid buyer offer."
 		Status.INVALID_SELECTION:
 			return "the fish selection is invalid."
+		Status.RESERVED:
+			return "reserved fish cannot be sold."
 		_:
 			return "transaction failed."

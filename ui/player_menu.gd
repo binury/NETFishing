@@ -229,6 +229,7 @@ var _sale_service: FishSaleServiceType
 var _network_session: NetworkSessionType
 var _network_sale_service: NetworkSaleService
 var _network_mail_service: NetworkMailService
+var _reservations: PlayerAssetReservationService
 var _network_profile_service: NetworkProfileService
 var _network_player_list: NetworkPlayerListService
 var _default_buyer: FishBuyerProfileType
@@ -389,6 +390,7 @@ func setup(
 	_network_session = network_session
 	_network_sale_service = network_sale_service
 	_network_mail_service = network_mail_service
+	_reservations = reservations
 	_network_profile_service = network_profile_service
 	_network_player_list = network_player_list
 	_mail_page.setup(
@@ -2436,6 +2438,11 @@ func _update_inventory_detail(fish_catch: FishCatchType) -> void:
 		else -1
 	)
 	_cooler_weight_value.text = "%.2f" % fish_catch.weight_lb
+	if (
+		_reservations != null
+		and _reservations.is_fish_reserved(fish_catch.catch_id)
+	):
+		_cooler_detail_name.text += " • reserved in mail"
 	_cooler_weight_unit.text = "lb"
 	if buyer_offer >= 0 and _default_buyer != null:
 		_cooler_offer_label.text = "%s offer" % _default_buyer.display_name
@@ -2734,6 +2741,16 @@ func _on_network_sale_finished(
 	)
 	_refresh_all()
 	if _current_section == Section.COOLER:
+		call_deferred("_restore_inventory_tab_focus")
+
+
+func _restore_inventory_tab_focus() -> void:
+	if (
+		visible
+		and _current_section == Section.COOLER
+		and _inventory_tab.focus_mode != Control.FOCUS_NONE
+		and _inventory_tab.is_visible_in_tree()
+	):
 		_inventory_tab.grab_focus()
 
 

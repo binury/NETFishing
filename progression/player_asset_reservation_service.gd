@@ -10,6 +10,7 @@ var _inventory: FishInventory
 var _bag: PlayerBag
 var _catalog: ItemCatalog
 var _reservations: Dictionary[String, Dictionary] = {}
+var _mail_transfer_authorizations: Dictionary[String, Dictionary] = {}
 
 
 func setup(
@@ -63,6 +64,7 @@ func reserve(reservation_id: String, attachment: Dictionary) -> bool:
 func release(reservation_id: String) -> bool:
 	if not _reservations.erase(reservation_id):
 		return false
+	_mail_transfer_authorizations.erase(reservation_id)
 	reservations_changed.emit()
 	return true
 
@@ -71,7 +73,44 @@ func release_all() -> void:
 	if _reservations.is_empty():
 		return
 	_reservations.clear()
+	_mail_transfer_authorizations.clear()
 	reservations_changed.emit()
+
+
+func authorize_mail_transfer(
+	reservation_id: String,
+	catch_id: StringName,
+	transfer_id: String,
+) -> bool:
+	var attachment := get_reservation(reservation_id)
+	if (
+		transfer_id.is_empty()
+		or transfer_id.length() > 96
+		or attachment.is_empty()
+		or int(attachment.get("type", 0)) != AttachmentType.FISH
+		or StringName(str(attachment.get("catch_id", ""))) != catch_id
+	):
+		return false
+	_mail_transfer_authorizations[reservation_id] = {
+		"catch_id": catch_id,
+		"transfer_id": transfer_id,
+	}
+	return true
+
+
+func authorize_mail_fish_removal(
+	reservation_id: String,
+	catch_id: StringName,
+	transfer_id: String,
+) -> bool:
+	var authorization: Dictionary = _mail_transfer_authorizations.get(
+		reservation_id, {}
+	)
+	return (
+		not authorization.is_empty()
+		and StringName(authorization.get("catch_id", StringName())) == catch_id
+		and str(authorization.get("transfer_id", "")) == transfer_id
+	)
 
 
 func has_reservation(reservation_id: String) -> bool:
@@ -138,7 +177,10 @@ func can_commit(reservation_id: String) -> bool:
 	return false
 
 
-func commit_removal(reservation_id: String) -> bool:
+func commit_removal(
+	reservation_id: String,
+	mail_transfer_id: String = "",
+) -> bool:
 	var attachment := get_reservation(reservation_id)
 	if attachment.is_empty() or not can_commit(reservation_id):
 		return false
@@ -147,9 +189,16 @@ func commit_removal(reservation_id: String) -> bool:
 		AttachmentType.FISH_COIN:
 			applied = _wallet.debit(int(attachment["amount"]))
 		AttachmentType.FISH:
-			applied = _inventory.remove_catch_by_id(
-				StringName(str(attachment["catch_id"]))
-			) != null
+			var catch_id := StringName(str(attachment["catch_id"]))
+			if authorize_mail_transfer(
+				reservation_id, catch_id, mail_transfer_id
+			):
+				applied = (
+					_inventory.remove_reserved_catch_for_mail_transfer(
+						catch_id, reservation_id, mail_transfer_id
+					)
+					!= null
+				)
 		AttachmentType.CONSUMABLE:
 			applied = _bag.remove_item(
 				StringName(str(attachment["item_id"])),
@@ -157,6 +206,8 @@ func commit_removal(reservation_id: String) -> bool:
 			)
 	if applied:
 		release(reservation_id)
+	else:
+		_mail_transfer_authorizations.erase(reservation_id)
 	return applied
 
 

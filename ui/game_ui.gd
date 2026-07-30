@@ -36,6 +36,7 @@ const ChatUIType = preload("res://ui/chat_ui.gd")
 signal pixelation_settings_visibility_changed(is_visible: bool)
 signal crisp_reset_focus_requested
 signal interactive_pointer_ui_changed(is_open: bool)
+signal player_menu_backdrop_visibility_changed(is_visible: bool)
 
 @onready var _status_label: Label = %StatusLabel
 @onready var _catch_track: Control = %CatchTrack
@@ -490,6 +491,7 @@ func _on_showcase_changed(
 
 func _on_player_menu_visibility_changed(is_open: bool) -> void:
 	_player_menu_open = is_open
+	player_menu_backdrop_visibility_changed.emit(is_open)
 	_refresh_chat_availability()
 	_hotbar_ui.set_gameplay_input_enabled(
 		_gameplay_ui_enabled and not is_open

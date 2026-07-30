@@ -2,6 +2,7 @@ class_name WaterRecoveryController
 extends Node
 
 signal recovery_starting
+signal recovery_finished
 signal local_respawn_completed(entry_position: Vector3)
 
 enum RecoveryState {
@@ -177,3 +178,4 @@ func _finish_recovery() -> void:
 	_fishing_spot.end_water_recovery()
 	state = RecoveryState.IDLE
 	_bob_elapsed = 0.0
+	recovery_finished.emit()

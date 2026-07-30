@@ -105,6 +105,9 @@ var _camera_dragging: bool = false
 var _camera_input_enabled: bool = true
 var _movement_enabled: bool = true
 var _water_recovery_active: bool = false
+var _remote_recovery_presentation_active: bool = false
+var _remote_recovery_visual_origin: Vector3
+var _remote_recovery_elapsed: float = 0.0
 var _target_zoom: float = 5.0
 var _showcase_rod_visibility: bool = true
 var _remote_presentation_visible := true
@@ -212,6 +215,14 @@ func _physics_process(delta: float) -> void:
 
 
 func _process(delta: float) -> void:
+	if _remote_recovery_presentation_active:
+		_remote_recovery_elapsed += delta
+		_visuals.position = (
+			_remote_recovery_visual_origin
+			+ Vector3.UP
+			* sin(_remote_recovery_elapsed * 2.0 * TAU)
+			* 0.08
+		)
 	if not local_control_enabled:
 		return
 
@@ -338,6 +349,16 @@ func configure_network_remote(authoritative_simulation: bool) -> void:
 
 
 func capture_network_input(sequence: int) -> Dictionary:
+	if not _movement_enabled or _water_recovery_active:
+		return {
+			"sequence": sequence,
+			"axis": [0.0, 0.0],
+			"camera_yaw": _camera_yaw.global_rotation.y,
+			"jump": false,
+			"sprint": false,
+			"sneak": false,
+			"slow_walk": false,
+		}
 	var axis: Vector2 = Input.get_vector(
 		"move_left",
 		"move_right",
@@ -523,6 +544,17 @@ func set_water_recovery_active(active: bool) -> void:
 
 func is_water_recovery_active() -> bool:
 	return _water_recovery_active
+
+
+func set_remote_recovery_presentation(active: bool) -> void:
+	if local_control_enabled or active == _remote_recovery_presentation_active:
+		return
+	_remote_recovery_presentation_active = active
+	_remote_recovery_elapsed = 0.0
+	if active:
+		_remote_recovery_visual_origin = _visuals.position
+	else:
+		_visuals.position = _remote_recovery_visual_origin
 
 
 func prepare_for_water_recovery() -> void:

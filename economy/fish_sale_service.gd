@@ -11,14 +11,17 @@ signal sale_completed(result: FishSaleResultType)
 
 var _inventory: FishInventoryType
 var _wallet: PlayerWalletType
+var _reservations: PlayerAssetReservationService
 
 
 func setup(
 	inventory: FishInventoryType,
 	wallet: PlayerWalletType,
+	reservations: PlayerAssetReservationService = null,
 ) -> void:
 	_inventory = inventory
 	_wallet = wallet
+	_reservations = reservations
 
 
 func can_sell(
@@ -113,6 +116,12 @@ func _validate_batch(
 		var fish_catch: FishCatchType = _inventory.get_catch_by_id(catch_id)
 		if fish_catch == null:
 			result.status = FishSaleResultType.Status.NOT_FOUND
+			return result
+		if (
+			_reservations != null
+			and _reservations.is_fish_reserved(catch_id)
+		):
+			result.status = FishSaleResultType.Status.RESERVED
 			return result
 		if fish_catch.is_favorited:
 			contains_favorite = true

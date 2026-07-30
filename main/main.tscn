@@ -65,6 +65,13 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 
+[node name="PlayerMenuBackdrop" type="ColorRect" parent="."]
+unique_name_in_owner = true
+visible = false
+z_index = 10
+mouse_filter = 2
+color = Color(0.015, 0.02, 0.03, 0.72)
+
 [node name="InterfaceFontController" type="Node" parent="."]
 unique_name_in_owner = true
 script = ExtResource("39_fonts")
@@ -192,6 +199,7 @@ unique_name_in_owner = true
 
 [node name="UIPresentation" type="SubViewportContainer" parent="."]
 unique_name_in_owner = true
+z_index = 20
 texture_filter = 1
 offset_right = 1152.0
 offset_bottom = 648.0

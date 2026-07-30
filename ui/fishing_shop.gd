@@ -39,6 +39,9 @@ enum CloseReason {
 }
 
 @onready var _wallet_label: Label = %WalletLabel
+@onready var _fish_sales: VBoxContainer = (
+	$ShopPanel/Margin/Layout/Body/FishSales
+)
 @onready var _fish_list: ItemList = %FishList
 @onready var _sales_title: Label = %SalesTitle
 @onready var _fish_empty: Label = %FishEmpty
@@ -94,6 +97,9 @@ var _closing: bool = false
 
 
 func _ready() -> void:
+	# Catch selling belongs to the Pelican action in the Player Menu. Keep the
+	# legacy shop sales controls out of the active interface.
+	_fish_sales.hide()
 	%CloseButton.pressed.connect(close_shop)
 	_fish_list.item_selected.connect(_on_fish_selected)
 	_fish_list.item_clicked.connect(_on_fish_clicked)
@@ -425,7 +431,14 @@ func _refresh_upgrades() -> void:
 		reel_cost < 0
 		or _transaction_in_progress
 		or _closing
+		or _network_shop == null
+		or not _network_shop.can_request_purchase()
 		or not _upgrades.can_purchase_reel_speed(_wallet)
+	)
+	_reel_purchase.tooltip_text = (
+		"Purchases are unavailable in this session."
+		if _network_shop == null or not _network_shop.can_request_purchase()
+		else ""
 	)
 	if reel_cost < 0:
 		_reel_effect.text = "%.2f×" % _upgrades.get_reel_speed_multiplier()
@@ -447,8 +460,11 @@ func _refresh_upgrades() -> void:
 		barrier_cost < 0
 		or _transaction_in_progress
 		or _closing
+		or _network_shop == null
+		or not _network_shop.can_request_purchase()
 		or not _upgrades.can_purchase_barrier_power(_wallet)
 	)
+	_barrier_purchase.tooltip_text = _reel_purchase.tooltip_text
 	if barrier_cost < 0:
 		_barrier_effect.text = "%d damage" % _upgrades.get_barrier_damage()
 		_barrier_cost.text = "max"
@@ -488,10 +504,17 @@ func _refresh_supplies() -> void:
 		button.disabled = (
 			_transaction_in_progress
 			or _closing
+			or _network_shop == null
+			or not _network_shop.can_request_purchase()
 			or not _bag.can_add_item(item_id, 1)
 			or not _wallet.can_afford(
 				FishingShopStockType.get_price(item_id)
 			)
+		)
+		button.tooltip_text = (
+			"Purchases are unavailable in this session."
+			if _network_shop == null or not _network_shop.can_request_purchase()
+			else item.description
 		)
 		button.pressed.connect(_purchase_supply.bind(item_id))
 		_supplies_list.add_child(button)
@@ -508,8 +531,11 @@ func _refresh_cooler_capacity() -> void:
 		cost < 0
 		or _transaction_in_progress
 		or _closing
+		or _network_shop == null
+		or not _network_shop.can_request_purchase()
 		or not _cooler_capacity.can_purchase(_wallet)
 	)
+	_cooler_purchase.tooltip_text = _reel_purchase.tooltip_text
 	if cost < 0:
 		_cooler_effect.text = "%d fish" % _cooler_capacity.get_capacity()
 		_cooler_cost.text = "max"

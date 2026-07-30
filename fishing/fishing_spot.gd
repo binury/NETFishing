@@ -134,6 +134,7 @@ var _pending_catch: FishCatchType
 var _showcase_ready: bool = false
 var _put_away_press_armed: bool = false
 var _showcase_restore_generation: int = 0
+var _showcase_outcome_completed: bool = false
 var _network_auto_click_accumulator: float = 0.0
 var _network_active_barrier_index: int = -1
 
@@ -874,6 +875,7 @@ func _on_catch_completed() -> void:
 		return
 	state = FishingState.SHOWING_CATCH
 	_showcase_ready = false
+	_showcase_outcome_completed = false
 	_put_away_press_armed = false
 	_catch_controller.reset()
 	_presentation.set_line_mode(FishingPresentationType.LineMode.TAUT)
@@ -896,8 +898,10 @@ func _on_outcome_completed(outcome: StringName) -> void:
 		or state != FishingState.SHOWING_CATCH
 		or _active_player == null
 		or _pending_catch == null
+		or _showcase_outcome_completed
 	):
 		return
+	_showcase_outcome_completed = true
 	_showcase_ready = true
 	_active_player.begin_catch_showcase(_pending_catch)
 	showcase_changed.emit(
@@ -923,6 +927,7 @@ func _put_away_catch() -> void:
 	_local_collection_log.mark_discovered(_pending_catch.fish_id)
 	_pending_catch = null
 	_showcase_ready = false
+	_showcase_outcome_completed = false
 	_put_away_press_armed = false
 	showcase_changed.emit("", "", 0.0, false)
 	_showcase_restore_generation += 1
@@ -973,6 +978,7 @@ func _cleanup_attempt(
 	_selected_fish = null
 	_pending_catch = null
 	_showcase_ready = false
+	_showcase_outcome_completed = false
 	_put_away_press_armed = false
 	showcase_changed.emit("", "", 0.0, false)
 	_catch_controller.reset()
@@ -1257,6 +1263,7 @@ func _on_network_catch_received(fish_catch: FishCatchType) -> void:
 	_pending_catch = fish_catch
 	state = FishingState.SHOWING_CATCH
 	_showcase_ready = false
+	_showcase_outcome_completed = false
 	_put_away_press_armed = false
 	catch_display_changed.emit(
 		0.0, 0.0, PackedFloat32Array(), PackedInt32Array(),

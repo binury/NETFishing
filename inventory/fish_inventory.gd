@@ -8,6 +8,13 @@ signal catches_changed
 
 var _catches: Array[FishCatchType] = []
 var _next_catch_sequence: int = 1
+var _reservation_service: PlayerAssetReservationService
+
+
+func set_reservation_service(
+	reservation_service: PlayerAssetReservationService,
+) -> void:
+	_reservation_service = reservation_service
 
 
 func add_catch(fish_catch: FishCatchType) -> void:
@@ -102,6 +109,25 @@ func remove_catch_by_id(catch_id: StringName) -> FishCatchType:
 func remove_catches_by_ids(
 	catch_ids: Array[StringName],
 ) -> Array[FishCatchType]:
+	return _remove_catches_by_ids(catch_ids, "", "")
+
+
+func remove_reserved_catch_for_mail_transfer(
+	catch_id: StringName,
+	reservation_id: String,
+	transfer_id: String,
+) -> FishCatchType:
+	var removed := _remove_catches_by_ids(
+		[catch_id], reservation_id, transfer_id
+	)
+	return removed.front() if removed.size() == 1 else null
+
+
+func _remove_catches_by_ids(
+	catch_ids: Array[StringName],
+	mail_reservation_id: String,
+	mail_transfer_id: String,
+) -> Array[FishCatchType]:
 	var removed: Array[FishCatchType] = []
 	if catch_ids.is_empty():
 		return removed
@@ -113,6 +139,17 @@ func remove_catches_by_ids(
 	for catch_id: StringName in catch_ids:
 		var fish_catch: FishCatchType = get_catch_by_id(catch_id)
 		if fish_catch == null:
+			removed.clear()
+			return removed
+		if (
+			_reservation_service != null
+			and _reservation_service.is_fish_reserved(catch_id)
+			and not _reservation_service.authorize_mail_fish_removal(
+				mail_reservation_id,
+				catch_id,
+				mail_transfer_id,
+			)
+		):
 			removed.clear()
 			return removed
 		removed.append(fish_catch)

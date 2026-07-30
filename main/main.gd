@@ -133,6 +133,7 @@ const TITLE_MUSIC_SILENCE_DB: float = -80.0
 )
 @onready var _players_root: Node3D = $Players
 @onready var _title_background: ColorRect = %TitleBackground
+@onready var _player_menu_backdrop: ColorRect = %PlayerMenuBackdrop
 
 var _gameplay_started: bool = false
 var _shop_interaction: FishingShopInteractionType
@@ -152,10 +153,13 @@ var _data_folder_picker_generation: int = 0
 var _restore_data_setup_after_picker: bool = false
 var _application_initialized := false
 var _pending_existing_root_path := ""
+var _local_recovery_attempt_id: String = ""
 
 
 func _ready() -> void:
 	DisplayServer.window_set_title("NETfishing")
+	get_window().size_changed.connect(_resize_native_overlays)
+	_resize_native_overlays()
 	if not _settings_manager.settings_changed.is_connected(
 		_apply_runtime_settings
 	):
@@ -254,11 +258,15 @@ func _initialize_after_data_root() -> void:
 	_network_session.remote_recovery_requested.connect(
 		_on_remote_recovery_requested
 	)
+	_network_session.remote_recovery_presentation_changed.connect(
+		_on_remote_recovery_presentation_changed
+	)
 
 
 	_player.fish_sale_service.setup(
 		_player.inventory,
-		_player.wallet
+		_player.wallet,
+		_asset_reservations
 	)
 	_player.bag.setup(item_catalog)
 	_player.hotbar.setup(_player.bag, item_catalog)
@@ -282,6 +290,7 @@ func _initialize_after_data_root() -> void:
 	_asset_reservations.setup(
 		_player.wallet, _player.inventory, _player.bag, item_catalog
 	)
+	_player.inventory.set_reservation_service(_asset_reservations)
 	_network_mail.setup(
 		_network_session,
 		_asset_reservations,
@@ -426,6 +435,9 @@ func _initialize_after_data_root() -> void:
 	_game_ui.interactive_pointer_ui_changed.connect(
 		_ui_pixelation.set_interactive_ui_open
 	)
+	_game_ui.player_menu_backdrop_visibility_changed.connect(
+		_set_player_menu_backdrop_visible
+	)
 	_pixelation_reset.return_to_settings_requested.connect(
 		_game_ui.focus_open_settings_back_button
 	)
@@ -474,6 +486,9 @@ func _initialize_after_data_root() -> void:
 	)
 	_water_recovery.recovery_starting.connect(
 		_on_water_recovery_starting
+	)
+	_water_recovery.recovery_finished.connect(
+		_on_water_recovery_finished
 	)
 	_water_recovery.local_respawn_completed.connect(
 		_on_local_respawn_completed
@@ -885,6 +900,19 @@ func _set_gameplay_active(active: bool) -> void:
 	_save_manager.set_autosave_enabled(active)
 	if active:
 		_refresh_active_hotbar_item()
+	else:
+		_set_player_menu_backdrop_visible(false)
+
+
+func _set_player_menu_backdrop_visible(is_visible: bool) -> void:
+	_player_menu_backdrop.visible = is_visible and _gameplay_started
+
+
+func _resize_native_overlays() -> void:
+	if not is_node_ready():
+		return
+	_player_menu_backdrop.position = Vector2.ZERO
+	_player_menu_backdrop.size = Vector2(get_window().size)
 
 
 func _on_new_game_requested() -> void:
@@ -1128,9 +1156,37 @@ func _on_reset_progress_requested() -> void:
 
 
 func _on_water_recovery_starting() -> void:
+	_local_recovery_attempt_id = (
+		"recovery:%s"
+		% Crypto.new().generate_random_bytes(16).hex_encode()
+	)
+	_network_session.request_recovery_presentation(
+		true, _local_recovery_attempt_id
+	)
 	_game_ui.close_player_menu_for_water_recovery()
 	_game_ui.get_pause_menu().close_for_water_recovery()
 	_game_ui.get_fishing_shop().close_for_water_recovery()
+
+
+func _on_water_recovery_finished() -> void:
+	if _local_recovery_attempt_id.is_empty():
+		return
+	_network_session.request_recovery_presentation(
+		false, _local_recovery_attempt_id
+	)
+	_local_recovery_attempt_id = ""
+
+
+func _on_remote_recovery_presentation_changed(
+	peer_id: int,
+	active: bool,
+	_attempt_id: String,
+) -> void:
+	var avatar: PlayerType = _player_spawn_service.get_avatar(peer_id)
+	if avatar == null or avatar == _player:
+		return
+	avatar.set_water_recovery_active(active)
+	avatar.set_remote_recovery_presentation(active)
 
 
 func _on_active_hotbar_item_changed(

@@ -243,6 +243,9 @@ func show_reel_position(world_position: Vector3, _input_held: bool) -> void:
 func play_outcome(outcome: StringName) -> void:
 	if _mode == VisualMode.NONE:
 		cleanup()
+		# Gameplay completion must not depend on a presentation tween still
+		# being active. The caller owns idempotency for the outcome.
+		outcome_completed.emit(outcome)
 		return
 
 	_kill_active_tween()

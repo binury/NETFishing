@@ -44,17 +44,6 @@ mouse_filter = 2
 theme = ExtResource("2_theme")
 script = ExtResource("1_menu")
 
-[node name="Dimmer" type="ColorRect" parent="."]
-z_index = -20
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-mouse_filter = 2
-color = Color(0.015, 0.02, 0.03, 0.72)
-
 [node name="ResponsivePlayerMenuStage" type="Control" parent="."]
 layout_mode = 1
 anchors_preset = 15

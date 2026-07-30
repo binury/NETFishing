@@ -32,6 +32,11 @@ signal server_trust_required(
 signal peer_identity_observed(peer_id: int, status: String)
 signal server_lost
 signal remote_recovery_requested(peer_id: int, entry_position: Vector3)
+signal remote_recovery_presentation_changed(
+	peer_id: int,
+	active: bool,
+	attempt_id: String,
+)
 
 enum State {
 	INACTIVE,
@@ -84,6 +89,7 @@ var _pending_identity_challenges: Dictionary[int, Dictionary] = {}
 var _authenticated_identity_cache: Dictionary[int, Dictionary] = {}
 var _client_identity_attempt: Dictionary = {}
 var _pending_server_proof: Dictionary = {}
+var _recovery_attempts: Dictionary[int, String] = {}
 var _server_identity_fingerprint: String = ""
 var _server_identity_public_key: String = ""
 var _session_identity_keys: Dictionary[String, String] = {}
@@ -668,6 +674,12 @@ func _on_peer_disconnected(peer_id: int) -> void:
 	_pending_authentication.erase(peer_id)
 	_pending_identity_challenges.erase(peer_id)
 	_authenticated_identity_cache.erase(peer_id)
+	var recovery_attempt: String = _recovery_attempts.get(peer_id, "")
+	if not recovery_attempt.is_empty():
+		_recovery_attempts.erase(peer_id)
+		remote_recovery_presentation_changed.emit(
+			peer_id, false, recovery_attempt
+		)
 	if _registry.has_peer(peer_id):
 		_registry.remove_peer(peer_id)
 		_spawn_service.remove_peer(peer_id)
@@ -1320,6 +1332,12 @@ func _send_local_input() -> void:
 	submit_movement_input.rpc_id(1, input)
 
 
+func submit_neutral_local_movement() -> void:
+	if state != State.JOINED_CLIENT:
+		return
+	_send_local_input()
+
+
 @rpc("any_peer", "call_remote", "unreliable_ordered", 1)
 func submit_movement_input(data: Dictionary) -> void:
 	var sender_id: int = multiplayer.get_remote_sender_id()
@@ -1398,6 +1416,99 @@ func publish_authoritative_teleport(peer_id: int) -> void:
 	receive_authoritative_teleport.rpc(
 		avatar.make_network_snapshot(peer_id)
 	)
+
+
+func request_recovery_presentation(
+	active: bool,
+	attempt_id: String,
+) -> void:
+	if (
+		attempt_id.is_empty()
+		or attempt_id.length() > 96
+		or not is_gameplay_session_active()
+	):
+		return
+	if is_host():
+		_set_authoritative_recovery_presentation(
+			get_local_peer_id(), active, attempt_id
+		)
+	elif state == State.JOINED_CLIENT:
+		submit_recovery_presentation.rpc_id(
+			1, _session_id, active, attempt_id
+		)
+
+
+@rpc("any_peer", "call_remote", "reliable", 0)
+func submit_recovery_presentation(
+	session_id: String,
+	active: bool,
+	attempt_id: String,
+) -> void:
+	var sender_id: int = multiplayer.get_remote_sender_id()
+	if (
+		not is_host()
+		or not _registry.has_peer(sender_id)
+		or session_id != _session_id
+		or attempt_id.is_empty()
+		or attempt_id.length() > 96
+	):
+		return
+	_set_authoritative_recovery_presentation(sender_id, active, attempt_id)
+
+
+func _set_authoritative_recovery_presentation(
+	peer_id: int,
+	active: bool,
+	attempt_id: String,
+) -> void:
+	var current_attempt: String = _recovery_attempts.get(peer_id, "")
+	if active:
+		if not current_attempt.is_empty() and current_attempt != attempt_id:
+			return
+	elif current_attempt != attempt_id:
+		return
+	var data := {
+		"session_id": _session_id,
+		"generation": _operation_generation,
+		"peer_id": peer_id,
+		"active": active,
+		"attempt_id": attempt_id,
+	}
+	_apply_recovery_presentation(data)
+	receive_recovery_presentation.rpc(data)
+
+
+@rpc("authority", "call_remote", "reliable", 0)
+func receive_recovery_presentation(data: Dictionary) -> void:
+	_apply_recovery_presentation(data)
+
+
+func _apply_recovery_presentation(data: Dictionary) -> void:
+	if (
+		typeof(data.get("session_id")) != TYPE_STRING
+		or str(data["session_id"]) != _session_id
+		or typeof(data.get("generation")) != TYPE_INT
+		or int(data["generation"]) < 1
+		or typeof(data.get("peer_id")) != TYPE_INT
+		or typeof(data.get("active")) != TYPE_BOOL
+		or typeof(data.get("attempt_id")) != TYPE_STRING
+		or str(data["attempt_id"]).is_empty()
+		or str(data["attempt_id"]).length() > 96
+	):
+		return
+	var peer_id: int = data["peer_id"]
+	var attempt_id: String = data["attempt_id"]
+	var active: bool = data["active"]
+	var current_attempt: String = _recovery_attempts.get(peer_id, "")
+	if active:
+		if not current_attempt.is_empty() and current_attempt != attempt_id:
+			return
+		_recovery_attempts[peer_id] = attempt_id
+	elif current_attempt != attempt_id:
+		return
+	else:
+		_recovery_attempts.erase(peer_id)
+	remote_recovery_presentation_changed.emit(peer_id, active, attempt_id)
 
 
 func request_safe_respawn(entry_position: Vector3) -> void:
@@ -1535,6 +1646,11 @@ func _fail(message: String) -> void:
 
 
 func _teardown_peer() -> void:
+	for peer_id: int in _recovery_attempts.keys():
+		remote_recovery_presentation_changed.emit(
+			peer_id, false, _recovery_attempts[peer_id]
+		)
+	_recovery_attempts.clear()
 	_pending_authentication.clear()
 	_pending_identity_challenges.clear()
 	_authenticated_identity_cache.clear()

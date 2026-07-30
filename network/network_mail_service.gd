@@ -552,7 +552,7 @@ func _commit_sender(transfer_id: String, letter: Dictionary) -> void:
 	var snapshot := _capture_assets()
 	var applied := (
 		_reservations.has_reservation(reservation_id)
-		and _reservations.commit_removal(reservation_id)
+		and _reservations.commit_removal(reservation_id, transfer_id)
 		and _save_manager.save_if_dirty()
 	)
 	if not applied:
