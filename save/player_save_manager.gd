@@ -20,9 +20,6 @@ const PlayerCoolerCapacityType = preload(
 
 const SAVE_VERSION: int = 4
 const BASIC_ROD_ID: StringName = &"basic_fishing_rod"
-const SAVE_PATH: String = "user://player_save.json"
-const TEMP_PATH: String = "user://player_save.json.tmp"
-const BACKUP_PATH: String = "user://player_save.json.backup"
 const MAX_SAFE_BALANCE: int = 1000000000000
 
 class LoadSnapshot:
@@ -57,6 +54,22 @@ var _is_restoring: bool = false
 var _is_dirty: bool = false
 var _automatic_saving_blocked: bool = false
 var _autosave_enabled: bool = false
+var _save_path := ""
+var _expected_hash := ""
+var _data_root: PlayerDataRoot
+
+
+func configure_storage(path: String, data_root: PlayerDataRoot) -> void:
+	_save_path = path
+	_data_root = data_root
+
+
+func _temp_path() -> String:
+	return _save_path + ".tmp"
+
+
+func _backup_path() -> String:
+	return _save_path + ".backup"
 
 
 func _ready() -> void:
@@ -135,16 +148,17 @@ func load_player_data() -> bool:
 		return false
 	_automatic_saving_blocked = false
 	_recover_interrupted_write()
-	if not FileAccess.file_exists(SAVE_PATH):
+	if _save_path.is_empty() or not FileAccess.file_exists(_save_path):
 		_is_dirty = false
 		return true
 
-	var save_file := FileAccess.open(SAVE_PATH, FileAccess.READ)
+	var save_file := FileAccess.open(_save_path, FileAccess.READ)
 	if save_file == null:
 		_handle_corrupt_save("Unable to open player save.")
 		return false
 	var json_text: String = save_file.get_as_text()
 	save_file.close()
+	_expected_hash = PortableFileGuard.hash_file(_save_path)
 
 	var json := JSON.new()
 	var parse_error: Error = json.parse(json_text)
@@ -224,12 +238,12 @@ func load_player_data() -> bool:
 func inspect_save() -> SaveInspectionType:
 	var result := SaveInspectionType.new()
 	_recover_interrupted_write()
-	result.has_primary_file = FileAccess.file_exists(SAVE_PATH)
+	result.has_primary_file = FileAccess.file_exists(_save_path)
 	if not result.has_primary_file:
 		result.status = SaveInspectionType.Status.MISSING
 		result.message = "no save found."
 		return result
-	var save_file := FileAccess.open(SAVE_PATH, FileAccess.READ)
+	var save_file := FileAccess.open(_save_path, FileAccess.READ)
 	if save_file == null:
 		result.status = SaveInspectionType.Status.IO_ERROR
 		result.message = "the save could not be read."
@@ -279,15 +293,16 @@ func initialize_new_game() -> bool:
 
 
 func delete_progression_save() -> bool:
-	if FileAccess.file_exists(SAVE_PATH) and not _remove_if_present(SAVE_PATH):
+	if FileAccess.file_exists(_save_path) and not _remove_if_present(_save_path):
 		return false
-	for path: String in [TEMP_PATH, BACKUP_PATH]:
+	for path: String in [_temp_path(), _backup_path()]:
 		if FileAccess.file_exists(path) and not _remove_if_present(path):
 			push_warning("Unable to remove stale player-save auxiliary file.")
 	if _autosave_timer != null:
 		_autosave_timer.stop()
 	_is_dirty = false
 	_automatic_saving_blocked = false
+	_expected_hash = ""
 	return true
 
 
@@ -325,31 +340,22 @@ func save_now() -> bool:
 	if json_text.is_empty():
 		return false
 
-	var temp_file := FileAccess.open(TEMP_PATH, FileAccess.WRITE)
-	if temp_file == null:
-		push_warning("Unable to open temporary player save for writing.")
+	var result := PortableFileGuard.write_guarded(
+		_save_path,
+		json_text.to_utf8_buffer(),
+		_expected_hash,
+		_data_root.conflict_directory(),
+		_data_root.device_id,
+	)
+	if bool(result.get("conflict", false)):
+		_data_root.report_conflict(
+			str(result.get("message", "")),
+			str(result.get("conflict_path", "")),
+		)
+	if not bool(result.get("ok", false)):
+		push_warning("Unable to safely write the player save.")
 		return false
-	temp_file.store_string(json_text)
-	temp_file.flush()
-	var write_error: Error = temp_file.get_error()
-	temp_file.close()
-	if write_error != OK:
-		_remove_if_present(TEMP_PATH)
-		push_warning("Unable to finish writing temporary player save.")
-		return false
-
-	var had_primary: bool = FileAccess.file_exists(SAVE_PATH)
-	_remove_if_present(BACKUP_PATH)
-	if had_primary and not _rename_file(SAVE_PATH, BACKUP_PATH):
-		_remove_if_present(TEMP_PATH)
-		push_warning("Unable to preserve the previous player save.")
-		return false
-	if not _rename_file(TEMP_PATH, SAVE_PATH):
-		if had_primary:
-			_rename_file(BACKUP_PATH, SAVE_PATH)
-		push_warning("Unable to promote the temporary player save.")
-		return false
-	_remove_if_present(BACKUP_PATH)
+	_expected_hash = str(result["hash"])
 	_is_dirty = false
 	return true
 
@@ -744,27 +750,27 @@ func _on_autosave_timeout() -> void:
 
 
 func _recover_interrupted_write() -> void:
-	if FileAccess.file_exists(SAVE_PATH):
-		_remove_if_present(TEMP_PATH)
-		_remove_if_present(BACKUP_PATH)
+	if FileAccess.file_exists(_save_path):
+		_remove_if_present(_temp_path())
+		_remove_if_present(_backup_path())
 		return
-	if FileAccess.file_exists(BACKUP_PATH):
-		_rename_file(BACKUP_PATH, SAVE_PATH)
-	_remove_if_present(TEMP_PATH)
+	if FileAccess.file_exists(_backup_path()):
+		_rename_file(_backup_path(), _save_path)
+	_remove_if_present(_temp_path())
 
 
 func _handle_corrupt_save(message: String) -> void:
 	push_warning(message)
 	_restore_defaults()
-	if not FileAccess.file_exists(SAVE_PATH):
+	if not FileAccess.file_exists(_save_path):
 		return
 	var timestamp: int = int(Time.get_unix_time_from_system())
 	var corrupt_path: String = (
-		"%s.corrupt-%d" % [SAVE_PATH, timestamp]
+		"%s.corrupt-%d" % [_save_path, timestamp]
 	)
 	if FileAccess.file_exists(corrupt_path):
 		corrupt_path += "-%d" % Time.get_ticks_usec()
-	if not _rename_file(SAVE_PATH, corrupt_path):
+	if not _rename_file(_save_path, corrupt_path):
 		_automatic_saving_blocked = true
 		push_warning(
 			"Corrupt player save was left in place; automatic saving is "

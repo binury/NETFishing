@@ -2,22 +2,36 @@ class_name PlayerAppearanceStore
 extends Node
 
 const FORMAT_VERSION: int = 1
-const PROFILE_PATH: String = "user://player_appearance.json"
-const TEMP_PATH: String = "user://player_appearance.json.tmp"
-const BACKUP_PATH: String = "user://player_appearance.json.backup"
-
 var _snapshot: Dictionary = CharacterCustomizationCatalog.default_snapshot()
 var _loaded: bool = false
 var _future_version: bool = false
+var _profile_path := ""
+var _expected_hash := ""
+var _data_root: PlayerDataRoot
+
+
+func configure_storage(path: String, data_root: PlayerDataRoot) -> void:
+	_profile_path = path
+	_data_root = data_root
+
+
+func _temp_path() -> String:
+	return _profile_path + ".tmp"
+
+
+func _backup_path() -> String:
+	return _profile_path + ".backup"
 
 
 func load_preferences() -> bool:
+	if _profile_path.is_empty():
+		return false
 	_recover_interrupted_write()
-	if not FileAccess.file_exists(PROFILE_PATH):
+	if not FileAccess.file_exists(_profile_path):
 		_snapshot = CharacterCustomizationCatalog.default_snapshot()
 		_loaded = true
 		return true
-	var file := FileAccess.open(PROFILE_PATH, FileAccess.READ)
+	var file := FileAccess.open(_profile_path, FileAccess.READ)
 	if file == null:
 		return false
 	var json := JSON.new()
@@ -37,6 +51,7 @@ func load_preferences() -> bool:
 		return _recover_backup()
 	_snapshot = CharacterCustomizationCatalog.sanitized_snapshot(data["appearance"])
 	_loaded = true
+	_expected_hash = PortableFileGuard.hash_file(_profile_path)
 	return true
 
 
@@ -61,50 +76,36 @@ func is_loaded() -> bool:
 
 
 func _save_atomic() -> bool:
-	var file := FileAccess.open(TEMP_PATH, FileAccess.WRITE)
-	if file == null:
-		return false
-	file.store_string(JSON.stringify({
+	var bytes := JSON.stringify({
 		"format_version": FORMAT_VERSION,
 		"appearance": _snapshot,
-	}, "\t"))
-	file.flush()
-	var error := file.get_error()
-	file.close()
-	if error != OK:
-		_remove(TEMP_PATH)
-		return false
-	_remove(BACKUP_PATH)
-	var had_primary := FileAccess.file_exists(PROFILE_PATH)
-	if had_primary and not _rename(PROFILE_PATH, BACKUP_PATH):
-		_remove(TEMP_PATH)
-		return false
-	if not _rename(TEMP_PATH, PROFILE_PATH):
-		if had_primary:
-			_rename(BACKUP_PATH, PROFILE_PATH)
-		return false
-	_remove(BACKUP_PATH)
-	return true
+	}, "\t").to_utf8_buffer()
+	var result := PortableFileGuard.write_guarded(
+		_profile_path, bytes, _expected_hash, _data_root.conflict_directory(),
+		_data_root.device_id,
+	)
+	if bool(result.get("conflict", false)):
+		_data_root.report_conflict(str(result.get("message", "")), str(result.get("conflict_path", "")))
+	if bool(result.get("ok", false)):
+		_expected_hash = str(result["hash"])
+	return bool(result.get("ok", false))
 
 
 func _recover_interrupted_write() -> void:
-	if FileAccess.file_exists(PROFILE_PATH):
-		_remove(TEMP_PATH)
+	if FileAccess.file_exists(_profile_path):
+		_remove(_temp_path())
 		return
-	if FileAccess.file_exists(BACKUP_PATH):
-		_rename(BACKUP_PATH, PROFILE_PATH)
-	_remove(TEMP_PATH)
+	if FileAccess.file_exists(_backup_path()):
+		_rename(_backup_path(), _profile_path)
+	_remove(_temp_path())
 
 
 func _recover_backup() -> bool:
-	if not FileAccess.file_exists(BACKUP_PATH):
+	if not FileAccess.file_exists(_backup_path()):
 		return false
-	var primary_path := ProjectSettings.globalize_path(PROFILE_PATH)
-	var backup_path := ProjectSettings.globalize_path(BACKUP_PATH)
-	var corrupt_path := ProjectSettings.globalize_path(
-		"user://player_appearance.corrupt.%d.json"
-		% int(Time.get_unix_time_from_system())
-	)
+	var primary_path := _profile_path
+	var backup_path := _backup_path()
+	var corrupt_path := "%s.corrupt.%d.json" % [_profile_path.get_basename(), int(Time.get_unix_time_from_system())]
 	DirAccess.rename_absolute(primary_path, corrupt_path)
 	if DirAccess.rename_absolute(backup_path, primary_path) != OK:
 		return false

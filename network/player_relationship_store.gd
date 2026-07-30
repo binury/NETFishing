@@ -4,13 +4,19 @@ extends Node
 signal relationship_changed(fingerprint: String)
 
 const FORMAT_VERSION := 1
-const STORE_PATH := "user://player_relationships.json"
-const TEMP_PATH := STORE_PATH + ".tmp"
 const MAX_RECORDS := 500
 
 var _records: Dictionary = {}
 var _loaded := false
 var _write_blocked := false
+var _store_path := ""
+var _expected_hash := ""
+var _data_root: PlayerDataRoot
+
+
+func configure_storage(path: String, data_root: PlayerDataRoot) -> void:
+	_store_path = path
+	_data_root = data_root
 
 
 func is_muted(fingerprint: String) -> bool:
@@ -98,9 +104,9 @@ func _ensure_loaded() -> void:
 	if _loaded:
 		return
 	_loaded = true
-	if not FileAccess.file_exists(STORE_PATH):
+	if _store_path.is_empty() or not FileAccess.file_exists(_store_path):
 		return
-	var file := FileAccess.open(STORE_PATH, FileAccess.READ)
+	var file := FileAccess.open(_store_path, FileAccess.READ)
 	if file == null:
 		return
 	var json := JSON.new()
@@ -120,24 +126,20 @@ func _ensure_loaded() -> void:
 		record["blocked"] = bool(record.get("blocked", false))
 		record["muted"] = bool(record.get("muted", false)) or record["blocked"]
 		_records[fingerprint] = record.duplicate(true)
+	_expected_hash = PortableFileGuard.hash_file(_store_path)
 
 
 func _save() -> bool:
-	var file := FileAccess.open(TEMP_PATH, FileAccess.WRITE)
-	if file == null:
-		return false
-	file.store_string(JSON.stringify({
+	var bytes := JSON.stringify({
 		"format_version": FORMAT_VERSION,
 		"records": _records.values(),
-	}, "\t"))
-	file.flush()
-	var ok := file.get_error() == OK
-	file.close()
-	if not ok:
-		return false
-	if FileAccess.file_exists(STORE_PATH):
-		DirAccess.remove_absolute(ProjectSettings.globalize_path(STORE_PATH))
-	return DirAccess.rename_absolute(
-		ProjectSettings.globalize_path(TEMP_PATH),
-		ProjectSettings.globalize_path(STORE_PATH),
-	) == OK
+	}, "\t").to_utf8_buffer()
+	var result := PortableFileGuard.write_guarded(
+		_store_path, bytes, _expected_hash, _data_root.conflict_directory(),
+		_data_root.device_id,
+	)
+	if bool(result.get("conflict", false)):
+		_data_root.report_conflict(str(result.get("message", "")), str(result.get("conflict_path", "")))
+	if bool(result.get("ok", false)):
+		_expected_hash = str(result["hash"])
+	return bool(result.get("ok", false))

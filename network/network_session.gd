@@ -292,6 +292,10 @@ func is_joined_client() -> bool:
 	return state == State.JOINED_CLIENT
 
 
+func is_session_active() -> bool:
+	return is_host() or is_joined_client()
+
+
 func get_player_count() -> int:
 	return _registry.size()
 

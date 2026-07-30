@@ -97,6 +97,8 @@ const TITLE_MUSIC_SILENCE_DB: float = -80.0
 	%WorldPixelationPostprocess
 )
 @onready var _network_session: NetworkSessionType = %NetworkSession
+@onready var _data_root: PlayerDataRoot = %PlayerDataRoot
+@onready var _identity_backups: IdentityBackupService = %IdentityBackupService
 @onready var _network_profile: NetworkProfilePreferencesType = (
 	%NetworkProfilePreferences
 )
@@ -142,9 +144,51 @@ var _pending_join_endpoint: String = ""
 var _server_trust_dialog: ConfirmationDialog
 var _pending_trust_changed: bool = false
 var _identity_notice_dialog: AcceptDialog
+var _data_setup_dialog: ConfirmationDialog
+var _data_folder_dialog: FileDialog
+var _application_initialized := false
+var _pending_existing_root_path := ""
 
 
 func _ready() -> void:
+	if _data_root.resolve():
+		_configure_portable_stores()
+		_initialize_after_data_root()
+		return
+	_show_data_root_setup()
+
+
+func _configure_portable_stores() -> void:
+	_save_manager.configure_storage(
+		_data_root.path_for(&"player_save"), _data_root
+	)
+	_network_profile.configure_storage(
+		_data_root.path_for(&"network_profile"), _data_root
+	)
+	_appearance_store.configure_storage(
+		_data_root.path_for(&"player_appearance"), _data_root
+	)
+	_saved_servers.configure_storage(
+		_data_root.path_for(&"saved_servers"), _data_root
+	)
+	_known_players.configure_storage(
+		_data_root.path_for(&"known_players"), _data_root
+	)
+	_relationships.configure_storage(
+		_data_root.path_for(&"player_relationships"), _data_root
+	)
+	_server_trust.configure_storage(
+		_data_root.path_for(&"server_trust"), _data_root
+	)
+	_host_bans.configure_storage(
+		_data_root.path_for(&"host_bans"), _data_root
+	)
+
+
+func _initialize_after_data_root() -> void:
+	if _application_initialized:
+		return
+	_application_initialized = true
 	_player.global_transform = _test_world.get_player_spawn_transform()
 	_player.velocity = Vector3.ZERO
 	_player_spawn_service.setup(
@@ -162,6 +206,7 @@ func _ready() -> void:
 		_server_trust,
 		_host_bans,
 	)
+	_identity_backups.setup(_data_root, _player_identity, _host_identity)
 	_network_profile_service.setup(
 		_network_session,
 		_network_profile,
@@ -326,6 +371,27 @@ func _ready() -> void:
 		_network_profile_service,
 		_network_player_list,
 	)
+	_game_ui.setup_data_and_identity(
+		_data_root,
+		_identity_backups,
+		_player_identity,
+		_host_identity,
+		_network_session,
+	)
+	_data_root.conflict_detected.connect(_on_portable_conflict)
+	_data_root.status_changed.connect(_on_data_root_status)
+	if (
+		PortableFileGuard.has_syncthing_conflict(
+			_data_root.root_path.path_join("player")
+		)
+		or PortableFileGuard.has_syncthing_conflict(
+			_data_root.root_path.path_join("social")
+		)
+	):
+		call_deferred(
+			"_on_data_root_status",
+			"Syncthing conflict copies were found. Review the data folder.",
+		)
 	_water_recovery.setup(
 		_player,
 		_fishing_spot,
@@ -408,6 +474,178 @@ func _ready() -> void:
 		_player.hotbar.get_selected_item_id()
 	)
 	_show_title_music(true)
+
+
+func _show_data_root_setup() -> void:
+	if _data_setup_dialog == null:
+		_data_setup_dialog = ConfirmationDialog.new()
+		_data_setup_dialog.title = "NETFISHING player data"
+		_data_setup_dialog.ok_button_text = "Use This Folder"
+		_data_setup_dialog.cancel_button_text = "Quit"
+		_data_setup_dialog.confirmed.connect(_use_default_data_root)
+		_data_setup_dialog.canceled.connect(get_tree().quit)
+		_data_setup_dialog.add_button(
+			"Choose Another Folder", false, "choose"
+		)
+		_data_setup_dialog.add_button(
+			"Keep Current Location", false, "current"
+		)
+		_data_setup_dialog.custom_action.connect(_on_data_setup_action)
+		add_child(_data_setup_dialog)
+	var default_path := _data_root.default_visible_path()
+	var legacy := PortableDataMigration.legacy_files_present()
+	_data_setup_dialog.dialog_text = (
+		("Move your existing NETFISHING data to an easy-to-find folder."
+		if legacy else "Choose where NETFISHING stores your player data.")
+		+ "\n\n%s\n\nYou can choose a Syncthing folder."
+		% (default_path if not default_path.is_empty() else "Choose a folder")
+	)
+	_data_setup_dialog.ok_button_text = (
+		"Move to Documents/NETFISHING" if legacy else "Use This Folder"
+	)
+	if not _data_root.error_message.is_empty():
+		_data_setup_dialog.dialog_text = (
+			"Your NETFISHING data folder is unavailable.\n\n%s"
+			% _data_root.error_message
+		)
+	_data_setup_dialog.popup_centered(Vector2i(640, 360))
+
+
+func _use_default_data_root() -> void:
+	var path := _data_root.default_visible_path()
+	if path.is_empty():
+		_show_folder_picker()
+		return
+	_activate_selected_data_path(path)
+
+
+func _on_data_setup_action(action: StringName) -> void:
+	if action == &"choose":
+		_show_folder_picker()
+	elif action == &"current":
+		_activate_selected_data_path(
+			ProjectSettings.globalize_path(PlayerDataRoot.APP_DATA_PORTABLE_PATH), true
+		)
+
+
+func _show_folder_picker() -> void:
+	if _data_folder_dialog == null:
+		_data_folder_dialog = FileDialog.new()
+		_data_folder_dialog.file_mode = FileDialog.FILE_MODE_OPEN_DIR
+		_data_folder_dialog.access = FileDialog.ACCESS_FILESYSTEM
+		_data_folder_dialog.use_native_dialog = false
+		_data_folder_dialog.dir_selected.connect(_activate_selected_data_path)
+		add_child(_data_folder_dialog)
+	_data_folder_dialog.current_dir = (
+		_data_root.default_visible_path().get_base_dir()
+		if not _data_root.default_visible_path().is_empty()
+		else OS.get_system_dir(OS.SYSTEM_DIR_DOCUMENTS)
+	)
+	_data_folder_dialog.popup_centered_ratio(0.75)
+
+
+func _activate_selected_data_path(path: String, app_data: bool = false) -> void:
+	var ok := false
+	if PortableDataMigration.legacy_files_present():
+		var result := (
+			PortableDataMigration.adopt_legacy_app_data(_data_root)
+			if app_data
+			else PortableDataMigration.migrate_legacy_to(_data_root, path)
+		)
+		ok = bool(result.get("ok", false))
+		if not ok:
+			if bool(result.get("requires_existing_root_decision", false)):
+				_show_existing_root_choice(path)
+				return
+			_show_data_error(str(result.get("message", "Migration failed.")))
+			return
+	else:
+		ok = _data_root.select_new_root(path, app_data)
+	if not ok:
+		_show_data_error(_data_root.error_message)
+		return
+	_data_setup_dialog.hide()
+	_configure_portable_stores()
+	_initialize_after_data_root()
+
+
+func _show_existing_root_choice(path: String) -> void:
+	_pending_existing_root_path = path
+	var dialog := ConfirmationDialog.new()
+	dialog.title = "Existing NETFISHING data"
+	dialog.ok_button_text = "Use Data Already in Selected Folder"
+	dialog.cancel_button_text = "Cancel"
+	dialog.dialog_text = (
+		"This folder already contains NETFISHING player data.\n\n"
+		+ "Choose which complete data set to use. Data is never merged automatically."
+	)
+	dialog.add_button(
+		"Replace with This Device's Data", false, "replace"
+	)
+	dialog.confirmed.connect(func() -> void:
+		if _data_root.use_existing_root(_pending_existing_root_path):
+			dialog.queue_free()
+			_data_setup_dialog.hide()
+			_configure_portable_stores()
+			_initialize_after_data_root()
+		else:
+			_show_data_error(_data_root.error_message)
+	)
+	dialog.custom_action.connect(func(action: StringName) -> void:
+		if action != &"replace":
+			return
+		var result := PortableDataMigration.replace_existing_with_legacy(
+			_data_root, _pending_existing_root_path
+		)
+		if bool(result.get("ok", false)):
+			dialog.queue_free()
+			_data_setup_dialog.hide()
+			_configure_portable_stores()
+			_initialize_after_data_root()
+		else:
+			_show_data_error(str(result.get("message", "Migration failed.")))
+	)
+	add_child(dialog)
+	dialog.popup_centered(Vector2i(680, 360))
+
+
+func _show_data_error(message: String) -> void:
+	if _data_setup_dialog != null:
+		_data_setup_dialog.dialog_text = message
+		_data_setup_dialog.popup_centered(Vector2i(640, 300))
+
+
+func _on_portable_conflict(message: String, _path: String) -> void:
+	var dialog := AcceptDialog.new()
+	dialog.title = "Player data conflict"
+	dialog.dialog_text = (
+		message
+		+ "\n\nDo not play the same profile on two devices at the same time."
+	)
+	dialog.add_button("Open Data Folder", false, "open")
+	dialog.custom_action.connect(func(action: StringName) -> void:
+		if action == &"open":
+			_data_root.open_folder()
+	)
+	dialog.confirmed.connect(dialog.queue_free)
+	_game_ui.add_child(dialog)
+	dialog.popup_centered(Vector2i(560, 300))
+
+
+func _on_data_root_status(message: String) -> void:
+	if "Syncthing conflict" not in message:
+		return
+	var dialog := AcceptDialog.new()
+	dialog.title = "Synced data needs review"
+	dialog.dialog_text = message
+	dialog.add_button("Open Data Folder", false, "open")
+	dialog.custom_action.connect(func(action: StringName) -> void:
+		if action == &"open":
+			_data_root.open_folder()
+	)
+	dialog.confirmed.connect(dialog.queue_free)
+	_game_ui.add_child(dialog)
+	dialog.popup_centered(Vector2i(560, 260))
 
 
 func _on_server_trust_required(

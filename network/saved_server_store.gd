@@ -2,9 +2,6 @@ class_name SavedServerStore
 extends Node
 
 const FORMAT_VERSION: int = 1
-const STORE_PATH: String = "user://saved_servers.json"
-const TEMP_PATH: String = "user://saved_servers.json.tmp"
-const BACKUP_PATH: String = "user://saved_servers.json.backup"
 const MAX_SAVED_ENTRIES: int = 100
 const MAX_RECENT_ENTRIES: int = 20
 const MAX_DISPLAY_NAME_LENGTH: int = 80
@@ -17,6 +14,22 @@ var _recent_entries: Array[Dictionary] = []
 var _loaded: bool = false
 var _recovery_warning: String = ""
 var _write_blocked: bool = false
+var _store_path := ""
+var _expected_hash := ""
+var _data_root: PlayerDataRoot
+
+
+func configure_storage(path: String, data_root: PlayerDataRoot) -> void:
+	_store_path = path
+	_data_root = data_root
+
+
+func _temp_path() -> String:
+	return _store_path + ".tmp"
+
+
+func _backup_path() -> String:
+	return _store_path + ".backup"
 
 
 func get_saved_entries() -> Array[SavedServerEntry]:
@@ -242,15 +255,15 @@ func _ensure_loaded() -> void:
 		return
 	_loaded = true
 	_recover_interrupted_write()
-	if not FileAccess.file_exists(STORE_PATH):
+	if _store_path.is_empty() or not FileAccess.file_exists(_store_path):
 		return
-	var data: Dictionary = _read_store(STORE_PATH)
-	if data.is_empty() and FileAccess.file_exists(BACKUP_PATH):
-		data = _read_store(BACKUP_PATH)
+	var data: Dictionary = _read_store(_store_path)
+	if data.is_empty() and FileAccess.file_exists(_backup_path()):
+		data = _read_store(_backup_path())
 		if not data.is_empty():
 			_set_warning("Recovered saved servers from the local backup.")
 	if data.is_empty():
-		if FileAccess.file_exists(STORE_PATH):
+		if FileAccess.file_exists(_store_path):
 			_set_warning(
 				"Saved servers could not be read. Direct connection is still available."
 			)
@@ -263,6 +276,7 @@ func _ensure_loaded() -> void:
 		return
 	_load_collection(data.get("saved_entries", data.get("entries", [])), true)
 	_load_collection(data.get("recent_entries", []), false)
+	_expected_hash = PortableFileGuard.hash_file(_store_path)
 
 
 func _load_collection(raw: Variant, is_saved: bool) -> void:
@@ -389,31 +403,20 @@ func _sort_saved_entries(
 func _save_atomic() -> bool:
 	if _write_blocked:
 		return false
-	var file := FileAccess.open(TEMP_PATH, FileAccess.WRITE)
-	if file == null:
-		return false
-	file.store_string(JSON.stringify({
+	var bytes := JSON.stringify({
 		"format_version": FORMAT_VERSION,
 		"saved_entries": _saved_entries,
 		"recent_entries": _recent_entries,
-	}, "\t"))
-	file.flush()
-	var error: Error = file.get_error()
-	file.close()
-	if error != OK:
-		_remove_if_present(TEMP_PATH)
-		return false
-	_remove_if_present(BACKUP_PATH)
-	var had_primary: bool = FileAccess.file_exists(STORE_PATH)
-	if had_primary and not _rename(STORE_PATH, BACKUP_PATH):
-		_remove_if_present(TEMP_PATH)
-		return false
-	if not _rename(TEMP_PATH, STORE_PATH):
-		if had_primary:
-			_rename(BACKUP_PATH, STORE_PATH)
-		return false
-	_remove_if_present(BACKUP_PATH)
-	return true
+	}, "\t").to_utf8_buffer()
+	var result := PortableFileGuard.write_guarded(
+		_store_path, bytes, _expected_hash, _data_root.conflict_directory(),
+		_data_root.device_id,
+	)
+	if bool(result.get("conflict", false)):
+		_data_root.report_conflict(str(result.get("message", "")), str(result.get("conflict_path", "")))
+	if bool(result.get("ok", false)):
+		_expected_hash = str(result["hash"])
+	return bool(result.get("ok", false))
 
 
 func _read_store(path: String) -> Dictionary:
@@ -427,13 +430,13 @@ func _read_store(path: String) -> Dictionary:
 
 
 func _recover_interrupted_write() -> void:
-	if FileAccess.file_exists(STORE_PATH):
-		_remove_if_present(TEMP_PATH)
+	if FileAccess.file_exists(_store_path):
+		_remove_if_present(_temp_path())
 		return
-	if FileAccess.file_exists(BACKUP_PATH):
-		_rename(BACKUP_PATH, STORE_PATH)
+	if FileAccess.file_exists(_backup_path()):
+		_rename(_backup_path(), _store_path)
 		_set_warning("Recovered saved servers after an interrupted write.")
-	_remove_if_present(TEMP_PATH)
+	_remove_if_present(_temp_path())
 
 
 func _set_warning(message: String) -> void:

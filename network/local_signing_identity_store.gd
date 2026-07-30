@@ -52,6 +52,69 @@ func verify(domain: String, fields: Array, signature: PackedByteArray) -> bool:
 	)
 
 
+func export_identity_material() -> Dictionary:
+	if not is_ready():
+		return {}
+	return {
+		"private_pem": _private_key.save_to_string(),
+		"public_pem": public_pem,
+		"fingerprint": fingerprint,
+	}
+
+
+func install_identity_material(
+	private_pem: String,
+	public_value: String,
+	expected_fingerprint: String,
+) -> Dictionary:
+	var normalized_public := NetworkIdentityCrypto.normalize_public_pem(public_value)
+	var derived := NetworkIdentityCrypto.fingerprint_public_pem(normalized_public)
+	var key := CryptoKey.new()
+	if (
+		derived != expected_fingerprint
+		or key.load_from_string(private_pem) != OK
+	):
+		return {"ok": false}
+	var probe := NetworkIdentityCrypto.sign_fields(
+		key, "identity_import_self_test", [derived]
+	)
+	if not NetworkIdentityCrypto.verify_fields(
+		NetworkIdentityCrypto.load_public_key(normalized_public),
+		"identity_import_self_test",
+		[derived],
+		probe,
+	):
+		return {"ok": false}
+	if derived == fingerprint:
+		return {"ok": true, "same": true, "archive_path": ""}
+	var had_active_identity := is_ready()
+	var archive := _archive_current_identity() if had_active_identity else ""
+	if had_active_identity and archive.is_empty():
+		return {"ok": false}
+	var metadata := {
+		"format_version": FORMAT_VERSION,
+		"algorithm": NetworkIdentityCrypto.ALGORITHM,
+		"fingerprint": derived,
+		"created_at_unix": int(Time.get_unix_time_from_system()),
+	}
+	if (
+		not _write_atomic(_path(".key"), private_pem)
+		or not _write_atomic(_path(".pub"), normalized_public)
+		or not _write_atomic(_path(".json"), JSON.stringify(metadata, "\t"))
+	):
+		if not archive.is_empty():
+			_restore_archive(archive)
+		_load_existing()
+		return {"ok": false}
+	FileAccess.set_unix_permissions(_path(".key"), 384)
+	if not _load_existing() or fingerprint != derived:
+		if not archive.is_empty():
+			_restore_archive(archive)
+		_load_existing()
+		return {"ok": false}
+	return {"ok": true, "same": false, "archive_path": archive}
+
+
 func _generate_new() -> bool:
 	var key := Crypto.new().generate_rsa(3072)
 	if key == null:
@@ -163,6 +226,46 @@ func _write_atomic(path: String, content: String) -> bool:
 
 func _path(extension: String) -> String:
 	return "user://%s%s" % [_prefix, extension]
+
+
+func identity_type() -> String:
+	return "player" if _prefix == "player_identity" else "host"
+
+
+func _archive_current_identity() -> String:
+	var timestamp := Time.get_datetime_string_from_system().replace(":", "-")
+	var archive := ProjectSettings.globalize_path(
+		"user://identity-recovery/%s-%s" % [_prefix, timestamp]
+	)
+	if DirAccess.make_dir_recursive_absolute(archive) != OK:
+		return ""
+	for extension: String in [".key", ".pub", ".json"]:
+		var source := _path(extension)
+		var bytes := PortableFileGuard.read_bytes(source, 1024 * 1024)
+		if bytes.is_empty():
+			return ""
+		var file := FileAccess.open(archive.path_join(_prefix + extension), FileAccess.WRITE)
+		if file == null:
+			return ""
+		file.store_buffer(bytes)
+		file.close()
+	FileAccess.set_unix_permissions(
+		archive.path_join(_prefix + ".key"), 384
+	)
+	return archive
+
+
+func _restore_archive(archive: String) -> void:
+	for extension: String in [".key", ".pub", ".json"]:
+		var source := archive.path_join(_prefix + extension)
+		var bytes := PortableFileGuard.read_bytes(source, 1024 * 1024)
+		if bytes.is_empty():
+			continue
+		var file := FileAccess.open(_path(extension), FileAccess.WRITE)
+		if file != null:
+			file.store_buffer(bytes)
+			file.close()
+	FileAccess.set_unix_permissions(_path(".key"), 384)
 
 
 func _rename(from_path: String, to_path: String) -> bool:

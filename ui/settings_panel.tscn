@@ -49,8 +49,8 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("3_page")
 page_id = &"root"
-bubble_paths = Array[NodePath]([NodePath("BubbleCluster/DisplayCategory"), NodePath("BubbleCluster/ControlsCategory"), NodePath("BubbleCluster/AccessibilityCategory"), NodePath("BubbleCluster/ApplySettingsButton"), NodePath("BubbleCluster/RootBackButton")])
-focus_paths = Array[NodePath]([NodePath("BubbleCluster/DisplayCategory"), NodePath("BubbleCluster/ControlsCategory"), NodePath("BubbleCluster/AccessibilityCategory"), NodePath("BubbleCluster/ApplySettingsButton"), NodePath("BubbleCluster/RootBackButton")])
+bubble_paths = Array[NodePath]([NodePath("BubbleCluster/DisplayCategory"), NodePath("BubbleCluster/ControlsCategory"), NodePath("BubbleCluster/AccessibilityCategory"), NodePath("BubbleCluster/DataCategory"), NodePath("BubbleCluster/ApplySettingsButton"), NodePath("BubbleCluster/RootBackButton")])
+focus_paths = Array[NodePath]([NodePath("BubbleCluster/DisplayCategory"), NodePath("BubbleCluster/ControlsCategory"), NodePath("BubbleCluster/AccessibilityCategory"), NodePath("BubbleCluster/DataCategory"), NodePath("BubbleCluster/ApplySettingsButton"), NodePath("BubbleCluster/RootBackButton")])
 initial_focus_path = NodePath("BubbleCluster/DisplayCategory")
 back_focus_path = NodePath("BubbleCluster/RootBackButton")
 compact_maximum_layout_size = Vector2(544, 400)
@@ -127,6 +127,18 @@ compact_minimum_size = Vector2(94, 90)
 minimum_font_size = 15
 maximum_font_size = 19
 motion_phase = 3.7
+
+[node name="DataCategory" parent="RootPage/BubbleCluster" instance=ExtResource("4_bubble")]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 0)
+text = "data &\nidentity"
+neutral_size = Vector2(140, 132)
+desktop_anchor = Vector2(610, 220)
+compact_anchor = Vector2(540, 205)
+compact_minimum_size = Vector2(116, 108)
+minimum_font_size = 14
+maximum_font_size = 21
+motion_phase = 5.4
 
 [node name="RootBackButton" parent="RootPage/BubbleCluster" instance=ExtResource("4_bubble")]
 unique_name_in_owner = true
@@ -557,6 +569,121 @@ text = "back"
 neutral_size = Vector2(96, 90)
 desktop_anchor = Vector2(560, 420)
 compact_anchor = Vector2(520, 380)
+compact_minimum_size = Vector2(82, 78)
+minimum_font_size = 13
+maximum_font_size = 16
+motion_phase = 5.0
+
+[node name="DataPage" type="Control" parent="."]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("3_page")
+page_id = &"data"
+bubble_paths = Array[NodePath]([NodePath("BubbleCluster/DataBackButton")])
+focus_paths = Array[NodePath]([NodePath("BubbleCluster/DataBackButton")])
+initial_focus_path = NodePath("BubbleCluster/DataBackButton")
+back_focus_path = NodePath("BubbleCluster/DataBackButton")
+
+[node name="BubbleCluster" type="Control" parent="DataPage"]
+layout_mode = 0
+offset_right = 720.0
+offset_bottom = 520.0
+script = ExtResource("5_cluster")
+profile = ExtResource("6_profile")
+desktop_reference_size = Vector2(720, 520)
+compact_reference_size = Vector2(608, 448)
+
+[node name="Paper" type="PanelContainer" parent="DataPage"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -330.0
+offset_top = -255.0
+offset_right = 330.0
+offset_bottom = 210.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Content" type="VBoxContainer" parent="DataPage/Paper"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="Heading" type="Label" parent="DataPage/Paper/Content"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 28
+text = "data & identity"
+horizontal_alignment = 1
+
+[node name="DataFolderLabel" type="Label" parent="DataPage/Paper/Content"]
+layout_mode = 2
+text = "Data Folder"
+
+[node name="DataFolderPath" type="Label" parent="DataPage/Paper/Content"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Unavailable"
+autowrap_mode = 2
+
+[node name="DataStorageMode" type="Label" parent="DataPage/Paper/Content"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "storage mode: unavailable"
+
+[node name="OpenDataFolder" type="Button" parent="DataPage/Paper/Content"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Open Data Folder"
+
+[node name="ChangeDataFolder" type="Button" parent="DataPage/Paper/Content"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Change Data Folder"
+
+[node name="IdentityHelper" type="Label" parent="DataPage/Paper/Content"]
+layout_mode = 2
+text = "Active identity keys stay on this device.\nEncrypted backups can be stored in your synced data folder.\nDo not play the same profile on two devices at the same time."
+autowrap_mode = 2
+
+[node name="IdentityGrid" type="GridContainer" parent="DataPage/Paper/Content"]
+layout_mode = 2
+columns = 2
+
+[node name="ExportPlayerIdentity" type="Button" parent="DataPage/Paper/Content/IdentityGrid"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Export Player Identity"
+
+[node name="ImportPlayerIdentity" type="Button" parent="DataPage/Paper/Content/IdentityGrid"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Import Player Identity"
+
+[node name="ExportHostIdentity" type="Button" parent="DataPage/Paper/Content/IdentityGrid"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Export Host Identity"
+
+[node name="ImportHostIdentity" type="Button" parent="DataPage/Paper/Content/IdentityGrid"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Import Host Identity"
+
+[node name="DataBackButton" parent="DataPage/BubbleCluster" instance=ExtResource("4_bubble")]
+unique_name_in_owner = true
+layout_mode = 0
+text = "back"
+neutral_size = Vector2(96, 90)
+desktop_anchor = Vector2(135, 470)
+compact_anchor = Vector2(115, 420)
 compact_minimum_size = Vector2(82, 78)
 minimum_font_size = 13
 maximum_font_size = 16

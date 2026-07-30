@@ -7,6 +7,7 @@ const PAGE_ROOT: StringName = &"root"
 const PAGE_DISPLAY: StringName = &"display"
 const PAGE_CONTROLS: StringName = &"controls"
 const PAGE_ACCESSIBILITY: StringName = &"accessibility"
+const PAGE_DATA: StringName = &"data"
 const TITLE_HOST_OUTGOING_DURATION: float = 1.70
 const TITLE_HOST_INCOMING_DURATION: float = 1.80
 const PIXELATION_NAMES: PackedStringArray = [
@@ -37,6 +38,7 @@ enum PresentationMode {
 @onready var _display_page: SettingsBubblePage = %DisplayPage
 @onready var _controls_page: SettingsBubblePage = %ControlsPage
 @onready var _accessibility_page: SettingsBubblePage = %AccessibilityPage
+@onready var _data_page: SettingsBubblePage = %DataPage
 @onready var _feedback: Label = %SettingsFeedback
 
 @onready var _world_value: BubbleButton = %WorldValue
@@ -77,6 +79,20 @@ var _controller_sensitivity: float = 2.5
 var _invert_camera_y: bool = false
 var _network_profile: NetworkProfilePreferences
 var _network_session: NetworkSession
+var _data_root: PlayerDataRoot
+var _identity_backups: IdentityBackupService
+var _player_identity: PlayerIdentityStore
+var _host_identity: HostIdentityStore
+var _data_folder_dialog: FileDialog
+var _backup_file_dialog: FileDialog
+var _export_file_dialog: FileDialog
+var _passphrase_dialog: ConfirmationDialog
+var _passphrase_entry: LineEdit
+var _passphrase_confirm: LineEdit
+var _pending_identity_operation := ""
+var _pending_identity_type := ""
+var _pending_identity_path := ""
+var _pending_import_data: Dictionary = {}
 
 
 func _ready() -> void:
@@ -85,21 +101,31 @@ func _ready() -> void:
 		PAGE_DISPLAY: _display_page,
 		PAGE_CONTROLS: _controls_page,
 		PAGE_ACCESSIBILITY: _accessibility_page,
+		PAGE_DATA: _data_page,
 	}
 	%DisplayCategory.pressed.connect(_push_page.bind(PAGE_DISPLAY))
 	%ControlsCategory.pressed.connect(_push_page.bind(PAGE_CONTROLS))
 	%AccessibilityCategory.pressed.connect(
 		_push_page.bind(PAGE_ACCESSIBILITY)
 	)
+	%DataCategory.pressed.connect(_push_page.bind(PAGE_DATA))
 	%ApplySettingsButton.pressed.connect(_apply_settings)
 	%RootBackButton.pressed.connect(close_panel)
 	%DisplayBackButton.pressed.connect(handle_back)
 	%ControlsBackButton.pressed.connect(handle_back)
 	%AccessibilityBackButton.pressed.connect(handle_back)
+	%DataBackButton.pressed.connect(handle_back)
 	%RootBackButton.gui_input.connect(_on_back_bubble_gui_input)
 	%DisplayBackButton.gui_input.connect(_on_back_bubble_gui_input)
 	%ControlsBackButton.gui_input.connect(_on_back_bubble_gui_input)
 	%AccessibilityBackButton.gui_input.connect(_on_back_bubble_gui_input)
+	%DataBackButton.gui_input.connect(_on_back_bubble_gui_input)
+	%OpenDataFolder.pressed.connect(_open_data_folder)
+	%ChangeDataFolder.pressed.connect(_choose_data_folder)
+	%ExportPlayerIdentity.pressed.connect(_choose_identity_export.bind("player"))
+	%ImportPlayerIdentity.pressed.connect(_choose_identity_import.bind("player"))
+	%ExportHostIdentity.pressed.connect(_choose_identity_export.bind("host"))
+	%ImportHostIdentity.pressed.connect(_choose_identity_import.bind("host"))
 	for index: int in _world_options.size():
 		_world_options[index].pressed.connect(
 			_set_world_pixelation.bind(index + 1)
@@ -153,6 +179,22 @@ func setup_network_profile(
 	_network_session = session
 
 
+func setup_data_and_identity(
+	data_root: PlayerDataRoot,
+	identity_backups: IdentityBackupService,
+	player_identity: PlayerIdentityStore,
+	host_identity: HostIdentityStore,
+	session: NetworkSession,
+) -> void:
+	_data_root = data_root
+	_identity_backups = identity_backups
+	_player_identity = player_identity
+	_host_identity = host_identity
+	_network_session = session
+	_identity_backups.operation_finished.connect(_on_identity_operation_finished)
+	_refresh_data_page()
+
+
 func open_panel(
 	settings_manager: SettingsManagerType,
 	presentation_mode: PresentationMode = PresentationMode.GAMEPLAY_MODAL,
@@ -169,6 +211,7 @@ func open_panel(
 	_settings_manager = settings_manager
 	_load_controls()
 	_feedback.text = ""
+	_refresh_data_page()
 	show()
 	_page_stack.clear()
 	_page_stack.append(PAGE_ROOT)
@@ -334,6 +377,247 @@ func _show_active_page(should_focus: bool) -> void:
 			page.show_page(should_focus)
 		else:
 			page.hide_page()
+	if get_active_page_id() == PAGE_DATA:
+		_refresh_data_page()
+		if should_focus:
+			%OpenDataFolder.call_deferred("grab_focus")
+
+
+func _refresh_data_page() -> void:
+	if not is_node_ready() or _data_root == null:
+		return
+	%DataFolderPath.text = _data_root.root_path
+	%DataStorageMode.text = "storage mode: " + _data_root.storage_mode_text()
+	%ChangeDataFolder.disabled = (
+		_data_root.override_active
+		or (_network_session != null and _network_session.is_session_active())
+	)
+
+
+func _open_data_folder() -> void:
+	if _data_root == null or not _data_root.open_folder():
+		_feedback.text = "Could not open the data folder."
+
+
+func _choose_data_folder() -> void:
+	if _data_root == null or _data_root.override_active:
+		_feedback.text = "The data folder is externally managed."
+		return
+	if _network_session != null and _network_session.is_session_active():
+		_feedback.text = "Return to title to change the data folder."
+		return
+	if _data_folder_dialog == null:
+		_data_folder_dialog = FileDialog.new()
+		_data_folder_dialog.file_mode = FileDialog.FILE_MODE_OPEN_DIR
+		_data_folder_dialog.access = FileDialog.ACCESS_FILESYSTEM
+		_data_folder_dialog.dir_selected.connect(_change_data_folder)
+		add_child(_data_folder_dialog)
+	_data_folder_dialog.current_dir = _data_root.root_path.get_base_dir()
+	_data_folder_dialog.popup_centered_ratio(0.75)
+
+
+func _change_data_folder(path: String) -> void:
+	var result := PortableDataMigration.migrate_active_to(_data_root, path)
+	if bool(result.get("requires_existing_root_decision", false)):
+		_show_existing_data_folder_choice(path)
+		return
+	if bool(result.get("ok", false)):
+		_feedback.text = "Data folder changed. NETFISHING will close safely."
+		_refresh_data_page()
+		get_tree().call_deferred("quit")
+	else:
+		_feedback.text = str(result.get("message", "Could not change the data folder."))
+
+
+func _show_existing_data_folder_choice(path: String) -> void:
+	var dialog := ConfirmationDialog.new()
+	dialog.title = "Existing NETFISHING data"
+	dialog.ok_button_text = "Use Selected Data"
+	dialog.dialog_text = (
+		"The selected folder contains different NETFISHING data.\n\n"
+		+ "Choose one complete data set. Data will not be merged."
+	)
+	dialog.add_button("Replace Selected Data", false, "replace")
+	dialog.confirmed.connect(func() -> void:
+		if _data_root.use_existing_root(path):
+			_feedback.text = "Data folder changed. NETFISHING will close safely."
+			get_tree().call_deferred("quit")
+		else:
+			_feedback.text = _data_root.error_message
+		dialog.queue_free()
+	)
+	dialog.custom_action.connect(func(action: StringName) -> void:
+		if action != &"replace":
+			return
+		var result := PortableDataMigration.replace_existing_with_active(
+			_data_root, path
+		)
+		_feedback.text = str(result.get("message", "Could not replace selected data."))
+		if bool(result.get("ok", false)):
+			get_tree().call_deferred("quit")
+		dialog.queue_free()
+	)
+	add_child(dialog)
+	dialog.popup_centered(Vector2i(620, 340))
+
+
+func _choose_identity_export(identity_type: String) -> void:
+	if not _identity_operation_allowed():
+		return
+	_pending_identity_operation = "export"
+	_pending_identity_type = identity_type
+	var suggested := _identity_backups.default_export_path(identity_type)
+	if _export_file_dialog == null:
+		_export_file_dialog = FileDialog.new()
+		_export_file_dialog.file_mode = FileDialog.FILE_MODE_SAVE_FILE
+		_export_file_dialog.access = FileDialog.ACCESS_FILESYSTEM
+		_export_file_dialog.filters = PackedStringArray(["*.nfidentity ; NETFISHING identity backup"])
+		_export_file_dialog.file_selected.connect(_identity_export_file_selected)
+		add_child(_export_file_dialog)
+	_export_file_dialog.current_dir = suggested.get_base_dir()
+	_export_file_dialog.current_file = suggested.get_file()
+	_export_file_dialog.popup_centered_ratio(0.75)
+
+
+func _identity_export_file_selected(path: String) -> void:
+	_pending_identity_path = (
+		path if path.ends_with(".nfidentity") else path + ".nfidentity"
+	)
+	_show_passphrase_dialog(true)
+
+
+func _choose_identity_import(identity_type: String) -> void:
+	if not _identity_operation_allowed():
+		return
+	_pending_identity_operation = "import"
+	_pending_identity_type = identity_type
+	if _backup_file_dialog == null:
+		_backup_file_dialog = FileDialog.new()
+		_backup_file_dialog.file_mode = FileDialog.FILE_MODE_OPEN_FILE
+		_backup_file_dialog.access = FileDialog.ACCESS_FILESYSTEM
+		_backup_file_dialog.filters = PackedStringArray(["*.nfidentity ; NETFISHING identity backup"])
+		_backup_file_dialog.file_selected.connect(_identity_import_file_selected)
+		add_child(_backup_file_dialog)
+	_backup_file_dialog.current_dir = _data_root.identity_backup_directory()
+	_backup_file_dialog.popup_centered_ratio(0.75)
+
+
+func _identity_import_file_selected(path: String) -> void:
+	_pending_identity_path = path
+	_show_passphrase_dialog(false)
+
+
+func _show_passphrase_dialog(exporting: bool) -> void:
+	if _passphrase_dialog == null:
+		_passphrase_dialog = ConfirmationDialog.new()
+		_passphrase_dialog.title = "Encrypted identity backup"
+		_passphrase_dialog.confirmed.connect(_submit_identity_passphrase)
+		var fields := VBoxContainer.new()
+		var warning := Label.new()
+		warning.text = (
+			"Anyone with this backup and passphrase can use your identity."
+		)
+		warning.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		fields.add_child(warning)
+		_passphrase_entry = LineEdit.new()
+		_passphrase_entry.placeholder_text = "Passphrase (12 characters minimum)"
+		_passphrase_entry.secret = true
+		fields.add_child(_passphrase_entry)
+		_passphrase_confirm = LineEdit.new()
+		_passphrase_confirm.placeholder_text = "Confirm passphrase"
+		_passphrase_confirm.secret = true
+		fields.add_child(_passphrase_confirm)
+		_passphrase_dialog.add_child(fields)
+		add_child(_passphrase_dialog)
+	_passphrase_confirm.visible = exporting
+	_passphrase_entry.clear()
+	_passphrase_confirm.clear()
+	_passphrase_dialog.dialog_text = (
+		"Create a passphrase-encrypted backup."
+		if exporting else "Enter the backup passphrase."
+	)
+	_passphrase_dialog.popup_centered(Vector2i(560, 300))
+	_passphrase_entry.grab_focus()
+
+
+func _submit_identity_passphrase() -> void:
+	var passphrase := _passphrase_entry.text
+	if _pending_identity_operation == "export":
+		_identity_backups.export_backup(
+			_pending_identity_type,
+			_pending_identity_path,
+			passphrase,
+			_passphrase_confirm.text,
+		)
+		return
+	var inspected := _identity_backups.import_backup(
+		_pending_identity_type,
+		_pending_identity_path,
+		passphrase,
+		false,
+	)
+	if bool(inspected.get("requires_confirmation", false)):
+		_pending_import_data = {
+			"passphrase": passphrase,
+			"current": inspected["current_fingerprint"],
+			"incoming": inspected["incoming_fingerprint"],
+		}
+		_show_identity_replacement_confirmation()
+
+
+func _show_identity_replacement_confirmation() -> void:
+	var dialog := ConfirmationDialog.new()
+	dialog.title = "Replace active identity?"
+	dialog.ok_button_text = "Review Replacement"
+	dialog.dialog_text = (
+		"Current:\n%s\n\nIncoming:\n%s\n\n"
+		+ "Other players will recognize this device as the imported identity."
+	) % [
+		NetworkIdentityCrypto.format_fingerprint(_pending_import_data["current"]),
+		NetworkIdentityCrypto.format_fingerprint(_pending_import_data["incoming"]),
+	]
+	dialog.set_meta("confirmation_step", 1)
+	dialog.confirmed.connect(_advance_identity_replacement.bind(dialog))
+	dialog.canceled.connect(dialog.queue_free)
+	add_child(dialog)
+	dialog.popup_centered(Vector2i(620, 360))
+
+
+func _advance_identity_replacement(dialog: ConfirmationDialog) -> void:
+	if int(dialog.get_meta("confirmation_step", 1)) == 1:
+		dialog.set_meta("confirmation_step", 2)
+		dialog.ok_button_text = "Replace Identity"
+		dialog.dialog_text = (
+			"Replace the active identity and archive the current key locally?"
+		)
+		dialog.call_deferred("popup_centered", Vector2i(560, 280))
+		return
+	_confirm_identity_replacement(dialog)
+
+
+func _confirm_identity_replacement(dialog: ConfirmationDialog) -> void:
+	_identity_backups.import_backup(
+		_pending_identity_type,
+		_pending_identity_path,
+		str(_pending_import_data["passphrase"]),
+		true,
+	)
+	_pending_import_data.clear()
+	dialog.queue_free()
+
+
+func _identity_operation_allowed() -> bool:
+	if _identity_backups == null:
+		_feedback.text = "Identity backup is unavailable."
+		return false
+	if _network_session != null and _network_session.is_session_active():
+		_feedback.text = "Return to title to change an identity."
+		return false
+	return true
+
+
+func _on_identity_operation_finished(success: bool, message: String) -> void:
+	_feedback.text = message
 
 
 func _get_active_page() -> SettingsBubblePage:

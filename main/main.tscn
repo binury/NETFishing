@@ -1,4 +1,4 @@
-[gd_scene load_steps=37 format=3]
+[gd_scene load_steps=39 format=3]
 
 [ext_resource type="PackedScene" path="res://world/test_world.tscn" id="1_world"]
 [ext_resource type="PackedScene" path="res://player/player.tscn" id="2_player"]
@@ -36,6 +36,8 @@
 [ext_resource type="Script" path="res://network/player_relationship_store.gd" id="34_relationships"]
 [ext_resource type="Script" path="res://network/host_ban_store.gd" id="35_bans"]
 [ext_resource type="Script" path="res://network/network_player_list_service.gd" id="36_player_list"]
+[ext_resource type="Script" path="res://network/player_data_root.gd" id="37_data_root"]
+[ext_resource type="Script" path="res://network/identity_backup_service.gd" id="38_identity_backup"]
 
 [node name="Main" type="Node3D"]
 script = ExtResource("3_main")
@@ -43,6 +45,14 @@ fish_catalog = ExtResource("6_pool")
 pelican_buyer_profile = ExtResource("7_pelicans")
 main_shop_buyer_profile = ExtResource("12_main_shop")
 item_catalog = ExtResource("11_items")
+
+[node name="PlayerDataRoot" type="Node" parent="."]
+unique_name_in_owner = true
+script = ExtResource("37_data_root")
+
+[node name="IdentityBackupService" type="Node" parent="."]
+unique_name_in_owner = true
+script = ExtResource("38_identity_backup")
 
 [node name="NetworkSession" type="Node" parent="."]
 unique_name_in_owner = true

@@ -178,6 +178,25 @@ func setup(
 	_fishing_shop.menu_visibility_changed.connect(_on_shop_visibility_changed)
 
 
+func setup_data_and_identity(
+	data_root: PlayerDataRoot,
+	identity_backups: IdentityBackupService,
+	player_identity: PlayerIdentityStore,
+	host_identity: HostIdentityStore,
+	network_session: NetworkSession,
+) -> void:
+	for panel: SettingsPanelType in [
+		_title_settings_panel, _pause_settings_panel
+	]:
+		panel.setup_data_and_identity(
+			data_root,
+			identity_backups,
+			player_identity,
+			host_identity,
+			network_session,
+		)
+
+
 func _process(_delta: float) -> void:
 	if _item_effects == null or not _gameplay_ui_enabled:
 		_effect_status.hide()

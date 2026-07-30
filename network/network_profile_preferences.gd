@@ -2,25 +2,43 @@ class_name NetworkProfilePreferences
 extends Node
 
 const FORMAT_VERSION: int = 1
-const PROFILE_PATH: String = "user://network_profile.json"
-const TEMP_PATH: String = "user://network_profile.json.tmp"
-const BACKUP_PATH: String = "user://network_profile.json.backup"
-
 var profile_id: String = ""
 var display_name: String = "Player"
 var created_at_unix: int = 0
+var _profile_path := ""
+var _expected_hash := ""
+var _data_root: PlayerDataRoot
+var _future_version := false
+
+
+func configure_storage(path: String, data_root: PlayerDataRoot) -> void:
+	_profile_path = path
+	_data_root = data_root
+
+
+func _temp_path() -> String:
+	return _profile_path + ".tmp"
+
+
+func _backup_path() -> String:
+	return _profile_path + ".backup"
 
 
 func load_or_create() -> bool:
+	if _profile_path.is_empty():
+		return false
 	_recover_interrupted_write()
-	if FileAccess.file_exists(PROFILE_PATH):
+	if FileAccess.file_exists(_profile_path):
 		if _load_existing():
+			_expected_hash = PortableFileGuard.hash_file(_profile_path)
 			return true
+		if _future_version:
+			return false
 		var corrupt_path: String = (
-			"user://network_profile.corrupt.%d.json"
-			% int(Time.get_unix_time_from_system())
+			"%s.corrupt.%d.json"
+			% [_profile_path.get_basename(), int(Time.get_unix_time_from_system())]
 		)
-		if not _rename(PROFILE_PATH, corrupt_path):
+		if not _rename(_profile_path, corrupt_path):
 			push_warning("Invalid network profile was preserved and not overwritten.")
 			return false
 	profile_id = Crypto.new().generate_random_bytes(16).hex_encode()
@@ -58,7 +76,7 @@ static func is_valid_display_name(value: String) -> bool:
 
 
 func _load_existing() -> bool:
-	var file := FileAccess.open(PROFILE_PATH, FileAccess.READ)
+	var file := FileAccess.open(_profile_path, FileAccess.READ)
 	if file == null:
 		return false
 	var json := JSON.new()
@@ -67,6 +85,12 @@ func _load_existing() -> bool:
 	if error != OK or typeof(json.data) != TYPE_DICTIONARY:
 		return false
 	var data: Dictionary = json.data
+	if (
+		typeof(data.get("format_version")) in [TYPE_INT, TYPE_FLOAT]
+		and int(data.get("format_version")) > FORMAT_VERSION
+	):
+		_future_version = true
+		return false
 	if (
 		data.get("format_version") != FORMAT_VERSION
 		or typeof(data.get("profile_id")) != TYPE_STRING
@@ -96,37 +120,31 @@ func _save_atomic() -> bool:
 		"display_name": display_name,
 		"created_at_unix": created_at_unix,
 	}
-	var file := FileAccess.open(TEMP_PATH, FileAccess.WRITE)
-	if file == null:
-		return false
-	file.store_string(JSON.stringify(data, "\t"))
-	file.flush()
-	var error: Error = file.get_error()
-	file.close()
-	if error != OK:
-		_remove_if_present(TEMP_PATH)
-		return false
-	_remove_if_present(BACKUP_PATH)
-	var had_primary: bool = FileAccess.file_exists(PROFILE_PATH)
-	if had_primary and not _rename(PROFILE_PATH, BACKUP_PATH):
-		_remove_if_present(TEMP_PATH)
-		return false
-	if not _rename(TEMP_PATH, PROFILE_PATH):
-		if had_primary:
-			_rename(BACKUP_PATH, PROFILE_PATH)
-		return false
-	_remove_if_present(BACKUP_PATH)
-	return true
+	var result := PortableFileGuard.write_guarded(
+		_profile_path,
+		JSON.stringify(data, "\t").to_utf8_buffer(),
+		_expected_hash,
+		_data_root.conflict_directory(),
+		_data_root.device_id,
+	)
+	if bool(result.get("conflict", false)):
+		_data_root.report_conflict(
+			str(result.get("message", "")),
+			str(result.get("conflict_path", "")),
+		)
+	if bool(result.get("ok", false)):
+		_expected_hash = str(result["hash"])
+	return bool(result.get("ok", false))
 
 
 func _recover_interrupted_write() -> void:
-	if FileAccess.file_exists(PROFILE_PATH):
-		_remove_if_present(TEMP_PATH)
-		_remove_if_present(BACKUP_PATH)
+	if FileAccess.file_exists(_profile_path):
+		_remove_if_present(_temp_path())
+		_remove_if_present(_backup_path())
 		return
-	if FileAccess.file_exists(BACKUP_PATH):
-		_rename(BACKUP_PATH, PROFILE_PATH)
-	_remove_if_present(TEMP_PATH)
+	if FileAccess.file_exists(_backup_path()):
+		_rename(_backup_path(), _profile_path)
+	_remove_if_present(_temp_path())
 
 
 func _rename(from_path: String, to_path: String) -> bool:
