@@ -58,6 +58,12 @@ const NetworkItemUseServiceType = preload(
 const NetworkChatServiceType = preload(
 	"res://network/network_chat_service.gd"
 )
+const NetworkMailServiceType = preload(
+	"res://network/network_mail_service.gd"
+)
+const PlayerAssetReservationServiceType = preload(
+	"res://progression/player_asset_reservation_service.gd"
+)
 
 const TITLE_MUSIC_SILENCE_DB: float = -80.0
 
@@ -101,6 +107,10 @@ const TITLE_MUSIC_SILENCE_DB: float = -80.0
 	%NetworkItemUseService
 )
 @onready var _network_chat: NetworkChatServiceType = %NetworkChatService
+@onready var _network_mail: NetworkMailServiceType = %NetworkMailService
+@onready var _asset_reservations: PlayerAssetReservationServiceType = (
+	%PlayerAssetReservationService
+)
 @onready var _players_root: Node3D = $Players
 
 var _gameplay_started: bool = false
@@ -160,13 +170,29 @@ func _ready() -> void:
 		_player.cooler_capacity
 	)
 	_save_manager.set_autosave_enabled(false)
+	_asset_reservations.setup(
+		_player.wallet, _player.inventory, _player.bag, item_catalog
+	)
+	_network_mail.setup(
+		_network_session,
+		_asset_reservations,
+		_player.wallet,
+		_player.inventory,
+		_player.bag,
+		_player.collection_log,
+		_player.cooler_capacity,
+		item_catalog,
+		fish_catalog,
+		_save_manager
+	)
 	_network_item_use.setup(
 		_network_session,
 		_player_spawn_service,
 		item_catalog,
 		_player.bag,
 		_player.item_effects,
-		_save_manager
+		_save_manager,
+		_asset_reservations
 	)
 	_network_chat.setup(_network_session)
 	_network_fishing.setup(
@@ -191,7 +217,8 @@ func _ready() -> void:
 		_save_manager,
 		fish_catalog,
 		pelican_buyer_profile,
-		_test_world.get_pelican_convenience_landmark()
+		_test_world.get_pelican_convenience_landmark(),
+		_asset_reservations
 	)
 	_network_shop.setup(
 		_network_session,
@@ -203,7 +230,8 @@ func _ready() -> void:
 		item_catalog,
 		_player.fishing_upgrades,
 		_player.cooler_capacity,
-		_save_manager
+		_save_manager,
+		_asset_reservations
 	)
 	_fishing_spot.setup(
 		_player,
@@ -241,7 +269,9 @@ func _ready() -> void:
 		_network_shop,
 		_network_chat,
 		_network_profile,
-		_player_spawn_service
+		_player_spawn_service,
+		_network_mail,
+		_asset_reservations
 	)
 	_water_recovery.setup(
 		_player,

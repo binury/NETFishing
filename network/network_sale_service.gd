@@ -38,6 +38,7 @@ var _applied_results: Dictionary[String, bool] = {}
 var _received_results: Dictionary[String, bool] = {}
 var _pending_local_request_id: String = ""
 var _pending_local_catch_ids: Array[StringName] = []
+var _reservations: PlayerAssetReservationService
 
 
 func setup(
@@ -51,6 +52,7 @@ func setup(
 	fish_catalog: FishPoolType,
 	buyer: FishBuyerProfileType,
 	pelican_landmark: Node3D,
+	reservations: PlayerAssetReservationService,
 ) -> void:
 	_session = session
 	_spawn_service = spawn_service
@@ -62,6 +64,7 @@ func setup(
 	_fish_catalog = fish_catalog
 	_buyer = buyer
 	_pelican_landmark = pelican_landmark
+	_reservations = reservations
 	if not _session.peer_removed.is_connected(_on_peer_removed):
 		_session.peer_removed.connect(_on_peer_removed)
 	if not _session.state_changed.is_connected(_on_session_state_changed):
@@ -86,6 +89,12 @@ func is_local_sale_pending() -> bool:
 
 
 func request_local_sale(catch_ids: Array[StringName]) -> String:
+	for catch_id: StringName in catch_ids:
+		if _reservations != null and _reservations.is_fish_reserved(catch_id):
+			local_sale_finished.emit(
+				"", false, "Reserved in a letter.", [], 0
+			)
+			return ""
 	if is_local_sale_pending():
 		local_sale_finished.emit(
 			"", false, "Selling…", [], 0
@@ -346,6 +355,10 @@ func _apply_sale_result(data: Dictionary) -> void:
 	if catch_ids != _pending_local_catch_ids:
 		_fail_local_apply(data, "Sale could not be completed.")
 		return
+	for catch_id: StringName in catch_ids:
+		if _reservations != null and _reservations.is_fish_reserved(catch_id):
+			_fail_local_apply(data, "Reserved in a letter.")
+			return
 	var preview: FishSaleResultType = _sale_service.preview_batch(
 		catch_ids, _buyer
 	)

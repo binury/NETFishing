@@ -41,6 +41,7 @@ var _acknowledged_results: Dictionary[String, bool] = {}
 var _received_results: Dictionary[String, bool] = {}
 var _applied_results: Dictionary[String, bool] = {}
 var _pending_local_request: Dictionary = {}
+var _reservations: PlayerAssetReservationService
 
 
 func setup(
@@ -54,6 +55,7 @@ func setup(
 	upgrades: PlayerFishingUpgrades,
 	cooler_capacity: PlayerCoolerCapacity,
 	save_manager: PlayerSaveManager,
+	reservations: PlayerAssetReservationService,
 ) -> void:
 	_session = session
 	_spawn_service = spawn_service
@@ -65,6 +67,7 @@ func setup(
 	_upgrades = upgrades
 	_cooler_capacity = cooler_capacity
 	_save_manager = save_manager
+	_reservations = reservations
 	if not _session.peer_removed.is_connected(_on_peer_removed):
 		_session.peer_removed.connect(_on_peer_removed)
 	if not _session.state_changed.is_connected(_on_session_state_changed):
@@ -464,6 +467,11 @@ func _validate_local_result(data: Dictionary) -> String:
 	var product_id := StringName(str(data["product_id"]))
 	var expected_state: int = data["expected_state"]
 	var cost: int = data["total_cost"]
+	if (
+		_reservations != null
+		and _reservations.get_available_fish_coin() < cost
+	):
+		return "Reserved in a letter."
 	if int(data["resulting_state"]) != expected_state + 1:
 		return "Purchase could not be completed."
 	if not _wallet.can_afford(cost):

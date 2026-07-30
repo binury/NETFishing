@@ -277,12 +277,17 @@ func supports_server_capability(capability: StringName) -> bool:
 		return str(capability) in PackedStringArray([
 			"movement_v1", "fishing_v1", "sale_v1", "shop_v1",
 			"item_use_v1", "equipment_v1", "chat_v1",
+			"mail_v1",
 		])
 	return str(capability) in _server_capabilities
 
 
 func get_peer_record(peer_id: int) -> PeerRegistry.PeerRecord:
 	return _registry.get_peer(peer_id)
+
+
+func get_authenticated_peer_ids() -> Array[int]:
+	return _registry.get_peer_ids()
 
 
 func update_local_display_name(value: String) -> bool:

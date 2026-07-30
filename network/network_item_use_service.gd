@@ -20,6 +20,7 @@ var _received_results: Dictionary[String, bool] = {}
 var _pending_local: Dictionary = {}
 var _equipped_states: Dictionary[int, Dictionary] = {}
 var _local_equipped_revision: int = 0
+var _reservations: PlayerAssetReservationService
 
 
 func setup(
@@ -29,6 +30,7 @@ func setup(
 	local_bag: PlayerBag,
 	local_effects: PlayerItemEffects,
 	save_manager: PlayerSaveManager,
+	reservations: PlayerAssetReservationService,
 ) -> void:
 	_session = session
 	_spawn_service = spawn_service
@@ -36,6 +38,7 @@ func setup(
 	_local_bag = local_bag
 	_local_effects = local_effects
 	_save_manager = save_manager
+	_reservations = reservations
 	_session.peer_removed.connect(_on_peer_removed)
 	_session.state_changed.connect(_on_session_state_changed)
 	_session.peer_authenticated.connect(_on_peer_authenticated)
@@ -44,6 +47,12 @@ func setup(
 func request_use(item_id: StringName) -> String:
 	if not _pending_local.is_empty():
 		local_item_use_finished.emit(false, "An item use is already pending.")
+		return ""
+	if (
+		_reservations != null
+		and _reservations.get_available_item_quantity(item_id) < 1
+	):
+		local_item_use_finished.emit(false, "Reserved in a letter.")
 		return ""
 	if (
 		_session == null
@@ -169,6 +178,14 @@ func _apply_result(data: Dictionary) -> void:
 		_acknowledge(data, false, str(data["message"]))
 		return
 	var item_id := StringName(str(data["item_id"]))
+	if (
+		_reservations != null
+		and _reservations.get_available_item_quantity(item_id) < 1
+	):
+		_pending_local.clear()
+		local_item_use_finished.emit(false, "Reserved in a letter.")
+		_acknowledge(data, false, "Reserved in a letter.")
+		return
 	var bag_snapshot := _local_bag.get_all_items()
 	if (
 		_local_bag.get_quantity(item_id) < 1

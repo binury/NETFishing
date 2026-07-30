@@ -1,4 +1,4 @@
-[gd_scene load_steps=26 format=3]
+[gd_scene load_steps=28 format=3]
 
 [ext_resource type="PackedScene" path="res://world/test_world.tscn" id="1_world"]
 [ext_resource type="PackedScene" path="res://player/player.tscn" id="2_player"]
@@ -25,6 +25,8 @@
 [ext_resource type="Script" path="res://network/network_shop_service.gd" id="23_network_shop"]
 [ext_resource type="Script" path="res://network/network_item_use_service.gd" id="24_network_item"]
 [ext_resource type="Script" path="res://network/network_chat_service.gd" id="25_network_chat"]
+[ext_resource type="Script" path="res://network/network_mail_service.gd" id="26_network_mail"]
+[ext_resource type="Script" path="res://progression/player_asset_reservation_service.gd" id="27_reservations"]
 
 [node name="Main" type="Node3D"]
 script = ExtResource("3_main")
@@ -68,6 +70,14 @@ script = ExtResource("24_network_item")
 [node name="NetworkChatService" type="Node" parent="."]
 unique_name_in_owner = true
 script = ExtResource("25_network_chat")
+
+[node name="PlayerAssetReservationService" type="Node" parent="."]
+unique_name_in_owner = true
+script = ExtResource("27_reservations")
+
+[node name="NetworkMailService" type="Node" parent="."]
+unique_name_in_owner = true
+script = ExtResource("26_network_mail")
 
 [node name="TestWorld" parent="." instance=ExtResource("1_world")]
 

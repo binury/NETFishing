@@ -190,7 +190,7 @@ func _on_message(message: Dictionary) -> void:
 	}
 
 
-func _on_history(_messages: Array[Dictionary]) -> void:
+func _on_history(_messages: Array) -> void:
 	if _messages.is_empty():
 		for peer_id: int in _speech.keys():
 			_on_peer_removed(peer_id)

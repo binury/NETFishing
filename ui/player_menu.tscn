@@ -1,4 +1,4 @@
-[gd_scene load_steps=19 format=3]
+[gd_scene load_steps=20 format=3]
 
 [ext_resource type="Script" path="res://ui/player_menu.gd" id="1_menu"]
 [ext_resource type="Theme" path="res://ui/game_theme.tres" id="2_theme"]
@@ -17,6 +17,7 @@
 [ext_resource type="Texture2D" path="res://ui/assets/title/bubbles/bubble1.png" id="15_bubble1"]
 [ext_resource type="Texture2D" path="res://ui/assets/title/bubbles/bubble2.png" id="16_bubble2"]
 [ext_resource type="Texture2D" path="res://ui/assets/title/bubbles/bubble3.png" id="17_bubble3"]
+[ext_resource type="Script" path="res://ui/mail_page.gd" id="18_mail_page"]
 
 [sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_collection"]
 
@@ -573,6 +574,14 @@ layout_mode = 0
 offset_right = 1280.0
 offset_bottom = 720.0
 mouse_filter = 1
+
+[node name="MailPage" type="Control" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_right = 1280.0
+offset_bottom = 720.0
+mouse_filter = 1
+script = ExtResource("18_mail_page")
 
 [node name="BookBacking" type="PanelContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/LogbookPage"]
 unique_name_in_owner = true
@@ -1197,15 +1206,15 @@ custom_minimum_size = Vector2(170, 64)
 [node name="NavigationCluster" type="Control" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot"]
 unique_name_in_owner = true
 layout_mode = 0
-offset_left = 463.0
+offset_left = 390.0
 offset_top = 44.0
-offset_right = 1083.0
+offset_right = 1110.0
 offset_bottom = 144.0
 mouse_filter = 1
 script = ExtResource("5_cluster")
 profile = ExtResource("4_profile")
-desktop_reference_size = Vector2(620, 100)
-compact_reference_size = Vector2(620, 100)
+desktop_reference_size = Vector2(720, 100)
+compact_reference_size = Vector2(720, 100)
 
 [node name="InventoryTab" type="Button" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/NavigationCluster"]
 unique_name_in_owner = true
@@ -1267,6 +1276,42 @@ motion_phase = 2.85
 deformation_amplitude = 0.012
 deformation_period = 6.7
 
+[node name="MailTab" type="Button" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/NavigationCluster"]
+unique_name_in_owner = true
+layout_mode = 0
+toggle_mode = true
+text = "mail"
+script = ExtResource("6_bubble")
+profile = ExtResource("4_profile")
+neutral_size = Vector2(124, 120)
+desktop_anchor = Vector2(500, 60)
+compact_anchor = Vector2(501, 73.3333)
+compact_minimum_size = Vector2(84, 82)
+minimum_font_size = 25
+maximum_font_size = 25
+horizontal_amplitude = 1.1
+vertical_amplitude = 2.2
+motion_period = 5.5
+motion_phase = 3.55
+deformation_amplitude = 0.011
+deformation_period = 6.3
+
+[node name="MailUnreadBadge" type="Label" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/NavigationCluster/MailTab"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 86.0
+offset_top = 2.0
+offset_right = 120.0
+offset_bottom = 34.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.12, 0.08, 0.04, 1)
+theme_override_colors/font_outline_color = Color(1, 0.88, 0.34, 1)
+theme_override_constants/outline_size = 7
+theme_override_font_sizes/font_size = 18
+text = "1"
+horizontal_alignment = 1
+vertical_alignment = 1
+
 [node name="CloseButton" type="Button" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/NavigationCluster"]
 unique_name_in_owner = true
 layout_mode = 0
@@ -1274,8 +1319,8 @@ text = "close"
 script = ExtResource("6_bubble")
 profile = ExtResource("4_profile")
 neutral_size = Vector2(96, 94)
-desktop_anchor = Vector2(489, 57)
-compact_anchor = Vector2(512.667, 73.3333)
+desktop_anchor = Vector2(626, 57)
+compact_anchor = Vector2(616, 73.3333)
 compact_minimum_size = Vector2(76, 74)
 minimum_font_size = 23
 maximum_font_size = 23

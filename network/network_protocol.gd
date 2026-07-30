@@ -9,12 +9,13 @@ const MAX_NONCE_LENGTH: int = 96
 # ENet channels: 0 reliable lifecycle, 1 movement input, 2 movement
 # snapshots, 3 fishing input, 4 fishing snapshots, 5 reliable sales,
 # 6 reliable shop transactions, 7 reliable item/equipment lifecycle,
-# 8 reliable ordered session chat.
+# 8 reliable ordered session chat, 9 reliable private session mail.
 const SALE_RELIABLE_CHANNEL: int = 5
 const SHOP_RELIABLE_CHANNEL: int = 6
 const ITEM_RELIABLE_CHANNEL: int = 7
 const CHAT_RELIABLE_CHANNEL: int = 8
-const ENET_CHANNEL_COUNT: int = 9
+const MAIL_RELIABLE_CHANNEL: int = 9
+const ENET_CHANNEL_COUNT: int = 10
 
 enum RejectionCode {
 	NONE,
@@ -116,6 +117,7 @@ static func make_server_hello(
 			"item_use_v1",
 			"equipment_v1",
 			"chat_v1",
+			"mail_v1",
 		]),
 	}
 
