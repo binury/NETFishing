@@ -48,6 +48,7 @@ enum PresentationMode {
 @onready var _invert_y_toggle: BubbleButton = %InvertYToggle
 @onready var _auto_click_toggle: BubbleButton = %AutoClickToggle
 @onready var _auto_click_interval: BubbleButton = %AutoClickIntervalValue
+@onready var _readable_font_toggle: BubbleButton = %ReadableFontToggle
 
 @onready var _world_options: Array[BubbleButton] = [
 	%WorldLegible,
@@ -83,6 +84,7 @@ var _data_root: PlayerDataRoot
 var _identity_backups: IdentityBackupService
 var _player_identity: PlayerIdentityStore
 var _host_identity: HostIdentityStore
+var _interface_fonts: InterfaceFontController
 var _data_folder_dialog: FileDialog
 var _backup_file_dialog: FileDialog
 var _export_file_dialog: FileDialog
@@ -148,6 +150,7 @@ func _ready() -> void:
 	)
 	_invert_y_toggle.pressed.connect(_toggle_invert_y)
 	_auto_click_toggle.pressed.connect(_toggle_auto_click)
+	_readable_font_toggle.pressed.connect(_toggle_readable_font)
 	%IntervalDecrease.pressed.connect(_adjust_auto_click_interval.bind(-1))
 	%IntervalIncrease.pressed.connect(_adjust_auto_click_interval.bind(1))
 	_auto_click_interval.pressed.connect(
@@ -185,13 +188,16 @@ func setup_data_and_identity(
 	player_identity: PlayerIdentityStore,
 	host_identity: HostIdentityStore,
 	session: NetworkSession,
+	interface_fonts: InterfaceFontController,
 ) -> void:
 	_data_root = data_root
 	_identity_backups = identity_backups
 	_player_identity = player_identity
 	_host_identity = host_identity
 	_network_session = session
+	_interface_fonts = interface_fonts
 	_identity_backups.operation_finished.connect(_on_identity_operation_finished)
+	_interface_fonts.apply_utility_theme(_data_page)
 	_refresh_data_page()
 
 
@@ -410,14 +416,18 @@ func _choose_data_folder() -> void:
 		_data_folder_dialog = FileDialog.new()
 		_data_folder_dialog.file_mode = FileDialog.FILE_MODE_OPEN_DIR
 		_data_folder_dialog.access = FileDialog.ACCESS_FILESYSTEM
+		_data_folder_dialog.use_native_dialog = false
 		_data_folder_dialog.dir_selected.connect(_change_data_folder)
+		_interface_fonts.apply_utility_theme(_data_folder_dialog)
 		add_child(_data_folder_dialog)
 	_data_folder_dialog.current_dir = _data_root.root_path.get_base_dir()
 	_data_folder_dialog.popup_centered_ratio(0.75)
 
 
 func _change_data_folder(path: String) -> void:
-	var result := PortableDataMigration.migrate_active_to(_data_root, path)
+	var result: Dictionary = PortableDataMigration.migrate_active_to(
+		_data_root, path
+	)
 	if bool(result.get("requires_existing_root_decision", false)):
 		_show_existing_data_folder_choice(path)
 		return
@@ -430,7 +440,7 @@ func _change_data_folder(path: String) -> void:
 
 
 func _show_existing_data_folder_choice(path: String) -> void:
-	var dialog := ConfirmationDialog.new()
+	var dialog: ConfirmationDialog = ConfirmationDialog.new()
 	dialog.title = "Existing NETFISHING data"
 	dialog.ok_button_text = "Use Selected Data"
 	dialog.dialog_text = (
@@ -449,7 +459,7 @@ func _show_existing_data_folder_choice(path: String) -> void:
 	dialog.custom_action.connect(func(action: StringName) -> void:
 		if action != &"replace":
 			return
-		var result := PortableDataMigration.replace_existing_with_active(
+		var result: Dictionary = PortableDataMigration.replace_existing_with_active(
 			_data_root, path
 		)
 		_feedback.text = str(result.get("message", "Could not replace selected data."))
@@ -457,6 +467,7 @@ func _show_existing_data_folder_choice(path: String) -> void:
 			get_tree().call_deferred("quit")
 		dialog.queue_free()
 	)
+	_interface_fonts.apply_utility_theme(dialog)
 	add_child(dialog)
 	dialog.popup_centered(Vector2i(620, 340))
 
@@ -466,13 +477,15 @@ func _choose_identity_export(identity_type: String) -> void:
 		return
 	_pending_identity_operation = "export"
 	_pending_identity_type = identity_type
-	var suggested := _identity_backups.default_export_path(identity_type)
+	var suggested: String = _identity_backups.default_export_path(identity_type)
 	if _export_file_dialog == null:
 		_export_file_dialog = FileDialog.new()
 		_export_file_dialog.file_mode = FileDialog.FILE_MODE_SAVE_FILE
 		_export_file_dialog.access = FileDialog.ACCESS_FILESYSTEM
+		_export_file_dialog.use_native_dialog = false
 		_export_file_dialog.filters = PackedStringArray(["*.nfidentity ; NETFISHING identity backup"])
 		_export_file_dialog.file_selected.connect(_identity_export_file_selected)
+		_interface_fonts.apply_utility_theme(_export_file_dialog)
 		add_child(_export_file_dialog)
 	_export_file_dialog.current_dir = suggested.get_base_dir()
 	_export_file_dialog.current_file = suggested.get_file()
@@ -495,8 +508,10 @@ func _choose_identity_import(identity_type: String) -> void:
 		_backup_file_dialog = FileDialog.new()
 		_backup_file_dialog.file_mode = FileDialog.FILE_MODE_OPEN_FILE
 		_backup_file_dialog.access = FileDialog.ACCESS_FILESYSTEM
+		_backup_file_dialog.use_native_dialog = false
 		_backup_file_dialog.filters = PackedStringArray(["*.nfidentity ; NETFISHING identity backup"])
 		_backup_file_dialog.file_selected.connect(_identity_import_file_selected)
+		_interface_fonts.apply_utility_theme(_backup_file_dialog)
 		add_child(_backup_file_dialog)
 	_backup_file_dialog.current_dir = _data_root.identity_backup_directory()
 	_backup_file_dialog.popup_centered_ratio(0.75)
@@ -512,8 +527,8 @@ func _show_passphrase_dialog(exporting: bool) -> void:
 		_passphrase_dialog = ConfirmationDialog.new()
 		_passphrase_dialog.title = "Encrypted identity backup"
 		_passphrase_dialog.confirmed.connect(_submit_identity_passphrase)
-		var fields := VBoxContainer.new()
-		var warning := Label.new()
+		var fields: VBoxContainer = VBoxContainer.new()
+		var warning: Label = Label.new()
 		warning.text = (
 			"Anyone with this backup and passphrase can use your identity."
 		)
@@ -528,6 +543,7 @@ func _show_passphrase_dialog(exporting: bool) -> void:
 		_passphrase_confirm.secret = true
 		fields.add_child(_passphrase_confirm)
 		_passphrase_dialog.add_child(fields)
+		_interface_fonts.apply_utility_theme(_passphrase_dialog)
 		add_child(_passphrase_dialog)
 	_passphrase_confirm.visible = exporting
 	_passphrase_entry.clear()
@@ -541,7 +557,7 @@ func _show_passphrase_dialog(exporting: bool) -> void:
 
 
 func _submit_identity_passphrase() -> void:
-	var passphrase := _passphrase_entry.text
+	var passphrase: String = _passphrase_entry.text
 	if _pending_identity_operation == "export":
 		_identity_backups.export_backup(
 			_pending_identity_type,
@@ -550,7 +566,7 @@ func _submit_identity_passphrase() -> void:
 			_passphrase_confirm.text,
 		)
 		return
-	var inspected := _identity_backups.import_backup(
+	var inspected: Dictionary = _identity_backups.import_backup(
 		_pending_identity_type,
 		_pending_identity_path,
 		passphrase,
@@ -566,7 +582,7 @@ func _submit_identity_passphrase() -> void:
 
 
 func _show_identity_replacement_confirmation() -> void:
-	var dialog := ConfirmationDialog.new()
+	var dialog: ConfirmationDialog = ConfirmationDialog.new()
 	dialog.title = "Replace active identity?"
 	dialog.ok_button_text = "Review Replacement"
 	dialog.dialog_text = (
@@ -579,6 +595,7 @@ func _show_identity_replacement_confirmation() -> void:
 	dialog.set_meta("confirmation_step", 1)
 	dialog.confirmed.connect(_advance_identity_replacement.bind(dialog))
 	dialog.canceled.connect(dialog.queue_free)
+	_interface_fonts.apply_utility_theme(dialog)
 	add_child(dialog)
 	dialog.popup_centered(Vector2i(620, 360))
 
@@ -659,6 +676,9 @@ func _load_controls() -> void:
 	_mouse_sensitivity = settings.mouse_camera_sensitivity
 	_controller_sensitivity = settings.controller_camera_sensitivity
 	_invert_camera_y = settings.invert_camera_y
+	_readable_font_toggle.button_pressed = (
+		settings.use_readable_interface_font
+	)
 	_refresh_value_labels()
 
 
@@ -686,6 +706,14 @@ func _refresh_value_labels() -> void:
 		"accessibility\nauto-click\n"
 		+ ("on" if _auto_click_enabled else "off")
 	)
+	_readable_font_toggle.text = (
+		"readable\ninterface font\n"
+		+ (
+			"on"
+			if settings.use_readable_interface_font
+			else "off"
+		)
+	)
 	_auto_click_interval.text = (
 		"auto-click\ninterval\n%.2f s" % _auto_click_interval_value
 	)
@@ -707,6 +735,19 @@ func _set_world_pixelation(pixel_size: int) -> void:
 		_feedback.text = "failed to save pixelation settings."
 		return
 	_refresh_value_labels()
+
+
+func _toggle_readable_font() -> void:
+	if _settings_manager == null:
+		return
+	var edited: PlayerSettings = _settings_manager.current_settings.copy()
+	edited.use_readable_interface_font = (
+		not edited.use_readable_interface_font
+	)
+	if not _settings_manager.apply_settings(edited):
+		_feedback.text = "failed to save accessibility settings."
+		return
+	_load_controls()
 
 
 func _set_ui_pixelation(pixel_size: int) -> void:

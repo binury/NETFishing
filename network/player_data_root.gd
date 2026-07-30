@@ -34,7 +34,7 @@ var override_active := false
 
 func resolve() -> bool:
 	_load_bootstrap_identity()
-	var command_line := _command_line_override()
+	var command_line: String = _command_line_override()
 	if not command_line.is_empty():
 		override_active = true
 		mode = Mode.COMMAND_LINE_OVERRIDE
@@ -42,18 +42,18 @@ func resolve() -> bool:
 	if OS.has_environment(ENVIRONMENT_VARIABLE):
 		override_active = true
 		mode = Mode.ENVIRONMENT_OVERRIDE
-		var environment_path := OS.get_environment(ENVIRONMENT_VARIABLE)
+		var environment_path: String = OS.get_environment(ENVIRONMENT_VARIABLE)
 		if not environment_path.is_absolute_path():
 			return _fail("NETFISHING_DATA_DIR must be an absolute path.")
 		return _activate_existing(environment_path, "", false)
-	var bootstrap := _read_json(BOOTSTRAP_PATH, 64 * 1024)
+	var bootstrap: Dictionary = _read_json(BOOTSTRAP_PATH, 64 * 1024)
 	if bootstrap.is_empty() and FileAccess.file_exists(BOOTSTRAP_PATH + ".backup"):
 		bootstrap = _read_json(BOOTSTRAP_PATH + ".backup", 64 * 1024)
 	if not bootstrap.is_empty():
 		if bootstrap.get("format_version") != BOOTSTRAP_VERSION:
 			return _fail("The data-folder pointer uses an unsupported version.")
-		var selected := str(bootstrap.get("selected_absolute_path", ""))
-		var expected := str(bootstrap.get("expected_root_id", ""))
+		var selected: String = str(bootstrap.get("selected_absolute_path", ""))
+		var expected: String = str(bootstrap.get("expected_root_id", ""))
 		if selected.is_empty():
 			return _fail("The data-folder pointer is incomplete.")
 		mode = (
@@ -68,7 +68,7 @@ func resolve() -> bool:
 
 
 func default_visible_path() -> String:
-	var documents := OS.get_system_dir(OS.SYSTEM_DIR_DOCUMENTS)
+	var documents: String = OS.get_system_dir(OS.SYSTEM_DIR_DOCUMENTS)
 	return documents.path_join("NETFISHING") if not documents.is_empty() else ""
 
 
@@ -77,14 +77,14 @@ func select_new_root(path: String, app_data: bool = false) -> bool:
 		return _fail("The data folder is controlled by a process override.")
 	if device_id.length() != 32:
 		device_id = Crypto.new().generate_random_bytes(16).hex_encode()
-	var normalized := _normalize(path)
+	var normalized: String = _normalize(path)
 	if app_data:
 		normalized = ProjectSettings.globalize_path(APP_DATA_PORTABLE_PATH)
 	if not _validate_candidate(normalized, true):
 		return false
-	var manifest_path := normalized.path_join(MANIFEST_FILENAME)
+	var manifest_path: String = normalized.path_join(MANIFEST_FILENAME)
 	if FileAccess.file_exists(manifest_path):
-		var manifest := _read_json(manifest_path)
+		var manifest: Dictionary = _read_json(manifest_path)
 		if not _valid_manifest(manifest):
 			return _fail("The selected folder has a malformed NETFISHING manifest.")
 		root_id = str(manifest["root_id"])
@@ -107,30 +107,30 @@ func select_new_root(path: String, app_data: bool = false) -> bool:
 
 
 func create_unbound_root(path: String) -> Dictionary:
-	var normalized := _normalize(path)
+	var normalized: String = _normalize(path)
 	if not _validate_candidate(normalized, true):
 		return {"ok": false, "message": error_message}
 	if not _directory_is_empty(normalized):
 		return {"ok": false, "message": "The destination staging folder is not empty."}
-	var id := Crypto.new().generate_random_bytes(16).hex_encode()
+	var id: String = Crypto.new().generate_random_bytes(16).hex_encode()
 	if not _create_layout(normalized, id):
 		return {"ok": false, "message": "The portable layout could not be created."}
 	return {"ok": true, "root_id": id}
 
 
 func create_app_data_layout_for_migration(path: String) -> Dictionary:
-	var normalized := _normalize(path)
+	var normalized: String = _normalize(path)
 	if not _validate_candidate(normalized, false):
 		return {"ok": false, "message": error_message}
-	var manifest_path := normalized.path_join(MANIFEST_FILENAME)
+	var manifest_path: String = normalized.path_join(MANIFEST_FILENAME)
 	if FileAccess.file_exists(manifest_path):
-		var manifest := _read_json(manifest_path)
+		var manifest: Dictionary = _read_json(manifest_path)
 		return (
 			{"ok": true, "root_id": str(manifest.get("root_id", ""))}
 			if _valid_manifest(manifest)
 			else {"ok": false, "message": "The app-data manifest is malformed."}
 		)
-	var id := Crypto.new().generate_random_bytes(16).hex_encode()
+	var id: String = Crypto.new().generate_random_bytes(16).hex_encode()
 	if not _create_layout(normalized, id):
 		return {"ok": false, "message": "The app-data layout could not be created."}
 	return {"ok": true, "root_id": id}
@@ -141,7 +141,7 @@ func use_existing_root(path: String) -> bool:
 		return _fail("The data folder is controlled by a process override.")
 	if device_id.length() != 32:
 		device_id = Crypto.new().generate_random_bytes(16).hex_encode()
-	var normalized := _normalize(path)
+	var normalized: String = _normalize(path)
 	if not _activate_existing(normalized, "", true):
 		return false
 	if not _write_bootstrap(root_path, root_id):
@@ -156,7 +156,7 @@ func use_existing_root(path: String) -> bool:
 	return true
 
 
-func path_for(owner: StringName) -> String:
+func path_for(store_owner: StringName) -> String:
 	var relative: String = {
 		&"player_save": "player/player_save.json",
 		&"network_profile": "player/network_profile.json",
@@ -166,7 +166,7 @@ func path_for(owner: StringName) -> String:
 		&"player_relationships": "social/player_relationships.json",
 		&"server_trust": "social/server_trust.json",
 		&"host_bans": "social/host_bans.json",
-	}.get(owner, "")
+	}.get(store_owner, "")
 	return root_path.path_join(relative) if not relative.is_empty() else ""
 
 
@@ -202,16 +202,16 @@ func report_conflict(message: String, conflict_path: String) -> void:
 
 
 func _activate_existing(path: String, expected_id: String, permit_creation: bool) -> bool:
-	var normalized := _normalize(path)
+	var normalized: String = _normalize(path)
 	if not _validate_candidate(normalized, permit_creation):
 		return false
-	var manifest_path := normalized.path_join(MANIFEST_FILENAME)
+	var manifest_path: String = normalized.path_join(MANIFEST_FILENAME)
 	if not FileAccess.file_exists(manifest_path):
 		return _fail("The selected folder is not a NETFISHING data folder.")
-	var manifest := _read_json(manifest_path)
+	var manifest: Dictionary = _read_json(manifest_path)
 	if not _valid_manifest(manifest):
 		return _fail("The NETFISHING data-folder manifest is malformed.")
-	var found_id := str(manifest["root_id"])
+	var found_id: String = str(manifest["root_id"])
 	if not expected_id.is_empty() and expected_id != found_id:
 		return _fail("The selected data folder does not match this device pointer.")
 	if not _test_writable(normalized):
@@ -228,7 +228,7 @@ func _activate_existing(path: String, expected_id: String, permit_creation: bool
 func _validate_candidate(path: String, create: bool) -> bool:
 	if path.is_empty() or not path.is_absolute_path():
 		return _fail("Choose an absolute filesystem folder.")
-	var project := ProjectSettings.globalize_path("res://").trim_suffix("/")
+	var project: String = ProjectSettings.globalize_path("res://").trim_suffix("/")
 	if path == project or path.begins_with(project + "/"):
 		return _fail("The project folder cannot be used as the player data folder.")
 	if not DirAccess.dir_exists_absolute(path):
@@ -238,8 +238,10 @@ func _validate_candidate(path: String, create: bool) -> bool:
 
 
 func _test_writable(path: String) -> bool:
-	var probe := path.path_join(".netfishing-write-%s.tmp" % device_id.left(12))
-	var file := FileAccess.open(probe, FileAccess.WRITE)
+	var probe: String = path.path_join(
+		".netfishing-write-%s.tmp" % device_id.left(12)
+	)
+	var file: FileAccess = FileAccess.open(probe, FileAccess.WRITE)
 	if file == null:
 		return false
 	file.store_string("probe")
@@ -254,8 +256,8 @@ func _create_layout(path: String, id: String) -> bool:
 	]:
 		if DirAccess.make_dir_recursive_absolute(path.path_join(relative)) != OK:
 			return false
-	var now := int(Time.get_unix_time_from_system())
-	var manifest := {
+	var now: int = int(Time.get_unix_time_from_system())
+	var manifest: Dictionary = {
 		"format_version": MANIFEST_VERSION,
 		"layout_version": LAYOUT_VERSION,
 		"application": APPLICATION_ID,
@@ -267,7 +269,7 @@ func _create_layout(path: String, id: String) -> bool:
 		path.path_join(MANIFEST_FILENAME), JSON.stringify(manifest, "\t")
 	):
 		return false
-	var readme := (
+	var readme: String = (
 		"NETFISHING player data\n\n"
 		+ "This folder is safe to synchronize with tools such as Syncthing.\n"
 		+ "Active private identity keys remain device-local.\n"
@@ -280,8 +282,8 @@ func _create_layout(path: String, id: String) -> bool:
 
 
 func _write_bootstrap(path: String, id: String) -> bool:
-	var now := int(Time.get_unix_time_from_system())
-	var data := {
+	var now: int = int(Time.get_unix_time_from_system())
+	var data: Dictionary = {
 		"format_version": BOOTSTRAP_VERSION,
 		"selected_absolute_path": path,
 		"expected_root_id": id,
@@ -296,7 +298,7 @@ func _write_bootstrap(path: String, id: String) -> bool:
 
 
 func _load_bootstrap_identity() -> void:
-	var data := _read_json(BOOTSTRAP_PATH, 64 * 1024)
+	var data: Dictionary = _read_json(BOOTSTRAP_PATH, 64 * 1024)
 	if data.is_empty():
 		data = _read_json(BOOTSTRAP_PATH + ".backup", 64 * 1024)
 	device_id = str(data.get("device_id", ""))
@@ -305,9 +307,9 @@ func _load_bootstrap_identity() -> void:
 
 
 func _command_line_override() -> String:
-	var args := OS.get_cmdline_user_args()
+	var args: PackedStringArray = OS.get_cmdline_user_args()
 	for index: int in args.size():
-		var value := args[index]
+		var value: String = args[index]
 		if value.begins_with("--data-dir="):
 			return value.trim_prefix("--data-dir=")
 		if value == "--data-dir" and index + 1 < args.size():
@@ -326,15 +328,15 @@ func _valid_manifest(data: Dictionary) -> bool:
 
 
 func _directory_is_empty(path: String) -> bool:
-	var access := DirAccess.open(path)
+	var access: DirAccess = DirAccess.open(path)
 	if access == null:
 		return true
 	access.list_dir_begin()
-	var name := access.get_next()
-	while name in [".", ".."]:
-		name = access.get_next()
+	var entry_name: String = access.get_next()
+	while entry_name in [".", ".."]:
+		entry_name = access.get_next()
 	access.list_dir_end()
-	return name.is_empty()
+	return entry_name.is_empty()
 
 
 func _normalize(path: String) -> String:
@@ -344,37 +346,37 @@ func _normalize(path: String) -> String:
 func _read_json(path: String, maximum := 1024 * 1024) -> Dictionary:
 	if not FileAccess.file_exists(path):
 		return {}
-	var file := FileAccess.open(path, FileAccess.READ)
+	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
 	if file == null or file.get_length() > maximum:
 		return {}
-	var json := JSON.new()
-	var error := json.parse(file.get_as_text())
+	var json: JSON = JSON.new()
+	var error: Error = json.parse(file.get_as_text())
 	file.close()
 	return json.data if error == OK and typeof(json.data) == TYPE_DICTIONARY else {}
 
 
 func _write_text_atomic(path: String, text: String) -> bool:
-	var absolute := (
+	var absolute: String = (
 		ProjectSettings.globalize_path(path)
 		if path.begins_with("user://")
 		else path
 	)
 	if DirAccess.make_dir_recursive_absolute(absolute.get_base_dir()) != OK:
 		return false
-	var temporary := absolute + ".tmp"
-	var file := FileAccess.open(temporary, FileAccess.WRITE)
+	var temporary: String = absolute + ".tmp"
+	var file: FileAccess = FileAccess.open(temporary, FileAccess.WRITE)
 	if file == null:
 		return false
 	file.store_string(text)
 	file.flush()
-	var ok := file.get_error() == OK
+	var ok: bool = file.get_error() == OK
 	file.close()
 	if not ok:
 		return false
-	var backup := absolute + ".backup"
+	var backup: String = absolute + ".backup"
 	if FileAccess.file_exists(backup):
 		DirAccess.remove_absolute(backup)
-	var had_primary := FileAccess.file_exists(absolute)
+	var had_primary: bool = FileAccess.file_exists(absolute)
 	if had_primary and DirAccess.rename_absolute(absolute, backup) != OK:
 		DirAccess.remove_absolute(temporary)
 		return false

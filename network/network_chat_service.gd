@@ -245,10 +245,10 @@ func _on_peer_removed(peer_id: int) -> void:
 	_rate_times.erase(peer_id)
 	if not _session.is_host():
 		return
-	var name: String = _peer_names.get(peer_id, "Player")
+	var display_name: String = _peer_names.get(peer_id, "Player")
 	_peer_names.erase(peer_id)
 	_broadcast(_make_message(
-		NetworkChatProtocol.Kind.SYSTEM, 0, "", "%s left." % name
+		NetworkChatProtocol.Kind.SYSTEM, 0, "", "%s left." % display_name
 	))
 
 

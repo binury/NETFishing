@@ -117,12 +117,17 @@ func kick(peer_id: int, fingerprint: String, revision: int) -> bool:
 	return ok
 
 
-func ban(peer_id: int, fingerprint: String, name: String, revision: int) -> bool:
+func ban(
+	peer_id: int,
+	fingerprint: String,
+	display_name: String,
+	revision: int,
+) -> bool:
 	if not _valid_moderation_target(peer_id, fingerprint, revision):
 		moderation_finished.emit(false, "That player is no longer connected.")
 		return false
 	var host_fingerprint := _session.get_host_identity_fingerprint()
-	if not _bans.ban(host_fingerprint, fingerprint, name):
+	if not _bans.ban(host_fingerprint, fingerprint, display_name):
 		moderation_finished.emit(false, "Ban could not be saved.")
 		return false
 	var ok := _session.kick_authenticated_peer(peer_id, fingerprint, true)

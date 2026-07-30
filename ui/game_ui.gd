@@ -184,6 +184,7 @@ func setup_data_and_identity(
 	player_identity: PlayerIdentityStore,
 	host_identity: HostIdentityStore,
 	network_session: NetworkSession,
+	interface_fonts: InterfaceFontController,
 ) -> void:
 	for panel: SettingsPanelType in [
 		_title_settings_panel, _pause_settings_panel
@@ -194,6 +195,7 @@ func setup_data_and_identity(
 			player_identity,
 			host_identity,
 			network_session,
+			interface_fonts,
 		)
 
 
@@ -219,7 +221,7 @@ func _process(_delta: float) -> void:
 		}.get(item_id, "")
 		parts.append(
 			"%s %d:%02d"
-			% [label, int(remaining) / 60, int(remaining) % 60]
+			% [label, floori(remaining / 60.0), int(remaining) % 60]
 		)
 	_effect_status.text = "  ".join(parts)
 	_effect_status.visible = not parts.is_empty()

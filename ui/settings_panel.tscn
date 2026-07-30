@@ -486,8 +486,8 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("3_page")
 page_id = &"accessibility"
-bubble_paths = Array[NodePath]([NodePath("BubbleCluster/AutoClickToggle"), NodePath("BubbleCluster/IntervalDecrease"), NodePath("BubbleCluster/AutoClickIntervalValue"), NodePath("BubbleCluster/IntervalIncrease"), NodePath("BubbleCluster/IntervalHelp"), NodePath("BubbleCluster/AccessibilityBackButton")])
-focus_paths = Array[NodePath]([NodePath("BubbleCluster/AutoClickToggle"), NodePath("BubbleCluster/IntervalDecrease"), NodePath("BubbleCluster/AutoClickIntervalValue"), NodePath("BubbleCluster/IntervalIncrease"), NodePath("BubbleCluster/AccessibilityBackButton")])
+bubble_paths = Array[NodePath]([NodePath("BubbleCluster/AutoClickToggle"), NodePath("BubbleCluster/IntervalDecrease"), NodePath("BubbleCluster/AutoClickIntervalValue"), NodePath("BubbleCluster/IntervalIncrease"), NodePath("BubbleCluster/ReadableFontToggle"), NodePath("BubbleCluster/IntervalHelp"), NodePath("BubbleCluster/AccessibilityBackButton")])
+focus_paths = Array[NodePath]([NodePath("BubbleCluster/AutoClickToggle"), NodePath("BubbleCluster/IntervalDecrease"), NodePath("BubbleCluster/AutoClickIntervalValue"), NodePath("BubbleCluster/IntervalIncrease"), NodePath("BubbleCluster/ReadableFontToggle"), NodePath("BubbleCluster/AccessibilityBackButton")])
 initial_focus_path = NodePath("BubbleCluster/AutoClickToggle")
 back_focus_path = NodePath("BubbleCluster/AccessibilityBackButton")
 
@@ -561,6 +561,41 @@ compact_minimum_size = Vector2(160, 152)
 minimum_font_size = 13
 maximum_font_size = 22
 motion_phase = 4.1
+
+[node name="ReadableFontToggle" parent="AccessibilityPage/BubbleCluster" instance=ExtResource("4_bubble")]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 0)
+toggle_mode = true
+text = "readable\ninterface font\noff"
+neutral_size = Vector2(180, 132)
+desktop_anchor = Vector2(92, 405)
+compact_anchor = Vector2(102, 374)
+compact_minimum_size = Vector2(156, 118)
+minimum_font_size = 13
+maximum_font_size = 21
+motion_phase = 4.6
+
+[node name="ReadableFontSample" type="Label" parent="AccessibilityPage/BubbleCluster"]
+layout_mode = 0
+offset_left = 250.0
+offset_top = 20.0
+offset_right = 700.0
+offset_bottom = 82.0
+mouse_filter = 2
+text = "The quick brown fox jumps over the lazy dog.\n0123456789"
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 2
+
+[node name="ReadableFontHelper" type="Label" parent="AccessibilityPage/BubbleCluster"]
+layout_mode = 0
+offset_left = 250.0
+offset_top = 82.0
+offset_right = 700.0
+offset_bottom = 112.0
+mouse_filter = 2
+text = "Uses a clearer font for menus and interface text."
+horizontal_alignment = 1
 
 [node name="AccessibilityBackButton" parent="AccessibilityPage/BubbleCluster" instance=ExtResource("4_bubble")]
 unique_name_in_owner = true

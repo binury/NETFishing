@@ -172,10 +172,14 @@ func submit_profile_apply(data: Dictionary) -> void:
 
 
 func _process_apply_request(peer_id: int, data: Dictionary) -> void:
-	var name := str(data["display_name"]).strip_edges()
-	var conflict := _name_conflicts(peer_id, name)
-	var accepted := not conflict or bool(data["use_anyway"])
-	var suggestions := _make_suggestions(peer_id, name) if conflict else PackedStringArray()
+	var display_name: String = str(data["display_name"]).strip_edges()
+	var conflict: bool = _name_conflicts(peer_id, display_name)
+	var accepted: bool = not conflict or bool(data["use_anyway"])
+	var suggestions: PackedStringArray = (
+		_make_suggestions(peer_id, display_name)
+		if conflict
+		else PackedStringArray()
+	)
 	if peer_id == _session.get_local_peer_id():
 		_apply_local_result(
 			str(data["request_id"]), accepted, "", conflict, suggestions
@@ -184,7 +188,7 @@ func _process_apply_request(peer_id: int, data: Dictionary) -> void:
 		if accepted:
 			_host_pending_apply[str(data["request_id"])] = {
 				"peer_id": peer_id,
-				"display_name": name,
+					"display_name": display_name,
 				"appearance": Dictionary(data["appearance"]).duplicate(true),
 				"authorization": {
 					"request_id": data["request_id"],
@@ -214,10 +218,10 @@ func confirm_profile_saved(request_id: String) -> void:
 	):
 		return
 	_host_pending_apply.erase(request_id)
-	var name := str(pending["display_name"])
-	var appearance := Dictionary(pending["appearance"])
-	_session.apply_canonical_profile(sender_id, name, appearance)
-	var record := _session.get_peer_record(sender_id)
+	var display_name: String = str(pending["display_name"])
+	var appearance: Dictionary = Dictionary(pending["appearance"])
+	_session.apply_canonical_profile(sender_id, display_name, appearance)
+	var record: PeerRegistry.PeerRecord = _session.get_peer_record(sender_id)
 	if record != null:
 		record.profile_authorization = pending.get("authorization", {}).duplicate(true)
 	_apply_to_avatar(sender_id, appearance)

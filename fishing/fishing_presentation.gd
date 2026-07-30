@@ -216,12 +216,12 @@ func show_bite() -> void:
 	_bite_tween.finished.connect(_on_bite_tween_finished)
 
 
-func show_withdrawal_position(position: Vector3) -> void:
+func show_withdrawal_position(world_position: Vector3) -> void:
 	if _mode != VisualMode.FISHING:
 		return
 
 	_kill_active_tween()
-	_bobber.global_position = _with_water_height(position)
+	_bobber.global_position = _with_water_height(world_position)
 
 
 func begin_reeling() -> void:
@@ -232,12 +232,12 @@ func begin_reeling() -> void:
 	_cast_position = _with_water_height(_bobber.global_position)
 
 
-func show_reel_position(position: Vector3, _input_held: bool) -> void:
+func show_reel_position(world_position: Vector3, _input_held: bool) -> void:
 	if _mode != VisualMode.FISHING:
 		return
 
 	_kill_active_tween()
-	_bobber.global_position = _with_water_height(position)
+	_bobber.global_position = _with_water_height(world_position)
 
 
 func play_outcome(outcome: StringName) -> void:
@@ -371,8 +371,12 @@ func _calculate_pickup_position(target: Vector3) -> Vector3:
 	return player_on_water + outward * pickup_distance
 
 
-func _with_water_height(position: Vector3) -> Vector3:
-	return Vector3(position.x, get_water_surface_height(), position.z)
+func _with_water_height(world_position: Vector3) -> Vector3:
+	return Vector3(
+		world_position.x,
+		get_water_surface_height(),
+		world_position.z,
+	)
 
 
 func _update_line(delta: float) -> void:

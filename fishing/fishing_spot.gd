@@ -1082,7 +1082,7 @@ func get_fishable_water_region(
 		query,
 		32
 	)
-	var selected_region: FishableWaterRegionType
+	var selected_region: FishableWaterRegionType = null
 	for result: Dictionary in results:
 		var collider: Object = result.get("collider")
 		var region: FishableWaterRegionType = collider as FishableWaterRegionType

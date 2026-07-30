@@ -25,12 +25,12 @@ func setup(
 
 
 func default_export_path(identity_type: String) -> String:
-	var store := _store(identity_type)
+	var store: LocalSigningIdentityStore = _store(identity_type)
 	if store == null:
 		return ""
 	if not store.is_ready() and not store.load_or_create():
 		return ""
-	var timestamp := Time.get_datetime_string_from_system().replace(":", "-")
+	var timestamp: String = Time.get_datetime_string_from_system().replace(":", "-")
 	return _data_root.identity_backup_directory().path_join(
 		"%s-%s-%s.nfidentity" % [
 			identity_type,
@@ -50,14 +50,14 @@ func export_backup(
 		return _finish(false, "Passphrases must match and contain at least 12 characters.")
 	if FileAccess.file_exists(path):
 		return _finish(false, "Choose a new backup filename.")
-	var store := _store(identity_type)
+	var store: LocalSigningIdentityStore = _store(identity_type)
 	if store == null or (not store.is_ready() and not store.load_or_create()):
 		return _finish(false, "The active identity is unavailable.")
-	var material := store.export_identity_material()
-	var proof := store.sign("identity_backup_self_test", [
+	var material: Dictionary = store.export_identity_material()
+	var proof: PackedByteArray = store.sign("identity_backup_self_test", [
 		identity_type, material["fingerprint"],
 	])
-	var envelope := {
+	var envelope: Dictionary = {
 		"magic": MAGIC,
 		"format_version": FORMAT_VERSION,
 		"identity_type": identity_type,
@@ -70,16 +70,18 @@ func export_backup(
 		"self_signature": Marshalls.raw_to_base64(proof),
 	}
 	DirAccess.make_dir_recursive_absolute(path.get_base_dir())
-	var file := FileAccess.open_encrypted_with_pass(path, FileAccess.WRITE, passphrase)
+	var file: FileAccess = FileAccess.open_encrypted_with_pass(
+		path, FileAccess.WRITE, passphrase
+	)
 	if file == null:
 		return _finish(false, "Could not write this identity backup.")
 	file.store_string(JSON.stringify(envelope))
 	file.flush()
-	var ok := file.get_error() == OK
+	var ok: bool = file.get_error() == OK
 	file.close()
 	if not ok:
 		return _finish(false, "Could not write this identity backup.")
-	var verified := inspect_backup(path, passphrase, identity_type)
+	var verified: Dictionary = inspect_backup(path, passphrase, identity_type)
 	if not bool(verified.get("ok", false)):
 		DirAccess.remove_absolute(path)
 		return _finish(false, "Could not verify this identity backup.")
@@ -97,12 +99,14 @@ func inspect_backup(
 		or FileAccess.get_size(path) > MAX_BACKUP_BYTES
 	):
 		return {"ok": false}
-	var file := FileAccess.open_encrypted_with_pass(path, FileAccess.READ, passphrase)
+	var file: FileAccess = FileAccess.open_encrypted_with_pass(
+		path, FileAccess.READ, passphrase
+	)
 	if file == null:
 		return {"ok": false}
-	var text := file.get_as_text()
+	var text: String = file.get_as_text()
 	file.close()
-	var json := JSON.new()
+	var json: JSON = JSON.new()
 	if json.parse(text) != OK or typeof(json.data) != TYPE_DICTIONARY:
 		return {"ok": false}
 	var data: Dictionary = json.data
@@ -113,21 +117,23 @@ func inspect_backup(
 		or data.get("algorithm") != NetworkIdentityCrypto.ALGORITHM
 	):
 		return {"ok": false}
-	var private_pem := str(data.get("private_pem", ""))
-	var public_pem := NetworkIdentityCrypto.normalize_public_pem(
+	var private_pem: String = str(data.get("private_pem", ""))
+	var public_pem: String = NetworkIdentityCrypto.normalize_public_pem(
 		str(data.get("public_pem", ""))
 	)
-	var fingerprint := str(data.get("fingerprint", ""))
+	var fingerprint: String = str(data.get("fingerprint", ""))
 	if (
 		private_pem.length() > 128 * 1024
 		or public_pem.length() > 32 * 1024
 		or NetworkIdentityCrypto.fingerprint_public_pem(public_pem) != fingerprint
 	):
 		return {"ok": false}
-	var key := CryptoKey.new()
+	var key: CryptoKey = CryptoKey.new()
 	if key.load_from_string(private_pem) != OK:
 		return {"ok": false}
-	var signature := Marshalls.base64_to_raw(str(data.get("self_signature", "")))
+	var signature: PackedByteArray = Marshalls.base64_to_raw(
+		str(data.get("self_signature", ""))
+	)
 	if not NetworkIdentityCrypto.verify_fields(
 		NetworkIdentityCrypto.load_public_key(public_pem),
 		"identity_backup_self_test",
@@ -135,7 +141,7 @@ func inspect_backup(
 		signature,
 	):
 		return {"ok": false}
-	var fresh := NetworkIdentityCrypto.sign_fields(
+	var fresh: PackedByteArray = NetworkIdentityCrypto.sign_fields(
 		key, "identity_import_self_test", [fingerprint]
 	)
 	if not NetworkIdentityCrypto.verify_fields(
@@ -160,12 +166,12 @@ func import_backup(
 	passphrase: String,
 	confirmed_replacement: bool,
 ) -> Dictionary:
-	var inspected := inspect_backup(path, passphrase, identity_type)
+	var inspected: Dictionary = inspect_backup(path, passphrase, identity_type)
 	if not bool(inspected.get("ok", false)):
 		_finish(false, "Could not open this identity backup.")
 		return {"ok": false}
-	var store := _store(identity_type)
-	var incoming := str(inspected["fingerprint"])
+	var store: LocalSigningIdentityStore = _store(identity_type)
+	var incoming: String = str(inspected["fingerprint"])
 	if store.fingerprint == incoming:
 		_finish(true, "This identity is already active.")
 		return {"ok": true, "same": true}
@@ -176,7 +182,7 @@ func import_backup(
 			"current_fingerprint": store.fingerprint,
 			"incoming_fingerprint": incoming,
 		}
-	var result := store.install_identity_material(
+	var result: Dictionary = store.install_identity_material(
 		str(inspected["private_pem"]),
 		str(inspected["public_pem"]),
 		incoming,

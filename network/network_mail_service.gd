@@ -144,14 +144,14 @@ func get_recipient_choices() -> Array[Dictionary]:
 		var normalized := str(choice["name"]).to_lower()
 		counts[normalized] = int(counts.get(normalized, 0)) + 1
 	for choice: Dictionary in choices:
-		var name: String = choice["name"]
-		if int(counts.get(name.to_lower(), 0)) > 1:
+		var display_name: String = choice["name"]
+		if int(counts.get(display_name.to_lower(), 0)) > 1:
 			choice["label"] = "%s · %s" % [
-				name,
+				display_name,
 				NetworkIdentityCrypto.compact_suffix(choice["fingerprint"]),
 			]
 		else:
-			choice["label"] = name
+			choice["label"] = display_name
 	return choices
 
 
@@ -531,8 +531,8 @@ func prepare_recipient(transfer_id: String, letter: Dictionary) -> void:
 
 
 func _prepare_recipient(transfer_id: String, letter: Dictionary) -> void:
-	var ready := _can_receive(letter["attachment"])
-	_send_phase_ack("recipient_prepared", transfer_id, ready)
+	var recipient_ready: bool = _can_receive(letter["attachment"])
+	_send_phase_ack("recipient_prepared", transfer_id, recipient_ready)
 
 
 func _request_sender_commit(peer_id: int, transfer_id: String, letter: Dictionary) -> void:

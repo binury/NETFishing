@@ -194,8 +194,6 @@ enum CloseReason {
 @onready var _selection_status: BubbleStatusBubbleType = %SelectionStatus
 @onready var _offer_status: BubbleStatusBubbleType = %OfferStatus
 @onready var _inventory_section: Control = %InventorySection
-@onready var _inventory_body: BoxContainer = %InventoryBody
-@onready var _inventory_scroll: ScrollContainer = %InventoryScroll
 @onready var _bag_section: Control = %BagSection
 @onready var _logbook_section: Control = %LogbookSection
 @onready var _bag_empty: Label = %BagEmpty
@@ -210,9 +208,6 @@ enum CloseReason {
 @onready var _held_value: Label = %HeldValue
 @onready var _cooler_count: Label = %CoolerCount
 @onready var _inventory_empty: Label = %InventoryEmpty
-@onready var _inventory_grid: GridContainer = %InventoryGrid
-@onready var _inventory_list: Control = %InventoryList
-@onready var _detail_panel: Control = %DetailPanel
 @onready var _detail_texture: TextureRect = %DetailTexture
 @onready var _detail_name: Label = %DetailName
 @onready var _detail_data: Label = %DetailData
@@ -227,8 +222,6 @@ enum CloseReason {
 @onready var _cancel_sale_button: Button = %CancelSaleButton
 @onready var _logbook_empty: Label = %LogbookEmpty
 @onready var _logbook_grid: GridContainer = %LogbookGrid
-@onready var _status_shoal: HBoxContainer = %StatusShoal
-@onready var _sort_bar: HBoxContainer = %SortBar
 
 var _compact_layout: bool = false
 var _player: PlayerType
@@ -1181,6 +1174,7 @@ func _update_shell_layout() -> void:
 	_logbook_page.size = reference_size
 	_logbook_page.position = Vector2.ZERO
 	_logbook_rest_position = Vector2.ZERO
+	_mail_page.set_anchors_preset(Control.PRESET_TOP_LEFT)
 	_mail_page.size = reference_size
 	_mail_page.position = Vector2.ZERO
 	_mail_rest_position = Vector2.ZERO
@@ -1732,7 +1726,10 @@ func _reset_page_transition_visuals() -> void:
 
 
 func _on_sort_selected(index: int, source: OptionButton) -> void:
-	_sort_mode = source.get_item_id(index)
+	var selected_id: int = source.get_item_id(index)
+	if selected_id < SortMode.CATCH_ORDER or selected_id > SortMode.RARITY:
+		return
+	_sort_mode = selected_id as SortMode
 	_sort_option.select(_sort_mode)
 	_cooler_sort_option.select(_sort_mode)
 	_refresh_inventory()
@@ -1891,7 +1888,7 @@ func _layout_bag_items() -> void:
 		var row: int = floori(float(index) / float(columns))
 		var stable_offset := Vector2(
 			float(identity_hash % 13) - 6.0,
-			float((identity_hash / 19) % 11) - 5.0,
+			float(floori(float(identity_hash) / 19.0) % 11) - 5.0,
 		)
 		var lane_offset: float = 18.0 if row % 2 == 1 else 0.0
 		item_node.custom_minimum_size = item_size
@@ -2225,7 +2222,7 @@ func _layout_cooler_fish(animate: bool = true) -> void:
 		var offset_center: float = 2.0 if _compact_layout else 3.0
 		var stable_offset := Vector2(
 			float(identity_hash % offset_span) - offset_center,
-			float((identity_hash / 17) % offset_span) - offset_center,
+			float(floori(float(identity_hash) / 17.0) % offset_span) - offset_center,
 		)
 		var lane_offset: float = 5.0 if row % 2 == 1 else 0.0
 		var target := Vector2(

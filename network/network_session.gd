@@ -1145,13 +1145,13 @@ func _apply_spawn_entry(entry: Dictionary) -> void:
 		)
 		_registry.update_appearance(peer_id, appearance)
 	var transform: Transform3D = _spawn_service.get_spawn_transform_for_index(0)
-	var position: Array = entry["position"]
-	if position.size() != 3:
+	var spawn_position: Array = entry["position"]
+	if spawn_position.size() != 3:
 		return
 	transform.origin = Vector3(
-		float(position[0]),
-		float(position[1]),
-		float(position[2])
+		float(spawn_position[0]),
+		float(spawn_position[1]),
+		float(spawn_position[2])
 	)
 	transform.basis = Basis(Vector3.UP, float(entry["yaw"]))
 	var avatar := _spawn_service.spawn_remote_player(peer_id, transform, false)

@@ -425,19 +425,19 @@ func apply_network_teleport(snapshot: Dictionary) -> void:
 
 
 func _parse_network_snapshot(snapshot: Dictionary) -> Dictionary:
-	var position: Variant = snapshot.get("position")
+	var snapshot_position: Variant = snapshot.get("position")
 	var network_velocity: Variant = snapshot.get("velocity")
 	if (
-		typeof(position) != TYPE_ARRAY
+		typeof(snapshot_position) != TYPE_ARRAY
 		or typeof(network_velocity) != TYPE_ARRAY
-		or position.size() != 3
+		or snapshot_position.size() != 3
 		or network_velocity.size() != 3
 	):
 		return {}
 	var parsed_position := Vector3(
-		float(position[0]),
-		float(position[1]),
-		float(position[2])
+		float(snapshot_position[0]),
+		float(snapshot_position[1]),
+		float(snapshot_position[2])
 	)
 	var parsed_velocity := Vector3(
 		float(network_velocity[0]),

@@ -24,11 +24,15 @@ func is_banned(host_fingerprint: String, target_fingerprint: String) -> bool:
 	return Dictionary(_namespaces.get(host_fingerprint, {})).has(target_fingerprint)
 
 
-func ban(host_fingerprint: String, target_fingerprint: String, name: String) -> bool:
+func ban(
+	host_fingerprint: String,
+	target_fingerprint: String,
+	display_name: String,
+) -> bool:
 	if (
 		not NetworkIdentityCrypto.valid_fingerprint(host_fingerprint)
 		or not NetworkIdentityCrypto.valid_fingerprint(target_fingerprint)
-		or not NetworkProfilePreferences.is_valid_display_name(name)
+		or not NetworkProfilePreferences.is_valid_display_name(display_name)
 	):
 		return false
 	_ensure_loaded()
@@ -41,7 +45,7 @@ func ban(host_fingerprint: String, target_fingerprint: String, name: String) -> 
 	records[target_fingerprint] = {
 		"host_fingerprint": host_fingerprint,
 		"target_fingerprint": target_fingerprint,
-		"last_known_display_name": name,
+		"last_known_display_name": display_name,
 		"banned_unix": int(Time.get_unix_time_from_system()),
 		"reason": "host_ban",
 	}

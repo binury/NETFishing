@@ -9,8 +9,8 @@ var _target: Vector3
 var _active: bool = false
 
 
-func setup(owner: Player) -> void:
-	_owner = owner
+func setup(owning_player: Player) -> void:
+	_owner = owning_player
 	_bobber = MeshInstance3D.new()
 	var bobber_mesh := SphereMesh.new()
 	bobber_mesh.radius = 0.12
@@ -43,11 +43,11 @@ func show_cast(target: Vector3) -> void:
 	_redraw_line()
 
 
-func update_bobber(position: Vector3) -> void:
-	if not _active or not position.is_finite():
+func update_bobber(world_position: Vector3) -> void:
+	if not _active or not world_position.is_finite():
 		return
-	_target = position
-	_bobber.global_position = position
+	_target = world_position
+	_bobber.global_position = world_position
 	_redraw_line()
 
 

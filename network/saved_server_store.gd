@@ -323,9 +323,12 @@ func _validate_entry(value: Dictionary, is_saved: bool) -> Dictionary:
 	var endpoint := EndpointParser.parse(endpoint_text)
 	if not endpoint.is_valid():
 		return {}
-	var name: String = str(value.get("display_name", "")).strip_edges()
+	var display_name: String = str(
+		value.get("display_name", "")
+	).strip_edges()
 	if is_saved and (
-		name.is_empty() or name.length() > MAX_DISPLAY_NAME_LENGTH
+		display_name.is_empty()
+		or display_name.length() > MAX_DISPLAY_NAME_LENGTH
 	):
 		return {}
 	var result: Dictionary = _make_entry(

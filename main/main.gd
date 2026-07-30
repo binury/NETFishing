@@ -88,6 +88,7 @@ const TITLE_MUSIC_SILENCE_DB: float = -80.0
 @onready var _water_recovery: WaterRecoveryControllerType = %WaterRecovery
 @onready var _save_manager: PlayerSaveManagerType = %PlayerSaveManager
 @onready var _settings_manager: PlayerSettingsManagerType = %PlayerSettingsManager
+@onready var _interface_fonts: InterfaceFontController = %InterfaceFontController
 @onready var _title_music: AudioStreamPlayer = %TitleMusic
 @onready var _ui_pixelation: UIPixelationPresenterType = %UIPresentation
 @onready var _pixelation_reset: PixelationResetOverlayType = (
@@ -146,11 +147,21 @@ var _pending_trust_changed: bool = false
 var _identity_notice_dialog: AcceptDialog
 var _data_setup_dialog: ConfirmationDialog
 var _data_folder_dialog: FileDialog
+var _data_folder_picker_generation: int = 0
+var _restore_data_setup_after_picker: bool = false
 var _application_initialized := false
 var _pending_existing_root_path := ""
 
 
 func _ready() -> void:
+	if not _settings_manager.settings_changed.is_connected(
+		_apply_runtime_settings
+	):
+		_settings_manager.settings_changed.connect(_apply_runtime_settings)
+	_settings_manager.load_settings()
+	_interface_fonts.set_readable_font_enabled(
+		_settings_manager.current_settings.use_readable_interface_font
+	)
 	if _data_root.resolve():
 		_configure_portable_stores()
 		_initialize_after_data_root()
@@ -377,6 +388,7 @@ func _initialize_after_data_root() -> void:
 		_player_identity,
 		_host_identity,
 		_network_session,
+		_interface_fonts,
 	)
 	_data_root.conflict_detected.connect(_on_portable_conflict)
 	_data_root.status_changed.connect(_on_data_root_status)
@@ -400,10 +412,6 @@ func _initialize_after_data_root() -> void:
 		_test_world.get_player_water_triggers(),
 		_test_world.get_safe_respawn_points()
 	)
-	if not _settings_manager.settings_changed.is_connected(
-		_apply_runtime_settings
-	):
-		_settings_manager.settings_changed.connect(_apply_runtime_settings)
 	_ui_pixelation.effective_pixel_size_changed.connect(
 		_on_effective_ui_pixel_size_changed
 	)
@@ -420,7 +428,6 @@ func _initialize_after_data_root() -> void:
 		_game_ui.focus_open_settings_back_button
 	)
 	_pixelation_reset.reset_requested.connect(_reset_pixelation)
-	_settings_manager.load_settings()
 	_apply_runtime_settings(_settings_manager.current_settings)
 	_set_gameplay_active(false)
 	var title_screen: TitleScreenType = _game_ui.get_title_screen()
@@ -491,9 +498,10 @@ func _show_data_root_setup() -> void:
 			"Keep Current Location", false, "current"
 		)
 		_data_setup_dialog.custom_action.connect(_on_data_setup_action)
+		_interface_fonts.apply_utility_theme(_data_setup_dialog)
 		add_child(_data_setup_dialog)
-	var default_path := _data_root.default_visible_path()
-	var legacy := PortableDataMigration.legacy_files_present()
+	var default_path: String = _data_root.default_visible_path()
+	var legacy: bool = PortableDataMigration.legacy_files_present()
 	_data_setup_dialog.dialog_text = (
 		("Move your existing NETFISHING data to an easy-to-find folder."
 		if legacy else "Choose where NETFISHING stores your player data.")
@@ -512,7 +520,7 @@ func _show_data_root_setup() -> void:
 
 
 func _use_default_data_root() -> void:
-	var path := _data_root.default_visible_path()
+	var path: String = _data_root.default_visible_path()
 	if path.is_empty():
 		_show_folder_picker()
 		return
@@ -535,7 +543,29 @@ func _show_folder_picker() -> void:
 		_data_folder_dialog.access = FileDialog.ACCESS_FILESYSTEM
 		_data_folder_dialog.use_native_dialog = false
 		_data_folder_dialog.dir_selected.connect(_activate_selected_data_path)
+		_data_folder_dialog.canceled.connect(_on_data_folder_picker_canceled)
+		_interface_fonts.apply_utility_theme(_data_folder_dialog)
 		add_child(_data_folder_dialog)
+	if _data_folder_dialog.visible:
+		return
+	_data_folder_picker_generation += 1
+	var generation: int = _data_folder_picker_generation
+	_restore_data_setup_after_picker = (
+		_data_setup_dialog != null and _data_setup_dialog.visible
+	)
+	if _data_setup_dialog != null:
+		_data_setup_dialog.hide()
+	_open_folder_picker_after_modal.call_deferred(generation)
+
+
+func _open_folder_picker_after_modal(generation: int) -> void:
+	await get_tree().process_frame
+	if (
+		generation != _data_folder_picker_generation
+		or _data_folder_dialog == null
+		or _data_folder_dialog.visible
+	):
+		return
 	_data_folder_dialog.current_dir = (
 		_data_root.default_visible_path().get_base_dir()
 		if not _data_root.default_visible_path().is_empty()
@@ -544,10 +574,29 @@ func _show_folder_picker() -> void:
 	_data_folder_dialog.popup_centered_ratio(0.75)
 
 
+func _on_data_folder_picker_canceled() -> void:
+	_data_folder_picker_generation += 1
+	var generation: int = _data_folder_picker_generation
+	var should_restore_setup: bool = _restore_data_setup_after_picker
+	_restore_data_setup_after_picker = false
+	if _data_folder_dialog != null:
+		_data_folder_dialog.hide()
+	if should_restore_setup:
+		_restore_data_setup_after_picker_after_modal.call_deferred(generation)
+
+
+func _restore_data_setup_after_picker_after_modal(generation: int) -> void:
+	await get_tree().process_frame
+	if generation != _data_folder_picker_generation:
+		return
+	_show_data_root_setup()
+
+
 func _activate_selected_data_path(path: String, app_data: bool = false) -> void:
-	var ok := false
+	_restore_data_setup_after_picker = false
+	var ok: bool = false
 	if PortableDataMigration.legacy_files_present():
-		var result := (
+		var result: Dictionary = (
 			PortableDataMigration.adopt_legacy_app_data(_data_root)
 			if app_data
 			else PortableDataMigration.migrate_legacy_to(_data_root, path)
@@ -571,7 +620,7 @@ func _activate_selected_data_path(path: String, app_data: bool = false) -> void:
 
 func _show_existing_root_choice(path: String) -> void:
 	_pending_existing_root_path = path
-	var dialog := ConfirmationDialog.new()
+	var dialog: ConfirmationDialog = ConfirmationDialog.new()
 	dialog.title = "Existing NETFISHING data"
 	dialog.ok_button_text = "Use Data Already in Selected Folder"
 	dialog.cancel_button_text = "Cancel"
@@ -594,7 +643,7 @@ func _show_existing_root_choice(path: String) -> void:
 	dialog.custom_action.connect(func(action: StringName) -> void:
 		if action != &"replace":
 			return
-		var result := PortableDataMigration.replace_existing_with_legacy(
+		var result: Dictionary = PortableDataMigration.replace_existing_with_legacy(
 			_data_root, _pending_existing_root_path
 		)
 		if bool(result.get("ok", false)):
@@ -605,6 +654,7 @@ func _show_existing_root_choice(path: String) -> void:
 		else:
 			_show_data_error(str(result.get("message", "Migration failed.")))
 	)
+	_interface_fonts.apply_utility_theme(dialog)
 	add_child(dialog)
 	dialog.popup_centered(Vector2i(680, 360))
 
@@ -616,7 +666,8 @@ func _show_data_error(message: String) -> void:
 
 
 func _on_portable_conflict(message: String, _path: String) -> void:
-	var dialog := AcceptDialog.new()
+	var dialog: AcceptDialog = AcceptDialog.new()
+	_interface_fonts.apply_utility_theme(dialog)
 	dialog.title = "Player data conflict"
 	dialog.dialog_text = (
 		message
@@ -635,7 +686,8 @@ func _on_portable_conflict(message: String, _path: String) -> void:
 func _on_data_root_status(message: String) -> void:
 	if "Syncthing conflict" not in message:
 		return
-	var dialog := AcceptDialog.new()
+	var dialog: AcceptDialog = AcceptDialog.new()
+	_interface_fonts.apply_utility_theme(dialog)
 	dialog.title = "Synced data needs review"
 	dialog.dialog_text = message
 	dialog.add_button("Open Data Folder", false, "open")
@@ -771,6 +823,9 @@ func _process(_delta: float) -> void:
 func _apply_runtime_settings(settings: PlayerSettingsType) -> void:
 	if settings == null:
 		return
+	_interface_fonts.set_readable_font_enabled(
+		settings.use_readable_interface_font
+	)
 	_apply_world_pixelation(settings.world_pixel_size)
 	_ui_pixelation.set_pixel_size(settings.ui_pixel_size)
 	_game_ui.get_title_screen().set_world_pixelation(

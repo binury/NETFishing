@@ -20,6 +20,7 @@ const UI_DESKTOP_RENDER_HEIGHTS: Array[int] = [0, 612, 504, 396, 288]
 const UI_COMPACT_RENDER_HEIGHTS: Array[int] = [0, 408, 336, 264, 192]
 
 @export var auto_click_enabled: bool = false
+@export var use_readable_interface_font: bool = false
 @export_range(0.10, 0.50, 0.01) var auto_click_interval: float = 0.20
 @export_range(0.001, 0.012, 0.0005) var mouse_camera_sensitivity: float = 0.005
 @export_range(0.5, 5.0, 0.1) var controller_camera_sensitivity: float = 2.5
@@ -49,6 +50,7 @@ func is_valid() -> bool:
 func copy() -> PlayerSettings:
 	var result := PlayerSettings.new()
 	result.auto_click_enabled = auto_click_enabled
+	result.use_readable_interface_font = use_readable_interface_font
 	result.auto_click_interval = auto_click_interval
 	result.mouse_camera_sensitivity = mouse_camera_sensitivity
 	result.controller_camera_sensitivity = controller_camera_sensitivity
