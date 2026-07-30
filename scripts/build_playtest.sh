@@ -4,12 +4,12 @@ set -euo pipefail
 
 readonly SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 readonly PROJECT_ROOT="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
-readonly BUILD_ROOT="${PROJECT_ROOT}/builds/playtest-0.1"
+readonly BUILD_ROOT="${PROJECT_ROOT}/builds/v0.3.0-prealpha.2"
 readonly WINDOWS_DIR="${BUILD_ROOT}/windows-x86_64"
 readonly LINUX_DIR="${BUILD_ROOT}/linux-x86_64"
 readonly README_SOURCE="${PROJECT_ROOT}/playtest/README-PLAYTEST.txt"
-readonly WINDOWS_ZIP="${BUILD_ROOT}/netfishing-prealpha-0.1-windows-x86_64.zip"
-readonly LINUX_ZIP="${BUILD_ROOT}/netfishing-prealpha-0.1-linux-x86_64.zip"
+readonly WINDOWS_ZIP="${BUILD_ROOT}/NETfishing-v0.3.0-prealpha.2-windows-x86_64.zip"
+readonly LINUX_ZIP="${BUILD_ROOT}/NETfishing-v0.3.0-prealpha.2-linux-x86_64.zip"
 readonly GODOT_BIN="${GODOT_BIN:-godot}"
 
 if [[ ! -f "${PROJECT_ROOT}/project.godot" ]]; then
@@ -29,26 +29,26 @@ mkdir -p -- "${WINDOWS_DIR}" "${LINUX_DIR}"
 	--headless \
 	--path "${PROJECT_ROOT}" \
 	--export-release "Windows Desktop" \
-	"${WINDOWS_DIR}/netfishing.exe"
+	"${WINDOWS_DIR}/NETfishing.exe"
 
 "${GODOT_BIN}" \
 	--headless \
 	--path "${PROJECT_ROOT}" \
 	--export-release "Linux Desktop" \
-	"${LINUX_DIR}/netfishing"
+	"${LINUX_DIR}/NETfishing.x86_64"
 
 for required_file in \
-	"${WINDOWS_DIR}/netfishing.exe" \
-	"${WINDOWS_DIR}/netfishing.pck" \
-	"${LINUX_DIR}/netfishing" \
-	"${LINUX_DIR}/netfishing.pck"; do
+	"${WINDOWS_DIR}/NETfishing.exe" \
+	"${WINDOWS_DIR}/NETfishing.pck" \
+	"${LINUX_DIR}/NETfishing.x86_64" \
+	"${LINUX_DIR}/NETfishing.pck"; do
 	if [[ ! -s "${required_file}" ]]; then
 		echo "error: expected export output is missing: ${required_file}" >&2
 		exit 1
 	fi
 done
 
-chmod +x -- "${LINUX_DIR}/netfishing"
+chmod +x -- "${LINUX_DIR}/NETfishing.x86_64"
 cp -- "${README_SOURCE}" "${WINDOWS_DIR}/README-PLAYTEST.txt"
 cp -- "${README_SOURCE}" "${LINUX_DIR}/README-PLAYTEST.txt"
 

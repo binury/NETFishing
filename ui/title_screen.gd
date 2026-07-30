@@ -179,6 +179,11 @@ var _confirmation_title_content_rest_position: Vector2 = Vector2.ZERO
 
 
 func _ready() -> void:
+	var release_version: String = str(
+		ProjectSettings.get_setting("application/config/version", "")
+	).strip_edges()
+	if not release_version.is_empty():
+		_playtest_label.text = "v%s" % release_version
 	_continue_button.pressed.connect(_on_continue_pressed)
 	_continue_button.mouse_entered.connect(
 		_on_continue_stats_hover_changed.bind(true)
