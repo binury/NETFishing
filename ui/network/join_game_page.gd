@@ -26,17 +26,17 @@ const DIRECT_WORKFLOW_HELP: String = (
 @onready var _name_helper: Label = %NameHelper
 @onready var _server_list: ItemList = %ServerList
 @onready var _details: Label = %Details
-@onready var _direct_button: BubbleButton = %DirectButton
-@onready var _saved_button: BubbleButton = %SavedButton
-@onready var _recent_button: BubbleButton = %RecentButton
-@onready var _join_button: BubbleButton = %JoinButton
-@onready var _save_button: BubbleButton = %SaveButton
-@onready var _edit_button: BubbleButton = %EditButton
-@onready var _favorite_button: BubbleButton = %FavoriteButton
-@onready var _delete_button: BubbleButton = %DeleteButton
-@onready var _cancel_button: BubbleButton = %CancelButton
-@onready var _back_button: BubbleButton = %BackButton
-@onready var _open_close_button: BubbleButton = %OpenCloseButton
+@onready var _direct_button: Button = %DirectButton
+@onready var _saved_button: Button = %SavedButton
+@onready var _recent_button: Button = %RecentButton
+@onready var _join_button: Button = %JoinButton
+@onready var _save_button: Button = %SaveButton
+@onready var _edit_button: Button = %EditButton
+@onready var _favorite_button: Button = %FavoriteButton
+@onready var _delete_button: Button = %DeleteButton
+@onready var _cancel_button: Button = %CancelButton
+@onready var _back_button: Button = %BackButton
+@onready var _open_close_button: Button = %OpenCloseButton
 @onready var _status: Label = %Status
 @onready var _session_summary: Label = %SessionSummary
 @onready var _delete_confirmation: BubbleConfirmationPage = (
@@ -56,6 +56,19 @@ var _delete_armed: bool = false
 
 
 func _ready() -> void:
+	UtilityPageStyle.apply_page(self)
+	var paper := get_node("Paper") as PanelContainer
+	paper.add_theme_stylebox_override(
+		"panel", UtilityPageStyle.panel_style()
+	)
+	for button: BaseButton in [
+		_direct_button, _saved_button, _recent_button, _join_button,
+		_save_button, _edit_button, _favorite_button, _delete_button,
+		_cancel_button, _back_button, _open_close_button,
+	]:
+		UtilityPageStyle.apply_button(button)
+	UtilityPageStyle.apply_line_edit(_address)
+	UtilityPageStyle.apply_line_edit(_name_edit)
 	_direct_button.pressed.connect(_set_mode.bind(Mode.DIRECT))
 	_saved_button.pressed.connect(_set_mode.bind(Mode.SAVED))
 	_recent_button.pressed.connect(_set_mode.bind(Mode.RECENT))
@@ -126,6 +139,7 @@ func open_page(preserved_endpoint: String = "") -> void:
 	elif _address.text.is_empty():
 		_address.text = "127.0.0.1:7777"
 	show()
+	UtilityPageStyle.animate_in(self)
 	_set_mode(_mode)
 	if _mode == Mode.DIRECT:
 		_address.grab_focus()

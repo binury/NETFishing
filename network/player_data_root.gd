@@ -86,16 +86,16 @@ func select_new_root(path: String, app_data: bool = false) -> bool:
 	if FileAccess.file_exists(manifest_path):
 		var manifest: Dictionary = _read_json(manifest_path)
 		if not _valid_manifest(manifest):
-			return _fail("The selected folder has a malformed NETFISHING manifest.")
+			return _fail("The selected folder has a malformed NETfishing manifest.")
 		root_id = str(manifest["root_id"])
 	else:
 		if not _directory_is_empty(normalized) and not app_data:
 			return _fail(
-				"Choose an empty folder or an existing NETFISHING data folder."
+				"Choose an empty folder or an existing NETfishing data folder."
 			)
 		root_id = Crypto.new().generate_random_bytes(16).hex_encode()
 		if not _create_layout(normalized, root_id):
-			return _fail("The NETFISHING data folder could not be created.")
+			return _fail("The NETfishing data folder could not be created.")
 	if not _write_bootstrap(normalized, root_id):
 		return _fail("The data-folder pointer could not be saved.")
 	root_path = normalized
@@ -207,15 +207,15 @@ func _activate_existing(path: String, expected_id: String, permit_creation: bool
 		return false
 	var manifest_path: String = normalized.path_join(MANIFEST_FILENAME)
 	if not FileAccess.file_exists(manifest_path):
-		return _fail("The selected folder is not a NETFISHING data folder.")
+		return _fail("The selected folder is not a NETfishing data folder.")
 	var manifest: Dictionary = _read_json(manifest_path)
 	if not _valid_manifest(manifest):
-		return _fail("The NETFISHING data-folder manifest is malformed.")
+		return _fail("The NETfishing data-folder manifest is malformed.")
 	var found_id: String = str(manifest["root_id"])
 	if not expected_id.is_empty() and expected_id != found_id:
 		return _fail("The selected data folder does not match this device pointer.")
 	if not _test_writable(normalized):
-		return _fail("The NETFISHING data folder is unavailable or unwritable.")
+		return _fail("The NETfishing data folder is unavailable or unwritable.")
 	root_path = normalized
 	root_id = found_id
 	requires_selection = false
@@ -270,7 +270,7 @@ func _create_layout(path: String, id: String) -> bool:
 	):
 		return false
 	var readme: String = (
-		"NETFISHING player data\n\n"
+		"NETfishing player data\n\n"
 		+ "This folder is safe to synchronize with tools such as Syncthing.\n"
 		+ "Active private identity keys remain device-local.\n"
 		+ "Encrypted identity backups require their passphrase.\n"

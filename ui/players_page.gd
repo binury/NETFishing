@@ -11,6 +11,7 @@ var _current_tab := 0
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	UtilityPageStyle.apply_page(self)
 	_build()
 
 
@@ -26,6 +27,7 @@ func setup(service: NetworkPlayerListService) -> void:
 
 func activate() -> void:
 	_refresh()
+	UtilityPageStyle.animate_in(self)
 	_focus_first()
 
 
@@ -38,16 +40,7 @@ func _build() -> void:
 	paper.position = Vector2(58, 128)
 	paper.size = Vector2(1164, 476)
 	add_child(paper)
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color("eee2bd")
-	style.border_color = Color("473d2e")
-	style.set_border_width_all(4)
-	style.set_corner_radius_all(16)
-	style.content_margin_left = 26
-	style.content_margin_right = 26
-	style.content_margin_top = 20
-	style.content_margin_bottom = 20
-	paper.add_theme_stylebox_override("panel", style)
+	paper.add_theme_stylebox_override("panel", UtilityPageStyle.panel_style())
 	var root := VBoxContainer.new()
 	root.add_theme_constant_override("separation", 10)
 	paper.add_child(root)
@@ -63,6 +56,7 @@ func _build() -> void:
 		button.text = ["players", "relationships", "banned"][index]
 		button.toggle_mode = true
 		button.pressed.connect(_select_tab.bind(index))
+		UtilityPageStyle.apply_button(button)
 		_tabs.add_child(button)
 	var scroll := ScrollContainer.new()
 	scroll.custom_minimum_size = Vector2(0, 330)
@@ -88,7 +82,7 @@ func _select_tab(index: int) -> void:
 func _refresh() -> void:
 	if _service == null or _list == null:
 		return
-	_header.text = "players    %d / %d connected" % [
+	_header.text = "Players\n%d / %d connected" % [
 		_service.get_connected_count(), _service.get_max_players(),
 	]
 	for index: int in _tabs.get_child_count():
@@ -129,6 +123,9 @@ func _build_active_rows() -> void:
 		identity.tooltip_text = NetworkIdentityCrypto.format_fingerprint(
 			entry.full_fingerprint
 		)
+		identity.add_theme_color_override(
+			"font_color", UtilityPageStyle.INK
+		)
 		row.add_child(identity)
 		var ping := Label.new()
 		ping.custom_minimum_size.x = 80
@@ -137,26 +134,31 @@ func _build_active_rows() -> void:
 			else "%d ms" % entry.ping_to_host_ms
 			if entry.ping_to_host_ms >= 0 else "—"
 		)
+		ping.add_theme_color_override("font_color", UtilityPageStyle.INK)
 		row.add_child(ping)
 		var mute := Button.new()
 		mute.text = "unmute" if entry.muted else "mute"
 		mute.disabled = entry.is_local_player
 		mute.pressed.connect(_toggle_mute.bind(entry))
+		UtilityPageStyle.apply_button(mute)
 		row.add_child(mute)
 		var block := Button.new()
 		block.text = "block"
 		block.disabled = entry.is_local_player
 		block.pressed.connect(_confirm_block.bind(entry))
+		UtilityPageStyle.apply_button(block)
 		row.add_child(block)
 		var kick := Button.new()
 		kick.text = "kick"
 		kick.disabled = not entry.can_kick
 		kick.pressed.connect(_confirm_kick.bind(entry))
+		UtilityPageStyle.apply_button(kick)
 		row.add_child(kick)
 		var ban := Button.new()
 		ban.text = "ban"
 		ban.disabled = not entry.can_ban
 		ban.pressed.connect(_confirm_ban.bind(entry))
+		UtilityPageStyle.apply_button(ban)
 		row.add_child(ban)
 		_list.add_child(row)
 
@@ -177,6 +179,7 @@ func _build_relationship_rows() -> void:
 			"Blocked" if bool(record.get("blocked", false)) else "Muted",
 		]
 		label.tooltip_text = NetworkIdentityCrypto.format_fingerprint(fingerprint)
+		label.add_theme_color_override("font_color", UtilityPageStyle.INK)
 		row.add_child(label)
 		if bool(record.get("blocked", false)):
 			var unblock := Button.new()
@@ -184,6 +187,7 @@ func _build_relationship_rows() -> void:
 			unblock.pressed.connect(func() -> void:
 				_service.set_blocked(fingerprint, str(record["last_known_display_name"]), false)
 			)
+			UtilityPageStyle.apply_button(unblock)
 			row.add_child(unblock)
 		var unmute := Button.new()
 		unmute.text = "unmute"
@@ -191,6 +195,7 @@ func _build_relationship_rows() -> void:
 		unmute.pressed.connect(func() -> void:
 			_service.set_muted(fingerprint, str(record["last_known_display_name"]), false)
 		)
+		UtilityPageStyle.apply_button(unmute)
 		row.add_child(unmute)
 		_list.add_child(row)
 
@@ -211,10 +216,12 @@ func _build_ban_rows() -> void:
 			Time.get_date_string_from_unix_time(int(record.get("banned_unix", 0))),
 		]
 		label.tooltip_text = NetworkIdentityCrypto.format_fingerprint(fingerprint)
+		label.add_theme_color_override("font_color", UtilityPageStyle.INK)
 		row.add_child(label)
 		var unban := Button.new()
 		unban.text = "unban"
 		unban.pressed.connect(_confirm_unban.bind(fingerprint))
+		UtilityPageStyle.apply_button(unban)
 		row.add_child(unban)
 		_list.add_child(row)
 
@@ -223,6 +230,7 @@ func _make_row() -> HBoxContainer:
 	var row := HBoxContainer.new()
 	row.custom_minimum_size.y = 58
 	row.add_theme_constant_override("separation", 8)
+	row.add_theme_constant_override("outline_size", 1)
 	return row
 
 
@@ -231,6 +239,7 @@ func _add_empty(text: String) -> void:
 	label.text = text
 	label.custom_minimum_size.y = 100
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.add_theme_color_override("font_color", UtilityPageStyle.MUTED_INK)
 	_list.add_child(label)
 
 

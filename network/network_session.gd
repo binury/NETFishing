@@ -787,7 +787,7 @@ func resolve_server_trust(accepted: bool) -> void:
 	if not _server_trust.trust(
 		get_current_endpoint(),
 		str(_pending_server_proof["server_fingerprint"]),
-		"NETFISHING",
+		"NETfishing",
 	):
 		_fail_identity("The server identity could not be pinned.")
 		return

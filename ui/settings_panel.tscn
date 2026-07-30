@@ -553,8 +553,8 @@ unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 0)
 mouse_filter = 2
 focus_mode = 0
-text = "lower intervals\nclick barriers\nfaster\nwhile held"
-neutral_size = Vector2(170, 160)
+text = "Focus a control\nfor a helpful\npreview."
+neutral_size = Vector2(210, 176)
 desktop_anchor = Vector2(315, 405)
 compact_anchor = Vector2(280, 370)
 compact_minimum_size = Vector2(160, 152)
@@ -566,8 +566,8 @@ motion_phase = 4.1
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 0)
 toggle_mode = true
-text = "readable\ninterface font\noff"
-neutral_size = Vector2(180, 132)
+text = "alternate\nfont\noff"
+neutral_size = Vector2(150, 150)
 desktop_anchor = Vector2(92, 405)
 compact_anchor = Vector2(102, 374)
 compact_minimum_size = Vector2(156, 118)
@@ -576,6 +576,7 @@ maximum_font_size = 21
 motion_phase = 4.6
 
 [node name="ReadableFontSample" type="Label" parent="AccessibilityPage/BubbleCluster"]
+visible = false
 layout_mode = 0
 offset_left = 250.0
 offset_top = 20.0
@@ -588,6 +589,7 @@ vertical_alignment = 1
 autowrap_mode = 2
 
 [node name="ReadableFontHelper" type="Label" parent="AccessibilityPage/BubbleCluster"]
+visible = false
 layout_mode = 0
 offset_left = 250.0
 offset_top = 82.0
@@ -647,6 +649,7 @@ offset_right = 330.0
 offset_bottom = 210.0
 grow_horizontal = 2
 grow_vertical = 2
+z_index = 1
 
 [node name="Content" type="VBoxContainer" parent="DataPage/Paper"]
 layout_mode = 2
@@ -655,12 +658,12 @@ theme_override_constants/separation = 10
 [node name="Heading" type="Label" parent="DataPage/Paper/Content"]
 layout_mode = 2
 theme_override_font_sizes/font_size = 28
-text = "data & identity"
+text = "Data & Identity"
 horizontal_alignment = 1
 
 [node name="DataFolderLabel" type="Label" parent="DataPage/Paper/Content"]
 layout_mode = 2
-text = "Data Folder"
+text = "Data Folder:"
 
 [node name="DataFolderPath" type="Label" parent="DataPage/Paper/Content"]
 unique_name_in_owner = true
@@ -671,7 +674,7 @@ autowrap_mode = 2
 [node name="DataStorageMode" type="Label" parent="DataPage/Paper/Content"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "storage mode: unavailable"
+text = "Storage Mode: unavailable"
 
 [node name="OpenDataFolder" type="Button" parent="DataPage/Paper/Content"]
 unique_name_in_owner = true
@@ -714,11 +717,12 @@ text = "Import Host Identity"
 
 [node name="DataBackButton" parent="DataPage/BubbleCluster" instance=ExtResource("4_bubble")]
 unique_name_in_owner = true
+z_index = 4
 layout_mode = 0
 text = "back"
 neutral_size = Vector2(96, 90)
-desktop_anchor = Vector2(135, 470)
-compact_anchor = Vector2(115, 420)
+desktop_anchor = Vector2(-25, 470)
+compact_anchor = Vector2(-20, 420)
 compact_minimum_size = Vector2(82, 78)
 minimum_font_size = 13
 maximum_font_size = 16

@@ -5,8 +5,6 @@ const INPUT_OWNER: StringName = &"game_menu"
 const PAUSE_DESKTOP_REFERENCE_SIZE: Vector2 = Vector2(1280.0, 720.0)
 const PAUSE_COMPACT_REFERENCE_SIZE: Vector2 = Vector2(640.0, 480.0)
 const COMPACT_HEIGHT_THRESHOLD: float = 560.0
-const PAGE_OUTGOING_DURATION: float = 1.70
-const PAGE_INCOMING_DURATION: float = 1.85
 const VISIBILITY_FADE_DURATION: float = 0.55
 const BACKDROP_TARGET_ALPHA: float = 0.68
 const PlayerType = preload("res://player/player.gd")
@@ -28,7 +26,6 @@ signal reset_progress_requested
 signal quit_requested
 signal menu_visibility_changed(is_open: bool)
 signal join_game_requested(endpoint: String)
-signal chat_requested
 
 enum ConfirmationAction {
 	NONE,
@@ -88,7 +85,6 @@ func _ready() -> void:
 	_save_button.pressed.connect(_save_now)
 	%SettingsButton.pressed.connect(_open_settings)
 	%JoinGameButton.pressed.connect(_open_join_game)
-	%ChatButton.pressed.connect(_request_chat)
 	%ReturnToTitleButton.pressed.connect(_confirm_return_to_title)
 	%ResetProgressButton.pressed.connect(_confirm_reset_progress)
 	%QuitButton.pressed.connect(_request_quit)
@@ -96,6 +92,7 @@ func _ready() -> void:
 	_confirmation_page.cancelled.connect(_close_confirmation)
 	_settings_panel.applied.connect(_on_settings_applied)
 	_settings_panel.closed.connect(_on_settings_closed)
+	_settings_panel.closing.connect(_on_settings_closing)
 	_settings_panel.navigation_transition_started.connect(
 		_emit_transition_flurry
 	)
@@ -105,13 +102,6 @@ func _ready() -> void:
 	_confirmation_page.hide_page()
 	resized.connect(_update_responsive_pause_stage)
 	call_deferred("_update_responsive_pause_stage")
-
-
-func _request_chat() -> void:
-	if not visible or _action_in_progress or _root_transition_active:
-		return
-	close_menu(CloseReason.USER_RETURN, true)
-	chat_requested.emit()
 
 
 func setup(
@@ -287,13 +277,20 @@ func _on_settings_applied() -> void:
 	if _closing_menu:
 		return
 	_feedback.text = "settings saved."
-	_begin_root_entry(true)
 
 
 func _on_settings_closed() -> void:
+	pass
+
+
+func _on_settings_closing() -> void:
 	if _closing_menu:
 		return
-	_begin_root_entry(true)
+	await get_tree().create_timer(
+		UIMotion.BUBBLE_TRANSITION_OVERLAP_DELAY
+	).timeout
+	if _settings_panel.visible:
+		_begin_root_entry(true)
 
 
 func _confirm_return_to_title() -> void:
@@ -364,7 +361,7 @@ func _open_confirmation(
 
 func _show_confirmation() -> void:
 	_confirmation_page.transition_in(
-		PAGE_INCOMING_DURATION,
+		0.0,
 		_finish_confirmation_open
 	)
 
@@ -379,7 +376,7 @@ func _close_confirmation() -> void:
 	_confirmation_action = ConfirmationAction.NONE
 	_emit_transition_flurry()
 	_confirmation_page.transition_out(
-		PAGE_OUTGOING_DURATION,
+		0.0,
 		_finish_confirmation_cancel
 	)
 
@@ -448,7 +445,7 @@ func _begin_root_entry(flurry_already_emitted: bool) -> void:
 	_root_page.transition_in(
 		true,
 		_finish_root_entry.bind(generation),
-		PAGE_INCOMING_DURATION
+		0.0
 	)
 
 
@@ -466,19 +463,23 @@ func _begin_root_exit(completed: Callable) -> void:
 	_emit_transition_flurry()
 	var generation: int = _root_transition_generation
 	_root_page.transition_out(
-		_finish_root_exit.bind(generation, completed),
-		PAGE_OUTGOING_DURATION
+		_finish_root_exit.bind(generation),
+		0.0
 	)
+	await get_tree().create_timer(
+		UIMotion.BUBBLE_TRANSITION_OVERLAP_DELAY
+	).timeout
+	if generation != _root_transition_generation or not visible:
+		return
+	completed.call()
 
 
 func _finish_root_exit(
 	generation: int,
-	completed: Callable,
 ) -> void:
 	if generation != _root_transition_generation or not visible:
 		return
 	_root_transition_active = false
-	completed.call()
 
 
 func _finish_user_close() -> void:

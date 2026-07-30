@@ -1,4 +1,4 @@
-[gd_scene load_steps=40 format=3]
+[gd_scene load_steps=42 format=3]
 
 [ext_resource type="PackedScene" path="res://world/test_world.tscn" id="1_world"]
 [ext_resource type="PackedScene" path="res://player/player.tscn" id="2_player"]
@@ -39,6 +39,10 @@
 [ext_resource type="Script" path="res://network/player_data_root.gd" id="37_data_root"]
 [ext_resource type="Script" path="res://network/identity_backup_service.gd" id="38_identity_backup"]
 [ext_resource type="Script" path="res://ui/interface_font_controller.gd" id="39_fonts"]
+[ext_resource type="Shader" path="res://ui/title_water_background.gdshader" id="40_title_water"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_title_water_native"]
+shader = ExtResource("40_title_water")
 
 [node name="Main" type="Node3D"]
 script = ExtResource("3_main")
@@ -46,6 +50,20 @@ fish_catalog = ExtResource("6_pool")
 pelican_buyer_profile = ExtResource("7_pelicans")
 main_shop_buyer_profile = ExtResource("12_main_shop")
 item_catalog = ExtResource("11_items")
+
+[node name="TitleBackgroundLayer" type="CanvasLayer" parent="."]
+unique_name_in_owner = true
+layer = -1
+
+[node name="TitleBackground" type="ColorRect" parent="TitleBackgroundLayer"]
+unique_name_in_owner = true
+material = SubResource("ShaderMaterial_title_water_native")
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
 
 [node name="InterfaceFontController" type="Node" parent="."]
 unique_name_in_owner = true

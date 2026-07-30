@@ -45,15 +45,18 @@ func setup(service: NetworkProfileService) -> void:
 	_load_persisted()
 	var identity_value := find_child("IdentityFingerprint", true, false) as Label
 	if identity_value != null:
-		identity_value.text = "%s  •  Stored on this device" % (
-			NetworkIdentityCrypto.format_fingerprint(
-				_service.get_identity_fingerprint()
-			)
+		var fingerprint := _service.get_identity_fingerprint()
+		identity_value.text = "Identity • %s • Stored on this device" % (
+			NetworkIdentityCrypto.compact_suffix(fingerprint)
+		)
+		identity_value.tooltip_text = (
+			NetworkIdentityCrypto.format_fingerprint(fingerprint)
 		)
 
 
 func activate() -> void:
 	visible = true
+	UtilityPageStyle.animate_in(self)
 	if _service != null:
 		_load_persisted()
 	_name_edit.grab_focus()
@@ -100,29 +103,27 @@ func request_close_confirmation() -> bool:
 func _build_ui() -> void:
 	var paper := PanelContainer.new()
 	paper.set_anchors_preset(Control.PRESET_FULL_RECT)
-	paper.offset_left = 42.0
-	paper.offset_top = 14.0
-	paper.offset_right = -42.0
-	paper.offset_bottom = -14.0
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color("f2ead3")
-	style.border_color = Color("4a4238")
-	style.set_border_width_all(4)
-	style.set_corner_radius_all(18)
-	paper.add_theme_stylebox_override("panel", style)
+	paper.offset_left = 64.0
+	paper.offset_top = 28.0
+	paper.offset_right = -64.0
+	paper.offset_bottom = -28.0
+	paper.add_theme_stylebox_override(
+		"panel", UtilityPageStyle.panel_style()
+	)
 	add_child(paper)
+	UtilityPageStyle.apply_page(self)
 
 	var margin := MarginContainer.new()
 	for side: String in ["left", "right", "top", "bottom"]:
-		margin.add_theme_constant_override("margin_%s" % side, 28)
+		margin.add_theme_constant_override("margin_%s" % side, 18)
 	paper.add_child(margin)
 	var layout := VBoxContainer.new()
-	layout.add_theme_constant_override("separation", 8)
+	layout.add_theme_constant_override("separation", 5)
 	margin.add_child(layout)
 
 	var heading := Label.new()
-	heading.text = "player profile"
-	heading.add_theme_font_size_override("font_size", 28)
+	heading.text = "Player Profile"
+	heading.add_theme_font_size_override("font_size", 25)
 	heading.add_theme_color_override("font_color", Color("302b27"))
 	layout.add_child(heading)
 
@@ -139,7 +140,8 @@ func _build_ui() -> void:
 	_name_edit = LineEdit.new()
 	_name_edit.max_length = NetworkProtocol.MAX_DISPLAY_NAME_LENGTH
 	_name_edit.placeholder_text = "Player"
-	_name_edit.custom_minimum_size = Vector2(360, 42)
+	_name_edit.custom_minimum_size = Vector2(300, 40)
+	UtilityPageStyle.apply_line_edit(_name_edit)
 	_name_edit.text_changed.connect(_on_name_changed)
 	name_stack.add_child(_name_edit)
 	var helper := Label.new()
@@ -148,17 +150,20 @@ func _build_ui() -> void:
 	name_stack.add_child(helper)
 	_apply_button = Button.new()
 	_apply_button.text = "apply"
-	_apply_button.custom_minimum_size = Vector2(118, 50)
+	_apply_button.custom_minimum_size = Vector2(92, 40)
+	UtilityPageStyle.apply_button(_apply_button)
 	_apply_button.pressed.connect(_apply)
 	name_row.add_child(_apply_button)
 	_revert_button = Button.new()
 	_revert_button.text = "revert"
-	_revert_button.custom_minimum_size = Vector2(108, 50)
+	_revert_button.custom_minimum_size = Vector2(88, 40)
+	UtilityPageStyle.apply_button(_revert_button)
 	_revert_button.pressed.connect(_revert)
 	name_row.add_child(_revert_button)
 	var defaults_button := Button.new()
 	defaults_button.text = "defaults"
-	defaults_button.custom_minimum_size = Vector2(108, 50)
+	defaults_button.custom_minimum_size = Vector2(88, 40)
+	UtilityPageStyle.apply_button(defaults_button)
 	defaults_button.pressed.connect(_show_confirmation.bind("defaults"))
 	name_row.add_child(defaults_button)
 
@@ -169,13 +174,9 @@ func _build_ui() -> void:
 	_suggestions.add_theme_constant_override("separation", 8)
 	layout.add_child(_suggestions)
 
-	var identity_label := Label.new()
-	identity_label.text = "identity"
-	identity_label.add_theme_color_override("font_color", Color("302b27"))
-	layout.add_child(identity_label)
 	var identity_value := Label.new()
 	identity_value.name = "IdentityFingerprint"
-	identity_value.text = "Stored on this device"
+	identity_value.text = "Identity • Stored on this device"
 	identity_value.tooltip_text = (
 		"This identity helps other players recognize you between sessions."
 	)
@@ -184,13 +185,13 @@ func _build_ui() -> void:
 
 	var body := HBoxContainer.new()
 	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	body.add_theme_constant_override("separation", 18)
+	body.add_theme_constant_override("separation", 12)
 	layout.add_child(body)
 	_category_list = VBoxContainer.new()
-	_category_list.custom_minimum_size = Vector2(170, 0)
+	_category_list.custom_minimum_size = Vector2(140, 0)
 	body.add_child(_category_list)
 	_option_list = VBoxContainer.new()
-	_option_list.custom_minimum_size = Vector2(230, 0)
+	_option_list.custom_minimum_size = Vector2(190, 0)
 	body.add_child(_option_list)
 	var preview_stack := VBoxContainer.new()
 	preview_stack.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -198,15 +199,19 @@ func _build_ui() -> void:
 	body.add_child(preview_stack)
 	_preview = preload("res://ui/profile_preview.tscn").instantiate()
 	preview_stack.add_child(_preview)
+	var preview_actions := HBoxContainer.new()
+	preview_actions.alignment = BoxContainer.ALIGNMENT_CENTER
+	preview_actions.add_theme_constant_override("separation", 10)
+	preview_stack.add_child(preview_actions)
 	var preview_note := Label.new()
-	preview_note.text = "capsule preview • drag or use left / right"
-	preview_note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	preview_note.text = "Current player • drag or use left / right"
 	preview_note.add_theme_color_override("font_color", Color("514a42"))
-	preview_stack.add_child(preview_note)
+	preview_actions.add_child(preview_note)
 	var reset_view := Button.new()
 	reset_view.text = "reset view"
 	reset_view.pressed.connect(_preview.reset_view)
-	preview_stack.add_child(reset_view)
+	UtilityPageStyle.apply_button(reset_view)
+	preview_actions.add_child(reset_view)
 
 	_discard_confirmation = PanelContainer.new()
 	_discard_confirmation.visible = false
@@ -249,6 +254,7 @@ func _build_categories() -> void:
 		button.custom_minimum_size = Vector2(0, 34)
 		button.button_pressed = category_id == _category_id
 		button.pressed.connect(_select_category.bind(category_id))
+		UtilityPageStyle.apply_button(button)
 		_category_list.add_child(button)
 	_refresh_options()
 
@@ -287,6 +293,7 @@ func _refresh_options() -> void:
 		button.custom_minimum_size = Vector2(0, 34)
 		button.button_pressed = _draft_appearance.get(_category_id) == option_id
 		button.pressed.connect(_select_option.bind(_category_id, option_id))
+		UtilityPageStyle.apply_button(button)
 		_option_list.add_child(button)
 
 

@@ -132,6 +132,7 @@ const TITLE_MUSIC_SILENCE_DB: float = -80.0
 	%NetworkProfileService
 )
 @onready var _players_root: Node3D = $Players
+@onready var _title_background: ColorRect = %TitleBackground
 
 var _gameplay_started: bool = false
 var _shop_interaction: FishingShopInteractionType
@@ -154,6 +155,7 @@ var _pending_existing_root_path := ""
 
 
 func _ready() -> void:
+	DisplayServer.window_set_title("NETfishing")
 	if not _settings_manager.settings_changed.is_connected(
 		_apply_runtime_settings
 	):
@@ -486,7 +488,7 @@ func _initialize_after_data_root() -> void:
 func _show_data_root_setup() -> void:
 	if _data_setup_dialog == null:
 		_data_setup_dialog = ConfirmationDialog.new()
-		_data_setup_dialog.title = "NETFISHING player data"
+		_data_setup_dialog.title = "NETfishing player data"
 		_data_setup_dialog.ok_button_text = "Use This Folder"
 		_data_setup_dialog.cancel_button_text = "Quit"
 		_data_setup_dialog.confirmed.connect(_use_default_data_root)
@@ -503,8 +505,8 @@ func _show_data_root_setup() -> void:
 	var default_path: String = _data_root.default_visible_path()
 	var legacy: bool = PortableDataMigration.legacy_files_present()
 	_data_setup_dialog.dialog_text = (
-		("Move your existing NETFISHING data to an easy-to-find folder."
-		if legacy else "Choose where NETFISHING stores your player data.")
+		("Move your existing NETfishing data to an easy-to-find folder."
+		if legacy else "Choose where NETfishing stores your player data.")
 		+ "\n\n%s\n\nYou can choose a Syncthing folder."
 		% (default_path if not default_path.is_empty() else "Choose a folder")
 	)
@@ -513,7 +515,7 @@ func _show_data_root_setup() -> void:
 	)
 	if not _data_root.error_message.is_empty():
 		_data_setup_dialog.dialog_text = (
-			"Your NETFISHING data folder is unavailable.\n\n%s"
+			"Your NETfishing data folder is unavailable.\n\n%s"
 			% _data_root.error_message
 		)
 	_data_setup_dialog.popup_centered(Vector2i(640, 360))
@@ -621,11 +623,11 @@ func _activate_selected_data_path(path: String, app_data: bool = false) -> void:
 func _show_existing_root_choice(path: String) -> void:
 	_pending_existing_root_path = path
 	var dialog: ConfirmationDialog = ConfirmationDialog.new()
-	dialog.title = "Existing NETFISHING data"
+	dialog.title = "Existing NETfishing data"
 	dialog.ok_button_text = "Use Data Already in Selected Folder"
 	dialog.cancel_button_text = "Cancel"
 	dialog.dialog_text = (
-		"This folder already contains NETFISHING player data.\n\n"
+		"This folder already contains NETfishing player data.\n\n"
 		+ "Choose which complete data set to use. Data is never merged automatically."
 	)
 	dialog.add_button(
@@ -869,12 +871,14 @@ func _reset_pixelation() -> void:
 
 func _set_gameplay_active(active: bool) -> void:
 	_gameplay_started = active
+	_title_background.visible = not active
 	_world_pixelation.set_gameplay_active(active)
 	_ui_pixelation.set_gameplay_active(active)
 	if not active:
 		_player.item_effects.reset_all()
 	_player.set_movement_enabled(active)
 	_player.set_camera_input_enabled(active)
+	_player.set_camera_active(active)
 	_fishing_spot.set_gameplay_input_enabled(active)
 	_water_recovery.set_recovery_enabled(active)
 	_game_ui.set_gameplay_ui_enabled(active)

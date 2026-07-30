@@ -11,8 +11,6 @@ extends Control
 @export var compact_maximum_layout_size: Vector2 = Vector2.ZERO
 @export var compact_width_threshold: float = 680.0
 @export var compact_height_threshold: float = 500.0
-@export_range(0.1, 2.0, 0.01) var outgoing_rise_duration: float = 1.70
-@export_range(0.1, 2.0, 0.01) var incoming_rise_duration: float = 1.85
 @export_range(0.0, 128.0, 1.0) var transition_safe_margin: float = 24.0
 
 var _cluster: BubbleCluster
@@ -49,30 +47,35 @@ func show_page(should_focus: bool = true) -> void:
 	_cluster.position = _resting_cluster_position
 	set_process(true)
 	_set_interactive(true)
+	var paper := get_node_or_null("Paper") as Control
+	if paper != null:
+		UtilityPageStyle.animate_in(paper)
 	if should_focus:
 		focus_initial()
 
 
 func transition_out(
 	completed: Callable,
-	duration_override: float = -1.0,
+	_duration_override: float = -1.0,
 ) -> void:
 	_transition_generation += 1
 	_cancel_transition()
 	_is_transitioning = true
 	_set_interactive(false)
+	var paper := get_node_or_null("Paper") as Control
+	if paper != null:
+		UtilityPageStyle.animate_out(paper, Callable())
 	set_process(true)
-	var duration: float = (
-		duration_override
-		if duration_override > 0.0
-		else outgoing_rise_duration
+	var target_y: float = -_cluster.size.y - transition_safe_margin
+	var duration := UIMotion.bubble_duration(
+		target_y - _cluster.position.y
 	)
 	var generation: int = _transition_generation
 	_transition = create_tween()
 	_transition.tween_property(
 		_cluster,
 		"position:y",
-		-_cluster.size.y - transition_safe_margin,
+		target_y,
 		duration
 	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	_transition.finished.connect(
@@ -84,7 +87,7 @@ func transition_out(
 func transition_in(
 	should_focus: bool,
 	completed: Callable,
-	duration_override: float = -1.0,
+	_duration_override: float = -1.0,
 ) -> void:
 	_transition_generation += 1
 	_cancel_transition()
@@ -92,14 +95,15 @@ func transition_in(
 	_is_transitioning = true
 	_set_interactive(false)
 	set_process(true)
-	var duration: float = (
-		duration_override
-		if duration_override > 0.0
-		else incoming_rise_duration
-	)
 	_cluster.position = Vector2(
 		_resting_cluster_position.x,
 		size.y + transition_safe_margin
+	)
+	var paper := get_node_or_null("Paper") as Control
+	if paper != null:
+		UtilityPageStyle.animate_in(paper)
+	var duration := UIMotion.bubble_duration(
+		_cluster.position.y - _resting_cluster_position.y
 	)
 	var generation: int = _transition_generation
 	_transition = create_tween()
@@ -208,7 +212,8 @@ func _finish_transition_out(generation: int, completed: Callable) -> void:
 	_is_transitioning = false
 	hide()
 	_cluster.position = _resting_cluster_position
-	completed.call()
+	if completed.is_valid():
+		completed.call()
 
 
 func _finish_transition_in(

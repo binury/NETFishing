@@ -1,0 +1,150 @@
+class_name UtilityPageStyle
+extends RefCounted
+
+const TuffyFont: Font = preload("res://ui/fonts/Tuffy_Bold.otf")
+const PAPER: Color = Color("eee2bd")
+const PAPER_ALT: Color = Color("f3ecd7")
+const INK: Color = Color("28251f")
+const MUTED_INK: Color = Color("5f5547")
+const NAVY: Color = Color("092b3d")
+const NAVY_HOVER: Color = Color("12465b")
+const GREEN: Color = Color("31594d")
+const BORDER: Color = Color("473d2e")
+const LIGHT_TEXT: Color = Color("f5eed9")
+const DISABLED_TEXT: Color = Color(0.33, 0.36, 0.35, 0.72)
+const MOTION_TWEEN_META: StringName = &"utility_page_motion_tween"
+
+
+static func apply_page(root: Control) -> void:
+	root.add_theme_font_override("font", TuffyFont)
+
+
+static func panel_style() -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = PAPER
+	style.border_color = BORDER
+	style.set_border_width_all(4)
+	style.set_corner_radius_all(16)
+	style.content_margin_left = 26
+	style.content_margin_right = 26
+	style.content_margin_top = 20
+	style.content_margin_bottom = 20
+	style.shadow_color = Color(0.02, 0.075, 0.11, 0.34)
+	style.shadow_size = 7
+	style.shadow_offset = Vector2(5, 6)
+	return style
+
+
+static func row_style(selected: bool = false) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = NAVY if selected else PAPER_ALT
+	style.border_color = Color(BORDER, 0.55)
+	style.set_border_width_all(2)
+	style.set_corner_radius_all(8)
+	style.content_margin_left = 12
+	style.content_margin_right = 12
+	style.content_margin_top = 8
+	style.content_margin_bottom = 8
+	return style
+
+
+static func button_style(color: Color) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = color
+	style.border_color = Color(0.76, 0.86, 0.78, 0.72)
+	style.set_border_width_all(2)
+	style.set_corner_radius_all(7)
+	style.content_margin_left = 14
+	style.content_margin_right = 14
+	style.content_margin_top = 8
+	style.content_margin_bottom = 8
+	return style
+
+
+static func apply_button(button: BaseButton) -> void:
+	button.add_theme_font_override("font", TuffyFont)
+	button.add_theme_color_override("font_color", LIGHT_TEXT)
+	button.add_theme_color_override("font_hover_color", Color.WHITE)
+	button.add_theme_color_override("font_pressed_color", Color.WHITE)
+	button.add_theme_color_override("font_focus_color", Color.WHITE)
+	button.add_theme_color_override("font_disabled_color", DISABLED_TEXT)
+	button.add_theme_stylebox_override("normal", button_style(NAVY))
+	button.add_theme_stylebox_override("hover", button_style(NAVY_HOVER))
+	button.add_theme_stylebox_override("pressed", button_style(GREEN))
+	button.add_theme_stylebox_override("focus", button_style(NAVY_HOVER))
+	button.add_theme_stylebox_override(
+		"disabled", button_style(Color(0.37, 0.42, 0.40, 0.55))
+	)
+	button.custom_minimum_size.y = maxf(button.custom_minimum_size.y, 40.0)
+
+
+static func apply_line_edit(edit: LineEdit) -> void:
+	edit.add_theme_font_override("font", TuffyFont)
+	edit.add_theme_color_override("font_color", LIGHT_TEXT)
+	edit.add_theme_color_override(
+		"font_placeholder_color", Color(0.82, 0.80, 0.71, 0.84)
+	)
+	edit.add_theme_color_override("font_selected_color", Color.WHITE)
+	edit.add_theme_color_override("caret_color", Color("fff0b6"))
+	edit.add_theme_color_override("selection_color", Color("2f7186"))
+	edit.add_theme_color_override("font_uneditable_color", Color("c9c2ae"))
+	edit.add_theme_stylebox_override("normal", button_style(NAVY))
+	edit.add_theme_stylebox_override("focus", button_style(NAVY_HOVER))
+	edit.add_theme_stylebox_override(
+		"read_only", button_style(Color(NAVY, 0.82))
+	)
+
+
+static func animate_in(control: Control) -> void:
+	_cancel_motion(control)
+	control.pivot_offset = control.size * 0.5
+	control.scale = Vector2.ONE * UIMotion.UTILITY_ENTER_SCALE
+	control.modulate.a = 0.0
+	control.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var tween := control.create_tween()
+	control.set_meta(MOTION_TWEEN_META, tween)
+	tween.set_parallel(true)
+	tween.tween_property(
+		control, "scale", Vector2.ONE, UIMotion.UTILITY_ENTER_DURATION
+	).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tween.tween_property(
+		control, "modulate:a", 1.0, UIMotion.UTILITY_ENTER_DURATION
+	)
+	tween.finished.connect(func() -> void:
+		if is_instance_valid(control):
+			control.mouse_filter = Control.MOUSE_FILTER_PASS
+			control.remove_meta(MOTION_TWEEN_META)
+	)
+
+
+static func animate_out(control: Control, completed: Callable) -> void:
+	_cancel_motion(control)
+	control.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	control.pivot_offset = control.size * 0.5
+	var tween := control.create_tween()
+	control.set_meta(MOTION_TWEEN_META, tween)
+	tween.set_parallel(true)
+	tween.tween_property(
+		control,
+		"scale",
+		Vector2.ONE * UIMotion.UTILITY_ENTER_SCALE,
+		UIMotion.UTILITY_EXIT_DURATION
+	).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tween.tween_property(
+		control, "modulate:a", 0.0, UIMotion.UTILITY_EXIT_DURATION
+	)
+	if completed.is_valid():
+		tween.finished.connect(completed, CONNECT_ONE_SHOT)
+	tween.finished.connect(func() -> void:
+		if is_instance_valid(control):
+			control.remove_meta(MOTION_TWEEN_META)
+	)
+
+
+static func _cancel_motion(control: Control) -> void:
+	if not control.has_meta(MOTION_TWEEN_META):
+		return
+	var existing := control.get_meta(MOTION_TWEEN_META) as Tween
+	if existing != null and existing.is_valid():
+		existing.kill()
+	control.remove_meta(MOTION_TWEEN_META)

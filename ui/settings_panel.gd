@@ -8,8 +8,6 @@ const PAGE_DISPLAY: StringName = &"display"
 const PAGE_CONTROLS: StringName = &"controls"
 const PAGE_ACCESSIBILITY: StringName = &"accessibility"
 const PAGE_DATA: StringName = &"data"
-const TITLE_HOST_OUTGOING_DURATION: float = 1.70
-const TITLE_HOST_INCOMING_DURATION: float = 1.80
 const PIXELATION_NAMES: PackedStringArray = [
 	"legible",
 	"cute",
@@ -23,6 +21,7 @@ const SettingsManagerType = preload(
 
 signal applied
 signal closed
+signal closing
 signal opened
 signal crisp_reset_focus_requested
 signal panel_visibility_changed(is_visible: bool)
@@ -151,6 +150,19 @@ func _ready() -> void:
 	_invert_y_toggle.pressed.connect(_toggle_invert_y)
 	_auto_click_toggle.pressed.connect(_toggle_auto_click)
 	_readable_font_toggle.pressed.connect(_toggle_readable_font)
+	for control: Control in [_auto_click_toggle, _auto_click_interval]:
+		control.mouse_entered.connect(
+			_show_accessibility_helper.bind(&"auto_click")
+		)
+		control.focus_entered.connect(
+			_show_accessibility_helper.bind(&"auto_click")
+		)
+	_readable_font_toggle.mouse_entered.connect(
+		_show_accessibility_helper.bind(&"alternate_font")
+	)
+	_readable_font_toggle.focus_entered.connect(
+		_show_accessibility_helper.bind(&"alternate_font")
+	)
 	%IntervalDecrease.pressed.connect(_adjust_auto_click_interval.bind(-1))
 	%IntervalIncrease.pressed.connect(_adjust_auto_click_interval.bind(1))
 	_auto_click_interval.pressed.connect(
@@ -171,6 +183,7 @@ func _ready() -> void:
 		parent_control.resized.connect(_refresh_panel_size)
 	for page: SettingsBubblePage in _pages.values():
 		page.hide_page()
+	_style_data_page()
 	call_deferred("_refresh_panel_size")
 
 
@@ -234,7 +247,7 @@ func open_panel(
 		_root_page.transition_in(
 			true,
 			_finish_animated_open.bind(generation),
-			TITLE_HOST_INCOMING_DURATION
+			0.0
 		)
 	else:
 		_show_active_page(true)
@@ -304,34 +317,29 @@ func _start_page_transition(page_id: StringName, push_page: bool) -> void:
 	_page_transition_active = true
 	navigation_transition_started.emit()
 	var generation: int = _page_transition_generation
-	outgoing_page.transition_out(
-		_finish_outgoing_page.bind(
-			generation,
-			page_id,
-			push_page,
-			incoming_page
-		)
-	)
-
-
-func _finish_outgoing_page(
-	generation: int,
-	page_id: StringName,
-	push_page: bool,
-	incoming_page: SettingsBubblePage,
-) -> void:
-	if generation != _page_transition_generation or not _page_transition_active:
-		return
 	if push_page:
 		_page_stack.append(page_id)
 	else:
 		_page_stack.pop_back()
 	for page: SettingsBubblePage in _pages.values():
-		if page != incoming_page:
+		if page != outgoing_page and page != incoming_page:
 			page.hide_page()
-	incoming_page.transition_in(
-		true,
-		_finish_incoming_page.bind(generation)
+	outgoing_page.transition_out(
+		Callable()
+	)
+	get_tree().create_timer(
+		UIMotion.BUBBLE_TRANSITION_OVERLAP_DELAY
+	).timeout.connect(
+		func() -> void:
+			if (
+				generation == _page_transition_generation
+				and _page_transition_active
+			):
+				incoming_page.transition_in(
+					true,
+					_finish_incoming_page.bind(generation)
+				),
+		CONNECT_ONE_SHOT
 	)
 
 
@@ -355,10 +363,11 @@ func _begin_animated_close(applied_result: bool) -> void:
 	_page_transition_generation += 1
 	_page_transition_active = true
 	navigation_transition_started.emit()
+	closing.emit()
 	var generation: int = _page_transition_generation
 	active_page.transition_out(
 		_finish_animated_close.bind(generation, applied_result),
-		TITLE_HOST_OUTGOING_DURATION
+		0.0
 	)
 
 
@@ -393,7 +402,7 @@ func _refresh_data_page() -> void:
 	if not is_node_ready() or _data_root == null:
 		return
 	%DataFolderPath.text = _data_root.root_path
-	%DataStorageMode.text = "storage mode: " + _data_root.storage_mode_text()
+	%DataStorageMode.text = "Storage Mode: " + _data_root.storage_mode_text()
 	%ChangeDataFolder.disabled = (
 		_data_root.override_active
 		or (_network_session != null and _network_session.is_session_active())
@@ -432,7 +441,7 @@ func _change_data_folder(path: String) -> void:
 		_show_existing_data_folder_choice(path)
 		return
 	if bool(result.get("ok", false)):
-		_feedback.text = "Data folder changed. NETFISHING will close safely."
+		_feedback.text = "Data folder changed. NETfishing will close safely."
 		_refresh_data_page()
 		get_tree().call_deferred("quit")
 	else:
@@ -441,16 +450,16 @@ func _change_data_folder(path: String) -> void:
 
 func _show_existing_data_folder_choice(path: String) -> void:
 	var dialog: ConfirmationDialog = ConfirmationDialog.new()
-	dialog.title = "Existing NETFISHING data"
+	dialog.title = "Existing NETfishing data"
 	dialog.ok_button_text = "Use Selected Data"
 	dialog.dialog_text = (
-		"The selected folder contains different NETFISHING data.\n\n"
+		"The selected folder contains different NETfishing data.\n\n"
 		+ "Choose one complete data set. Data will not be merged."
 	)
 	dialog.add_button("Replace Selected Data", false, "replace")
 	dialog.confirmed.connect(func() -> void:
 		if _data_root.use_existing_root(path):
-			_feedback.text = "Data folder changed. NETFISHING will close safely."
+			_feedback.text = "Data folder changed. NETfishing will close safely."
 			get_tree().call_deferred("quit")
 		else:
 			_feedback.text = _data_root.error_message
@@ -483,7 +492,7 @@ func _choose_identity_export(identity_type: String) -> void:
 		_export_file_dialog.file_mode = FileDialog.FILE_MODE_SAVE_FILE
 		_export_file_dialog.access = FileDialog.ACCESS_FILESYSTEM
 		_export_file_dialog.use_native_dialog = false
-		_export_file_dialog.filters = PackedStringArray(["*.nfidentity ; NETFISHING identity backup"])
+		_export_file_dialog.filters = PackedStringArray(["*.nfidentity ; NETfishing identity backup"])
 		_export_file_dialog.file_selected.connect(_identity_export_file_selected)
 		_interface_fonts.apply_utility_theme(_export_file_dialog)
 		add_child(_export_file_dialog)
@@ -509,7 +518,7 @@ func _choose_identity_import(identity_type: String) -> void:
 		_backup_file_dialog.file_mode = FileDialog.FILE_MODE_OPEN_FILE
 		_backup_file_dialog.access = FileDialog.ACCESS_FILESYSTEM
 		_backup_file_dialog.use_native_dialog = false
-		_backup_file_dialog.filters = PackedStringArray(["*.nfidentity ; NETFISHING identity backup"])
+		_backup_file_dialog.filters = PackedStringArray(["*.nfidentity ; NETfishing identity backup"])
 		_backup_file_dialog.file_selected.connect(_identity_import_file_selected)
 		_interface_fonts.apply_utility_theme(_backup_file_dialog)
 		add_child(_backup_file_dialog)
@@ -707,7 +716,7 @@ func _refresh_value_labels() -> void:
 		+ ("on" if _auto_click_enabled else "off")
 	)
 	_readable_font_toggle.text = (
-		"readable\ninterface font\n"
+		"alternate\nfont\n"
 		+ (
 			"on"
 			if settings.use_readable_interface_font
@@ -723,6 +732,35 @@ func _refresh_value_labels() -> void:
 		)
 	for index: int in _ui_options.size():
 		_ui_options[index].button_pressed = index + 1 == settings.ui_pixel_size
+
+
+func _show_accessibility_helper(kind: StringName) -> void:
+	var helper := %IntervalHelp as BubbleButton
+	if kind == &"alternate_font":
+		helper.text = (
+			"The quick brown fox\njumps over the lazy dog.\n0123456789"
+		)
+	else:
+		helper.text = (
+			"Lower intervals click\nbarriers faster\nwhile held."
+		)
+
+
+func _style_data_page() -> void:
+	UtilityPageStyle.apply_page(_data_page)
+	var paper := _data_page.get_node("Paper") as PanelContainer
+	paper.add_theme_stylebox_override(
+		"panel", UtilityPageStyle.panel_style()
+	)
+	var content := _data_page.get_node("Paper/Content") as VBoxContainer
+	content.add_theme_constant_override("separation", 12)
+	for node: Node in content.find_children("*", "", true, false):
+		if node is BaseButton:
+			UtilityPageStyle.apply_button(node)
+		elif node is Label:
+			node.add_theme_color_override(
+				"font_color", UtilityPageStyle.INK
+			)
 
 
 func _set_world_pixelation(pixel_size: int) -> void:

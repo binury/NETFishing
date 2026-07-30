@@ -62,8 +62,6 @@ const LogbookEntryScene = preload(
 	"res://ui/components/bubble_menu/logbook_entry.tscn"
 )
 
-const MENU_ENTER_DURATION: float = 0.58
-const MENU_EXIT_DURATION: float = 0.52
 const PAGE_OUT_DURATION: float = 0.34
 const PAGE_IN_DURATION: float = 0.42
 const LOGBOOK_PAGE_DURATION: float = 0.18
@@ -150,7 +148,6 @@ enum CloseReason {
 @onready var _bag_host: Control = %BagHost
 @onready var _bag_item_field: Control = %BagItemField
 @onready var _bag_empty_state: Label = %BagEmptyState
-@onready var _bag_instruction_bubble: PanelContainer = %BagInstructionBubble
 @onready var _bag_detail_constellation: Control = %BagDetailConstellation
 @onready var _bag_sprite_detail_bubble: Control = %BagDetailBubble
 @onready var _bag_sprite_detail_texture: TextureRect = %BagSpriteDetailTexture
@@ -913,7 +910,6 @@ func _apply_bag_styles() -> void:
 	bubble.content_margin_top = 9.0
 	bubble.content_margin_right = 12.0
 	bubble.content_margin_bottom = 9.0
-	_bag_instruction_bubble.add_theme_stylebox_override("panel", bubble)
 	_bag_sprite_detail_bubble.add_theme_stylebox_override(
 		"panel",
 		bubble.duplicate(),
@@ -1133,7 +1129,7 @@ func _update_shell_layout() -> void:
 	_bag_page.position = Vector2.ZERO
 	_bag_rest_position = Vector2.ZERO
 	_bag_outer_wall.position = (
-		Vector2(14.0, 170.0) if compact else Vector2(72.0, 132.0)
+		Vector2(14.0, 170.0) if compact else Vector2(122.0, 132.0)
 	)
 	_bag_outer_wall.size = (
 		Vector2(612.0, 200.0) if compact else Vector2(896.0, 442.0)
@@ -1142,12 +1138,6 @@ func _update_shell_layout() -> void:
 		Vector2(520.0, 140.0) if compact else Vector2(820.0, 350.0)
 	)
 	_bag_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	_bag_instruction_bubble.position = (
-		Vector2(218.0, 145.0) if compact else Vector2(992.0, 140.0)
-	)
-	_bag_instruction_bubble.size = (
-		Vector2(204.0, 48.0) if compact else Vector2(240.0, 98.0)
-	)
 	_bag_detail_constellation.position = (
 		Vector2.ZERO if compact else Vector2(984.0, 266.0)
 	)
@@ -1335,48 +1325,49 @@ func _begin_menu_entry() -> void:
 	_profile_page.position = _profile_rest_position + Vector2.DOWN * start_offset
 	var navigation_rest: Vector2 = _navigation_cluster.position
 	_navigation_cluster.position = navigation_rest + Vector2.DOWN * start_offset
+	var transition_duration := UIMotion.bubble_duration(start_offset)
 	_presentation_tween = create_tween().set_parallel(true)
 	_presentation_tween.tween_property(
 		_content_shell,
 		"position",
 		_presentation_rest_position,
-		MENU_ENTER_DURATION
+		transition_duration
 	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	_presentation_tween.tween_property(
 		_cooler_page,
 		"position",
 		_cooler_rest_position,
-		MENU_ENTER_DURATION
+		transition_duration
 	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	_presentation_tween.tween_property(
 		_bag_page,
 		"position",
 		_bag_rest_position,
-		MENU_ENTER_DURATION
+		transition_duration
 	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	_presentation_tween.tween_property(
 		_logbook_page,
 		"position",
 		_logbook_rest_position,
-		MENU_ENTER_DURATION
+		transition_duration
 	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	_presentation_tween.tween_property(
 		_mail_page,
 		"position",
 		_mail_rest_position,
-		MENU_ENTER_DURATION
+		transition_duration
 	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	_presentation_tween.tween_property(
 		_profile_page,
 		"position",
 		_profile_rest_position,
-		MENU_ENTER_DURATION
+		transition_duration
 	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	_presentation_tween.tween_property(
 		_navigation_cluster,
 		"position",
 		navigation_rest,
-		MENU_ENTER_DURATION
+		transition_duration
 	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	_presentation_tween.chain().tween_callback(
 		_finish_menu_entry.bind(generation)
@@ -1407,48 +1398,51 @@ func _begin_menu_exit(reason: CloseReason, restore_controls: bool) -> void:
 		_content_shell.size.y,
 		_navigation_cluster.size.y
 	) - TRANSITION_SAFE_MARGIN
+	var transition_duration := UIMotion.bubble_duration(
+		end_y - _navigation_cluster.position.y
+	)
 	_presentation_tween = create_tween().set_parallel(true)
 	_presentation_tween.tween_property(
 		_content_shell,
 		"position:y",
 		end_y,
-		MENU_EXIT_DURATION
+		transition_duration
 	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	_presentation_tween.tween_property(
 		_cooler_page,
 		"position:y",
 		-_cooler_page.size.y - TRANSITION_SAFE_MARGIN,
-		MENU_EXIT_DURATION
+		transition_duration
 	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	_presentation_tween.tween_property(
 		_bag_page,
 		"position:y",
 		-_bag_page.size.y - TRANSITION_SAFE_MARGIN,
-		MENU_EXIT_DURATION
+		transition_duration
 	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	_presentation_tween.tween_property(
 		_logbook_page,
 		"position:y",
 		-_logbook_page.size.y - TRANSITION_SAFE_MARGIN,
-		MENU_EXIT_DURATION
+		transition_duration
 	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	_presentation_tween.tween_property(
 		_mail_page,
 		"position:y",
 		-_mail_page.size.y - TRANSITION_SAFE_MARGIN,
-		MENU_EXIT_DURATION
+		transition_duration
 	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	_presentation_tween.tween_property(
 		_profile_page,
 		"position:y",
 		-_profile_page.size.y - TRANSITION_SAFE_MARGIN,
-		MENU_EXIT_DURATION
+		transition_duration
 	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	_presentation_tween.tween_property(
 		_navigation_cluster,
 		"position:y",
 		-_navigation_cluster.size.y - TRANSITION_SAFE_MARGIN,
-		MENU_EXIT_DURATION
+		transition_duration
 	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	_presentation_tween.chain().tween_callback(
 		_finish_menu_exit.bind(
@@ -2009,14 +2003,10 @@ func _update_bag_detail() -> void:
 	_bag_detail_constellation.visible = (
 		item != null and _current_section == Section.BAG
 	)
-	_bag_instruction_bubble.visible = (
-		item == null and _current_section == Section.BAG
-	)
 
 
 func _close_bag_detail() -> void:
 	_bag_detail_constellation.visible = false
-	_bag_instruction_bubble.visible = _current_section == Section.BAG
 
 
 func _on_bag_field_gui_input(event: InputEvent) -> void:

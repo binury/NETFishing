@@ -33,12 +33,12 @@ static func migrate_legacy_to(
 			return {
 				"ok": false,
 				"requires_existing_root_decision": true,
-				"message": "The selected folder already contains NETFISHING data.",
+				"message": "The selected folder already contains NETfishing data.",
 			}
 		if not _directory_empty(normalized):
 			return {
 				"ok": false,
-				"message": "Choose an empty folder or create a NETFISHING subfolder.",
+				"message": "Choose an empty folder or create a NETfishing subfolder.",
 			}
 	var staging: String = "%s.migration-%s" % [
 		normalized, Crypto.new().generate_random_bytes(8).hex_encode()
@@ -107,11 +107,11 @@ static func migrate_active_to(
 				"ok": false,
 				"requires_existing_root_decision": true,
 				"message": (
-					"The selected folder already contains NETFISHING data. "
+					"The selected folder already contains NETfishing data. "
 					+ "Choose it through the existing-data recovery flow."
 				),
 			}
-		return {"ok": false, "message": "Choose an empty folder or a NETFISHING subfolder."}
+		return {"ok": false, "message": "Choose an empty folder or a NETfishing subfolder."}
 	var staging: String = "%s.migration-%s" % [
 		normalized, Crypto.new().generate_random_bytes(8).hex_encode()
 	]
@@ -188,7 +188,7 @@ static func replace_existing_with_legacy(
 	var normalized: String = destination.simplify_path().trim_suffix("/")
 	var manifest: String = normalized.path_join(PlayerDataRoot.MANIFEST_FILENAME)
 	if not FileAccess.file_exists(manifest):
-		return {"ok": false, "message": "The selected folder is not a NETFISHING data root."}
+		return {"ok": false, "message": "The selected folder is not a NETfishing data root."}
 	var recovery: String = ProjectSettings.globalize_path(
 		"user://migration-recovery"
 	).path_join(
@@ -209,7 +209,7 @@ static func replace_existing_with_active(
 ) -> Dictionary:
 	var normalized: String = destination.simplify_path().trim_suffix("/")
 	if not FileAccess.file_exists(normalized.path_join(PlayerDataRoot.MANIFEST_FILENAME)):
-		return {"ok": false, "message": "The selected folder is not a NETFISHING data root."}
+		return {"ok": false, "message": "The selected folder is not a NETfishing data root."}
 	var recovery: String = ProjectSettings.globalize_path(
 		"user://migration-recovery"
 	).path_join(

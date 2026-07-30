@@ -1,8 +1,7 @@
-[gd_scene load_steps=13 format=3]
+[gd_scene load_steps=12 format=3]
 
 [ext_resource type="Script" path="res://ui/network/join_game_page.gd" id="1_script"]
 [ext_resource type="Theme" path="res://ui/game_theme.tres" id="2_theme"]
-[ext_resource type="PackedScene" path="res://ui/components/bubble_menu/bubble_button.tscn" id="3_bubble"]
 [ext_resource type="PackedScene" path="res://ui/components/bubble_menu/bubble_confirmation_page.tscn" id="4_confirmation"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBox_paper"]
@@ -128,41 +127,23 @@ layout_mode = 2
 theme_override_constants/separation = 14
 alignment = 1
 
-[node name="DirectButton" parent="Paper/Margin/Layout/Modes" instance=ExtResource("3_bubble")]
+[node name="DirectButton" type="Button" parent="Paper/Margin/Layout/Modes"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(100, 72)
 layout_mode = 2
 text = "direct"
-neutral_size = Vector2(100, 72)
-minimum_font_size = 16
-maximum_font_size = 19
-horizontal_amplitude = 0.0
-vertical_amplitude = 0.0
-deformation_amplitude = 0.0
 
-[node name="SavedButton" parent="Paper/Margin/Layout/Modes" instance=ExtResource("3_bubble")]
+[node name="SavedButton" type="Button" parent="Paper/Margin/Layout/Modes"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(100, 72)
 layout_mode = 2
 text = "saved"
-neutral_size = Vector2(100, 72)
-minimum_font_size = 16
-maximum_font_size = 19
-horizontal_amplitude = 0.0
-vertical_amplitude = 0.0
-deformation_amplitude = 0.0
 
-[node name="RecentButton" parent="Paper/Margin/Layout/Modes" instance=ExtResource("3_bubble")]
+[node name="RecentButton" type="Button" parent="Paper/Margin/Layout/Modes"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(100, 72)
 layout_mode = 2
 text = "recent"
-neutral_size = Vector2(100, 72)
-minimum_font_size = 16
-maximum_font_size = 19
-horizontal_amplitude = 0.0
-vertical_amplitude = 0.0
-deformation_amplitude = 0.0
 
 [node name="AddressLabel" type="Label" parent="Paper/Margin/Layout"]
 unique_name_in_owner = true
@@ -290,106 +271,58 @@ layout_mode = 2
 theme_override_constants/separation = 7
 alignment = 1
 
-[node name="JoinButton" parent="Paper/Margin/Layout/Actions" instance=ExtResource("3_bubble")]
+[node name="JoinButton" type="Button" parent="Paper/Margin/Layout/Actions"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(82, 72)
 layout_mode = 2
 text = "join"
-neutral_size = Vector2(82, 72)
-minimum_font_size = 15
-maximum_font_size = 18
-horizontal_amplitude = 0.0
-vertical_amplitude = 0.0
-deformation_amplitude = 0.0
 
-[node name="SaveButton" parent="Paper/Margin/Layout/Actions" instance=ExtResource("3_bubble")]
+[node name="SaveButton" type="Button" parent="Paper/Margin/Layout/Actions"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(82, 72)
 layout_mode = 2
 text = "save\nserver"
-neutral_size = Vector2(82, 72)
-minimum_font_size = 14
-maximum_font_size = 17
-horizontal_amplitude = 0.0
-vertical_amplitude = 0.0
-deformation_amplitude = 0.0
 
-[node name="EditButton" parent="Paper/Margin/Layout/Actions" instance=ExtResource("3_bubble")]
+[node name="EditButton" type="Button" parent="Paper/Margin/Layout/Actions"]
 unique_name_in_owner = true
 visible = false
 custom_minimum_size = Vector2(76, 68)
 layout_mode = 2
 text = "edit"
-neutral_size = Vector2(76, 68)
-minimum_font_size = 14
-maximum_font_size = 17
-horizontal_amplitude = 0.0
-vertical_amplitude = 0.0
-deformation_amplitude = 0.0
 
-[node name="FavoriteButton" parent="Paper/Margin/Layout/Actions" instance=ExtResource("3_bubble")]
+[node name="FavoriteButton" type="Button" parent="Paper/Margin/Layout/Actions"]
 unique_name_in_owner = true
 visible = false
 custom_minimum_size = Vector2(88, 68)
 layout_mode = 2
 text = "favorite"
-neutral_size = Vector2(88, 68)
-minimum_font_size = 13
-maximum_font_size = 16
-horizontal_amplitude = 0.0
-vertical_amplitude = 0.0
-deformation_amplitude = 0.0
 
-[node name="DeleteButton" parent="Paper/Margin/Layout/Actions" instance=ExtResource("3_bubble")]
+[node name="DeleteButton" type="Button" parent="Paper/Margin/Layout/Actions"]
 unique_name_in_owner = true
 visible = false
 custom_minimum_size = Vector2(82, 68)
 layout_mode = 2
 text = "delete"
-neutral_size = Vector2(82, 68)
-minimum_font_size = 13
-maximum_font_size = 16
-horizontal_amplitude = 0.0
-vertical_amplitude = 0.0
-deformation_amplitude = 0.0
 
-[node name="OpenCloseButton" parent="Paper/Margin/Layout/Actions" instance=ExtResource("3_bubble")]
+[node name="OpenCloseButton" type="Button" parent="Paper/Margin/Layout/Actions"]
 unique_name_in_owner = true
 visible = false
 custom_minimum_size = Vector2(88, 72)
 layout_mode = 2
 text = "open\ngame"
-neutral_size = Vector2(88, 72)
-minimum_font_size = 14
-maximum_font_size = 17
-horizontal_amplitude = 0.0
-vertical_amplitude = 0.0
-deformation_amplitude = 0.0
 
-[node name="CancelButton" parent="Paper/Margin/Layout/Actions" instance=ExtResource("3_bubble")]
+[node name="CancelButton" type="Button" parent="Paper/Margin/Layout/Actions"]
 unique_name_in_owner = true
 visible = false
 custom_minimum_size = Vector2(76, 68)
 layout_mode = 2
 text = "cancel"
-neutral_size = Vector2(76, 68)
-minimum_font_size = 14
-maximum_font_size = 17
-horizontal_amplitude = 0.0
-vertical_amplitude = 0.0
-deformation_amplitude = 0.0
 
-[node name="BackButton" parent="Paper/Margin/Layout/Actions" instance=ExtResource("3_bubble")]
+[node name="BackButton" type="Button" parent="Paper/Margin/Layout/Actions"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(76, 68)
 layout_mode = 2
 text = "back"
-neutral_size = Vector2(76, 68)
-minimum_font_size = 14
-maximum_font_size = 17
-horizontal_amplitude = 0.0
-vertical_amplitude = 0.0
-deformation_amplitude = 0.0
 
 [node name="DeleteConfirmation" parent="." instance=ExtResource("4_confirmation")]
 unique_name_in_owner = true

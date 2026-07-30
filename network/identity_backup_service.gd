@@ -189,7 +189,7 @@ func import_backup(
 	)
 	_finish(
 		bool(result.get("ok", false)),
-		"Identity imported. Restart NETFISHING before multiplayer."
+		"Identity imported. Restart NETfishing before multiplayer."
 		if bool(result.get("ok", false))
 		else "Could not install this identity backup.",
 	)

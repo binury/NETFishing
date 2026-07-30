@@ -102,7 +102,7 @@ func set_stage_rect(stage_rect: Rect2) -> void:
 
 
 func transition_in(
-	duration: float,
+	_duration: float,
 	completed: Callable,
 ) -> void:
 	_transition_generation += 1
@@ -114,6 +114,9 @@ func transition_in(
 	_cluster.position = Vector2(
 		_resting_cluster_position.x,
 		size.y + transition_safe_margin
+	)
+	var duration := UIMotion.bubble_duration(
+		_cluster.position.y - _resting_cluster_position.y
 	)
 	var generation: int = _transition_generation
 	_transition = create_tween()
@@ -130,7 +133,7 @@ func transition_in(
 
 
 func transition_out(
-	duration: float,
+	_duration: float,
 	completed: Callable,
 ) -> void:
 	if not visible or _is_transitioning:
@@ -139,12 +142,16 @@ func transition_out(
 	_cancel_transition()
 	_is_transitioning = true
 	_set_interactive(false)
+	var target_y: float = -_cluster.size.y - transition_safe_margin
+	var duration := UIMotion.bubble_duration(
+		target_y - _cluster.position.y
+	)
 	var generation: int = _transition_generation
 	_transition = create_tween()
 	_transition.tween_property(
 		_cluster,
 		"position:y",
-		-_cluster.size.y - transition_safe_margin,
+		target_y,
 		duration
 	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	_transition.finished.connect(

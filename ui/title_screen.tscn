@@ -33,6 +33,7 @@ script = ExtResource("1_script")
 
 [node name="Background" type="ColorRect" parent="."]
 unique_name_in_owner = true
+visible = false
 material = SubResource("ShaderMaterial_title_water")
 layout_mode = 1
 anchors_preset = 15

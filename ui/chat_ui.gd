@@ -96,6 +96,9 @@ func _unhandled_input(event: InputEvent) -> void:
 			):
 				open_chat()
 			get_viewport().set_input_as_handled()
+		elif event.keycode == KEY_T and not _opened and _available:
+			open_chat()
+			get_viewport().set_input_as_handled()
 		elif event.keycode == KEY_ESCAPE and _opened:
 			close_chat()
 			get_viewport().set_input_as_handled()

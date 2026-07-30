@@ -72,9 +72,6 @@ var _item_effects: PlayerItemEffectsType
 
 
 func _ready() -> void:
-	_pause_menu.chat_requested.connect(
-		func() -> void: call_deferred("_open_chat_from_pause")
-	)
 	_title_settings_panel.panel_visibility_changed.connect(
 		_on_settings_visibility_changed
 	)
@@ -87,10 +84,6 @@ func _ready() -> void:
 	_pause_settings_panel.crisp_reset_focus_requested.connect(
 		crisp_reset_focus_requested.emit
 	)
-
-
-func _open_chat_from_pause() -> void:
-	_chat_ui.open_chat()
 
 
 func setup(

@@ -448,9 +448,9 @@ mouse_filter = 1
 [node name="BagOuterWall" type="PanelContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/BagPage"]
 unique_name_in_owner = true
 layout_mode = 0
-offset_left = 72.0
+offset_left = 122.0
 offset_top = 132.0
-offset_right = 968.0
+offset_right = 1018.0
 offset_bottom = 574.0
 
 [node name="BagOuterMargin" type="MarginContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/BagPage/BagOuterWall"]
@@ -504,25 +504,6 @@ mouse_filter = 2
 theme_override_colors/font_color = Color(0.22, 0.15, 0.08, 0.8)
 theme_override_font_sizes/font_size = 24
 text = "your bag is empty"
-horizontal_alignment = 1
-vertical_alignment = 1
-
-[node name="BagInstructionBubble" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/BagPage" instance=ExtResource("9_info_scene")]
-unique_name_in_owner = true
-layout_mode = 0
-offset_left = 992.0
-offset_top = 140.0
-offset_right = 1232.0
-offset_bottom = 238.0
-mouse_filter = 2
-
-[node name="BagInstructionText" type="Label" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/BagPage/BagInstructionBubble"]
-unique_name_in_owner = true
-layout_mode = 2
-mouse_filter = 2
-theme_override_colors/font_color = Color(0.22, 0.15, 0.08, 1)
-theme_override_font_sizes/font_size = 18
-text = "drag items\nto the hotbar"
 horizontal_alignment = 1
 vertical_alignment = 1
 

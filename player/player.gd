@@ -26,8 +26,7 @@ var appearance_snapshot: Dictionary = (
 func apply_appearance_snapshot(snapshot: Dictionary) -> void:
 	if CharacterCustomizationCatalog.validate_snapshot(snapshot):
 		appearance_snapshot = snapshot.duplicate(true)
-	# Current gameplay art is monolithic. This seam intentionally stores the
-	# validated state until modular visual parts are available.
+		PlayerVisualPresenter.apply_appearance(_visuals, appearance_snapshot)
 
 class ShowcaseCameraSnapshot:
 	extends RefCounted
@@ -493,6 +492,10 @@ func set_camera_input_enabled(enabled: bool) -> void:
 	_camera_input_enabled = enabled
 	if not enabled:
 		_camera_dragging = false
+
+
+func set_camera_active(active: bool) -> void:
+	_camera.current = active
 
 
 func apply_camera_settings(

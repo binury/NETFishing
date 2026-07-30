@@ -83,8 +83,6 @@ const INTRO_PROMPT_FADE_DURATION: float = 0.55
 const INTRO_BUBBLE_TRAVEL_DURATION: float = 2.40
 const INTRO_BRANDING_TRAVEL_DURATION: float = 2.0
 const INTRO_BRANDING_START_DELAY: float = 0.35
-const HOST_PRESENTATION_OUT_DURATION: float = 1.70
-const HOST_PRESENTATION_IN_DURATION: float = 1.85
 const HOST_CLUSTER_SAFE_MARGIN: float = 24.0
 
 signal new_game_requested
@@ -203,6 +201,7 @@ func _ready() -> void:
 	_confirmation_page.cancelled.connect(_request_close_confirmation)
 	_settings_panel.applied.connect(_on_settings_applied)
 	_settings_panel.closed.connect(_on_settings_closed)
+	_settings_panel.closing.connect(_on_settings_closing)
 	_settings_panel.opened.connect(_on_settings_opened)
 	_settings_panel.navigation_transition_started.connect(
 		_emit_navigation_bubble_flurry
@@ -1032,7 +1031,7 @@ func _begin_confirmation_open() -> void:
 		_presentation_center,
 		"position:y",
 		_confirmation_title_content_rest_position.y - exit_distance,
-		HOST_PRESENTATION_OUT_DURATION
+		UIMotion.bubble_duration(exit_distance)
 	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	_confirmation_transition.finished.connect(
 		_finish_confirmation_title_exit.bind(generation),
@@ -1050,7 +1049,7 @@ func _finish_confirmation_title_exit(generation: int) -> void:
 	_presentation_center.hide()
 	_presentation_center.position = _confirmation_title_content_rest_position
 	_confirmation_page.transition_in(
-		HOST_PRESENTATION_IN_DURATION,
+		0.0,
 		_finish_confirmation_open.bind(generation)
 	)
 
@@ -1074,7 +1073,7 @@ func _begin_confirmation_return() -> void:
 	_confirmation_page.lock_interaction()
 	var generation: int = _confirmation_transition_generation
 	_confirmation_page.transition_out(
-		HOST_PRESENTATION_OUT_DURATION,
+		0.0,
 		_finish_confirmation_page_exit.bind(generation)
 	)
 
@@ -1092,12 +1091,16 @@ func _finish_confirmation_page_exit(generation: int) -> void:
 		+ HOST_CLUSTER_SAFE_MARGIN
 	)
 	_presentation_center.show()
+	var entry_distance: float = absf(
+		_presentation_center.position.y
+		- _confirmation_title_content_rest_position.y
+	)
 	_confirmation_transition = create_tween()
 	_confirmation_transition.tween_property(
 		_presentation_center,
 		"position",
 		_confirmation_title_content_rest_position,
-		HOST_PRESENTATION_IN_DURATION
+		UIMotion.bubble_duration(entry_distance)
 	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	_confirmation_transition.finished.connect(
 		_finish_confirmation_return.bind(generation),
@@ -1177,15 +1180,23 @@ func _close_settings() -> void:
 
 
 func _on_settings_applied() -> void:
-	_begin_title_cluster_return("settings saved.")
+	_feedback_text_before_settings = "settings saved."
 
 
 func _on_settings_closed() -> void:
-	_begin_title_cluster_return(_feedback_text_before_settings)
+	pass
+
+
+func _on_settings_closing() -> void:
+	await get_tree().create_timer(
+		UIMotion.BUBBLE_TRANSITION_OVERLAP_DELAY
+	).timeout
+	if _settings_panel.visible:
+		_begin_title_cluster_return(_feedback_text_before_settings)
 
 
 func _on_settings_opened() -> void:
-	_title_settings_transition_active = false
+	pass
 
 
 func _begin_title_cluster_exit() -> void:
@@ -1207,12 +1218,23 @@ func _begin_title_cluster_exit() -> void:
 		_presentation_center,
 		"position:y",
 		_title_content_rest_position.y - exit_distance,
-		HOST_PRESENTATION_OUT_DURATION
+		UIMotion.bubble_duration(exit_distance)
 	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	_title_settings_transition.finished.connect(
 		_finish_title_cluster_exit.bind(generation),
 		CONNECT_ONE_SHOT
 	)
+	await get_tree().create_timer(
+		UIMotion.BUBBLE_TRANSITION_OVERLAP_DELAY
+	).timeout
+	if (
+		generation == _title_settings_transition_generation
+		and _title_settings_transition_active
+	):
+		_settings_panel.open_panel(
+			_settings_manager,
+			SettingsPanelType.PresentationMode.TITLE_EMBEDDED
+		)
 
 
 func _finish_title_cluster_exit(generation: int) -> void:
@@ -1222,12 +1244,9 @@ func _finish_title_cluster_exit(generation: int) -> void:
 	):
 		return
 	_title_settings_transition = null
+	_title_settings_transition_active = false
 	_presentation_center.hide()
 	_presentation_center.position = _title_content_rest_position
-	_settings_panel.open_panel(
-		_settings_manager,
-		SettingsPanelType.PresentationMode.TITLE_EMBEDDED
-	)
 
 
 func _begin_title_cluster_return(feedback_text: String) -> void:
@@ -1245,12 +1264,15 @@ func _begin_title_cluster_return(feedback_text: String) -> void:
 		_title_presentation_scale_root.size.y + HOST_CLUSTER_SAFE_MARGIN
 	)
 	_presentation_center.show()
+	var entry_distance: float = absf(
+		_presentation_center.position.y - _title_content_rest_position.y
+	)
 	_title_settings_transition = create_tween()
 	_title_settings_transition.tween_property(
 		_presentation_center,
 		"position",
 		_title_content_rest_position,
-		HOST_PRESENTATION_IN_DURATION
+		UIMotion.bubble_duration(entry_distance)
 	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	_title_settings_transition.finished.connect(
 		_finish_title_cluster_return.bind(generation),

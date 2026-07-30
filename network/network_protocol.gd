@@ -177,7 +177,7 @@ static func make_server_hello(
 		"protocol_version": PROTOCOL_VERSION,
 		"session_id": session_id,
 		"assigned_peer_id": assigned_peer_id,
-		"server_display_name": "NETFISHING",
+		"server_display_name": "NETfishing",
 		"player_count": player_count,
 		"max_players": max_players,
 		"capability_flags": PackedStringArray([

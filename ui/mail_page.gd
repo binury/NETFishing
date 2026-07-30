@@ -49,6 +49,7 @@ var _current_mail_id := ""
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	UtilityPageStyle.apply_page(self)
 	_build_ui()
 
 
@@ -75,6 +76,7 @@ func setup(
 
 func activate() -> void:
 	_show_inbox()
+	UtilityPageStyle.animate_in(self)
 	call_deferred("_focus_first")
 
 
@@ -103,14 +105,7 @@ func _build_ui() -> void:
 	var paper := PanelContainer.new()
 	paper.position = Vector2(116, 126)
 	paper.size = Vector2(1048, 470)
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color("f3ecd7")
-	style.border_color = Color("665a46")
-	style.set_border_width_all(4)
-	style.set_corner_radius_all(18)
-	style.shadow_color = Color(0.05, 0.04, 0.03, 0.42)
-	style.shadow_size = 7
-	paper.add_theme_stylebox_override("panel", style)
+	paper.add_theme_stylebox_override("panel", UtilityPageStyle.panel_style())
 	add_child(paper)
 	var margin := MarginContainer.new()
 	margin.add_theme_constant_override("margin_left", 34)
@@ -132,13 +127,14 @@ func _build_ui() -> void:
 	_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_status.add_theme_color_override("font_color", Color("4a3f31"))
 	root.add_child(_status)
+	_style_controls(root)
 	_show_inbox()
 
 
 func _build_inbox() -> Control:
 	var page := Control.new()
 	var title := Label.new()
-	title.text = "session mail"
+	title.text = "Mail"
 	title.position = Vector2(12, 0)
 	title.size = Vector2(500, 42)
 	title.add_theme_font_size_override("font_size", 30)
@@ -367,6 +363,7 @@ func _refresh_inbox() -> void:
 		button.custom_minimum_size = Vector2(930, 54)
 		button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		button.pressed.connect(_open_letter.bind(str(letter["mail_id"])))
+		UtilityPageStyle.apply_button(button)
 		_inbox_list.add_child(button)
 
 
@@ -601,3 +598,24 @@ func _focus_first() -> void:
 	var buttons := _inbox_list.find_children("*", "Button", true, false)
 	if not buttons.is_empty():
 		(buttons.front() as Button).grab_focus()
+
+
+func _style_controls(root: Node) -> void:
+	for node: Node in root.find_children("*", "", true, false):
+		if node is BaseButton:
+			UtilityPageStyle.apply_button(node)
+		elif node is LineEdit:
+			UtilityPageStyle.apply_line_edit(node)
+		elif node is Label:
+			node.add_theme_color_override(
+				"font_color", UtilityPageStyle.INK
+			)
+		elif node is TextEdit:
+			node.add_theme_font_override("font", UtilityPageStyle.TuffyFont)
+			node.add_theme_color_override(
+				"font_color", UtilityPageStyle.LIGHT_TEXT
+			)
+			node.add_theme_color_override(
+				"font_placeholder_color",
+				Color(0.82, 0.80, 0.71, 0.84)
+			)

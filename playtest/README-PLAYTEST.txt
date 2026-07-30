@@ -1,10 +1,10 @@
-NETFISHING
+NETfishing
 Pre-Alpha Playtest 0.2
 Version 0.2.0-prealpha.2
 
 Thank you for trying this early private playtest.
 
-NETFISHING is currently a local gameplay prototype for a future
+NETfishing is currently a local gameplay prototype for a future
 multiplayer-first game. Networking and multiplayer are NOT implemented in
 this build.
 

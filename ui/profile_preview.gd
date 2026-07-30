@@ -7,16 +7,25 @@ extends SubViewportContainer
 @onready var _preview_root: Node3D = %PreviewRoot
 
 var _dragging: bool = false
+var _visuals: Node3D
 
 
 func _ready() -> void:
 	focus_mode = Control.FOCUS_ALL
 	gui_input.connect(_on_gui_input)
+	_visuals = PlayerVisualPresenter.instantiate_visuals()
+	_preview_root.add_child(_visuals)
+	var rod := _visuals.find_child("FishingRod", true, false) as Node3D
+	if rod != null:
+		rod.visible = false
+	var catch_display := _visuals.find_child("CatchDisplay", true, false) as Node3D
+	if catch_display != null:
+		catch_display.visible = false
 
 
-func apply_appearance_profile(_profile: Dictionary) -> void:
-	# The capsule is deliberately neutral until modular character assets exist.
-	pass
+func apply_appearance_profile(profile: Dictionary) -> void:
+	if _visuals != null:
+		PlayerVisualPresenter.apply_appearance(_visuals, profile)
 
 
 func reset_view() -> void:
