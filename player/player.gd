@@ -579,6 +579,23 @@ func get_body_center_position() -> Vector3:
 	return global_position + Vector3.UP * body_center_height
 
 
+func get_chat_anchor_position() -> Vector3:
+	var highest_y := -INF
+	for node: Node in _visuals.find_children("*", "MeshInstance3D", true, false):
+		var mesh_instance := node as MeshInstance3D
+		if mesh_instance == null or not mesh_instance.is_visible_in_tree():
+			continue
+		var bounds := mesh_instance.get_aabb()
+		for endpoint_index: int in range(8):
+			var world_point := (
+				mesh_instance.global_transform * bounds.get_endpoint(endpoint_index)
+			)
+			highest_y = maxf(highest_y, world_point.y)
+	if not is_finite(highest_y):
+		highest_y = get_body_center_position().y + body_center_height
+	return Vector3(global_position.x, highest_y + 0.22, global_position.z)
+
+
 func get_body_center_height() -> float:
 	return body_center_height
 

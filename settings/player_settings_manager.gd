@@ -49,6 +49,14 @@ func load_settings() -> bool:
 			accessibility.has("use_readable_interface_font")
 			and typeof(accessibility["use_readable_interface_font"]) != TYPE_BOOL
 		)
+		or (
+			presentation.has("chat_draft")
+			and typeof(presentation["chat_draft"]) != TYPE_STRING
+		)
+		or (
+			presentation.has("chat_collapsed")
+			and typeof(presentation["chat_collapsed"]) != TYPE_BOOL
+		)
 	):
 		return _use_defaults_after_corruption("Player settings values are invalid.")
 	var loaded := PlayerSettings.new()
@@ -87,6 +95,10 @@ func load_settings() -> bool:
 		PlayerSettings.MAX_UI_PIXEL_SIZE,
 		PlayerSettings.DEFAULT_UI_PIXEL_SIZE
 	)
+	loaded.chat_draft = str(presentation.get("chat_draft", "")).left(
+		PlayerSettings.MAX_CHAT_DRAFT_CHARACTERS
+	)
+	loaded.chat_collapsed = bool(presentation.get("chat_collapsed", false))
 	if not loaded.is_valid():
 		return _use_defaults_after_corruption("Player settings values are invalid.")
 	current_settings = loaded
@@ -123,6 +135,22 @@ func apply_pixelation(world_pixel_size: int, ui_pixel_size: int) -> bool:
 	return apply_settings(edited)
 
 
+func update_chat_preferences(draft: String, collapsed: bool) -> void:
+	var clean_draft := draft.left(PlayerSettings.MAX_CHAT_DRAFT_CHARACTERS)
+	if (
+		current_settings.chat_draft == clean_draft
+		and current_settings.chat_collapsed == collapsed
+	):
+		return
+	current_settings.chat_draft = clean_draft
+	current_settings.chat_collapsed = collapsed
+	_is_dirty = true
+
+
+func save_chat_preferences() -> bool:
+	return save_if_dirty()
+
+
 func save_now() -> bool:
 	if current_settings == null or not current_settings.is_valid():
 		return false
@@ -143,8 +171,12 @@ func save_now() -> bool:
 		"presentation": {
 			"world_pixel_size": current_settings.world_pixel_size,
 			"ui_pixel_size": current_settings.ui_pixel_size,
+			"chat_draft": current_settings.chat_draft,
+			"chat_collapsed": current_settings.chat_collapsed,
 		},
 	}
+	if current_settings.chat_draft.is_empty():
+		(data["presentation"] as Dictionary).erase("chat_draft")
 	var file := FileAccess.open(TEMP_PATH, FileAccess.WRITE)
 	if file == null:
 		return false

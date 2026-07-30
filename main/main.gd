@@ -392,6 +392,7 @@ func _initialize_after_data_root() -> void:
 		_asset_reservations,
 		_network_profile_service,
 		_network_player_list,
+		_settings_manager,
 	)
 	_game_ui.setup_data_and_identity(
 		_data_root,

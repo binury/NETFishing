@@ -6,6 +6,7 @@ const WINDOW_COUNT: int = 5
 const WINDOW_SECONDS: float = 10.0
 
 signal message_received(message: Dictionary)
+signal local_message_confirmed(message: Dictionary)
 signal send_rejected(message: String)
 signal history_replaced(messages: Array[Dictionary])
 
@@ -222,6 +223,12 @@ func _apply_message(data: Dictionary) -> void:
 		_history.pop_front()
 	if _message_is_visible(stored_message):
 		message_received.emit(stored_message.duplicate(true))
+		if (
+			kind == NetworkChatProtocol.Kind.PLAYER
+			and int(stored_message["sender_peer_id"])
+				== _session.get_local_peer_id()
+		):
+			local_message_confirmed.emit(stored_message.duplicate(true))
 
 
 func _send_rejection(peer_id: int, message: String) -> void:

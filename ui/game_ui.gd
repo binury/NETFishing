@@ -32,6 +32,9 @@ const PlayerCoolerCapacityType = preload(
 	"res://progression/player_cooler_capacity.gd"
 )
 const ChatUIType = preload("res://ui/chat_ui.gd")
+const PlayerSettingsManagerType = preload(
+	"res://settings/player_settings_manager.gd"
+)
 
 signal pixelation_settings_visibility_changed(is_visible: bool)
 signal crisp_reset_focus_requested
@@ -114,12 +117,13 @@ func setup(
 	reservations: PlayerAssetReservationService,
 	network_profile_service: NetworkProfileService,
 	network_player_list: NetworkPlayerListService,
+	settings_manager: PlayerSettingsManagerType,
 ) -> void:
 	_fishing_spot = fishing_spot
 	_item_effects = item_effects
 	_chat_ui.setup(
 		network_chat_service, network_session, spawn_service, player,
-		fishing_spot
+		fishing_spot, settings_manager
 	)
 	_title_settings_panel.setup_network_profile(
 		network_profile, network_session

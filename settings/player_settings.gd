@@ -13,6 +13,7 @@ const DEFAULT_WORLD_PIXEL_SIZE: int = 3
 const MIN_UI_PIXEL_SIZE: int = 1
 const MAX_UI_PIXEL_SIZE: int = 5
 const DEFAULT_UI_PIXEL_SIZE: int = 3
+const MAX_CHAT_DRAFT_CHARACTERS: int = 280
 const COMPACT_DISPLAY_HEIGHT: int = 560
 const WORLD_DESKTOP_GRID_HEIGHTS: Array[int] = [0, 540, 360, 216, 96]
 const WORLD_COMPACT_GRID_HEIGHTS: Array[int] = [0, 360, 240, 144, 72]
@@ -25,6 +26,8 @@ const UI_COMPACT_RENDER_HEIGHTS: Array[int] = [0, 408, 336, 264, 192]
 @export_range(0.001, 0.012, 0.0005) var mouse_camera_sensitivity: float = 0.005
 @export_range(0.5, 5.0, 0.1) var controller_camera_sensitivity: float = 2.5
 @export var invert_camera_y: bool = false
+@export var chat_draft: String = ""
+@export var chat_collapsed: bool = false
 @export_range(1, 5, 1) var world_pixel_size: int = DEFAULT_WORLD_PIXEL_SIZE
 @export_range(1, 5, 1) var ui_pixel_size: int = DEFAULT_UI_PIXEL_SIZE
 
@@ -40,6 +43,7 @@ func is_valid() -> bool:
 		and is_finite(controller_camera_sensitivity)
 		and controller_camera_sensitivity >= MIN_CONTROLLER_SENSITIVITY
 		and controller_camera_sensitivity <= MAX_CONTROLLER_SENSITIVITY
+		and chat_draft.length() <= MAX_CHAT_DRAFT_CHARACTERS
 		and world_pixel_size >= MIN_WORLD_PIXEL_SIZE
 		and world_pixel_size <= MAX_WORLD_PIXEL_SIZE
 		and ui_pixel_size >= MIN_UI_PIXEL_SIZE
@@ -55,6 +59,8 @@ func copy() -> PlayerSettings:
 	result.mouse_camera_sensitivity = mouse_camera_sensitivity
 	result.controller_camera_sensitivity = controller_camera_sensitivity
 	result.invert_camera_y = invert_camera_y
+	result.chat_draft = chat_draft
+	result.chat_collapsed = chat_collapsed
 	result.world_pixel_size = world_pixel_size
 	result.ui_pixel_size = ui_pixel_size
 	return result
