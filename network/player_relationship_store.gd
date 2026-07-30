@@ -44,8 +44,10 @@ func set_blocked(fingerprint: String, display_name: String, value: bool) -> bool
 	_ensure_loaded()
 	var record := _record(fingerprint, display_name)
 	record["blocked"] = value
-	if value:
-		record["muted"] = true
+	# Blocking owns the accompanying mute. Removing the block establishes a
+	# fresh visibility boundary for future messages; already suppressed
+	# messages retain their immutable local suppression flag.
+	record["muted"] = value
 	return _commit(fingerprint, record)
 
 

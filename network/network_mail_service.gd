@@ -29,6 +29,8 @@ var _pending_transfers: Dictionary[String, Dictionary] = {}
 var _local_removal_snapshots: Dictionary[String, Dictionary] = {}
 var _received_awards: Dictionary[String, bool] = {}
 var _relationship_policy: NetworkPlayerListService
+var _archived_local_letters: Dictionary[String, bool] = {}
+var _deleted_local_letters: Dictionary[String, bool] = {}
 
 
 func setup(
@@ -72,11 +74,16 @@ func refresh_relationship_filters() -> void:
 	peers_changed.emit()
 
 
-func get_local_letters() -> Array[Dictionary]:
+func get_local_letters(archived: bool = false) -> Array[Dictionary]:
 	var values: Array[Dictionary] = []
 	for letter: Dictionary in _local_letters.values():
 		if (
-			int(letter["recipient_peer_id"]) == _session.get_local_peer_id()
+			_session.get_local_peer_id() in [
+				int(letter["sender_peer_id"]),
+				int(letter["recipient_peer_id"]),
+			]
+			and not _deleted_local_letters.has(str(letter["mail_id"]))
+			and _archived_local_letters.has(str(letter["mail_id"])) == archived
 			and not _letter_is_locally_blocked(letter)
 		):
 			values.append(letter.duplicate(true))
@@ -91,7 +98,34 @@ func get_local_letters() -> Array[Dictionary]:
 
 
 func get_letter(mail_id: String) -> Dictionary:
+	if _deleted_local_letters.has(mail_id):
+		return {}
 	return _local_letters.get(mail_id, {}).duplicate(true)
+
+
+func archive_local_letter(mail_id: String, archived: bool = true) -> bool:
+	if not _local_letters.has(mail_id) or _deleted_local_letters.has(mail_id):
+		return false
+	if archived:
+		_archived_local_letters[mail_id] = true
+	else:
+		_archived_local_letters.erase(mail_id)
+	_emit_mailbox()
+	return true
+
+
+func delete_local_letter(mail_id: String) -> bool:
+	var letter: Dictionary = _local_letters.get(mail_id, {})
+	if letter.is_empty() or _incoming_gift_is_unresolved(letter):
+		return false
+	_deleted_local_letters[mail_id] = true
+	_archived_local_letters.erase(mail_id)
+	_emit_mailbox()
+	return true
+
+
+func is_letter_archived(mail_id: String) -> bool:
+	return _archived_local_letters.has(mail_id)
 
 
 func get_unread_count() -> int:
@@ -100,6 +134,8 @@ func get_unread_count() -> int:
 		if (
 			int(letter["recipient_peer_id"]) == _session.get_local_peer_id()
 			and int(letter["state"]) == NetworkMailProtocol.State.SENT_UNREAD
+			and not _archived_local_letters.has(str(letter["mail_id"]))
+			and not _deleted_local_letters.has(str(letter["mail_id"]))
 			and not _letter_is_locally_blocked(letter)
 		):
 			count += 1
@@ -260,16 +296,19 @@ func _handle_send(sender: int, data: Dictionary) -> void:
 		)
 	):
 		error = "Letter identity could not be verified."
-	if (
+	var silently_dropped := (
 		error.is_empty()
 		and _relationship_policy != null
 		and _relationship_policy.pair_is_blocked(
 			sender_record.identity_fingerprint,
 			recipient_record.identity_fingerprint,
 		)
+	)
+	if (
+		error.is_empty()
+		and not silently_dropped
+		and _letters.size() >= NetworkMailProtocol.MAX_SESSION_LETTERS
 	):
-		error = "That player is unavailable."
-	if error.is_empty() and _letters.size() >= NetworkMailProtocol.MAX_SESSION_LETTERS:
 		error = "The session mailbox is full."
 	var recipient_count := 0
 	for letter: Dictionary in _letters.values():
@@ -277,6 +316,7 @@ func _handle_send(sender: int, data: Dictionary) -> void:
 			recipient_count += 1
 	if (
 		error.is_empty()
+		and not silently_dropped
 		and recipient_count >= NetworkMailProtocol.MAX_RECIPIENT_LETTERS
 	):
 		error = "That inbox is full."
@@ -288,29 +328,21 @@ func _handle_send(sender: int, data: Dictionary) -> void:
 		"accepted": error.is_empty(),
 		"message": "Letter sent." if error.is_empty() else error,
 		"reservation_id": str(data.get("reservation_id", "")),
+		"silent_drop": silently_dropped,
 	}
-	if error.is_empty():
+	if error.is_empty() and silently_dropped:
 		_sequence += 1
-		var letter := {
-			"mail_id": _new_id("mail"),
-			"session_id": _session.get_session_id(),
-			"sequence": _sequence,
-			"sender_peer_id": sender,
-			"sender_display_name": sender_record.display_name,
-			"recipient_peer_id": recipient,
-			"recipient_display_name": recipient_record.display_name,
-			"greeting_id": str(data["greeting_id"]),
-			"body": NetworkMailProtocol.sanitize_body(data["body"]),
-			"salutation_id": str(data["salutation_id"]),
-			"reservation_id": str(data["reservation_id"]),
-			"attachment": attachment.duplicate(true),
-			"state": NetworkMailProtocol.State.SENT_UNREAD,
-			"request_id": request_id,
-			"sender_fingerprint": data["sender_fingerprint"],
-			"recipient_fingerprint": data["recipient_fingerprint"],
-			"sender_signature": data["sender_signature"],
-			"sender_public_key": sender_record.identity_public_key,
-		}
+		var sender_copy := _build_letter(
+			data, sender, recipient, sender_record, recipient_record, _sequence
+		)
+		result["mail"] = sender_copy
+		_deliver_private_letter(sender, sender_copy)
+		_request_release(sender, str(data.get("reservation_id", "")))
+	elif error.is_empty():
+		_sequence += 1
+		var letter := _build_letter(
+			data, sender, recipient, sender_record, recipient_record, _sequence
+		)
 		_letters[letter["mail_id"]] = letter
 		result["mail"] = letter
 		_deliver_private_letter(sender, letter)
@@ -319,6 +351,36 @@ func _handle_send(sender: int, data: Dictionary) -> void:
 	_bound(ledger)
 	_send_ledger[sender] = ledger
 	_deliver_send_result(sender, result)
+
+
+func _build_letter(
+	data: Dictionary,
+	sender: int,
+	recipient: int,
+	sender_record: PeerRegistry.PeerRecord,
+	recipient_record: PeerRegistry.PeerRecord,
+	sequence: int,
+) -> Dictionary:
+	return {
+		"mail_id": _new_id("mail"),
+		"session_id": _session.get_session_id(),
+		"sequence": sequence,
+		"sender_peer_id": sender,
+		"sender_display_name": sender_record.display_name,
+		"recipient_peer_id": recipient,
+		"recipient_display_name": recipient_record.display_name,
+		"greeting_id": str(data["greeting_id"]),
+		"body": NetworkMailProtocol.sanitize_body(data["body"]),
+		"salutation_id": str(data["salutation_id"]),
+		"reservation_id": str(data["reservation_id"]),
+		"attachment": (data.get("attachment", {}) as Dictionary).duplicate(true),
+		"state": NetworkMailProtocol.State.SENT_UNREAD,
+		"request_id": str(data["request_id"]),
+		"sender_fingerprint": data["sender_fingerprint"],
+		"recipient_fingerprint": data["recipient_fingerprint"],
+		"sender_signature": data["sender_signature"],
+		"sender_public_key": sender_record.identity_public_key,
+	}
 
 
 func _deliver_private_letter(peer_id: int, letter: Dictionary) -> void:
@@ -401,7 +463,10 @@ func _receive_send_result(result: Dictionary) -> void:
 		!= str(_pending_local_send.get("request_id", ""))
 	):
 		return
-	if not bool(result.get("accepted", false)):
+	if (
+		not bool(result.get("accepted", false))
+		or bool(result.get("silent_drop", false))
+	):
 		var reservation_id := str(_pending_local_send.get("reservation_id", ""))
 		if not reservation_id.is_empty():
 			_reservations.release(reservation_id)
@@ -939,10 +1004,38 @@ func _letter_is_locally_blocked(letter: Dictionary) -> bool:
 	return _relationship_policy.is_locally_blocked(other_fingerprint)
 
 
+func _incoming_gift_is_unresolved(letter: Dictionary) -> bool:
+	return (
+		is_local_recipient(letter)
+		and int(letter.get("attachment", {}).get("type", 0))
+			!= PlayerAssetReservationService.AttachmentType.NONE
+		and int(letter.get("state", -1)) in [
+			NetworkMailProtocol.State.SENT_UNREAD,
+			NetworkMailProtocol.State.READ,
+			NetworkMailProtocol.State.ACCEPTANCE_PENDING,
+		]
+	)
+
+
 func _on_peer_removed(peer_id: int) -> void:
 	if not _session.is_host():
-		_clear_local_mail_for_peer(peer_id)
+		# The host delivers any unresolved final state. Keep local copies so
+		# disconnect feedback cannot disappear or overwrite settled mail.
+		peers_changed.emit()
 		return
+	for transfer_id: String in _pending_transfers.keys().duplicate():
+		var transfer: Dictionary = _pending_transfers.get(transfer_id, {})
+		var transfer_letter: Dictionary = transfer.get("letter", {})
+		if peer_id not in [
+			int(transfer_letter.get("sender_peer_id", 0)),
+			int(transfer_letter.get("recipient_peer_id", 0)),
+		]:
+			continue
+		if bool(transfer.get("sender_removed", false)):
+			var sender_id := int(transfer_letter.get("sender_peer_id", 0))
+			if _session.is_authenticated_peer(sender_id):
+				_request_sender_rollback(sender_id, transfer_id)
+		_finish_transfer(transfer_id, false, "Gift returned to sender.")
 	for letter: Dictionary in _letters.values():
 		if int(letter["recipient_peer_id"]) == peer_id:
 			if int(letter["state"]) in [
@@ -966,16 +1059,7 @@ func _on_peer_removed(peer_id: int) -> void:
 			letter["state"] = NetworkMailProtocol.State.ATTACHMENT_RECALLED
 			_update_participants(letter)
 	_send_ledger.erase(peer_id)
-	_clear_local_mail_for_peer(peer_id)
 	peers_changed.emit()
-
-
-func _clear_local_mail_for_peer(peer_id: int) -> void:
-	for mail_id: String in _local_letters.keys():
-		var letter: Dictionary = _local_letters[mail_id]
-		if int(letter["recipient_peer_id"]) == peer_id:
-			_local_letters.erase(mail_id)
-	_emit_mailbox()
 
 
 func _on_session_state_changed(state: NetworkSession.State) -> void:
@@ -994,6 +1078,8 @@ func _on_session_state_changed(state: NetworkSession.State) -> void:
 		_pending_transfers.clear()
 		_local_removal_snapshots.clear()
 		_received_awards.clear()
+		_archived_local_letters.clear()
+		_deleted_local_letters.clear()
 		_sequence = 0
 		_emit_mailbox()
 

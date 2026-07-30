@@ -36,7 +36,10 @@ var _salutation: OptionButton
 var _signature: Label
 var _attachment_kind: OptionButton
 var _attachment_choice: OptionButton
-var _attachment_amount: SpinBox
+var _attachment_amount: LineEdit
+var _coin_available: Label
+var _amount_minus: Button
+var _amount_plus: Button
 var _attachment_summary: Label
 var _send_button: Button
 var _status: Label
@@ -44,7 +47,10 @@ var _letter_text: Label
 var _letter_gift: Label
 var _accept: Button
 var _decline: Button
+var _archive: Button
+var _delete: Button
 var _current_mail_id := ""
+var _showing_archive := false
 
 
 func _ready() -> void:
@@ -145,6 +151,16 @@ func _build_inbox() -> Control:
 	send.size = Vector2(150, 48)
 	send.pressed.connect(_show_compose)
 	page.add_child(send)
+	var archive_view := Button.new()
+	archive_view.text = "archive"
+	archive_view.position = Vector2(654, 0)
+	archive_view.size = Vector2(154, 48)
+	archive_view.pressed.connect(func() -> void:
+		_showing_archive = not _showing_archive
+		archive_view.text = "inbox" if _showing_archive else "archive"
+		_refresh_inbox()
+	)
+	page.add_child(archive_view)
 	var scroll := ScrollContainer.new()
 	scroll.position = Vector2(12, 62)
 	scroll.size = Vector2(958, 342)
@@ -214,19 +230,32 @@ func _build_compose() -> Control:
 			_update_attachment_summary()
 	)
 	page.add_child(_attachment_choice)
-	_attachment_amount = SpinBox.new()
-	_attachment_amount.position = Vector2(688, 164)
-	_attachment_amount.size = Vector2(180, 46)
-	_attachment_amount.min_value = 1
-	_attachment_amount.max_value = 999
-	_attachment_amount.value = 1
-	_attachment_amount.value_changed.connect(
-		func(_value: float) -> void: _update_attachment_summary()
-	)
+	_coin_available = Label.new()
+	_coin_available.position = Vector2(688, 158)
+	_coin_available.size = Vector2(280, 28)
+	page.add_child(_coin_available)
+	_attachment_amount = LineEdit.new()
+	_attachment_amount.position = Vector2(746, 190)
+	_attachment_amount.size = Vector2(164, 46)
+	_attachment_amount.placeholder_text = "0"
+	_attachment_amount.text = "0"
+	_attachment_amount.text_changed.connect(_on_attachment_amount_changed)
 	page.add_child(_attachment_amount)
+	_amount_minus = Button.new()
+	_amount_minus.text = "−"
+	_amount_minus.position = Vector2(688, 190)
+	_amount_minus.size = Vector2(48, 46)
+	_amount_minus.pressed.connect(_step_attachment_amount.bind(-1))
+	page.add_child(_amount_minus)
+	_amount_plus = Button.new()
+	_amount_plus.text = "+"
+	_amount_plus.position = Vector2(920, 190)
+	_amount_plus.size = Vector2(48, 46)
+	_amount_plus.pressed.connect(_step_attachment_amount.bind(1))
+	page.add_child(_amount_plus)
 	_attachment_summary = Label.new()
-	_attachment_summary.position = Vector2(688, 224)
-	_attachment_summary.size = Vector2(280, 100)
+	_attachment_summary.position = Vector2(688, 246)
+	_attachment_summary.size = Vector2(280, 78)
 	_attachment_summary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	page.add_child(_attachment_summary)
 	var cancel := Button.new()
@@ -241,7 +270,10 @@ func _build_compose() -> Control:
 	_send_button.size = Vector2(142, 48)
 	_send_button.pressed.connect(_send)
 	page.add_child(_send_button)
-	_recipient.item_selected.connect(func(_i: int) -> void: _update_send_state())
+	_recipient.item_selected.connect(func(_i: int) -> void:
+		_reset_attachment_controls()
+		_update_send_state()
+	)
 	_refresh_attachment_choices(0)
 	return page
 
@@ -281,6 +313,18 @@ func _build_letter() -> Control:
 	close.size = Vector2(150, 48)
 	close.pressed.connect(_show_inbox)
 	page.add_child(close)
+	_archive = Button.new()
+	_archive.text = "archive"
+	_archive.position = Vector2(550, 370)
+	_archive.size = Vector2(150, 48)
+	_archive.pressed.connect(_archive_current)
+	page.add_child(_archive)
+	_delete = Button.new()
+	_delete.text = "delete"
+	_delete.position = Vector2(710, 370)
+	_delete.size = Vector2(150, 48)
+	_delete.pressed.connect(_delete_current)
+	page.add_child(_delete)
 	return page
 
 
@@ -296,13 +340,28 @@ func _show_compose() -> void:
 	_inbox.hide()
 	_compose.show()
 	_letter.hide()
-	_body.clear()
+	_reset_compose()
 	_signature.text = _service.get_local_display_name()
-	_status.text = ""
 	_refresh_recipients()
-	_refresh_attachment_choices(_attachment_kind.selected)
 	_update_send_state()
 	_greeting.grab_focus()
+
+
+func _reset_compose() -> void:
+	_recipient.select(0)
+	_greeting.select(0)
+	_body.clear()
+	_salutation.select(0)
+	_status.text = ""
+	_reset_attachment_controls()
+
+
+func _reset_attachment_controls() -> void:
+	_attachment_kind.select(0)
+	_attachment_choice.clear()
+	_attachment_choice.add_item("No attachment")
+	_attachment_amount.text = "0"
+	_refresh_attachment_choices(0)
 
 
 func _open_letter(mail_id: String) -> void:
@@ -332,6 +391,15 @@ func _open_letter(mail_id: String) -> void:
 	)
 	_accept.visible = pending
 	_decline.visible = pending
+	_archive.text = (
+		"restore to inbox"
+		if _service.is_letter_archived(mail_id)
+		else "archive"
+	)
+	_delete.disabled = pending
+	_delete.tooltip_text = (
+		"Resolve this gift before deleting the letter." if pending else ""
+	)
 	if pending:
 		_accept.grab_focus()
 
@@ -341,10 +409,12 @@ func _refresh_inbox() -> void:
 		return
 	for child: Node in _inbox_list.get_children():
 		child.queue_free()
-	var letters := _service.get_local_letters()
+	var letters := _service.get_local_letters(_showing_archive)
 	if letters.is_empty():
 		var empty := Label.new()
-		empty.text = "No letters yet."
+		empty.text = (
+			"No archived letters." if _showing_archive else "No letters yet."
+		)
 		empty.custom_minimum_size = Vector2(930, 80)
 		empty.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		_inbox_list.add_child(empty)
@@ -352,11 +422,23 @@ func _refresh_inbox() -> void:
 	for letter: Dictionary in letters:
 		var button := Button.new()
 		var first_line: String = str(letter["body"]).split("\n", false)[0]
-		var unread := int(letter["state"]) == NetworkMailProtocol.State.SENT_UNREAD
+		var unread := (
+			_service.is_local_recipient(letter)
+			and int(letter["state"]) == NetworkMailProtocol.State.SENT_UNREAD
+		)
 		var gift := int(letter["attachment"].get("type", 0)) != 0
-		button.text = "%s%s — %s%s" % [
+		var local_is_sender := (
+			int(letter["sender_peer_id"]) != 0
+			and not _service.is_local_recipient(letter)
+		)
+		button.text = "%s%s%s — %s%s" % [
 			"new · " if unread else "",
-			letter["sender_display_name"],
+			"to " if local_is_sender else "",
+			(
+				letter["recipient_display_name"]
+				if local_is_sender
+				else letter["sender_display_name"]
+			),
 			first_line.left(72),
 			"  · gift enclosed" if gift else "",
 		]
@@ -398,17 +480,18 @@ func _refresh_attachment_choices(_index: int) -> void:
 	if _attachment_choice == null:
 		return
 	_attachment_choice.clear()
-	_attachment_amount.visible = _attachment_kind.selected in [1, 3]
+	var amount_visible := _attachment_kind.selected in [1, 3]
+	_attachment_amount.visible = amount_visible
+	_amount_minus.visible = amount_visible
+	_amount_plus.visible = amount_visible
+	_coin_available.visible = _attachment_kind.selected == 1
 	match _attachment_kind.selected:
 		0:
 			_attachment_choice.add_item("No attachment")
 		1:
-			_attachment_choice.add_item(
-				"available: %d fish coin"
-				% _reservations.get_available_fish_coin()
-			)
-			_attachment_amount.max_value = maxi(
-				_reservations.get_available_fish_coin(), 1
+			_attachment_choice.add_item("Fish coin")
+			_coin_available.text = "Available: %d fish coin" % (
+				_reservations.get_available_fish_coin()
 			)
 		2:
 			for fish_catch: FishCatch in _inventory.get_all_catches():
@@ -441,11 +524,7 @@ func _refresh_attachment_choices(_index: int) -> void:
 
 
 func _update_attachment_amount_limit() -> void:
-	if _attachment_kind.selected == 3 and _attachment_choice.selected >= 0:
-		var item_id := StringName(str(_attachment_choice.get_selected_metadata()))
-		_attachment_amount.max_value = maxi(
-			_reservations.get_available_item_quantity(item_id), 1
-		)
+	_set_attachment_amount(_attachment_amount_value())
 
 
 func _make_attachment() -> Dictionary:
@@ -453,7 +532,7 @@ func _make_attachment() -> Dictionary:
 		1:
 			return {
 				"type": PlayerAssetReservationService.AttachmentType.FISH_COIN,
-				"amount": int(_attachment_amount.value),
+				"amount": _attachment_amount_value(),
 			}
 		2:
 			if _attachment_choice.selected < 0:
@@ -473,7 +552,7 @@ func _make_attachment() -> Dictionary:
 			return {
 				"type": PlayerAssetReservationService.AttachmentType.CONSUMABLE,
 				"item_id": str(_attachment_choice.get_selected_metadata()),
-				"quantity": int(_attachment_amount.value),
+				"quantity": _attachment_amount_value(),
 			}
 	return {"type": PlayerAssetReservationService.AttachmentType.NONE}
 
@@ -528,6 +607,7 @@ func _attachment_is_available(attachment: Dictionary) -> bool:
 
 
 func _send() -> void:
+	_set_attachment_amount(_attachment_amount_value())
 	var recipient_id := int(_recipient.get_selected_metadata())
 	var greeting_id := str(_greeting.get_selected_metadata())
 	var salutation_id := str(_salutation.get_selected_metadata())
@@ -546,6 +626,63 @@ func _on_operation_finished(success: bool, message: String) -> void:
 		_open_letter(_current_mail_id)
 	else:
 		_update_send_state()
+
+
+func _attachment_amount_value() -> int:
+	return int(_attachment_amount.text) if _attachment_amount.text.is_valid_int() else 0
+
+
+func _attachment_amount_maximum() -> int:
+	if _attachment_kind.selected == 1:
+		return _reservations.get_available_fish_coin()
+	if _attachment_kind.selected == 3 and _attachment_choice.selected >= 0:
+		return _reservations.get_available_item_quantity(
+			StringName(str(_attachment_choice.get_selected_metadata()))
+		)
+	return 0
+
+
+func _set_attachment_amount(value: int) -> void:
+	var clamped := clampi(value, 0, _attachment_amount_maximum())
+	var text := str(clamped)
+	if _attachment_amount.text != text:
+		_attachment_amount.text = text
+		_attachment_amount.caret_column = text.length()
+	_amount_minus.disabled = clamped <= 0
+	_amount_plus.disabled = clamped >= _attachment_amount_maximum()
+	_update_attachment_summary()
+
+
+func _on_attachment_amount_changed(value: String) -> void:
+	var digits := ""
+	for character: String in value:
+		if character >= "0" and character <= "9":
+			digits += character
+	_set_attachment_amount(int(digits) if not digits.is_empty() else 0)
+
+
+func _step_attachment_amount(delta: int) -> void:
+	_set_attachment_amount(_attachment_amount_value() + delta)
+	_attachment_amount.grab_focus()
+
+
+func _archive_current() -> void:
+	if _current_mail_id.is_empty():
+		return
+	var archived := not _service.is_letter_archived(_current_mail_id)
+	if _service.archive_local_letter(_current_mail_id, archived):
+		_status.text = "Letter archived." if archived else "Letter restored."
+		_show_inbox()
+
+
+func _delete_current() -> void:
+	if _current_mail_id.is_empty():
+		return
+	if _service.delete_local_letter(_current_mail_id):
+		_status.text = "Letter deleted locally."
+		_show_inbox()
+	else:
+		_status.text = "Resolve the gift before deleting this letter."
 
 
 func _attachment_state_text(letter: Dictionary) -> String:

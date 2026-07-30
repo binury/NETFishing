@@ -336,6 +336,7 @@ func _ready() -> void:
 	_apply_bag_styles()
 	_bag_item_field.gui_input.connect(_on_bag_field_gui_input)
 	_apply_logbook_styles()
+	_apply_mail_notification_style()
 	_logbook_previous.pressed.connect(_request_logbook_page.bind(-1))
 	_logbook_next.pressed.connect(_request_logbook_page.bind(1))
 	resized.connect(_update_shell_layout)
@@ -343,6 +344,22 @@ func _ready() -> void:
 	call_deferred("_update_shell_layout")
 	call_deferred("_update_cooler_water_mask")
 	set_process(false)
+
+
+func _apply_mail_notification_style() -> void:
+	var background := StyleBoxFlat.new()
+	background.bg_color = Color(0.95, 0.88, 0.63, 0.98)
+	background.border_color = Color(0.20, 0.14, 0.08, 0.92)
+	background.set_border_width_all(2)
+	background.set_corner_radius_all(12)
+	background.content_margin_left = 5
+	background.content_margin_right = 5
+	background.content_margin_top = 2
+	background.content_margin_bottom = 2
+	_mail_unread_badge.add_theme_stylebox_override("normal", background)
+	_mail_unread_badge.add_theme_font_override(
+		"font", UtilityPageStyle.TuffyFont
+	)
 
 
 func _update_cooler_water_mask() -> void:

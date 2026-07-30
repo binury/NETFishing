@@ -210,11 +210,18 @@ func _apply_message(data: Dictionary) -> void:
 	if not valid_signature:
 		return
 	_seen_messages[data["message_id"]] = true
-	_history.append(data.duplicate(true))
+	var stored_message := data.duplicate(true)
+	# Suppression is immutable for this received copy. Relationship changes
+	# later must never resurrect text that was hidden on arrival.
+	stored_message["locally_suppressed"] = (
+		kind == NetworkChatProtocol.Kind.PLAYER
+		and is_sender_filtered(str(data.get("sender_fingerprint", "")))
+	)
+	_history.append(stored_message)
 	while _history.size() > NetworkChatProtocol.MAX_HISTORY:
 		_history.pop_front()
-	if _message_is_visible(data):
-		message_received.emit(data.duplicate(true))
+	if _message_is_visible(stored_message):
+		message_received.emit(stored_message.duplicate(true))
 
 
 func _send_rejection(peer_id: int, message: String) -> void:
@@ -265,13 +272,11 @@ func receive_chat_history(values: Array) -> void:
 
 
 func _message_is_visible(message: Dictionary) -> bool:
+	if bool(message.get("locally_suppressed", false)):
+		return false
 	if int(message.get("kind", -1)) == NetworkChatProtocol.Kind.SYSTEM:
 		return true
-	if _relationships == null:
-		return true
-	return not _relationships.is_muted(
-		str(message.get("sender_fingerprint", ""))
-	)
+	return true
 
 
 func _consume_rate(peer_id: int) -> bool:
