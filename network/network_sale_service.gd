@@ -92,12 +92,12 @@ func request_local_sale(catch_ids: Array[StringName]) -> String:
 	for catch_id: StringName in catch_ids:
 		if _reservations != null and _reservations.is_fish_reserved(catch_id):
 			local_sale_finished.emit(
-				"", false, "Reserved in a letter.", [], 0
+				"", false, "Reserved in a letter.", _empty_catch_ids(), 0
 			)
 			return ""
 	if is_local_sale_pending():
 		local_sale_finished.emit(
-			"", false, "Selling…", [], 0
+			"", false, "Selling…", _empty_catch_ids(), 0
 		)
 		return ""
 	if not can_request_sale():
@@ -105,13 +105,13 @@ func request_local_sale(catch_ids: Array[StringName]) -> String:
 			"",
 			false,
 			"Selling is not supported by this server.",
-			[],
+			_empty_catch_ids(),
 			0
 		)
 		return ""
 	if catch_ids.is_empty() or _inventory == null:
 		local_sale_finished.emit(
-			"", false, "Sale could not be completed.", [], 0
+			"", false, "Sale could not be completed.", _empty_catch_ids(), 0
 		)
 		return ""
 	var evidence: Array[Dictionary] = []
@@ -119,7 +119,7 @@ func request_local_sale(catch_ids: Array[StringName]) -> String:
 		var fish_catch: FishCatch = _inventory.get_catch_by_id(catch_id)
 		if fish_catch == null:
 			local_sale_finished.emit(
-				"", false, "That catch is no longer available.", [], 0
+				"", false, "That catch is no longer available.", _empty_catch_ids(), 0
 			)
 			return ""
 		evidence.append(fish_catch.to_network_dict())
@@ -405,7 +405,9 @@ func _apply_sale_result(data: Dictionary) -> void:
 
 
 func _fail_local_apply(data: Dictionary, message: String) -> void:
-	_finish_local_sale(data["request_id"], false, message, [], 0)
+	_finish_local_sale(
+		data["request_id"], false, message, _empty_catch_ids(), 0
+	)
 	_acknowledge_result(data, false, message)
 
 
@@ -539,8 +541,12 @@ func _on_session_state_changed(state: NetworkSession.State) -> void:
 		_clear_session_state()
 		if had_pending:
 			local_sale_finished.emit(
-				"", false, "Connection lost.", [], 0
+				"", false, "Connection lost.", _empty_catch_ids(), 0
 			)
+
+
+func _empty_catch_ids() -> Array[StringName]:
+	return []
 
 
 func _clear_session_state() -> void:
