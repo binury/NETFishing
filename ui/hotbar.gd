@@ -1,6 +1,8 @@
 class_name HotbarUI
 extends Control
 
+signal presentation_transition_finished(is_visible: bool)
+
 const ItemCatalogType = preload("res://items/item_catalog.gd")
 const PlayerBagType = preload("res://inventory/player_bag.gd")
 const PlayerHotbarType = preload("res://inventory/player_hotbar.gd")
@@ -14,6 +16,9 @@ const COMPACT_REFERENCE_SIZE := Vector2(640.0, 480.0)
 const HOTBAR_PRESENTATION_SCALE: float = 0.60
 const HOTBAR_CANONICAL_POSITION := Vector2(256.0, 288.0)
 const HOTBAR_MENU_POSITION := Vector2(80.0, 198.0)
+const HOTBAR_GAMEPLAY_Z_INDEX: int = 35
+# PlayerMenu is z=30 and its authored inventory panels are relative z=50.
+const HOTBAR_MENU_Z_INDEX: int = 90
 
 @onready var _presentation_scale_root: Control = %HotbarPresentationScaleRoot
 @onready var _bubble_field: Control = %BubbleField
@@ -90,28 +95,49 @@ func set_player_menu_context(enabled: bool) -> void:
 	if _player_menu_context == enabled:
 		return
 	_player_menu_context = enabled
+	z_index = HOTBAR_MENU_Z_INDEX if enabled else HOTBAR_GAMEPLAY_Z_INDEX
 	_presentation_scale_root.position = (
 		HOTBAR_MENU_POSITION if enabled else HOTBAR_CANONICAL_POSITION
 	)
 
 
-func set_presentation_visible(should_show: bool, animate: bool = true) -> void:
+func set_presentation_visible(
+	should_show: bool,
+	animate: bool = true,
+	transition_duration: float = -1.0,
+) -> void:
 	_visibility_generation += 1
 	var generation: int = _visibility_generation
 	if _visibility_tween != null:
 		_visibility_tween.kill()
 		_visibility_tween = null
 	if should_show:
+		var was_visible: bool = visible
 		visible = true
 		if not animate:
 			modulate.a = 1.0
+			presentation_transition_finished.emit(true)
 			return
+		if not was_visible:
+			modulate.a = 0.0
+		var duration: float = (
+			transition_duration
+			if transition_duration >= 0.0
+			else UIMotion.UTILITY_ENTER_DURATION
+		)
 		_visibility_tween = create_tween()
 		_visibility_tween.tween_property(
 			self,
 			"modulate:a",
 			1.0,
-			UIMotion.UTILITY_ENTER_DURATION,
+			duration,
+		)
+		_visibility_tween.finished.connect(
+			func() -> void:
+				if generation != _visibility_generation:
+					return
+				_visibility_tween = null
+				presentation_transition_finished.emit(true)
 		)
 	else:
 		if not visible:
@@ -119,13 +145,19 @@ func set_presentation_visible(should_show: bool, animate: bool = true) -> void:
 		if not animate:
 			visible = false
 			modulate.a = 1.0
+			presentation_transition_finished.emit(false)
 			return
+		var duration: float = (
+			transition_duration
+			if transition_duration >= 0.0
+			else UIMotion.UTILITY_EXIT_DURATION
+		)
 		_visibility_tween = create_tween()
 		_visibility_tween.tween_property(
 			self,
 			"modulate:a",
 			0.0,
-			UIMotion.UTILITY_EXIT_DURATION,
+			duration,
 		)
 		_visibility_tween.finished.connect(
 			func() -> void:
@@ -134,6 +166,7 @@ func set_presentation_visible(should_show: bool, animate: bool = true) -> void:
 				visible = false
 				modulate.a = 1.0
 				_visibility_tween = null
+				presentation_transition_finished.emit(false)
 		)
 
 

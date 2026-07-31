@@ -1,27 +1,37 @@
 class_name OrganizerTab
 extends Button
 
-const INACTIVE_COLOR := Color("d6b875")
-const SELECTED_COLOR := Color("f0d995")
-const BORDER_COLOR := Color("4c3a25")
-const TEXT_COLOR := Color("251b10")
-const DISABLED_COLOR := Color("aa9a76")
+const PALETTE: Array[Color] = [
+	Color("b9deea"),
+	Color("3d9ca0"),
+	Color("4f9b72"),
+]
+const TEXT_COLOR := Color("102b35")
 const RISE_DURATION: float = UIMotion.UTILITY_ENTER_DURATION
-const INACTIVE_SETTLE_Y: float = 8.0
-const SELECTED_SETTLE_Y: float = 0.0
-const HOVER_SETTLE_Y: float = 4.0
+const INACTIVE_SETTLE_Y: float = 7.0
+const SELECTED_SETTLE_Y: float = 1.0
+const HOVER_SETTLE_Y: float = 5.0
 const HIDDEN_SETTLE_Y: float = 30.0
+const CAP_HEIGHT: float = 22.0
+const FONT_SIZE: int = 15
+
+@export_range(0, 2, 1) var palette_index: int = 0:
+	set(value):
+		palette_index = clampi(value, 0, PALETTE.size() - 1)
+		queue_redraw()
 
 var _motion_tween: Tween
 var _hovered: bool = false
 var _motion_ready: bool = false
 var _visual_y: float = INACTIVE_SETTLE_Y
+var _selected: bool = false
 
 
 func _ready() -> void:
 	toggle_mode = true
+	_selected = button_pressed
 	add_theme_font_override("font", UtilityPageStyle.TuffyFont)
-	add_theme_font_size_override("font_size", 18)
+	add_theme_font_size_override("font_size", FONT_SIZE)
 	for color_name: StringName in [
 		&"font_color",
 		&"font_hover_color",
@@ -43,6 +53,12 @@ func refresh_state(animate: bool = true) -> void:
 	queue_redraw()
 	if _motion_ready:
 		_move_to_target(animate)
+
+
+func set_selected(value: bool, animate: bool = true) -> void:
+	_selected = value
+	set_pressed_no_signal(value)
+	refresh_state(animate)
 
 
 func animate_entrance(delay: float = 0.0) -> void:
@@ -77,7 +93,14 @@ func _initialize_motion() -> void:
 	_set_visual_y(_target_y())
 
 
-func _on_toggled(_pressed: bool) -> void:
+func _on_toggled(pressed: bool) -> void:
+	if _selected and not pressed:
+		# A selected organizer tab is a page marker, not a collapsible toggle.
+		# Restore without another signal before any lower-state frame is drawn.
+		set_pressed_no_signal(true)
+		refresh_state(false)
+		return
+	_selected = pressed
 	refresh_state()
 
 
@@ -107,35 +130,43 @@ func _move_to_target(animate: bool) -> void:
 
 
 func _draw() -> void:
-	var base_color: Color = SELECTED_COLOR if button_pressed else INACTIVE_COLOR
-	var border_width: int = 2
-	var shadow_alpha: float = 0.28
-	if disabled:
-		base_color = DISABLED_COLOR
-		border_width = 1
-		shadow_alpha = 0.12
-	elif has_focus():
-		base_color = base_color.lightened(0.09)
-		border_width = 4
-		shadow_alpha = 0.40
-	elif _hovered:
-		base_color = base_color.lightened(0.07)
-		border_width = 3
-		shadow_alpha = 0.34
-	var visual_rect := Rect2(Vector2(0.0, _visual_y), size)
-	draw_style_box(
-		_make_style(base_color, border_width, shadow_alpha),
-		visual_rect,
+	var base_color: Color = PALETTE[palette_index]
+	base_color = (
+		base_color.lightened(0.06)
+		if button_pressed
+		else base_color.darkened(0.07)
 	)
+	if disabled:
+		base_color = base_color.lerp(Color("8a978f"), 0.62)
+	elif has_focus():
+		base_color = base_color.lightened(0.12)
+	elif _hovered:
+		base_color = base_color.lightened(0.08)
+	var width: float = size.x
+	var height: float = size.y
+	var points := PackedVector2Array([
+		Vector2(10.0, _visual_y),
+		Vector2(width - 10.0, _visual_y),
+		Vector2(width - 5.0, _visual_y + 5.0),
+		Vector2(width - 5.0, _visual_y + 17.0),
+		Vector2(width, _visual_y + 26.0),
+		Vector2(width, _visual_y + height),
+		Vector2(0.0, _visual_y + height),
+		Vector2(0.0, _visual_y + 26.0),
+		Vector2(5.0, _visual_y + 17.0),
+		Vector2(5.0, _visual_y + 5.0),
+	])
+	draw_colored_polygon(points, base_color)
 	var font: Font = UtilityPageStyle.TuffyFont
 	var ink: Color = Color(TEXT_COLOR, 0.52) if disabled else TEXT_COLOR
+	var baseline: float = _visual_y + CAP_HEIGHT * 0.5 + FONT_SIZE * 0.35
 	draw_string(
 		font,
-		Vector2(0.0, _visual_y + 32.0),
+		Vector2(0.0, baseline),
 		text,
 		HORIZONTAL_ALIGNMENT_CENTER,
 		size.x,
-		18,
+		FONT_SIZE,
 		ink,
 	)
 
@@ -154,28 +185,6 @@ func _apply_empty_styles() -> void:
 func _set_visual_y(value: float) -> void:
 	_visual_y = value
 	queue_redraw()
-
-
-func _make_style(fill: Color, border_width: int, shadow_alpha: float) -> StyleBoxFlat:
-	var style := StyleBoxFlat.new()
-	style.bg_color = fill
-	style.border_color = BORDER_COLOR
-	style.border_width_left = border_width
-	style.border_width_top = border_width
-	style.border_width_right = border_width
-	style.border_width_bottom = 1
-	style.corner_radius_top_left = 13
-	style.corner_radius_top_right = 13
-	style.corner_radius_bottom_left = 2
-	style.corner_radius_bottom_right = 2
-	style.shadow_color = Color(0.12, 0.08, 0.04, shadow_alpha)
-	style.shadow_size = 4
-	style.shadow_offset = Vector2(0.0, 3.0)
-	style.content_margin_left = 14.0
-	style.content_margin_right = 14.0
-	style.content_margin_top = 8.0
-	style.content_margin_bottom = 12.0
-	return style
 
 
 func _cancel_motion() -> void:

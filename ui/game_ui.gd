@@ -78,6 +78,9 @@ var _item_effects: PlayerItemEffectsType
 
 
 func _ready() -> void:
+	_hotbar_ui.presentation_transition_finished.connect(
+		_on_hotbar_presentation_transition_finished
+	)
 	_title_settings_panel.panel_visibility_changed.connect(
 		_on_settings_visibility_changed
 	)
@@ -284,6 +287,7 @@ func set_system_menu_open(is_open: bool) -> void:
 	)
 	_hotbar_ui.set_drag_enabled(_player_menu_open and not is_open)
 	if is_open:
+		_hotbar_ui.set_drag_enabled(false)
 		_shop_prompt.hide()
 	_emit_interactive_pointer_ui_changed()
 
@@ -502,21 +506,27 @@ func _on_player_menu_visibility_changed(is_open: bool) -> void:
 	_player_menu_open = is_open
 	_gameplay_transient_hud.visible = _gameplay_ui_enabled and not is_open
 	if is_open:
+		_hotbar_ui.set_drag_enabled(false)
 		_hotbar_ui.set_presentation_visible(false, false)
 		if _player_menu_hotbar_visible:
 			_hotbar_ui.set_player_menu_context(true)
-			_hotbar_ui.set_presentation_visible(true, true)
+			_hotbar_ui.set_presentation_visible(
+				true,
+				true,
+				UIMotion.PLAYER_MENU_ENTER_DURATION,
+			)
+		player_menu_backdrop_visibility_changed.emit(true)
 	else:
 		_player_menu_hotbar_visible = false
 		_hotbar_ui.set_presentation_visible(false, false)
 		_hotbar_ui.set_player_menu_context(false)
-	player_menu_backdrop_visibility_changed.emit(is_open)
 	_refresh_chat_availability()
 	_hotbar_ui.set_gameplay_input_enabled(
 		_gameplay_ui_enabled and not is_open
 	)
-	_hotbar_ui.set_drag_enabled(is_open)
-	_refresh_hotbar_visibility()
+	if not is_open:
+		_hotbar_ui.set_drag_enabled(false)
+		_refresh_hotbar_visibility()
 	_refresh_fishing_panel_visibility()
 	_emit_interactive_pointer_ui_changed()
 	if is_open:
@@ -529,7 +539,12 @@ func _on_player_menu_exit_started() -> void:
 	if not _player_menu_open:
 		return
 	_hotbar_ui.set_drag_enabled(false)
-	_hotbar_ui.set_presentation_visible(false, true)
+	_hotbar_ui.set_presentation_visible(
+		false,
+		true,
+		UIMotion.PLAYER_MENU_EXIT_DURATION,
+	)
+	player_menu_backdrop_visibility_changed.emit(false)
 
 
 func _on_shop_visibility_changed(is_open: bool) -> void:
@@ -550,13 +565,39 @@ func _on_shop_visibility_changed(is_open: bool) -> void:
 func _on_inventory_hotbar_context_changed(show_hotbar: bool) -> void:
 	var context_changed: bool = _player_menu_hotbar_visible != show_hotbar
 	_player_menu_hotbar_visible = show_hotbar
-	if _player_menu_open and show_hotbar and context_changed:
-		_hotbar_ui.set_presentation_visible(false, false)
-		_hotbar_ui.set_player_menu_context(true)
-	_hotbar_ui.set_drag_enabled(_player_menu_open and show_hotbar)
+	if _player_menu_open and context_changed:
+		_hotbar_ui.set_drag_enabled(false)
+		if show_hotbar:
+			_hotbar_ui.set_presentation_visible(false, false)
+			_hotbar_ui.set_player_menu_context(true)
+			_hotbar_ui.set_presentation_visible(
+				true,
+				true,
+				UIMotion.PLAYER_MENU_INVENTORY_DURATION,
+			)
+		else:
+			_hotbar_ui.set_presentation_visible(
+				false,
+				true,
+				UIMotion.PLAYER_MENU_INVENTORY_DURATION,
+			)
+	elif _player_menu_open and show_hotbar:
+		_hotbar_ui.set_drag_enabled(true)
 	if not context_changed:
 		return
-	_refresh_hotbar_visibility()
+	if not _player_menu_open:
+		_refresh_hotbar_visibility()
+
+
+func _on_hotbar_presentation_transition_finished(
+	is_visible: bool,
+) -> void:
+	_hotbar_ui.set_drag_enabled(
+		is_visible
+		and _player_menu_open
+		and _player_menu_hotbar_visible
+		and not _system_menu_open
+	)
 
 
 func _refresh_hotbar_visibility() -> void:

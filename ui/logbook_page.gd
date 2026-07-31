@@ -16,6 +16,7 @@ const INK := Color("251b10")
 const MUTED_INK := Color("6d5b45")
 const PAPER := Color("f2e6c9")
 const PAPER_DARK := Color("e8d7b4")
+const LOGBOOK_TAB_LEFT_INSET: float = 34.0
 
 var _collection_log: CollectionLogType
 var _inventory: FishInventoryType
@@ -97,7 +98,7 @@ func set_interactive(value: bool) -> void:
 		)
 		tab.mouse_filter = (
 			Control.MOUSE_FILTER_STOP
-			if _interactive
+			if _interactive and not tab.button_pressed
 			else Control.MOUSE_FILTER_IGNORE
 		)
 	for entry: Button in _entry_buttons.values():
@@ -139,11 +140,13 @@ func _build_interface() -> void:
 	outer.add_child(stack)
 
 	var tabs := HBoxContainer.new()
-	tabs.position = Vector2(0.0, 10.0)
-	tabs.size = Vector2(520.0, 58.0)
+	# The 26 px page corner plus 8 px clearance keeps the flange behind
+	# the straight portion of the spread.
+	tabs.position = Vector2(LOGBOOK_TAB_LEFT_INSET, 20.0)
+	tabs.size = Vector2(384.0, 38.0)
 	tabs.z_index = 10
 	tabs.mouse_filter = Control.MOUSE_FILTER_PASS
-	tabs.add_theme_constant_override("separation", 8)
+	tabs.add_theme_constant_override("separation", 6)
 	stack.add_child(tabs)
 	for category: LogbookCatalog.Category in [
 		LogbookCatalog.Category.FRESH_WATER,
@@ -151,10 +154,11 @@ func _build_interface() -> void:
 		LogbookCatalog.Category.OTHER,
 	]:
 		var tab := OrganizerTabType.new()
-		tab.custom_minimum_size = Vector2(168, 58)
+		tab.custom_minimum_size = Vector2(124, 38)
 		tab.toggle_mode = true
 		tab.text = LogbookCatalog.category_label(category)
-		tab.button_pressed = category == _category
+		tab.palette_index = int(category)
+		tab.set_selected(category == _category, false)
 		tab.pressed.connect(_select_category.bind(category))
 		tabs.add_child(tab)
 		_category_tabs.append(tab)
@@ -365,8 +369,9 @@ func _select_category(category: LogbookCatalog.Category) -> void:
 	_selected_id = StringName()
 	_selected_entry_key = StringName()
 	for index: int in _category_tabs.size():
-		_category_tabs[index].button_pressed = index == int(_category)
-		(_category_tabs[index] as OrganizerTabType).refresh_state()
+		(_category_tabs[index] as OrganizerTabType).set_selected(
+			index == int(_category)
+		)
 	_begin_category_transition()
 
 

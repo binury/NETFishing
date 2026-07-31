@@ -61,9 +61,8 @@ func load_settings() -> bool:
 		return _use_defaults_after_corruption("Player settings values are invalid.")
 	var loaded := PlayerSettings.new()
 	loaded.auto_click_enabled = accessibility["auto_click_enabled"]
-	loaded.use_readable_interface_font = bool(
-		accessibility.get("use_readable_interface_font", false)
-	)
+	# Accept the legacy field, but normalize runtime and future saved state.
+	loaded.use_readable_interface_font = true
 	loaded.auto_click_interval = _read_float(
 		accessibility.get("auto_click_interval"),
 		-1.0
@@ -159,9 +158,7 @@ func save_now() -> bool:
 		"accessibility": {
 			"auto_click_enabled": current_settings.auto_click_enabled,
 			"auto_click_interval": current_settings.auto_click_interval,
-			"use_readable_interface_font": (
-				current_settings.use_readable_interface_font
-			),
+			"use_readable_interface_font": true,
 		},
 		"camera": {
 			"mouse_sensitivity": current_settings.mouse_camera_sensitivity,

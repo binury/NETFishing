@@ -47,7 +47,6 @@ enum PresentationMode {
 @onready var _invert_y_toggle: BubbleButton = %InvertYToggle
 @onready var _auto_click_toggle: BubbleButton = %AutoClickToggle
 @onready var _auto_click_interval: BubbleButton = %AutoClickIntervalValue
-@onready var _readable_font_toggle: BubbleButton = %ReadableFontToggle
 
 @onready var _world_options: Array[BubbleButton] = [
 	%WorldLegible,
@@ -149,7 +148,6 @@ func _ready() -> void:
 	)
 	_invert_y_toggle.pressed.connect(_toggle_invert_y)
 	_auto_click_toggle.pressed.connect(_toggle_auto_click)
-	_readable_font_toggle.pressed.connect(_toggle_readable_font)
 	for control: Control in [_auto_click_toggle, _auto_click_interval]:
 		control.mouse_entered.connect(
 			_show_accessibility_helper.bind(&"auto_click")
@@ -157,12 +155,6 @@ func _ready() -> void:
 		control.focus_entered.connect(
 			_show_accessibility_helper.bind(&"auto_click")
 		)
-	_readable_font_toggle.mouse_entered.connect(
-		_show_accessibility_helper.bind(&"alternate_font")
-	)
-	_readable_font_toggle.focus_entered.connect(
-		_show_accessibility_helper.bind(&"alternate_font")
-	)
 	%IntervalDecrease.pressed.connect(_adjust_auto_click_interval.bind(-1))
 	%IntervalIncrease.pressed.connect(_adjust_auto_click_interval.bind(1))
 	_auto_click_interval.pressed.connect(
@@ -685,9 +677,6 @@ func _load_controls() -> void:
 	_mouse_sensitivity = settings.mouse_camera_sensitivity
 	_controller_sensitivity = settings.controller_camera_sensitivity
 	_invert_camera_y = settings.invert_camera_y
-	_readable_font_toggle.button_pressed = (
-		settings.use_readable_interface_font
-	)
 	_refresh_value_labels()
 
 
@@ -715,14 +704,6 @@ func _refresh_value_labels() -> void:
 		"accessibility\nauto-click\n"
 		+ ("on" if _auto_click_enabled else "off")
 	)
-	_readable_font_toggle.text = (
-		"alternate\nfont\n"
-		+ (
-			"on"
-			if settings.use_readable_interface_font
-			else "off"
-		)
-	)
 	_auto_click_interval.text = (
 		"auto-click\ninterval\n%.2f s" % _auto_click_interval_value
 	)
@@ -734,16 +715,11 @@ func _refresh_value_labels() -> void:
 		_ui_options[index].button_pressed = index + 1 == settings.ui_pixel_size
 
 
-func _show_accessibility_helper(kind: StringName) -> void:
+func _show_accessibility_helper(_kind: StringName) -> void:
 	var helper := %IntervalHelp as BubbleButton
-	if kind == &"alternate_font":
-		helper.text = (
-			"The quick brown fox\njumps over the lazy dog.\n0123456789"
-		)
-	else:
-		helper.text = (
-			"Lower intervals click\nbarriers faster\nwhile held."
-		)
+	helper.text = (
+		"Lower intervals click\nbarriers faster\nwhile held."
+	)
 
 
 func _style_data_page() -> void:
@@ -773,19 +749,6 @@ func _set_world_pixelation(pixel_size: int) -> void:
 		_feedback.text = "failed to save pixelation settings."
 		return
 	_refresh_value_labels()
-
-
-func _toggle_readable_font() -> void:
-	if _settings_manager == null:
-		return
-	var edited: PlayerSettings = _settings_manager.current_settings.copy()
-	edited.use_readable_interface_font = (
-		not edited.use_readable_interface_font
-	)
-	if not _settings_manager.apply_settings(edited):
-		_feedback.text = "failed to save accessibility settings."
-		return
-	_load_controls()
 
 
 func _set_ui_pixelation(pixel_size: int) -> void:

@@ -66,16 +66,14 @@ const LogbookEntryScene = preload(
 	"res://ui/components/bubble_menu/logbook_entry.tscn"
 )
 
-const PAGE_OUT_DURATION: float = 0.34
-const PAGE_IN_DURATION: float = 0.42
 const LOGBOOK_PAGE_DURATION: float = 0.18
-const TRANSITION_SAFE_MARGIN: float = 28.0
 const DESKTOP_REFERENCE_SIZE := Vector2(1280.0, 720.0)
 const COMPACT_REFERENCE_SIZE := Vector2(640.0, 480.0)
 const COMPACT_HEIGHT_THRESHOLD: float = 560.0
 const NAVIGATION_PRESENTATION_SCALE: float = 0.60
 const NAVIGATION_CANONICAL_POSITION := Vector2(424.0, 44.0)
 const NAVIGATION_SELECTED_SCALE: float = 1.02
+const INVENTORY_TAB_LEFT_INSET: float = 96.0
 const COOLER_RARITY_COMMON := Color("e8eef0")
 const COOLER_RARITY_UNCOMMON := Color("64c87c")
 const COOLER_RARITY_RARE := Color("6098dd")
@@ -131,6 +129,8 @@ const INVENTORY_NOTEPAD_POSITION := Vector2(
 const INVENTORY_NOTEPAD_SIZE := Vector2(278.0, 484.0)
 const INVENTORY_HEADER_INSET := Vector2(24.0, 20.0)
 const INVENTORY_HEADER_HEIGHT := 40.0
+const INVENTORY_MAIN_CORNER_RADIUS: int = 58
+const INVENTORY_INNER_CORNER_RADIUS: int = 45
 
 @onready var _navigation_cluster: BubbleClusterType = %NavigationCluster
 @onready var _presentation_scale_root: Control = %PlayerMenuPresentationScaleRoot
@@ -318,7 +318,8 @@ var _mail_rest_position: Vector2 = Vector2.ZERO
 var _profile_rest_position: Vector2 = Vector2.ZERO
 var _page_outgoing_root: Control
 var _page_incoming_root: Control
-var _page_hosts_shared: bool = false
+var _page_outgoing_content_root: Control
+var _inventory_transition_group: Control
 var _fish_nodes: Dictionary[StringName, CoolerFishSpriteType] = {}
 var _sorted_catches: Array[FishCatchType] = []
 var _bag_item_nodes: Dictionary[StringName, BagItemSpriteType] = {}
@@ -334,6 +335,9 @@ var _logbook_page_tween: Tween
 
 
 func _ready() -> void:
+	_configure_inventory_transition_group()
+	_inventory_sub_tabs.move_child(_tackle_sub_tab, 1)
+	_inventory_sub_tabs.move_child(_bag_sub_tab, 2)
 	_inventory_tab.pressed.connect(_show_last_inventory_section)
 	_cooler_sub_tab.pressed.connect(_show_section.bind(Section.COOLER))
 	_bag_sub_tab.pressed.connect(_show_section.bind(Section.BAG))
@@ -399,6 +403,39 @@ func _ready() -> void:
 	call_deferred("_update_shell_layout")
 	call_deferred("_update_cooler_water_mask")
 	set_process(false)
+
+
+func _configure_inventory_transition_group() -> void:
+	# Keep the organizer row and the panel that masks its lower flange under one
+	# alpha owner. Top-level page crossfades can then never expose a complete tab.
+	var original_layer_index: int = mini(
+		_inventory_sub_tabs.get_index(),
+		mini(
+			_cooler_page.get_index(),
+			mini(_bag_page.get_index(), _tackle_box_page.get_index()),
+		),
+	)
+	_inventory_transition_group = Control.new()
+	_inventory_transition_group.name = "InventoryTransitionGroup"
+	_inventory_transition_group.set_anchors_and_offsets_preset(
+		Control.PRESET_FULL_RECT
+	)
+	_inventory_transition_group.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_presentation_scale_root.add_child(_inventory_transition_group)
+	# Adding a runtime container normally places it after NavigationCluster in
+	# GUI picking order. Retain the pages' authored layer so their full-screen
+	# PASS roots cannot cover the top-level navigation hitboxes.
+	_presentation_scale_root.move_child(
+		_inventory_transition_group,
+		original_layer_index,
+	)
+	for control: Control in [
+		_inventory_sub_tabs,
+		_cooler_page,
+		_bag_page,
+		_tackle_box_page,
+	]:
+		control.reparent(_inventory_transition_group, true)
 
 
 func _apply_mail_notification_style() -> void:
@@ -795,9 +832,9 @@ func _show_section_immediate(section: Section) -> void:
 	else:
 		_players_page.deactivate()
 	_inventory_tab.button_pressed = _is_inventory_section(section)
-	_cooler_sub_tab.button_pressed = section == Section.COOLER
-	_bag_sub_tab.button_pressed = section == Section.BAG
-	_tackle_sub_tab.button_pressed = section == Section.TACKLE_BOX
+	_cooler_sub_tab.set_selected(section == Section.COOLER)
+	_bag_sub_tab.set_selected(section == Section.BAG)
+	_tackle_sub_tab.set_selected(section == Section.TACKLE_BOX)
 	_refresh_inventory_organizer_tabs()
 	_logbook_tab.button_pressed = section == Section.LOGBOOK
 	_mail_tab.button_pressed = section == Section.MAIL
@@ -817,8 +854,8 @@ func _is_inventory_section(section: Section) -> bool:
 func _refresh_inventory_organizer_tabs() -> void:
 	for tab: OrganizerTabType in [
 		_cooler_sub_tab,
-		_bag_sub_tab,
 		_tackle_sub_tab,
+		_bag_sub_tab,
 	]:
 		tab.refresh_state()
 
@@ -828,8 +865,8 @@ func _animate_inventory_tab_entry() -> void:
 		return
 	var tabs: Array[OrganizerTabType] = [
 		_cooler_sub_tab,
-		_bag_sub_tab,
 		_tackle_sub_tab,
+		_bag_sub_tab,
 	]
 	for index: int in tabs.size():
 		tabs[index].animate_entrance(float(index) * 0.025)
@@ -838,8 +875,8 @@ func _animate_inventory_tab_entry() -> void:
 func _settle_inventory_tabs_for_close() -> void:
 	for tab: OrganizerTabType in [
 		_cooler_sub_tab,
-		_bag_sub_tab,
 		_tackle_sub_tab,
+		_bag_sub_tab,
 	]:
 		tab.settle_for_close()
 
@@ -905,8 +942,8 @@ func _configure_navigation_focus() -> void:
 		bubble.focus_neighbor_bottom = bubble.focus_neighbor_right
 	var inventory_tabs: Array[Button] = [
 		_cooler_sub_tab,
-		_bag_sub_tab,
 		_tackle_sub_tab,
+		_bag_sub_tab,
 	]
 	for index: int in inventory_tabs.size():
 		var tab: Button = inventory_tabs[index]
@@ -918,11 +955,21 @@ func _configure_navigation_focus() -> void:
 		)
 		tab.focus_neighbor_top = tab.get_path_to(_inventory_tab)
 	_inventory_tab.focus_neighbor_bottom = _inventory_tab.get_path_to(
-		inventory_tabs[int(_last_inventory_section)]
+		_inventory_tab_for_section(_last_inventory_section)
 	)
 	_tackle_sub_tab.focus_neighbor_bottom = _tackle_sub_tab.get_path_to(
 		_bait_filter
 	)
+
+
+func _inventory_tab_for_section(section: Section) -> Button:
+	match section:
+		Section.COOLER:
+			return _cooler_sub_tab
+		Section.BAG:
+			return _bag_sub_tab
+		_:
+			return _tackle_sub_tab
 
 
 func _configure_sale_confirmation_focus() -> void:
@@ -981,11 +1028,13 @@ func _apply_inventory_styles() -> void:
 	]:
 		UtilityPageStyle.apply_button(button)
 	for panel: PanelContainer in [_tackle_main_panel]:
+		var panel_style := UtilityPageStyle.panel_style()
+		panel_style.set_corner_radius_all(INVENTORY_MAIN_CORNER_RADIUS)
 		panel.add_theme_stylebox_override(
 			"panel",
-			UtilityPageStyle.panel_style(),
+			panel_style,
 		)
-	for label: Label in [_tackle_empty, _tackle_detail_text]:
+	for label: Label in [_tackle_empty]:
 		label.add_theme_font_override("font", UtilityPageStyle.TuffyFont)
 		label.add_theme_color_override(
 			"font_color",
@@ -1129,13 +1178,13 @@ func _apply_cooler_wall_styles() -> void:
 	outer.bg_color = Color(0.76, 0.9, 0.96, 1.0)
 	outer.border_color = Color(0.91, 0.98, 1.0, 1.0)
 	outer.set_border_width_all(7)
-	outer.set_corner_radius_all(58)
+	outer.set_corner_radius_all(INVENTORY_MAIN_CORNER_RADIUS)
 	_cooler_outer_wall.add_theme_stylebox_override("panel", outer)
 	var inner := StyleBoxFlat.new()
 	inner.bg_color = Color(0.018, 0.16, 0.25, 1.0)
 	inner.border_color = Color(0.56, 0.78, 0.86, 1.0)
 	inner.set_border_width_all(5)
-	inner.set_corner_radius_all(45)
+	inner.set_corner_radius_all(INVENTORY_INNER_CORNER_RADIUS)
 	_cooler_inner_liner.add_theme_stylebox_override("panel", inner)
 	var scroll_bar := _cooler_scroll.get_v_scroll_bar()
 	var scroll_grabber := StyleBoxFlat.new()
@@ -1155,6 +1204,7 @@ func _apply_cooler_notepad_style() -> void:
 		"panel",
 		InventoryNotepadType.make_paper_style(false),
 	)
+	InventoryNotepadType.apply_handwritten_to(_detail_constellation)
 
 
 func _apply_navigation_styles() -> void:
@@ -1221,19 +1271,13 @@ func _apply_bag_styles() -> void:
 	outer.bg_color = Color(0.39, 0.31, 0.2, 1.0)
 	outer.border_color = Color(0.67, 0.54, 0.33, 1.0)
 	outer.set_border_width_all(7)
-	outer.corner_radius_top_left = 88
-	outer.corner_radius_top_right = 64
-	outer.corner_radius_bottom_right = 94
-	outer.corner_radius_bottom_left = 70
+	outer.set_corner_radius_all(INVENTORY_MAIN_CORNER_RADIUS)
 	_bag_outer_wall.add_theme_stylebox_override("panel", outer)
 	var inner := StyleBoxFlat.new()
 	inner.bg_color = Color(0.92, 0.85, 0.68, 1.0)
 	inner.border_color = Color(0.75, 0.62, 0.38, 1.0)
 	inner.set_border_width_all(4)
-	inner.corner_radius_top_left = 68
-	inner.corner_radius_top_right = 48
-	inner.corner_radius_bottom_right = 72
-	inner.corner_radius_bottom_left = 52
+	inner.set_corner_radius_all(INVENTORY_INNER_CORNER_RADIUS)
 	_bag_inner_liner.add_theme_stylebox_override("panel", inner)
 func _apply_logbook_styles() -> void:
 	var backing := StyleBoxFlat.new()
@@ -1312,8 +1356,10 @@ func _update_shell_layout() -> void:
 	_compact_layout = compact
 	var reference_size := DESKTOP_REFERENCE_SIZE
 	_presentation_scale_root.size = reference_size
-	_presentation_scale_root.scale = Vector2.ONE
+	if not _transitioning:
+		_presentation_scale_root.scale = Vector2.ONE
 	_presentation_scale_root.position = Vector2.ZERO
+	_presentation_scale_root.pivot_offset = reference_size * 0.5
 	_content_shell.position = Vector2(14.0, 92.0) if compact else Vector2(42.0, 104.0)
 	_content_shell.size = Vector2(612.0, 286.0) if compact else Vector2(1196.0, 478.0)
 	_presentation_rest_position = _content_shell.position
@@ -1329,6 +1375,12 @@ func _update_shell_layout() -> void:
 	_cooler_page.size = reference_size
 	_cooler_page.position = Vector2.ZERO
 	_cooler_rest_position = Vector2.ZERO
+	# The Bag shell has the widest 88 px upper-left curve. Eight more pixels
+	# place every tab flange behind a straight section of the shared panel.
+	_inventory_sub_tabs.position = (
+		INVENTORY_MAIN_POSITION
+		+ Vector2(INVENTORY_TAB_LEFT_INSET, -30.0)
+	)
 	_layout_cooler_fish(false)
 	_cooler_outer_wall.position = INVENTORY_MAIN_POSITION
 	_cooler_outer_wall.size = INVENTORY_MAIN_SIZE
@@ -1447,7 +1499,7 @@ func _update_shell_layout() -> void:
 	)
 	_bag_filter_tabs.size = Vector2(320.0, INVENTORY_HEADER_HEIGHT)
 	_bag_host.custom_minimum_size = (
-		Vector2(520.0, 152.0) if compact else Vector2(796.0, 358.0)
+		Vector2(520.0, 152.0) if compact else Vector2(788.0, 358.0)
 	)
 	_bag_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	_bag_detail_constellation.position = INVENTORY_NOTEPAD_POSITION
@@ -1585,80 +1637,30 @@ func _layout_cooler_selection_text(compact: bool) -> void:
 func _begin_menu_entry() -> void:
 	_transitioning = true
 	_set_shell_interactive(false)
+	_reset_page_transition_visuals()
 	_animate_inventory_tab_entry()
 	set_process(true)
 	var generation: int = _transition_generation
-	var start_offset: float = (
-		_presentation_scale_root.size.y + TRANSITION_SAFE_MARGIN
+	_presentation_scale_root.pivot_offset = (
+		_presentation_scale_root.size * 0.5
 	)
-	_content_shell.position = _presentation_rest_position + Vector2.DOWN * start_offset
-	_cooler_page.position = _cooler_rest_position + Vector2.DOWN * start_offset
-	_bag_page.position = _bag_rest_position + Vector2.DOWN * start_offset
-	_tackle_box_page.position = (
-		_tackle_rest_position + Vector2.DOWN * start_offset
+	_presentation_scale_root.modulate.a = 0.0
+	_presentation_scale_root.scale = (
+		Vector2.ONE * UIMotion.PLAYER_MENU_ENTER_SCALE
 	)
-	_logbook_page.position = _logbook_rest_position + Vector2.DOWN * start_offset
-	_mail_page.position = _mail_rest_position + Vector2.DOWN * start_offset
-	_profile_page.position = _profile_rest_position + Vector2.DOWN * start_offset
-	_players_page.position = Vector2.DOWN * start_offset
-	var navigation_rest: Vector2 = _navigation_cluster.position
-	_navigation_cluster.position = navigation_rest + Vector2.DOWN * start_offset
-	var transition_duration := UIMotion.bubble_duration(start_offset)
 	_presentation_tween = create_tween().set_parallel(true)
 	_presentation_tween.tween_property(
-		_content_shell,
-		"position",
-		_presentation_rest_position,
-		transition_duration
-	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+		_presentation_scale_root,
+		"modulate:a",
+		1.0,
+		UIMotion.PLAYER_MENU_ENTER_DURATION,
+	).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	_presentation_tween.tween_property(
-		_cooler_page,
-		"position",
-		_cooler_rest_position,
-		transition_duration
-	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	_presentation_tween.tween_property(
-		_bag_page,
-		"position",
-		_bag_rest_position,
-		transition_duration
-	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	_presentation_tween.tween_property(
-		_tackle_box_page,
-		"position",
-		_tackle_rest_position,
-		transition_duration
-	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	_presentation_tween.tween_property(
-		_logbook_page,
-		"position",
-		_logbook_rest_position,
-		transition_duration
-	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	_presentation_tween.tween_property(
-		_mail_page,
-		"position",
-		_mail_rest_position,
-		transition_duration
-	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	_presentation_tween.tween_property(
-		_profile_page,
-		"position",
-		_profile_rest_position,
-		transition_duration
-	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	_presentation_tween.tween_property(
-		_players_page,
-		"position",
-		Vector2.ZERO,
-		transition_duration
-	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	_presentation_tween.tween_property(
-		_navigation_cluster,
-		"position",
-		navigation_rest,
-		transition_duration
-	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+		_presentation_scale_root,
+		"scale",
+		Vector2.ONE,
+		UIMotion.PLAYER_MENU_ENTER_DURATION,
+	).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	_presentation_tween.chain().tween_callback(
 		_finish_menu_entry.bind(generation)
 	)
@@ -1682,71 +1684,24 @@ func _begin_menu_exit(reason: CloseReason, restore_controls: bool) -> void:
 	_transitioning = true
 	_set_shell_interactive(false)
 	_settle_inventory_tabs_for_close()
+	if _current_section == Section.LOGBOOK:
+		_catalog_logbook.deactivate()
 	get_viewport().gui_release_focus()
 	var generation: int = _transition_generation
 	var closing_generation: int = _menu_generation
-	var end_y: float = -maxf(
-		_content_shell.size.y,
-		_navigation_cluster.size.y
-	) - TRANSITION_SAFE_MARGIN
-	var transition_duration := UIMotion.bubble_duration(
-		end_y - _navigation_cluster.position.y
-	)
 	_presentation_tween = create_tween().set_parallel(true)
 	_presentation_tween.tween_property(
-		_content_shell,
-		"position:y",
-		end_y,
-		transition_duration
-	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+		_presentation_scale_root,
+		"modulate:a",
+		0.0,
+		UIMotion.PLAYER_MENU_EXIT_DURATION,
+	).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 	_presentation_tween.tween_property(
-		_cooler_page,
-		"position:y",
-		-_cooler_page.size.y - TRANSITION_SAFE_MARGIN,
-		transition_duration
-	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	_presentation_tween.tween_property(
-		_bag_page,
-		"position:y",
-		-_bag_page.size.y - TRANSITION_SAFE_MARGIN,
-		transition_duration
-	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	_presentation_tween.tween_property(
-		_tackle_box_page,
-		"position:y",
-		-_tackle_box_page.size.y - TRANSITION_SAFE_MARGIN,
-		transition_duration
-	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	_presentation_tween.tween_property(
-		_logbook_page,
-		"position:y",
-		-_logbook_page.size.y - TRANSITION_SAFE_MARGIN,
-		transition_duration
-	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	_presentation_tween.tween_property(
-		_mail_page,
-		"position:y",
-		-_mail_page.size.y - TRANSITION_SAFE_MARGIN,
-		transition_duration
-	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	_presentation_tween.tween_property(
-		_profile_page,
-		"position:y",
-		-_profile_page.size.y - TRANSITION_SAFE_MARGIN,
-		transition_duration
-	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	_presentation_tween.tween_property(
-		_players_page,
-		"position:y",
-		-_players_page.size.y - TRANSITION_SAFE_MARGIN,
-		transition_duration
-	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	_presentation_tween.tween_property(
-		_navigation_cluster,
-		"position:y",
-		-_navigation_cluster.size.y - TRANSITION_SAFE_MARGIN,
-		transition_duration
-	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+		_presentation_scale_root,
+		"scale",
+		Vector2.ONE * UIMotion.PLAYER_MENU_EXIT_SCALE,
+		UIMotion.PLAYER_MENU_EXIT_DURATION,
+	).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 	_presentation_tween.chain().tween_callback(
 		_finish_menu_exit.bind(
 			generation,
@@ -1781,6 +1736,8 @@ func _finish_close(
 	_page_transitioning = false
 	_bag_drag_active = false
 	_reset_page_transition_visuals()
+	_presentation_scale_root.modulate.a = 1.0
+	_presentation_scale_root.scale = Vector2.ONE
 	visible = false
 	set_process(false)
 	get_viewport().gui_release_focus()
@@ -1838,92 +1795,64 @@ func _begin_page_transition(section: Section) -> void:
 	_cancel_page_tween()
 	_page_transitioning = true
 	_set_content_interactive(false)
-	if _is_inventory_section(_current_section) and not _is_inventory_section(section):
+	get_viewport().gui_release_focus()
+	var outgoing_section: Section = _current_section
+	var outgoing_inventory: bool = _is_inventory_section(outgoing_section)
+	var incoming_inventory: bool = _is_inventory_section(section)
+	if outgoing_inventory and not incoming_inventory:
 		_settle_inventory_tabs_for_close()
 	_set_navigation_target(section)
 	var generation: int = _page_transition_generation
-	_page_outgoing_root = _get_section_root(_current_section)
-	_page_incoming_root = _get_section_root(section)
-	_page_hosts_shared = _page_outgoing_root == _page_incoming_root
-	var outgoing_rest: Vector2 = _get_section_rest_position(_current_section)
+	_page_outgoing_content_root = _get_section_root(outgoing_section)
+	_page_outgoing_root = (
+		_inventory_transition_group
+		if outgoing_inventory and not incoming_inventory
+		else _page_outgoing_content_root
+	)
+	_page_incoming_root = (
+		_inventory_transition_group
+		if incoming_inventory and not outgoing_inventory
+		else _get_section_root(section)
+	)
+	var outgoing_rest: Vector2 = _get_section_rest_position(outgoing_section)
 	var incoming_rest: Vector2 = _get_section_rest_position(section)
-	if (
-		_is_inventory_section(_current_section)
-		and _is_inventory_section(section)
-	):
-		_show_section_immediate(section)
-		_page_outgoing_root.visible = true
-		_page_incoming_root.visible = true
-		_page_outgoing_root.position = outgoing_rest
-		_page_incoming_root.position = incoming_rest
-		_page_outgoing_root.modulate.a = 1.0
-		_page_incoming_root.modulate.a = 0.0
-		_page_tween = create_tween()
-		_page_tween.tween_property(
-			_page_outgoing_root,
-			"modulate:a",
-			0.0,
-			UIMotion.UTILITY_ENTER_DURATION,
-		).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-		_page_tween.parallel().tween_property(
-			_page_incoming_root,
-			"modulate:a",
-			1.0,
-			UIMotion.UTILITY_ENTER_DURATION,
-		).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-		_page_tween.finished.connect(
-			_finish_page_transition.bind(generation),
-			CONNECT_ONE_SHOT,
-		)
-		return
-	if not _page_hosts_shared:
-		_page_incoming_root.position = incoming_rest + Vector2.DOWN * 18.0
-		_page_incoming_root.modulate.a = 0.0
-	_page_tween = create_tween()
+	_show_section_immediate(section)
+	if outgoing_inventory and not incoming_inventory:
+		# Immediate page selection hides Inventory. Restore the outgoing content
+		# beneath its still-opaque masking group for the coordinated fade-out.
+		_page_outgoing_content_root.visible = true
+		_inventory_sub_tabs.visible = true
+	_inventory_transition_group.visible = true
+	_page_outgoing_root.visible = true
+	_page_incoming_root.visible = true
+	_page_outgoing_root.position = outgoing_rest
+	_page_incoming_root.position = incoming_rest
+	_page_outgoing_root.modulate.a = 1.0
+	_page_incoming_root.modulate.a = 0.0
+	if incoming_inventory and not outgoing_inventory:
+		_animate_inventory_tab_entry()
+	var duration: float = (
+		UIMotion.PLAYER_MENU_INVENTORY_DURATION
+		if outgoing_inventory and incoming_inventory
+		else UIMotion.PLAYER_MENU_PAGE_DURATION
+	)
+	_page_tween = create_tween().set_parallel(true)
 	_page_tween.tween_property(
 		_page_outgoing_root,
 		"modulate:a",
 		0.0,
-		PAGE_OUT_DURATION
+		duration,
 	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	_page_tween.parallel().tween_property(
-		_page_outgoing_root,
-		"position:y",
-		outgoing_rest.y - 18.0,
-		PAGE_OUT_DURATION
-	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	_page_tween.tween_callback(
-		_swap_page.bind(section, generation)
-	)
 	_page_tween.tween_property(
 		_page_incoming_root,
 		"modulate:a",
 		1.0,
-		PAGE_IN_DURATION
-	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	_page_tween.parallel().tween_property(
-		_page_incoming_root,
-		"position",
-		incoming_rest,
-		PAGE_IN_DURATION
+		duration,
 	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	_page_tween.finished.connect(
 		_finish_page_transition.bind(generation),
 		CONNECT_ONE_SHOT
 	)
-
-
-func _swap_page(section: Section, generation: int) -> void:
-	if generation != _page_transition_generation or not visible:
-		return
-	_show_section_immediate(section)
-	if _is_inventory_section(section):
-		_animate_inventory_tab_entry()
-	if _page_hosts_shared:
-		_page_incoming_root.position = (
-			_presentation_rest_position + Vector2.DOWN * 18.0
-		)
-		_page_incoming_root.modulate.a = 0.0
 
 
 func _finish_page_transition(generation: int) -> void:
@@ -1934,8 +1863,16 @@ func _finish_page_transition(generation: int) -> void:
 	if (
 		_page_outgoing_root != null
 		and _page_outgoing_root != _page_incoming_root
+		and _page_outgoing_root != _inventory_transition_group
 	):
 		_page_outgoing_root.visible = false
+	if (
+		_page_outgoing_content_root != null
+		and not _is_inventory_section(_current_section)
+	):
+		_page_outgoing_content_root.visible = false
+	_inventory_sub_tabs.visible = _is_inventory_section(_current_section)
+	_inventory_sub_tabs.modulate.a = 1.0
 	_reset_page_transition_visuals()
 	_set_content_interactive(true)
 	_focus_current_section()
@@ -1991,7 +1928,7 @@ func _set_content_interactive(interactive: bool) -> void:
 		)
 		tab.mouse_filter = (
 			Control.MOUSE_FILTER_STOP
-			if tab_interactive
+			if tab_interactive and not tab.button_pressed
 			else Control.MOUSE_FILTER_IGNORE
 		)
 	_logbook_page.mouse_filter = (
@@ -2084,8 +2021,13 @@ func _reset_page_transition_visuals() -> void:
 		var page: Control = _get_section_root(section)
 		page.position = _get_section_rest_position(section)
 		page.modulate.a = 1.0
+	if _inventory_transition_group != null:
+		_inventory_transition_group.modulate.a = 1.0
+		_inventory_transition_group.visible = true
+	_inventory_sub_tabs.modulate.a = 1.0
 	_page_outgoing_root = null
 	_page_incoming_root = null
+	_page_outgoing_content_root = null
 
 
 func _on_sort_selected(index: int, source: OptionButton) -> void:

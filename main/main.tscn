@@ -40,7 +40,7 @@
 [ext_resource type="Script" path="res://network/identity_backup_service.gd" id="38_identity_backup"]
 [ext_resource type="Script" path="res://ui/interface_font_controller.gd" id="39_fonts"]
 [ext_resource type="Shader" path="res://ui/title_water_background.gdshader" id="40_title_water"]
-[ext_resource type="Texture2D" path="res://art/patterns/pattern_bluedot.png" id="41_menu_pattern"]
+[ext_resource type="Texture2D" path="res://art/patterns/pattern_tealdot.png" id="41_menu_pattern"]
 [ext_resource type="Shader" path="res://ui/player_menu_pattern.gdshader" id="42_menu_pattern"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_title_water_native"]

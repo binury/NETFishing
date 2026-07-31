@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://d0o3ym81t1sxs"
-path="res://.godot/imported/pattern_bluedot.png-2880ee070284314ed1e7b46e1dbc0570.ctex"
+uid="uid://f8a0cs0s7ler"
+path="res://.godot/imported/pattern_tealdot.png-ea096873729758aad8d393553ab96b2d.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://art/patterns/pattern_bluedot.png"
-dest_files=["res://.godot/imported/pattern_bluedot.png-2880ee070284314ed1e7b46e1dbc0570.ctex"]
+source_file="res://art/patterns/pattern_tealdot.png"
+dest_files=["res://.godot/imported/pattern_tealdot.png-ea096873729758aad8d393553ab96b2d.ctex"]
 
 [params]
 

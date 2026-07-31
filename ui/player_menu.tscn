@@ -68,16 +68,16 @@ unique_name_in_owner = true
 visible = false
 z_index = 40
 layout_mode = 0
-offset_left = 54.0
-offset_top = 126.0
-offset_right = 504.0
-offset_bottom = 184.0
+offset_left = 150.0
+offset_top = 136.0
+offset_right = 534.0
+offset_bottom = 174.0
 mouse_filter = 1
-theme_override_constants/separation = 8
+theme_override_constants/separation = 6
 
 [node name="CoolerSubTab" type="Button" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/InventorySubTabs"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(132, 58)
+custom_minimum_size = Vector2(124, 38)
 layout_mode = 2
 toggle_mode = true
 button_group = null
@@ -86,21 +86,23 @@ script = ExtResource("23_organizer_tab")
 
 [node name="BagSubTab" type="Button" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/InventorySubTabs"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(132, 58)
+custom_minimum_size = Vector2(124, 38)
 layout_mode = 2
 toggle_mode = true
 button_group = null
-text = "Bag"
+text = "Equipment"
 script = ExtResource("23_organizer_tab")
+palette_index = 2
 
 [node name="TackleSubTab" type="Button" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/InventorySubTabs"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(154, 58)
+custom_minimum_size = Vector2(124, 38)
 layout_mode = 2
 toggle_mode = true
 button_group = null
-text = "Tackle Box"
+text = "Tackle"
 script = ExtResource("23_organizer_tab")
+palette_index = 1
 
 [node name="CoolerPage" type="Control" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot"]
 unique_name_in_owner = true
@@ -541,7 +543,7 @@ horizontal_scroll_mode = 0
 
 [node name="BagHost" type="Control" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/BagPage/BagOuterWall/BagOuterMargin/BagInnerLiner/BagInnerMargin/BagScroll"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(796, 358)
+custom_minimum_size = Vector2(788, 358)
 layout_mode = 2
 mouse_filter = 1
 

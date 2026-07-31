@@ -10,6 +10,7 @@ const CONTENT_MARGIN_LEFT := 18.0
 const CONTENT_MARGIN_TOP := 98.0
 const CONTENT_MARGIN_RIGHT := 18.0
 const CONTENT_MARGIN_BOTTOM := 16.0
+const HANDWRITTEN_FONT: Font = preload("res://ui/fonts/seattle_avenue.otf")
 
 @export var title_text := "notes"
 @export var inset_content := true
@@ -17,14 +18,25 @@ const CONTENT_MARGIN_BOTTOM := 16.0
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_PASS
-	add_theme_font_override("font", UtilityPageStyle.TuffyFont)
+	apply_handwritten_to(self)
 	add_theme_stylebox_override("panel", make_paper_style(inset_content))
 	resized.connect(queue_redraw)
 	queue_redraw()
 
 
+static func apply_handwritten_to(root: Control) -> void:
+	root.add_theme_font_override("font", HANDWRITTEN_FONT)
+	for descendant: Node in root.find_children("*", "Control", true, false):
+		var control := descendant as Control
+		control.add_theme_font_override(
+			"font", HANDWRITTEN_FONT
+		)
+		if control is Label:
+			control.add_theme_color_override("font_color", INK_COLOR)
+
+
 func _draw() -> void:
-	var font: Font = UtilityPageStyle.TuffyFont
+	var font: Font = HANDWRITTEN_FONT
 	draw_string(
 		font,
 		Vector2(28.0, 25.0),

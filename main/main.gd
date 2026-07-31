@@ -180,9 +180,7 @@ func _ready() -> void:
 	):
 		_settings_manager.settings_changed.connect(_apply_runtime_settings)
 	_settings_manager.load_settings()
-	_interface_fonts.set_readable_font_enabled(
-		_settings_manager.current_settings.use_readable_interface_font
-	)
+	_interface_fonts.enforce_standard_font()
 	if _data_root.resolve():
 		_configure_portable_stores()
 		_initialize_after_data_root()
@@ -856,9 +854,6 @@ func _process(_delta: float) -> void:
 func _apply_runtime_settings(settings: PlayerSettingsType) -> void:
 	if settings == null:
 		return
-	_interface_fonts.set_readable_font_enabled(
-		settings.use_readable_interface_font
-	)
 	_apply_world_pixelation(settings.world_pixel_size)
 	_ui_pixelation.set_pixel_size(settings.ui_pixel_size)
 	_game_ui.get_title_screen().set_world_pixelation(
@@ -935,7 +930,7 @@ func _set_player_menu_backdrop_visible(is_visible: bool) -> void:
 			_player_menu_backdrop,
 			"modulate:a",
 			1.0,
-			UIMotion.UTILITY_ENTER_DURATION,
+			UIMotion.PLAYER_MENU_ENTER_DURATION,
 		).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 		return
 	if not _player_menu_backdrop.visible:
@@ -945,7 +940,7 @@ func _set_player_menu_backdrop_visible(is_visible: bool) -> void:
 		_player_menu_backdrop,
 		"modulate:a",
 		0.0,
-		UIMotion.UTILITY_EXIT_DURATION,
+		UIMotion.PLAYER_MENU_EXIT_DURATION,
 	).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 	_player_menu_backdrop_tween.finished.connect(
 		func() -> void:
