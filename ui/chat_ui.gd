@@ -6,8 +6,8 @@ const RECENT_SECONDS: float = 8.0
 const SPEECH_SECONDS: float = 6.0
 const DRAFT_SAVE_DELAY: float = 0.4
 const IDLE_ALPHA: float = 0.58
-const PANEL_WIDTH: float = 390.0
-const EXPANDED_WIDTH: float = PANEL_WIDTH * 0.85
+const ORIGINAL_PANEL_WIDTH: float = 390.0
+const PANEL_WIDTH: float = ORIGINAL_PANEL_WIDTH * 0.85
 const COMPACT_HEIGHT: float = 250.0
 const BOTTOM_MARGIN: float = 94.0
 const MIN_TOP_MARGIN: float = 24.0
@@ -262,6 +262,15 @@ func _build_ui() -> void:
 	_height_button.focus_mode = Control.FOCUS_ALL
 	_height_button.z_index = 3
 	_height_button.pressed.connect(func() -> void:
+		if _presentation_state == PresentationState.COLLAPSED:
+			_visible_state_before_collapse = (
+				PresentationState.COMPACT
+				if _visible_state_before_collapse == PresentationState.EXPANDED
+				else PresentationState.EXPANDED
+			)
+			_refresh_handle_labels(PresentationState.COLLAPSED)
+			_layout_presentation(true)
+			return
 		_set_presentation_state(
 			PresentationState.COMPACT
 			if _presentation_state == PresentationState.EXPANDED
@@ -521,7 +530,7 @@ func _refresh_visibility() -> void:
 	_collapse_button.show()
 	var collapsed := _presentation_state == PresentationState.COLLAPSED
 	_panel.show()
-	_height_button.visible = not collapsed
+	_height_button.show()
 	_unread_indicator.visible = collapsed and _collapsed_has_unread
 	_hint.visible = not _opened
 
@@ -531,17 +540,17 @@ func _set_presentation_state(
 	persist: bool = true,
 	animate: bool = false,
 ) -> void:
-	_refresh_handle_labels(state)
-	if state == _presentation_state and not animate:
-		_layout_presentation(false)
-		_refresh_visibility()
-		return
 	var previous_state := _presentation_state
 	if (
 		state == PresentationState.COLLAPSED
 		and previous_state != PresentationState.COLLAPSED
 	):
 		_visible_state_before_collapse = previous_state
+	_refresh_handle_labels(state)
+	if state == _presentation_state and not animate:
+		_layout_presentation(false)
+		_refresh_visibility()
+		return
 	_presentation_state = state
 	var collapsed := state == PresentationState.COLLAPSED
 	if not collapsed:
@@ -556,14 +565,15 @@ func _set_presentation_state(
 
 func _refresh_handle_labels(state: PresentationState) -> void:
 	var collapsed := state == PresentationState.COLLAPSED
+	var height_state := _visible_state_before_collapse if collapsed else state
 	_collapse_button.text = ">" if collapsed else "<"
 	_collapse_button.tooltip_text = (
 		"Show chat" if collapsed else "Hide chat"
 	)
-	_height_button.text = "v" if state == PresentationState.EXPANDED else "^"
+	_height_button.text = "v" if height_state == PresentationState.EXPANDED else "^"
 	_height_button.tooltip_text = (
 		"Compact chat"
-		if state == PresentationState.EXPANDED
+		if height_state == PresentationState.EXPANDED
 		else "Expand chat history"
 	)
 
@@ -577,6 +587,7 @@ func _update_panel_opacity(immediate_recheck: bool = false) -> void:
 			_collapse_button.modulate.a = (
 				1.0 if _collapsed_has_unread else 0.82
 			)
+			_height_button.modulate.a = 0.82
 		return
 	var recent := (
 		Time.get_ticks_msec() / 1000.0 - _last_message_time < RECENT_SECONDS
@@ -685,19 +696,14 @@ func _layout_presentation(animate: bool) -> void:
 	)
 	if layout_state == PresentationState.EXPANDED:
 		height = maxf(MIN_HISTORY_HEIGHT, viewport_height - 2.0 * bottom_margin)
-	var panel_width := (
-		EXPANDED_WIDTH
-		if layout_state == PresentationState.EXPANDED
-		else PANEL_WIDTH
-	)
 	height = minf(height, maxf(MIN_HISTORY_HEIGHT, bottom - MIN_TOP_MARGIN))
 	var target_position := Vector2(
-		-(panel_width - COLLAPSED_REVEAL_WIDTH)
+		-(PANEL_WIDTH - COLLAPSED_REVEAL_WIDTH)
 		if _presentation_state == PresentationState.COLLAPSED
 		else 0.0,
 		bottom - height,
 	)
-	var target_size := Vector2(panel_width, height)
+	var target_size := Vector2(PANEL_WIDTH, height)
 	var handle_stack_height := HANDLE_SIZE.y * 2.0 + HANDLE_GAP
 	var handle_stack_top := (
 		bottom - COMPACT_HEIGHT * 0.5 - handle_stack_height * 0.5
@@ -705,7 +711,7 @@ func _layout_presentation(animate: bool) -> void:
 	var collapse_position := Vector2(
 		COLLAPSED_REVEAL_WIDTH
 		if _presentation_state == PresentationState.COLLAPSED
-		else panel_width,
+		else PANEL_WIDTH,
 		bottom - COMPACT_HEIGHT * 0.5 - HANDLE_SIZE.y * 0.5
 		if _presentation_state == PresentationState.COLLAPSED
 		else handle_stack_top + HANDLE_SIZE.y + HANDLE_GAP,
@@ -713,7 +719,7 @@ func _layout_presentation(animate: bool) -> void:
 	var height_position := Vector2(
 		COLLAPSED_REVEAL_WIDTH
 		if _presentation_state == PresentationState.COLLAPSED
-		else panel_width,
+		else PANEL_WIDTH,
 		handle_stack_top,
 	)
 	var unread_position := collapse_position + Vector2(6.0, -18.0)
