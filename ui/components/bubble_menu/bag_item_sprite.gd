@@ -97,19 +97,17 @@ func _update_visual_pivot() -> void:
 
 func _refresh_style() -> void:
 	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.95, 0.9, 0.75, 0.12) if _selected else Color.TRANSPARENT
-	style.border_color = Color.TRANSPARENT
-	var width: int = 0
+	style.bg_color = (
+		UtilityPageStyle.OCEAN_SELECTED
+		if _selected else Color(UtilityPageStyle.OCEAN_FIELD, 0.48)
+	)
 	if _selected:
-		style.border_color = Color(0.28, 0.19, 0.1, 1.0)
-		width = 4
+		style.bg_color = UtilityPageStyle.OCEAN_SELECTED
 	if has_focus():
-		style.border_color = Color(0.035, 0.145, 0.22, 1.0)
-		width = 4
+		style.bg_color = UtilityPageStyle.OCEAN_BUTTON_HOVER
 	elif _hovered:
-		style.border_color = Color(0.48, 0.35, 0.2, 0.9)
-		width = 2
-	style.set_border_width_all(width)
+		style.bg_color = Color(UtilityPageStyle.OCEAN_PANEL_MID, 0.88)
+	style.set_border_width_all(0)
 	style.set_corner_radius_all(64)
 	for state: StringName in [
 		&"normal",
@@ -122,9 +120,8 @@ func _refresh_style() -> void:
 
 func _apply_quantity_style() -> void:
 	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.94, 0.86, 0.64, 1.0)
-	style.border_color = Color(0.31, 0.22, 0.12, 1.0)
-	style.set_border_width_all(2)
+	style.bg_color = UtilityPageStyle.OCEAN_SELECTED
+	style.set_border_width_all(0)
 	style.set_corner_radius_all(18)
 	style.content_margin_left = 5.0
 	style.content_margin_right = 5.0

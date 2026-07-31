@@ -131,7 +131,9 @@ func _build_ui() -> void:
 	var heading := Label.new()
 	heading.text = "Player Profile"
 	heading.add_theme_font_size_override("font_size", 25)
-	heading.add_theme_color_override("font_color", Color("302b27"))
+	heading.add_theme_color_override(
+		"font_color", UtilityPageStyle.OCEAN_TEXT_PRIMARY
+	)
 	layout.add_child(heading)
 
 	var name_row := HBoxContainer.new()
@@ -142,40 +144,46 @@ func _build_ui() -> void:
 	name_row.add_child(name_stack)
 	var name_label := Label.new()
 	name_label.text = "player name"
-	name_label.add_theme_color_override("font_color", Color("302b27"))
+	name_label.add_theme_color_override(
+		"font_color", UtilityPageStyle.OCEAN_TEXT_PRIMARY
+	)
 	name_stack.add_child(name_label)
 	_name_edit = LineEdit.new()
 	_name_edit.max_length = NetworkProtocol.MAX_DISPLAY_NAME_LENGTH
 	_name_edit.placeholder_text = "Player"
 	_name_edit.custom_minimum_size = Vector2(300, 40)
-	UtilityPageStyle.apply_line_edit(_name_edit)
+	UtilityPageStyle.apply_ocean_line_edit(_name_edit)
 	_name_edit.text_changed.connect(_on_name_changed)
 	name_stack.add_child(_name_edit)
 	var helper := Label.new()
 	helper.text = "Shown to other players in multiplayer."
-	helper.add_theme_color_override("font_color", Color("665e52"))
+	helper.add_theme_color_override(
+		"font_color", UtilityPageStyle.OCEAN_TEXT_SECONDARY
+	)
 	name_stack.add_child(helper)
 	_apply_button = Button.new()
 	_apply_button.text = "apply"
 	_apply_button.custom_minimum_size = Vector2(92, 40)
-	UtilityPageStyle.apply_button(_apply_button)
+	UtilityPageStyle.apply_ocean_button(_apply_button)
 	_apply_button.pressed.connect(_apply)
 	name_row.add_child(_apply_button)
 	_revert_button = Button.new()
 	_revert_button.text = "revert"
 	_revert_button.custom_minimum_size = Vector2(88, 40)
-	UtilityPageStyle.apply_button(_revert_button)
+	UtilityPageStyle.apply_ocean_button(_revert_button)
 	_revert_button.pressed.connect(_revert)
 	name_row.add_child(_revert_button)
 	var defaults_button := Button.new()
 	defaults_button.text = "defaults"
 	defaults_button.custom_minimum_size = Vector2(88, 40)
-	UtilityPageStyle.apply_button(defaults_button)
+	UtilityPageStyle.apply_ocean_button(defaults_button)
 	defaults_button.pressed.connect(_show_confirmation.bind("defaults"))
 	name_row.add_child(defaults_button)
 
 	_name_status = Label.new()
-	_name_status.add_theme_color_override("font_color", Color("704c36"))
+	_name_status.add_theme_color_override(
+		"font_color", UtilityPageStyle.OCEAN_TEXT_SECONDARY
+	)
 	layout.add_child(_name_status)
 	_suggestions = HBoxContainer.new()
 	_suggestions.add_theme_constant_override("separation", 8)
@@ -187,7 +195,9 @@ func _build_ui() -> void:
 	identity_value.tooltip_text = (
 		"This identity helps other players recognize you between sessions."
 	)
-	identity_value.add_theme_color_override("font_color", Color("665e52"))
+	identity_value.add_theme_color_override(
+		"font_color", UtilityPageStyle.OCEAN_TEXT_SECONDARY
+	)
 	layout.add_child(identity_value)
 
 	var body := HBoxContainer.new()
@@ -212,12 +222,14 @@ func _build_ui() -> void:
 	preview_stack.add_child(preview_actions)
 	var preview_note := Label.new()
 	preview_note.text = "Current player • drag or use left / right"
-	preview_note.add_theme_color_override("font_color", Color("514a42"))
+	preview_note.add_theme_color_override(
+		"font_color", UtilityPageStyle.OCEAN_TEXT_SECONDARY
+	)
 	preview_actions.add_child(preview_note)
 	var reset_view := Button.new()
 	reset_view.text = "reset view"
 	reset_view.pressed.connect(_preview.reset_view)
-	UtilityPageStyle.apply_button(reset_view)
+	UtilityPageStyle.apply_ocean_button(reset_view)
 	preview_actions.add_child(reset_view)
 
 	_discard_confirmation = PanelContainer.new()
@@ -261,7 +273,7 @@ func _build_categories() -> void:
 		button.custom_minimum_size = Vector2(0, 34)
 		button.button_pressed = category_id == _category_id
 		button.pressed.connect(_select_category.bind(category_id))
-		UtilityPageStyle.apply_button(button)
+		UtilityPageStyle.apply_ocean_button(button)
 		_category_list.add_child(button)
 	_refresh_options()
 
@@ -283,7 +295,9 @@ func _refresh_options() -> void:
 	var title := Label.new()
 	title.text = CharacterCustomizationCatalog.category_label(_category_id)
 	title.add_theme_font_size_override("font_size", 22)
-	title.add_theme_color_override("font_color", Color("302b27"))
+	title.add_theme_color_override(
+		"font_color", UtilityPageStyle.OCEAN_TEXT_PRIMARY
+	)
 	_option_list.add_child(title)
 	var options := CharacterCustomizationCatalog.options_for(_category_id)
 	if options.is_empty():
@@ -300,7 +314,7 @@ func _refresh_options() -> void:
 		button.custom_minimum_size = Vector2(0, 34)
 		button.button_pressed = _draft_appearance.get(_category_id) == option_id
 		button.pressed.connect(_select_option.bind(_category_id, option_id))
-		UtilityPageStyle.apply_button(button)
+		UtilityPageStyle.apply_ocean_button(button)
 		_option_list.add_child(button)
 
 

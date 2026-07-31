@@ -46,7 +46,9 @@ func _build() -> void:
 	paper.add_child(root)
 	_header = Label.new()
 	_header.add_theme_font_size_override("font_size", 27)
-	_header.add_theme_color_override("font_color", Color("28251f"))
+	_header.add_theme_color_override(
+		"font_color", UtilityPageStyle.OCEAN_TEXT_PRIMARY
+	)
 	root.add_child(_header)
 	_tabs = HBoxContainer.new()
 	_tabs.add_theme_constant_override("separation", 10)
@@ -56,7 +58,7 @@ func _build() -> void:
 		button.text = ["players", "relationships", "banned"][index]
 		button.toggle_mode = true
 		button.pressed.connect(_select_tab.bind(index))
-		UtilityPageStyle.apply_button(button)
+		UtilityPageStyle.apply_ocean_button(button)
 		_tabs.add_child(button)
 	var scroll := ScrollContainer.new()
 	scroll.custom_minimum_size = Vector2(0, 392)
@@ -67,7 +69,9 @@ func _build() -> void:
 	_list.add_theme_constant_override("separation", 7)
 	scroll.add_child(_list)
 	_status = Label.new()
-	_status.add_theme_color_override("font_color", Color("514535"))
+	_status.add_theme_color_override(
+		"font_color", UtilityPageStyle.OCEAN_TEXT_SECONDARY
+	)
 	root.add_child(_status)
 
 
@@ -124,7 +128,7 @@ func _build_active_rows() -> void:
 			entry.full_fingerprint
 		)
 		identity.add_theme_color_override(
-			"font_color", UtilityPageStyle.INK
+			"font_color", UtilityPageStyle.OCEAN_TEXT_PRIMARY
 		)
 		row.add_child(identity)
 		var ping := Label.new()
@@ -134,31 +138,33 @@ func _build_active_rows() -> void:
 			else "%d ms" % entry.ping_to_host_ms
 			if entry.ping_to_host_ms >= 0 else "—"
 		)
-		ping.add_theme_color_override("font_color", UtilityPageStyle.INK)
+		ping.add_theme_color_override(
+			"font_color", UtilityPageStyle.OCEAN_TEXT_SECONDARY
+		)
 		row.add_child(ping)
 		var mute := Button.new()
 		mute.text = "unmute" if entry.muted else "mute"
 		mute.disabled = entry.is_local_player
 		mute.pressed.connect(_toggle_mute.bind(entry))
-		UtilityPageStyle.apply_button(mute)
+		UtilityPageStyle.apply_ocean_button(mute)
 		row.add_child(mute)
 		var block := Button.new()
 		block.text = "block"
 		block.disabled = entry.is_local_player
 		block.pressed.connect(_confirm_block.bind(entry))
-		UtilityPageStyle.apply_button(block)
+		UtilityPageStyle.apply_ocean_button(block)
 		row.add_child(block)
 		var kick := Button.new()
 		kick.text = "kick"
 		kick.disabled = not entry.can_kick
 		kick.pressed.connect(_confirm_kick.bind(entry))
-		UtilityPageStyle.apply_button(kick)
+		UtilityPageStyle.apply_ocean_button(kick)
 		row.add_child(kick)
 		var ban := Button.new()
 		ban.text = "ban"
 		ban.disabled = not entry.can_ban
 		ban.pressed.connect(_confirm_ban.bind(entry))
-		UtilityPageStyle.apply_button(ban)
+		UtilityPageStyle.apply_ocean_button(ban)
 		row.add_child(ban)
 		_list.add_child(row)
 
@@ -179,7 +185,9 @@ func _build_relationship_rows() -> void:
 			"Blocked" if bool(record.get("blocked", false)) else "Muted",
 		]
 		label.tooltip_text = NetworkIdentityCrypto.format_fingerprint(fingerprint)
-		label.add_theme_color_override("font_color", UtilityPageStyle.INK)
+		label.add_theme_color_override(
+			"font_color", UtilityPageStyle.OCEAN_TEXT_PRIMARY
+		)
 		row.add_child(label)
 		if bool(record.get("blocked", false)):
 			var unblock := Button.new()
@@ -187,7 +195,7 @@ func _build_relationship_rows() -> void:
 			unblock.pressed.connect(func() -> void:
 				_service.set_blocked(fingerprint, str(record["last_known_display_name"]), false)
 			)
-			UtilityPageStyle.apply_button(unblock)
+			UtilityPageStyle.apply_ocean_button(unblock)
 			row.add_child(unblock)
 		var unmute := Button.new()
 		unmute.text = "unmute"
@@ -195,7 +203,7 @@ func _build_relationship_rows() -> void:
 		unmute.pressed.connect(func() -> void:
 			_service.set_muted(fingerprint, str(record["last_known_display_name"]), false)
 		)
-		UtilityPageStyle.apply_button(unmute)
+		UtilityPageStyle.apply_ocean_button(unmute)
 		row.add_child(unmute)
 		_list.add_child(row)
 
@@ -216,12 +224,14 @@ func _build_ban_rows() -> void:
 			Time.get_date_string_from_unix_time(int(record.get("banned_unix", 0))),
 		]
 		label.tooltip_text = NetworkIdentityCrypto.format_fingerprint(fingerprint)
-		label.add_theme_color_override("font_color", UtilityPageStyle.INK)
+		label.add_theme_color_override(
+			"font_color", UtilityPageStyle.OCEAN_TEXT_PRIMARY
+		)
 		row.add_child(label)
 		var unban := Button.new()
 		unban.text = "unban"
 		unban.pressed.connect(_confirm_unban.bind(fingerprint))
-		UtilityPageStyle.apply_button(unban)
+		UtilityPageStyle.apply_ocean_button(unban)
 		row.add_child(unban)
 		_list.add_child(row)
 
@@ -239,7 +249,9 @@ func _add_empty(text: String) -> void:
 	label.text = text
 	label.custom_minimum_size.y = 100
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	label.add_theme_color_override("font_color", UtilityPageStyle.MUTED_INK)
+	label.add_theme_color_override(
+		"font_color", UtilityPageStyle.OCEAN_TEXT_SECONDARY
+	)
 	_list.add_child(label)
 
 

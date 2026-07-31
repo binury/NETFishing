@@ -66,9 +66,9 @@ func _ready() -> void:
 		_save_button, _edit_button, _favorite_button, _delete_button,
 		_cancel_button, _back_button, _open_close_button,
 	]:
-		UtilityPageStyle.apply_button(button)
-	UtilityPageStyle.apply_line_edit(_address)
-	UtilityPageStyle.apply_line_edit(_name_edit)
+		UtilityPageStyle.apply_ocean_button(button)
+	UtilityPageStyle.apply_ocean_line_edit(_address)
+	UtilityPageStyle.apply_ocean_line_edit(_name_edit)
 	_direct_button.pressed.connect(_set_mode.bind(Mode.DIRECT))
 	_saved_button.pressed.connect(_set_mode.bind(Mode.SAVED))
 	_recent_button.pressed.connect(_set_mode.bind(Mode.RECENT))
@@ -546,9 +546,9 @@ func _set_status(message: String, is_error: bool = false) -> void:
 	_status.text = message
 	_status.add_theme_color_override(
 		"font_color",
-		Color(0.45, 0.09, 0.08, 1.0)
+		UtilityPageStyle.OCEAN_DANGER
 		if is_error
-		else Color(0.035, 0.145, 0.22, 1.0),
+		else UtilityPageStyle.OCEAN_TEXT_PRIMARY,
 	)
 
 

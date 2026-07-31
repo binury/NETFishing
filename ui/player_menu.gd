@@ -1026,7 +1026,7 @@ func _apply_inventory_styles() -> void:
 		_bait_filter,
 		_lures_filter,
 	]:
-		UtilityPageStyle.apply_button(button)
+		UtilityPageStyle.apply_ocean_button(button)
 	for panel: PanelContainer in [_tackle_main_panel]:
 		var panel_style := UtilityPageStyle.panel_style()
 		panel_style.set_corner_radius_all(INVENTORY_MAIN_CORNER_RADIUS)
@@ -1038,7 +1038,7 @@ func _apply_inventory_styles() -> void:
 		label.add_theme_font_override("font", UtilityPageStyle.TuffyFont)
 		label.add_theme_color_override(
 			"font_color",
-			UtilityPageStyle.INK,
+			UtilityPageStyle.OCEAN_TEXT_PRIMARY,
 		)
 
 
@@ -1090,7 +1090,7 @@ func _refresh_tackle_box() -> void:
 		row.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		row.toggle_mode = true
 		row.button_pressed = owned.item_id == _selected_tackle_item_id
-		UtilityPageStyle.apply_button(row)
+		UtilityPageStyle.apply_ocean_button(row)
 		row.pressed.connect(_select_tackle_item.bind(owned.item_id))
 		_tackle_item_list.add_child(row)
 	_tackle_empty.text = (
@@ -1268,15 +1268,13 @@ func _apply_navigation_selection_presentation() -> void:
 
 func _apply_bag_styles() -> void:
 	var outer := StyleBoxFlat.new()
-	outer.bg_color = Color(0.39, 0.31, 0.2, 1.0)
-	outer.border_color = Color(0.67, 0.54, 0.33, 1.0)
-	outer.set_border_width_all(7)
+	outer.bg_color = UtilityPageStyle.OCEAN_PANEL_DEEP
+	outer.set_border_width_all(0)
 	outer.set_corner_radius_all(INVENTORY_MAIN_CORNER_RADIUS)
 	_bag_outer_wall.add_theme_stylebox_override("panel", outer)
 	var inner := StyleBoxFlat.new()
-	inner.bg_color = Color(0.92, 0.85, 0.68, 1.0)
-	inner.border_color = Color(0.75, 0.62, 0.38, 1.0)
-	inner.set_border_width_all(4)
+	inner.bg_color = UtilityPageStyle.OCEAN_PANEL_MID
+	inner.set_border_width_all(0)
 	inner.set_corner_radius_all(INVENTORY_INNER_CORNER_RADIUS)
 	_bag_inner_liner.add_theme_stylebox_override("panel", inner)
 func _apply_logbook_styles() -> void:

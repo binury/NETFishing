@@ -135,7 +135,9 @@ func _build_ui() -> void:
 	_status.position = Vector2(18, 448)
 	_status.size = Vector2(900, 28)
 	_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_status.add_theme_color_override("font_color", Color("4a3f31"))
+	_status.add_theme_color_override(
+		"font_color", UtilityPageStyle.OCEAN_TEXT_SECONDARY
+	)
 	root.add_child(_status)
 	_style_controls(root)
 	_show_inbox()
@@ -449,7 +451,7 @@ func _refresh_inbox() -> void:
 		button.custom_minimum_size = Vector2(930, 54)
 		button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		button.pressed.connect(_open_letter.bind(str(letter["mail_id"])))
-		UtilityPageStyle.apply_button(button)
+		UtilityPageStyle.apply_ocean_button(button)
 		_inbox_list.add_child(button)
 
 
@@ -744,19 +746,12 @@ func _focus_first() -> void:
 func _style_controls(root: Node) -> void:
 	for node: Node in root.find_children("*", "", true, false):
 		if node is BaseButton:
-			UtilityPageStyle.apply_button(node)
+			UtilityPageStyle.apply_ocean_button(node)
 		elif node is LineEdit:
-			UtilityPageStyle.apply_line_edit(node)
+			UtilityPageStyle.apply_ocean_line_edit(node)
 		elif node is Label:
 			node.add_theme_color_override(
-				"font_color", UtilityPageStyle.INK
+				"font_color", UtilityPageStyle.OCEAN_TEXT_PRIMARY
 			)
 		elif node is TextEdit:
-			node.add_theme_font_override("font", UtilityPageStyle.TuffyFont)
-			node.add_theme_color_override(
-				"font_color", UtilityPageStyle.LIGHT_TEXT
-			)
-			node.add_theme_color_override(
-				"font_placeholder_color",
-				Color(0.82, 0.80, 0.71, 0.84)
-			)
+			UtilityPageStyle.apply_text_edit(node)

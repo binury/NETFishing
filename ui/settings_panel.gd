@@ -732,10 +732,10 @@ func _style_data_page() -> void:
 	content.add_theme_constant_override("separation", 12)
 	for node: Node in content.find_children("*", "", true, false):
 		if node is BaseButton:
-			UtilityPageStyle.apply_button(node)
+			UtilityPageStyle.apply_ocean_button(node)
 		elif node is Label:
 			node.add_theme_color_override(
-				"font_color", UtilityPageStyle.INK
+				"font_color", UtilityPageStyle.OCEAN_TEXT_PRIMARY
 			)
 
 
