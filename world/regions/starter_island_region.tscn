@@ -31,7 +31,7 @@ size = Vector3(16.1, 4.8, 12.3675)
 
 [sub_resource type="PlaneMesh" id="OceanWaterMesh"]
 resource_local_to_scene = true
-size = Vector2(120, 90)
+size = Vector2(10000, 10000)
 
 [sub_resource type="BoxShape3D" id="OceanWestShape"]
 resource_local_to_scene = true
