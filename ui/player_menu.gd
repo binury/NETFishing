@@ -10,6 +10,9 @@ const FishSaleResultType = preload("res://economy/fish_sale_result.gd")
 const FishSaleServiceType = preload("res://economy/fish_sale_service.gd")
 const NetworkSessionType = preload("res://network/network_session.gd")
 const FishInventoryType = preload("res://inventory/fish_inventory.gd")
+const InventoryNotepadType = preload(
+	"res://ui/components/inventory_notepad.gd"
+)
 const FishPoolType = preload("res://fish/fish_pool.gd")
 const FishingSpotType = preload("res://fishing/fishing_spot.gd")
 const PlayerType = preload("res://player/player.gd")
@@ -116,6 +119,17 @@ enum CloseReason {
 	SESSION_END,
 	TEARDOWN,
 }
+
+const INVENTORY_MAIN_POSITION := Vector2(54.0, 166.0)
+const INVENTORY_MAIN_SIZE := Vector2(882.0, 484.0)
+const INVENTORY_PANEL_GAP := 16.0
+const INVENTORY_NOTEPAD_POSITION := Vector2(
+	INVENTORY_MAIN_POSITION.x + INVENTORY_MAIN_SIZE.x + INVENTORY_PANEL_GAP,
+	INVENTORY_MAIN_POSITION.y,
+)
+const INVENTORY_NOTEPAD_SIZE := Vector2(278.0, 484.0)
+const INVENTORY_HEADER_INSET := Vector2(24.0, 20.0)
+const INVENTORY_HEADER_HEIGHT := 40.0
 
 @onready var _navigation_cluster: BubbleClusterType = %NavigationCluster
 @onready var _presentation_scale_root: Control = %PlayerMenuPresentationScaleRoot
@@ -370,6 +384,7 @@ func _ready() -> void:
 	# Full-page Inventory controls are later siblings and otherwise win GUI
 	# picking over the tab row even though the tabs draw above them.
 	_inventory_sub_tabs.move_to_front()
+	_bag_filter_tabs.move_to_front()
 	_apply_cooler_control_styles()
 	_apply_cooler_wall_styles()
 	_apply_cooler_notepad_style()
@@ -936,7 +951,7 @@ func _apply_inventory_styles() -> void:
 		_lures_filter,
 	]:
 		UtilityPageStyle.apply_button(button)
-	for panel: PanelContainer in [_tackle_main_panel, _tackle_detail_panel]:
+	for panel: PanelContainer in [_tackle_main_panel]:
 		panel.add_theme_stylebox_override(
 			"panel",
 			UtilityPageStyle.panel_style(),
@@ -1107,18 +1122,10 @@ func _apply_cooler_wall_styles() -> void:
 
 
 func _apply_cooler_notepad_style() -> void:
-	var paper := StyleBoxFlat.new()
-	paper.bg_color = Color(0.93, 0.885, 0.73, 1.0)
-	paper.border_color = Color(0.22, 0.19, 0.15, 1.0)
-	paper.set_border_width_all(4)
-	paper.corner_radius_top_left = 9
-	paper.corner_radius_top_right = 7
-	paper.corner_radius_bottom_right = 11
-	paper.corner_radius_bottom_left = 8
-	paper.shadow_color = Color(0.10, 0.08, 0.06, 0.46)
-	paper.shadow_size = 4
-	paper.shadow_offset = Vector2(3.0, 4.0)
-	_detail_bubble.add_theme_stylebox_override("panel", paper)
+	_detail_bubble.add_theme_stylebox_override(
+		"panel",
+		InventoryNotepadType.make_paper_style(false),
+	)
 
 
 func _apply_navigation_styles() -> void:
@@ -1199,21 +1206,6 @@ func _apply_bag_styles() -> void:
 	inner.corner_radius_bottom_right = 72
 	inner.corner_radius_bottom_left = 52
 	_bag_inner_liner.add_theme_stylebox_override("panel", inner)
-	var bubble := StyleBoxFlat.new()
-	bubble.bg_color = Color(0.96, 0.91, 0.78, 0.98)
-	bubble.border_color = Color(0.55, 0.41, 0.23, 1.0)
-	bubble.set_border_width_all(3)
-	bubble.set_corner_radius_all(54)
-	bubble.content_margin_left = 12.0
-	bubble.content_margin_top = 9.0
-	bubble.content_margin_right = 12.0
-	bubble.content_margin_bottom = 9.0
-	_bag_sprite_detail_bubble.add_theme_stylebox_override(
-		"panel",
-		bubble.duplicate(),
-	)
-
-
 func _apply_logbook_styles() -> void:
 	var backing := StyleBoxFlat.new()
 	backing.bg_color = Color(0.54, 0.42, 0.27, 1.0)
@@ -1309,18 +1301,10 @@ func _update_shell_layout() -> void:
 	_cooler_page.position = Vector2.ZERO
 	_cooler_rest_position = Vector2.ZERO
 	_layout_cooler_fish(false)
-	_cooler_outer_wall.position = (
-		Vector2(14.0, 154.0) if compact else Vector2(54.0, 166.0)
-	)
-	_cooler_outer_wall.size = (
-		Vector2(300.0, 218.0) if compact else Vector2(882.0, 484.0)
-	)
-	_detail_constellation.position = (
-		Vector2(320.0, 154.0) if compact else Vector2(952.0, 166.0)
-	)
-	_detail_constellation.size = (
-		Vector2(306.0, 196.0) if compact else Vector2(278.0, 436.0)
-	)
+	_cooler_outer_wall.position = INVENTORY_MAIN_POSITION
+	_cooler_outer_wall.size = INVENTORY_MAIN_SIZE
+	_detail_constellation.position = INVENTORY_NOTEPAD_POSITION
+	_detail_constellation.size = INVENTORY_NOTEPAD_SIZE
 	_notepad_binding.position = Vector2(44.0, 1.0) if compact else Vector2(28.0, 4.0)
 	_notepad_binding.size = Vector2(218.0, 20.0) if compact else Vector2(232.0, 27.0)
 	_notepad_binding.add_theme_font_size_override("font_size", 13 if compact else 20)
@@ -1427,28 +1411,18 @@ func _update_shell_layout() -> void:
 	_tackle_box_page.size = reference_size
 	_tackle_box_page.position = Vector2.ZERO
 	_tackle_rest_position = Vector2.ZERO
-	_bag_outer_wall.position = (
-		Vector2(14.0, 170.0) if compact else Vector2(54.0, 214.0)
+	_bag_outer_wall.position = INVENTORY_MAIN_POSITION
+	_bag_outer_wall.size = INVENTORY_MAIN_SIZE
+	_bag_filter_tabs.position = (
+		INVENTORY_MAIN_POSITION + INVENTORY_HEADER_INSET
 	)
-	_bag_outer_wall.size = (
-		Vector2(612.0, 212.0) if compact else Vector2(882.0, 436.0)
-	)
+	_bag_filter_tabs.size = Vector2(320.0, INVENTORY_HEADER_HEIGHT)
 	_bag_host.custom_minimum_size = (
-		Vector2(520.0, 152.0) if compact else Vector2(820.0, 380.0)
+		Vector2(520.0, 152.0) if compact else Vector2(796.0, 358.0)
 	)
 	_bag_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	_bag_detail_constellation.position = (
-		Vector2.ZERO if compact else Vector2(952.0, 166.0)
-	)
-	_bag_detail_constellation.size = (
-		Vector2(640.0, 390.0) if compact else Vector2(278.0, 436.0)
-	)
-	_bag_sprite_detail_bubble.position = (
-		Vector2(170.0, 164.0) if compact else Vector2.ZERO
-	)
-	_bag_sprite_detail_bubble.size = (
-		Vector2(300.0, 188.0) if compact else Vector2(278.0, 436.0)
-	)
+	_bag_detail_constellation.position = INVENTORY_NOTEPAD_POSITION
+	_bag_detail_constellation.size = INVENTORY_NOTEPAD_SIZE
 	_bag_sprite_detail_texture.custom_minimum_size = (
 		Vector2(72.0, 48.0) if compact else Vector2(100.0, 72.0)
 	)
@@ -1460,18 +1434,10 @@ func _update_shell_layout() -> void:
 		"font_size",
 		12 if compact else 15,
 	)
-	_tackle_main_panel.position = (
-		Vector2(14.0, 154.0) if compact else Vector2(54.0, 166.0)
-	)
-	_tackle_main_panel.size = (
-		Vector2(418.0, 218.0) if compact else Vector2(882.0, 484.0)
-	)
-	_tackle_detail_panel.position = (
-		Vector2(438.0, 154.0) if compact else Vector2(952.0, 166.0)
-	)
-	_tackle_detail_panel.size = (
-		Vector2(188.0, 218.0) if compact else Vector2(278.0, 484.0)
-	)
+	_tackle_main_panel.position = INVENTORY_MAIN_POSITION
+	_tackle_main_panel.size = INVENTORY_MAIN_SIZE
+	_tackle_detail_panel.position = INVENTORY_NOTEPAD_POSITION
+	_tackle_detail_panel.size = INVENTORY_NOTEPAD_SIZE
 	_logbook_page.size = reference_size
 	_logbook_page.position = Vector2.ZERO
 	_logbook_rest_position = Vector2.ZERO
@@ -1493,7 +1459,7 @@ func _update_shell_layout() -> void:
 		Vector2(500.0, 250.0) if compact else Vector2(640.0, 320.0)
 	)
 	_cooler_host.custom_minimum_size = Vector2(
-		520.0 if compact else 810.0,
+		520.0 if compact else 800.0,
 		512.0 if compact else 420.0,
 	)
 	_bag_grid.columns = 2 if compact else 3
@@ -1848,6 +1814,35 @@ func _begin_page_transition(section: Section) -> void:
 	_page_hosts_shared = _page_outgoing_root == _page_incoming_root
 	var outgoing_rest: Vector2 = _get_section_rest_position(_current_section)
 	var incoming_rest: Vector2 = _get_section_rest_position(section)
+	if (
+		_is_inventory_section(_current_section)
+		and _is_inventory_section(section)
+	):
+		_show_section_immediate(section)
+		_page_outgoing_root.visible = true
+		_page_incoming_root.visible = true
+		_page_outgoing_root.position = outgoing_rest
+		_page_incoming_root.position = incoming_rest
+		_page_outgoing_root.modulate.a = 1.0
+		_page_incoming_root.modulate.a = 0.0
+		_page_tween = create_tween()
+		_page_tween.tween_property(
+			_page_outgoing_root,
+			"modulate:a",
+			0.0,
+			UIMotion.UTILITY_ENTER_DURATION,
+		).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+		_page_tween.parallel().tween_property(
+			_page_incoming_root,
+			"modulate:a",
+			1.0,
+			UIMotion.UTILITY_ENTER_DURATION,
+		).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+		_page_tween.finished.connect(
+			_finish_page_transition.bind(generation),
+			CONNECT_ONE_SHOT,
+		)
+		return
 	if not _page_hosts_shared:
 		_page_incoming_root.position = incoming_rest + Vector2.DOWN * 18.0
 		_page_incoming_root.modulate.a = 0.0
@@ -1901,6 +1896,11 @@ func _finish_page_transition(generation: int) -> void:
 		return
 	_page_tween = null
 	_page_transitioning = false
+	if (
+		_page_outgoing_root != null
+		and _page_outgoing_root != _page_incoming_root
+	):
+		_page_outgoing_root.visible = false
 	_reset_page_transition_visuals()
 	_set_content_interactive(true)
 	_focus_current_section()
@@ -2367,7 +2367,7 @@ func _update_bag_detail() -> void:
 	)
 	_bag_sprite_detail_texture.texture = item.icon if item != null else null
 	_bag_sprite_detail_name.text = (
-		item.display_name if item != null else "bag notes"
+		item.display_name if item != null else ""
 	)
 	_bag_sprite_detail_data.text = (
 		"%s • quantity: %d\n%s • %s\n%s"
@@ -2557,7 +2557,7 @@ func _layout_cooler_fish(animate: bool = true) -> void:
 	var visible_field_size := (
 		Vector2(218.0, 124.0)
 		if _compact_layout
-		else Vector2(810.0, 280.0)
+		else Vector2(800.0, 280.0)
 	)
 	var side_margin: float = 2.0 if _compact_layout else 8.0
 	var top_margin: float = 4.0 if _compact_layout else 6.0

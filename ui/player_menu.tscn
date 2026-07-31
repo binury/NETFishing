@@ -1,4 +1,4 @@
-[gd_scene load_steps=23 format=3]
+[gd_scene load_steps=24 format=3]
 
 [ext_resource type="Script" path="res://ui/player_menu.gd" id="1_menu"]
 [ext_resource type="Theme" path="res://ui/game_theme.tres" id="2_theme"]
@@ -21,6 +21,7 @@
 [ext_resource type="PackedScene" path="res://ui/profile_page.tscn" id="19_profile_page"]
 [ext_resource type="Script" path="res://ui/players_page.gd" id="20_players_page"]
 [ext_resource type="PackedScene" path="res://ui/logbook_page.tscn" id="21_logbook_page"]
+[ext_resource type="Script" path="res://ui/components/inventory_notepad.gd" id="22_inventory_notepad"]
 
 [sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_collection"]
 
@@ -191,9 +192,13 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
+script = ExtResource("22_inventory_notepad")
+title_text = "cooler notes"
+inset_content = false
 
 [node name="BindingDecoration" type="Label" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/CoolerPage/DetailConstellation"]
 unique_name_in_owner = true
+visible = false
 layout_mode = 0
 offset_left = 28.0
 offset_top = 4.0
@@ -207,6 +212,7 @@ horizontal_alignment = 1
 
 [node name="NotepadTitle" type="Label" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/CoolerPage/DetailConstellation"]
 unique_name_in_owner = true
+visible = false
 layout_mode = 0
 offset_left = 20.0
 offset_top = 31.0
@@ -245,6 +251,7 @@ horizontal_alignment = 2
 
 [node name="NotepadRule" type="ColorRect" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/CoolerPage/DetailConstellation"]
 unique_name_in_owner = true
+visible = false
 layout_mode = 0
 offset_left = 18.0
 offset_top = 87.0
@@ -473,6 +480,7 @@ mouse_filter = 1
 
 [node name="BagFilterTabs" type="HBoxContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/BagPage"]
 unique_name_in_owner = true
+z_index = 5
 layout_mode = 0
 offset_left = 122.0
 offset_top = 166.0
@@ -516,7 +524,7 @@ layout_mode = 2
 [node name="BagInnerMargin" type="MarginContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/BagPage/BagOuterWall/BagOuterMargin/BagInnerLiner"]
 layout_mode = 2
 theme_override_constants/margin_left = 18
-theme_override_constants/margin_top = 18
+theme_override_constants/margin_top = 58
 theme_override_constants/margin_right = 18
 theme_override_constants/margin_bottom = 18
 
@@ -527,7 +535,7 @@ horizontal_scroll_mode = 0
 
 [node name="BagHost" type="Control" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/BagPage/BagOuterWall/BagOuterMargin/BagInnerLiner/BagInnerMargin/BagScroll"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(820, 350)
+custom_minimum_size = Vector2(796, 358)
 layout_mode = 2
 mouse_filter = 1
 
@@ -566,11 +574,16 @@ offset_right = 1256.0
 offset_bottom = 570.0
 mouse_filter = 2
 
-[node name="BagDetailBubble" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/BagPage/BagDetailConstellation" instance=ExtResource("9_info_scene")]
+[node name="BagDetailBubble" type="PanelContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/BagPage/BagDetailConstellation"]
 unique_name_in_owner = true
-layout_mode = 0
-offset_right = 272.0
-offset_bottom = 304.0
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("22_inventory_notepad")
+title_text = "bag notes"
 
 [node name="BagDetailLayout" type="VBoxContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/BagPage/BagDetailConstellation/BagDetailBubble"]
 layout_mode = 2
@@ -672,6 +685,8 @@ offset_left = 952.0
 offset_top = 166.0
 offset_right = 1230.0
 offset_bottom = 602.0
+script = ExtResource("22_inventory_notepad")
+title_text = "tackle box notes"
 
 [node name="Margin" type="MarginContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/TackleBoxPage/TackleDetailPanel"]
 layout_mode = 2
