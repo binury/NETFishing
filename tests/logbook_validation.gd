@@ -6,7 +6,7 @@ const FishPoolType = preload("res://fish/fish_pool.gd")
 const CollectionLogType = preload("res://collection/collection_log.gd")
 const LogbookPageScene = preload("res://ui/logbook_page.tscn")
 const CatalogResource: FishPoolType = preload(
-	"res://fish/pools/test_water_pool.tres"
+	"res://fish/pools/fish_catalog.tres"
 )
 
 
@@ -34,21 +34,29 @@ func _run() -> void:
 
 func _validate_catalog() -> void:
 	var expected_ids: Array[StringName] = [
-		&"bluegill", &"bass", &"carp", &"sunfish",
+		&"bluegill",
+		&"bass",
+		&"carp",
+		&"sunfish",
+		&"catfish_blue",
+		&"catfish_channel",
+		&"catfish_flathead",
+		&"catfish_white",
 	]
 	assert(LogbookCatalog.CATALOG_ORDER == expected_ids)
 	for index: int in expected_ids.size():
 		var fish := CatalogResource.get_fish_by_id(expected_ids[index])
 		assert(fish != null)
+		var expected_category: LogbookCatalog.Category = (
+			LogbookCatalog.Category.OTHER
+			if index < 4
+			else LogbookCatalog.Category.FRESH_WATER
+		)
 		assert(
 			LogbookCatalog.category_for(fish)
-			== LogbookCatalog.Category.OTHER
+			== expected_category
 		)
 		assert(LogbookCatalog.catalog_number(fish.id) == index + 1)
-	assert(
-		LogbookCatalog.empty_state(LogbookCatalog.Category.FRESH_WATER)
-		== "No freshwater catches cataloged yet."
-	)
 	assert(
 		LogbookCatalog.empty_state(LogbookCatalog.Category.SALT_WATER)
 		== "No saltwater catches cataloged yet."
@@ -83,11 +91,14 @@ func _validate_page() -> void:
 		"_select_category", LogbookCatalog.Category.FRESH_WATER
 	)
 	await create_timer(0.25).timeout
-	assert((page.get("_entry_buttons") as Dictionary).is_empty())
-	assert(
-		(page.get("_empty_state") as Label).text
-		== "No freshwater catches cataloged yet."
-	)
+	assert((page.get("_entry_buttons") as Dictionary).size() == 4)
+	for entry_value: Variant in (
+		page.get("_entry_buttons") as Dictionary
+	).values():
+		var unknown_catfish := entry_value as Button
+		assert(unknown_catfish != null)
+		assert(unknown_catfish.text.contains("???"))
+		assert(unknown_catfish.icon == null)
 	page.call("_select_category", LogbookCatalog.Category.SALT_WATER)
 	await create_timer(0.25).timeout
 	assert((page.get("_entry_buttons") as Dictionary).is_empty())

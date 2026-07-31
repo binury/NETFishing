@@ -1,0 +1,32 @@
+[gd_resource type="Resource" load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://fish/fish_data.gd" id="1_fish_data"]
+[ext_resource type="Resource" path="res://fishing/common_catch_profile.tres" id="2_profile"]
+[ext_resource type="Script" path="res://fish/fish_availability.gd" id="3_availability_script"]
+[ext_resource type="Texture2D" path="res://fish/species/catfish_channel/fish_catfish_channel.png" id="4_texture"]
+
+[sub_resource type="Resource" id="ChannelCatfishAvailability"]
+script = ExtResource("3_availability_script")
+allowed_location_tags = Array[StringName]([&"starter_pond"])
+allow_day = true
+allow_night = true
+preferred_bait_tags = Array[StringName]([&"worm"])
+preferred_bait_weight_multiplier = 1.35
+
+[resource]
+script = ExtResource("1_fish_data")
+id = &"catfish_channel"
+display_name = "channel catfish"
+rarity = 0
+base_catch_weight = 2.0
+catch_profile = ExtResource("2_profile")
+availability = SubResource("ChannelCatfishAvailability")
+weight_min_lb = 1.5
+weight_max_lb = 7.0
+display_scale_min = 0.85
+display_scale_max = 1.35
+display_scale_curve = 1.0
+sell_value_min = 4
+sell_value_max = 7
+sell_value_curve = 1.0
+display_texture = ExtResource("4_texture")

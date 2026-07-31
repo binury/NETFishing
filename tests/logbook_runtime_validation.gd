@@ -1,6 +1,7 @@
 extends SceneTree
 
 const MainScene = preload("res://main/main.tscn")
+const FishCatchType = preload("res://fish/fish_catch.gd")
 
 
 func _initialize() -> void:
@@ -19,6 +20,7 @@ func _run() -> void:
 	for _frame: int in 8:
 		await process_frame
 	assert(bool(main.get("_gameplay_started")))
+	_validate_save_round_trip(main, save_manager)
 
 	var game_ui := main.get_node("%GameUI") as GameUI
 	var player_menu := game_ui.get_node("%PlayerMenu") as PlayerMenu
@@ -44,7 +46,7 @@ func _run() -> void:
 		"_select_category", LogbookCatalog.Category.FRESH_WATER
 	)
 	await create_timer(0.25).timeout
-	assert((logbook.get("_entry_buttons") as Dictionary).is_empty())
+	assert((logbook.get("_entry_buttons") as Dictionary).size() == 4)
 	await _capture_if_requested("-fresh")
 	logbook.call("_select_category", LogbookCatalog.Category.SALT_WATER)
 	await create_timer(0.25).timeout
@@ -82,6 +84,71 @@ func _run() -> void:
 	main.queue_free()
 	await process_frame
 	quit()
+
+
+func _validate_save_round_trip(
+	main: Node,
+	save_manager: PlayerSaveManager,
+) -> void:
+	var player := main.get("_player") as Player
+	var catalog := main.get("fish_catalog") as FishPool
+	assert(catalog != null)
+	assert(catalog.candidates.size() == 8)
+	for index: int in 4:
+		_add_test_catch(player, catalog.candidates[index])
+	assert(save_manager.save_now())
+	var no_catches: Array[FishCatch] = []
+	var no_discoveries: Array[StringName] = []
+	assert(player.inventory.replace_all_catches(no_catches, 1))
+	assert(player.collection_log.replace_discovered_ids(no_discoveries))
+	assert(save_manager.load_player_data())
+	assert(player.inventory.get_all_catches().size() == 4)
+	for index: int in 4:
+		var original_fish: FishData = catalog.candidates[index]
+		assert(player.inventory.get_count(original_fish.id) == 1)
+		assert(player.collection_log.has_discovered(original_fish.id))
+
+	for index: int in range(4, catalog.candidates.size()):
+		_add_test_catch(player, catalog.candidates[index])
+	assert(save_manager.save_now())
+	assert(player.inventory.replace_all_catches(no_catches, 1))
+	assert(player.collection_log.replace_discovered_ids(no_discoveries))
+	assert(save_manager.load_player_data())
+	assert(player.inventory.get_all_catches().size() == 8)
+	for fish: FishData in catalog.candidates:
+		assert(player.inventory.get_count(fish.id) == 1)
+		assert(player.collection_log.has_discovered(fish.id))
+	for fish_id: StringName in [
+		&"catfish_blue",
+		&"catfish_channel",
+		&"catfish_flathead",
+		&"catfish_white",
+	]:
+		var fish_catch: FishCatch = (
+			player.inventory.get_catches_by_fish_id(fish_id).front()
+		)
+		player.begin_catch_showcase(fish_catch)
+		var catch_sprite := player.get_node(
+			"%CatchSprite"
+		) as Sprite3D
+		assert(catch_sprite.texture == fish_catch.fish.display_texture)
+		player.end_catch_showcase(Callable(), true)
+
+
+func _add_test_catch(player: Player, fish: FishData) -> void:
+	var fish_catch := FishCatchType.new()
+	fish_catch.fish = fish
+	fish_catch.fish_id = fish.id
+	fish_catch.weight_lb = fish.get_minimum_weight()
+	fish_catch.display_scale = fish.get_display_scale_for_weight(
+		fish_catch.weight_lb
+	)
+	fish_catch.sale_value = fish.get_sale_value_for_weight(
+		fish_catch.weight_lb
+	)
+	fish_catch.ensure_identity()
+	player.inventory.add_catch(fish_catch)
+	player.collection_log.mark_discovered(fish.id)
 
 
 func _capture_if_requested(suffix: String) -> void:

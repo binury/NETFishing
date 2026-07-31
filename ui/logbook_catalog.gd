@@ -16,10 +16,19 @@ const CATALOG_ORDER: Array[StringName] = [
 	&"bass",
 	&"carp",
 	&"sunfish",
+	&"catfish_blue",
+	&"catfish_channel",
+	&"catfish_flathead",
+	&"catfish_white",
 ]
 
 # These maps remain explicit until fish resources gain authored habitat fields.
-const FRESH_WATER_IDS: Array[StringName] = []
+const FRESH_WATER_IDS: Array[StringName] = [
+	&"catfish_blue",
+	&"catfish_channel",
+	&"catfish_flathead",
+	&"catfish_white",
+]
 const SALT_WATER_IDS: Array[StringName] = []
 
 
