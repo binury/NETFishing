@@ -449,6 +449,9 @@ func _initialize_after_data_root() -> void:
 	_game_ui.interactive_pointer_ui_changed.connect(
 		_ui_pixelation.set_interactive_ui_open
 	)
+	_game_ui.passive_pointer_ui_changed.connect(
+		_ui_pixelation.set_passive_pointer_ui_enabled
+	)
 	_game_ui.player_menu_backdrop_visibility_changed.connect(
 		_set_player_menu_backdrop_visible
 	)

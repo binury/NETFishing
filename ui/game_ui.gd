@@ -39,6 +39,7 @@ const PlayerSettingsManagerType = preload(
 signal pixelation_settings_visibility_changed(is_visible: bool)
 signal crisp_reset_focus_requested
 signal interactive_pointer_ui_changed(is_open: bool)
+signal passive_pointer_ui_changed(is_enabled: bool)
 signal player_menu_backdrop_visibility_changed(is_visible: bool)
 
 @onready var _status_label: Label = %StatusLabel
@@ -73,11 +74,15 @@ var _gameplay_ui_enabled: bool = false
 var _fishing_spot: FishingSpotType
 var _system_menu_open: bool = false
 var _shop_open: bool = false
+var _chat_input_open: bool = false
 var _player_menu_hotbar_visible: bool = false
 var _item_effects: PlayerItemEffectsType
 
 
 func _ready() -> void:
+	_chat_ui.text_entry_ownership_changed.connect(
+		_on_chat_text_entry_ownership_changed
+	)
 	_hotbar_ui.presentation_transition_finished.connect(
 		_on_hotbar_presentation_transition_finished
 	)
@@ -615,16 +620,23 @@ func _refresh_hotbar_visibility() -> void:
 
 func _emit_interactive_pointer_ui_changed() -> void:
 	interactive_pointer_ui_changed.emit(
-		_system_menu_open or _player_menu_open or _shop_open
+		_system_menu_open or _player_menu_open or _shop_open or _chat_input_open
 	)
+
+
+func _on_chat_text_entry_ownership_changed(active: bool) -> void:
+	_chat_input_open = active
+	_emit_interactive_pointer_ui_changed()
 
 
 func _refresh_chat_availability() -> void:
 	if _chat_ui == null:
 		return
-	_chat_ui.set_available(
+	var chat_available := (
 		_gameplay_ui_enabled
 		and not _system_menu_open
 		and not _player_menu_open
 		and not _shop_open
 	)
+	_chat_ui.set_available(chat_available)
+	passive_pointer_ui_changed.emit(chat_available)

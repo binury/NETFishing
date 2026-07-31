@@ -12,6 +12,7 @@ const PLAYER_MENU_PAGE_DURATION: float = 0.12
 const PLAYER_MENU_INVENTORY_DURATION: float = 0.10
 const PLAYER_MENU_ENTER_SCALE: float = 0.985
 const PLAYER_MENU_EXIT_SCALE: float = 0.99
+const CHAT_RESIZE_DURATION: float = 0.15
 
 
 static func bubble_duration(distance: float) -> float:

@@ -18,6 +18,7 @@ var _requested_pixel_size: int = PlayerSettings.DEFAULT_UI_PIXEL_SIZE
 var _effective_pixel_size: int = PlayerSettings.DEFAULT_UI_PIXEL_SIZE
 var _gameplay_active: bool = false
 var _interactive_ui_open: bool = false
+var _passive_pointer_ui_enabled: bool = false
 
 
 func _ready() -> void:
@@ -57,12 +58,20 @@ func set_interactive_ui_open(is_open: bool) -> void:
 	_refresh_mouse_filter()
 
 
+func set_passive_pointer_ui_enabled(is_enabled: bool) -> void:
+	_passive_pointer_ui_enabled = is_enabled
+	_refresh_mouse_filter()
+
+
 func _refresh_mouse_filter() -> void:
-	mouse_filter = (
-		Control.MOUSE_FILTER_STOP
-		if not _gameplay_active or _interactive_ui_open
-		else Control.MOUSE_FILTER_IGNORE
-	)
+	if not _gameplay_active or _interactive_ui_open:
+		mouse_filter = Control.MOUSE_FILTER_STOP
+	elif _passive_pointer_ui_enabled:
+		# Forward pointer events to lightweight gameplay overlays such as Chat,
+		# while allowing events they do not consume to continue to gameplay.
+		mouse_filter = Control.MOUSE_FILTER_PASS
+	else:
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 
 func _resize_presentation() -> void:
