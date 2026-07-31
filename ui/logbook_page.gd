@@ -5,6 +5,9 @@ const CollectionLogType = preload("res://collection/collection_log.gd")
 const FishDataType = preload("res://fish/fish_data.gd")
 const FishInventoryType = preload("res://inventory/fish_inventory.gd")
 const FishPoolType = preload("res://fish/fish_pool.gd")
+const SILHOUETTE_SHADER: Shader = preload(
+	"res://ui/logbook_silhouette.gdshader"
+)
 
 const DETAIL_FADE_DURATION: float = 0.12
 const CATEGORY_FADE_DURATION: float = UIMotion.UTILITY_EXIT_DURATION
@@ -26,6 +29,7 @@ var _detail_generation: int = 0
 var _detail_tween: Tween
 var _category_generation: int = 0
 var _category_tween: Tween
+var _silhouette_material: ShaderMaterial
 
 var _category_tabs: Array[Button] = []
 var _catalog_scroll: ScrollContainer
@@ -35,6 +39,8 @@ var _detail_body: VBoxContainer
 
 
 func _ready() -> void:
+	_silhouette_material = ShaderMaterial.new()
+	_silhouette_material.shader = SILHOUETTE_SHADER
 	_build_interface()
 	resized.connect(_update_responsive_layout)
 	_update_responsive_layout()
@@ -225,7 +231,7 @@ func _refresh_catalog() -> void:
 		if LogbookCatalog.category_for(fish) != _category:
 			continue
 		var discovered: bool = _collection_log.has_discovered(fish.id)
-		var entry: Button = _make_entry(fish if discovered else null)
+		var entry: Button = _make_entry(fish, discovered)
 		var selection_key: StringName = (
 			fish.id if discovered else _unknown_selection_key(fish)
 		)
@@ -263,9 +269,9 @@ func _refresh_catalog() -> void:
 	set_interactive(_interactive)
 
 
-func _make_entry(fish: FishDataType) -> Button:
+func _make_entry(fish: FishDataType, discovered: bool) -> Button:
 	var entry := Button.new()
-	entry.custom_minimum_size = Vector2(220, 122)
+	entry.custom_minimum_size = Vector2(220, 138)
 	entry.toggle_mode = true
 	entry.clip_text = true
 	entry.add_theme_font_override("font", UtilityPageStyle.TuffyFont)
@@ -277,10 +283,11 @@ func _make_entry(fish: FishDataType) -> Button:
 	entry.add_theme_stylebox_override("hover", _entry_style(true))
 	entry.add_theme_stylebox_override("focus", _entry_style(true))
 	entry.add_theme_stylebox_override("pressed", _entry_style(true))
-	if fish == null:
-		entry.text = "?\n???\nCatch this creature\nto learn more."
+	if not discovered:
+		entry.text = ""
 		entry.tooltip_text = ""
 		entry.accessibility_name = "Unknown catalog entry"
+		_add_unknown_entry_content(entry, fish.display_texture)
 	else:
 		entry.text = fish.display_name
 		entry.icon = fish.display_texture
@@ -290,6 +297,56 @@ func _make_entry(fish: FishDataType) -> Button:
 		entry.tooltip_text = fish.display_name
 		entry.accessibility_name = fish.display_name
 	return entry
+
+
+func _add_unknown_entry_content(
+	entry: Button,
+	portrait: Texture2D,
+) -> void:
+	var content_margin := MarginContainer.new()
+	content_margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	content_margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	content_margin.add_theme_constant_override("margin_left", 7)
+	content_margin.add_theme_constant_override("margin_top", 7)
+	content_margin.add_theme_constant_override("margin_right", 7)
+	content_margin.add_theme_constant_override("margin_bottom", 7)
+	entry.add_child(content_margin)
+
+	var content := VBoxContainer.new()
+	content.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	content.add_theme_constant_override("separation", 2)
+	content_margin.add_child(content)
+
+	var portrait_view := TextureRect.new()
+	portrait_view.custom_minimum_size = Vector2(0.0, 64.0)
+	portrait_view.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	portrait_view.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	portrait_view.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	portrait_view.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	portrait_view.texture = portrait
+	portrait_view.material = _silhouette_material
+	content.add_child(portrait_view)
+
+	var unknown_name := Label.new()
+	unknown_name.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	unknown_name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	unknown_name.text = "???"
+	unknown_name.add_theme_font_override("font", UtilityPageStyle.TuffyFont)
+	unknown_name.add_theme_font_size_override("font_size", 18)
+	unknown_name.add_theme_color_override("font_color", INK)
+	content.add_child(unknown_name)
+
+	var discovery_hint := Label.new()
+	discovery_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	discovery_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	discovery_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	discovery_hint.text = "Catch this creature to learn more."
+	discovery_hint.add_theme_font_override(
+		"font", UtilityPageStyle.TuffyFont
+	)
+	discovery_hint.add_theme_font_size_override("font_size", 12)
+	discovery_hint.add_theme_color_override("font_color", MUTED_INK)
+	content.add_child(discovery_hint)
 
 
 func _select_category(category: LogbookCatalog.Category) -> void:
@@ -544,10 +601,14 @@ func _refresh_selection_styles() -> void:
 
 
 func _on_fish_discovered(fish_id: StringName) -> void:
-	if _catalog == null or _catalog.get_fish_by_id(fish_id) == null:
+	if _catalog == null:
 		return
-	_selected_id = fish_id
-	_selected_entry_key = fish_id
+	var fish: FishDataType = _catalog.get_fish_by_id(fish_id)
+	if fish == null:
+		return
+	if _selected_entry_key == _unknown_selection_key(fish):
+		_selected_id = fish_id
+		_selected_entry_key = fish_id
 	_refresh_catalog()
 
 

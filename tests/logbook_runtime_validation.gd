@@ -21,6 +21,11 @@ func _run() -> void:
 		await process_frame
 	assert(bool(main.get("_gameplay_started")))
 	_validate_save_round_trip(main, save_manager)
+	var player := main.get("_player") as Player
+	var no_catches: Array[FishCatch] = []
+	var no_discoveries: Array[StringName] = []
+	assert(player.inventory.replace_all_catches(no_catches, 1))
+	assert(player.collection_log.replace_discovered_ids(no_discoveries))
 
 	var game_ui := main.get_node("%GameUI") as GameUI
 	var player_menu := game_ui.get_node("%PlayerMenu") as PlayerMenu
@@ -54,7 +59,6 @@ func _run() -> void:
 	logbook.call("_select_category", LogbookCatalog.Category.OTHER)
 	await create_timer(0.25).timeout
 	assert((logbook.get("_entry_buttons") as Dictionary).size() == 4)
-	var player := main.get("_player") as Player
 	player.collection_log.mark_discovered(&"bluegill")
 	await process_frame
 	logbook.call("_select_entry", &"bluegill", &"bluegill")
