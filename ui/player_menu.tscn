@@ -1,4 +1,4 @@
-[gd_scene load_steps=22 format=3]
+[gd_scene load_steps=23 format=3]
 
 [ext_resource type="Script" path="res://ui/player_menu.gd" id="1_menu"]
 [ext_resource type="Theme" path="res://ui/game_theme.tres" id="2_theme"]
@@ -20,6 +20,7 @@
 [ext_resource type="Script" path="res://ui/mail_page.gd" id="18_mail_page"]
 [ext_resource type="PackedScene" path="res://ui/profile_page.tscn" id="19_profile_page"]
 [ext_resource type="Script" path="res://ui/players_page.gd" id="20_players_page"]
+[ext_resource type="PackedScene" path="res://ui/logbook_page.tscn" id="21_logbook_page"]
 
 [sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_collection"]
 
@@ -694,6 +695,9 @@ offset_right = 1280.0
 offset_bottom = 720.0
 mouse_filter = 1
 
+[node name="CatalogLogbook" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/LogbookPage" instance=ExtResource("21_logbook_page")]
+unique_name_in_owner = true
+
 [node name="MailPage" type="Control" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot"]
 unique_name_in_owner = true
 layout_mode = 0
@@ -721,6 +725,7 @@ script = ExtResource("20_players_page")
 
 [node name="BookBacking" type="PanelContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/LogbookPage"]
 unique_name_in_owner = true
+visible = false
 layout_mode = 0
 offset_left = 58.0
 offset_top = 128.0
@@ -838,6 +843,7 @@ vertical_alignment = 1
 
 [node name="LogbookPrevious" type="Button" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/LogbookPage"]
 unique_name_in_owner = true
+visible = false
 custom_minimum_size = Vector2(76, 72)
 layout_mode = 0
 offset_left = 78.0
@@ -859,6 +865,7 @@ deformation_amplitude = 0.006
 
 [node name="LogbookNext" type="Button" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/LogbookPage"]
 unique_name_in_owner = true
+visible = false
 custom_minimum_size = Vector2(76, 72)
 layout_mode = 0
 offset_left = 1126.0
@@ -881,6 +888,7 @@ deformation_amplitude = 0.006
 
 [node name="LogbookPageStatus" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/LogbookPage" instance=ExtResource("10_status_scene")]
 unique_name_in_owner = true
+visible = false
 layout_mode = 0
 offset_left = 555.0
 offset_top = 524.0

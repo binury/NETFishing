@@ -98,6 +98,10 @@ func consume_escape() -> bool:
 	return false
 
 
+func is_composing_letter() -> bool:
+	return _compose != null and _compose.visible
+
+
 func set_interactive(value: bool) -> void:
 	mouse_filter = Control.MOUSE_FILTER_PASS if value else Control.MOUSE_FILTER_IGNORE
 	for node: Node in find_children("*", "BaseButton", true, false):

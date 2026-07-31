@@ -100,6 +100,13 @@ func request_close_confirmation() -> bool:
 	return true
 
 
+func has_modal_confirmation() -> bool:
+	return (
+		_discard_confirmation != null
+		and _discard_confirmation.visible
+	)
+
+
 func _build_ui() -> void:
 	var paper := PanelContainer.new()
 	paper.set_anchors_preset(Control.PRESET_FULL_RECT)

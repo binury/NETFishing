@@ -182,6 +182,7 @@ enum CloseReason {
 @onready var _bag_sprite_detail_name: Label = %BagSpriteDetailName
 @onready var _bag_sprite_detail_data: Label = %BagSpriteDetailData
 @onready var _logbook_page: Control = %LogbookPage
+@onready var _catalog_logbook: LogbookPage = %CatalogLogbook
 @onready var _mail_page: MailPage = %MailPage
 @onready var _profile_page: ProfilePage = %ProfilePage
 @onready var _players_page: PlayersPage = %PlayersPage
@@ -376,10 +377,7 @@ func _ready() -> void:
 	_fish_field.gui_input.connect(_on_fish_field_gui_input)
 	_apply_bag_styles()
 	_bag_item_field.gui_input.connect(_on_bag_field_gui_input)
-	_apply_logbook_styles()
 	_apply_mail_notification_style()
-	_logbook_previous.pressed.connect(_request_logbook_page.bind(-1))
-	_logbook_next.pressed.connect(_request_logbook_page.bind(1))
 	resized.connect(_update_shell_layout)
 	_show_section_immediate(_current_section)
 	call_deferred("_update_shell_layout")
@@ -456,6 +454,7 @@ func setup(
 	)
 	_profile_page.setup(network_profile_service)
 	_players_page.setup(network_player_list)
+	_catalog_logbook.setup(collection_log, inventory, catalog)
 	_network_mail_service.unread_count_changed.connect(
 		_on_mail_unread_count_changed
 	)
@@ -475,8 +474,6 @@ func setup(
 	_fish_selection.clear()
 	if not _inventory.catches_changed.is_connected(_on_inventory_changed):
 		_inventory.catches_changed.connect(_on_inventory_changed)
-	if not _collection_log.fish_discovered.is_connected(_on_fish_discovered):
-		_collection_log.fish_discovered.connect(_on_fish_discovered)
 	if not _wallet.balance_changed.is_connected(_on_wallet_balance_changed):
 		_wallet.balance_changed.connect(_on_wallet_balance_changed)
 	if not _fishing_spot.bite_activated.is_connected(_on_bite_activated):
@@ -495,7 +492,7 @@ func setup(
 func _input(event: InputEvent) -> void:
 	if event is InputEventKey and event.echo:
 		return
-	if _handle_inventory_shortcut(event):
+	if _handle_direct_page_shortcut(event):
 		get_viewport().set_input_as_handled()
 		return
 	if visible:
@@ -513,24 +510,32 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 
 
-func _handle_inventory_shortcut(event: InputEvent) -> bool:
+func _handle_direct_page_shortcut(event: InputEvent) -> bool:
 	var key_event := event as InputEventKey
 	if (
 		key_event == null
 		or not key_event.pressed
 		or _is_text_input_active()
+		or _shortcut_blocked_by_modal_state()
 	):
 		return false
 	var physical_key: Key = key_event.physical_keycode
 	var inventory_requested: bool = physical_key == KEY_I
+	var logbook_requested: bool = physical_key == KEY_L
 	var tackle_requested: bool = (
 		physical_key == KEY_V
 		or event.is_action_pressed("open_tacklebox")
 	)
-	if not inventory_requested and not tackle_requested:
+	if not inventory_requested and not tackle_requested and not logbook_requested:
 		return false
 	var requested_section: Section = (
-		Section.TACKLE_BOX if tackle_requested else _last_inventory_section
+		Section.LOGBOOK
+		if logbook_requested
+		else (
+			Section.TACKLE_BOX
+			if tackle_requested
+			else _last_inventory_section
+		)
 	)
 	if visible:
 		if (
@@ -550,6 +555,20 @@ func _handle_inventory_shortcut(event: InputEvent) -> bool:
 		_current_section = requested_section
 		open_menu()
 	return true
+
+
+func _shortcut_blocked_by_modal_state() -> bool:
+	return (
+		_sale_confirmation.visible
+		or (
+			_current_section == Section.MAIL
+			and _mail_page.is_composing_letter()
+		)
+		or (
+			_current_section == Section.PROFILE
+			and _profile_page.has_modal_confirmation()
+		)
+	)
 
 
 func _is_text_input_active() -> bool:
@@ -729,7 +748,6 @@ func _show_section_immediate(section: Section) -> void:
 	_content_shell.visible = false
 	_inventory_section.visible = false
 	_bag_section.visible = false
-	_logbook_section.visible = section == Section.LOGBOOK
 	_content_shell.set_background_visible(true)
 	_header.visible = section != Section.COOLER
 	_separator.visible = section != Section.COOLER
@@ -745,6 +763,9 @@ func _show_section_immediate(section: Section) -> void:
 	_refresh_tackle_box()
 	if section != Section.LOGBOOK:
 		_cancel_logbook_page_transition(true)
+		_catalog_logbook.deactivate()
+	else:
+		_catalog_logbook.activate()
 	if section == Section.MAIL:
 		_mail_page.activate()
 	else:
@@ -788,7 +809,7 @@ func _focus_current_section() -> void:
 	elif _current_section == Section.TACKLE_BOX:
 		_tackle_sub_tab.grab_focus()
 	elif _current_section == Section.LOGBOOK:
-		_logbook_tab.grab_focus()
+		_catalog_logbook.focus_initial()
 	elif _current_section == Section.MAIL:
 		_mail_tab.grab_focus()
 	elif _current_section == Section.PLAYERS:
@@ -812,8 +833,6 @@ func _process(delta: float) -> void:
 				_motion_elapsed,
 				bag_motion_enabled,
 			)
-		if _current_section == Section.LOGBOOK:
-			_advance_logbook_page_controls(delta)
 
 
 func _configure_navigation_focus() -> void:
@@ -899,7 +918,7 @@ func _configure_active_page_focus() -> void:
 		Section.TACKLE_BOX:
 			_bait_filter.grab_focus()
 		Section.LOGBOOK:
-			_configure_logbook_focus()
+			_catalog_logbook.focus_initial()
 		Section.MAIL:
 			_mail_page.activate()
 		Section.PROFILE:
@@ -1268,7 +1287,6 @@ func _set_navigation_target(section: Section) -> void:
 func _update_shell_layout() -> void:
 	if not is_node_ready():
 		return
-	_cancel_logbook_page_transition(true)
 	var compact: bool = false
 	_compact_layout = compact
 	var reference_size := DESKTOP_REFERENCE_SIZE
@@ -1468,45 +1486,6 @@ func _update_shell_layout() -> void:
 	_players_page.set_anchors_preset(Control.PRESET_TOP_LEFT)
 	_players_page.position = Vector2.ZERO
 	_players_page.size = reference_size
-	_book_backing.position = (
-		Vector2(14.0, 164.0) if compact else Vector2(58.0, 128.0)
-	)
-	_book_backing.size = (
-		Vector2(612.0, 232.0) if compact else Vector2(1164.0, 522.0)
-	)
-	_right_page.visible = not compact
-	_book_gutter.visible = not compact
-	_left_entry_field.vertical = not compact
-	_right_entry_field.vertical = true
-	_left_heading.text = "field notes" if not compact else "field notes • page"
-	_left_heading.add_theme_font_size_override(
-		"font_size",
-		17 if compact else 20,
-	)
-	_right_heading.add_theme_font_size_override("font_size", 20)
-	_logbook_empty_state.position = (
-		Vector2(120.0, 240.0) if compact else Vector2(402.0, 314.0)
-	)
-	_logbook_empty_state.size = (
-		Vector2(400.0, 52.0) if compact else Vector2(476.0, 52.0)
-	)
-	_logbook_previous.apply_layout(
-		Vector2(58.0, 332.0) if compact else Vector2(116.0, 622.0),
-		Vector2(66.0, 62.0) if compact else Vector2(76.0, 72.0),
-		0.18,
-	)
-	_logbook_next.apply_layout(
-		Vector2(582.0, 332.0) if compact else Vector2(1164.0, 622.0),
-		Vector2(66.0, 62.0) if compact else Vector2(76.0, 72.0),
-		0.18,
-	)
-	_logbook_page_status.position = (
-		Vector2(255.0, 308.0) if compact else Vector2(555.0, 608.0)
-	)
-	_logbook_page_status.size = (
-		Vector2(130.0, 46.0) if compact else Vector2(170.0, 56.0)
-	)
-	_refresh_logbook_page(false)
 	_sale_confirmation.position = (
 		Vector2(70.0, 128.0) if compact else Vector2(320.0, 200.0)
 	)
@@ -1518,7 +1497,6 @@ func _update_shell_layout() -> void:
 		512.0 if compact else 420.0,
 	)
 	_bag_grid.columns = 2 if compact else 3
-	_logbook_grid.columns = 3 if compact else 4
 	_bag_list.custom_minimum_size.x = 300.0 if compact else 360.0
 	_bag_detail.custom_minimum_size.x = 176.0 if compact else 220.0
 	_content_stage.custom_minimum_size.y = 220.0 if compact else 260.0
@@ -1986,6 +1964,9 @@ func _set_content_interactive(interactive: bool) -> void:
 		if interactive and _current_section == Section.LOGBOOK
 		else Control.MOUSE_FILTER_IGNORE
 	)
+	_catalog_logbook.set_interactive(
+		interactive and _current_section == Section.LOGBOOK
+	)
 	_mail_page.set_interactive(
 		interactive and _current_section == Section.MAIL
 	)
@@ -2040,12 +2021,6 @@ func _set_content_interactive(interactive: bool) -> void:
 			if bag_interactive
 			else Control.MOUSE_FILTER_IGNORE
 		)
-	var logbook_interactive: bool = (
-		interactive
-		and _current_section == Section.LOGBOOK
-		and not _logbook_page_transitioning
-	)
-	_update_logbook_page_control_state(logbook_interactive)
 
 
 func _cancel_presentation_tween() -> void:
@@ -2128,7 +2103,6 @@ func _refresh_all() -> void:
 	_refresh_economy_summary()
 	_refresh_inventory()
 	_refresh_bag()
-	_refresh_logbook()
 
 
 func _on_bag_changed() -> void:
@@ -2447,11 +2421,6 @@ func _on_inventory_changed() -> void:
 	_refresh_economy_summary()
 	_revalidate_confirmation()
 	_refresh_inventory()
-	_refresh_logbook()
-
-
-func _on_fish_discovered(_fish_id: StringName) -> void:
-	_refresh_logbook()
 
 
 func _on_wallet_balance_changed(
