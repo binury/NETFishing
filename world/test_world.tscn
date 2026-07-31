@@ -25,8 +25,8 @@ environment = ExtResource("4_environment")
 [node name="Sun" type="DirectionalLight3D" parent="Environment"]
 rotation_degrees = Vector3(-54, -32, 0)
 light_color = Color(1, 0.945098, 0.721569, 1)
-light_energy = 0.68
-shadow_enabled = true
+light_energy = 0.58
+shadow_enabled = false
 shadow_opacity = 0.58
 shadow_blur = 2.0
 

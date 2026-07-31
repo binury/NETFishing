@@ -1,4 +1,4 @@
-[gd_scene load_steps=18 format=3]
+[gd_scene load_steps=21 format=3]
 
 [ext_resource type="Script" path="res://player/player.gd" id="1_script"]
 [ext_resource type="Script" path="res://inventory/fish_inventory.gd" id="2_inventory"]
@@ -10,6 +10,8 @@
 [ext_resource type="Script" path="res://progression/player_fishing_upgrades.gd" id="8_upgrades"]
 [ext_resource type="Script" path="res://progression/player_item_effects.gd" id="9_effects"]
 [ext_resource type="Script" path="res://progression/player_cooler_capacity.gd" id="10_capacity"]
+[ext_resource type="Script" path="res://player/player_ground_shadow.gd" id="11_ground_shadow"]
+[ext_resource type="Material" path="res://player/materials/player_blob_shadow.tres" id="12_blob_shadow"]
 
 [sub_resource type="CapsuleShape3D" id="PlayerShape"]
 radius = 0.45
@@ -37,6 +39,10 @@ height = 1.2
 albedo_color = Color(0.22, 0.12, 0.06, 1)
 roughness = 0.8
 
+[sub_resource type="QuadMesh" id="GroundShadowMesh"]
+material = ExtResource("12_blob_shadow")
+size = Vector2(1.15, 0.72)
+
 [node name="Player" type="CharacterBody3D"]
 collision_layer = 2
 collision_mask = 1
@@ -48,6 +54,25 @@ shape = SubResource("PlayerShape")
 
 [node name="Visuals" type="Node3D" parent="."]
 unique_name_in_owner = true
+
+[node name="GroundShadow" type="Node3D" parent="."]
+script = ExtResource("11_ground_shadow")
+
+[node name="GroundProbe" type="RayCast3D" parent="GroundShadow"]
+unique_name_in_owner = true
+position = Vector3(0, 0.45, 0)
+target_position = Vector3(0, -4.5, 0)
+collision_mask = 9
+collide_with_areas = true
+
+[node name="GroundShadowPlacement" type="Node3D" parent="GroundShadow"]
+unique_name_in_owner = true
+
+[node name="GroundShadowVisual" type="MeshInstance3D" parent="GroundShadow/GroundShadowPlacement"]
+unique_name_in_owner = true
+rotation_degrees = Vector3(-90, 0, 0)
+cast_shadow = 0
+mesh = SubResource("GroundShadowMesh")
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="Visuals"]
 position = Vector3(0, 0.9, 0)
