@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cxsaix6vp7t6u"
-path="res://.godot/imported/fish_finder.svg-33ab7d731566e03c2f84e185d3503b7d.ctex"
+uid="uid://d1jsfo8fy2cwx"
+path="res://.godot/imported/64_consumable_energydrink_redfish.png-c06a52f92093d918ce0318a12e99e46c.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://items/icons/placeholder/fish_finder.svg"
-dest_files=["res://.godot/imported/fish_finder.svg-33ab7d731566e03c2f84e185d3503b7d.ctex"]
+source_file="res://items/icons/consumables/64_consumable_energydrink_redfish.png"
+dest_files=["res://.godot/imported/64_consumable_energydrink_redfish.png-c06a52f92093d918ce0318a12e99e46c.ctex"]
 
 [params]
 
@@ -38,6 +38,3 @@ process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
 process/size_limit=0
 detect_3d/compress_to=1
-svg/scale=1.0
-editor/scale_with_editor_scale=false
-editor/convert_colors_with_editor_theme=false

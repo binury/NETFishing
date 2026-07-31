@@ -1,12 +1,12 @@
 [gd_resource type="Resource" script_class="ItemData" load_steps=3 format=3]
 
 [ext_resource type="Script" path="res://items/item_data.gd" id="1"]
-[ext_resource type="Texture2D" path="res://items/icons/placeholder/snack.svg" id="2"]
+[ext_resource type="Texture2D" path="res://items/icons/consumables/64_consumable_energybar.png" id="2"]
 
 [resource]
 script = ExtResource("1")
 item_id = &"snack"
-display_name = "snack"
+display_name = "Energy Bar"
 description = "temporarily adds one barrier damage."
 category = 3
 icon = ExtResource("2")

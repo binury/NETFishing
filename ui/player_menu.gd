@@ -1202,7 +1202,7 @@ func _apply_cooler_wall_styles() -> void:
 func _apply_cooler_notepad_style() -> void:
 	_detail_bubble.add_theme_stylebox_override(
 		"panel",
-		InventoryNotepadType.make_paper_style(false),
+		InventoryNotepadType.make_layout_style(false),
 	)
 	InventoryNotepadType.apply_handwritten_to(_detail_constellation)
 

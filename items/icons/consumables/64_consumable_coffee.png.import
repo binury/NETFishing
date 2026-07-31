@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://d3elrkttv1f1h"
-path="res://.godot/imported/energy_drink.svg-8d7bc90bd15610c7852e4cf522a5b1ca.ctex"
+uid="uid://be3j2ahyt3cpe"
+path="res://.godot/imported/64_consumable_coffee.png-ba557079916477db3de4b894fdb65382.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://items/icons/placeholder/energy_drink.svg"
-dest_files=["res://.godot/imported/energy_drink.svg-8d7bc90bd15610c7852e4cf522a5b1ca.ctex"]
+source_file="res://items/icons/consumables/64_consumable_coffee.png"
+dest_files=["res://.godot/imported/64_consumable_coffee.png-ba557079916477db3de4b894fdb65382.ctex"]
 
 [params]
 
@@ -38,6 +38,3 @@ process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
 process/size_limit=0
 detect_3d/compress_to=1
-svg/scale=1.0
-editor/scale_with_editor_scale=false
-editor/convert_colors_with_editor_theme=false

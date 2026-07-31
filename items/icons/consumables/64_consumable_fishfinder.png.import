@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://i611n7iwr8i6"
-path="res://.godot/imported/snack.svg-dfbab25d47c1c79c46c1d7fcf9b21cfe.ctex"
+uid="uid://keij7qvi06oe"
+path="res://.godot/imported/64_consumable_fishfinder.png-b07857ff1ce529c6f69ccae5892d747a.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://items/icons/placeholder/snack.svg"
-dest_files=["res://.godot/imported/snack.svg-dfbab25d47c1c79c46c1d7fcf9b21cfe.ctex"]
+source_file="res://items/icons/consumables/64_consumable_fishfinder.png"
+dest_files=["res://.godot/imported/64_consumable_fishfinder.png-b07857ff1ce529c6f69ccae5892d747a.ctex"]
 
 [params]
 
@@ -38,6 +38,3 @@ process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
 process/size_limit=0
 detect_3d/compress_to=1
-svg/scale=1.0
-editor/scale_with_editor_scale=false
-editor/convert_colors_with_editor_theme=false
