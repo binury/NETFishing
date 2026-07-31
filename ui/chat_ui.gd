@@ -712,9 +712,7 @@ func _layout_presentation(animate: bool) -> void:
 		COLLAPSED_REVEAL_WIDTH
 		if _presentation_state == PresentationState.COLLAPSED
 		else PANEL_WIDTH,
-		bottom - COMPACT_HEIGHT * 0.5 - HANDLE_SIZE.y * 0.5
-		if _presentation_state == PresentationState.COLLAPSED
-		else handle_stack_top + HANDLE_SIZE.y + HANDLE_GAP,
+		handle_stack_top + HANDLE_SIZE.y + HANDLE_GAP,
 	)
 	var height_position := Vector2(
 		COLLAPSED_REVEAL_WIDTH
