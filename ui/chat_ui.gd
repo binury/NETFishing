@@ -7,6 +7,7 @@ const SPEECH_SECONDS: float = 6.0
 const DRAFT_SAVE_DELAY: float = 0.4
 const IDLE_ALPHA: float = 0.58
 const PANEL_WIDTH: float = 390.0
+const EXPANDED_WIDTH: float = PANEL_WIDTH * 0.85
 const COMPACT_HEIGHT: float = 250.0
 const BOTTOM_MARGIN: float = 94.0
 const MIN_TOP_MARGIN: float = 24.0
@@ -198,7 +199,7 @@ func _build_ui() -> void:
 	_panel.add_child(box)
 	_history = RichTextLabel.new()
 	_history.name = "ChatHistory"
-	_history.custom_minimum_size = Vector2(360, MIN_HISTORY_HEIGHT)
+	_history.custom_minimum_size = Vector2(0, MIN_HISTORY_HEIGHT)
 	_history.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_history.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_history.fit_content = false
@@ -212,7 +213,7 @@ func _build_ui() -> void:
 	_history.add_theme_stylebox_override("normal", _borderless_style(Color.TRANSPARENT))
 	box.add_child(_history)
 	_status = Label.new()
-	_status.custom_minimum_size = Vector2(360, 20)
+	_status.custom_minimum_size = Vector2(0, 20)
 	_status.hide()
 	_status.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_status.add_theme_font_override("font", UtilityPageStyle.TuffyFont)
@@ -322,7 +323,10 @@ func _build_ui() -> void:
 
 func _chat_panel_style() -> StyleBoxFlat:
 	var style := _borderless_style(Color(0.025, 0.13, 0.19, 0.94))
-	style.set_corner_radius_all(10)
+	style.corner_radius_top_left = 0
+	style.corner_radius_bottom_left = 0
+	style.corner_radius_top_right = 10
+	style.corner_radius_bottom_right = 10
 	style.content_margin_left = 12
 	style.content_margin_right = 12
 	style.content_margin_top = 10
@@ -681,14 +685,19 @@ func _layout_presentation(animate: bool) -> void:
 	)
 	if layout_state == PresentationState.EXPANDED:
 		height = maxf(MIN_HISTORY_HEIGHT, viewport_height - 2.0 * bottom_margin)
+	var panel_width := (
+		EXPANDED_WIDTH
+		if layout_state == PresentationState.EXPANDED
+		else PANEL_WIDTH
+	)
 	height = minf(height, maxf(MIN_HISTORY_HEIGHT, bottom - MIN_TOP_MARGIN))
 	var target_position := Vector2(
-		-(PANEL_WIDTH - COLLAPSED_REVEAL_WIDTH)
+		-(panel_width - COLLAPSED_REVEAL_WIDTH)
 		if _presentation_state == PresentationState.COLLAPSED
 		else 0.0,
 		bottom - height,
 	)
-	var target_size := Vector2(PANEL_WIDTH, height)
+	var target_size := Vector2(panel_width, height)
 	var handle_stack_height := HANDLE_SIZE.y * 2.0 + HANDLE_GAP
 	var handle_stack_top := (
 		bottom - COMPACT_HEIGHT * 0.5 - handle_stack_height * 0.5
@@ -696,7 +705,7 @@ func _layout_presentation(animate: bool) -> void:
 	var collapse_position := Vector2(
 		COLLAPSED_REVEAL_WIDTH
 		if _presentation_state == PresentationState.COLLAPSED
-		else PANEL_WIDTH,
+		else panel_width,
 		bottom - COMPACT_HEIGHT * 0.5 - HANDLE_SIZE.y * 0.5
 		if _presentation_state == PresentationState.COLLAPSED
 		else handle_stack_top + HANDLE_SIZE.y + HANDLE_GAP,
@@ -704,7 +713,7 @@ func _layout_presentation(animate: bool) -> void:
 	var height_position := Vector2(
 		COLLAPSED_REVEAL_WIDTH
 		if _presentation_state == PresentationState.COLLAPSED
-		else PANEL_WIDTH,
+		else panel_width,
 		handle_stack_top,
 	)
 	var unread_position := collapse_position + Vector2(6.0, -18.0)
