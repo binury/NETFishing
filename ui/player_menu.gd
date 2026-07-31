@@ -13,6 +13,7 @@ const FishInventoryType = preload("res://inventory/fish_inventory.gd")
 const InventoryNotepadType = preload(
 	"res://ui/components/inventory_notepad.gd"
 )
+const OrganizerTabType = preload("res://ui/components/organizer_tab.gd")
 const FishPoolType = preload("res://fish/fish_pool.gd")
 const FishingSpotType = preload("res://fishing/fishing_spot.gd")
 const PlayerType = preload("res://player/player.gd")
@@ -381,8 +382,8 @@ func _ready() -> void:
 	_configure_navigation_focus()
 	_apply_navigation_styles()
 	_apply_inventory_styles()
-	# Full-page Inventory controls are later siblings and otherwise win GUI
-	# picking over the tab row even though the tabs draw above them.
+	# Keep the exposed tab hitboxes above the full-page roots. The individual
+	# main panels retain a higher z-index and cover the tab bodies below y=166.
 	_inventory_sub_tabs.move_to_front()
 	_bag_filter_tabs.move_to_front()
 	_apply_cooler_control_styles()
@@ -797,6 +798,7 @@ func _show_section_immediate(section: Section) -> void:
 	_cooler_sub_tab.button_pressed = section == Section.COOLER
 	_bag_sub_tab.button_pressed = section == Section.BAG
 	_tackle_sub_tab.button_pressed = section == Section.TACKLE_BOX
+	_refresh_inventory_organizer_tabs()
 	_logbook_tab.button_pressed = section == Section.LOGBOOK
 	_mail_tab.button_pressed = section == Section.MAIL
 	_profile_tab.button_pressed = section == Section.PROFILE
@@ -810,6 +812,36 @@ func _show_section_immediate(section: Section) -> void:
 
 func _is_inventory_section(section: Section) -> bool:
 	return section in [Section.COOLER, Section.BAG, Section.TACKLE_BOX]
+
+
+func _refresh_inventory_organizer_tabs() -> void:
+	for tab: OrganizerTabType in [
+		_cooler_sub_tab,
+		_bag_sub_tab,
+		_tackle_sub_tab,
+	]:
+		tab.refresh_state()
+
+
+func _animate_inventory_tab_entry() -> void:
+	if not _is_inventory_section(_current_section):
+		return
+	var tabs: Array[OrganizerTabType] = [
+		_cooler_sub_tab,
+		_bag_sub_tab,
+		_tackle_sub_tab,
+	]
+	for index: int in tabs.size():
+		tabs[index].animate_entrance(float(index) * 0.025)
+
+
+func _settle_inventory_tabs_for_close() -> void:
+	for tab: OrganizerTabType in [
+		_cooler_sub_tab,
+		_bag_sub_tab,
+		_tackle_sub_tab,
+	]:
+		tab.settle_for_close()
 
 
 func _show_last_inventory_section() -> void:
@@ -942,9 +974,6 @@ func _configure_active_page_focus() -> void:
 
 func _apply_inventory_styles() -> void:
 	for button: Button in [
-		_cooler_sub_tab,
-		_bag_sub_tab,
-		_tackle_sub_tab,
 		_equipment_filter,
 		_consumables_filter,
 		_bait_filter,
@@ -1556,6 +1585,7 @@ func _layout_cooler_selection_text(compact: bool) -> void:
 func _begin_menu_entry() -> void:
 	_transitioning = true
 	_set_shell_interactive(false)
+	_animate_inventory_tab_entry()
 	set_process(true)
 	var generation: int = _transition_generation
 	var start_offset: float = (
@@ -1651,6 +1681,7 @@ func _begin_menu_exit(reason: CloseReason, restore_controls: bool) -> void:
 	_cancel_presentation_tween()
 	_transitioning = true
 	_set_shell_interactive(false)
+	_settle_inventory_tabs_for_close()
 	get_viewport().gui_release_focus()
 	var generation: int = _transition_generation
 	var closing_generation: int = _menu_generation
@@ -1807,6 +1838,8 @@ func _begin_page_transition(section: Section) -> void:
 	_cancel_page_tween()
 	_page_transitioning = true
 	_set_content_interactive(false)
+	if _is_inventory_section(_current_section) and not _is_inventory_section(section):
+		_settle_inventory_tabs_for_close()
 	_set_navigation_target(section)
 	var generation: int = _page_transition_generation
 	_page_outgoing_root = _get_section_root(_current_section)
@@ -1884,6 +1917,8 @@ func _swap_page(section: Section, generation: int) -> void:
 	if generation != _page_transition_generation or not visible:
 		return
 	_show_section_immediate(section)
+	if _is_inventory_section(section):
+		_animate_inventory_tab_entry()
 	if _page_hosts_shared:
 		_page_incoming_root.position = (
 			_presentation_rest_position + Vector2.DOWN * 18.0

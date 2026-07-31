@@ -8,6 +8,7 @@ const FishPoolType = preload("res://fish/fish_pool.gd")
 const SILHOUETTE_SHADER: Shader = preload(
 	"res://ui/logbook_silhouette.gdshader"
 )
+const OrganizerTabType = preload("res://ui/components/organizer_tab.gd")
 
 const DETAIL_FADE_DURATION: float = 0.12
 const CATEGORY_FADE_DURATION: float = UIMotion.UTILITY_EXIT_DURATION
@@ -72,11 +73,13 @@ func activate() -> void:
 	_active = true
 	set_interactive(true)
 	_refresh_catalog()
+	_animate_tab_entry()
 
 
 func deactivate() -> void:
 	_active = false
 	set_interactive(false)
+	_settle_tabs_for_close()
 	_cancel_detail_tween()
 	_cancel_category_tween()
 
@@ -131,32 +134,38 @@ func _build_interface() -> void:
 	outer.add_theme_constant_override("margin_bottom", 18)
 	add_child(outer)
 
-	var layout := VBoxContainer.new()
-	layout.add_theme_constant_override("separation", 8)
-	outer.add_child(layout)
+	var stack := Control.new()
+	stack.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	outer.add_child(stack)
 
 	var tabs := HBoxContainer.new()
+	tabs.position = Vector2(0.0, 10.0)
+	tabs.size = Vector2(520.0, 58.0)
+	tabs.z_index = 10
+	tabs.mouse_filter = Control.MOUSE_FILTER_PASS
 	tabs.add_theme_constant_override("separation", 8)
-	layout.add_child(tabs)
+	stack.add_child(tabs)
 	for category: LogbookCatalog.Category in [
 		LogbookCatalog.Category.FRESH_WATER,
 		LogbookCatalog.Category.SALT_WATER,
 		LogbookCatalog.Category.OTHER,
 	]:
-		var tab := Button.new()
-		tab.custom_minimum_size = Vector2(168, 42)
+		var tab := OrganizerTabType.new()
+		tab.custom_minimum_size = Vector2(168, 58)
 		tab.toggle_mode = true
 		tab.text = LogbookCatalog.category_label(category)
 		tab.button_pressed = category == _category
 		tab.pressed.connect(_select_category.bind(category))
-		UtilityPageStyle.apply_button(tab)
 		tabs.add_child(tab)
 		_category_tabs.append(tab)
+	_configure_category_focus()
 
 	var book := HBoxContainer.new()
-	book.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	book.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	book.offset_top = 50.0
+	book.z_index = 20
 	book.add_theme_constant_override("separation", 12)
-	layout.add_child(book)
+	stack.add_child(book)
 
 	var left_page := PanelContainer.new()
 	left_page.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -357,7 +366,31 @@ func _select_category(category: LogbookCatalog.Category) -> void:
 	_selected_entry_key = StringName()
 	for index: int in _category_tabs.size():
 		_category_tabs[index].button_pressed = index == int(_category)
+		(_category_tabs[index] as OrganizerTabType).refresh_state()
 	_begin_category_transition()
+
+
+func _configure_category_focus() -> void:
+	for index: int in _category_tabs.size():
+		var tab: Button = _category_tabs[index]
+		tab.focus_neighbor_left = tab.get_path_to(
+			_category_tabs[maxi(index - 1, 0)]
+		)
+		tab.focus_neighbor_right = tab.get_path_to(
+			_category_tabs[mini(index + 1, _category_tabs.size() - 1)]
+		)
+
+
+func _animate_tab_entry() -> void:
+	for index: int in _category_tabs.size():
+		(_category_tabs[index] as OrganizerTabType).animate_entrance(
+			float(index) * 0.025
+		)
+
+
+func _settle_tabs_for_close() -> void:
+	for tab: OrganizerTabType in _category_tabs:
+		tab.settle_for_close()
 
 
 func _begin_category_transition() -> void:

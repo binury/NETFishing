@@ -1,4 +1,4 @@
-[gd_scene load_steps=24 format=3]
+[gd_scene load_steps=25 format=3]
 
 [ext_resource type="Script" path="res://ui/player_menu.gd" id="1_menu"]
 [ext_resource type="Theme" path="res://ui/game_theme.tres" id="2_theme"]
@@ -22,6 +22,7 @@
 [ext_resource type="Script" path="res://ui/players_page.gd" id="20_players_page"]
 [ext_resource type="PackedScene" path="res://ui/logbook_page.tscn" id="21_logbook_page"]
 [ext_resource type="Script" path="res://ui/components/inventory_notepad.gd" id="22_inventory_notepad"]
+[ext_resource type="Script" path="res://ui/components/organizer_tab.gd" id="23_organizer_tab"]
 
 [sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_collection"]
 
@@ -65,38 +66,41 @@ mouse_filter = 2
 [node name="InventorySubTabs" type="HBoxContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot"]
 unique_name_in_owner = true
 visible = false
-z_index = 50
+z_index = 40
 layout_mode = 0
 offset_left = 54.0
-offset_top = 118.0
+offset_top = 126.0
 offset_right = 504.0
-offset_bottom = 158.0
+offset_bottom = 184.0
 mouse_filter = 1
 theme_override_constants/separation = 8
 
 [node name="CoolerSubTab" type="Button" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/InventorySubTabs"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(132, 40)
+custom_minimum_size = Vector2(132, 58)
 layout_mode = 2
 toggle_mode = true
 button_group = null
 text = "Cooler"
+script = ExtResource("23_organizer_tab")
 
 [node name="BagSubTab" type="Button" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/InventorySubTabs"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(132, 40)
+custom_minimum_size = Vector2(132, 58)
 layout_mode = 2
 toggle_mode = true
 button_group = null
 text = "Bag"
+script = ExtResource("23_organizer_tab")
 
 [node name="TackleSubTab" type="Button" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/InventorySubTabs"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(154, 40)
+custom_minimum_size = Vector2(154, 58)
 layout_mode = 2
 toggle_mode = true
 button_group = null
 text = "Tackle Box"
+script = ExtResource("23_organizer_tab")
 
 [node name="CoolerPage" type="Control" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot"]
 unique_name_in_owner = true
@@ -107,6 +111,7 @@ mouse_filter = 1
 
 [node name="CoolerOuterWall" type="PanelContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/CoolerPage"]
 unique_name_in_owner = true
+z_index = 50
 layout_mode = 0
 offset_left = 54.0
 offset_top = 126.0
@@ -504,6 +509,7 @@ text = "Consumables"
 
 [node name="BagOuterWall" type="PanelContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/BagPage"]
 unique_name_in_owner = true
+z_index = 50
 layout_mode = 0
 offset_left = 122.0
 offset_top = 132.0
@@ -622,6 +628,7 @@ mouse_filter = 1
 
 [node name="TackleMainPanel" type="PanelContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/TackleBoxPage"]
 unique_name_in_owner = true
+z_index = 50
 layout_mode = 0
 offset_left = 54.0
 offset_top = 166.0
