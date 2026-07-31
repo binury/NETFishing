@@ -16,6 +16,8 @@ enum Rarity {
 
 @export var id: StringName
 @export var display_name: String
+@export_flags("Fresh Water", "Salt Water")
+var allowed_water_types: int = WaterType.ALL_FISHABLE_MASK
 @export var rarity: Rarity = Rarity.COMMON
 @export_range(0.0, 1000.0, 0.01) var base_catch_weight: float = 1.0
 @export var catch_profile: CatchDifficultyProfileType
@@ -45,6 +47,18 @@ func is_selectable() -> bool:
 		and sell_value_max >= sell_value_min
 		and sell_value_curve > 0.0
 	)
+
+
+func is_allowed_in_water(type: WaterType.Type) -> bool:
+	return (allowed_water_types & WaterType.mask_for(type)) != 0
+
+
+func get_primary_water_type() -> WaterType.Type:
+	if allowed_water_types & WaterType.FRESH_WATER_MASK:
+		return WaterType.Type.FRESH_WATER
+	if allowed_water_types & WaterType.SALT_WATER_MASK:
+		return WaterType.Type.SALT_WATER
+	return WaterType.Type.OTHER
 
 
 func get_minimum_weight() -> float:

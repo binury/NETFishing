@@ -48,10 +48,10 @@ func _validate_catalog() -> void:
 	for index: int in expected_ids.size():
 		var fish := CatalogResource.get_fish_by_id(expected_ids[index])
 		assert(fish != null)
-		var expected_category: LogbookCatalog.Category = (
-			LogbookCatalog.Category.OTHER
-			if index < 4
-			else LogbookCatalog.Category.FRESH_WATER
+		var expected_category: WaterType.Type = (
+			WaterType.Type.SALT_WATER
+			if expected_ids[index] in [&"bass", &"sunfish"]
+			else WaterType.Type.FRESH_WATER
 		)
 		assert(
 			LogbookCatalog.category_for(fish)
@@ -59,7 +59,7 @@ func _validate_catalog() -> void:
 		)
 		assert(LogbookCatalog.catalog_number(fish.id) == index + 1)
 	assert(
-		LogbookCatalog.empty_state(LogbookCatalog.Category.SALT_WATER)
+		LogbookCatalog.empty_state(WaterType.Type.SALT_WATER)
 		== "No saltwater catches cataloged yet."
 	)
 
@@ -78,14 +78,14 @@ func _validate_page() -> void:
 
 	var shared_material: Material
 	var silhouette_count: int = 0
-	for category: LogbookCatalog.Category in [
-		LogbookCatalog.Category.FRESH_WATER,
-		LogbookCatalog.Category.OTHER,
+	for category: WaterType.Type in [
+		WaterType.Type.FRESH_WATER,
+		WaterType.Type.SALT_WATER,
 	]:
 		page.call("_select_category", category)
 		await create_timer(0.25).timeout
 		var entries: Dictionary = page.get("_entry_buttons")
-		assert(entries.size() == 4)
+		assert(entries.size() == (6 if category == WaterType.Type.FRESH_WATER else 2))
 		for fish: FishDataType in LogbookCatalog.ordered_species(
 			CatalogResource.candidates
 		):
@@ -133,14 +133,14 @@ func _validate_page() -> void:
 				)
 	assert(silhouette_count == 8)
 
-	page.call("_select_category", LogbookCatalog.Category.SALT_WATER)
+	page.call("_select_category", WaterType.Type.OTHER)
 	await create_timer(0.25).timeout
 	assert((page.get("_entry_buttons") as Dictionary).is_empty())
 	assert(
 		(page.get("_empty_state") as Label).text
-		== "No saltwater catches cataloged yet."
+		== "No entries available."
 	)
-	page.call("_select_category", LogbookCatalog.Category.OTHER)
+	page.call("_select_category", WaterType.Type.FRESH_WATER)
 	await create_timer(0.25).timeout
 
 	var bluegill = CatalogResource.get_fish_by_id(&"bluegill")
@@ -175,7 +175,7 @@ func _validate_page() -> void:
 	await process_frame
 	assert(_detail_text(page).contains("number owned\n1"))
 	assert(_detail_text(page).contains("number caught\nUnknown"))
-	assert(_detail_text(page).contains("body of water\nUnknown"))
+	assert(_detail_text(page).contains("body of water\nFresh Water"))
 	assert(_detail_text(page).contains("catalog number\n#001"))
 
 	inventory.remove_catch_by_id(fish_catch.catch_id)

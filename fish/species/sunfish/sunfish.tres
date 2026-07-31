@@ -9,6 +9,7 @@
 script = ExtResource("1_fish_data")
 id = &"sunfish"
 display_name = "sunfish"
+allowed_water_types = 2
 rarity = 0
 base_catch_weight = 7.0
 catch_profile = ExtResource("2_profile")

@@ -45,20 +45,20 @@ func _run() -> void:
 	assert(not hotbar.visible)
 
 	var entry_buttons: Dictionary = logbook.get("_entry_buttons")
-	assert(entry_buttons.size() == 4)
+	assert(entry_buttons.size() == 0)
 	await _capture_if_requested("-unknown")
 	logbook.call(
-		"_select_category", LogbookCatalog.Category.FRESH_WATER
+		"_select_category", WaterType.Type.FRESH_WATER
 	)
 	await create_timer(0.25).timeout
-	assert((logbook.get("_entry_buttons") as Dictionary).size() == 4)
+	assert((logbook.get("_entry_buttons") as Dictionary).size() == 6)
 	await _capture_if_requested("-fresh")
-	logbook.call("_select_category", LogbookCatalog.Category.SALT_WATER)
+	logbook.call("_select_category", WaterType.Type.SALT_WATER)
 	await create_timer(0.25).timeout
-	assert((logbook.get("_entry_buttons") as Dictionary).is_empty())
-	logbook.call("_select_category", LogbookCatalog.Category.OTHER)
+	assert((logbook.get("_entry_buttons") as Dictionary).size() == 2)
+	logbook.call("_select_category", WaterType.Type.FRESH_WATER)
 	await create_timer(0.25).timeout
-	assert((logbook.get("_entry_buttons") as Dictionary).size() == 4)
+	assert((logbook.get("_entry_buttons") as Dictionary).size() == 6)
 	player.collection_log.mark_discovered(&"bluegill")
 	await process_frame
 	logbook.call("_select_entry", &"bluegill", &"bluegill")

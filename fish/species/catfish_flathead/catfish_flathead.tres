@@ -17,6 +17,7 @@ preferred_bait_weight_multiplier = 1.35
 script = ExtResource("1_fish_data")
 id = &"catfish_flathead"
 display_name = "flathead catfish"
+allowed_water_types = 1
 rarity = 1
 base_catch_weight = 1.0
 catch_profile = ExtResource("2_profile")

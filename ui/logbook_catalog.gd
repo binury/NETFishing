@@ -3,12 +3,6 @@ extends RefCounted
 
 const FishDataType = preload("res://fish/fish_data.gd")
 
-enum Category {
-	FRESH_WATER,
-	SALT_WATER,
-	OTHER,
-}
-
 # Catalog numbers are a presentation contract. Add future species deliberately;
 # filtering and display order must not redefine an existing number.
 const CATALOG_ORDER: Array[StringName] = [
@@ -22,41 +16,21 @@ const CATALOG_ORDER: Array[StringName] = [
 	&"catfish_white",
 ]
 
-# These maps remain explicit until fish resources gain authored habitat fields.
-const FRESH_WATER_IDS: Array[StringName] = [
-	&"catfish_blue",
-	&"catfish_channel",
-	&"catfish_flathead",
-	&"catfish_white",
-]
-const SALT_WATER_IDS: Array[StringName] = []
-
-
-static func category_for(fish: FishDataType) -> Category:
+static func category_for(fish: FishDataType) -> WaterType.Type:
 	if fish == null:
-		return Category.OTHER
-	if fish.id in FRESH_WATER_IDS:
-		return Category.FRESH_WATER
-	if fish.id in SALT_WATER_IDS:
-		return Category.SALT_WATER
-	return Category.OTHER
+		return WaterType.Type.OTHER
+	return fish.get_primary_water_type()
 
 
-static func category_label(category: Category) -> String:
+static func category_label(category: WaterType.Type) -> String:
+	return WaterType.label(category)
+
+
+static func empty_state(category: WaterType.Type) -> String:
 	match category:
-		Category.FRESH_WATER:
-			return "Fresh Water"
-		Category.SALT_WATER:
-			return "Salt Water"
-		_:
-			return "Other"
-
-
-static func empty_state(category: Category) -> String:
-	match category:
-		Category.FRESH_WATER:
+		WaterType.Type.FRESH_WATER:
 			return "No freshwater catches cataloged yet."
-		Category.SALT_WATER:
+		WaterType.Type.SALT_WATER:
 			return "No saltwater catches cataloged yet."
 		_:
 			return "No entries available."

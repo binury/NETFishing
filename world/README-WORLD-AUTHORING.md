@@ -34,6 +34,12 @@ children. Child transforms are local offsets owned by that feature.
 
 ## Water bodies
 
+Every fishable region must author its `water_type` explicitly. The starter pond
+is `FRESH_WATER`; the starter coast is `SALT_WATER`. Fish species use the same
+central type definition through an allowed-water-type bitmask, so pool contents
+and authoritative selection are both validated against the region. Do not infer
+habitat from node names, pool filenames, coordinates, or water height.
+
 Select `WaterBodies/Pond` to move or resize the pond. Its transform is the
 authoritative surface position. The `surface_size`, fishing padding, recovery
 padding, and recovery depth properties update the visible water and gameplay
@@ -86,3 +92,36 @@ for provisional props when visual and collision scale together. Avoid
 non-uniform root scaling because it can deform collision and imported geometry
 unpredictably. Make mutable per-instance shapes, meshes, and materials local to
 the scene so editing one prop does not change unrelated instances.
+
+## Shoreline tide ribbons
+
+Each map that uses generated tide ribbons owns a `ShorelineRibbonBaker` node and
+one `ShorelineRibbonConfig` resource per water body. Each fishable water body
+declares the shared `WaterType` value used by fishing, Logbook classification,
+and shoreline presentation. A configuration designates
+only the static terrain `CollisionShape3D` or `MeshInstance3D` to intersect, the
+water height, explicit generation bounds, water-facing reference, optional
+smoothing overrides, and the generated `.tres` output path. Props, docks,
+players, bobbers, and gameplay areas are not scanned unless a map author
+explicitly selects one as the terrain source. The baker reports every configured
+body but intentionally generates ribbons only for `SALT_WATER`; freshwater uses
+the shared depth-tinted shader without tide marks or an advancing wash.
+
+To rebuild in the editor, select the map's `ShorelineRibbonBaker` node and press
+**Rebuild Shoreline Ribbons** in the Inspector. The equivalent validation/CI
+command for the starter map is:
+
+```sh
+godot --headless --path . --script scripts/bake_shoreline_ribbons.gd
+```
+
+Set the baker's `debug_path_stage` to Raw, Simplified, or Smoothed before an
+editor rebuild to compare the extraction stages. Keep it Off in the finished
+scene; the temporary editor-only line preview is never saved as gameplay data.
+
+Rebuild a saltwater ribbon only when its terrain at the waterline, configured
+water height, or generation bounds change. Freshwater terrain changes do not
+require a ribbon rebuild because freshwater bodies have no ribbon. Adding or
+moving unrelated props, fishing areas, recovery volumes, or other gameplay
+nodes does not require a rebuild. Normal gameplay loads the committed generated
+saltwater meshes and never runs the extraction step.

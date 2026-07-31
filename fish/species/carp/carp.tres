@@ -16,6 +16,7 @@ preferred_bait_weight_multiplier = 1.5
 script = ExtResource("1_fish_data")
 id = &"carp"
 display_name = "common carp"
+allowed_water_types = 1
 rarity = 2
 base_catch_weight = 1.5
 catch_profile = ExtResource("2_profile")

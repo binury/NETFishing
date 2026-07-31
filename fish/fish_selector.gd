@@ -39,6 +39,8 @@ func select_fish(
 	for fish: FishDataType in pool.candidates:
 		if fish == null or not fish.is_selectable():
 			continue
+		if not fish.is_allowed_in_water(context.water_type):
+			continue
 		if fish.availability != null and not fish.availability.is_available(context):
 			continue
 		var final_weight: float = fish.base_catch_weight

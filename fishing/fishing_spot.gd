@@ -1110,6 +1110,7 @@ func _build_fishing_context(
 ) -> FishingContextType:
 	var context := FishingContextType.new()
 	context.location_tags = region.location_tags.duplicate()
+	context.water_type = region.water_type
 	context.active_event_tags = context_event_tags.duplicate()
 	context.active_bait_tags = context_bait_tags.duplicate()
 	context.is_night = context_is_night

@@ -10,6 +10,7 @@ enum SurfaceHeightMode {
 }
 
 @export var location_tags: Array[StringName] = []
+@export var water_type: WaterType.Type = WaterType.Type.FRESH_WATER
 @export var fish_pool: FishPoolType
 @export var selection_priority: int = 0
 @export_group("Surface")

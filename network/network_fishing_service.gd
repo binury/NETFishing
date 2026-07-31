@@ -269,7 +269,9 @@ func _handle_cast_request(peer_id: int, data: Dictionary) -> void:
 	var selected_fish: FishDataType = _select_authoritative_fish(
 		region, data, effects
 	)
-	if selected_fish == null:
+	if selected_fish == null or not selected_fish.is_allowed_in_water(
+		region.water_type
+	):
 		_record_and_reject(peer_id, request_id, "Nothing is biting here.")
 		return
 	var attempt := NetworkFishingAttempt.new()
@@ -389,7 +391,11 @@ func _select_authoritative_fish(
 		)
 	selector.begin_roll()
 	var context: FishingContextType = _fishing_spot.build_network_context(region)
-	return selector.select_fish(region.fish_pool, context, evidence_log)
+	var selected_fish := selector.select_fish(
+		region.fish_pool, context, evidence_log
+	)
+	evidence_log.free()
+	return selected_fish
 
 
 func _start_bite(attempt: NetworkFishingAttempt) -> void:

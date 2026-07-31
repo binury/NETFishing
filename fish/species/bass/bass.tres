@@ -16,6 +16,7 @@ preferred_bait_weight_multiplier = 1.4
 script = ExtResource("1_fish_data")
 id = &"bass"
 display_name = "striped bass"
+allowed_water_types = 2
 rarity = 1
 base_catch_weight = 4.0
 catch_profile = ExtResource("2_profile")

@@ -21,7 +21,7 @@ const LOGBOOK_TAB_LEFT_INSET: float = 34.0
 var _collection_log: CollectionLogType
 var _inventory: FishInventoryType
 var _catalog: FishPoolType
-var _category: LogbookCatalog.Category = LogbookCatalog.Category.OTHER
+var _category: WaterType.Type = WaterType.Type.OTHER
 var _selected_id: StringName
 var _selected_entry_key: StringName
 var _active: bool = false
@@ -148,10 +148,10 @@ func _build_interface() -> void:
 	tabs.mouse_filter = Control.MOUSE_FILTER_PASS
 	tabs.add_theme_constant_override("separation", 6)
 	stack.add_child(tabs)
-	for category: LogbookCatalog.Category in [
-		LogbookCatalog.Category.FRESH_WATER,
-		LogbookCatalog.Category.SALT_WATER,
-		LogbookCatalog.Category.OTHER,
+	for category: WaterType.Type in [
+		WaterType.Type.FRESH_WATER,
+		WaterType.Type.SALT_WATER,
+		WaterType.Type.OTHER,
 	]:
 		var tab := OrganizerTabType.new()
 		tab.custom_minimum_size = Vector2(124, 38)
@@ -362,7 +362,7 @@ func _add_unknown_entry_content(
 	content.add_child(discovery_hint)
 
 
-func _select_category(category: LogbookCatalog.Category) -> void:
+func _select_category(category: WaterType.Type) -> void:
 	if category == _category:
 		return
 	_category = category
@@ -516,7 +516,7 @@ func _build_known_details(fish: FishDataType) -> void:
 		"#%03d" % catalog_number if catalog_number > 0 else "Unknown",
 	)
 	_add_detail_row("rarity", fish.get_rarity_name())
-	_add_detail_row("body of water", "Unknown")
+	_add_detail_row("body of water", WaterType.label(fish.get_primary_water_type()))
 	_add_detail_row("time of day", _availability_text(fish))
 	_add_detail_row(
 		"weight range",
