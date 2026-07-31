@@ -1,5 +1,5 @@
 NETfishing
-v0.3.0-prealpha.2
+v0.3.0-prealpha.3
 Pre-Alpha 0.3
 
 Thank you for trying this early private playtest.

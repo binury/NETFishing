@@ -14,6 +14,9 @@ const README_FILENAME := "README.txt"
 const ENVIRONMENT_VARIABLE := "NETFISHING_DATA_DIR"
 const APPLICATION_ID := "netfishing"
 const APP_DATA_PORTABLE_PATH := "user://portable-data"
+const PATH_ALLOWED: StringName = &"allowed"
+const PATH_SOURCE_PROJECT: StringName = &"source_project"
+const PATH_INSTALLATION: StringName = &"installation"
 
 enum Mode {
 	UNRESOLVED,
@@ -226,15 +229,77 @@ func _activate_existing(path: String, expected_id: String, permit_creation: bool
 
 
 func _validate_candidate(path: String, create: bool) -> bool:
-	if path.is_empty() or not path.is_absolute_path():
+	var normalized: String = _normalize(path)
+	if normalized.is_empty() or not normalized.is_absolute_path():
 		return _fail("Choose an absolute filesystem folder.")
-	var project: String = ProjectSettings.globalize_path("res://").trim_suffix("/")
-	if path == project or path.begins_with(project + "/"):
+	var classification: StringName = classify_candidate_path(
+		normalized,
+		ProjectSettings.globalize_path("res://"),
+		OS.get_executable_path().get_base_dir(),
+	)
+	if classification == PATH_SOURCE_PROJECT:
 		return _fail("The project folder cannot be used as the player data folder.")
-	if not DirAccess.dir_exists_absolute(path):
-		if not create or DirAccess.make_dir_recursive_absolute(path) != OK:
+	if classification == PATH_INSTALLATION:
+		return _fail(
+			"The application installation folder cannot be used as the player data folder."
+		)
+	if not DirAccess.dir_exists_absolute(normalized):
+		if not create or DirAccess.make_dir_recursive_absolute(normalized) != OK:
 			return _fail("The selected data folder is unavailable.")
-	return _test_writable(path)
+	return _test_writable(normalized)
+
+
+static func classify_candidate_path(
+	candidate_path: String,
+	project_reference: String,
+	installation_reference: String,
+	case_insensitive: bool = OS.get_name() == "Windows",
+) -> StringName:
+	var candidate: String = _normalize_comparison_path(
+		candidate_path, case_insensitive
+	)
+	if candidate.is_empty() or not candidate.is_absolute_path():
+		return PATH_ALLOWED
+	var project: String = _normalize_reference_path(
+		project_reference, case_insensitive
+	)
+	if not project.is_empty() and _is_same_or_child_path(candidate, project):
+		return PATH_SOURCE_PROJECT
+	var installation: String = _normalize_reference_path(
+		installation_reference, case_insensitive
+	)
+	if (
+		not installation.is_empty()
+		and _is_same_or_child_path(candidate, installation)
+	):
+		return PATH_INSTALLATION
+	return PATH_ALLOWED
+
+
+static func _normalize_reference_path(path: String, case_insensitive: bool) -> String:
+	var normalized: String = _normalize_comparison_path(path, case_insensitive)
+	if normalized.is_empty() or not normalized.is_absolute_path():
+		return ""
+	if normalized == "/" or _is_windows_drive_root(normalized):
+		return ""
+	return normalized
+
+
+static func _normalize_comparison_path(path: String, case_insensitive: bool) -> String:
+	var normalized: String = path.strip_edges().replace("\\", "/").simplify_path()
+	while normalized.length() > 1 and normalized.ends_with("/"):
+		if _is_windows_drive_root(normalized):
+			break
+		normalized = normalized.left(-1)
+	return normalized.to_lower() if case_insensitive else normalized
+
+
+static func _is_windows_drive_root(path: String) -> bool:
+	return path.length() == 3 and path[1] == ":" and path[2] == "/"
+
+
+static func _is_same_or_child_path(candidate: String, reference: String) -> bool:
+	return candidate == reference or candidate.begins_with(reference + "/")
 
 
 func _test_writable(path: String) -> bool:
@@ -340,7 +405,12 @@ func _directory_is_empty(path: String) -> bool:
 
 
 func _normalize(path: String) -> String:
-	return path.simplify_path().trim_suffix("/")
+	var normalized: String = path.replace("\\", "/").simplify_path()
+	while normalized.length() > 1 and normalized.ends_with("/"):
+		if _is_windows_drive_root(normalized):
+			break
+		normalized = normalized.left(-1)
+	return normalized
 
 
 func _read_json(path: String, maximum := 1024 * 1024) -> Dictionary:
