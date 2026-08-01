@@ -6,8 +6,8 @@ const DEFAULT_SESSION_MAX_PLAYERS: int = 8
 const DEFAULT_TRANSPORT_MAX_CLIENTS: int = 31
 const CONNECTION_TIMEOUT_SECONDS: float = 10.0
 const AUTHENTICATION_TIMEOUT_SECONDS: float = 60.0
-const INPUT_INTERVAL: float = 1.0 / 25.0
-const SNAPSHOT_INTERVAL: float = 1.0 / 15.0
+const INPUT_INTERVAL: float = 1.0 / 30.0
+const SNAPSHOT_INTERVAL: float = 1.0 / 20.0
 
 signal state_changed(state: State)
 signal status_message_changed(message: String)

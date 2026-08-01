@@ -8,8 +8,8 @@ const MAX_REEL_SPEED: float = 10.0
 const MAX_BARRIER_DAMAGE: int = 100
 const INPUT_CHANNEL: int = 3
 const SNAPSHOT_CHANNEL: int = 4
-const INPUT_RATE: float = 1.0 / 25.0
-const SNAPSHOT_RATE: float = 1.0 / 15.0
+const INPUT_RATE: float = 1.0 / 30.0
+const SNAPSHOT_RATE: float = 1.0 / 20.0
 
 enum Outcome {
 	CATCH,
