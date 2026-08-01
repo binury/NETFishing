@@ -1,51 +1,62 @@
-[gd_scene load_steps=47 format=3]
+[gd_scene format=3 uid="uid://w6lvqm3bfhei"]
 
 [ext_resource type="PackedScene" path="res://world/test_world.tscn" id="1_world"]
 [ext_resource type="PackedScene" path="res://player/player.tscn" id="2_player"]
-[ext_resource type="Script" path="res://main/main.gd" id="3_main"]
+[ext_resource type="Script" uid="uid://c7u6jpr3f33t3" path="res://main/main.gd" id="3_main"]
 [ext_resource type="PackedScene" path="res://fishing/fishing_spot.tscn" id="4_spot"]
 [ext_resource type="PackedScene" path="res://ui/game_ui.tscn" id="5_ui"]
 [ext_resource type="Resource" path="res://fish/pools/fish_catalog.tres" id="6_pool"]
 [ext_resource type="Resource" path="res://economy/buyers/pelicans.tres" id="7_pelicans"]
-[ext_resource type="Script" path="res://world/water_recovery_controller.gd" id="8_recovery"]
-[ext_resource type="Script" path="res://save/player_save_manager.gd" id="9_save"]
-[ext_resource type="Script" path="res://settings/player_settings_manager.gd" id="10_settings"]
+[ext_resource type="Script" uid="uid://dvv0ublaoj4gr" path="res://world/water_recovery_controller.gd" id="8_recovery"]
+[ext_resource type="Script" uid="uid://dfr5m2x77d8ed" path="res://save/player_save_manager.gd" id="9_save"]
+[ext_resource type="Script" uid="uid://dwv3nvfke5xtu" path="res://settings/player_settings_manager.gd" id="10_settings"]
 [ext_resource type="Resource" path="res://items/catalog/item_catalog.tres" id="11_items"]
 [ext_resource type="Resource" path="res://economy/buyers/main_fishing_shop.tres" id="12_main_shop"]
-[ext_resource type="AudioStream" path="res://audio/music/title/as_in_four_wolves.ogg" id="13_title_music"]
-[ext_resource type="Script" path="res://ui/ui_pixelation_presenter.gd" id="14_pixelation"]
+[ext_resource type="AudioStream" uid="uid://bgkfluumuen4m" path="res://audio/music/title/as_in_four_wolves.ogg" id="13_title_music"]
+[ext_resource type="Script" uid="uid://bdtb05vkiicd" path="res://ui/ui_pixelation_presenter.gd" id="14_pixelation"]
 [ext_resource type="PackedScene" path="res://ui/pixelation_reset_overlay.tscn" id="15_reset"]
 [ext_resource type="PackedScene" path="res://main/world_pixelation_postprocess.tscn" id="16_world_pixelation"]
-[ext_resource type="Script" path="res://network/network_session.gd" id="17_network_session"]
-[ext_resource type="Script" path="res://network/network_profile_preferences.gd" id="18_network_profile"]
-[ext_resource type="Script" path="res://network/saved_server_store.gd" id="19_saved_servers"]
-[ext_resource type="Script" path="res://network/player_spawn_service.gd" id="20_spawn_service"]
-[ext_resource type="Script" path="res://network/network_fishing_service.gd" id="21_network_fishing"]
-[ext_resource type="Script" path="res://network/network_sale_service.gd" id="22_network_sale"]
-[ext_resource type="Script" path="res://network/network_shop_service.gd" id="23_network_shop"]
-[ext_resource type="Script" path="res://network/network_item_use_service.gd" id="24_network_item"]
-[ext_resource type="Script" path="res://network/network_chat_service.gd" id="25_network_chat"]
-[ext_resource type="Script" path="res://network/network_mail_service.gd" id="26_network_mail"]
-[ext_resource type="Script" path="res://progression/player_asset_reservation_service.gd" id="27_reservations"]
-[ext_resource type="Script" path="res://progression/player_appearance_store.gd" id="28_appearance"]
-[ext_resource type="Script" path="res://network/network_profile_service.gd" id="29_profile_service"]
-[ext_resource type="Script" path="res://network/player_identity_store.gd" id="30_player_identity"]
-[ext_resource type="Script" path="res://network/host_identity_store.gd" id="31_host_identity"]
-[ext_resource type="Script" path="res://network/known_player_store.gd" id="32_known_players"]
-[ext_resource type="Script" path="res://network/server_trust_store.gd" id="33_server_trust"]
-[ext_resource type="Script" path="res://network/player_relationship_store.gd" id="34_relationships"]
-[ext_resource type="Script" path="res://network/host_ban_store.gd" id="35_bans"]
-[ext_resource type="Script" path="res://network/network_player_list_service.gd" id="36_player_list"]
-[ext_resource type="Script" path="res://network/player_data_root.gd" id="37_data_root"]
-[ext_resource type="Script" path="res://network/identity_backup_service.gd" id="38_identity_backup"]
-[ext_resource type="Script" path="res://ui/interface_font_controller.gd" id="39_fonts"]
-[ext_resource type="Shader" path="res://ui/title_water_background.gdshader" id="40_title_water"]
-[ext_resource type="Texture2D" path="res://art/patterns/pattern_tealdot.png" id="41_menu_pattern"]
-[ext_resource type="Shader" path="res://ui/player_menu_pattern.gdshader" id="42_menu_pattern"]
-[ext_resource type="Texture2D" path="res://art/patterns/pattern_moneyfish.png" id="43_shop_pattern"]
+[ext_resource type="Script" uid="uid://u62a32ktf0y5" path="res://network/network_session.gd" id="17_network_session"]
+[ext_resource type="Script" uid="uid://db8ua5psoql0w" path="res://network/network_profile_preferences.gd" id="18_network_profile"]
+[ext_resource type="Script" uid="uid://b7j0er0u1nwy7" path="res://network/saved_server_store.gd" id="19_saved_servers"]
+[ext_resource type="Script" uid="uid://8w70d0nrf4a7" path="res://network/player_spawn_service.gd" id="20_spawn_service"]
+[ext_resource type="Script" uid="uid://b4v56htdn1y2l" path="res://network/network_fishing_service.gd" id="21_network_fishing"]
+[ext_resource type="Script" uid="uid://sqqy3anotq6n" path="res://network/network_sale_service.gd" id="22_network_sale"]
+[ext_resource type="Script" uid="uid://4ci4dbhyfc11" path="res://network/network_shop_service.gd" id="23_network_shop"]
+[ext_resource type="Script" uid="uid://dx21uu253nmpw" path="res://network/network_item_use_service.gd" id="24_network_item"]
+[ext_resource type="Script" uid="uid://b10jayoog5dc2" path="res://network/network_chat_service.gd" id="25_network_chat"]
+[ext_resource type="Script" uid="uid://t235k67v0dno" path="res://network/network_mail_service.gd" id="26_network_mail"]
+[ext_resource type="Script" uid="uid://bheplri3k6ch7" path="res://progression/player_asset_reservation_service.gd" id="27_reservations"]
+[ext_resource type="Script" uid="uid://ci07gm3e7r8p6" path="res://progression/player_appearance_store.gd" id="28_appearance"]
+[ext_resource type="Script" uid="uid://dc80t6nmksvm2" path="res://network/network_profile_service.gd" id="29_profile_service"]
+[ext_resource type="Script" uid="uid://cqlgolkbx2riq" path="res://network/player_identity_store.gd" id="30_player_identity"]
+[ext_resource type="Script" uid="uid://dtyoh0v77x52f" path="res://network/host_identity_store.gd" id="31_host_identity"]
+[ext_resource type="Script" uid="uid://dossvvvh4yuid" path="res://network/known_player_store.gd" id="32_known_players"]
+[ext_resource type="Script" uid="uid://cp2kam2btjkb0" path="res://network/server_trust_store.gd" id="33_server_trust"]
+[ext_resource type="Script" uid="uid://c3fnebvjotixg" path="res://network/player_relationship_store.gd" id="34_relationships"]
+[ext_resource type="Script" uid="uid://dmv6dqua5yl5a" path="res://network/host_ban_store.gd" id="35_bans"]
+[ext_resource type="Script" uid="uid://bkidkp7ggtc3q" path="res://network/network_player_list_service.gd" id="36_player_list"]
+[ext_resource type="Script" uid="uid://dpiv6wttry0j4" path="res://network/player_data_root.gd" id="37_data_root"]
+[ext_resource type="Script" uid="uid://bu5q4a8jfvxkf" path="res://network/identity_backup_service.gd" id="38_identity_backup"]
+[ext_resource type="Script" uid="uid://djmxy6jibi5y3" path="res://ui/interface_font_controller.gd" id="39_fonts"]
+[ext_resource type="Shader" uid="uid://c8s1g7tn771du" path="res://ui/title_water_background.gdshader" id="40_title_water"]
+[ext_resource type="Texture2D" uid="uid://f8a0cs0s7ler" path="res://art/patterns/pattern_tealdot.png" id="41_menu_pattern"]
+[ext_resource type="Shader" uid="uid://byw3iub66qvog" path="res://ui/player_menu_pattern.gdshader" id="42_menu_pattern"]
+[ext_resource type="Texture2D" uid="uid://b6xws1d2dnbnn" path="res://art/patterns/pattern_moneyfish.png" id="43_shop_pattern"]
+[ext_resource type="PackedScene" uid="uid://w7n4gjqq1juc" path="res://art/exported/characters/base/netfishing_base_character.glb" id="44_4pcu1"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_title_water_native"]
 shader = ExtResource("40_title_water")
+shader_parameter/surface_color = Color(0.1, 0.45, 0.62, 1)
+shader_parameter/middle_color = Color(0.055, 0.285, 0.4, 1)
+shader_parameter/depth_color = Color(0.02, 0.16, 0.27, 1)
+shader_parameter/virtual_pixel_density = Vector2(320, 180)
+shader_parameter/color_step_count = 14.0
+shader_parameter/continuous_depth_blend = 0.12
+shader_parameter/wave_speed = 0.1
+shader_parameter/wave_scale = 2.4
+shader_parameter/wave_strength = 0.012
+shader_parameter/caustic_strength = 0.018
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_player_menu_pattern"]
 shader = ExtResource("42_menu_pattern")
@@ -61,18 +72,18 @@ shader_parameter/source_tile_size = Vector2(64, 64)
 shader_parameter/display_scale = 1.75
 shader_parameter/scroll_velocity_pixels = Vector2(-7, -5)
 
-[node name="Main" type="Node3D"]
+[node name="Main" type="Node3D" unique_id=704196381]
 script = ExtResource("3_main")
 fish_catalog = ExtResource("6_pool")
 pelican_buyer_profile = ExtResource("7_pelicans")
 main_shop_buyer_profile = ExtResource("12_main_shop")
 item_catalog = ExtResource("11_items")
 
-[node name="TitleBackgroundLayer" type="CanvasLayer" parent="."]
+[node name="TitleBackgroundLayer" type="CanvasLayer" parent="." unique_id=1690754702]
 unique_name_in_owner = true
 layer = -1
 
-[node name="TitleBackground" type="ColorRect" parent="TitleBackgroundLayer"]
+[node name="TitleBackground" type="ColorRect" parent="TitleBackgroundLayer" unique_id=1768697365]
 unique_name_in_owner = true
 material = SubResource("ShaderMaterial_title_water_native")
 anchors_preset = 15
@@ -82,148 +93,147 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 
-[node name="PlayerMenuBackdrop" type="ColorRect" parent="."]
+[node name="PlayerMenuBackdrop" type="ColorRect" parent="." unique_id=2055423661]
 unique_name_in_owner = true
 visible = false
 z_index = 10
-mouse_filter = 2
 material = SubResource("ShaderMaterial_player_menu_pattern")
-color = Color(1, 1, 1, 1)
+mouse_filter = 2
 
-[node name="ShopBackdrop" type="ColorRect" parent="."]
+[node name="ShopBackdrop" type="ColorRect" parent="." unique_id=1404109502]
 unique_name_in_owner = true
 visible = false
 z_index = 10
-mouse_filter = 2
 material = SubResource("ShaderMaterial_shop_pattern")
-color = Color(1, 1, 1, 1)
+mouse_filter = 2
 
-[node name="InterfaceFontController" type="Node" parent="."]
+[node name="InterfaceFontController" type="Node" parent="." unique_id=384169781]
 unique_name_in_owner = true
 script = ExtResource("39_fonts")
 
-[node name="PlayerDataRoot" type="Node" parent="."]
+[node name="PlayerDataRoot" type="Node" parent="." unique_id=281868360]
 unique_name_in_owner = true
 script = ExtResource("37_data_root")
 
-[node name="IdentityBackupService" type="Node" parent="."]
+[node name="IdentityBackupService" type="Node" parent="." unique_id=1606277266]
 unique_name_in_owner = true
 script = ExtResource("38_identity_backup")
 
-[node name="NetworkSession" type="Node" parent="."]
+[node name="NetworkSession" type="Node" parent="." unique_id=88578570]
 unique_name_in_owner = true
 script = ExtResource("17_network_session")
 
-[node name="NetworkProfilePreferences" type="Node" parent="."]
+[node name="NetworkProfilePreferences" type="Node" parent="." unique_id=2119445545]
 unique_name_in_owner = true
 script = ExtResource("18_network_profile")
 
-[node name="PlayerIdentityStore" type="Node" parent="."]
+[node name="PlayerIdentityStore" type="Node" parent="." unique_id=737958453]
 unique_name_in_owner = true
 script = ExtResource("30_player_identity")
 
-[node name="HostIdentityStore" type="Node" parent="."]
+[node name="HostIdentityStore" type="Node" parent="." unique_id=351659562]
 unique_name_in_owner = true
 script = ExtResource("31_host_identity")
 
-[node name="KnownPlayerStore" type="Node" parent="."]
+[node name="KnownPlayerStore" type="Node" parent="." unique_id=390068772]
 unique_name_in_owner = true
 script = ExtResource("32_known_players")
 
-[node name="ServerTrustStore" type="Node" parent="."]
+[node name="ServerTrustStore" type="Node" parent="." unique_id=1565692831]
 unique_name_in_owner = true
 script = ExtResource("33_server_trust")
 
-[node name="PlayerRelationshipStore" type="Node" parent="."]
+[node name="PlayerRelationshipStore" type="Node" parent="." unique_id=612731662]
 unique_name_in_owner = true
 script = ExtResource("34_relationships")
 
-[node name="HostBanStore" type="Node" parent="."]
+[node name="HostBanStore" type="Node" parent="." unique_id=1672077885]
 unique_name_in_owner = true
 script = ExtResource("35_bans")
 
-[node name="PlayerAppearanceStore" type="Node" parent="."]
+[node name="PlayerAppearanceStore" type="Node" parent="." unique_id=1740017030]
 unique_name_in_owner = true
 script = ExtResource("28_appearance")
 
-[node name="NetworkProfileService" type="Node" parent="."]
+[node name="NetworkProfileService" type="Node" parent="." unique_id=1074818740]
 unique_name_in_owner = true
 script = ExtResource("29_profile_service")
 
-[node name="SavedServerStore" type="Node" parent="."]
+[node name="SavedServerStore" type="Node" parent="." unique_id=660213994]
 unique_name_in_owner = true
 script = ExtResource("19_saved_servers")
 
-[node name="PlayerSpawnService" type="Node" parent="."]
+[node name="PlayerSpawnService" type="Node" parent="." unique_id=2097451957]
 unique_name_in_owner = true
 script = ExtResource("20_spawn_service")
 
-[node name="NetworkFishingService" type="Node" parent="."]
+[node name="NetworkFishingService" type="Node" parent="." unique_id=692209374]
 unique_name_in_owner = true
 script = ExtResource("21_network_fishing")
 
-[node name="NetworkSaleService" type="Node" parent="."]
+[node name="NetworkSaleService" type="Node" parent="." unique_id=1445041024]
 unique_name_in_owner = true
 script = ExtResource("22_network_sale")
 
-[node name="NetworkShopService" type="Node" parent="."]
+[node name="NetworkShopService" type="Node" parent="." unique_id=1493674695]
 unique_name_in_owner = true
 script = ExtResource("23_network_shop")
 
-[node name="NetworkItemUseService" type="Node" parent="."]
+[node name="NetworkItemUseService" type="Node" parent="." unique_id=255154670]
 unique_name_in_owner = true
 script = ExtResource("24_network_item")
 
-[node name="NetworkChatService" type="Node" parent="."]
+[node name="NetworkChatService" type="Node" parent="." unique_id=1956959711]
 unique_name_in_owner = true
 script = ExtResource("25_network_chat")
 
-[node name="PlayerAssetReservationService" type="Node" parent="."]
+[node name="PlayerAssetReservationService" type="Node" parent="." unique_id=217588893]
 unique_name_in_owner = true
 script = ExtResource("27_reservations")
 
-[node name="NetworkMailService" type="Node" parent="."]
+[node name="NetworkMailService" type="Node" parent="." unique_id=1415330316]
 unique_name_in_owner = true
 script = ExtResource("26_network_mail")
 
-[node name="NetworkPlayerListService" type="Node" parent="."]
+[node name="NetworkPlayerListService" type="Node" parent="." unique_id=1638035935]
 unique_name_in_owner = true
 script = ExtResource("36_player_list")
 
-[node name="TestWorld" parent="." instance=ExtResource("1_world")]
+[node name="TestWorld" parent="." unique_id=1334932296 instance=ExtResource("1_world")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.0024132729, 0, -0.00093126297)
 
-[node name="Players" type="Node3D" parent="."]
+[node name="Players" type="Node3D" parent="." unique_id=550630144]
 
-[node name="Player" parent="Players" instance=ExtResource("2_player")]
+[node name="Player" parent="Players" unique_id=485429332 instance=ExtResource("2_player")]
 unique_name_in_owner = true
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 16)
 
-[node name="FishingSpot" parent="." instance=ExtResource("4_spot")]
+[node name="FishingSpot" parent="." unique_id=1461328864 instance=ExtResource("4_spot")]
 unique_name_in_owner = true
-position = Vector3(0, 1.02, -18)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.02, -18)
 
-[node name="WaterRecovery" type="Node" parent="."]
+[node name="WaterRecovery" type="Node" parent="." unique_id=12981798]
 unique_name_in_owner = true
 script = ExtResource("8_recovery")
 
-[node name="PlayerSaveManager" type="Node" parent="."]
+[node name="PlayerSaveManager" type="Node" parent="." unique_id=223569593]
 unique_name_in_owner = true
 script = ExtResource("9_save")
 
-[node name="PlayerSettingsManager" type="Node" parent="."]
+[node name="PlayerSettingsManager" type="Node" parent="." unique_id=906991991]
 unique_name_in_owner = true
 script = ExtResource("10_settings")
 
-[node name="TitleMusic" type="AudioStreamPlayer" parent="."]
+[node name="TitleMusic" type="AudioStreamPlayer" parent="." unique_id=1292939956]
 unique_name_in_owner = true
 stream = ExtResource("13_title_music")
 volume_db = -80.0
 bus = &"Music"
 
-[node name="WorldPixelationPostprocess" parent="." instance=ExtResource("16_world_pixelation")]
+[node name="WorldPixelationPostprocess" parent="." unique_id=344378000 instance=ExtResource("16_world_pixelation")]
 unique_name_in_owner = true
 
-[node name="UIPresentation" type="SubViewportContainer" parent="."]
+[node name="UIPresentation" type="SubViewportContainer" parent="." unique_id=1104419395]
 unique_name_in_owner = true
 z_index = 20
 texture_filter = 1
@@ -233,14 +243,17 @@ mouse_filter = 0
 stretch = true
 script = ExtResource("14_pixelation")
 
-[node name="UIViewport" type="SubViewport" parent="UIPresentation"]
+[node name="UIViewport" type="SubViewport" parent="UIPresentation" unique_id=461155312]
 transparent_bg = true
 handle_input_locally = false
 size = Vector2i(1152, 648)
 render_target_update_mode = 4
 
-[node name="GameUI" parent="UIPresentation/UIViewport" instance=ExtResource("5_ui")]
+[node name="GameUI" parent="UIPresentation/UIViewport" unique_id=954136124 instance=ExtResource("5_ui")]
 unique_name_in_owner = true
 
-[node name="PixelationResetOverlay" parent="." instance=ExtResource("15_reset")]
+[node name="PixelationResetOverlay" parent="." unique_id=291636041 instance=ExtResource("15_reset")]
 unique_name_in_owner = true
+
+[node name="netfishing_base_character" parent="." unique_id=163901730 instance=ExtResource("44_4pcu1")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8.795597, 4.184117, 6.3531876)
