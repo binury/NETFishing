@@ -483,7 +483,7 @@ func _update_barrier_markers(
 		marker.color = (
 			UIPalette.DISABLED
 			if defeated
-			else UIPalette.SECONDARY
+			else UIPalette.PRIMARY
 		)
 		if barrier_index == active_index:
 			marker.color = UIPalette.TEXT
