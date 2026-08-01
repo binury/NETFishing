@@ -1215,7 +1215,7 @@ theme_override_constants/separation = 7
 
 [node name="BagHint" type="Label" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/MenuPanel/Margin/Layout/Content/BagSection"]
 layout_mode = 2
-text = "drag hotbar-compatible items onto a slot below. right-click a slot to clear it."
+text = "drag fish or hotbar-compatible items onto a slot below. right-click a slot to clear it."
 horizontal_alignment = 1
 autowrap_mode = 2
 

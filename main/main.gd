@@ -55,6 +55,9 @@ const NetworkShopServiceType = preload(
 const NetworkItemUseServiceType = preload(
 	"res://network/network_item_use_service.gd"
 )
+const NetworkFishShowcaseServiceType = preload(
+	"res://network/network_fish_showcase_service.gd"
+)
 const NetworkChatServiceType = preload(
 	"res://network/network_chat_service.gd"
 )
@@ -123,6 +126,9 @@ const SHOP_PATTERN_SCALE: float = 1.75
 @onready var _network_shop: NetworkShopServiceType = %NetworkShopService
 @onready var _network_item_use: NetworkItemUseServiceType = (
 	%NetworkItemUseService
+)
+@onready var _network_fish_showcase: NetworkFishShowcaseServiceType = (
+	%NetworkFishShowcaseService
 )
 @onready var _network_chat: NetworkChatServiceType = %NetworkChatService
 @onready var _network_mail: NetworkMailServiceType = %NetworkMailService
@@ -295,7 +301,7 @@ func _initialize_after_data_root() -> void:
 		_asset_reservations
 	)
 	_player.bag.setup(item_catalog)
-	_player.hotbar.setup(_player.bag, item_catalog)
+	_player.hotbar.setup(_player.bag, item_catalog, _player.inventory)
 	_shop_interaction = _test_world.get_fishing_shop()
 	_shop_interaction.setup_local_player(_player)
 	_shop_interaction.local_player_range_changed.connect(
@@ -337,6 +343,13 @@ func _initialize_after_data_root() -> void:
 		_player.item_effects,
 		_save_manager,
 		_asset_reservations
+	)
+	_network_fish_showcase.setup(
+		_network_session,
+		_player_spawn_service,
+		fish_catalog,
+		_player.inventory,
+		_player.hotbar,
 	)
 	_network_chat.setup(_network_session)
 	_network_fishing.setup(
@@ -520,6 +533,9 @@ func _initialize_after_data_root() -> void:
 	_player.bag.contents_changed.connect(_refresh_active_hotbar_item)
 	_fishing_spot.ready_for_equipment_refresh.connect(
 		_refresh_active_hotbar_item
+	)
+	_fishing_spot.fish_showcase_toggle_requested.connect(
+		_network_fish_showcase.toggle_selected_fish
 	)
 	_water_recovery.recovery_starting.connect(
 		_on_water_recovery_starting

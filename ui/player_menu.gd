@@ -2609,6 +2609,7 @@ func _sync_cooler_fish_nodes(catches: Array[FishCatchType]) -> void:
 		var identity_hash: int = absi(String(fish_catch.catch_id).hash())
 		fish_node.configure(
 			fish_catch.catch_id,
+			fish_catch.fish.display_name,
 			fish_catch.fish.display_texture,
 			float(identity_hash % 628) / 100.0,
 			0.96 + float(identity_hash % 9) * 0.01,

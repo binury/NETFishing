@@ -6,6 +6,8 @@ signal presentation_transition_finished(is_visible: bool)
 const ItemCatalogType = preload("res://items/item_catalog.gd")
 const PlayerBagType = preload("res://inventory/player_bag.gd")
 const PlayerHotbarType = preload("res://inventory/player_hotbar.gd")
+const FishInventoryType = preload("res://inventory/fish_inventory.gd")
+const FishCatchType = preload("res://fish/fish_catch.gd")
 const BubbleHotbarSlotType = preload(
 	"res://ui/components/bubble_hotbar/bubble_hotbar_slot.gd"
 )
@@ -28,6 +30,7 @@ const HOTBAR_MENU_Z_INDEX: int = 90
 var _hotbar: PlayerHotbarType
 var _bag: PlayerBagType
 var _catalog: ItemCatalogType
+var _fish_inventory: FishInventoryType
 var _fishing_spot: FishingSpotType
 var _slots: Array[BubbleHotbarSlotType] = []
 var _gameplay_input_enabled: bool = false
@@ -59,11 +62,13 @@ func setup(
 	bag: PlayerBagType,
 	catalog: ItemCatalogType,
 	fishing_spot: FishingSpotType,
+	fish_inventory: FishInventoryType,
 ) -> void:
 	_hotbar = hotbar
 	_bag = bag
 	_catalog = catalog
 	_fishing_spot = fishing_spot
+	_fish_inventory = fish_inventory
 	if not _hotbar.slots_changed.is_connected(_refresh):
 		_hotbar.slots_changed.connect(_refresh)
 	if not _hotbar.selected_slot_changed.is_connected(
@@ -72,8 +77,10 @@ func setup(
 		_hotbar.selected_slot_changed.connect(_on_selected_slot_changed)
 	if not _bag.contents_changed.is_connected(_refresh):
 		_bag.contents_changed.connect(_refresh)
+	if not _fish_inventory.catches_changed.is_connected(_refresh):
+		_fish_inventory.catches_changed.connect(_refresh)
 	for slot: BubbleHotbarSlotType in _slots:
-		slot.setup(_hotbar, _bag, _catalog)
+		slot.setup(_hotbar, _bag, _catalog, _fish_inventory)
 		slot.set_drag_enabled(_drag_enabled)
 	_refresh()
 
@@ -274,7 +281,7 @@ func _on_slot_item_hovered(
 		return
 	_hovered_slot_index = slot_index
 	_item_name_timer.stop()
-	_show_item_name(item_id)
+	_show_assignment_name(slot_index, item_id)
 
 
 func _on_slot_item_hover_ended(slot_index: int) -> void:
@@ -297,16 +304,31 @@ func _show_selected_item_briefly() -> void:
 	if _item_name_suppressed or _hotbar == null:
 		_hide_item_name()
 		return
-	_show_item_name(_hotbar.get_selected_item_id())
+	var selected_slot: int = _hotbar.get_selected_slot()
+	var identity: StringName = _hotbar.get_selected_item_id()
+	if identity.is_empty():
+		identity = _hotbar.get_selected_fish_catch_id()
+	_show_assignment_name(selected_slot, identity)
 	if _selected_item_label.visible:
 		_item_name_timer.start()
 
 
-func _show_item_name(item_id: StringName) -> void:
-	if item_id.is_empty() or _catalog == null:
+func _show_assignment_name(slot_index: int, identity: StringName) -> void:
+	if identity.is_empty() or _hotbar == null:
 		_hide_item_name()
 		return
-	var item := _catalog.get_item_by_id(item_id)
+	var catch_id: StringName = _hotbar.get_fish_catch_id(slot_index)
+	if not catch_id.is_empty() and _fish_inventory != null:
+		var fish_catch: FishCatchType = _fish_inventory.get_catch_by_id(catch_id)
+		if fish_catch != null:
+			_selected_item_label.text = fish_catch.fish.display_name
+			_selected_item_label.visible = true
+			return
+	var item = (
+		_catalog.get_item_by_id(identity)
+		if _catalog != null
+		else null
+	)
 	if item == null:
 		_hide_item_name()
 		return

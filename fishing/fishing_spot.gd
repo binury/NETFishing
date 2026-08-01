@@ -55,6 +55,7 @@ signal showcase_changed(
 )
 signal bite_activated
 signal ready_for_equipment_refresh
+signal fish_showcase_toggle_requested
 
 enum FishingState {
 	READY,
@@ -448,6 +449,13 @@ func _unhandled_input(event: InputEvent) -> void:
 		match state:
 			FishingState.READY:
 				if not _new_cast_press_armed:
+					return
+				if (
+					_local_hotbar != null
+					and not _local_hotbar.get_selected_fish_catch_id().is_empty()
+				):
+					fish_showcase_toggle_requested.emit()
+					get_viewport().set_input_as_handled()
 					return
 				var active_item: ItemDataType = _get_active_item()
 				if (

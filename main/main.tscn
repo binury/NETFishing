@@ -44,6 +44,7 @@
 [ext_resource type="Shader" uid="uid://byw3iub66qvog" path="res://ui/player_menu_pattern.gdshader" id="42_menu_pattern"]
 [ext_resource type="Texture2D" uid="uid://b6xws1d2dnbnn" path="res://art/patterns/pattern_moneyfish.png" id="43_shop_pattern"]
 [ext_resource type="PackedScene" uid="uid://w7n4gjqq1juc" path="res://art/exported/characters/base/netfishing_base_character.glb" id="44_4pcu1"]
+[ext_resource type="Script" path="res://network/network_fish_showcase_service.gd" id="45_fish_showcase"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_title_water_native"]
 shader = ExtResource("40_title_water")
@@ -182,6 +183,10 @@ script = ExtResource("23_network_shop")
 [node name="NetworkItemUseService" type="Node" parent="." unique_id=255154670]
 unique_name_in_owner = true
 script = ExtResource("24_network_item")
+
+[node name="NetworkFishShowcaseService" type="Node" parent="."]
+unique_name_in_owner = true
+script = ExtResource("45_fish_showcase")
 
 [node name="NetworkChatService" type="Node" parent="." unique_id=1956959711]
 unique_name_in_owner = true

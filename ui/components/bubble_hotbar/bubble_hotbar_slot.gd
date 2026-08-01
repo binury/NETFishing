@@ -10,6 +10,8 @@ const ItemCatalogType = preload("res://items/item_catalog.gd")
 const ItemDataType = preload("res://items/item_data.gd")
 const PlayerBagType = preload("res://inventory/player_bag.gd")
 const PlayerHotbarType = preload("res://inventory/player_hotbar.gd")
+const FishInventoryType = preload("res://inventory/fish_inventory.gd")
+const FishCatchType = preload("res://fish/fish_catch.gd")
 
 const SELECTED_SCALE: float = 1.12
 const HOVER_SCALE: float = 1.025
@@ -41,6 +43,7 @@ const DEFORMATION_Y_AMPLITUDE: float = 0.007
 var _hotbar: PlayerHotbarType
 var _bag: PlayerBagType
 var _catalog: ItemCatalogType
+var _fish_inventory: FishInventoryType
 var _drag_enabled: bool = false
 var _drag_in_progress: bool = false
 var _selected: bool = false
@@ -69,10 +72,12 @@ func setup(
 	hotbar: PlayerHotbarType,
 	bag: PlayerBagType,
 	catalog: ItemCatalogType,
+	fish_inventory: FishInventoryType,
 ) -> void:
 	_hotbar = hotbar
 	_bag = bag
 	_catalog = catalog
+	_fish_inventory = fish_inventory
 	refresh()
 
 
@@ -144,12 +149,22 @@ func refresh() -> void:
 	if _hotbar == null:
 		return
 	var item_id: StringName = _hotbar.get_item_id(slot_index)
+	var catch_id: StringName = _hotbar.get_fish_catch_id(slot_index)
 	var item: ItemDataType = (
 		_catalog.get_item_by_id(item_id)
 		if _catalog != null and not item_id.is_empty()
 		else null
 	)
-	_item_icon.texture = item.icon if item != null else null
+	var fish_catch: FishCatchType = (
+		_fish_inventory.get_catch_by_id(catch_id)
+		if _fish_inventory != null and not catch_id.is_empty()
+		else null
+	)
+	_item_icon.texture = (
+		fish_catch.fish.display_texture
+		if fish_catch != null
+		else item.icon if item != null else null
+	)
 	var quantity: int = (
 		_bag.get_quantity(item_id)
 		if _bag != null and not item_id.is_empty()
@@ -163,12 +178,17 @@ func refresh() -> void:
 	_quantity_label.text = quantity_text
 	_quantity_label.visible = not quantity_text.is_empty()
 	tooltip_text = (
-		item.display_name if item != null else "empty hotbar slot"
+		"%s · %.1f lb" % [
+			fish_catch.fish.display_name,
+			fish_catch.weight_lb,
+		]
+		if fish_catch != null
+		else item.display_name if item != null else "empty hotbar slot"
 	)
 	var was_selected: bool = _selected
 	var was_empty: bool = _empty
 	_selected = slot_index == _hotbar.get_selected_slot()
-	_empty = item == null
+	_empty = item == null and fish_catch == null
 	if was_selected != _selected or was_empty != _empty:
 		_apply_style()
 
@@ -283,12 +303,22 @@ func _get_drag_data(_at_position: Vector2) -> Variant:
 	if not _drag_enabled or _hotbar == null:
 		return null
 	var item_id: StringName = _hotbar.get_item_id(slot_index)
-	if item_id.is_empty():
+	var catch_id: StringName = _hotbar.get_fish_catch_id(slot_index)
+	if item_id.is_empty() and catch_id.is_empty():
 		return null
 	var item: ItemDataType = _catalog.get_item_by_id(item_id)
+	var fish_catch: FishCatchType = (
+		_fish_inventory.get_catch_by_id(catch_id)
+		if _fish_inventory != null and not catch_id.is_empty()
+		else null
+	)
 	var preview := TextureRect.new()
 	preview.custom_minimum_size = Vector2(44.0, 44.0)
-	preview.texture = item.icon if item != null else null
+	preview.texture = (
+		fish_catch.fish.display_texture
+		if fish_catch != null
+		else item.icon if item != null else null
+	)
 	preview.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	preview.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	preview.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
@@ -299,7 +329,6 @@ func _get_drag_data(_at_position: Vector2) -> Variant:
 	return {
 		"kind": "hotbar_slot",
 		"slot_index": slot_index,
-		"item_id": String(item_id),
 	}
 
 
@@ -315,13 +344,19 @@ func _can_drop_data(_at_position: Vector2, data: Variant) -> bool:
 			and source_index < PlayerHotbarType.SLOT_COUNT
 			and source_index != slot_index
 		)
-	if kind != "bag_item":
-		return false
-	var item_id: StringName = StringName(str(payload.get("item_id", "")))
-	if _bag == null or not _bag.owns_item(item_id) or _catalog == null:
-		return false
-	var item: ItemDataType = _catalog.get_item_by_id(item_id)
-	return item != null and item.is_valid() and item.hotbar_allowed
+	if kind == "bag_item":
+		var item_id: StringName = StringName(str(payload.get("item_id", "")))
+		if _bag == null or not _bag.owns_item(item_id) or _catalog == null:
+			return false
+		var item: ItemDataType = _catalog.get_item_by_id(item_id)
+		return item != null and item.is_valid() and item.hotbar_allowed
+	if kind == "cooler_fish":
+		var catch_id: StringName = StringName(str(payload.get("catch_id", "")))
+		return (
+			_fish_inventory != null
+			and _fish_inventory.contains_catch_id(catch_id)
+		)
+	return false
 
 
 func _drop_data(_at_position: Vector2, data: Variant) -> void:
@@ -330,6 +365,11 @@ func _drop_data(_at_position: Vector2, data: Variant) -> void:
 	var payload: Dictionary = data
 	if str(payload.get("kind", "")) == "hotbar_slot":
 		_hotbar.swap_slots(int(payload["slot_index"]), slot_index)
+	elif str(payload.get("kind", "")) == "cooler_fish":
+		_hotbar.assign_fish(
+			slot_index,
+			StringName(str(payload["catch_id"])),
+		)
 	else:
 		_hotbar.assign_item(
 			slot_index,
@@ -346,7 +386,10 @@ func _select_slot() -> void:
 func _on_mouse_entered() -> void:
 	_hovered = true
 	if _hotbar != null:
-		item_hovered.emit(slot_index, _hotbar.get_item_id(slot_index))
+		var identity: StringName = _hotbar.get_item_id(slot_index)
+		if identity.is_empty():
+			identity = _hotbar.get_fish_catch_id(slot_index)
+		item_hovered.emit(slot_index, identity)
 
 
 func _on_mouse_exited() -> void:

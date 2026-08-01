@@ -7,6 +7,7 @@ extends Button
 @onready var _favorite_marker: Label = %FavoriteMarker
 
 var catch_id: StringName
+var _display_name: String = ""
 var _neutral_position := Vector2.ZERO
 var _target_position := Vector2.ZERO
 var _motion_phase: float = 0.0
@@ -35,18 +36,48 @@ func _ready() -> void:
 
 func configure(
 	identity: StringName,
+	display_name: String,
 	texture: Texture2D,
 	phase: float,
 	depth_scale: float,
 	rarity_color: Color,
 ) -> void:
 	catch_id = identity
+	_display_name = display_name
 	_fish_texture.texture = texture
 	_fish_shadow.texture = texture
 	_motion_phase = phase
 	_depth_scale = depth_scale
 	_rarity_color = rarity_color
 	_refresh_style()
+	tooltip_text = "%s · drag to a hotbar slot" % _display_name
+
+
+func _get_drag_data(_at_position: Vector2) -> Variant:
+	if catch_id.is_empty() or disabled or _fish_texture.texture == null:
+		return null
+	var preview := VBoxContainer.new()
+	preview.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	preview.add_theme_constant_override("separation", 2)
+	var texture := TextureRect.new()
+	texture.custom_minimum_size = Vector2(72.0, 52.0)
+	texture.texture = _fish_texture.texture
+	texture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	texture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	texture.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	texture.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	preview.add_child(texture)
+	var label := Label.new()
+	label.text = _display_name
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	label.add_theme_font_size_override("font_size", 12)
+	preview.add_child(label)
+	set_drag_preview(preview)
+	return {
+		"kind": "cooler_fish",
+		"catch_id": String(catch_id),
+	}
 
 
 func set_target_position(target: Vector2, immediate: bool = false) -> void:

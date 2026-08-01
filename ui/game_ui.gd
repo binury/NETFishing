@@ -183,7 +183,7 @@ func setup(
 		network_profile_service,
 		network_player_list,
 	)
-	_hotbar_ui.setup(hotbar, bag, item_catalog, fishing_spot)
+	_hotbar_ui.setup(hotbar, bag, item_catalog, fishing_spot, inventory)
 	_fishing_shop.setup(
 		player,
 		wallet,

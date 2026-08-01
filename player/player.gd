@@ -4,6 +4,7 @@ extends CharacterBody3D
 const FishInventoryType = preload("res://inventory/fish_inventory.gd")
 const CollectionLogType = preload("res://collection/collection_log.gd")
 const FishCatchType = preload("res://fish/fish_catch.gd")
+const FishDataType = preload("res://fish/fish_data.gd")
 const FishSaleServiceType = preload("res://economy/fish_sale_service.gd")
 const PlayerWalletType = preload("res://economy/player_wallet.gd")
 const PlayerBagType = preload("res://inventory/player_bag.gd")
@@ -106,6 +107,8 @@ class ShowcaseCameraSnapshot:
 @onready var _fishing_rod_tip: Marker3D = %FishingRodTip
 @onready var _catch_display: Node3D = %CatchDisplay
 @onready var _catch_sprite: Sprite3D = %CatchSprite
+@onready var _held_fish_display: Node3D = %HeldFishDisplay
+@onready var _held_fish_sprite: Sprite3D = %HeldFishSprite
 
 var _gravity: float = float(ProjectSettings.get_setting("physics/3d/default_gravity"))
 var _camera_dragging: bool = false
@@ -694,6 +697,25 @@ func set_active_item_is_rod(active_is_rod: bool) -> void:
 		_showcase_rod_visibility = active_is_rod
 	else:
 		_fishing_rod.visible = active_is_rod
+
+
+func set_held_fish(
+	fish: FishDataType,
+	display_scale: float,
+	should_show: bool,
+) -> void:
+	if not should_show or fish == null or fish.display_texture == null:
+		_held_fish_display.visible = false
+		_held_fish_display.scale = Vector3.ONE
+		_held_fish_sprite.texture = null
+		return
+	_held_fish_sprite.texture = fish.display_texture
+	_held_fish_display.scale = (
+		Vector3.ONE
+		* maxf(display_scale, 0.01)
+		* catch_presentation_base_scale
+	)
+	_held_fish_display.visible = true
 
 
 func get_cast_origin_position() -> Vector3:

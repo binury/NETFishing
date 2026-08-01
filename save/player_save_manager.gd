@@ -31,6 +31,7 @@ class LoadSnapshot:
 	var next_catch_sequence: int = 1
 	var bag_items: Array[OwnedItemType] = []
 	var hotbar_slots: Array[StringName] = []
+	var fish_hotbar_slots: Array[StringName] = []
 	var selected_hotbar_slot: int = 0
 	var reel_speed_level: int = 0
 	var barrier_power_level: int = 0
@@ -205,7 +206,8 @@ func load_player_data() -> bool:
 	var bag_restored: bool = _bag.replace_all_items(snapshot.bag_items)
 	var hotbar_restored: bool = _hotbar.replace_state(
 		snapshot.hotbar_slots,
-		snapshot.selected_hotbar_slot
+		snapshot.selected_hotbar_slot,
+		snapshot.fish_hotbar_slots,
 	)
 	var upgrades_restored: bool = _fishing_upgrades.restore_levels(
 		snapshot.reel_speed_level,
@@ -393,6 +395,9 @@ func _build_save_dictionary() -> Dictionary:
 	var serialized_slots: Array[String] = []
 	for item_id: StringName in _hotbar.get_slots():
 		serialized_slots.append(String(item_id))
+	var serialized_fish_slots: Array[String] = []
+	for catch_id: StringName in _hotbar.get_fish_slots():
+		serialized_fish_slots.append(String(catch_id))
 	if (
 		_wallet.get_balance() < 0
 		or _wallet.get_balance() > MAX_SAFE_BALANCE
@@ -422,6 +427,7 @@ func _build_save_dictionary() -> Dictionary:
 		"hotbar": {
 			"selected_slot": _hotbar.get_selected_slot(),
 			"slots": serialized_slots,
+			"fish_slots": serialized_fish_slots,
 		},
 		"upgrades": _fishing_upgrades.to_save_data(),
 		"cooler": _cooler_capacity.to_save_data(),
@@ -610,6 +616,22 @@ func _build_load_snapshot(save_data: Dictionary) -> LoadSnapshot:
 			and seen_items.has(slot_item_id)
 		):
 			snapshot.hotbar_slots[slot_index] = slot_item_id
+	var fish_slot_values: Array = []
+	if typeof(hotbar_data.get("fish_slots")) == TYPE_ARRAY:
+		fish_slot_values = hotbar_data["fish_slots"]
+	snapshot.fish_hotbar_slots.resize(PlayerHotbarType.SLOT_COUNT)
+	snapshot.fish_hotbar_slots.fill(StringName())
+	for slot_index: int in range(
+		mini(fish_slot_values.size(), PlayerHotbarType.SLOT_COUNT)
+	):
+		if not snapshot.hotbar_slots[slot_index].is_empty():
+			continue
+		var slot_value: Variant = fish_slot_values[slot_index]
+		if typeof(slot_value) not in [TYPE_STRING, TYPE_STRING_NAME]:
+			continue
+		var catch_id: StringName = StringName(str(slot_value))
+		if not catch_id.is_empty() and seen_ids.has(catch_id):
+			snapshot.fish_hotbar_slots[slot_index] = catch_id
 	var selected_slot: int = _read_integer(
 		hotbar_data["selected_slot"],
 		0,
