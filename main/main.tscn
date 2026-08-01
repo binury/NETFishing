@@ -256,4 +256,4 @@ unique_name_in_owner = true
 unique_name_in_owner = true
 
 [node name="netfishing_base_character" parent="." unique_id=163901730 instance=ExtResource("44_4pcu1")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8.795597, 4.184117, 6.3531876)
+transform = Transform3D(-0.9976046, 0, -0.06917416, 0, 1, 0, 0.06917416, 0, -0.9976046, 8.795597, 4.184117, 7.4327927)
