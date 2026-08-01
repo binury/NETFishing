@@ -103,8 +103,14 @@ class ShowcaseCameraSnapshot:
 @onready var item_effects: PlayerItemEffectsType = %ItemEffects
 @onready var cooler_capacity: PlayerCoolerCapacityType = %CoolerCapacity
 @onready var _cast_origin: Marker3D = %CastOrigin
-@onready var _fishing_rod: Node3D = %FishingRod
-@onready var _fishing_rod_tip: Marker3D = %FishingRodTip
+@onready var _fishing_rod: Node3D = get_node(
+	"Visuals/CharacterRig/CharacterRig/Skeleton3D/"
+	+ "FishingRodAttachment/FishingRod"
+) as Node3D
+@onready var _fishing_rod_tip: Marker3D = get_node(
+	"Visuals/CharacterRig/CharacterRig/Skeleton3D/"
+	+ "FishingRodAttachment/FishingRod/FishingRodTip"
+) as Marker3D
 @onready var _catch_display: Node3D = %CatchDisplay
 @onready var _catch_sprite: Sprite3D = %CatchSprite
 @onready var _held_fish_display: Node3D = %HeldFishDisplay
