@@ -45,13 +45,13 @@ class ShowcaseCameraSnapshot:
 
 
 @export_category("Movement")
-@export var walk_speed: float = 5.0
-@export var sprint_speed: float = 8.0
-@export var sneak_speed: float = 2.0
-@export var slow_walk_speed: float = 3.25
+@export var walk_speed: float = 4.5
+@export var sprint_speed: float = 7.2
+@export var sneak_speed: float = 1.8
+@export var slow_walk_speed: float = 2.9
 @export_range(0.1, 20.0, 0.1) var jump_velocity: float = 4.6
 @export_range(0.1, 5.0, 0.05) var upward_gravity_multiplier: float = 1.35
-@export_range(0.1, 5.0, 0.05) var fall_gravity_multiplier: float = 2.1
+@export_range(0.1, 5.0, 0.05) var fall_gravity_multiplier: float = 2.35
 @export_range(0.1, 3.0, 0.05) var body_center_height: float = 0.9
 @export var body_rotation_speed: float = 12.0
 
@@ -154,11 +154,23 @@ func _physics_process(delta: float) -> void:
 	if _network_interpolation_enabled:
 		_update_network_interpolation(delta)
 		return
+	var jump_requested: bool = (
+		_movement_enabled
+		and (
+			(local_control_enabled and Input.is_action_just_pressed("jump"))
+			or (_network_authoritative_simulation and _network_jump_pending)
+		)
+	)
 	if _sitting:
-		velocity = Vector3.ZERO
-		return
+		if jump_requested:
+			_set_sitting(false)
+		else:
+			velocity = Vector3.ZERO
+			_network_jump_pending = false
+			return
 	if _water_recovery_active:
 		velocity = Vector3.ZERO
+		_network_jump_pending = false
 		return
 
 	if not is_on_floor():
@@ -168,16 +180,7 @@ func _physics_process(delta: float) -> void:
 			else fall_gravity_multiplier
 		)
 		velocity.y -= _gravity * gravity_multiplier * delta
-	elif _movement_enabled and (
-		(
-			local_control_enabled
-			and Input.is_action_just_pressed("jump")
-		)
-		or (
-			_network_authoritative_simulation
-			and _network_jump_pending
-		)
-	):
+	elif jump_requested:
 		velocity.y = jump_velocity
 	_network_jump_pending = false
 
@@ -295,14 +298,22 @@ func _update_character_animation() -> void:
 
 
 func toggle_sitting() -> void:
-	if (
-		_character_animation_player == null
-		or not _character_animation_player.has_animation(
-			CHARACTER_SITTING_ANIMATION
-		)
-	):
+	var should_sit: bool = not _sitting
+	if should_sit:
+		if (
+			_character_animation_player == null
+			or not _character_animation_player.has_animation(
+				CHARACTER_SITTING_ANIMATION
+			)
+		):
+			return
+	_set_sitting(should_sit)
+
+
+func _set_sitting(should_sit: bool) -> void:
+	if _sitting == should_sit:
 		return
-	_sitting = not _sitting
+	_sitting = should_sit
 	if _sitting:
 		velocity = Vector3.ZERO
 	_character_animation_name = &""
