@@ -320,7 +320,7 @@ func _update_waiting_attempt(
 		flat_offset.length() - _fishing_spot.withdrawal_cancel_distance
 	)
 	if withdrawable_distance <= 0.0:
-		_cancel_attempt(attempt.owner_peer_id, "Fishing cancelled.")
+		_cancel_attempt(attempt.owner_peer_id, "")
 		return
 	attempt.withdrawal_progress = minf(
 		attempt.withdrawal_progress
@@ -463,7 +463,7 @@ func submit_cancel_request(attempt_id: String) -> void:
 		or attempt.attempt_id != attempt_id
 	):
 		return
-	_cancel_attempt(sender_id, "Fishing cancelled.")
+	_cancel_attempt(sender_id, "")
 
 
 func _on_encounter_updated(

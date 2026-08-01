@@ -23,20 +23,10 @@ enum LineMode {
 @export_range(0.1, 10.0, 0.1) var pickup_distance_from_player: float = 5.5
 
 @export_category("Fishing Line")
-@export_flags_3d_physics var line_obstacle_mask: int = 1
-@export_range(1.0, 30.0, 0.5) var routing_probe_height: float = 8.0
-@export_range(0.1, 2.0, 0.05) var obstruction_sample_spacing: float = 0.4
-@export_range(0.01, 1.0, 0.01) var terrain_clearance: float = 0.1
-@export_range(1, 3, 1) var maximum_obstruction_ranges: int = 1
-@export_range(2, 12, 1) var maximum_contact_anchors_per_range: int = 5
-@export_range(0.0, 3.0, 0.05) var route_lead_in_distance: float = 0.8
-@export_range(0.0, 3.0, 0.05) var route_lead_out_distance: float = 0.8
-@export_range(0.05, 2.0, 0.05) var fallback_arch_height: float = 0.35
 @export_range(0.0, 0.5, 0.01) var slack_amount: float = 0.08
 @export_range(0.0, 2.0, 0.01) var minimum_slack: float = 0.08
 @export_range(0.0, 3.0, 0.01) var maximum_slack: float = 0.65
-@export_range(2, 20, 1) var clear_span_interpolation_count: int = 8
-@export_range(1, 8, 1) var contact_span_interpolation_count: int = 2
+@export_range(2, 20, 1) var sag_interpolation_count: int = 8
 @export_range(0.1, 30.0, 0.1) var line_transition_speed: float = 7.0
 
 @export_category("Cast")
@@ -59,9 +49,6 @@ enum LineMode {
 var _mode: VisualMode = VisualMode.NONE
 var _line_mode: LineMode = LineMode.HIDDEN
 var _line_mesh: ImmediateMesh = ImmediateMesh.new()
-var _route_points: PackedVector3Array = PackedVector3Array()
-var _contact_start_anchor_index: int = -1
-var _contact_end_anchor_index: int = -1
 var _current_sag: float = 0.0
 var _rod: Node3D
 var _rod_tip: Marker3D
@@ -109,9 +96,6 @@ func set_line_mode(mode: LineMode) -> void:
 	_line.visible = mode != LineMode.HIDDEN
 	if mode == LineMode.HIDDEN:
 		_current_sag = 0.0
-		_route_points.clear()
-		_contact_start_anchor_index = -1
-		_contact_end_anchor_index = -1
 		_line_mesh.clear_surfaces()
 
 
@@ -399,10 +383,10 @@ func _update_line(delta: float) -> void:
 		)
 	var sag_weight: float = 1.0 - exp(-line_transition_speed * delta)
 	_current_sag = lerpf(_current_sag, target_sag, sag_weight)
-	_route_points = _build_line_route(rod_tip_position, bobber_position)
-	var rendered_points: PackedVector3Array = _build_rendered_line_points(
-		_route_points,
-		_current_sag
+	var rendered_points: PackedVector3Array = _build_sagged_line_points(
+		rod_tip_position,
+		bobber_position,
+		_current_sag,
 	)
 
 	_line_mesh.clear_surfaces()
@@ -415,307 +399,21 @@ func _update_line(delta: float) -> void:
 	_line_mesh.surface_end()
 
 
-func _build_line_route(start: Vector3, end: Vector3) -> PackedVector3Array:
-	_contact_start_anchor_index = -1
-	_contact_end_anchor_index = -1
-	if _raycast_obstacle(start, end).is_empty():
-		return PackedVector3Array([start, end])
-
-	var horizontal_delta := Vector2(end.x - start.x, end.z - start.z)
-	var horizontal_length: float = horizontal_delta.length()
-	if horizontal_length <= 0.001:
-		return _build_fallback_arch(start, end)
-
-	var sample_count: int = clampi(
-		ceili(horizontal_length / obstruction_sample_spacing),
-		2,
-		64
-	)
-	var obstructed_samples := PackedByteArray()
-	for sample_index: int in range(sample_count + 1):
-		var progress: float = float(sample_index) / float(sample_count)
-		var base_point: Vector3 = start.lerp(end, progress)
-		var surface_hit: Dictionary = _probe_surface(base_point)
-		var is_obstructed: bool = false
-		if not surface_hit.is_empty():
-			var surface_position: Vector3 = surface_hit["position"]
-			var required_height: float = surface_position.y + terrain_clearance
-			if required_height > base_point.y:
-				is_obstructed = true
-		obstructed_samples.append(1 if is_obstructed else 0)
-
-	var obstruction_ranges: Array[Vector2i] = _find_obstruction_ranges(
-		obstructed_samples
-	)
-	if obstruction_ranges.is_empty():
-		return _build_fallback_arch(start, end)
-	if obstruction_ranges.size() > maximum_obstruction_ranges:
-		return _build_fallback_arch(start, end)
-
-	var first_sample: int = obstruction_ranges[0].x
-	var last_sample: int = obstruction_ranges[obstruction_ranges.size() - 1].y
-	var first_progress: float = float(first_sample) / float(sample_count)
-	var last_progress: float = float(last_sample) / float(sample_count)
-	var lead_in_progress: float = maxf(
-		0.0,
-		first_progress - route_lead_in_distance / horizontal_length
-	)
-	var lead_out_progress: float = minf(
-		1.0,
-		last_progress + route_lead_out_distance / horizontal_length
-	)
-
-	var route := PackedVector3Array([start])
-	_append_unique_route_point(route, start.lerp(end, lead_in_progress))
-	_contact_start_anchor_index = route.size() - 1
-	_append_contact_anchors(
-		route,
-		start,
-		end,
-		first_sample,
-		last_sample,
-		sample_count
-	)
-	_append_unique_route_point(route, start.lerp(end, lead_out_progress))
-	_contact_end_anchor_index = route.size() - 1
-	_append_unique_route_point(route, end)
-	route = _remove_near_duplicate_route_points(route)
-	_update_contact_indices_after_reduction(route)
-	return _validate_reduced_route(route, start, end)
-
-
-func _build_rendered_line_points(
-	route: PackedVector3Array,
+func _build_sagged_line_points(
+	start: Vector3,
+	end: Vector3,
 	sag: float,
 ) -> PackedVector3Array:
 	var points := PackedVector3Array()
-	if route.is_empty():
-		return points
-	if (
-		_contact_start_anchor_index < 0
-		or _contact_end_anchor_index < _contact_start_anchor_index
-		or _contact_end_anchor_index >= route.size()
-	):
-		_append_clear_span(points, route[0], route[route.size() - 1], sag)
-		return points
-
-	_append_clear_span(
-		points,
-		route[0],
-		route[_contact_start_anchor_index],
-		sag
-	)
-	for anchor_index: int in range(
-		_contact_start_anchor_index,
-		_contact_end_anchor_index
-	):
-		_append_contact_span(
-			points,
-			route[anchor_index],
-			route[anchor_index + 1]
-		)
-	_append_clear_span(
-		points,
-		route[_contact_end_anchor_index],
-		route[route.size() - 1],
-		sag
-	)
-	return points
-
-
-func _raycast_obstacle(from: Vector3, to: Vector3) -> Dictionary:
-	if from.is_equal_approx(to):
-		return {}
-	var query := PhysicsRayQueryParameters3D.create(
-		from,
-		to,
-		line_obstacle_mask
-	)
-	query.collide_with_areas = false
-	query.collide_with_bodies = true
-	return get_world_3d().direct_space_state.intersect_ray(query)
-
-
-func _find_obstruction_ranges(
-	obstructed_samples: PackedByteArray,
-) -> Array[Vector2i]:
-	var ranges: Array[Vector2i] = []
-	var range_start: int = -1
-	for sample_index: int in range(obstructed_samples.size()):
-		var is_obstructed: bool = obstructed_samples[sample_index] != 0
-		if is_obstructed and range_start < 0:
-			range_start = sample_index
-		elif not is_obstructed and range_start >= 0:
-			ranges.append(Vector2i(range_start, sample_index - 1))
-			range_start = -1
-	if range_start >= 0:
-		ranges.append(Vector2i(range_start, obstructed_samples.size() - 1))
-	return ranges
-
-
-func _append_contact_anchors(
-	route: PackedVector3Array,
-	start: Vector3,
-	end: Vector3,
-	first_sample: int,
-	last_sample: int,
-	sample_count: int,
-) -> void:
-	var available_samples: int = last_sample - first_sample + 1
-	var anchor_count: int = mini(
-		available_samples,
-		maximum_contact_anchors_per_range
-	)
-	for anchor_offset: int in range(anchor_count):
-		var weight: float = 0.0
-		if anchor_count > 1:
-			weight = float(anchor_offset) / float(anchor_count - 1)
-		var sample_index: int = roundi(
-			lerpf(float(first_sample), float(last_sample), weight)
-		)
-		var progress: float = float(sample_index) / float(sample_count)
-		var contact: Vector3 = _raise_point_above_obstacle(
-			start.lerp(end, progress)
-		)
-		_append_unique_route_point(route, contact)
-
-
-func _append_unique_route_point(
-	route: PackedVector3Array,
-	point: Vector3,
-) -> void:
-	if route.is_empty() or point.distance_to(route[route.size() - 1]) > 0.03:
-		route.append(point)
-
-
-func _remove_near_duplicate_route_points(
-	route: PackedVector3Array,
-) -> PackedVector3Array:
-	var cleaned := PackedVector3Array()
-	for point: Vector3 in route:
-		_append_unique_route_point(cleaned, point)
-	return cleaned
-
-
-func _update_contact_indices_after_reduction(route: PackedVector3Array) -> void:
-	if route.size() <= 2:
-		_contact_start_anchor_index = -1
-		_contact_end_anchor_index = -1
-		return
-	_contact_start_anchor_index = 1
-	_contact_end_anchor_index = route.size() - 2
-
-
-func _validate_reduced_route(
-	route: PackedVector3Array,
-	start: Vector3,
-	end: Vector3,
-) -> PackedVector3Array:
-	var correction_index: int = -1
-	var correction_hit: Dictionary
-	for segment_index: int in range(route.size() - 1):
-		var hit: Dictionary = _raycast_obstacle(
-			route[segment_index],
-			route[segment_index + 1]
-		)
-		if not hit.is_empty():
-			correction_index = segment_index + 1
-			correction_hit = hit
-			break
-	if correction_index < 0:
-		return route
-
-	var hit_position: Vector3 = correction_hit["position"]
-	var correction: Vector3 = _raise_point_above_obstacle(hit_position)
-	route.insert(correction_index, correction)
-	_contact_start_anchor_index = mini(
-		_contact_start_anchor_index,
-		correction_index
-	)
-	_contact_end_anchor_index = maxi(
-		_contact_end_anchor_index + 1,
-		correction_index
-	)
-	for segment_index: int in range(route.size() - 1):
-		if not _raycast_obstacle(
-			route[segment_index],
-			route[segment_index + 1]
-		).is_empty():
-			return _build_fallback_arch(start, end)
-	return route
-
-
-func _append_clear_span(
-	points: PackedVector3Array,
-	start: Vector3,
-	end: Vector3,
-	sag: float,
-) -> void:
-	if points.is_empty():
-		points.append(start)
-	elif not points[points.size() - 1].is_equal_approx(start):
-		points.append(start)
-	var subdivisions: int = 1 if sag <= 0.001 else clear_span_interpolation_count
+	var subdivisions: int = 1 if sag <= 0.001 else sag_interpolation_count
+	points.append(start)
 	for step: int in range(1, subdivisions + 1):
 		var progress: float = float(step) / float(subdivisions)
 		var point: Vector3 = start.lerp(end, progress)
 		if step < subdivisions and sag > 0.0:
 			point.y -= 4.0 * progress * (1.0 - progress) * sag
-			point.y = maxf(
-				point.y,
-				get_water_surface_height() + terrain_clearance * 0.25
-			)
-			point = _raise_point_above_obstacle(point)
 		points.append(point)
-
-
-func _append_contact_span(
-	points: PackedVector3Array,
-	start: Vector3,
-	end: Vector3,
-) -> void:
-	if points.is_empty():
-		points.append(start)
-	elif not points[points.size() - 1].is_equal_approx(start):
-		points.append(start)
-	for step: int in range(1, contact_span_interpolation_count + 1):
-		var progress: float = (
-			float(step) / float(contact_span_interpolation_count)
-		)
-		var point: Vector3 = start.lerp(end, progress)
-		if step < contact_span_interpolation_count:
-			point = _raise_point_above_obstacle(point)
-		points.append(point)
-
-
-func _build_fallback_arch(
-	start: Vector3,
-	end: Vector3,
-) -> PackedVector3Array:
-	var route := PackedVector3Array([start])
-	for progress: float in [0.25, 0.5, 0.75]:
-		var point: Vector3 = start.lerp(end, progress)
-		point.y += sin(progress * PI) * fallback_arch_height
-		route.append(_raise_point_above_obstacle(point))
-	route.append(end)
-	_contact_start_anchor_index = 1
-	_contact_end_anchor_index = route.size() - 2
-	return route
-
-
-func _probe_surface(point: Vector3) -> Dictionary:
-	var probe_start: Vector3 = point + Vector3.UP * routing_probe_height
-	var probe_end: Vector3 = point - Vector3.UP * routing_probe_height
-	return _raycast_obstacle(probe_start, probe_end)
-
-
-func _raise_point_above_obstacle(point: Vector3) -> Vector3:
-	var hit: Dictionary = _probe_surface(point)
-	if hit.is_empty():
-		return point
-	var surface_position: Vector3 = hit["position"]
-	point.y = maxf(point.y, surface_position.y + terrain_clearance)
-	return point
+	return points
 
 
 func _begin_rod_release() -> void:

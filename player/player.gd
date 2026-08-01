@@ -18,6 +18,10 @@ const PlayerCoolerCapacityType = preload(
 	"res://progression/player_cooler_capacity.gd"
 )
 
+const CHARACTER_IDLE_ANIMATION: StringName = &"idle"
+const CHARACTER_WALKING_ANIMATION: StringName = &"walking"
+const CHARACTER_SITTING_ANIMATION: StringName = &"sitting"
+
 var appearance_snapshot: Dictionary = (
 	CharacterCustomizationCatalog.default_snapshot()
 )
@@ -81,6 +85,9 @@ class ShowcaseCameraSnapshot:
 @export var zoom_smoothing: float = 12.0
 
 @onready var _visuals: Node3D = %Visuals
+@onready var _character_animation_player: AnimationPlayer = (
+	get_node_or_null("Visuals/CharacterRig/AnimationPlayer") as AnimationPlayer
+)
 @onready var _camera_yaw: Node3D = %CameraYaw
 @onready var _camera_pitch: Node3D = %CameraPitch
 @onready var _spring_arm: SpringArm3D = %SpringArm3D
@@ -133,6 +140,8 @@ var _network_target_position: Vector3
 var _network_target_velocity: Vector3
 var _network_target_visual_yaw: float = 0.0
 var _network_snapshot_ready: bool = false
+var _character_animation_name: StringName = &""
+var _sitting: bool = false
 
 
 func _ready() -> void:
@@ -144,6 +153,9 @@ func _ready() -> void:
 func _physics_process(delta: float) -> void:
 	if _network_interpolation_enabled:
 		_update_network_interpolation(delta)
+		return
+	if _sitting:
+		velocity = Vector3.ZERO
 		return
 	if _water_recovery_active:
 		velocity = Vector3.ZERO
@@ -215,6 +227,7 @@ func _physics_process(delta: float) -> void:
 
 
 func _process(delta: float) -> void:
+	_update_character_animation()
 	if _remote_recovery_presentation_active:
 		_remote_recovery_elapsed += delta
 		_visuals.position = (
@@ -256,6 +269,48 @@ func _process(delta: float) -> void:
 			_target_zoom,
 			zoom_weight
 		)
+
+
+func _update_character_animation() -> void:
+	if _character_animation_player == null:
+		return
+	var horizontal_speed_squared: float = (
+		velocity.x * velocity.x + velocity.z * velocity.z
+	)
+	var next_animation: StringName = (
+		CHARACTER_SITTING_ANIMATION
+		if _sitting
+		else (
+			CHARACTER_WALKING_ANIMATION
+			if horizontal_speed_squared > 0.0025
+			else CHARACTER_IDLE_ANIMATION
+		)
+	)
+	if not _character_animation_player.has_animation(next_animation):
+		return
+	if _character_animation_name == next_animation:
+		return
+	_character_animation_player.play(next_animation)
+	_character_animation_name = next_animation
+
+
+func toggle_sitting() -> void:
+	if (
+		_character_animation_player == null
+		or not _character_animation_player.has_animation(
+			CHARACTER_SITTING_ANIMATION
+		)
+	):
+		return
+	_sitting = not _sitting
+	if _sitting:
+		velocity = Vector3.ZERO
+	_character_animation_name = &""
+	_update_character_animation()
+
+
+func is_sitting() -> bool:
+	return _sitting
 
 
 func _unhandled_input(event: InputEvent) -> void:

@@ -1,4 +1,4 @@
-[gd_scene load_steps=14 format=3]
+[gd_scene load_steps=15 format=3]
 
 [ext_resource type="Script" path="res://ui/game_ui.gd" id="1_ui"]
 [ext_resource type="PackedScene" path="res://ui/player_menu.tscn" id="2_menu"]
@@ -9,27 +9,27 @@
 [ext_resource type="PackedScene" path="res://ui/hotbar.tscn" id="7_hotbar"]
 [ext_resource type="PackedScene" path="res://ui/fishing_shop.tscn" id="8_shop"]
 [ext_resource type="Script" path="res://ui/chat_ui.gd" id="9_chat"]
+[ext_resource type="PackedScene" path="res://ui/emote_radial_menu.tscn" id="10_emote"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBox_chase_background"]
 bg_color = Color(0.055, 0.105, 0.125, 1)
-corner_radius_top_left = 6
-corner_radius_top_right = 6
-corner_radius_bottom_right = 6
-corner_radius_bottom_left = 6
 
 [sub_resource type="StyleBoxFlat" id="StyleBox_chase_fill"]
 bg_color = Color(0.937, 0.357, 0.384, 0.95)
-corner_radius_top_left = 6
-corner_radius_top_right = 6
-corner_radius_bottom_right = 6
-corner_radius_bottom_left = 6
 
 [sub_resource type="StyleBoxFlat" id="StyleBox_catch_fill"]
 bg_color = Color(0.275, 0.784, 0.471, 0.92)
-corner_radius_top_left = 6
-corner_radius_top_right = 6
-corner_radius_bottom_right = 6
-corner_radius_bottom_left = 6
+
+[sub_resource type="StyleBoxFlat" id="StyleBox_fishing_panel"]
+bg_color = Color(0.055, 0.105, 0.125, 0.96)
+border_width_left = 0
+border_width_top = 0
+border_width_right = 0
+border_width_bottom = 0
+corner_radius_top_left = 12
+corner_radius_top_right = 12
+corner_radius_bottom_right = 12
+corner_radius_bottom_left = 12
 
 [sub_resource type="StyleBoxFlat" id="StyleBox_transparent"]
 bg_color = Color(0, 0, 0, 0)
@@ -64,23 +64,24 @@ anchor_left = 0.5
 anchor_top = 1.0
 anchor_right = 0.5
 anchor_bottom = 1.0
-offset_left = -205.0
-offset_top = -216.0
-offset_right = 205.0
-offset_bottom = -128.0
+offset_left = -260.0
+offset_top = -150.0
+offset_right = 260.0
+offset_bottom = -68.0
 grow_horizontal = 2
 grow_vertical = 0
 mouse_filter = 2
 theme = ExtResource("3_theme")
+theme_override_styles/panel = SubResource("StyleBox_fishing_panel")
 
 [node name="MarginContainer" type="MarginContainer" parent="UIRoot/CanonicalStage/GameplayTransientHUD/FishingPanel"]
-theme_override_constants/margin_left = 14
-theme_override_constants/margin_top = 8
-theme_override_constants/margin_right = 14
-theme_override_constants/margin_bottom = 8
+theme_override_constants/margin_left = 0
+theme_override_constants/margin_top = 0
+theme_override_constants/margin_right = 0
+theme_override_constants/margin_bottom = 0
 
 [node name="VBoxContainer" type="VBoxContainer" parent="UIRoot/CanonicalStage/GameplayTransientHUD/FishingPanel/MarginContainer"]
-theme_override_constants/separation = 4
+theme_override_constants/separation = 2
 
 [node name="StatusLabel" type="Label" parent="UIRoot/CanonicalStage/GameplayTransientHUD/FishingPanel/MarginContainer/VBoxContainer"]
 unique_name_in_owner = true
@@ -94,12 +95,25 @@ unique_name_in_owner = true
 visible = false
 horizontal_alignment = 1
 
-[node name="CatchTrack" type="Control" parent="UIRoot/CanonicalStage/GameplayTransientHUD/FishingPanel/MarginContainer/VBoxContainer"]
+[node name="CatchTrack" type="Control" parent="UIRoot/CanonicalStage/GameplayTransientHUD"]
 unique_name_in_owner = true
 visible = false
-custom_minimum_size = Vector2(0, 20)
+z_index = 60
+layout_mode = 1
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -420.0
+offset_top = -160.0
+offset_right = 420.0
+offset_bottom = -124.0
+grow_horizontal = 2
+grow_vertical = 0
+mouse_filter = 2
 
-[node name="GreenCatchProgress" type="ProgressBar" parent="UIRoot/CanonicalStage/GameplayTransientHUD/FishingPanel/MarginContainer/VBoxContainer/CatchTrack"]
+[node name="GreenCatchProgress" type="ProgressBar" parent="UIRoot/CanonicalStage/GameplayTransientHUD/CatchTrack"]
 unique_name_in_owner = true
 layout_mode = 1
 anchors_preset = 15
@@ -113,7 +127,7 @@ theme_override_styles/fill = SubResource("StyleBox_catch_fill")
 value = 0.0
 show_percentage = false
 
-[node name="RedChaseProgress" type="ProgressBar" parent="UIRoot/CanonicalStage/GameplayTransientHUD/FishingPanel/MarginContainer/VBoxContainer/CatchTrack"]
+[node name="RedChaseProgress" type="ProgressBar" parent="UIRoot/CanonicalStage/GameplayTransientHUD/CatchTrack"]
 unique_name_in_owner = true
 layout_mode = 1
 anchors_preset = 15
@@ -127,7 +141,7 @@ theme_override_styles/fill = SubResource("StyleBox_chase_fill")
 value = 0.0
 show_percentage = false
 
-[node name="BarrierMarkers" type="Control" parent="UIRoot/CanonicalStage/GameplayTransientHUD/FishingPanel/MarginContainer/VBoxContainer/CatchTrack"]
+[node name="BarrierMarkers" type="Control" parent="UIRoot/CanonicalStage/GameplayTransientHUD/CatchTrack"]
 unique_name_in_owner = true
 layout_mode = 1
 anchors_preset = 15
@@ -137,20 +151,59 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 
-[node name="BarrierSummary" type="Label" parent="UIRoot/CanonicalStage/GameplayTransientHUD/FishingPanel/MarginContainer/VBoxContainer"]
+[node name="BarrierPromptPanel" type="PanelContainer" parent="UIRoot/CanonicalStage/GameplayTransientHUD"]
 unique_name_in_owner = true
 visible = false
-horizontal_alignment = 1
+z_index = 61
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -170.0
+offset_top = -116.0
+offset_right = 170.0
+offset_bottom = -8.0
+grow_horizontal = 2
+grow_vertical = 0
+pivot_offset = Vector2(170, 55)
+rotation = 0.025
+mouse_filter = 2
+theme = ExtResource("3_theme")
+theme_override_styles/panel = SubResource("StyleBox_fishing_panel")
 
-[node name="BarrierHealth" type="Label" parent="UIRoot/CanonicalStage/GameplayTransientHUD/FishingPanel/MarginContainer/VBoxContainer"]
+[node name="Margin" type="MarginContainer" parent="UIRoot/CanonicalStage/GameplayTransientHUD/BarrierPromptPanel"]
+theme_override_constants/margin_left = 18
+theme_override_constants/margin_top = 4
+theme_override_constants/margin_right = 18
+theme_override_constants/margin_bottom = 4
+
+[node name="Layout" type="VBoxContainer" parent="UIRoot/CanonicalStage/GameplayTransientHUD/BarrierPromptPanel/Margin"]
+theme_override_constants/separation = 0
+
+[node name="BarrierPrompt" type="Label" parent="UIRoot/CanonicalStage/GameplayTransientHUD/BarrierPromptPanel/Margin/Layout"]
 unique_name_in_owner = true
 visible = false
+text = "MASH!"
 horizontal_alignment = 1
+theme_override_colors/font_color = Color(1, 0.84, 0.3, 1)
+theme_override_font_sizes/font_size = 63
+
+[node name="BarrierHealth" type="Label" parent="UIRoot/CanonicalStage/GameplayTransientHUD/BarrierPromptPanel/Margin/Layout"]
+unique_name_in_owner = true
+visible = false
+text = "0"
+horizontal_alignment = 1
+theme_override_colors/font_color = Color(0.95, 0.98, 1, 1)
+theme_override_font_sizes/font_size = 34
 
 [node name="PlayerMenu" parent="UIRoot/CanonicalStage" instance=ExtResource("2_menu")]
 unique_name_in_owner = true
 
 [node name="Hotbar" parent="UIRoot/CanonicalStage" instance=ExtResource("7_hotbar")]
+unique_name_in_owner = true
+
+[node name="EmoteRadialMenu" parent="UIRoot/CanonicalStage" instance=ExtResource("10_emote")]
 unique_name_in_owner = true
 
 [node name="ShopPrompt" type="PanelContainer" parent="UIRoot/CanonicalStage/GameplayTransientHUD"]

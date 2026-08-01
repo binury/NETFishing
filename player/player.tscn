@@ -63,21 +63,24 @@ cast_shadow = 0
 mesh = SubResource("GroundShadowMesh")
 
 [node name="CharacterRig" parent="Visuals" instance=ExtResource("13_character")]
+rotation_degrees = Vector3(0, 180, 0)
 
 [node name="AnimationPlayer" parent="Visuals/CharacterRig"]
 autoplay = "idle"
 
-[node name="FishingRod" type="Node3D" parent="Visuals"]
-unique_name_in_owner = true
-position = Vector3(0.16, 0.38, 0.02)
-rotation = Vector3(-0.785398, 0, 0)
+[node name="FishingRodAttachment" type="BoneAttachment3D" parent="Visuals/CharacterRig/CharacterRig/Skeleton3D"]
+bone_name = "hand.R"
 
-[node name="RodMesh" type="MeshInstance3D" parent="Visuals/FishingRod"]
+[node name="FishingRod" type="Node3D" parent="Visuals/CharacterRig/CharacterRig/Skeleton3D/FishingRodAttachment"]
+unique_name_in_owner = true
+rotation = Vector3(-0.785398, -0.007863, 3.141593)
+
+[node name="RodMesh" type="MeshInstance3D" parent="Visuals/CharacterRig/CharacterRig/Skeleton3D/FishingRodAttachment/FishingRod"]
 position = Vector3(0, 0.42, 0)
 mesh = SubResource("FishingRodMesh")
 material_override = SubResource("FishingRodMaterial")
 
-[node name="FishingRodTip" type="Marker3D" parent="Visuals/FishingRod"]
+[node name="FishingRodTip" type="Marker3D" parent="Visuals/CharacterRig/CharacterRig/Skeleton3D/FishingRodAttachment/FishingRod"]
 unique_name_in_owner = true
 position = Vector3(0, 0.95, 0)
 

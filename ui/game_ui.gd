@@ -32,6 +32,7 @@ const PlayerCoolerCapacityType = preload(
 	"res://progression/player_cooler_capacity.gd"
 )
 const ChatUIType = preload("res://ui/chat_ui.gd")
+const EmoteRadialMenuType = preload("res://ui/emote_radial_menu.gd")
 const PlayerSettingsManagerType = preload(
 	"res://settings/player_settings_manager.gd"
 )
@@ -49,7 +50,8 @@ signal shop_backdrop_visibility_changed(is_visible: bool)
 @onready var _green_catch_progress: ProgressBar = %GreenCatchProgress
 @onready var _red_chase_progress: ProgressBar = %RedChaseProgress
 @onready var _barrier_markers: Control = %BarrierMarkers
-@onready var _barrier_summary: Label = %BarrierSummary
+@onready var _barrier_prompt_panel: PanelContainer = %BarrierPromptPanel
+@onready var _barrier_prompt: Label = %BarrierPrompt
 @onready var _barrier_health: Label = %BarrierHealth
 @onready var _showcase_details: Label = %ShowcaseDetails
 @onready var _fishing_panel: PanelContainer = %FishingPanel
@@ -62,6 +64,7 @@ signal shop_backdrop_visibility_changed(is_visible: bool)
 @onready var _shop_prompt: PanelContainer = %ShopPrompt
 @onready var _effect_status: Label = %EffectStatus
 @onready var _chat_ui: ChatUIType = %ChatUI
+@onready var _emote_radial_menu: EmoteRadialMenuType = %EmoteRadialMenu
 @onready var _title_settings_panel: SettingsPanelType = (
 	$UIRoot/TitleScreen/ResponsiveTitleStage/TitlePresentationScaleRoot/SettingsPanel
 )
@@ -70,6 +73,7 @@ signal shop_backdrop_visibility_changed(is_visible: bool)
 )
 
 var _showcase_active: bool = false
+var _player: PlayerType
 var _player_menu_open: bool = false
 var _gameplay_ui_enabled: bool = false
 var _fishing_spot: FishingSpotType
@@ -83,6 +87,7 @@ var _shop_interaction: ShopInteractionType
 
 
 func _ready() -> void:
+	_emote_radial_menu.emote_selected.connect(_on_emote_selected)
 	_chat_ui.text_entry_ownership_changed.connect(
 		_on_chat_text_entry_ownership_changed
 	)
@@ -132,6 +137,7 @@ func setup(
 	network_player_list: NetworkPlayerListService,
 	settings_manager: PlayerSettingsManagerType,
 ) -> void:
+	_player = player
 	_fishing_spot = fishing_spot
 	_item_effects = item_effects
 	_chat_ui.setup(
@@ -200,6 +206,26 @@ func setup(
 	)
 	_main_shop_buyer = main_shop_buyer
 	_shop_interaction = shop_interaction
+
+
+func _input(event: InputEvent) -> void:
+	if _emote_radial_menu == null:
+		return
+	var can_open: bool = (
+		_gameplay_ui_enabled
+		and not _system_menu_open
+		and not _player_menu_open
+		and not _shop_open
+		and not _chat_input_open
+		and not _showcase_active
+	)
+	if _emote_radial_menu.handle_input(event, can_open):
+		get_viewport().set_input_as_handled()
+
+
+func _on_emote_selected(emote_id: StringName) -> void:
+	if emote_id == &"sit" and _player != null:
+		_player.toggle_sitting()
 
 
 func setup_data_and_identity(
@@ -359,6 +385,17 @@ func _on_fishing_status_changed(status: String) -> void:
 		return
 	if _fishing_spot != null and _fishing_spot.is_fighting():
 		return
+	var normalized_status: String = status.strip_edges().to_lower()
+	if normalized_status in [
+		"fishing cancelled.",
+		"fishing cancelled",
+		"fishing failed.",
+		"fishing failed",
+		"fishing attempt ended.",
+		"fishing attempt ended",
+	]:
+		_set_fishing_status("")
+		return
 	_set_fishing_status(status)
 
 
@@ -373,9 +410,6 @@ func _refresh_fishing_panel_visibility() -> void:
 	var has_content: bool = (
 		not _status_label.text.strip_edges().is_empty()
 		or not _showcase_details.text.strip_edges().is_empty()
-		or _catch_track.visible
-		or _barrier_summary.visible
-		or _barrier_health.visible
 	)
 	_fishing_panel.visible = (
 		_gameplay_ui_enabled
@@ -388,7 +422,7 @@ func _on_catch_display_changed(
 	chase_progress: float,
 	barrier_positions: PackedFloat32Array,
 	barrier_health: PackedInt32Array,
-	barrier_max_health: PackedInt32Array,
+	_barrier_max_health: PackedInt32Array,
 	active_barrier_index: int,
 	visible: bool,
 ) -> void:
@@ -401,12 +435,13 @@ func _on_catch_display_changed(
 	_green_catch_progress.value = progress * 100.0
 	_red_chase_progress.value = maxf(chase_progress, 0.0) * 100.0
 	_catch_track.visible = encounter_visible
-	_barrier_summary.visible = encounter_visible
-	_barrier_health.visible = encounter_visible
+	_barrier_prompt_panel.visible = false
+	_barrier_prompt.visible = false
+	_barrier_health.visible = false
 	if not encounter_visible:
 		_barrier_health.visible = false
+		_barrier_prompt.visible = false
 		_clear_barrier_markers()
-		_barrier_summary.text = ""
 		_barrier_health.text = ""
 		_refresh_fishing_panel_visibility()
 		return
@@ -418,45 +453,18 @@ func _on_catch_display_changed(
 		barrier_health,
 		active_barrier_index
 	)
-	var barrier_labels: PackedStringArray = []
-	for barrier_index: int in range(barrier_positions.size()):
-		var defeated: bool = (
-			barrier_index < barrier_health.size()
-			and barrier_health[barrier_index] <= 0
-		)
-		var marker: String = "✓" if defeated else "●"
-		if barrier_index == active_barrier_index:
-			marker = "[%s]" % marker
-		barrier_labels.append(
-			"%d%% %s"
-			% [roundi(barrier_positions[barrier_index] * 100.0), marker]
-		)
-	_barrier_summary.text = "barriers: %s" % "  ".join(barrier_labels)
-
 	if (
 		active_barrier_index >= 0
 		and active_barrier_index < barrier_health.size()
-		and active_barrier_index < barrier_max_health.size()
 	):
-		_barrier_health.text = (
-			"barrier: %d / %d"
-			% [
-				barrier_health[active_barrier_index],
-				barrier_max_health[active_barrier_index],
-			]
-		)
+		_barrier_prompt_panel.visible = true
+		_barrier_prompt.visible = true
+		_barrier_health.visible = true
+		_barrier_health.text = "%d" % barrier_health[active_barrier_index]
 	else:
-		_barrier_health.text = "hold left click to reel"
-
-	var chase_gap: float = progress - chase_progress
-	if chase_gap <= 0.05:
-		_barrier_health.text = (
-			"%s%s"
-			% [
-				_barrier_health.text,
-				"\nred is closing in!",
-			]
-		).strip_edges()
+		_barrier_prompt.visible = false
+		_barrier_health.visible = false
+		_barrier_health.text = ""
 	_refresh_fishing_panel_visibility()
 
 
@@ -508,15 +516,18 @@ func _on_showcase_changed(
 		_set_fishing_status("")
 		return
 	_catch_track.visible = false
-	_barrier_summary.visible = false
+	_barrier_prompt_panel.visible = false
+	_barrier_prompt.visible = false
 	_barrier_health.visible = false
 	_clear_barrier_markers()
 	_showcase_details.text = (
-		"%.1f lb • %s\nleft click or escape to put away"
+		"%.1f lb • %s"
 		% [weight_lb, rarity_name]
 	)
 	_showcase_details.visible = true
-	_set_fishing_status("you caught a %s!" % fish_name)
+	_status_label.text = "You caught a %s!" % fish_name
+	_status_label.visible = true
+	_refresh_fishing_panel_visibility()
 
 
 func _on_player_menu_visibility_changed(is_open: bool) -> void:

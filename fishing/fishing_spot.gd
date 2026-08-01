@@ -909,7 +909,6 @@ func _on_outcome_completed(outcome: StringName) -> void:
 		_pending_catch.weight_lb,
 		true
 	)
-	status_changed.emit("left click or escape to put away")
 
 
 func _put_away_catch() -> void:
@@ -921,7 +920,6 @@ func _put_away_catch() -> void:
 		or _pending_catch == null
 	):
 		return
-	var caught_name: String = _pending_catch.fish.display_name
 	_local_inventory.add_catch(_pending_catch)
 	_local_collection_log.mark_discovered(_pending_catch.fish_id)
 	_pending_catch = null
@@ -934,7 +932,7 @@ func _put_away_catch() -> void:
 	_active_player.end_catch_showcase(
 		_finish_showcase_put_away.bind(
 			restore_generation,
-			"caught %s!" % caught_name
+			""
 		)
 	)
 
@@ -1018,9 +1016,9 @@ func _return_to_ready() -> void:
 
 func _cancel_attempt() -> void:
 	if _network_fishing != null and _network_fishing.has_local_attempt():
-		_network_fishing.cancel_local_attempt("Fishing cancelled.")
+		_network_fishing.cancel_local_attempt("")
 		return
-	_cleanup_attempt("fishing cancelled.", &"cancel")
+	_cleanup_attempt("", &"cancel")
 
 
 func _cancel_from_withdrawal() -> void:
@@ -1284,7 +1282,7 @@ func _on_network_attempt_ended(
 	]:
 		return
 	_cleanup_attempt(
-		message if not message.is_empty() else "Fishing attempt ended.",
+		message,
 		&"escape" if outcome == &"escape" else &"cancel"
 	)
 
