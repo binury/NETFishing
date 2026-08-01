@@ -41,7 +41,11 @@ script = ExtResource("1_ui")
 unique_name_in_owner = true
 mouse_filter = 2
 
-[node name="GameplayTransientHUD" type="Control" parent="UIRoot"]
+[node name="CanonicalStage" type="Control" parent="UIRoot"]
+unique_name_in_owner = true
+mouse_filter = 2
+
+[node name="GameplayTransientHUD" type="Control" parent="UIRoot/CanonicalStage"]
 unique_name_in_owner = true
 layout_mode = 1
 anchors_preset = 15
@@ -51,7 +55,7 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 
-[node name="FishingPanel" type="PanelContainer" parent="UIRoot/GameplayTransientHUD"]
+[node name="FishingPanel" type="PanelContainer" parent="UIRoot/CanonicalStage/GameplayTransientHUD"]
 unique_name_in_owner = true
 visible = false
 z_index = 60
@@ -69,33 +73,33 @@ grow_vertical = 0
 mouse_filter = 2
 theme = ExtResource("3_theme")
 
-[node name="MarginContainer" type="MarginContainer" parent="UIRoot/GameplayTransientHUD/FishingPanel"]
+[node name="MarginContainer" type="MarginContainer" parent="UIRoot/CanonicalStage/GameplayTransientHUD/FishingPanel"]
 theme_override_constants/margin_left = 14
 theme_override_constants/margin_top = 8
 theme_override_constants/margin_right = 14
 theme_override_constants/margin_bottom = 8
 
-[node name="VBoxContainer" type="VBoxContainer" parent="UIRoot/GameplayTransientHUD/FishingPanel/MarginContainer"]
+[node name="VBoxContainer" type="VBoxContainer" parent="UIRoot/CanonicalStage/GameplayTransientHUD/FishingPanel/MarginContainer"]
 theme_override_constants/separation = 4
 
-[node name="StatusLabel" type="Label" parent="UIRoot/GameplayTransientHUD/FishingPanel/MarginContainer/VBoxContainer"]
+[node name="StatusLabel" type="Label" parent="UIRoot/CanonicalStage/GameplayTransientHUD/FishingPanel/MarginContainer/VBoxContainer"]
 unique_name_in_owner = true
 visible = false
 text = ""
 horizontal_alignment = 1
 theme_override_font_sizes/font_size = 16
 
-[node name="ShowcaseDetails" type="Label" parent="UIRoot/GameplayTransientHUD/FishingPanel/MarginContainer/VBoxContainer"]
+[node name="ShowcaseDetails" type="Label" parent="UIRoot/CanonicalStage/GameplayTransientHUD/FishingPanel/MarginContainer/VBoxContainer"]
 unique_name_in_owner = true
 visible = false
 horizontal_alignment = 1
 
-[node name="CatchTrack" type="Control" parent="UIRoot/GameplayTransientHUD/FishingPanel/MarginContainer/VBoxContainer"]
+[node name="CatchTrack" type="Control" parent="UIRoot/CanonicalStage/GameplayTransientHUD/FishingPanel/MarginContainer/VBoxContainer"]
 unique_name_in_owner = true
 visible = false
 custom_minimum_size = Vector2(0, 20)
 
-[node name="GreenCatchProgress" type="ProgressBar" parent="UIRoot/GameplayTransientHUD/FishingPanel/MarginContainer/VBoxContainer/CatchTrack"]
+[node name="GreenCatchProgress" type="ProgressBar" parent="UIRoot/CanonicalStage/GameplayTransientHUD/FishingPanel/MarginContainer/VBoxContainer/CatchTrack"]
 unique_name_in_owner = true
 layout_mode = 1
 anchors_preset = 15
@@ -109,7 +113,7 @@ theme_override_styles/fill = SubResource("StyleBox_catch_fill")
 value = 0.0
 show_percentage = false
 
-[node name="RedChaseProgress" type="ProgressBar" parent="UIRoot/GameplayTransientHUD/FishingPanel/MarginContainer/VBoxContainer/CatchTrack"]
+[node name="RedChaseProgress" type="ProgressBar" parent="UIRoot/CanonicalStage/GameplayTransientHUD/FishingPanel/MarginContainer/VBoxContainer/CatchTrack"]
 unique_name_in_owner = true
 layout_mode = 1
 anchors_preset = 15
@@ -123,7 +127,7 @@ theme_override_styles/fill = SubResource("StyleBox_chase_fill")
 value = 0.0
 show_percentage = false
 
-[node name="BarrierMarkers" type="Control" parent="UIRoot/GameplayTransientHUD/FishingPanel/MarginContainer/VBoxContainer/CatchTrack"]
+[node name="BarrierMarkers" type="Control" parent="UIRoot/CanonicalStage/GameplayTransientHUD/FishingPanel/MarginContainer/VBoxContainer/CatchTrack"]
 unique_name_in_owner = true
 layout_mode = 1
 anchors_preset = 15
@@ -133,23 +137,23 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 
-[node name="BarrierSummary" type="Label" parent="UIRoot/GameplayTransientHUD/FishingPanel/MarginContainer/VBoxContainer"]
+[node name="BarrierSummary" type="Label" parent="UIRoot/CanonicalStage/GameplayTransientHUD/FishingPanel/MarginContainer/VBoxContainer"]
 unique_name_in_owner = true
 visible = false
 horizontal_alignment = 1
 
-[node name="BarrierHealth" type="Label" parent="UIRoot/GameplayTransientHUD/FishingPanel/MarginContainer/VBoxContainer"]
+[node name="BarrierHealth" type="Label" parent="UIRoot/CanonicalStage/GameplayTransientHUD/FishingPanel/MarginContainer/VBoxContainer"]
 unique_name_in_owner = true
 visible = false
 horizontal_alignment = 1
 
-[node name="PlayerMenu" parent="UIRoot" instance=ExtResource("2_menu")]
+[node name="PlayerMenu" parent="UIRoot/CanonicalStage" instance=ExtResource("2_menu")]
 unique_name_in_owner = true
 
-[node name="Hotbar" parent="UIRoot" instance=ExtResource("7_hotbar")]
+[node name="Hotbar" parent="UIRoot/CanonicalStage" instance=ExtResource("7_hotbar")]
 unique_name_in_owner = true
 
-[node name="ShopPrompt" type="PanelContainer" parent="UIRoot/GameplayTransientHUD"]
+[node name="ShopPrompt" type="PanelContainer" parent="UIRoot/CanonicalStage/GameplayTransientHUD"]
 unique_name_in_owner = true
 visible = false
 z_index = 55
@@ -167,22 +171,22 @@ grow_vertical = 0
 mouse_filter = 2
 theme = ExtResource("3_theme")
 
-[node name="Margin" type="MarginContainer" parent="UIRoot/GameplayTransientHUD/ShopPrompt"]
+[node name="Margin" type="MarginContainer" parent="UIRoot/CanonicalStage/GameplayTransientHUD/ShopPrompt"]
 layout_mode = 2
 theme_override_constants/margin_left = 12
 theme_override_constants/margin_top = 7
 theme_override_constants/margin_right = 12
 theme_override_constants/margin_bottom = 7
 
-[node name="Label" type="Label" parent="UIRoot/GameplayTransientHUD/ShopPrompt/Margin"]
+[node name="Label" type="Label" parent="UIRoot/CanonicalStage/GameplayTransientHUD/ShopPrompt/Margin"]
 layout_mode = 2
 text = "press e to open fishing shop"
 horizontal_alignment = 1
 
-[node name="FishingShop" parent="UIRoot" instance=ExtResource("8_shop")]
+[node name="FishingShop" parent="UIRoot/CanonicalStage" instance=ExtResource("8_shop")]
 unique_name_in_owner = true
 
-[node name="EffectStatus" type="Label" parent="UIRoot/GameplayTransientHUD"]
+[node name="EffectStatus" type="Label" parent="UIRoot/CanonicalStage/GameplayTransientHUD"]
 unique_name_in_owner = true
 visible = false
 z_index = 54
@@ -223,5 +227,5 @@ script = ExtResource("4_fade")
 [node name="TitleScreen" parent="UIRoot" instance=ExtResource("5_title")]
 unique_name_in_owner = true
 
-[node name="PauseMenu" parent="UIRoot" instance=ExtResource("6_pause")]
+[node name="PauseMenu" parent="UIRoot/CanonicalStage" instance=ExtResource("6_pause")]
 unique_name_in_owner = true

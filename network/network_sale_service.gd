@@ -9,7 +9,8 @@ const FishSaleServiceType = preload("res://economy/fish_sale_service.gd")
 const FishSaleResultType = preload("res://economy/fish_sale_result.gd")
 
 const MAX_LEDGER_ENTRIES_PER_PEER: int = 64
-const PELICAN_INTERACTION_RANGE: float = 7.5
+const PELICAN_BUYER_ID: StringName = &"pelicans"
+const MAIN_SHOP_BUYER_ID: StringName = &"main_fishing_shop"
 
 signal local_sale_pending(request_id: String)
 signal local_sale_finished(
@@ -23,13 +24,13 @@ signal local_sale_finished(
 var _session: NetworkSession
 var _spawn_service: PlayerSpawnService
 var _network_fishing: NetworkFishingService
+var _shop_interaction: FishingShopInteraction
 var _inventory: FishInventory
 var _wallet: PlayerWallet
 var _sale_service: FishSaleServiceType
 var _save_manager: PlayerSaveManager
 var _fish_catalog: FishPoolType
-var _buyer: FishBuyerProfileType
-var _pelican_landmark: Node3D
+var _buyers: Dictionary[StringName, FishBuyerProfileType] = {}
 var _request_ledgers: Dictionary[int, Dictionary] = {}
 var _pending_by_peer: Dictionary[int, String] = {}
 var _result_owners: Dictionary[String, int] = {}
@@ -38,6 +39,7 @@ var _applied_results: Dictionary[String, bool] = {}
 var _received_results: Dictionary[String, bool] = {}
 var _pending_local_request_id: String = ""
 var _pending_local_catch_ids: Array[StringName] = []
+var _pending_local_buyer_id: StringName
 var _reservations: PlayerAssetReservationService
 
 
@@ -45,25 +47,28 @@ func setup(
 	session: NetworkSession,
 	spawn_service: PlayerSpawnService,
 	network_fishing: NetworkFishingService,
+	shop_interaction: FishingShopInteraction,
 	inventory: FishInventory,
 	wallet: PlayerWallet,
 	sale_service: FishSaleServiceType,
 	save_manager: PlayerSaveManager,
 	fish_catalog: FishPoolType,
-	buyer: FishBuyerProfileType,
-	pelican_landmark: Node3D,
+	buyers: Array[FishBuyerProfileType],
 	reservations: PlayerAssetReservationService,
 ) -> void:
 	_session = session
 	_spawn_service = spawn_service
 	_network_fishing = network_fishing
+	_shop_interaction = shop_interaction
 	_inventory = inventory
 	_wallet = wallet
 	_sale_service = sale_service
 	_save_manager = save_manager
 	_fish_catalog = fish_catalog
-	_buyer = buyer
-	_pelican_landmark = pelican_landmark
+	_buyers.clear()
+	for buyer: FishBuyerProfileType in buyers:
+		if buyer != null and buyer.is_valid():
+			_buyers[buyer.id] = buyer
 	_reservations = reservations
 	if not _session.peer_removed.is_connected(_on_peer_removed):
 		_session.peer_removed.connect(_on_peer_removed)
@@ -71,9 +76,18 @@ func setup(
 		_session.state_changed.connect(_on_session_state_changed)
 
 
-func can_request_sale() -> bool:
+func is_local_sale_pending() -> bool:
+	return not _pending_local_request_id.is_empty()
+
+
+func can_request_sale(
+	buyer_id: StringName = PELICAN_BUYER_ID,
+) -> bool:
+	var buyer: FishBuyerProfileType = _buyers.get(buyer_id)
 	return (
-		_session != null
+		buyer != null
+		and buyer.is_valid()
+		and _session != null
 		and _session.is_gameplay_session_active()
 		and (
 			_session.is_host()
@@ -84,11 +98,10 @@ func can_request_sale() -> bool:
 	)
 
 
-func is_local_sale_pending() -> bool:
-	return not _pending_local_request_id.is_empty()
-
-
-func request_local_sale(catch_ids: Array[StringName]) -> String:
+func request_local_sale(
+	catch_ids: Array[StringName],
+	buyer_id: StringName = PELICAN_BUYER_ID,
+) -> String:
 	for catch_id: StringName in catch_ids:
 		if _reservations != null and _reservations.is_fish_reserved(catch_id):
 			local_sale_finished.emit(
@@ -100,7 +113,7 @@ func request_local_sale(catch_ids: Array[StringName]) -> String:
 			"", false, "Selling…", _empty_catch_ids(), 0
 		)
 		return ""
-	if not can_request_sale():
+	if not can_request_sale(buyer_id):
 		local_sale_finished.emit(
 			"",
 			false,
@@ -112,6 +125,12 @@ func request_local_sale(catch_ids: Array[StringName]) -> String:
 	if catch_ids.is_empty() or _inventory == null:
 		local_sale_finished.emit(
 			"", false, "Sale could not be completed.", _empty_catch_ids(), 0
+		)
+		return ""
+	var buyer: FishBuyerProfileType = _buyers.get(buyer_id)
+	if buyer == null or not buyer.is_valid():
+		local_sale_finished.emit(
+			"", false, "The buyer is unavailable.", _empty_catch_ids(), 0
 		)
 		return ""
 	var evidence: Array[Dictionary] = []
@@ -127,11 +146,12 @@ func request_local_sale(catch_ids: Array[StringName]) -> String:
 	var request: Dictionary = {
 		"request_id": request_id,
 		"session_id": _session.get_session_id(),
-		"buyer_id": str(_buyer.id) if _buyer != null else "",
+		"buyer_id": str(buyer.id),
 		"catches": evidence,
 	}
 	_pending_local_request_id = request_id
 	_pending_local_catch_ids = catch_ids.duplicate()
+	_pending_local_buyer_id = buyer.id
 	local_sale_pending.emit(request_id)
 	if _session.is_host():
 		_handle_sale_request(_session.get_local_peer_id(), request)
@@ -182,27 +202,23 @@ func _handle_sale_request(peer_id: int, data: Dictionary) -> void:
 			request_id, "A sale is already pending."
 		))
 		return
-	if not _is_buyer_available_for_peer(peer_id):
-		var avatar: Player = _spawn_service.get_avatar(peer_id)
-		var message: String = (
-			"The buyer is unavailable."
-			if avatar == null or _pelican_landmark == null
-			else "Move closer to the buyer."
-		)
-		_record_and_send(peer_id, _rejected_result(request_id, message))
-		return
-	if _buyer == null or not _buyer.is_valid():
+	var buyer_id := StringName(str(data["buyer_id"]))
+	var buyer: FishBuyerProfileType = _buyers.get(buyer_id)
+	if buyer == null or not buyer.is_valid():
 		_record_and_send(peer_id, _rejected_result(
 			request_id, "The buyer is unavailable."
 		))
 		return
-	if StringName(str(data["buyer_id"])) != _buyer.id:
+	if (
+		buyer_id == MAIN_SHOP_BUYER_ID
+		and not _is_shop_available_for_peer(peer_id)
+	):
 		_record_and_send(peer_id, _rejected_result(
-			request_id, "The buyer is unavailable."
+			request_id, "Move closer to the fishing shop."
 		))
 		return
 	var result: Dictionary = _build_authoritative_result(
-		peer_id, request_id, data["catches"]
+		peer_id, request_id, data["catches"], buyer
 	)
 	_pending_by_peer[peer_id] = request_id
 	_record_and_send(peer_id, result)
@@ -212,8 +228,9 @@ func _build_authoritative_result(
 	peer_id: int,
 	request_id: String,
 	evidence_values: Array,
+	buyer: FishBuyerProfileType,
 ) -> Dictionary:
-	if _fish_catalog == null or _buyer == null:
+	if _fish_catalog == null or buyer == null:
 		return _rejected_result(
 			request_id, "The buyer is unavailable."
 		)
@@ -245,7 +262,7 @@ func _build_authoritative_result(
 			return _rejected_result(
 				request_id, "Favorite catches cannot be sold."
 			)
-		var offer: int = _buyer.get_offer(decoded.sale_value)
+		var offer: int = buyer.get_offer(decoded.sale_value)
 		if (
 			offer < 0
 			or base_value > 9223372036854775807 - decoded.sale_value
@@ -262,6 +279,7 @@ func _build_authoritative_result(
 		"request_id": request_id,
 		"session_id": _session.get_session_id(),
 		"target_peer_id": peer_id,
+		"buyer_id": str(buyer.id),
 		"accepted": true,
 		"catch_ids": catch_ids,
 		"payout": payout,
@@ -338,6 +356,12 @@ func _apply_sale_result(data: Dictionary) -> void:
 		return
 	if str(data["request_id"]) != _pending_local_request_id:
 		return
+	var result_buyer_id := StringName(str(
+		data.get("buyer_id", _pending_local_buyer_id)
+	))
+	if result_buyer_id != _pending_local_buyer_id:
+		_fail_local_apply(data, "Sale could not be completed.")
+		return
 	if not bool(data["accepted"]):
 		_received_results[result_id] = true
 		_bound_dictionary(_received_results)
@@ -359,8 +383,12 @@ func _apply_sale_result(data: Dictionary) -> void:
 		if _reservations != null and _reservations.is_fish_reserved(catch_id):
 			_fail_local_apply(data, "Reserved in a letter.")
 			return
+	var buyer: FishBuyerProfileType = _buyers.get(_pending_local_buyer_id)
+	if buyer == null or not buyer.is_valid():
+		_fail_local_apply(data, "The buyer is unavailable.")
+		return
 	var preview: FishSaleResultType = _sale_service.preview_batch(
-		catch_ids, _buyer
+		catch_ids, buyer
 	)
 	if not preview.is_success():
 		var message: String = (
@@ -380,7 +408,7 @@ func _apply_sale_result(data: Dictionary) -> void:
 	var sequence_snapshot: int = _inventory.get_next_catch_sequence()
 	var wallet_snapshot: int = _wallet.get_balance()
 	var local_result: FishSaleResultType = _sale_service.sell_batch(
-		catch_ids, _buyer
+		catch_ids, buyer
 	)
 	if not local_result.is_success() or not _save_manager.save_if_dirty():
 		_inventory.replace_all_catches(
@@ -420,6 +448,7 @@ func _finish_local_sale(
 ) -> void:
 	_pending_local_request_id = ""
 	_pending_local_catch_ids.clear()
+	_pending_local_buyer_id = StringName()
 	local_sale_finished.emit(
 		request_id, accepted, message, catch_ids, payout
 	)
@@ -494,33 +523,6 @@ func _handle_acknowledgement(
 		_pending_by_peer.erase(peer_id)
 
 
-func _is_buyer_available_for_peer(peer_id: int) -> bool:
-	if (
-		_session == null
-		or not _session.is_host()
-		or not _session.is_gameplay_session_active()
-		or _spawn_service == null
-		or _pelican_landmark == null
-		or not is_instance_valid(_pelican_landmark)
-	):
-		return false
-	var avatar: Player = _spawn_service.get_avatar(peer_id)
-	if (
-		avatar == null
-		or avatar.is_water_recovery_active()
-		or (
-			_network_fishing != null
-			and _network_fishing.has_peer_attempt(peer_id)
-		)
-	):
-		return false
-	return (
-		avatar.global_position.distance_to(
-			_pelican_landmark.global_position
-		) <= PELICAN_INTERACTION_RANGE
-	)
-
-
 func _on_peer_removed(peer_id: int) -> void:
 	_request_ledgers.erase(peer_id)
 	_pending_by_peer.erase(peer_id)
@@ -528,6 +530,28 @@ func _on_peer_removed(peer_id: int) -> void:
 		if _result_owners[result_id] == peer_id:
 			_result_owners.erase(result_id)
 			_acknowledged_results.erase(result_id)
+
+
+func _is_shop_available_for_peer(peer_id: int) -> bool:
+	if (
+		_session == null
+		or not _session.is_host()
+		or not _session.is_gameplay_session_active()
+		or _spawn_service == null
+		or _shop_interaction == null
+		or not is_instance_valid(_shop_interaction)
+	):
+		return false
+	var avatar: Player = _spawn_service.get_avatar(peer_id)
+	return (
+		avatar != null
+		and not avatar.is_water_recovery_active()
+		and (
+			_network_fishing == null
+			or not _network_fishing.has_peer_attempt(peer_id)
+		)
+		and _shop_interaction.is_avatar_in_range(avatar)
+	)
 
 
 func _on_session_state_changed(state: NetworkSession.State) -> void:
@@ -558,6 +582,7 @@ func _clear_session_state() -> void:
 	_received_results.clear()
 	_pending_local_request_id = ""
 	_pending_local_catch_ids.clear()
+	_pending_local_buyer_id = StringName()
 
 
 func _bound_dictionary(values: Dictionary) -> void:

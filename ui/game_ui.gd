@@ -41,6 +41,7 @@ signal crisp_reset_focus_requested
 signal interactive_pointer_ui_changed(is_open: bool)
 signal passive_pointer_ui_changed(is_enabled: bool)
 signal player_menu_backdrop_visibility_changed(is_visible: bool)
+signal shop_backdrop_visibility_changed(is_visible: bool)
 
 @onready var _status_label: Label = %StatusLabel
 @onready var _gameplay_transient_hud: Control = %GameplayTransientHUD
@@ -65,7 +66,7 @@ signal player_menu_backdrop_visibility_changed(is_visible: bool)
 	$UIRoot/TitleScreen/ResponsiveTitleStage/TitlePresentationScaleRoot/SettingsPanel
 )
 @onready var _pause_settings_panel: SettingsPanelType = (
-	$UIRoot/PauseMenu/ResponsivePauseStage/PausePresentationScaleRoot/SettingsCenter/SettingsPanel
+	$UIRoot/CanonicalStage/PauseMenu/ResponsivePauseStage/PausePresentationScaleRoot/SettingsCenter/SettingsPanel
 )
 
 var _showcase_active: bool = false
@@ -77,6 +78,8 @@ var _shop_open: bool = false
 var _chat_input_open: bool = false
 var _player_menu_hotbar_visible: bool = false
 var _item_effects: PlayerItemEffectsType
+var _main_shop_buyer: FishBuyerProfileType
+var _shop_interaction: ShopInteractionType
 
 
 func _ready() -> void:
@@ -151,6 +154,9 @@ func setup(
 	_player_menu.inventory_hotbar_context_changed.connect(
 		_on_inventory_hotbar_context_changed
 	)
+	_player_menu.shop_cooler_modal_changed.connect(
+		_on_shop_cooler_modal_changed
+	)
 	_player_menu.setup(
 		player,
 		inventory,
@@ -174,9 +180,7 @@ func setup(
 	_hotbar_ui.setup(hotbar, bag, item_catalog, fishing_spot)
 	_fishing_shop.setup(
 		player,
-		inventory,
 		wallet,
-		sale_service,
 		main_shop_buyer,
 		fishing_upgrades,
 		fishing_spot,
@@ -184,10 +188,18 @@ func setup(
 		bag,
 		item_catalog,
 		cooler_capacity,
-		network_session,
-		network_shop_service
+		network_shop_service,
 	)
 	_fishing_shop.menu_visibility_changed.connect(_on_shop_visibility_changed)
+	_fishing_shop.sell_fish_requested.connect(_on_shop_sell_fish_requested)
+	_fishing_shop.shop_cooler_return_requested.connect(
+		_on_shop_cooler_return_requested
+	)
+	_fishing_shop.shop_cooler_confirmation_cancel_requested.connect(
+		_player_menu.cancel_shop_cooler_confirmation
+	)
+	_main_shop_buyer = main_shop_buyer
+	_shop_interaction = shop_interaction
 
 
 func setup_data_and_identity(
@@ -554,6 +566,9 @@ func _on_player_menu_exit_started() -> void:
 
 func _on_shop_visibility_changed(is_open: bool) -> void:
 	_shop_open = is_open
+	shop_backdrop_visibility_changed.emit(is_open)
+	if not is_open and _player_menu.is_shop_cooler_mounted():
+		_player_menu.unmount_shop_cooler()
 	_refresh_chat_availability()
 	_refresh_hotbar_visibility()
 	_hotbar_ui.set_gameplay_input_enabled(
@@ -565,6 +580,33 @@ func _on_shop_visibility_changed(is_open: bool) -> void:
 	if is_open:
 		_shop_prompt.hide()
 	_emit_interactive_pointer_ui_changed()
+
+
+func _on_shop_sell_fish_requested() -> void:
+	if (
+		not _fishing_shop.visible
+		or _main_shop_buyer == null
+		or not _main_shop_buyer.is_valid()
+		or _shop_interaction == null
+		or not _shop_interaction.is_local_player_in_range()
+		or _fishing_spot == null
+		or not _fishing_spot.is_ready_for_shop_transaction()
+	):
+		return
+	if _player_menu.mount_shop_cooler(
+		_fishing_shop.get_shop_cooler_mount(),
+		_main_shop_buyer,
+	):
+		_fishing_shop.activate_shop_cooler_page()
+
+
+func _on_shop_cooler_return_requested() -> void:
+	_player_menu.unmount_shop_cooler()
+	_fishing_shop.deactivate_shop_cooler_page()
+
+
+func _on_shop_cooler_modal_changed(is_open: bool) -> void:
+	_fishing_shop.set_shop_cooler_modal_open(is_open)
 
 
 func _on_inventory_hotbar_context_changed(show_hotbar: bool) -> void:

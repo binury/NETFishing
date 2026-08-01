@@ -5,6 +5,7 @@ const CollectionLogType = preload("res://collection/collection_log.gd")
 const FishDataType = preload("res://fish/fish_data.gd")
 const FishInventoryType = preload("res://inventory/fish_inventory.gd")
 const FishPoolType = preload("res://fish/fish_pool.gd")
+const FishBuyerProfileType = preload("res://economy/fish_buyer_profile.gd")
 const FishSelectorType = preload("res://fish/fish_selector.gd")
 const FishingContextType = preload("res://fishing/fishing_context.gd")
 const NetworkSaleServiceType = preload(
@@ -227,7 +228,10 @@ func _validate_catches_and_authoritative_sale() -> void:
 	root.add_child(sale_service)
 	sale_service.set("_session", session)
 	sale_service.set("_fish_catalog", Catalog)
-	sale_service.set("_buyer", PelicanBuyer)
+	var sale_buyers: Dictionary[StringName, FishBuyerProfileType] = {
+		PelicanBuyer.id: PelicanBuyer,
+	}
+	sale_service.set("_buyers", sale_buyers)
 
 	for index: int in Catalog.candidates.size():
 		var fish: FishDataType = Catalog.candidates[index]
@@ -257,6 +261,7 @@ func _validate_catches_and_authoritative_sale() -> void:
 			1,
 			"catalog_sale_%d" % index,
 			[loaded.to_network_dict()],
+			PelicanBuyer,
 		)
 		assert(bool(sale_result.get("accepted", false)))
 		assert(int(sale_result.get("base_value", -1)) == loaded.sale_value)

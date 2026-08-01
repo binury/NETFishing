@@ -1541,12 +1541,12 @@ func _spawn_decorative_fish(generation: int) -> void:
 		CROSSING_DURATION_MIN,
 		CROSSING_DURATION_MAX
 	)
-	fish_control.position = Vector2(
-		-presentation_size.x - FISH_EDGE_MARGIN
-		if direction > 0.0
-		else layer_size.x + FISH_EDGE_MARGIN,
-		base_y
+	var horizontal_bounds: Vector2 = get_decorative_fish_crossing_bounds(
+		layer_size.x,
+		presentation_size.x,
+		direction,
 	)
+	fish_control.position = Vector2(horizontal_bounds.x, base_y)
 	_decorative_fish_layer.add_child(fish_control)
 	_decorative_fish = fish_control
 	_decorative_fish_tween = create_tween()
@@ -1586,17 +1586,14 @@ func _update_decorative_fish(
 		or not is_instance_valid(fish_control)
 	):
 		return
-	var start_x: float = (
-		-fish_control.size.x - FISH_EDGE_MARGIN
-		if direction > 0.0
-		else _decorative_fish_layer.size.x + FISH_EDGE_MARGIN
+	var horizontal_bounds: Vector2 = get_decorative_fish_crossing_bounds(
+		_decorative_fish_layer.size.x,
+		fish_control.size.x,
+		direction,
 	)
-	var end_x: float = (
-		_decorative_fish_layer.size.x + FISH_EDGE_MARGIN
-		if direction > 0.0
-		else -fish_control.size.x - FISH_EDGE_MARGIN
+	fish_control.position.x = lerpf(
+		horizontal_bounds.x, horizontal_bounds.y, progress
 	)
-	fish_control.position.x = lerpf(start_x, end_x, progress)
 	var bobbed_y: float = (
 		base_y
 		+ sin(progress * crossing_duration * bob_speed) * bob_amplitude
@@ -1607,6 +1604,20 @@ func _update_decorative_fish(
 		maxf(8.0, _decorative_fish_layer.size.y - fish_control.size.y - 8.0)
 	)
 	fish_control.position = _snap_world_preview(fish_control.position)
+
+
+static func get_decorative_fish_crossing_bounds(
+	layer_width: float,
+	fish_width: float,
+	direction: float,
+) -> Vector2:
+	var outside_left: float = -fish_width - FISH_EDGE_MARGIN
+	var outside_right: float = layer_width + FISH_EDGE_MARGIN
+	return (
+		Vector2(outside_left, outside_right)
+		if direction > 0.0
+		else Vector2(outside_right, outside_left)
+	)
 
 
 func _on_decorative_fish_finished(

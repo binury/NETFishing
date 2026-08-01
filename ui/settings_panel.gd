@@ -32,7 +32,6 @@ enum PresentationMode {
 	GAMEPLAY_MODAL,
 }
 
-@onready var _backdrop: ColorRect = $Backdrop
 @onready var _root_page: SettingsBubblePage = %RootPage
 @onready var _display_page: SettingsBubblePage = %DisplayPage
 @onready var _controls_page: SettingsBubblePage = %ControlsPage
@@ -210,15 +209,10 @@ func open_panel(
 	settings_manager: SettingsManagerType,
 	presentation_mode: PresentationMode = PresentationMode.GAMEPLAY_MODAL,
 	animate_gameplay_host_transitions: bool = false,
-	uses_external_backdrop: bool = false,
 ) -> void:
 	_cancel_page_transition()
 	_presentation_mode = presentation_mode
 	_animate_gameplay_host_transitions = animate_gameplay_host_transitions
-	_backdrop.visible = (
-		presentation_mode == PresentationMode.GAMEPLAY_MODAL
-		and not uses_external_backdrop
-	)
 	_settings_manager = settings_manager
 	_load_controls()
 	_feedback.text = ""

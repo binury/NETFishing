@@ -1,4 +1,4 @@
-[gd_scene load_steps=45 format=3]
+[gd_scene load_steps=47 format=3]
 
 [ext_resource type="PackedScene" path="res://world/test_world.tscn" id="1_world"]
 [ext_resource type="PackedScene" path="res://player/player.tscn" id="2_player"]
@@ -42,6 +42,7 @@
 [ext_resource type="Shader" path="res://ui/title_water_background.gdshader" id="40_title_water"]
 [ext_resource type="Texture2D" path="res://art/patterns/pattern_tealdot.png" id="41_menu_pattern"]
 [ext_resource type="Shader" path="res://ui/player_menu_pattern.gdshader" id="42_menu_pattern"]
+[ext_resource type="Texture2D" path="res://art/patterns/pattern_moneyfish.png" id="43_shop_pattern"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_title_water_native"]
 shader = ExtResource("40_title_water")
@@ -51,6 +52,13 @@ shader = ExtResource("42_menu_pattern")
 shader_parameter/pattern_texture = ExtResource("41_menu_pattern")
 shader_parameter/source_tile_size = Vector2(128, 128)
 shader_parameter/display_scale = 0.85
+shader_parameter/scroll_velocity_pixels = Vector2(-7, -5)
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_shop_pattern"]
+shader = ExtResource("42_menu_pattern")
+shader_parameter/pattern_texture = ExtResource("43_shop_pattern")
+shader_parameter/source_tile_size = Vector2(64, 64)
+shader_parameter/display_scale = 1.75
 shader_parameter/scroll_velocity_pixels = Vector2(-7, -5)
 
 [node name="Main" type="Node3D"]
@@ -80,6 +88,14 @@ visible = false
 z_index = 10
 mouse_filter = 2
 material = SubResource("ShaderMaterial_player_menu_pattern")
+color = Color(1, 1, 1, 1)
+
+[node name="ShopBackdrop" type="ColorRect" parent="."]
+unique_name_in_owner = true
+visible = false
+z_index = 10
+mouse_filter = 2
+material = SubResource("ShaderMaterial_shop_pattern")
 color = Color(1, 1, 1, 1)
 
 [node name="InterfaceFontController" type="Node" parent="."]

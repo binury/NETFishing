@@ -19,9 +19,10 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 theme = ExtResource("2_theme")
+theme_override_font_sizes/font_size = 20
 script = ExtResource("1_script")
 
-[node name="Dimmer" type="ColorRect" parent="."]
+[node name="InputBlocker" type="Control" parent="."]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -29,28 +30,60 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 0
-color = Color(0.015, 0.02, 0.03, 0.64)
+
+[node name="ShopCoolerPage" type="Control" parent="."]
+unique_name_in_owner = true
+visible = false
+z_index = 90
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 1
+
+[node name="ShopCoolerMount" type="Control" parent="ShopCoolerPage"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 1
+
+[node name="BackToShopButton" type="Button" parent="ShopCoolerPage"]
+unique_name_in_owner = true
+z_index = 110
+layout_mode = 0
+offset_left = 1052.0
+offset_top = 54.0
+offset_right = 1218.0
+offset_bottom = 104.0
+text = "back to shop"
 
 [node name="ShopPanel" type="PanelContainer" parent="."]
+unique_name_in_owner = true
 layout_mode = 1
 anchors_preset = 8
 anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -560.0
-offset_top = -320.0
-offset_right = 560.0
-offset_bottom = 320.0
+offset_left = -490.0
+offset_top = -300.0
+offset_right = 490.0
+offset_bottom = 300.0
 grow_horizontal = 2
 grow_vertical = 2
 
 [node name="Margin" type="MarginContainer" parent="ShopPanel"]
 layout_mode = 2
 theme_override_constants/margin_left = 16
-theme_override_constants/margin_top = 14
+theme_override_constants/margin_top = 12
 theme_override_constants/margin_right = 16
-theme_override_constants/margin_bottom = 14
+theme_override_constants/margin_bottom = 12
 
 [node name="Layout" type="VBoxContainer" parent="ShopPanel/Margin"]
 layout_mode = 2
@@ -64,7 +97,7 @@ theme_override_constants/separation = 8
 layout_mode = 2
 size_flags_horizontal = 3
 text = "fishing shop"
-theme_override_font_sizes/font_size = 36
+theme_override_font_sizes/font_size = 32
 theme_override_colors/font_color = Color(0.208, 0.725, 0.78, 1)
 
 [node name="CoinIcon" type="TextureRect" parent="ShopPanel/Margin/Layout/Header"]
@@ -84,7 +117,24 @@ text = "wallet: $0"
 unique_name_in_owner = true
 layout_mode = 2
 text = "close"
-custom_minimum_size = Vector2(110, 58)
+custom_minimum_size = Vector2(104, 48)
+
+[node name="ModeTabs" type="HBoxContainer" parent="ShopPanel/Margin/Layout"]
+layout_mode = 2
+alignment = 1
+theme_override_constants/separation = 10
+
+[node name="BuyModeButton" type="Button" parent="ShopPanel/Margin/Layout/ModeTabs"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(180, 42)
+layout_mode = 2
+text = "buy gear & supplies"
+
+[node name="SellModeButton" type="Button" parent="ShopPanel/Margin/Layout/ModeTabs"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(180, 42)
+layout_mode = 2
+text = "sell fish"
 
 [node name="Feedback" type="Label" parent="ShopPanel/Margin/Layout"]
 unique_name_in_owner = true
@@ -98,123 +148,27 @@ layout_mode = 2
 size_flags_vertical = 3
 theme_override_constants/separation = 12
 
-[node name="FishSales" type="VBoxContainer" parent="ShopPanel/Margin/Layout/Body"]
-custom_minimum_size = Vector2(420, 0)
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_constants/separation = 6
-
-[node name="SalesTitle" type="Label" parent="ShopPanel/Margin/Layout/Body/FishSales"]
-unique_name_in_owner = true
-layout_mode = 2
-text = "sell individual cooler fish • full base value"
-theme_override_font_sizes/font_size = 26
-
-[node name="SalesBody" type="HSplitContainer" parent="ShopPanel/Margin/Layout/Body/FishSales"]
-layout_mode = 2
-size_flags_vertical = 3
-split_offset = 220
-theme_override_constants/separation = 8
-
-[node name="ListPanel" type="PanelContainer" parent="ShopPanel/Margin/Layout/Body/FishSales/SalesBody"]
-custom_minimum_size = Vector2(205, 0)
-layout_mode = 2
-
-[node name="ListMargin" type="MarginContainer" parent="ShopPanel/Margin/Layout/Body/FishSales/SalesBody/ListPanel"]
-layout_mode = 2
-theme_override_constants/margin_left = 7
-theme_override_constants/margin_top = 7
-theme_override_constants/margin_right = 7
-theme_override_constants/margin_bottom = 7
-
-[node name="ListStack" type="VBoxContainer" parent="ShopPanel/Margin/Layout/Body/FishSales/SalesBody/ListPanel/ListMargin"]
-layout_mode = 2
-
-[node name="FishEmpty" type="Label" parent="ShopPanel/Margin/Layout/Body/FishSales/SalesBody/ListPanel/ListMargin/ListStack"]
-unique_name_in_owner = true
-layout_mode = 2
-text = "your cooler is empty."
-horizontal_alignment = 1
-
-[node name="FishList" type="ItemList" parent="ShopPanel/Margin/Layout/Body/FishSales/SalesBody/ListPanel/ListMargin/ListStack"]
-unique_name_in_owner = true
-layout_mode = 2
-size_flags_vertical = 3
-fixed_icon_size = Vector2i(48, 36)
-icon_mode = 1
-select_mode = 1
-same_column_width = true
-
-[node name="FishDetail" type="PanelContainer" parent="ShopPanel/Margin/Layout/Body/FishSales/SalesBody"]
-custom_minimum_size = Vector2(185, 0)
-layout_mode = 2
-
-[node name="DetailMargin" type="MarginContainer" parent="ShopPanel/Margin/Layout/Body/FishSales/SalesBody/FishDetail"]
-layout_mode = 2
-theme_override_constants/margin_left = 9
-theme_override_constants/margin_top = 9
-theme_override_constants/margin_right = 9
-theme_override_constants/margin_bottom = 9
-
-[node name="DetailStack" type="VBoxContainer" parent="ShopPanel/Margin/Layout/Body/FishSales/SalesBody/FishDetail/DetailMargin"]
-layout_mode = 2
-theme_override_constants/separation = 6
-
-[node name="FishTexture" type="TextureRect" parent="ShopPanel/Margin/Layout/Body/FishSales/SalesBody/FishDetail/DetailMargin/DetailStack"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(160, 90)
-layout_mode = 2
-expand_mode = 1
-stretch_mode = 5
-texture_filter = 1
-
-[node name="FishName" type="Label" parent="ShopPanel/Margin/Layout/Body/FishSales/SalesBody/FishDetail/DetailMargin/DetailStack"]
-unique_name_in_owner = true
-layout_mode = 2
-text = "select a fish"
-horizontal_alignment = 1
-theme_override_font_sizes/font_size = 29
-
-[node name="FishDetails" type="Label" parent="ShopPanel/Margin/Layout/Body/FishSales/SalesBody/FishDetail/DetailMargin/DetailStack"]
-unique_name_in_owner = true
-layout_mode = 2
-text = "choose one individual fish from your cooler."
-horizontal_alignment = 1
-autowrap_mode = 2
-
-[node name="SelectionSummary" type="Label" parent="ShopPanel/Margin/Layout/Body/FishSales/SalesBody/FishDetail/DetailMargin/DetailStack"]
-unique_name_in_owner = true
-layout_mode = 2
-text = "no fish selected"
-horizontal_alignment = 1
-autowrap_mode = 2
-theme_override_colors/font_color = Color(0.208, 0.725, 0.78, 1)
-
-[node name="SellButton" type="Button" parent="ShopPanel/Margin/Layout/Body/FishSales/SalesBody/FishDetail/DetailMargin/DetailStack"]
-unique_name_in_owner = true
-layout_mode = 2
-disabled = true
-text = "sell selected"
-
 [node name="Upgrades" type="VBoxContainer" parent="ShopPanel/Margin/Layout/Body"]
 custom_minimum_size = Vector2(270, 0)
 layout_mode = 2
+size_flags_horizontal = 3
 theme_override_constants/separation = 8
 
 [node name="UpgradeTitle" type="Label" parent="ShopPanel/Margin/Layout/Body/Upgrades"]
 layout_mode = 2
 text = "fishing upgrades"
-theme_override_font_sizes/font_size = 26
+theme_override_font_sizes/font_size = 23
 
 [node name="Supplies" type="VBoxContainer" parent="ShopPanel/Margin/Layout/Body"]
 custom_minimum_size = Vector2(210, 0)
 layout_mode = 2
+size_flags_horizontal = 3
 theme_override_constants/separation = 6
 
 [node name="Title" type="Label" parent="ShopPanel/Margin/Layout/Body/Supplies"]
 layout_mode = 2
 text = "supplies"
-theme_override_font_sizes/font_size = 26
+theme_override_font_sizes/font_size = 23
 
 [node name="Scroll" type="ScrollContainer" parent="ShopPanel/Margin/Layout/Body/Supplies"]
 layout_mode = 2
@@ -233,16 +187,16 @@ layout_mode = 2
 [node name="Margin" type="MarginContainer" parent="ShopPanel/Margin/Layout/Body/Upgrades/ReelCard"]
 layout_mode = 2
 theme_override_constants/margin_left = 9
-theme_override_constants/margin_top = 9
+theme_override_constants/margin_top = 7
 theme_override_constants/margin_right = 9
-theme_override_constants/margin_bottom = 9
+theme_override_constants/margin_bottom = 7
 
 [node name="Row" type="HBoxContainer" parent="ShopPanel/Margin/Layout/Body/Upgrades/ReelCard/Margin"]
 layout_mode = 2
 theme_override_constants/separation = 9
 
 [node name="Icon" type="TextureRect" parent="ShopPanel/Margin/Layout/Body/Upgrades/ReelCard/Margin/Row"]
-custom_minimum_size = Vector2(48, 48)
+custom_minimum_size = Vector2(44, 44)
 layout_mode = 2
 texture = ExtResource("3_reel")
 expand_mode = 1
@@ -256,22 +210,25 @@ size_flags_horizontal = 3
 [node name="Name" type="Label" parent="ShopPanel/Margin/Layout/Body/Upgrades/ReelCard/Margin/Row/Data"]
 layout_mode = 2
 text = "reel speed"
-theme_override_font_sizes/font_size = 26
+theme_override_font_sizes/font_size = 22
 
 [node name="ReelLevel" type="Label" parent="ShopPanel/Margin/Layout/Body/Upgrades/ReelCard/Margin/Row/Data"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "level 0"
+theme_override_font_sizes/font_size = 18
 
 [node name="ReelEffect" type="Label" parent="ShopPanel/Margin/Layout/Body/Upgrades/ReelCard/Margin/Row/Data"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "1.00× → 1.10×"
+theme_override_font_sizes/font_size = 18
 
 [node name="ReelCost" type="Label" parent="ShopPanel/Margin/Layout/Body/Upgrades/ReelCard/Margin/Row/Data"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "$50"
+theme_override_font_sizes/font_size = 18
 
 [node name="ReelPurchase" type="Button" parent="ShopPanel/Margin/Layout/Body/Upgrades/ReelCard/Margin/Row"]
 unique_name_in_owner = true
@@ -284,16 +241,16 @@ layout_mode = 2
 [node name="Margin" type="MarginContainer" parent="ShopPanel/Margin/Layout/Body/Upgrades/BarrierCard"]
 layout_mode = 2
 theme_override_constants/margin_left = 9
-theme_override_constants/margin_top = 9
+theme_override_constants/margin_top = 7
 theme_override_constants/margin_right = 9
-theme_override_constants/margin_bottom = 9
+theme_override_constants/margin_bottom = 7
 
 [node name="Row" type="HBoxContainer" parent="ShopPanel/Margin/Layout/Body/Upgrades/BarrierCard/Margin"]
 layout_mode = 2
 theme_override_constants/separation = 9
 
 [node name="Icon" type="TextureRect" parent="ShopPanel/Margin/Layout/Body/Upgrades/BarrierCard/Margin/Row"]
-custom_minimum_size = Vector2(48, 48)
+custom_minimum_size = Vector2(44, 44)
 layout_mode = 2
 texture = ExtResource("4_barrier")
 expand_mode = 1
@@ -307,22 +264,25 @@ size_flags_horizontal = 3
 [node name="Name" type="Label" parent="ShopPanel/Margin/Layout/Body/Upgrades/BarrierCard/Margin/Row/Data"]
 layout_mode = 2
 text = "barrier power"
-theme_override_font_sizes/font_size = 26
+theme_override_font_sizes/font_size = 22
 
 [node name="BarrierLevel" type="Label" parent="ShopPanel/Margin/Layout/Body/Upgrades/BarrierCard/Margin/Row/Data"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "level 0"
+theme_override_font_sizes/font_size = 18
 
 [node name="BarrierEffect" type="Label" parent="ShopPanel/Margin/Layout/Body/Upgrades/BarrierCard/Margin/Row/Data"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "1 damage → 2 damage"
+theme_override_font_sizes/font_size = 18
 
 [node name="BarrierCost" type="Label" parent="ShopPanel/Margin/Layout/Body/Upgrades/BarrierCard/Margin/Row/Data"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "$100"
+theme_override_font_sizes/font_size = 18
 
 [node name="BarrierPurchase" type="Button" parent="ShopPanel/Margin/Layout/Body/Upgrades/BarrierCard/Margin/Row"]
 unique_name_in_owner = true
@@ -335,16 +295,16 @@ layout_mode = 2
 [node name="Margin" type="MarginContainer" parent="ShopPanel/Margin/Layout/Body/Upgrades/CoolerCard"]
 layout_mode = 2
 theme_override_constants/margin_left = 9
-theme_override_constants/margin_top = 9
+theme_override_constants/margin_top = 7
 theme_override_constants/margin_right = 9
-theme_override_constants/margin_bottom = 9
+theme_override_constants/margin_bottom = 7
 
 [node name="Row" type="HBoxContainer" parent="ShopPanel/Margin/Layout/Body/Upgrades/CoolerCard/Margin"]
 layout_mode = 2
 theme_override_constants/separation = 9
 
 [node name="Icon" type="TextureRect" parent="ShopPanel/Margin/Layout/Body/Upgrades/CoolerCard/Margin/Row"]
-custom_minimum_size = Vector2(48, 48)
+custom_minimum_size = Vector2(44, 44)
 layout_mode = 2
 texture = ExtResource("6_cooler")
 expand_mode = 1
@@ -358,74 +318,27 @@ size_flags_horizontal = 3
 [node name="Name" type="Label" parent="ShopPanel/Margin/Layout/Body/Upgrades/CoolerCard/Margin/Row/Data"]
 layout_mode = 2
 text = "cooler capacity"
-theme_override_font_sizes/font_size = 26
+theme_override_font_sizes/font_size = 22
 
 [node name="CoolerLevel" type="Label" parent="ShopPanel/Margin/Layout/Body/Upgrades/CoolerCard/Margin/Row/Data"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "level 0"
+theme_override_font_sizes/font_size = 18
 
 [node name="CoolerEffect" type="Label" parent="ShopPanel/Margin/Layout/Body/Upgrades/CoolerCard/Margin/Row/Data"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "12 → 18 fish"
+theme_override_font_sizes/font_size = 18
 
 [node name="CoolerCost" type="Label" parent="ShopPanel/Margin/Layout/Body/Upgrades/CoolerCard/Margin/Row/Data"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "$75"
+theme_override_font_sizes/font_size = 18
 
 [node name="CoolerPurchase" type="Button" parent="ShopPanel/Margin/Layout/Body/Upgrades/CoolerCard/Margin/Row"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "purchase"
-
-[node name="SaleConfirmation" type="PanelContainer" parent="."]
-unique_name_in_owner = true
-visible = false
-z_index = 10
-layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -320.0
-offset_top = -150.0
-offset_right = 320.0
-offset_bottom = 150.0
-grow_horizontal = 2
-grow_vertical = 2
-
-[node name="Margin" type="MarginContainer" parent="SaleConfirmation"]
-layout_mode = 2
-theme_override_constants/margin_left = 18
-theme_override_constants/margin_top = 16
-theme_override_constants/margin_right = 18
-theme_override_constants/margin_bottom = 16
-
-[node name="Stack" type="VBoxContainer" parent="SaleConfirmation/Margin"]
-layout_mode = 2
-theme_override_constants/separation = 12
-
-[node name="ConfirmationText" type="Label" parent="SaleConfirmation/Margin/Stack"]
-unique_name_in_owner = true
-layout_mode = 2
-autowrap_mode = 2
-horizontal_alignment = 1
-
-[node name="Buttons" type="HBoxContainer" parent="SaleConfirmation/Margin/Stack"]
-layout_mode = 2
-alignment = 1
-theme_override_constants/separation = 8
-
-[node name="ConfirmSale" type="Button" parent="SaleConfirmation/Margin/Stack/Buttons"]
-unique_name_in_owner = true
-layout_mode = 2
-text = "sell fish"
-theme_type_variation = &"DangerButton"
-
-[node name="CancelSale" type="Button" parent="SaleConfirmation/Margin/Stack/Buttons"]
-unique_name_in_owner = true
-layout_mode = 2
-text = "cancel"

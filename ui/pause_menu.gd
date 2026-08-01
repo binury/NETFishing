@@ -6,7 +6,6 @@ const PAUSE_DESKTOP_REFERENCE_SIZE: Vector2 = Vector2(1280.0, 720.0)
 const PAUSE_COMPACT_REFERENCE_SIZE: Vector2 = Vector2(640.0, 480.0)
 const COMPACT_HEIGHT_THRESHOLD: float = 560.0
 const VISIBILITY_FADE_DURATION: float = 0.55
-const BACKDROP_TARGET_ALPHA: float = 0.68
 const PlayerType = preload("res://player/player.gd")
 const SaveManagerType = preload("res://save/player_save_manager.gd")
 const SettingsManagerType = preload(
@@ -48,7 +47,6 @@ enum CloseReason {
 @onready var _presentation_scale_root: Control = %PausePresentationScaleRoot
 @onready var _root_page: SettingsBubblePage = %RootPage
 @onready var _settings_panel: SettingsPanelType = %SettingsPanel
-@onready var _dim_background: ColorRect = %DimBackground
 @onready var _transition_flurry: BubbleTransitionFlurry = (
 	%TransitionBubbleLayer
 )
@@ -75,8 +73,6 @@ var _action_in_progress: bool = false
 var _root_transition_active: bool = false
 var _root_transition_generation: int = 0
 var _closing_menu: bool = false
-var _backdrop_fade: Tween
-var _backdrop_fade_generation: int = 0
 var _pending_join_endpoint: String = ""
 
 
@@ -98,7 +94,6 @@ func _ready() -> void:
 	)
 	_join_game_page.join_requested.connect(_on_join_game_requested)
 	_join_game_page.back_requested.connect(_close_join_game)
-	_dim_background.color.a = 0.0
 	_confirmation_page.hide_page()
 	resized.connect(_update_responsive_pause_stage)
 	call_deferred("_update_responsive_pause_stage")
@@ -144,7 +139,6 @@ func open_menu() -> void:
 	_action_in_progress = false
 	_root_page.hide_page()
 	show()
-	_fade_backdrop(true)
 	_update_responsive_pause_stage()
 	_begin_root_entry(false)
 	menu_visibility_changed.emit(true)
@@ -159,7 +153,6 @@ func resume() -> void:
 		or _confirmation_action != ConfirmationAction.NONE
 	):
 		return
-	_fade_backdrop(false)
 	_begin_root_exit(_finish_user_close)
 
 
@@ -268,7 +261,6 @@ func _finish_open_settings() -> void:
 	_settings_panel.open_panel(
 		_settings_manager,
 		SettingsPanelType.PresentationMode.GAMEPLAY_MODAL,
-		true,
 		true
 	)
 
@@ -493,9 +485,6 @@ func _finish_close(reason: CloseReason, restore_controls: bool) -> void:
 	_closing_menu = false
 	_root_transition_generation += 1
 	_root_transition_active = false
-	_cancel_backdrop_fade()
-	_dim_background.color.a = 0.0
-	_dim_background.hide()
 	_settings_panel.hide()
 	_join_game_page.close_page()
 	_root_page.hide_page()
@@ -517,45 +506,6 @@ func _finish_close(reason: CloseReason, restore_controls: bool) -> void:
 
 func _emit_transition_flurry() -> void:
 	_transition_flurry.emit_flurry()
-
-
-func _fade_backdrop(fade_in: bool) -> void:
-	_backdrop_fade_generation += 1
-	_cancel_backdrop_fade()
-	_dim_background.show()
-	var target_alpha: float = BACKDROP_TARGET_ALPHA if fade_in else 0.0
-	if is_equal_approx(_dim_background.color.a, target_alpha):
-		_finish_backdrop_fade(_backdrop_fade_generation, fade_in)
-		return
-	var generation: int = _backdrop_fade_generation
-	_backdrop_fade = create_tween()
-	_backdrop_fade.tween_property(
-		_dim_background,
-		"color:a",
-		target_alpha,
-		VISIBILITY_FADE_DURATION
-	).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
-	_backdrop_fade.finished.connect(
-		_finish_backdrop_fade.bind(generation, fade_in),
-		CONNECT_ONE_SHOT
-	)
-
-
-func _finish_backdrop_fade(generation: int, faded_in: bool) -> void:
-	if generation != _backdrop_fade_generation:
-		return
-	_backdrop_fade = null
-	_dim_background.color.a = (
-		BACKDROP_TARGET_ALPHA if faded_in else 0.0
-	)
-	if not faded_in:
-		_dim_background.hide()
-
-
-func _cancel_backdrop_fade() -> void:
-	if _backdrop_fade != null:
-		_backdrop_fade.kill()
-		_backdrop_fade = null
 
 
 func _update_responsive_pause_stage() -> void:

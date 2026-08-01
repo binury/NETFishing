@@ -74,6 +74,7 @@ const NetworkProfileServiceType = preload(
 const TITLE_MUSIC_SILENCE_DB: float = -80.0
 const PLAYER_MENU_PATTERN_SCALE: float = 0.85
 const PLAYER_MENU_PATTERN_SCROLL_VELOCITY := Vector2(-7.0, -5.0)
+const SHOP_PATTERN_SCALE: float = 1.75
 
 @export var fish_catalog: FishPoolType
 @export var pelican_buyer_profile: FishBuyerProfileType
@@ -136,6 +137,7 @@ const PLAYER_MENU_PATTERN_SCROLL_VELOCITY := Vector2(-7.0, -5.0)
 @onready var _players_root: Node3D = $Players
 @onready var _title_background: ColorRect = %TitleBackground
 @onready var _player_menu_backdrop: ColorRect = %PlayerMenuBackdrop
+@onready var _shop_backdrop: ColorRect = %ShopBackdrop
 
 var _gameplay_started: bool = false
 var _shop_interaction: FishingShopInteractionType
@@ -146,6 +148,7 @@ var _quit_in_progress: bool = false
 var _join_requested_from_title: bool = false
 var _join_requested_from_pause: bool = false
 var _player_menu_backdrop_tween: Tween
+var _shop_backdrop_tween: Tween
 var _pending_join_endpoint: String = ""
 var _server_trust_dialog: ConfirmationDialog
 var _pending_trust_changed: bool = false
@@ -170,6 +173,16 @@ func _ready() -> void:
 			PLAYER_MENU_PATTERN_SCALE,
 		)
 		menu_pattern_material.set_shader_parameter(
+			"scroll_velocity_pixels",
+			PLAYER_MENU_PATTERN_SCROLL_VELOCITY,
+		)
+	var shop_pattern_material := _shop_backdrop.material as ShaderMaterial
+	if shop_pattern_material != null:
+		shop_pattern_material.set_shader_parameter(
+			"display_scale",
+			SHOP_PATTERN_SCALE,
+		)
+		shop_pattern_material.set_shader_parameter(
 			"scroll_velocity_pixels",
 			PLAYER_MENU_PATTERN_SCROLL_VELOCITY,
 		)
@@ -338,17 +351,21 @@ func _initialize_after_data_root() -> void:
 		fish_catalog,
 		_network_item_use
 	)
+	var sale_buyers: Array[FishBuyerProfileType] = [
+		pelican_buyer_profile,
+		main_shop_buyer_profile,
+	]
 	_network_sale.setup(
 		_network_session,
 		_player_spawn_service,
 		_network_fishing,
+		_shop_interaction,
 		_player.inventory,
 		_player.wallet,
 		_player.fish_sale_service,
 		_save_manager,
 		fish_catalog,
-		pelican_buyer_profile,
-		_test_world.get_pelican_convenience_landmark(),
+		sale_buyers,
 		_asset_reservations
 	)
 	_network_shop.setup(
@@ -454,6 +471,9 @@ func _initialize_after_data_root() -> void:
 	)
 	_game_ui.player_menu_backdrop_visibility_changed.connect(
 		_set_player_menu_backdrop_visible
+	)
+	_game_ui.shop_backdrop_visibility_changed.connect(
+		_set_shop_backdrop_visible
 	)
 	_pixelation_reset.return_to_settings_requested.connect(
 		_game_ui.focus_open_settings_back_button
@@ -916,6 +936,7 @@ func _set_gameplay_active(active: bool) -> void:
 		_refresh_active_hotbar_item()
 	else:
 		_set_player_menu_backdrop_visible(false)
+		_set_shop_backdrop_visible(false)
 
 
 func _set_player_menu_backdrop_visible(is_visible: bool) -> void:
@@ -953,11 +974,48 @@ func _set_player_menu_backdrop_visible(is_visible: bool) -> void:
 	)
 
 
+func _set_shop_backdrop_visible(is_visible: bool) -> void:
+	if _shop_backdrop_tween != null:
+		_shop_backdrop_tween.kill()
+		_shop_backdrop_tween = null
+	var should_show: bool = is_visible and _gameplay_started
+	if should_show:
+		var was_visible: bool = _shop_backdrop.visible
+		_shop_backdrop.visible = true
+		if not was_visible:
+			_shop_backdrop.modulate.a = 0.0
+		_shop_backdrop_tween = create_tween()
+		_shop_backdrop_tween.tween_property(
+			_shop_backdrop,
+			"modulate:a",
+			1.0,
+			UIMotion.PLAYER_MENU_ENTER_DURATION,
+		).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		return
+	if not _shop_backdrop.visible:
+		return
+	_shop_backdrop_tween = create_tween()
+	_shop_backdrop_tween.tween_property(
+		_shop_backdrop,
+		"modulate:a",
+		0.0,
+		UIMotion.PLAYER_MENU_EXIT_DURATION,
+	).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	_shop_backdrop_tween.finished.connect(
+		func() -> void:
+			_shop_backdrop.visible = false
+			_shop_backdrop.modulate.a = 1.0
+			_shop_backdrop_tween = null
+	)
+
+
 func _resize_native_overlays() -> void:
 	if not is_node_ready():
 		return
 	_player_menu_backdrop.position = Vector2.ZERO
 	_player_menu_backdrop.size = Vector2(get_window().size)
+	_shop_backdrop.position = Vector2.ZERO
+	_shop_backdrop.size = Vector2(get_window().size)
 
 
 func _on_new_game_requested() -> void:

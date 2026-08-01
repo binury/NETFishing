@@ -8,7 +8,8 @@ const CONTENT_MARGIN_RIGHT := 18.0
 const CONTENT_MARGIN_BOTTOM := 16.0
 const HANDWRITTEN_FONT: Font = preload("res://ui/fonts/seattle_avenue.otf")
 const NOTEPAD_TEXTURE: Texture2D = preload("res://art/ui/ui_notepad.png")
-const NOTEPAD_ART_SCALE := 1.1
+const NOTEPAD_CANONICAL_OVERSCAN: float = 1.2
+const NOTEPAD_ART_OFFSET := Vector2(10.0, 20.0)
 
 @export var title_text := "notes"
 @export var inset_content := true
@@ -34,17 +35,7 @@ static func apply_handwritten_to(root: Control) -> void:
 
 
 func _draw() -> void:
-	var texture_size := NOTEPAD_TEXTURE.get_size()
-	var uniform_scale := minf(
-		size.x / texture_size.x,
-		size.y / texture_size.y,
-	) * NOTEPAD_ART_SCALE
-	var rendered_size := texture_size * uniform_scale
-	var rendered_rect := Rect2(
-		(size - rendered_size) * 0.5,
-		rendered_size,
-	)
-	draw_texture_rect(NOTEPAD_TEXTURE, rendered_rect, false)
+	draw_texture_rect(NOTEPAD_TEXTURE, get_art_rect(), false)
 
 	var font: Font = HANDWRITTEN_FONT
 	draw_string(
@@ -55,6 +46,34 @@ func _draw() -> void:
 		size.x - 40.0,
 		20,
 		INK_COLOR,
+	)
+
+
+func get_art_rect() -> Rect2:
+	return get_art_rect_for_host(size)
+
+
+static func get_art_rect_for_host(host_size: Vector2) -> Rect2:
+	# Source pixels establish the artwork aspect ratio and sampling quality. The
+	# canonical host rect, not the source dimensions, owns its displayed size.
+	var source_size: Vector2 = NOTEPAD_TEXTURE.get_size()
+	if (
+		host_size.x <= 0.0
+		or host_size.y <= 0.0
+		or source_size.x <= 0.0
+		or source_size.y <= 0.0
+	):
+		return Rect2()
+	var fit_scale: float = minf(
+		host_size.x / source_size.x,
+		host_size.y / source_size.y,
+	)
+	var rendered_size: Vector2 = (
+		source_size * fit_scale * NOTEPAD_CANONICAL_OVERSCAN
+	)
+	return Rect2(
+		(host_size - rendered_size) * 0.5 + NOTEPAD_ART_OFFSET,
+		rendered_size,
 	)
 
 

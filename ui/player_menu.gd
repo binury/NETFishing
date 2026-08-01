@@ -79,10 +79,12 @@ const COOLER_RARITY_UNCOMMON := Color("64c87c")
 const COOLER_RARITY_RARE := Color("6098dd")
 const COOLER_RARITY_EPIC := Color("a979cf")
 const COOLER_RARITY_LEGENDARY := Color("db78a7")
+const MAIN_SHOP_BUYER_ID: StringName = &"main_fishing_shop"
 
 signal menu_visibility_changed(is_open: bool)
 signal inventory_hotbar_context_changed(show_hotbar: bool)
 signal menu_exit_started
+signal shop_cooler_modal_changed(is_open: bool)
 
 enum Section {
 	COOLER,
@@ -131,6 +133,7 @@ const INVENTORY_HEADER_INSET := Vector2(24.0, 20.0)
 const INVENTORY_HEADER_HEIGHT := 40.0
 const INVENTORY_MAIN_CORNER_RADIUS: int = 58
 const INVENTORY_INNER_CORNER_RADIUS: int = 45
+const SALE_CONFIRMATION_SIZE := Vector2(520.0, 190.0)
 
 @onready var _navigation_cluster: BubbleClusterType = %NavigationCluster
 @onready var _presentation_scale_root: Control = %PlayerMenuPresentationScaleRoot
@@ -276,6 +279,12 @@ var _reservations: PlayerAssetReservationService
 var _network_profile_service: NetworkProfileService
 var _network_player_list: NetworkPlayerListService
 var _default_buyer: FishBuyerProfileType
+var _sale_buyer_override: FishBuyerProfileType
+var _shop_cooler_context_active: bool = false
+var _cooler_original_parent: Node
+var _cooler_original_index: int = -1
+var _confirmation_original_parent: Node
+var _confirmation_original_index: int = -1
 var _catalog: FishPoolType
 var _fishing_spot: FishingSpotType
 var _bag: PlayerBagType
@@ -336,6 +345,10 @@ var _logbook_page_tween: Tween
 
 func _ready() -> void:
 	_configure_inventory_transition_group()
+	_cooler_original_parent = _cooler_page.get_parent()
+	_cooler_original_index = _cooler_page.get_index()
+	_confirmation_original_parent = _sale_confirmation.get_parent()
+	_confirmation_original_index = _sale_confirmation.get_index()
 	_inventory_sub_tabs.move_child(_tackle_sub_tab, 1)
 	_inventory_sub_tabs.move_child(_bag_sub_tab, 2)
 	_inventory_tab.pressed.connect(_show_last_inventory_section)
@@ -652,6 +665,7 @@ func consume_escape() -> bool:
 func open_menu() -> void:
 	if (
 		visible
+		or _shop_cooler_context_active
 		or _player == null
 		or _fishing_spot == null
 		or not _fishing_spot.can_open_player_menu()
@@ -676,6 +690,99 @@ func open_menu() -> void:
 	_update_shell_layout()
 	_begin_menu_entry()
 	menu_visibility_changed.emit(true)
+
+
+func mount_shop_cooler(
+	host: Control,
+	buyer: FishBuyerProfileType,
+) -> bool:
+	if (
+		visible
+		or _shop_cooler_context_active
+		or host == null
+		or not is_instance_valid(host)
+		or buyer == null
+		or not buyer.is_valid()
+		or buyer.id != MAIN_SHOP_BUYER_ID
+	):
+		return false
+	_menu_generation += 1
+	_cancel_page_tween()
+	_transitioning = false
+	_page_transitioning = false
+	_sale_buyer_override = buyer
+	_shop_cooler_context_active = true
+	_current_section = Section.COOLER
+	_last_inventory_section = Section.COOLER
+	_cooler_page.reparent(host, false)
+	_sale_confirmation.reparent(host, false)
+	_cooler_page.position = Vector2.ZERO
+	_cooler_page.size = DESKTOP_REFERENCE_SIZE
+	_cooler_page.scale = Vector2.ONE
+	_cooler_page.modulate = Color.WHITE
+	_cooler_page.visible = true
+	_sale_confirmation.visible = false
+	_update_shell_layout()
+	_refresh_inventory()
+	_set_content_interactive(true)
+	_update_cooler_water_mask()
+	set_process(true)
+	call_deferred("_focus_shop_cooler")
+	return true
+
+
+func unmount_shop_cooler() -> void:
+	if not _shop_cooler_context_active:
+		return
+	_close_sale_confirmation()
+	_set_content_interactive(false)
+	_cooler_page.visible = false
+	_cooler_page.reparent(_cooler_original_parent, false)
+	_cooler_original_parent.move_child(
+		_cooler_page,
+		mini(_cooler_original_index, _cooler_original_parent.get_child_count() - 1),
+	)
+	_sale_confirmation.reparent(_confirmation_original_parent, false)
+	_confirmation_original_parent.move_child(
+		_sale_confirmation,
+		mini(
+			_confirmation_original_index,
+			_confirmation_original_parent.get_child_count() - 1,
+		),
+	)
+	_sale_buyer_override = null
+	_shop_cooler_context_active = false
+	_menu_generation += 1
+	if not visible:
+		set_process(false)
+
+
+func is_shop_cooler_mounted() -> bool:
+	return _shop_cooler_context_active
+
+
+func cancel_shop_cooler_confirmation() -> void:
+	if _shop_cooler_context_active and _sale_confirmation.visible:
+		_close_sale_confirmation()
+
+
+func _focus_shop_cooler() -> void:
+	if not _shop_cooler_context_active or not _cooler_page.is_visible_in_tree():
+		return
+	var focused_node := _fish_nodes.get(
+		_fish_selection.get_focused_id()
+	) as CoolerFishSpriteType
+	if focused_node != null and focused_node.focus_mode != Control.FOCUS_NONE:
+		focused_node.grab_focus()
+		return
+	for fish_catch: FishCatchType in _sorted_catches:
+		var fish_node := _fish_nodes.get(
+			fish_catch.catch_id
+		) as CoolerFishSpriteType
+		if fish_node != null and fish_node.focus_mode != Control.FOCUS_NONE:
+			fish_node.grab_focus()
+			return
+	_cooler_sort_option.grab_focus()
 
 
 func close_menu(
@@ -886,6 +993,9 @@ func _show_last_inventory_section() -> void:
 
 
 func _focus_current_section() -> void:
+	if _shop_cooler_context_active:
+		_focus_shop_cooler()
+		return
 	if _current_section == Section.COOLER:
 		_cooler_sub_tab.grab_focus()
 	elif _current_section == Section.BAG:
@@ -903,12 +1013,15 @@ func _focus_current_section() -> void:
 
 
 func _process(delta: float) -> void:
-	if visible:
+	if visible or _shop_cooler_context_active:
 		_motion_elapsed += delta
-		_navigation_cluster.advance_motion(delta)
-		_apply_navigation_selection_presentation()
+		if visible:
+			_navigation_cluster.advance_motion(delta)
+			_apply_navigation_selection_presentation()
 		for fish_node: CoolerFishSpriteType in _fish_nodes.values():
 			fish_node.advance_presentation(delta, _motion_elapsed)
+		if not visible:
+			return
 		var bag_motion_enabled: bool = (
 			not _bag_drag_active and not get_viewport().gui_is_dragging()
 		)
@@ -1040,6 +1153,20 @@ func _apply_inventory_styles() -> void:
 			"font_color",
 			UtilityPageStyle.OCEAN_TEXT_PRIMARY,
 		)
+	_sale_confirmation.add_theme_stylebox_override(
+		"panel",
+		UtilityPageStyle.panel_style(),
+	)
+	_confirmation_message.add_theme_font_override(
+		"font",
+		UtilityPageStyle.TuffyFont,
+	)
+	_confirmation_message.add_theme_color_override(
+		"font_color",
+		UtilityPageStyle.OCEAN_TEXT_PRIMARY,
+	)
+	UtilityPageStyle.apply_ocean_button(_confirm_sale_button)
+	UtilityPageStyle.apply_ocean_button(_cancel_sale_button)
 
 
 func _set_bag_view(view: BagView) -> void:
@@ -1531,11 +1658,9 @@ func _update_shell_layout() -> void:
 	_players_page.set_anchors_preset(Control.PRESET_TOP_LEFT)
 	_players_page.position = Vector2.ZERO
 	_players_page.size = reference_size
+	_sale_confirmation.size = SALE_CONFIRMATION_SIZE
 	_sale_confirmation.position = (
-		Vector2(70.0, 128.0) if compact else Vector2(320.0, 200.0)
-	)
-	_sale_confirmation.size = (
-		Vector2(500.0, 250.0) if compact else Vector2(640.0, 320.0)
+		(reference_size - SALE_CONFIRMATION_SIZE) * 0.5
 	)
 	_cooler_host.custom_minimum_size = Vector2(
 		520.0 if compact else 800.0,
@@ -2592,11 +2717,18 @@ func _configure_cooler_fish_focus() -> void:
 			controls.append(fish_node)
 	var columns: int = 3 if _compact_layout else 9
 	if controls.is_empty():
-		_cooler_sub_tab.focus_neighbor_bottom = NodePath()
+		if not _shop_cooler_context_active:
+			_cooler_sub_tab.focus_neighbor_bottom = NodePath()
 		return
-	_cooler_sub_tab.focus_neighbor_bottom = _cooler_sub_tab.get_path_to(
-		controls.front()
+	var top_control: Control = (
+		_cooler_sort_option
+		if _shop_cooler_context_active
+		else _cooler_sub_tab
 	)
+	if not _shop_cooler_context_active:
+		_cooler_sub_tab.focus_neighbor_bottom = _cooler_sub_tab.get_path_to(
+			controls.front()
+		)
 	for index: int in controls.size():
 		var control: CoolerFishSpriteType = controls[index]
 		control.focus_neighbor_left = control.get_path_to(
@@ -2606,7 +2738,7 @@ func _configure_cooler_fish_focus() -> void:
 			controls[mini(index + 1, controls.size() - 1)]
 		)
 		control.focus_neighbor_top = (
-			control.get_path_to(_cooler_sub_tab)
+			control.get_path_to(top_control)
 			if index < columns
 			else control.get_path_to(controls[index - columns])
 		)
@@ -2776,9 +2908,10 @@ func _update_inventory_detail(fish_catch: FishCatchType) -> void:
 	_cooler_detail_texture.texture = fish_catch.fish.display_texture
 	_cooler_detail_texture.visible = fish_catch.fish.display_texture != null
 	_cooler_detail_name.text = fish_catch.fish.display_name
+	var active_buyer: FishBuyerProfileType = _get_active_sale_buyer()
 	var individual_preview: FishSaleResultType = (
-		_sale_service.preview_batch([fish_catch.catch_id], _default_buyer)
-		if _sale_service != null
+		_sale_service.preview_batch([fish_catch.catch_id], active_buyer)
+		if _sale_service != null and active_buyer != null
 		else null
 	)
 	var buyer_offer: int = (
@@ -2793,8 +2926,8 @@ func _update_inventory_detail(fish_catch: FishCatchType) -> void:
 	):
 		_cooler_detail_name.text += " • reserved in mail"
 	_cooler_weight_unit.text = "lb • %s" % fish_catch.fish.get_rarity_name()
-	if buyer_offer >= 0 and _default_buyer != null:
-		_cooler_offer_label.text = "%s offer" % _default_buyer.display_name
+	if buyer_offer >= 0 and active_buyer != null:
+		_cooler_offer_label.text = _get_offer_label(active_buyer)
 		_cooler_offer_value.text = "$%d" % buyer_offer
 	else:
 		_cooler_offer_label.text = "buyer unavailable"
@@ -2831,6 +2964,11 @@ func _update_inventory_detail(fish_catch: FishCatchType) -> void:
 
 
 func _update_sale_summary() -> void:
+	var active_buyer: FishBuyerProfileType = _get_active_sale_buyer()
+	var buyer_id: StringName = (
+		active_buyer.id if active_buyer != null else StringName()
+	)
+	var offer_label: String = _get_offer_label(active_buyer)
 	var selected_ids: Array[StringName] = _fish_selection.get_selected_ids()
 	var selected_count: int = selected_ids.size()
 	_sell_button.text = (
@@ -2842,7 +2980,7 @@ func _update_sale_summary() -> void:
 	if selected_count == 0:
 		_selection_summary.text = "no fish selected"
 		_selection_status.set_content("selected", "none")
-		_offer_status.set_content("pelican offer", "—")
+		_offer_status.set_content(offer_label, "—")
 		_sell_button.text = "sell fish"
 		_sell_button.disabled = true
 		_sell_bubble.disabled = true
@@ -2866,7 +3004,7 @@ func _update_sale_summary() -> void:
 			else "%d fish selected" % selected_count
 		)
 		_selection_status.set_content("selected", str(selected_count))
-		_offer_status.set_content("pelican offer", "pending")
+		_offer_status.set_content(offer_label, "pending")
 		_sell_button.disabled = true
 		_sell_bubble.disabled = true
 		_sale_unavailable.text = "Selling…"
@@ -2874,7 +3012,8 @@ func _update_sale_summary() -> void:
 		return
 	if (
 		_network_sale_service == null
-		or not _network_sale_service.can_request_sale()
+		or buyer_id.is_empty()
+		or not _network_sale_service.can_request_sale(buyer_id)
 	):
 		_selection_summary.text = (
 			"1 fish selected"
@@ -2882,7 +3021,7 @@ func _update_sale_summary() -> void:
 			else "%d fish selected" % selected_count
 		)
 		_selection_status.set_content("selected", str(selected_count))
-		_offer_status.set_content("pelican offer", "unavailable")
+		_offer_status.set_content(offer_label, "unavailable")
 		_sell_button.disabled = true
 		_sell_bubble.disabled = true
 		_sell_bubble.persistent_mark = false
@@ -2893,8 +3032,8 @@ func _update_sale_summary() -> void:
 		_sale_unavailable.visible = true
 		return
 	var preview: FishSaleResultType = (
-		_sale_service.preview_batch(selected_ids, _default_buyer)
-		if _sale_service != null
+		_sale_service.preview_batch(selected_ids, active_buyer)
+		if _sale_service != null and active_buyer != null
 		else null
 	)
 	var count_text: String = (
@@ -2907,21 +3046,21 @@ func _update_sale_summary() -> void:
 	if (
 		preview != null
 		and preview.payout >= 0
-		and _default_buyer != null
+		and active_buyer != null
 		and (
 			preview.is_success()
 			or preview.status == FishSaleResultType.Status.FAVORITED
 		)
 	):
 		_selection_summary.text += "\n%s total offer: $%d" % [
-			_default_buyer.display_name,
+			active_buyer.display_name,
 			preview.payout,
 		]
 		_set_cooler_selection_summary(selected_count, preview.payout)
-		_offer_status.set_content("pelican offer", "$%d" % preview.payout)
+		_offer_status.set_content(offer_label, "$%d" % preview.payout)
 	else:
 		_set_cooler_selection_summary(selected_count, -1)
-		_offer_status.set_content("pelican offer", "unavailable")
+		_offer_status.set_content(offer_label, "unavailable")
 	_sell_button.disabled = preview == null or not preview.is_success()
 	_sell_bubble.disabled = _sell_button.disabled
 	_sell_bubble.persistent_mark = false
@@ -2962,6 +3101,10 @@ func _on_favorite_pressed() -> void:
 
 
 func _on_sell_pressed() -> void:
+	var active_buyer: FishBuyerProfileType = _get_active_sale_buyer()
+	var buyer_id: StringName = (
+		active_buyer.id if active_buyer != null else StringName()
+	)
 	if (
 		_sale_in_progress
 		or (
@@ -2973,7 +3116,8 @@ func _on_sell_pressed() -> void:
 		return
 	if (
 		_network_sale_service == null
-		or not _network_sale_service.can_request_sale()
+		or buyer_id.is_empty()
+		or not _network_sale_service.can_request_sale(buyer_id)
 	):
 		_transaction_feedback.text = (
 			"Selling is not supported by this server."
@@ -2983,13 +3127,13 @@ func _on_sell_pressed() -> void:
 	if (
 		_inventory == null
 		or _sale_service == null
-		or _default_buyer == null
+		or active_buyer == null
 		or selected_ids.is_empty()
 	):
 		return
 	var preview: FishSaleResultType = _sale_service.preview_batch(
 		selected_ids,
-		_default_buyer
+		active_buyer
 	)
 	if not preview.is_success():
 		_transaction_feedback.text = (
@@ -3001,8 +3145,8 @@ func _on_sell_pressed() -> void:
 		_refresh_inventory()
 		return
 	_confirmation_catch_ids = selected_ids.duplicate()
-	_confirmation_buyer = _default_buyer
-	_confirmation_buyer_id = _default_buyer.id
+	_confirmation_buyer = active_buyer
+	_confirmation_buyer_id = active_buyer.id
 	_confirmation_generation = _menu_generation
 	var fish_label: String = "fish"
 	_confirmation_message.text = (
@@ -3010,12 +3154,14 @@ func _on_sell_pressed() -> void:
 		% [
 			preview.fish_count,
 			fish_label,
-			_get_buyer_display_group(_default_buyer),
+			_get_buyer_display_group(active_buyer),
 			preview.payout,
 			preview.base_value,
 		]
 	)
 	_sale_confirmation.visible = true
+	if _shop_cooler_context_active:
+		shop_cooler_modal_changed.emit(true)
 	_set_shell_interactive(false)
 	for button: Button in [_confirm_sale_button, _cancel_sale_button]:
 		button.focus_mode = Control.FOCUS_ALL
@@ -3028,7 +3174,9 @@ func _on_confirm_sale_pressed() -> void:
 	if (
 		_sale_in_progress
 		or _network_sale_service == null
-		or not _network_sale_service.can_request_sale()
+		or not _network_sale_service.can_request_sale(
+			_confirmation_buyer_id
+		)
 		or _sale_service == null
 		or _confirmation_catch_ids.is_empty()
 		or _confirmation_buyer == null
@@ -3040,11 +3188,13 @@ func _on_confirm_sale_pressed() -> void:
 	var requested_catch_ids: Array[StringName] = (
 		_confirmation_catch_ids.duplicate()
 	)
+	var requested_buyer_id: StringName = _confirmation_buyer_id
 	var transaction_generation: int = _menu_generation
 	_confirm_sale_button.disabled = true
 	_close_sale_confirmation()
 	var request_id: String = _network_sale_service.request_local_sale(
-		requested_catch_ids
+		requested_catch_ids,
+		requested_buyer_id,
 	)
 	if request_id.is_empty():
 		_sale_in_progress = false
@@ -3052,7 +3202,7 @@ func _on_confirm_sale_pressed() -> void:
 	if (
 		_network_sale_service.is_local_sale_pending()
 		and transaction_generation == _menu_generation
-		and visible
+		and (visible or _shop_cooler_context_active)
 	):
 		_transaction_feedback.text = "Selling…"
 
@@ -3066,7 +3216,7 @@ func _can_use_shared_world_actions() -> bool:
 
 func _on_network_sale_pending(_request_id: String) -> void:
 	_sale_in_progress = true
-	if visible:
+	if visible or _shop_cooler_context_active:
 		_transaction_feedback.text = "Selling…"
 		_update_sale_summary()
 
@@ -3081,19 +3231,26 @@ func _on_network_sale_finished(
 	_sale_in_progress = false
 	if accepted:
 		_fish_selection.remove_ids(catch_ids)
-	if not visible:
+	if not visible and not _shop_cooler_context_active:
 		return
-	_transaction_feedback.text = (
+	_refresh_all()
+	var feedback_message: String = (
 		"Sale complete. $%d received." % payout
 		if accepted
 		else message
 	)
-	_refresh_all()
+	_transaction_feedback.text = feedback_message
+	if not accepted:
+		_sale_unavailable.text = feedback_message
+		_sale_unavailable.visible = true
 	if _current_section == Section.COOLER:
 		call_deferred("_restore_inventory_tab_focus")
 
 
 func _restore_inventory_tab_focus() -> void:
+	if _shop_cooler_context_active:
+		_focus_shop_cooler()
+		return
 	if (
 		visible
 		and _current_section == Section.COOLER
@@ -3110,6 +3267,8 @@ func _close_sale_confirmation() -> void:
 	_confirmation_buyer_id = StringName()
 	_confirmation_generation = -1
 	_sale_confirmation.visible = false
+	if was_visible and _shop_cooler_context_active:
+		shop_cooler_modal_changed.emit(false)
 	_confirmation_message.text = ""
 	_confirm_sale_button.disabled = false
 	for button: Button in [_confirm_sale_button, _cancel_sale_button]:
@@ -3117,7 +3276,7 @@ func _close_sale_confirmation() -> void:
 		button.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	if (
 		was_visible
-		and visible
+		and (visible or _shop_cooler_context_active)
 		and not _transitioning
 		and not _page_transitioning
 	):
@@ -3169,6 +3328,22 @@ func _get_buyer_display_group(
 	if not buyer.display_name.is_empty():
 		return buyer.display_name
 	return "buyer"
+
+
+func _get_active_sale_buyer() -> FishBuyerProfileType:
+	if _sale_buyer_override != null and _sale_buyer_override.is_valid():
+		return _sale_buyer_override
+	return _default_buyer
+
+
+func _get_offer_label(buyer: FishBuyerProfileType) -> String:
+	if buyer == null:
+		return "buyer offer"
+	if buyer.id == MAIN_SHOP_BUYER_ID:
+		return "shop offer"
+	if buyer.id == NetworkSaleService.PELICAN_BUYER_ID:
+		return "pelican offer"
+	return "buyer offer"
 
 
 func _refresh_logbook() -> void:

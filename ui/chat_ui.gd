@@ -60,6 +60,7 @@ var _send_pending: bool = false
 var _pending_send_body: String = ""
 var _prior_movement: bool = true
 var _prior_camera: bool = true
+var _output_scale: float = 1.0
 
 
 func _ready() -> void:
@@ -563,6 +564,10 @@ func _set_presentation_state(
 	_refresh_visibility()
 
 
+func set_output_scale(output_scale: float) -> void:
+	_output_scale = maxf(output_scale, 0.001)
+
+
 func _refresh_handle_labels(state: PresentationState) -> void:
 	var collapsed := state == PresentationState.COLLAPSED
 	var height_state := _visible_state_before_collapse if collapsed else state
@@ -632,7 +637,9 @@ func _update_speech() -> void:
 		if camera.is_position_behind(world_position):
 			bubble.hide()
 			continue
-		var screen_position := camera.unproject_position(world_position)
+		var screen_position := (
+			camera.unproject_position(world_position) / _output_scale
+		)
 		var viewport_size := get_viewport_rect().size
 		if (
 			screen_position.x < -80.0

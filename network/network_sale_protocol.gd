@@ -101,6 +101,12 @@ static func validate_result(data: Variant) -> bool:
 		and str(payload["message"]).length() <= MAX_MESSAGE_LENGTH
 	):
 		return false
+	if payload.has("buyer_id") and (
+		typeof(payload["buyer_id"]) not in [TYPE_STRING, TYPE_STRING_NAME]
+		or str(payload["buyer_id"]).is_empty()
+		or str(payload["buyer_id"]).length() > MAX_ID_LENGTH
+	):
+		return false
 	var seen: Dictionary[String, bool] = {}
 	for value: Variant in payload["catch_ids"]:
 		if typeof(value) not in [TYPE_STRING, TYPE_STRING_NAME]:

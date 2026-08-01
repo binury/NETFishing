@@ -487,7 +487,7 @@ mouse_filter = 1
 
 [node name="BagFilterTabs" type="HBoxContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/BagPage"]
 unique_name_in_owner = true
-z_index = 5
+z_index = 55
 layout_mode = 0
 offset_left = 122.0
 offset_top = 166.0
@@ -1330,12 +1330,12 @@ columns = 4
 [node name="SaleConfirmation" type="PanelContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot"]
 unique_name_in_owner = true
 visible = false
-z_index = 40
+z_index = 120
 layout_mode = 0
-offset_left = 320.0
-offset_top = 200.0
-offset_right = 960.0
-offset_bottom = 520.0
+offset_left = 380.0
+offset_top = 265.0
+offset_right = 840.0
+offset_bottom = 455.0
 
 [node name="ConfirmationMargin" type="MarginContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/SaleConfirmation"]
 layout_mode = 2
@@ -1347,29 +1347,31 @@ theme_override_constants/margin_bottom = 20
 [node name="ConfirmationLayout" type="VBoxContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/SaleConfirmation/ConfirmationMargin"]
 layout_mode = 2
 theme_override_constants/separation = 12
+alignment = 1
 
 [node name="ConfirmationMessage" type="Label" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/SaleConfirmation/ConfirmationMargin/ConfirmationLayout"]
 unique_name_in_owner = true
 layout_mode = 2
+theme_override_font_sizes/font_size = 22
 autowrap_mode = 2
 horizontal_alignment = 1
 
 [node name="ConfirmationButtons" type="HBoxContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/SaleConfirmation/ConfirmationMargin/ConfirmationLayout"]
 layout_mode = 2
+theme_override_constants/separation = 10
 alignment = 1
 
 [node name="ConfirmSaleButton" type="Button" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/SaleConfirmation/ConfirmationMargin/ConfirmationLayout/ConfirmationButtons"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "confirm"
-theme_type_variation = &"DangerButton"
-custom_minimum_size = Vector2(170, 64)
+custom_minimum_size = Vector2(140, 44)
 
 [node name="CancelSaleButton" type="Button" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/SaleConfirmation/ConfirmationMargin/ConfirmationLayout/ConfirmationButtons"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "cancel"
-custom_minimum_size = Vector2(170, 64)
+custom_minimum_size = Vector2(140, 44)
 
 [node name="NavigationCluster" type="Control" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot"]
 unique_name_in_owner = true

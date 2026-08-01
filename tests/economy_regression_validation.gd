@@ -47,26 +47,22 @@ func _run() -> void:
 		main.get_node("%PlayerAssetReservationService")
 		as PlayerAssetReservationService
 	)
-	var pelican := (
-		main.get("_test_world") as TestWorld
-	).get_pelican_convenience_landmark()
 	assert(player != null)
 	assert(catalog != null and catalog.candidates.size() == 8)
 	assert(sale_service != null)
 	assert(shop_service != null)
 	assert(session != null and session.is_host())
 	assert(reservations != null)
-	assert(pelican != null)
 	sale_service.local_sale_finished.connect(_on_sale_finished)
 	shop_service.local_purchase_finished.connect(_on_shop_finished)
-	player.global_position = pelican.global_position
 	await process_frame
 
 	_test_each_species(player, catalog, sale_service)
 	_test_multi_sale(player, catalog, sale_service)
 	_test_reservations(player, catalog, sale_service, reservations)
-	_test_rejection_cleanup(player, catalog, sale_service, pelican)
-	await _test_player_menu_sale(main, player, catalog, sale_service, pelican)
+	_test_anywhere_sale(player, catalog, sale_service)
+	await _test_player_menu_sale(main, player, catalog, sale_service)
+	await _test_host_shop_sale(main, player, catalog, sale_service)
 
 	assert(session.set_host_open(true))
 	assert(session.state == NetworkSession.State.OPEN_HOST)
@@ -76,6 +72,9 @@ func _run() -> void:
 	assert(session.set_host_open(false))
 
 	await _test_host_shop_purchase(main, player, shop_service)
+	await _test_fishing_shop_sale_ui(
+		main, player, catalog, sale_service, reservations
+	)
 	assert(not sale_service.is_local_sale_pending())
 	assert(not shop_service.is_local_purchase_pending())
 
@@ -111,14 +110,9 @@ func _run_multiplayer_host() -> void:
 	assert(remote_peer_id > 1)
 	var spawn_service := main.get("_player_spawn_service") as PlayerSpawnService
 	var remote_avatar := spawn_service.get_avatar(remote_peer_id)
-	var pelican := (
-		main.get("_test_world") as TestWorld
-	).get_pelican_convenience_landmark()
-	assert(remote_avatar != null and pelican != null)
-	# The client cannot teleport its authoritative avatar. Place the host-owned
-	# test avatar at each interaction so this fixture validates the remote
-	# transaction path without conflating it with the movement suite.
-	remote_avatar.global_position = pelican.global_position
+	assert(remote_avatar != null)
+	# Pelican sales are available from the Cooler anywhere. The host-owned
+	# avatar only moves when the later Fishing Shop purchase needs proximity.
 	await create_timer(5.0).timeout
 	var interaction := main.get("_shop_interaction") as FishingShopInteraction
 	assert(interaction != null)
@@ -156,10 +150,6 @@ func _run_multiplayer_client() -> void:
 	var shop_service := main.get_node("%NetworkShopService") as NetworkShopService
 	sale_service.local_sale_finished.connect(_on_sale_finished)
 	shop_service.local_purchase_finished.connect(_on_shop_finished)
-	var pelican := (
-		main.get("_test_world") as TestWorld
-	).get_pelican_convenience_landmark()
-	player.global_position = pelican.global_position
 	var catch_ids: Array[StringName] = []
 	for fish: FishData in catalog.candidates:
 		var fish_catch := _make_catch(fish)
@@ -182,6 +172,28 @@ func _run_multiplayer_client() -> void:
 	var interaction := main.get("_shop_interaction") as FishingShopInteraction
 	player.global_position = interaction.global_position
 	await create_timer(5.5).timeout
+	var shop_catch := _make_catch(catalog.candidates.front())
+	player.inventory.add_catch(shop_catch)
+	var shop_sale_balance_before: int = player.wallet.get_balance()
+	_sale_result.clear()
+	assert(not sale_service.request_local_sale(
+		[shop_catch.catch_id],
+		NetworkSaleService.MAIN_SHOP_BUYER_ID,
+	).is_empty())
+	var shop_sale_deadline: int = Time.get_ticks_msec() + 10000
+	while Time.get_ticks_msec() < shop_sale_deadline:
+		await process_frame
+		if not _sale_result.is_empty():
+			break
+	print("Client shop sale result: ", _sale_result)
+	assert(not _sale_result.is_empty() and bool(_sale_result[1]))
+	assert(not player.inventory.contains_catch_id(shop_catch.catch_id))
+	assert(
+		player.wallet.get_balance()
+		== shop_sale_balance_before + shop_catch.sale_value
+	)
+	assert(not sale_service.is_local_sale_pending())
+
 	assert(player.wallet.credit(100))
 	_shop_result.clear()
 	assert(not shop_service.request_supply(&"coffee").is_empty())
@@ -277,20 +289,77 @@ func _test_reservations(
 	)
 
 
-func _test_rejection_cleanup(
+func _test_anywhere_sale(
 	player: Player,
 	catalog: FishPool,
 	sale_service: NetworkSaleService,
-	pelican: Node3D,
 ) -> void:
 	var fish_catch := _make_catch(catalog.candidates[5])
 	player.inventory.add_catch(fish_catch)
-	player.global_position = pelican.global_position + Vector3(20.0, 0.0, 0.0)
-	_assert_sale(player, sale_service, [fish_catch.catch_id], false)
-	assert(player.inventory.contains_catch_id(fish_catch.catch_id))
-	assert(not sale_service.is_local_sale_pending())
-	player.global_position = pelican.global_position
+	# The spawn point is intentionally far from the Pelican landmark. Discounted
+	# Pelican sales are a convenience action and do not require proximity.
+	player.global_position = Vector3(0.0, 3.95, 13.0)
 	_assert_sale(player, sale_service, [fish_catch.catch_id], true)
+
+
+func _test_host_shop_sale(
+	main: Node,
+	player: Player,
+	catalog: FishPool,
+	sale_service: NetworkSaleService,
+) -> void:
+	var interaction := main.get("_shop_interaction") as FishingShopInteraction
+	assert(interaction != null)
+	var out_of_range_catch := _make_catch(catalog.candidates[6])
+	player.inventory.add_catch(out_of_range_catch)
+	player.global_position = Vector3(0.0, 3.95, 13.0)
+	for _frame: int in 4:
+		await physics_frame
+	_assert_sale(
+		player,
+		sale_service,
+		[out_of_range_catch.catch_id],
+		false,
+		true,
+		NetworkSaleService.MAIN_SHOP_BUYER_ID,
+	)
+	player.global_position = interaction.global_position
+	for _frame: int in 4:
+		await physics_frame
+	assert(interaction.is_avatar_in_range(player))
+	var balance_before: int = player.wallet.get_balance()
+	_assert_sale(
+		player,
+		sale_service,
+		[out_of_range_catch.catch_id],
+		true,
+		true,
+		NetworkSaleService.MAIN_SHOP_BUYER_ID,
+	)
+	assert(
+		player.wallet.get_balance()
+		== balance_before + out_of_range_catch.sale_value
+	)
+	var species_ids: Array[StringName] = []
+	var expected_payout: int = 0
+	for fish: FishData in catalog.candidates:
+		var fish_catch := _make_catch(fish)
+		player.inventory.add_catch(fish_catch)
+		species_ids.append(fish_catch.catch_id)
+		expected_payout += fish_catch.sale_value
+	var species_balance_before: int = player.wallet.get_balance()
+	_assert_sale(
+		player,
+		sale_service,
+		species_ids,
+		true,
+		true,
+		NetworkSaleService.MAIN_SHOP_BUYER_ID,
+	)
+	assert(
+		player.wallet.get_balance()
+		== species_balance_before + expected_payout
+	)
 
 
 func _test_player_menu_sale(
@@ -298,13 +367,12 @@ func _test_player_menu_sale(
 	player: Player,
 	catalog: FishPool,
 	sale_service: NetworkSaleService,
-	pelican: Node3D,
 ) -> void:
-	player.global_position = pelican.global_position
 	var game_ui := main.get_node("%GameUI") as GameUI
 	var player_menu := game_ui.get_node("%PlayerMenu") as PlayerMenu
 	var fish_catch := _make_catch(catalog.candidates[6])
 	player.inventory.add_catch(fish_catch)
+	player.global_position = Vector3(0.0, 3.95, 13.0)
 	player_menu.open_menu()
 	await create_timer(2.2).timeout
 	player_menu.call("_on_catch_card_pressed", fish_catch.catch_id)
@@ -312,15 +380,23 @@ func _test_player_menu_sale(
 	var sell_action := player_menu.get_node("%SellBubble") as Button
 	var confirmation := player_menu.get_node("%SaleConfirmation") as Control
 	var confirm_button := player_menu.get_node("%ConfirmSaleButton") as Button
+	var ui_viewport := main.get_node(
+		"UIPresentation/UIViewport"
+	) as SubViewport
 	assert(sell_action.visible and not sell_action.disabled)
 	assert(sell_action.mouse_filter == Control.MOUSE_FILTER_STOP)
 	assert(sell_action.focus_mode == Control.FOCUS_ALL)
-	sell_action.pressed.emit()
+	assert(ui_viewport != null)
+	await _activate_focused_button(sell_action, ui_viewport)
 	await process_frame
 	assert(confirmation.visible)
 	assert(confirm_button.visible and not confirm_button.disabled)
+	assert(
+		confirmation.z_index
+		> (player_menu.get_node("%CoolerOuterWall") as Control).z_index
+	)
 	_sale_result.clear()
-	confirm_button.pressed.emit()
+	await _activate_focused_button(confirm_button, ui_viewport)
 	await process_frame
 	assert(not _sale_result.is_empty() and bool(_sale_result[1]))
 	assert(not player.inventory.contains_catch_id(fish_catch.catch_id))
@@ -337,6 +413,21 @@ func _test_player_menu_sale(
 	)
 	player_menu.close_menu()
 	await create_timer(2.2).timeout
+
+
+func _activate_focused_button(
+	button: Button,
+	ui_viewport: SubViewport,
+) -> void:
+	button.grab_focus()
+	await process_frame
+	assert(button.has_focus())
+	for is_pressed: bool in [true, false]:
+		var accept := InputEventAction.new()
+		accept.action = &"ui_accept"
+		accept.pressed = is_pressed
+		ui_viewport.push_input(accept, false)
+		await process_frame
 
 
 func _test_host_shop_purchase(
@@ -359,16 +450,123 @@ func _test_host_shop_purchase(
 	assert(not shop_service.is_local_purchase_pending())
 
 
+func _test_fishing_shop_sale_ui(
+	main: Node,
+	player: Player,
+	catalog: FishPool,
+	sale_service: NetworkSaleService,
+	reservations: PlayerAssetReservationService,
+) -> void:
+	var interaction := main.get("_shop_interaction") as FishingShopInteraction
+	var game_ui := main.get_node("%GameUI") as GameUI
+	var shop := game_ui.get_node("%FishingShop") as FishingShop
+	var player_menu := game_ui.get_node("%PlayerMenu") as PlayerMenu
+	var shop_backdrop := main.get_node("%ShopBackdrop") as ColorRect
+	var ui_viewport := main.get_node(
+		"UIPresentation/UIViewport"
+	) as SubViewport
+	assert(
+		interaction != null
+		and shop != null
+		and player_menu != null
+		and shop_backdrop != null
+		and ui_viewport != null
+	)
+	player.global_position = interaction.global_position
+	for _frame: int in 4:
+		await physics_frame
+	var fish_catch := _make_catch(catalog.candidates[7])
+	var reserved_catch := _make_catch(catalog.candidates[6])
+	player.inventory.add_catch(fish_catch)
+	player.inventory.add_catch(reserved_catch)
+	var reservation_id := "shop-ui-reservation"
+	assert(reservations.reserve(reservation_id, {
+		"type": PlayerAssetReservationService.AttachmentType.FISH,
+		"catch_id": str(reserved_catch.catch_id),
+		"catch": reserved_catch.to_network_dict(),
+	}))
+	var balance_before: int = player.wallet.get_balance()
+	assert(shop.open_shop())
+	await process_frame
+	assert(shop_backdrop.visible)
+	assert(shop_backdrop.material is ShaderMaterial)
+	assert(shop.has_node("InputBlocker") and not shop.has_node("Dimmer"))
+	var shop_panel := shop.get_node("%ShopPanel") as PanelContainer
+	assert(shop_panel != null and shop_panel.size == Vector2(980.0, 600.0))
+	var shop_panel_style := shop_panel.get_theme_stylebox("panel") as StyleBoxFlat
+	assert(shop_panel_style != null)
+	assert(shop_panel_style.corner_radius_top_left == 24)
+	var buy_mode := shop.get_node("%BuyModeButton") as Button
+	var sell_mode := shop.get_node("%SellModeButton") as Button
+	assert(buy_mode.visible and sell_mode.visible)
+	await _activate_focused_button(sell_mode, ui_viewport)
+	await process_frame
+	assert(shop.visible and not player_menu.visible)
+	assert(not shop.has_node("ShopPanel/Margin/Layout/Body/FishSales"))
+	assert((shop.get_node("%ShopCoolerPage") as Control).visible)
+	assert(not (shop.get_node("%ShopPanel") as Control).visible)
+	var mounted_cooler := player_menu.get("_cooler_page") as Control
+	assert(mounted_cooler != null and mounted_cooler.visible)
+	assert(
+		mounted_cooler.get_parent() == shop.get_node("%ShopCoolerMount")
+	)
+	var cooler_outer_wall := player_menu.get("_cooler_outer_wall") as Control
+	var water_surface := player_menu.get("_cooler_water_surface") as ColorRect
+	assert(cooler_outer_wall != null and cooler_outer_wall.visible)
+	assert(water_surface.visible and water_surface.material is ShaderMaterial)
+	assert(
+		StringName(
+			(player_menu.get("_sale_buyer_override") as FishBuyerProfile).id
+		) == NetworkSaleService.MAIN_SHOP_BUYER_ID
+	)
+	var fish_nodes: Dictionary = player_menu.get("_fish_nodes")
+	var fish_button := fish_nodes.get(fish_catch.catch_id) as Button
+	var reserved_button := fish_nodes.get(reserved_catch.catch_id) as Button
+	assert(fish_button != null and fish_button.visible)
+	assert(reserved_button != null and reserved_button.visible)
+	await _activate_focused_button(fish_button, ui_viewport)
+	var sell_button := player_menu.get("_sell_bubble") as Button
+	assert(sell_button.visible and not sell_button.disabled)
+	await _activate_focused_button(sell_button, ui_viewport)
+	await process_frame
+	var confirmation := player_menu.get("_sale_confirmation") as Control
+	var confirm_button := player_menu.get("_confirm_sale_button") as Button
+	assert(confirmation.visible)
+	assert(
+		confirmation.z_index
+		> cooler_outer_wall.z_index
+	)
+	_sale_result.clear()
+	await _activate_focused_button(confirm_button, ui_viewport)
+	await process_frame
+	assert(not _sale_result.is_empty() and bool(_sale_result[1]))
+	assert(not player.inventory.contains_catch_id(fish_catch.catch_id))
+	assert(player.wallet.get_balance() == balance_before + fish_catch.sale_value)
+	assert(not sale_service.is_local_sale_pending())
+	assert(reservations.release(reservation_id))
+	var back_button := shop.get_node("%BackToShopButton") as Button
+	await _activate_focused_button(back_button, ui_viewport)
+	await process_frame
+	assert(shop.visible and (shop.get_node("%ShopPanel") as Control).visible)
+	assert(not (shop.get_node("%ShopCoolerPage") as Control).visible)
+	assert(not player_menu.is_shop_cooler_mounted())
+	shop.close_shop()
+	await process_frame
+
+
 func _assert_sale(
 	player: Player,
 	sale_service: NetworkSaleService,
 	catch_ids: Array[StringName],
 	expected_success: bool,
 	expect_request_id: bool = true,
+	buyer_id: StringName = NetworkSaleService.PELICAN_BUYER_ID,
 ) -> void:
 	var balance_before: int = player.wallet.get_balance()
 	_sale_result.clear()
-	var request_id: String = sale_service.request_local_sale(catch_ids)
+	var request_id: String = sale_service.request_local_sale(
+		catch_ids, buyer_id
+	)
 	assert((not request_id.is_empty()) == expect_request_id)
 	assert(not _sale_result.is_empty())
 	assert(bool(_sale_result[1]) == expected_success)

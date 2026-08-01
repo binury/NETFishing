@@ -496,7 +496,7 @@ func _begin_aiming(player: PlayerType) -> void:
 	_cast_charge = 0.0
 	_cast_target = _calculate_cast_target(minimum_cast_distance)
 	state = FishingState.AIMING_CAST
-	status_changed.emit("hold left click to aim • release to cast")
+	status_changed.emit("")
 	var target_is_fishable: bool = is_target_fishable(_cast_target)
 	var preview_position: Vector3 = _resolve_preview_surface_position(_cast_target)
 	_presentation.begin_aim(
@@ -603,7 +603,7 @@ func _confirm_cast() -> void:
 		return
 
 	state = FishingState.CASTING
-	status_changed.emit("casting...")
+	status_changed.emit("")
 	_presentation.begin_cast(_cast_target)
 	_presentation.set_line_mode(FishingPresentationType.LineMode.TAUT)
 
@@ -618,7 +618,7 @@ func _on_cast_completed() -> void:
 			_cast_charge,
 			_build_network_evidence()
 		)
-		status_changed.emit("checking the water...")
+		status_changed.emit("")
 		return
 
 	_selected_water_region = get_fishable_water_region(_cast_target)

@@ -13,6 +13,13 @@ signal effective_pixel_size_changed(
 
 @onready var _ui_viewport: SubViewport = $UIViewport
 @onready var _ui_root: Control = $UIViewport/GameUI/UIRoot
+@onready var _canonical_stage: Control = (
+	$UIViewport/GameUI/UIRoot/CanonicalStage
+)
+@onready var _chat_ui: ChatUI = $UIViewport/GameUI/UIRoot/ChatUI
+@onready var _title_content_stage: Control = (
+	$UIViewport/GameUI/UIRoot/TitleScreen/ResponsiveTitleStage
+)
 
 var _requested_pixel_size: int = PlayerSettings.DEFAULT_UI_PIXEL_SIZE
 var _effective_pixel_size: int = PlayerSettings.DEFAULT_UI_PIXEL_SIZE
@@ -94,21 +101,29 @@ func _resize_presentation() -> void:
 		float(render_height)
 		/ UIReferencePresentationType.REFERENCE_SIZE.y
 	)
+	var visible_reference_size: Vector2 = (
+		UIReferencePresentationType.get_visible_reference_size(display_size)
+	)
 	var viewport_size := Vector2i(
-		roundi(
-			UIReferencePresentationType.REFERENCE_SIZE.x
-			* render_scale
-		),
-		render_height,
+		roundi(visible_reference_size.x * render_scale),
+		roundi(visible_reference_size.y * render_scale),
 	)
 	set_anchors_preset(Control.PRESET_TOP_LEFT)
-	position = UIReferencePresentationType.get_offset(display_size)
+	position = Vector2.ZERO
 	size = Vector2(viewport_size)
 	scale = Vector2.ONE * (reference_scale / render_scale)
 	stretch_shrink = 1
 	_ui_root.position = Vector2.ZERO
 	_ui_root.scale = Vector2.ONE * render_scale
-	_ui_root.size = UIReferencePresentationType.REFERENCE_SIZE
+	_ui_root.size = visible_reference_size
+	_canonical_stage.position = (
+		UIReferencePresentationType.get_stage_position(display_size)
+	)
+	_canonical_stage.size = UIReferencePresentationType.REFERENCE_SIZE
+	_title_content_stage.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	_title_content_stage.position = _canonical_stage.position
+	_title_content_stage.size = UIReferencePresentationType.REFERENCE_SIZE
+	_chat_ui.set_output_scale(reference_scale)
 	if (
 		previous_effective_size != _effective_pixel_size
 		or _requested_pixel_size != _effective_pixel_size
