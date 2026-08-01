@@ -256,10 +256,21 @@ func _handle_cast_request(peer_id: int, data: Dictionary) -> void:
 	):
 		_record_and_reject(peer_id, request_id, "Cannot fish here.")
 		return
-	var region: FishableWaterRegion = (
-		_fishing_spot.get_fishable_water_region(target)
+	var surface: FishingSurfaceSample = _fishing_spot.resolve_fishing_surface(
+		target,
+		authoritative_origin.y,
 	)
-	if region == null or region.fish_pool == null:
+	var region: FishableWaterRegion = surface.water_region
+	var authoritative_target: Vector3 = surface.position
+	if (
+		not surface.is_fishable()
+		or region == null
+		or region.fish_pool == null
+		or not _fishing_spot.is_cast_path_clear(
+			authoritative_origin,
+			authoritative_target
+		)
+	):
 		_record_and_reject(peer_id, request_id, "Cannot fish here.")
 		return
 	var effects: PlayerItemEffects = (
@@ -281,8 +292,8 @@ func _handle_cast_request(peer_id: int, data: Dictionary) -> void:
 	attempt.session_id = _session.get_session_id()
 	attempt.phase = NetworkFishingAttempt.Phase.WAITING_FOR_BITE
 	attempt.origin = authoritative_origin
-	attempt.target = target
-	attempt.bobber_position = target
+	attempt.target = authoritative_target
+	attempt.bobber_position = authoritative_target
 	attempt.fish_id = selected_fish.id
 	attempt.reel_speed = float(data["reel_speed"]) * (
 		effects.get_reel_multiplier() if effects != null else 1.0
@@ -290,7 +301,7 @@ func _handle_cast_request(peer_id: int, data: Dictionary) -> void:
 	attempt.barrier_damage = int(data["barrier_damage"]) + (
 		effects.get_barrier_bonus() if effects != null else 0
 	)
-	attempt.bite_time_remaining = _fishing_spot.wait_time * float(
+	attempt.bite_time_remaining = _fishing_spot.roll_bite_wait_time() * float(
 		effects.get_bite_time_multiplier() if effects != null else 1.0
 	)
 	attempt.controller = CatchController.new()
@@ -320,7 +331,7 @@ func _update_waiting_attempt(
 		flat_offset.length() - _fishing_spot.withdrawal_cancel_distance
 	)
 	if withdrawable_distance <= 0.0:
-		_cancel_attempt(attempt.owner_peer_id, "")
+		_cancel_attempt(attempt.owner_peer_id, "", &"withdrawal")
 		return
 	attempt.withdrawal_progress = minf(
 		attempt.withdrawal_progress
@@ -336,16 +347,20 @@ func _update_waiting_attempt(
 		endpoint,
 		attempt.withdrawal_progress
 	)
-	attempt.bobber_position = _fishing_spot.find_last_fishable_position(
-		attempt.bobber_position,
-		desired
+	var withdrawal_surface: FishingSurfaceSample = (
+		_fishing_spot.resolve_safe_withdrawal_surface(
+			attempt.bobber_position,
+			desired,
+			endpoint - attempt.bobber_position,
+		)
 	)
+	if not withdrawal_surface.is_fishable():
+		_cancel_attempt(attempt.owner_peer_id, "", &"withdrawal")
+		return
+	attempt.bobber_position = withdrawal_surface.position
 	attempt.set_meta("snapshot", _make_waiting_snapshot(attempt))
-	if (
-		not attempt.bobber_position.is_equal_approx(desired)
-		or is_equal_approx(attempt.withdrawal_progress, 1.0)
-	):
-		_cancel_attempt(attempt.owner_peer_id, "")
+	if is_equal_approx(attempt.withdrawal_progress, 1.0):
+		_cancel_attempt(attempt.owner_peer_id, "", &"withdrawal")
 
 
 func _make_waiting_snapshot(
@@ -479,7 +494,6 @@ func _on_encounter_updated(
 	var attempt: NetworkFishingAttempt = _attempts.get(peer_id)
 	if attempt == null or attempt.phase != NetworkFishingAttempt.Phase.FIGHTING:
 		return
-	attempt.bobber_position = attempt.target.lerp(attempt.origin, progress)
 	attempt.set_meta("snapshot", {
 		"attempt_id": attempt.attempt_id,
 		"owner_peer_id": peer_id,
@@ -606,7 +620,7 @@ func _on_attempt_caught(peer_id: int) -> void:
 		return
 	attempt.phase = NetworkFishingAttempt.Phase.PENDING_CAPACITY
 	attempt.result_id = _new_id("result")
-	attempt.catch_payload = fish_catch.to_save_dict()
+	attempt.catch_payload = fish_catch.to_network_dict()
 	attempt.capacity_nonce = _new_id("capacity")
 	attempt.capacity_deadline = (
 		Time.get_ticks_msec() / 1000.0 + CAPACITY_RESPONSE_TIMEOUT
@@ -708,7 +722,12 @@ func _finalize_catch(attempt: NetworkFishingAttempt) -> void:
 		_apply_target_outcome(outcome)
 	else:
 		receive_target_outcome.rpc_id(attempt.owner_peer_id, outcome)
-	_broadcast_public_outcome(attempt, &"catch", "")
+	_broadcast_public_outcome(
+		attempt,
+		&"catch",
+		"",
+		attempt.catch_payload,
+	)
 	_dispose_attempt(attempt.owner_peer_id)
 
 
@@ -800,12 +819,16 @@ func _on_attempt_escaped(peer_id: int) -> void:
 	_dispose_attempt(peer_id)
 
 
-func _cancel_attempt(peer_id: int, message: String) -> void:
+func _cancel_attempt(
+	peer_id: int,
+	message: String,
+	outcome: StringName = &"cancelled",
+) -> void:
 	var attempt: NetworkFishingAttempt = _attempts.get(peer_id)
 	if attempt == null:
 		return
 	attempt.phase = NetworkFishingAttempt.Phase.CANCELLED
-	_broadcast_public_outcome(attempt, &"cancelled", message)
+	_broadcast_public_outcome(attempt, outcome, message)
 	_dispose_attempt(peer_id)
 
 
@@ -813,6 +836,7 @@ func _broadcast_public_outcome(
 	attempt: NetworkFishingAttempt,
 	outcome: StringName,
 	message: String,
+	catch_payload: Dictionary = {},
 ) -> void:
 	var data: Dictionary = {
 		"attempt_id": attempt.attempt_id,
@@ -820,6 +844,8 @@ func _broadcast_public_outcome(
 		"outcome": str(outcome),
 		"message": message.left(128),
 	}
+	if outcome == &"catch" and not catch_payload.is_empty():
+		data["catch"] = catch_payload.duplicate(true)
 	_apply_public_outcome(data)
 	receive_public_outcome.rpc(data)
 
@@ -846,7 +872,11 @@ func _apply_public_outcome(data: Dictionary) -> void:
 				str(data["message"])
 			)
 	else:
-		_cleanup_remote_presentation(peer_id)
+		var outcome := StringName(str(data["outcome"]))
+		if outcome in [&"catch", &"escape", &"withdrawal"]:
+			_return_remote_presentation(peer_id, outcome, data)
+		else:
+			_cleanup_remote_presentation(peer_id)
 
 
 func _make_cast_accepted(attempt: NetworkFishingAttempt) -> Dictionary:
@@ -874,12 +904,16 @@ func _apply_cast_accepted(data: Dictionary) -> void:
 	if (
 		typeof(data.get("attempt_id")) != TYPE_STRING
 		or typeof(data.get("owner_peer_id")) != TYPE_INT
+		or typeof(data.get("origin")) != TYPE_ARRAY
 		or typeof(data.get("target")) != TYPE_ARRAY
 	):
 		return
 	var peer_id: int = data["owner_peer_id"]
+	var origin: Vector3 = NetworkFishingProtocol.array_to_vector3(
+		data.get("origin", [])
+	)
 	var target: Vector3 = NetworkFishingProtocol.array_to_vector3(data["target"])
-	if not target.is_finite():
+	if not origin.is_finite() or not target.is_finite():
 		return
 	if peer_id == _session.get_local_peer_id():
 		var attempt := NetworkFishingAttempt.new()
@@ -896,7 +930,7 @@ func _apply_cast_accepted(data: Dictionary) -> void:
 	else:
 		var presentation := _get_remote_presentation(peer_id)
 		if presentation != null:
-			presentation.show_cast(target)
+			presentation.show_cast(origin, target)
 
 
 @rpc("authority", "call_remote", "reliable", 0)
@@ -1000,6 +1034,30 @@ func _cleanup_remote_presentation(peer_id: int) -> void:
 		presentation.queue_free()
 
 
+func _return_remote_presentation(
+	peer_id: int,
+	outcome: StringName,
+	data: Dictionary,
+) -> void:
+	var presentation: RemoteFishingPresentation = _remote_presentations.get(
+		peer_id
+	)
+	_remote_presentations.erase(peer_id)
+	if presentation == null or not is_instance_valid(presentation):
+		return
+	presentation.return_completed.connect(
+		presentation.queue_free,
+		CONNECT_ONE_SHOT,
+	)
+	var showcase_catch: FishCatch = null
+	if outcome == &"catch" and typeof(data.get("catch")) == TYPE_DICTIONARY:
+		var catch_data: Dictionary = data["catch"]
+		var fish_id := StringName(str(catch_data.get("fish_id", "")))
+		var fish: FishDataType = _fish_catalog.get_fish_by_id(fish_id)
+		showcase_catch = FishCatchType.from_network_dict(catch_data, fish)
+	presentation.play_return(showcase_catch)
+
+
 func _dispose_attempt(peer_id: int) -> void:
 	var attempt: NetworkFishingAttempt = _attempts.get(peer_id)
 	_attempts.erase(peer_id)
@@ -1007,7 +1065,12 @@ func _dispose_attempt(peer_id: int) -> void:
 		attempt.controller.reset()
 		attempt.controller.queue_free()
 	var avatar: Player = _spawn_service.get_avatar(peer_id)
-	if avatar != null:
+	var local_return_is_active: bool = (
+		peer_id == _session.get_local_peer_id()
+		and _fishing_spot != null
+		and _fishing_spot.is_returning()
+	)
+	if avatar != null and not local_return_is_active:
 		avatar.set_movement_enabled(true)
 
 

@@ -1,4 +1,4 @@
-[gd_scene load_steps=11 format=3]
+[gd_scene load_steps=12 format=3]
 
 [ext_resource type="Script" path="res://fishing/fishing_spot.gd" id="1_spot"]
 [ext_resource type="Script" path="res://fishing/fishing_presentation.gd" id="3_presentation"]
@@ -36,7 +36,7 @@ emission = Color(1, 0.01, 0.08, 1)
 emission_energy_multiplier = 2.2
 
 [sub_resource type="BoxMesh" id="InvalidCrossMesh"]
-size = Vector3(0.72, 0.06, 0.12)
+size = Vector3(0.62, 0.04, 0.09)
 
 [node name="FishingSpot" type="Node3D"]
 script = ExtResource("1_spot")
@@ -48,24 +48,24 @@ script = ExtResource("4_catch")
 [node name="FishingPresentation" type="Node3D" parent="."]
 unique_name_in_owner = true
 script = ExtResource("3_presentation")
-valid_target_material = SubResource("CastTargetMaterial")
-invalid_target_material = SubResource("InvalidTargetMaterial")
 
-[node name="CastTargetMarker" type="MeshInstance3D" parent="FishingPresentation"]
+[node name="CastTargetMarker" type="Node3D" parent="FishingPresentation"]
+unique_name_in_owner = true
+
+[node name="ValidTargetMarker" type="MeshInstance3D" parent="FishingPresentation/CastTargetMarker"]
 unique_name_in_owner = true
 mesh = SubResource("CastTargetMesh")
 material_override = SubResource("CastTargetMaterial")
 
-[node name="InvalidCrossA" type="MeshInstance3D" parent="FishingPresentation/CastTargetMarker"]
+[node name="InvalidTargetMarker" type="Node3D" parent="FishingPresentation/CastTargetMarker"]
 unique_name_in_owner = true
-position = Vector3(0, 0.075, 0)
+
+[node name="StrokeA" type="MeshInstance3D" parent="FishingPresentation/CastTargetMarker/InvalidTargetMarker"]
 rotation = Vector3(0, 0.785398, 0)
 mesh = SubResource("InvalidCrossMesh")
 material_override = SubResource("InvalidTargetMaterial")
 
-[node name="InvalidCrossB" type="MeshInstance3D" parent="FishingPresentation/CastTargetMarker"]
-unique_name_in_owner = true
-position = Vector3(0, 0.075, 0)
+[node name="StrokeB" type="MeshInstance3D" parent="FishingPresentation/CastTargetMarker/InvalidTargetMarker"]
 rotation = Vector3(0, -0.785398, 0)
 mesh = SubResource("InvalidCrossMesh")
 material_override = SubResource("InvalidTargetMaterial")

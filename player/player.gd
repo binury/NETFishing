@@ -713,6 +713,22 @@ func begin_catch_showcase(fish_catch: FishCatchType) -> void:
 	_catch_display.visible = _catch_sprite.texture != null
 
 
+func begin_remote_catch_showcase(fish_catch: FishCatchType) -> void:
+	if local_control_enabled or fish_catch == null or not fish_catch.is_valid():
+		return
+	end_catch_showcase(Callable(), true)
+	_showcase_rod_visibility = _fishing_rod.visible
+	_showcase_rod_state_stored = true
+	_fishing_rod.visible = false
+	_catch_sprite.texture = fish_catch.fish.display_texture
+	_catch_display.scale = (
+		Vector3.ONE
+		* fish_catch.display_scale
+		* catch_presentation_base_scale
+	)
+	_catch_display.visible = _catch_sprite.texture != null
+
+
 func end_catch_showcase(
 	restored_callback: Callable = Callable(),
 	immediate: bool = false,

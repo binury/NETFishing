@@ -3,6 +3,7 @@ extends Node3D
 
 signal cast_completed
 signal outcome_completed(outcome: StringName)
+signal presentation_interrupted
 
 enum VisualMode {
 	NONE,
@@ -18,10 +19,6 @@ enum LineMode {
 	SLACK,
 }
 
-@export_category("Water")
-@export var water_surface_offset_y: float = -0.72
-@export_range(0.1, 10.0, 0.1) var pickup_distance_from_player: float = 5.5
-
 @export_category("Fishing Line")
 @export_range(0.0, 0.5, 0.01) var slack_amount: float = 0.08
 @export_range(0.0, 2.0, 0.01) var minimum_slack: float = 0.08
@@ -30,19 +27,20 @@ enum LineMode {
 @export_range(0.1, 30.0, 0.1) var line_transition_speed: float = 7.0
 
 @export_category("Cast")
-@export_range(0.1, 30.0, 0.1) var target_movement_smoothing: float = 14.0
 @export_range(0.1, 3.0, 0.05) var cast_travel_duration: float = 0.65
 @export_range(0.1, 5.0, 0.1) var cast_arc_height: float = 2.0
 @export_range(0.0, 90.0, 1.0) var maximum_rod_cock_degrees: float = 50.0
 @export_range(0.0, 60.0, 1.0) var rod_forward_swing_degrees: float = 22.0
 @export_range(0.05, 1.0, 0.01) var rod_forward_swing_duration: float = 0.12
 @export_range(0.05, 1.0, 0.01) var rod_recovery_duration: float = 0.22
-@export var valid_target_material: Material
-@export var invalid_target_material: Material
 
-@onready var _target_marker: MeshInstance3D = %CastTargetMarker
-@onready var _invalid_cross_a: MeshInstance3D = %InvalidCrossA
-@onready var _invalid_cross_b: MeshInstance3D = %InvalidCrossB
+@export_category("Bobber Idle")
+@export_range(0.0, 0.2, 0.005) var bobber_bob_amplitude: float = 0.035
+@export_range(0.1, 3.0, 0.05) var bobber_bob_cycles_per_second: float = 0.7
+@export_range(0.0, 12.0, 0.5) var bobber_tilt_degrees: float = 4.0
+@onready var _target_marker: Node3D = %CastTargetMarker
+@onready var _valid_target_marker: MeshInstance3D = %ValidTargetMarker
+@onready var _invalid_target_marker: Node3D = %InvalidTargetMarker
 @onready var _bobber: MeshInstance3D = %Bobber
 @onready var _line: MeshInstance3D = %FishingLine
 
@@ -53,42 +51,25 @@ var _current_sag: float = 0.0
 var _rod: Node3D
 var _rod_tip: Marker3D
 var _rod_neutral_rotation: Vector3
-var _target_goal: Vector3
-var _cast_position: Vector3
-var _pickup_position: Vector3
+var _cast_arrival_position: Vector3
+var _bobber_surface_position: Vector3
+var _bobber_idle_elapsed: float = 0.0
 var _active_tween: Tween
 var _rod_tween: Tween
 var _bite_tween: Tween
-var _default_water_surface_offset_y: float
 
 
 func _ready() -> void:
-	_default_water_surface_offset_y = water_surface_offset_y
 	_line.mesh = _line_mesh
 	cleanup()
 
 
 func _process(delta: float) -> void:
-	if _mode == VisualMode.AIMING:
-		var weight: float = 1.0 - exp(-target_movement_smoothing * delta)
-		_target_marker.global_position = _target_marker.global_position.lerp(
-			_target_goal,
-			weight
-		)
+	if _mode == VisualMode.FISHING and _bobber.visible:
+		_bobber_idle_elapsed += delta
+		_apply_bobber_idle_motion()
 	if _line_mode != LineMode.HIDDEN:
 		_update_line(delta)
-
-
-func get_water_surface_height() -> float:
-	return global_position.y + water_surface_offset_y
-
-
-func set_water_surface_height(surface_height: float) -> void:
-	water_surface_offset_y = surface_height - global_position.y
-
-
-func reset_water_surface_height() -> void:
-	water_surface_offset_y = _default_water_surface_offset_y
 
 
 func set_line_mode(mode: LineMode) -> void:
@@ -103,6 +84,7 @@ func begin_aim(
 	rod_tip: Marker3D,
 	rod: Node3D,
 	minimum_target: Vector3,
+	target_normal: Vector3,
 	target_is_fishable: bool,
 ) -> void:
 	cleanup()
@@ -113,8 +95,7 @@ func begin_aim(
 	_rod = rod
 	_rod_tip = rod_tip
 	_rod_neutral_rotation = _rod.rotation
-	_target_goal = minimum_target
-	_target_marker.global_position = minimum_target
+	_set_target_surface(minimum_target, target_normal)
 	_target_marker.scale = Vector3.ONE
 	_target_marker.visible = true
 	_set_target_validity(target_is_fishable)
@@ -131,19 +112,37 @@ func update_rod_charge(charge: float) -> void:
 
 func update_aim_target(
 	target: Vector3,
+	target_normal: Vector3,
 	charge: float,
 	target_is_fishable: bool,
 ) -> void:
 	if _mode != VisualMode.AIMING:
 		return
 
-	_target_goal = target
+	# The gameplay resolver already advances the horizontal target smoothly.
+	# Snap each sample to its resolved surface so interpolation can never draw
+	# the marker through a vertical shoreline between two valid endpoints.
+	_set_target_surface(target, target_normal)
 	var maximum_response: float = smoothstep(0.9, 1.0, clampf(charge, 0.0, 1.0))
 	_target_marker.scale = Vector3.ONE * lerpf(1.0, 1.15, maximum_response)
 	_set_target_validity(target_is_fishable)
 
 
-func begin_cast(target: Vector3) -> void:
+func _set_target_surface(target: Vector3, surface_normal: Vector3) -> void:
+	_target_marker.global_position = target
+	var resolved_normal: Vector3 = surface_normal.normalized()
+	if resolved_normal.is_zero_approx():
+		resolved_normal = Vector3.UP
+	_target_marker.global_basis = Basis(
+		Quaternion(Vector3.UP, resolved_normal)
+	)
+
+
+func begin_cast(
+	target: Vector3,
+	blocked_landing_position: Vector3 = Vector3.ZERO,
+	cast_is_blocked: bool = false,
+) -> void:
 	if _mode != VisualMode.AIMING or _rod_tip == null:
 		return
 
@@ -152,8 +151,9 @@ func begin_cast(target: Vector3) -> void:
 	_target_marker.visible = false
 	_bobber.visible = true
 	_bobber.scale = Vector3.ONE
-	_cast_position = _with_water_height(target)
-	_pickup_position = _calculate_pickup_position(_cast_position)
+	_cast_arrival_position = (
+		blocked_landing_position if cast_is_blocked else target
+	)
 
 	var cast_start: Vector3 = _rod_tip.global_position
 	_bobber.global_position = cast_start
@@ -162,11 +162,15 @@ func begin_cast(target: Vector3) -> void:
 	_active_tween.set_trans(Tween.TRANS_SINE)
 	_active_tween.set_ease(Tween.EASE_IN_OUT)
 	_active_tween.tween_method(
-		_set_cast_sample.bind(cast_start, _cast_position),
+		_set_cast_sample.bind(cast_start, _cast_arrival_position),
 		0.0,
 		1.0,
 		cast_travel_duration
 	)
+	if cast_is_blocked:
+		# Let the bobber visibly settle on the blocking surface before the
+		# normal invalid-cast return animation begins.
+		_active_tween.tween_interval(0.16)
 	_active_tween.finished.connect(_on_cast_tween_finished)
 
 
@@ -205,23 +209,15 @@ func show_withdrawal_position(world_position: Vector3) -> void:
 		return
 
 	_kill_active_tween()
-	_bobber.global_position = _with_water_height(world_position)
+	_bobber_surface_position = world_position
+	_apply_bobber_idle_motion()
 
 
-func begin_reeling() -> void:
+func begin_fight() -> void:
 	if _mode != VisualMode.FISHING:
 		return
 
 	_kill_active_tween()
-	_cast_position = _with_water_height(_bobber.global_position)
-
-
-func show_reel_position(world_position: Vector3, _input_held: bool) -> void:
-	if _mode != VisualMode.FISHING:
-		return
-
-	_kill_active_tween()
-	_bobber.global_position = _with_water_height(world_position)
 
 
 func play_outcome(outcome: StringName) -> void:
@@ -237,6 +233,12 @@ func play_outcome(outcome: StringName) -> void:
 	_kill_rod_tween()
 	_restore_rod_neutral()
 	_mode = VisualMode.OUTCOME
+	_bobber.rotation = Vector3.ZERO
+	if outcome == &"withdrawal":
+		# Withdrawal is a visible return, not an instant cancellation. Keep the
+		# bobber present even if the preceding reel update hid or reset it.
+		_bobber.visible = true
+		_bobber.scale = Vector3.ONE
 	_active_tween = create_tween()
 	_active_tween.set_trans(Tween.TRANS_QUAD)
 	_active_tween.set_ease(Tween.EASE_IN)
@@ -247,12 +249,7 @@ func play_outcome(outcome: StringName) -> void:
 		_target_marker.visible = false
 		match outcome:
 			&"catch":
-				var catch_target: Vector3 = _bobber.global_position
-				if _rod_tip != null:
-					catch_target = _rod_tip.global_position
-				_active_tween.set_parallel(true)
-				_active_tween.tween_property(_bobber, "global_position", catch_target, 0.35)
-				_active_tween.tween_property(_bobber, "scale", Vector3.ZERO, 0.35)
+				_queue_bobber_return(0.35, 0.45)
 			&"escape":
 				var start_x: float = _bobber.global_position.x
 				_active_tween.tween_property(
@@ -267,31 +264,9 @@ func play_outcome(outcome: StringName) -> void:
 					start_x + 0.18,
 					0.08
 				)
-				_active_tween.tween_property(
-					_bobber,
-					"global_position:y",
-					get_water_surface_height() - 0.4,
-					0.2
-				)
-			&"invalid":
-				var return_target: Vector3 = _bobber.global_position
-				if _rod_tip != null:
-					return_target = _rod_tip.global_position
-				_active_tween.set_parallel(true)
-				_active_tween.tween_property(_bobber, "global_position", return_target, 0.28)
-				_active_tween.tween_property(_bobber, "scale", Vector3.ZERO, 0.28)
-			&"withdrawal":
-				var withdrawal_target: Vector3 = _bobber.global_position
-				if _rod_tip != null:
-					withdrawal_target = _rod_tip.global_position
-				_active_tween.set_parallel(true)
-				_active_tween.tween_property(
-					_bobber,
-					"global_position",
-					withdrawal_target,
-					0.28
-				)
-				_active_tween.tween_property(_bobber, "scale", Vector3.ZERO, 0.28)
+				_queue_bobber_return(0.42, 0.65)
+			&"invalid", &"withdrawal":
+				_queue_bobber_return(0.42, 0.65)
 			_:
 				_active_tween.tween_property(_bobber, "scale", Vector3.ZERO, 0.18)
 
@@ -308,10 +283,14 @@ func cleanup() -> void:
 	_rod_tip = null
 	_target_marker.visible = false
 	_target_marker.scale = Vector3.ONE
-	_invalid_cross_a.visible = false
-	_invalid_cross_b.visible = false
+	_valid_target_marker.visible = true
+	_invalid_target_marker.visible = false
 	_bobber.visible = false
 	_bobber.scale = Vector3.ONE
+	_bobber.rotation = Vector3.ZERO
+	_cast_arrival_position = Vector3.ZERO
+	_bobber_surface_position = Vector3.ZERO
+	_bobber_idle_elapsed = 0.0
 	set_line_mode(LineMode.HIDDEN)
 
 
@@ -330,45 +309,64 @@ func _set_cast_sample(
 	_bobber.global_position = sample
 
 
+func _queue_bobber_return(duration: float, arc_scale: float) -> void:
+	var return_start: Vector3 = _bobber.global_position
+	var return_target: Vector3 = return_start
+	if _rod_tip != null:
+		return_target = _rod_tip.global_position
+	_active_tween.tween_method(
+		_set_return_sample.bind(return_start, return_target, arc_scale),
+		0.0,
+		1.0,
+		duration,
+	)
+	_active_tween.tween_property(_bobber, "scale", Vector3.ZERO, 0.1)
+
+
+func _set_return_sample(
+	progress: float,
+	start: Vector3,
+	target: Vector3,
+	arc_scale: float,
+) -> void:
+	var eased_progress: float = 1.0 - pow(1.0 - progress, 3.0)
+	var sample: Vector3 = start.lerp(target, eased_progress)
+	sample.y += sin(eased_progress * PI) * maxf(
+		cast_arc_height * arc_scale,
+		0.75,
+	)
+	_bobber.global_position = sample
+
+
 func _on_cast_tween_finished() -> void:
 	if _mode != VisualMode.CASTING:
 		return
 
 	_active_tween = null
-	_bobber.global_position = _cast_position
+	_bobber.global_position = _cast_arrival_position
+	_bobber_surface_position = _cast_arrival_position
+	_bobber_idle_elapsed = 0.0
 	_mode = VisualMode.FISHING
 	cast_completed.emit()
 
 
-func _calculate_pickup_position(target: Vector3) -> Vector3:
-	var player_on_water: Vector3 = target
-	if _rod_tip != null:
-		player_on_water = _with_water_height(_rod_tip.global_position)
-	var outward: Vector3 = target - player_on_water
-	outward.y = 0.0
-	if outward.is_zero_approx():
-		outward = Vector3.FORWARD
-	else:
-		outward = outward.normalized()
-	var target_distance: float = player_on_water.distance_to(target)
-	var pickup_distance: float = minf(
-		pickup_distance_from_player,
-		target_distance * 0.8
+func _apply_bobber_idle_motion() -> void:
+	var phase: float = _bobber_idle_elapsed * bobber_bob_cycles_per_second * TAU
+	_bobber.global_position = (
+		_bobber_surface_position
+		+ Vector3.UP * sin(phase) * bobber_bob_amplitude
 	)
-	return player_on_water + outward * pickup_distance
-
-
-func _with_water_height(world_position: Vector3) -> Vector3:
-	return Vector3(
-		world_position.x,
-		get_water_surface_height(),
-		world_position.z,
+	_bobber.rotation.z = (
+		deg_to_rad(bobber_tilt_degrees) * sin(phase * 0.73)
 	)
 
 
 func _update_line(delta: float) -> void:
 	if _rod_tip == null or not is_instance_valid(_rod_tip):
+		var was_active: bool = _mode != VisualMode.NONE
 		cleanup()
+		if was_active:
+			presentation_interrupted.emit()
 		return
 
 	var rod_tip_position: Vector3 = _rod_tip.global_position
@@ -447,12 +445,8 @@ func _restore_rod_neutral() -> void:
 
 
 func _set_target_validity(target_is_fishable: bool) -> void:
-	if target_is_fishable:
-		_target_marker.material_override = valid_target_material
-	else:
-		_target_marker.material_override = invalid_target_material
-	_invalid_cross_a.visible = not target_is_fishable
-	_invalid_cross_b.visible = not target_is_fishable
+	_valid_target_marker.visible = target_is_fishable
+	_invalid_target_marker.visible = not target_is_fishable
 
 
 func _kill_active_tween() -> void:

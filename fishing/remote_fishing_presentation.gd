@@ -1,12 +1,20 @@
 class_name RemoteFishingPresentation
 extends Node3D
 
+signal return_completed
+
 var _owner: Player
 var _bobber: MeshInstance3D
 var _line: MeshInstance3D
 var _line_mesh := ImmediateMesh.new()
 var _target: Vector3
+var _pending_target: Vector3
 var _active: bool = false
+var _cast_tween: Tween
+var _return_tween: Tween
+var _showcase_tween: Tween
+var _return_showcase_catch: FishCatch
+var _bobber_idle_elapsed: float = 0.0
 
 
 func setup(owning_player: Player) -> void:
@@ -31,20 +39,41 @@ func setup(owning_player: Player) -> void:
 	cleanup()
 
 
-func show_cast(target: Vector3) -> void:
-	if _owner == null or not target.is_finite():
+func show_cast(origin: Vector3, target: Vector3) -> void:
+	if (
+		_owner == null
+		or not origin.is_finite()
+		or not target.is_finite()
+	):
 		return
+	_kill_cast_tween()
 	_active = true
-	_target = target
-	_bobber.global_position = target
+	_target = origin
+	_pending_target = target
+	_bobber_idle_elapsed = 0.0
+	_bobber.global_position = origin
+	_bobber.scale = Vector3.ONE
 	_bobber.visible = true
 	_line.visible = true
 	_owner.set_active_item_is_rod(true)
 	_redraw_line()
+	_cast_tween = create_tween()
+	_cast_tween.set_trans(Tween.TRANS_SINE)
+	_cast_tween.set_ease(Tween.EASE_IN_OUT)
+	_cast_tween.tween_method(
+		_set_cast_sample.bind(origin, target),
+		0.0,
+		1.0,
+		0.65,
+	)
+	_cast_tween.finished.connect(_on_cast_finished)
 
 
 func update_bobber(world_position: Vector3) -> void:
 	if not _active or not world_position.is_finite():
+		return
+	_pending_target = world_position
+	if _cast_tween != null:
 		return
 	_target = world_position
 	_bobber.global_position = world_position
@@ -59,8 +88,43 @@ func show_bite() -> void:
 	tween.tween_property(_bobber, "scale", Vector3.ONE, 0.12)
 
 
+func play_return(showcase_catch: FishCatch = null) -> void:
+	if not _active or _bobber == null:
+		cleanup()
+		return_completed.emit()
+		return
+	_kill_cast_tween()
+	_kill_return_tween()
+	_return_showcase_catch = showcase_catch
+	var start: Vector3 = _bobber.global_position
+	var target: Vector3 = start
+	if _owner != null and is_instance_valid(_owner):
+		var tip: Marker3D = _owner.get_fishing_rod_tip()
+		if tip != null:
+			target = tip.global_position
+	_return_tween = create_tween()
+	_return_tween.set_trans(Tween.TRANS_QUAD)
+	_return_tween.set_ease(Tween.EASE_IN)
+	_return_tween.tween_method(
+		_set_return_sample.bind(start, target),
+		0.0,
+		1.0,
+		0.42,
+	)
+	_return_tween.tween_property(_bobber, "scale", Vector3.ZERO, 0.1)
+	_return_tween.finished.connect(_on_return_finished)
+
+
 func cleanup() -> void:
+	_kill_cast_tween()
+	_kill_return_tween()
+	_kill_showcase_tween()
 	_active = false
+	_pending_target = Vector3.ZERO
+	_return_showcase_catch = null
+	_bobber_idle_elapsed = 0.0
+	if _owner != null and is_instance_valid(_owner):
+		_owner.end_catch_showcase(Callable(), true)
 	if _bobber != null:
 		_bobber.visible = false
 		_bobber.scale = Vector3.ONE
@@ -69,12 +133,96 @@ func cleanup() -> void:
 	_line_mesh.clear_surfaces()
 
 
-func _process(_delta: float) -> void:
+func _set_cast_sample(
+	progress: float,
+	start: Vector3,
+	target: Vector3,
+) -> void:
+	_target = start.lerp(target, progress)
+	_target.y += sin(progress * PI) * 2.0
+	_bobber.global_position = _target
+
+
+func _on_cast_finished() -> void:
+	_cast_tween = null
+	_bobber_idle_elapsed = 0.0
+	_apply_bobber_idle_motion()
+	_redraw_line()
+
+
+func _apply_bobber_idle_motion() -> void:
+	var phase: float = _bobber_idle_elapsed * 0.7 * TAU
+	_target = _pending_target + Vector3.UP * sin(phase) * 0.035
+	_bobber.global_position = _target
+	_bobber.rotation.z = deg_to_rad(4.0) * sin(phase * 0.73)
+
+
+func _set_return_sample(
+	progress: float,
+	start: Vector3,
+	target: Vector3,
+) -> void:
+	var eased_progress: float = 1.0 - pow(1.0 - progress, 3.0)
+	_target = start.lerp(target, eased_progress)
+	_target.y += sin(eased_progress * PI) * 1.3
+	_bobber.global_position = _target
+	_bobber.rotation = Vector3.ZERO
+
+
+func _on_return_finished() -> void:
+	_return_tween = null
+	_active = false
+	_bobber.visible = false
+	_line.visible = false
+	_line_mesh.clear_surfaces()
+	if (
+		_return_showcase_catch != null
+		and _owner != null
+		and is_instance_valid(_owner)
+	):
+		_owner.begin_remote_catch_showcase(_return_showcase_catch)
+		_return_showcase_catch = null
+		_showcase_tween = create_tween()
+		_showcase_tween.tween_interval(2.5)
+		_showcase_tween.finished.connect(_on_showcase_finished)
+		return
+	return_completed.emit()
+
+
+func _on_showcase_finished() -> void:
+	_showcase_tween = null
+	if _owner != null and is_instance_valid(_owner):
+		_owner.end_catch_showcase()
+	return_completed.emit()
+
+
+func _kill_cast_tween() -> void:
+	if _cast_tween != null and _cast_tween.is_valid():
+		_cast_tween.kill()
+	_cast_tween = null
+
+
+func _kill_return_tween() -> void:
+	if _return_tween != null and _return_tween.is_valid():
+		_return_tween.kill()
+	_return_tween = null
+
+
+func _kill_showcase_tween() -> void:
+	if _showcase_tween != null and _showcase_tween.is_valid():
+		_showcase_tween.kill()
+	_showcase_tween = null
+
+
+func _process(delta: float) -> void:
 	if _owner != null and not _owner.is_remote_presentation_visible():
 		_bobber.visible = false
 		_line.visible = false
 		return
 	if _active:
+		if _cast_tween == null and _return_tween == null:
+			_bobber_idle_elapsed += delta
+			_apply_bobber_idle_motion()
 		_redraw_line()
 
 
