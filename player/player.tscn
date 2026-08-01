@@ -1,4 +1,4 @@
-[gd_scene load_steps=18 format=3]
+[gd_scene load_steps=16 format=3]
 
 [ext_resource type="Script" path="res://player/player.gd" id="1_script"]
 [ext_resource type="Script" path="res://inventory/fish_inventory.gd" id="2_inventory"]
@@ -17,15 +17,6 @@
 [sub_resource type="CapsuleShape3D" id="PlayerShape"]
 radius = 0.45
 height = 1.8
-
-[sub_resource type="CylinderMesh" id="FishingRodMesh"]
-top_radius = 0.025
-bottom_radius = 0.045
-height = 1.2
-
-[sub_resource type="StandardMaterial3D" id="FishingRodMaterial"]
-albedo_color = Color(0.22, 0.12, 0.06, 1)
-roughness = 0.8
 
 [sub_resource type="QuadMesh" id="GroundShadowMesh"]
 material = ExtResource("12_blob_shadow")
@@ -67,22 +58,6 @@ rotation_degrees = Vector3(0, 180, 0)
 
 [node name="AnimationPlayer" parent="Visuals/CharacterRig"]
 autoplay = "idle"
-
-[node name="FishingRodAttachment" type="BoneAttachment3D" parent="Visuals/CharacterRig/CharacterRig/Skeleton3D"]
-bone_name = "hand.R"
-
-[node name="FishingRod" type="Node3D" parent="Visuals/CharacterRig/CharacterRig/Skeleton3D/FishingRodAttachment"]
-unique_name_in_owner = true
-rotation = Vector3(-0.785398, -0.007863, 3.141593)
-
-[node name="RodMesh" type="MeshInstance3D" parent="Visuals/CharacterRig/CharacterRig/Skeleton3D/FishingRodAttachment/FishingRod"]
-position = Vector3(0, 0.42, 0)
-mesh = SubResource("FishingRodMesh")
-material_override = SubResource("FishingRodMaterial")
-
-[node name="FishingRodTip" type="Marker3D" parent="Visuals/CharacterRig/CharacterRig/Skeleton3D/FishingRodAttachment/FishingRod"]
-unique_name_in_owner = true
-position = Vector3(0, 0.95, 0)
 
 [node name="CastOrigin" type="Marker3D" parent="."]
 unique_name_in_owner = true

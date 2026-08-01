@@ -18,6 +18,9 @@ const PlayerItemEffectsType = preload(
 const PlayerCoolerCapacityType = preload(
 	"res://progression/player_cooler_capacity.gd"
 )
+const FishingRodAttachmentScene = preload(
+	"res://player/fishing_rod_attachment.tscn"
+)
 
 const CHARACTER_IDLE_ANIMATION: StringName = &"idle"
 const CHARACTER_WALKING_ANIMATION: StringName = &"walking"
@@ -103,14 +106,6 @@ class ShowcaseCameraSnapshot:
 @onready var item_effects: PlayerItemEffectsType = %ItemEffects
 @onready var cooler_capacity: PlayerCoolerCapacityType = %CoolerCapacity
 @onready var _cast_origin: Marker3D = %CastOrigin
-@onready var _fishing_rod: Node3D = get_node(
-	"Visuals/CharacterRig/CharacterRig/Skeleton3D/"
-	+ "FishingRodAttachment/FishingRod"
-) as Node3D
-@onready var _fishing_rod_tip: Marker3D = get_node(
-	"Visuals/CharacterRig/CharacterRig/Skeleton3D/"
-	+ "FishingRodAttachment/FishingRod/FishingRodTip"
-) as Marker3D
 @onready var _catch_display: Node3D = %CatchDisplay
 @onready var _catch_sprite: Sprite3D = %CatchSprite
 @onready var _held_fish_display: Node3D = %HeldFishDisplay
@@ -151,12 +146,33 @@ var _network_target_visual_yaw: float = 0.0
 var _network_snapshot_ready: bool = false
 var _character_animation_name: StringName = &""
 var _sitting: bool = false
+var _fishing_rod: Node3D
+var _fishing_rod_tip: Marker3D
 
 
 func _ready() -> void:
+	_initialize_fishing_rod()
 	_target_zoom = clampf(_spring_arm.spring_length, minimum_zoom, maximum_zoom)
 	_spring_arm.spring_length = _target_zoom
 	_camera.current = local_control_enabled
+
+
+func _initialize_fishing_rod() -> void:
+	var skeleton := get_node_or_null(
+		"Visuals/CharacterRig/CharacterRig/Skeleton3D"
+	) as Skeleton3D
+	if skeleton == null:
+		push_error("Player character skeleton is unavailable.")
+		return
+	var attachment := FishingRodAttachmentScene.instantiate() as BoneAttachment3D
+	if attachment == null:
+		push_error("Fishing rod attachment could not be instantiated.")
+		return
+	skeleton.add_child(attachment)
+	_fishing_rod = attachment.get_node("FishingRod") as Node3D
+	_fishing_rod_tip = attachment.get_node(
+		"FishingRod/FishingRodTip"
+	) as Marker3D
 
 
 func _physics_process(delta: float) -> void:
