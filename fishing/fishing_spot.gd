@@ -271,6 +271,15 @@ func can_open_fishing_shop() -> bool:
 	)
 
 
+func can_use_surface_drawing() -> bool:
+	return (
+		_gameplay_input_enabled
+		and not _external_input_blocked
+		and state == FishingState.READY
+		and _active_player == null
+	)
+
+
 func is_ready_for_shop_transaction() -> bool:
 	return (
 		_can_use_shop_gameplay()

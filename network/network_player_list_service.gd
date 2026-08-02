@@ -11,6 +11,7 @@ var _known: KnownPlayerStore
 var _spawn: PlayerSpawnService
 var _chat: NetworkChatService
 var _mail: NetworkMailService
+var _surface_drawing: NetworkSurfaceDrawingService
 var _revision := 0
 var _host_block_pairs: Dictionary[String, bool] = {}
 var _peer_fingerprints: Dictionary[int, String] = {}
@@ -94,6 +95,42 @@ func get_relationships() -> Array[Dictionary]:
 
 func get_bans() -> Array[Dictionary]:
 	return _bans.get_bans(_session.get_host_identity_fingerprint()) if _session.is_host() else []
+
+
+func set_surface_drawing_service(
+	service: NetworkSurfaceDrawingService,
+) -> void:
+	_surface_drawing = service
+	if (
+		_surface_drawing != null
+		and not _surface_drawing.session_artwork_changed.is_connected(
+			_on_session_artwork_changed
+		)
+	):
+		_surface_drawing.session_artwork_changed.connect(
+			_on_session_artwork_changed
+		)
+	_changed()
+
+
+func get_session_artwork_counts() -> Vector2i:
+	if _surface_drawing == null:
+		return Vector2i.ZERO
+	return Vector2i(
+		_surface_drawing.get_canvas_count(),
+		_surface_drawing.get_painted_cell_count(),
+	)
+
+
+func reset_session_artwork() -> bool:
+	if not _session.is_host() or _surface_drawing == null:
+		return false
+	var ok: bool = _surface_drawing.clear_session_artwork()
+	moderation_finished.emit(
+		ok,
+		"Session artwork cleared." if ok else "Session artwork could not be cleared.",
+	)
+	return ok
 
 
 func set_muted(fingerprint: String, display_name: String, value: bool) -> bool:
@@ -269,3 +306,10 @@ func _entry_before(a: PlayerListEntry, b: PlayerListEntry) -> bool:
 func _changed() -> void:
 	_revision += 1
 	entries_changed.emit()
+
+
+func _on_session_artwork_changed(
+	_canvas_count: int,
+	_painted_cell_count: int,
+) -> void:
+	_changed()

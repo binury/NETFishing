@@ -168,6 +168,7 @@ func start_private_host(port: int = DEFAULT_PORT) -> bool:
 		NetworkProtocol.PROTOCOL_VERSION,
 		_player_identity.fingerprint,
 		_player_identity.public_pem,
+		PackedStringArray([NetworkProtocol.SURFACE_DRAWING_CAPABILITY]),
 	)
 	_registry.update_appearance(1, _local_appearance_snapshot)
 	var host_profile_hello := NetworkProtocol.make_client_hello(
@@ -361,6 +362,7 @@ func supports_server_capability(capability: StringName) -> bool:
 		return str(capability) in PackedStringArray([
 			"movement_v1", "fishing_v1", "sale_v1", "shop_v1",
 			"item_use_v1", "equipment_v1", "fish_showcase_v1",
+			NetworkProtocol.SURFACE_DRAWING_CAPABILITY,
 			"chat_v1",
 			"mail_v1",
 			"profile_v1",
@@ -371,6 +373,14 @@ func supports_server_capability(capability: StringName) -> bool:
 
 func get_peer_record(peer_id: int) -> PeerRegistry.PeerRecord:
 	return _registry.get_peer(peer_id)
+
+
+func peer_supports_capability(
+	peer_id: int,
+	capability: StringName,
+) -> bool:
+	var record: PeerRegistry.PeerRecord = _registry.get_peer(peer_id)
+	return record != null and str(capability) in record.capability_flags
 
 
 func get_authenticated_peer_ids() -> Array[int]:
@@ -931,6 +941,7 @@ func submit_client_hello(data: Dictionary) -> void:
 		NetworkProtocol.PROTOCOL_VERSION,
 		identity["fingerprint"],
 		identity["public_key"],
+		_sanitized_capabilities(data.get("capability_flags", [])),
 	):
 		_reject_peer(
 			sender_id,
@@ -1062,6 +1073,7 @@ func receive_server_hello(data: Dictionary) -> void:
 		NetworkProtocol.PROTOCOL_VERSION,
 		_player_identity.fingerprint,
 		_player_identity.public_pem,
+		PackedStringArray([NetworkProtocol.SURFACE_DRAWING_CAPABILITY]),
 	)
 	_registry.update_appearance(local_peer_id, _local_appearance_snapshot)
 	var local_record := _registry.get_peer(local_peer_id)
@@ -1143,6 +1155,7 @@ func _apply_spawn_entry(entry: Dictionary) -> void:
 			NetworkProtocol.PROTOCOL_VERSION,
 			str(entry.get("identity_fingerprint", "")),
 			str(entry.get("identity_public_key", "")),
+			_sanitized_capabilities(entry.get("capability_flags", [])),
 		)
 		var added_record := _registry.get_peer(peer_id)
 		if added_record != null and added_record.identity_authenticated:
@@ -1218,7 +1231,26 @@ func _make_spawn_entry(
 			record.profile_authorization.duplicate(true)
 			if record != null else {}
 		),
+		"capability_flags": (
+			record.capability_flags.duplicate()
+			if record != null else PackedStringArray()
+		),
 	}
+
+
+func _sanitized_capabilities(value: Variant) -> PackedStringArray:
+	var result := PackedStringArray()
+	if typeof(value) not in [TYPE_ARRAY, TYPE_PACKED_STRING_ARRAY]:
+		return result
+	for capability: Variant in value:
+		if (
+			typeof(capability) in [TYPE_STRING, TYPE_STRING_NAME]
+			and not str(capability).is_empty()
+			and str(capability).length() <= 64
+			and str(capability) not in result
+		):
+			result.append(str(capability))
+	return result
 
 
 func _verify_spawn_identity(entry: Dictionary) -> bool:

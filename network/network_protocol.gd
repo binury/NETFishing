@@ -10,7 +10,7 @@ const MAX_PUBLIC_KEY_LENGTH: int = 8192
 const MAX_SIGNATURE_LENGTH: int = 2048
 # ENet channels: 0 reliable lifecycle, 1 movement input, 2 movement
 # snapshots, 3 fishing input, 4 fishing snapshots, 5 reliable sales,
-# 6 reliable shop transactions, 7 reliable item/equipment/showcase lifecycle,
+# 6 reliable shop transactions, 7 reliable item/equipment/showcase/drawing,
 # 8 reliable ordered session chat, 9 reliable private session mail.
 const SALE_RELIABLE_CHANNEL: int = 5
 const SHOP_RELIABLE_CHANNEL: int = 6
@@ -18,6 +18,7 @@ const ITEM_RELIABLE_CHANNEL: int = 7
 const CHAT_RELIABLE_CHANNEL: int = 8
 const MAIL_RELIABLE_CHANNEL: int = 9
 const ENET_CHANNEL_COUNT: int = 10
+const SURFACE_DRAWING_CAPABILITY: String = "surface_drawing_v1"
 
 enum RejectionCode {
 	NONE,
@@ -83,7 +84,9 @@ static func make_client_hello(
 		"local_profile_id": profile_id,
 		"display_name": display_name,
 		"client_nonce": client_nonce,
-		"capability_flags": PackedStringArray(),
+		"capability_flags": PackedStringArray([
+			SURFACE_DRAWING_CAPABILITY,
+		]),
 		"cosmetic_snapshot": cosmetic_snapshot,
 		"identity_fingerprint": identity_fingerprint,
 		"identity_signature": identity_signature,
@@ -122,6 +125,16 @@ static func validate_client_hello(data: Variant) -> String:
 		TYPE_ARRAY,
 	]:
 		return "Capabilities are invalid."
+	var capabilities: Variant = payload["capability_flags"]
+	if capabilities.size() > 32:
+		return "Capabilities are invalid."
+	for capability: Variant in capabilities:
+		if (
+			typeof(capability) not in [TYPE_STRING, TYPE_STRING_NAME]
+			or str(capability).is_empty()
+			or str(capability).length() > 64
+		):
+			return "Capabilities are invalid."
 	if typeof(payload["cosmetic_snapshot"]) != TYPE_DICTIONARY:
 		return "Cosmetic snapshot is invalid."
 	if (
@@ -188,6 +201,7 @@ static func make_server_hello(
 			"item_use_v1",
 			"equipment_v1",
 			"fish_showcase_v1",
+			SURFACE_DRAWING_CAPABILITY,
 			"chat_v1",
 			"mail_v1",
 			"profile_v1",

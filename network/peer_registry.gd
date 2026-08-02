@@ -16,6 +16,7 @@ class PeerRecord:
 	var identity_public_key: String = ""
 	var identity_authenticated: bool = false
 	var profile_authorization: Dictionary = {}
+	var capability_flags: PackedStringArray = PackedStringArray()
 
 
 var _records: Dictionary[int, PeerRecord] = {}
@@ -28,6 +29,7 @@ func add_peer(
 	protocol_version: int,
 	identity_fingerprint: String = "",
 	identity_public_key: String = "",
+	capability_flags: PackedStringArray = PackedStringArray(),
 ) -> bool:
 	if (
 		peer_id <= 0
@@ -49,6 +51,7 @@ func add_peer(
 	record.identity_authenticated = NetworkIdentityCrypto.valid_fingerprint(
 		identity_fingerprint
 	)
+	record.capability_flags = capability_flags.duplicate()
 	_records[peer_id] = record
 	return true
 

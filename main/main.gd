@@ -58,6 +58,9 @@ const NetworkItemUseServiceType = preload(
 const NetworkFishShowcaseServiceType = preload(
 	"res://network/network_fish_showcase_service.gd"
 )
+const NetworkSurfaceDrawingServiceType = preload(
+	"res://network/network_surface_drawing_service.gd"
+)
 const NetworkChatServiceType = preload(
 	"res://network/network_chat_service.gd"
 )
@@ -130,6 +133,9 @@ const SHOP_PATTERN_SCALE: float = 1.75
 @onready var _network_fish_showcase: NetworkFishShowcaseServiceType = (
 	%NetworkFishShowcaseService
 )
+@onready var _network_surface_drawing: NetworkSurfaceDrawingServiceType = (
+	%NetworkSurfaceDrawingService
+)
 @onready var _network_chat: NetworkChatServiceType = %NetworkChatService
 @onready var _network_mail: NetworkMailServiceType = %NetworkMailService
 @onready var _network_player_list: NetworkPlayerListService = %NetworkPlayerListService
@@ -141,6 +147,7 @@ const SHOP_PATTERN_SCALE: float = 1.75
 	%NetworkProfileService
 )
 @onready var _players_root: Node3D = $Players
+@onready var _surface_drawings_root: Node3D = $SurfaceDrawings
 @onready var _title_background: ColorRect = %TitleBackground
 @onready var _player_menu_backdrop: ColorRect = %PlayerMenuBackdrop
 @onready var _shop_backdrop: ColorRect = %ShopBackdrop
@@ -351,6 +358,16 @@ func _initialize_after_data_root() -> void:
 		_player.inventory,
 		_player.hotbar,
 	)
+	_network_surface_drawing.setup(
+		_network_session,
+		_player_spawn_service,
+		_relationships,
+		_player,
+		_surface_drawings_root,
+	)
+	_network_player_list.set_surface_drawing_service(
+		_network_surface_drawing
+	)
 	_network_chat.setup(_network_session)
 	_network_fishing.setup(
 		_network_session,
@@ -436,6 +453,7 @@ func _initialize_after_data_root() -> void:
 		_network_profile_service,
 		_network_player_list,
 		_settings_manager,
+		_network_surface_drawing,
 	)
 	_game_ui.setup_data_and_identity(
 		_data_root,

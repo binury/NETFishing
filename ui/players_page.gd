@@ -105,6 +105,8 @@ func _refresh() -> void:
 
 
 func _build_active_rows() -> void:
+	if _service.is_local_host():
+		_build_session_artwork_controls()
 	var entries := _service.get_entries()
 	if entries.is_empty():
 		_add_empty("No authenticated players.")
@@ -167,6 +169,33 @@ func _build_active_rows() -> void:
 		UtilityPageStyle.apply_ocean_button(ban)
 		row.add_child(ban)
 		_list.add_child(row)
+
+
+func _build_session_artwork_controls() -> void:
+	var counts: Vector2i = _service.get_session_artwork_counts()
+	var row := _make_row()
+	var label := Label.new()
+	label.custom_minimum_size.x = 830
+	label.text = "session artwork · %d layers · %d painted pixels" % [
+		counts.x, counts.y,
+	]
+	label.add_theme_color_override(
+		"font_color", UtilityPageStyle.OCEAN_TEXT_PRIMARY
+	)
+	row.add_child(label)
+	var reset := Button.new()
+	reset.text = "reset paint"
+	reset.disabled = counts.x == 0
+	reset.tooltip_text = "Clears all shared artwork from this session."
+	reset.pressed.connect(func() -> void:
+		_confirm(
+			"Clear all shared paint from this session?\nThis cannot be undone.",
+			_service.reset_session_artwork,
+		)
+	)
+	UtilityPageStyle.apply_ocean_button(reset)
+	row.add_child(reset)
+	_list.add_child(row)
 
 
 func _build_relationship_rows() -> void:

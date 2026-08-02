@@ -65,6 +65,10 @@ signal shop_backdrop_visibility_changed(is_visible: bool)
 @onready var _effect_status: Label = %EffectStatus
 @onready var _chat_ui: ChatUIType = %ChatUI
 @onready var _emote_radial_menu: EmoteRadialMenuType = %EmoteRadialMenu
+@onready var _marker_hud: PanelContainer = %MarkerHUD
+@onready var _marker_swatch: ColorRect = %MarkerSwatch
+@onready var _marker_summary: Label = %MarkerSummary
+@onready var _marker_help: Label = %MarkerHelp
 @onready var _title_settings_panel: SettingsPanelType = (
 	$UIRoot/TitleScreen/ResponsiveTitleStage/TitlePresentationScaleRoot/SettingsPanel
 )
@@ -84,6 +88,7 @@ var _player_menu_hotbar_visible: bool = false
 var _item_effects: PlayerItemEffectsType
 var _main_shop_buyer: FishBuyerProfileType
 var _shop_interaction: ShopInteractionType
+var _surface_drawing: NetworkSurfaceDrawingService
 
 
 func _ready() -> void:
@@ -136,6 +141,7 @@ func setup(
 	network_profile_service: NetworkProfileService,
 	network_player_list: NetworkPlayerListService,
 	settings_manager: PlayerSettingsManagerType,
+	surface_drawing: NetworkSurfaceDrawingService,
 ) -> void:
 	_player = player
 	_fishing_spot = fishing_spot
@@ -206,9 +212,30 @@ func setup(
 	)
 	_main_shop_buyer = main_shop_buyer
 	_shop_interaction = shop_interaction
+	_surface_drawing = surface_drawing
+	if _surface_drawing != null:
+		_surface_drawing.hud_state_changed.connect(
+			_on_surface_drawing_hud_state_changed
+		)
 
 
 func _input(event: InputEvent) -> void:
+	var drawing_can_open: bool = (
+		_gameplay_ui_enabled
+		and not _system_menu_open
+		and not _player_menu_open
+		and not _shop_open
+		and not _chat_input_open
+		and not _showcase_active
+		and _fishing_spot != null
+		and _fishing_spot.can_use_surface_drawing()
+	)
+	if (
+		_surface_drawing != null
+		and _surface_drawing.handle_input(event, drawing_can_open)
+	):
+		get_viewport().set_input_as_handled()
+		return
 	if _emote_radial_menu == null:
 		return
 	var can_open: bool = (
@@ -306,6 +333,8 @@ func set_gameplay_ui_enabled(enabled: bool) -> void:
 	_gameplay_transient_hud.visible = enabled and not _player_menu_open
 	_refresh_chat_availability()
 	if not enabled:
+		if _surface_drawing != null:
+			_surface_drawing.deactivate()
 		close_player_menu_for_session_end()
 		_fishing_shop.close_for_session_end()
 		_fishing_panel.visible = false
@@ -320,6 +349,8 @@ func set_gameplay_ui_enabled(enabled: bool) -> void:
 
 func set_system_menu_open(is_open: bool) -> void:
 	_system_menu_open = is_open
+	if is_open and _surface_drawing != null:
+		_surface_drawing.deactivate()
 	_refresh_chat_availability()
 	_refresh_hotbar_visibility()
 	_hotbar_ui.set_gameplay_input_enabled(
@@ -532,6 +563,8 @@ func _on_showcase_changed(
 
 func _on_player_menu_visibility_changed(is_open: bool) -> void:
 	_player_menu_open = is_open
+	if is_open and _surface_drawing != null:
+		_surface_drawing.deactivate()
 	_gameplay_transient_hud.visible = _gameplay_ui_enabled and not is_open
 	if is_open:
 		_hotbar_ui.set_drag_enabled(false)
@@ -577,6 +610,8 @@ func _on_player_menu_exit_started() -> void:
 
 func _on_shop_visibility_changed(is_open: bool) -> void:
 	_shop_open = is_open
+	if is_open and _surface_drawing != null:
+		_surface_drawing.deactivate()
 	shop_backdrop_visibility_changed.emit(is_open)
 	if not is_open and _player_menu.is_shop_cooler_mounted():
 		_player_menu.unmount_shop_cooler()
@@ -679,7 +714,38 @@ func _emit_interactive_pointer_ui_changed() -> void:
 
 func _on_chat_text_entry_ownership_changed(active: bool) -> void:
 	_chat_input_open = active
+	if active and _surface_drawing != null:
+		_surface_drawing.deactivate()
 	_emit_interactive_pointer_ui_changed()
+
+
+func _on_surface_drawing_hud_state_changed(
+	is_active: bool,
+	mode_name: String,
+	color_name: String,
+	color_value: Color,
+	brush_size: int,
+	status: String,
+) -> void:
+	_marker_hud.visible = is_active and _gameplay_ui_enabled
+	_marker_swatch.visible = mode_name != "place grid"
+	_marker_swatch.color = color_value
+	_marker_summary.text = (
+		"place shared grid"
+		if mode_name == "place grid"
+		else "marker • %s • brush %d" % [
+			color_name.to_lower(), brush_size,
+		]
+	)
+	_marker_help.text = (
+		status
+		if not status.is_empty()
+		else (
+			"click place/restore • shift hide • ctrl shift finish • shift scroll zoom"
+			if mode_name == "place grid"
+			else "click draw • shift click erase • ctrl z undo • shift scroll zoom"
+		)
+	)
 
 
 func _refresh_chat_availability() -> void:

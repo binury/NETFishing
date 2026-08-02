@@ -45,6 +45,7 @@
 [ext_resource type="Texture2D" uid="uid://b6xws1d2dnbnn" path="res://art/patterns/pattern_moneyfish.png" id="43_shop_pattern"]
 [ext_resource type="PackedScene" uid="uid://w7n4gjqq1juc" path="res://art/exported/characters/base/netfishing_base_character.glb" id="44_4pcu1"]
 [ext_resource type="Script" path="res://network/network_fish_showcase_service.gd" id="45_fish_showcase"]
+[ext_resource type="Script" path="res://network/network_surface_drawing_service.gd" id="46_surface_drawing"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_title_water_native"]
 shader = ExtResource("40_title_water")
@@ -188,6 +189,10 @@ script = ExtResource("24_network_item")
 unique_name_in_owner = true
 script = ExtResource("45_fish_showcase")
 
+[node name="NetworkSurfaceDrawingService" type="Node" parent="."]
+unique_name_in_owner = true
+script = ExtResource("46_surface_drawing")
+
 [node name="NetworkChatService" type="Node" parent="." unique_id=1956959711]
 unique_name_in_owner = true
 script = ExtResource("25_network_chat")
@@ -208,6 +213,8 @@ script = ExtResource("36_player_list")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.0024132729, 0, -0.00093126297)
 
 [node name="Players" type="Node3D" parent="." unique_id=550630144]
+
+[node name="SurfaceDrawings" type="Node3D" parent="."]
 
 [node name="Player" parent="Players" unique_id=485429332 instance=ExtResource("2_player")]
 unique_name_in_owner = true
