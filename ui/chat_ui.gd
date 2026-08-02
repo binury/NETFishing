@@ -22,7 +22,6 @@ const COLLAPSED_REVEAL_WIDTH: float = 8.0
 const HINT_EDGE_MARGIN: float = 4.0
 const CLOCK_SIZE := Vector2(116.0, 34.0)
 const CLOCK_EDGE_MARGIN: float = 10.0
-const CLOCK_PANEL_GAP: float = 8.0
 const WEATHER_ICON_SIZE := Vector2(34.0, 34.0)
 const WEATHER_ICON_GAP: float = 6.0
 const WorldTimeServiceType = preload("res://world/world_time_service.gd")
@@ -824,10 +823,7 @@ func _layout_presentation(animate: bool) -> void:
 	)
 	var clock_position := Vector2(
 		clock_x,
-		maxf(
-			CLOCK_EDGE_MARGIN,
-			target_position.y - CLOCK_SIZE.y - CLOCK_PANEL_GAP,
-		),
+		CLOCK_EDGE_MARGIN,
 	)
 	var weather_icon_x: float = (
 		clock_position.x - WEATHER_ICON_GAP - WEATHER_ICON_SIZE.x

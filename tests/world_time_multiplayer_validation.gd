@@ -129,6 +129,8 @@ func _run_client() -> void:
 	assert(clock_label.text.ends_with(" pm"))
 	assert(weather_icon.visible)
 	assert(weather_icon.get_weather() == WorldWeatherService.Weather.RAINY)
+	assert(is_equal_approx(clock_panel.position.y, 10.0))
+	assert(is_equal_approx(weather_icon.position.y, 10.0))
 	assert(clock_panel.position.y + clock_panel.size.y < chat_panel.position.y)
 
 	var update_deadline: int = Time.get_ticks_msec() + 10000
@@ -156,10 +158,12 @@ func _run_client() -> void:
 	await process_frame
 	assert(clock_panel.position.x > 1000.0)
 	assert(weather_icon.position.x < clock_panel.position.x)
+	assert(is_equal_approx(clock_panel.position.y, 10.0))
 	chat_ui.call("set_dock_right", false)
 	await process_frame
 	assert(clock_panel.position.x < 20.0)
 	assert(weather_icon.position.x > clock_panel.position.x)
+	assert(is_equal_approx(clock_panel.position.y, 10.0))
 	print("World time multiplayer client validation: PASS")
 	session.disconnect_session("")
 	main.queue_free()

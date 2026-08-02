@@ -150,13 +150,25 @@ func _run() -> void:
 		assert(presenter.get_ui_viewport_size() == expected_viewport_size)
 		assert(presenter.size.is_equal_approx(Vector2(expected_viewport_size)))
 		var chat_panel := chat_ui.get_node("ChatPanel") as Control
+		var clock_panel := chat_ui.get_node("WorldClockPanel") as Control
+		var weather_icon := chat_ui.get_node("WorldWeatherIcon") as Control
 		assert(chat_panel != null)
+		assert(clock_panel != null)
+		assert(weather_icon != null)
 		assert(chat_panel.visible)
 		assert(is_equal_approx(chat_panel.position.x, 0.0))
 		assert(is_equal_approx(
 			(chat_panel.position.y + chat_panel.size.y) * effective_scale,
 			display_size.y - ChatUI.BOTTOM_MARGIN * effective_scale,
 		))
+		assert(clock_panel.position.is_equal_approx(Vector2(
+			ChatUI.CLOCK_EDGE_MARGIN,
+			ChatUI.CLOCK_EDGE_MARGIN,
+		)))
+		assert(is_equal_approx(
+			weather_icon.position.y, ChatUI.CLOCK_EDGE_MARGIN
+		))
+		assert(weather_icon.position.x > clock_panel.position.x)
 		print(
 			(
 				"UI resize: requested=%s actual=%s viewport=%s container_scale=%.6f "
