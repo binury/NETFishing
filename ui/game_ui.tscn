@@ -1,4 +1,4 @@
-[gd_scene load_steps=15 format=3]
+[gd_scene load_steps=16 format=3]
 
 [ext_resource type="Script" path="res://ui/game_ui.gd" id="1_ui"]
 [ext_resource type="PackedScene" path="res://ui/player_menu.tscn" id="2_menu"]
@@ -10,6 +10,7 @@
 [ext_resource type="PackedScene" path="res://ui/fishing_shop.tscn" id="8_shop"]
 [ext_resource type="Script" path="res://ui/chat_ui.gd" id="9_chat"]
 [ext_resource type="PackedScene" path="res://ui/emote_radial_menu.tscn" id="10_emote"]
+[ext_resource type="PackedScene" path="res://ui/surface_drawing_toolbar.tscn" id="11_drawing_toolbar"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBox_chase_background"]
 bg_color = Color(0.032, 0.118, 0.15, 1)
@@ -34,17 +35,6 @@ corner_radius_bottom_left = 12
 [sub_resource type="StyleBoxFlat" id="StyleBox_transparent"]
 bg_color = Color(0, 0, 0, 0)
 
-[sub_resource type="StyleBoxFlat" id="StyleBox_marker_panel"]
-bg_color = Color(0.051, 0.173, 0.227, 0.96)
-corner_radius_top_left = 12
-corner_radius_top_right = 12
-corner_radius_bottom_right = 12
-corner_radius_bottom_left = 12
-content_margin_left = 14.0
-content_margin_top = 9.0
-content_margin_right = 14.0
-content_margin_bottom = 9.0
-
 [node name="GameUI" type="CanvasLayer"]
 script = ExtResource("1_ui")
 
@@ -55,6 +45,9 @@ mouse_filter = 2
 [node name="CanonicalStage" type="Control" parent="UIRoot"]
 unique_name_in_owner = true
 mouse_filter = 2
+
+[node name="SurfaceDrawingToolbar" parent="UIRoot/CanonicalStage" instance=ExtResource("11_drawing_toolbar")]
+unique_name_in_owner = true
 
 [node name="GameplayTransientHUD" type="Control" parent="UIRoot/CanonicalStage"]
 unique_name_in_owner = true
@@ -264,51 +257,6 @@ theme = ExtResource("3_theme")
 theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.9)
 theme_override_constants/shadow_offset_x = 2
 theme_override_constants/shadow_offset_y = 2
-
-[node name="MarkerHUD" type="PanelContainer" parent="UIRoot/CanonicalStage/GameplayTransientHUD"]
-unique_name_in_owner = true
-visible = false
-z_index = 58
-anchors_preset = 10
-anchor_left = 1.0
-anchor_right = 1.0
-offset_left = -510.0
-offset_top = 18.0
-offset_right = -18.0
-offset_bottom = 92.0
-grow_horizontal = 0
-mouse_filter = 2
-theme = ExtResource("3_theme")
-theme_override_styles/panel = SubResource("StyleBox_marker_panel")
-
-[node name="Layout" type="HBoxContainer" parent="UIRoot/CanonicalStage/GameplayTransientHUD/MarkerHUD"]
-layout_mode = 2
-theme_override_constants/separation = 12
-
-[node name="MarkerSwatch" type="ColorRect" parent="UIRoot/CanonicalStage/GameplayTransientHUD/MarkerHUD/Layout"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(42, 42)
-layout_mode = 2
-mouse_filter = 2
-color = Color(0.960784, 0.933333, 0.85098, 1)
-
-[node name="Text" type="VBoxContainer" parent="UIRoot/CanonicalStage/GameplayTransientHUD/MarkerHUD/Layout"]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_constants/separation = 0
-
-[node name="MarkerSummary" type="Label" parent="UIRoot/CanonicalStage/GameplayTransientHUD/MarkerHUD/Layout/Text"]
-unique_name_in_owner = true
-layout_mode = 2
-text = "marker • chalk white • brush 1"
-theme_override_font_sizes/font_size = 18
-
-[node name="MarkerHelp" type="Label" parent="UIRoot/CanonicalStage/GameplayTransientHUD/MarkerHUD/Layout/Text"]
-unique_name_in_owner = true
-layout_mode = 2
-text = "click draw • shift erase • ctrl z undo • shift scroll zoom"
-theme_override_colors/font_color = Color(0.623529, 0.811765, 0.823529, 1)
-theme_override_font_sizes/font_size = 13
 
 [node name="ChatUI" type="Control" parent="UIRoot"]
 unique_name_in_owner = true

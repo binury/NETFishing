@@ -19,6 +19,7 @@ const PlayerSettingsType = preload("res://settings/player_settings.gd")
 const TitleScreenType = preload("res://ui/title_screen.gd")
 const PauseMenuType = preload("res://ui/pause_menu.gd")
 const ItemCatalogType = preload("res://items/item_catalog.gd")
+const ArtShopStockType = preload("res://economy/art_shop_stock.gd")
 const ItemDataType = preload("res://items/item_data.gd")
 const FishingShopType = preload("res://ui/fishing_shop.gd")
 const FishingShopInteractionType = preload(
@@ -323,7 +324,8 @@ func _initialize_after_data_root() -> void:
 		_player.hotbar,
 		item_catalog,
 		_player.fishing_upgrades,
-		_player.cooler_capacity
+		_player.cooler_capacity,
+		_player.art_unlocks,
 	)
 	_save_manager.set_autosave_enabled(false)
 	_asset_reservations.setup(
@@ -364,6 +366,8 @@ func _initialize_after_data_root() -> void:
 		_relationships,
 		_player,
 		_surface_drawings_root,
+		_player.bag,
+		_player.art_unlocks,
 	)
 	_network_player_list.set_surface_drawing_service(
 		_network_surface_drawing
@@ -408,6 +412,7 @@ func _initialize_after_data_root() -> void:
 		item_catalog,
 		_player.fishing_upgrades,
 		_player.cooler_capacity,
+		_player.art_unlocks,
 		_save_manager,
 		_asset_reservations
 	)
@@ -454,6 +459,7 @@ func _initialize_after_data_root() -> void:
 		_network_player_list,
 		_settings_manager,
 		_network_surface_drawing,
+		_player.art_unlocks,
 	)
 	_game_ui.setup_data_and_identity(
 		_data_root,
@@ -1339,6 +1345,12 @@ func _on_active_hotbar_item_changed(
 		and _player.bag.owns_item(item_id)
 	)
 	_player.set_active_item_is_rod(active_is_rod)
+	_player.set_active_art_kit(
+		item.icon if item != null else null,
+		item_id == ArtShopStockType.ART_KIT_ITEM_ID
+		and item != null
+		and _player.bag.owns_item(item_id),
+	)
 	_network_item_use.submit_local_equipped(item_id, active_is_rod or (
 		item != null and _player.bag.owns_item(item_id)
 	))

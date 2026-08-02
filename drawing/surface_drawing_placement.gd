@@ -11,6 +11,7 @@ static func resolve(
 	normal: Vector3,
 	fallback_tangent: Vector3,
 	canvas_states: Array[Dictionary],
+	requested_grid_size: int = SurfaceDrawingProtocol.DEFAULT_GRID_SIZE,
 ) -> Dictionary:
 	var surface_normal: Vector3 = normal.normalized()
 	var surface_tangent: Vector3 = _projected_tangent(
@@ -46,16 +47,25 @@ static func resolve(
 		).normalized()
 		var width: float = float(state["width"]) * float(state["cell_size"])
 		var height: float = float(state["height"]) * float(state["cell_size"])
+		var requested_extent: float = (
+			float(requested_grid_size) * SurfaceDrawingProtocol.CELL_SIZE
+		)
 		if width <= 0.0 or height <= 0.0:
 			continue
-		var horizontal_step: int = roundi(relative.dot(anchor_tangent) / width)
-		var vertical_step: int = roundi(relative.dot(anchor_bitangent) / height)
+		var horizontal_spacing: float = (width + requested_extent) * 0.5
+		var vertical_spacing: float = (height + requested_extent) * 0.5
+		var horizontal_step: int = roundi(
+			relative.dot(anchor_tangent) / horizontal_spacing
+		)
+		var vertical_step: int = roundi(
+			relative.dot(anchor_bitangent) / vertical_spacing
+		)
 		if horizontal_step == 0 and vertical_step == 0:
 			continue
 		var candidate: Vector3 = (
 			anchor_origin
-			+ anchor_tangent * float(horizontal_step) * width
-			+ anchor_bitangent * float(vertical_step) * height
+			+ anchor_tangent * float(horizontal_step) * horizontal_spacing
+			+ anchor_bitangent * float(vertical_step) * vertical_spacing
 		)
 		var distance: float = candidate.distance_to(origin)
 		if distance > nearest_distance:

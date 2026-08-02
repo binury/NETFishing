@@ -18,6 +18,9 @@ const PlayerItemEffectsType = preload(
 const PlayerCoolerCapacityType = preload(
 	"res://progression/player_cooler_capacity.gd"
 )
+const PlayerArtUnlocksType = preload(
+	"res://progression/player_art_unlocks.gd"
+)
 const FishingRodAttachmentScene = preload(
 	"res://player/fishing_rod_attachment.tscn"
 )
@@ -105,11 +108,13 @@ class ShowcaseCameraSnapshot:
 @onready var fishing_upgrades: PlayerFishingUpgradesType = %FishingUpgrades
 @onready var item_effects: PlayerItemEffectsType = %ItemEffects
 @onready var cooler_capacity: PlayerCoolerCapacityType = %CoolerCapacity
+@onready var art_unlocks: PlayerArtUnlocksType = %ArtUnlocks
 @onready var _cast_origin: Marker3D = %CastOrigin
 @onready var _catch_display: Node3D = %CatchDisplay
 @onready var _catch_sprite: Sprite3D = %CatchSprite
 @onready var _held_fish_display: Node3D = %HeldFishDisplay
 @onready var _held_fish_sprite: Sprite3D = %HeldFishSprite
+@onready var _held_art_kit_sprite: Sprite3D = %HeldArtKitSprite
 
 var _gravity: float = float(ProjectSettings.get_setting("physics/3d/default_gravity"))
 var _camera_dragging: bool = false
@@ -719,6 +724,11 @@ func set_active_item_is_rod(active_is_rod: bool) -> void:
 		_showcase_rod_visibility = active_is_rod
 	else:
 		_fishing_rod.visible = active_is_rod
+
+
+func set_active_art_kit(icon: Texture2D, should_show: bool) -> void:
+	_held_art_kit_sprite.texture = icon if should_show else null
+	_held_art_kit_sprite.visible = should_show and icon != null
 
 
 func set_held_fish(

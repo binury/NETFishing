@@ -36,6 +36,7 @@ const FishingSurfaceSampleType = preload(
 const FishingSurfaceResolverType = preload(
 	"res://fishing/fishing_surface_resolver.gd"
 )
+const ArtShopStockType = preload("res://economy/art_shop_stock.gd")
 
 signal status_changed(status: String)
 signal catch_display_changed(
@@ -56,6 +57,7 @@ signal showcase_changed(
 signal bite_activated
 signal ready_for_equipment_refresh
 signal fish_showcase_toggle_requested
+signal art_ui_toggle_requested
 
 enum FishingState {
 	READY,
@@ -467,6 +469,13 @@ func _unhandled_input(event: InputEvent) -> void:
 					get_viewport().set_input_as_handled()
 					return
 				var active_item: ItemDataType = _get_active_item()
+				if (
+					active_item != null
+					and active_item.item_id == ArtShopStockType.ART_KIT_ITEM_ID
+				):
+					art_ui_toggle_requested.emit()
+					get_viewport().set_input_as_handled()
+					return
 				if (
 					active_item != null
 					and active_item.category == ItemDataType.Category.CONSUMABLE

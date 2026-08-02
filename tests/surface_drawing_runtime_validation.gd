@@ -28,6 +28,8 @@ func _run() -> void:
 	await physics_frame
 
 	var player := main.get("_player") as Player
+	assert(player.bag.add_item(&"art_kit", 1))
+	assert(player.art_unlocks.restore_mask(PlayerArtUnlocks.ALL_UNLOCK_MASK))
 	var service := main.get_node(
 		"%NetworkSurfaceDrawingService"
 	) as NetworkSurfaceDrawingService
@@ -119,19 +121,19 @@ func _validate_marker_controls(
 	var prior_mouse_mode: Input.MouseMode = Input.mouse_mode
 	service.activate()
 	assert(service.is_active())
-	assert(not service.is_placement_mode())
+	assert(service.is_placement_mode())
 	if DisplayServer.get_name() != "headless":
-		assert(Input.mouse_mode == Input.MOUSE_MODE_CAPTURED)
+		assert(Input.mouse_mode == Input.MOUSE_MODE_VISIBLE)
 
 	var placement_key := InputEventKey.new()
 	placement_key.physical_keycode = KEY_R
 	placement_key.pressed = true
 	assert(service.handle_input(placement_key, true))
-	assert(service.is_placement_mode())
+	assert(not service.is_placement_mode())
 
 	var pointer_before: Vector2 = service.get_pointer_screen_position()
 	var pointer_motion := InputEventMouseMotion.new()
-	pointer_motion.screen_relative = Vector2(30.0, -12.0)
+	pointer_motion.position = pointer_before + Vector2(30.0, -12.0)
 	assert(service.handle_input(pointer_motion, true))
 	assert(service.get_pointer_screen_position() != pointer_before)
 	var zoom_event := InputEventMouseButton.new()
@@ -156,6 +158,6 @@ func _validate_marker_controls(
 	assert(not service.handle_input(camera_release, true))
 
 	assert(service.handle_input(placement_key, true))
-	assert(not service.is_placement_mode())
+	assert(service.is_placement_mode())
 	service.deactivate()
 	assert(Input.mouse_mode == prior_mouse_mode)

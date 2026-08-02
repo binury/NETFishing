@@ -17,6 +17,9 @@ const PlayerFishingUpgradesType = preload(
 const PlayerCoolerCapacityType = preload(
 	"res://progression/player_cooler_capacity.gd"
 )
+const PlayerArtUnlocksType = preload(
+	"res://progression/player_art_unlocks.gd"
+)
 
 const SAVE_VERSION: int = 4
 const BASIC_ROD_ID: StringName = &"basic_fishing_rod"
@@ -36,6 +39,7 @@ class LoadSnapshot:
 	var reel_speed_level: int = 0
 	var barrier_power_level: int = 0
 	var cooler_capacity_level: int = 0
+	var art_unlock_mask: int = 0
 
 
 @export_range(0.05, 5.0, 0.05) var autosave_delay: float = 0.5
@@ -49,6 +53,7 @@ var _hotbar: PlayerHotbarType
 var _item_catalog: ItemCatalogType
 var _fishing_upgrades: PlayerFishingUpgradesType
 var _cooler_capacity: PlayerCoolerCapacityType
+var _art_unlocks: PlayerArtUnlocksType
 var _autosave_timer: Timer
 var _is_configured: bool = false
 var _is_restoring: bool = false
@@ -90,6 +95,7 @@ func setup(
 	item_catalog: ItemCatalogType,
 	fishing_upgrades: PlayerFishingUpgradesType,
 	cooler_capacity: PlayerCoolerCapacityType,
+	art_unlocks: PlayerArtUnlocksType,
 ) -> void:
 	_inventory = inventory
 	_collection_log = collection_log
@@ -100,6 +106,7 @@ func setup(
 	_item_catalog = item_catalog
 	_fishing_upgrades = fishing_upgrades
 	_cooler_capacity = cooler_capacity
+	_art_unlocks = art_unlocks
 	_is_configured = (
 		_inventory != null
 		and _collection_log != null
@@ -110,6 +117,7 @@ func setup(
 		and _item_catalog != null
 		and _fishing_upgrades != null
 		and _cooler_capacity != null
+		and _art_unlocks != null
 	)
 	if not _is_configured:
 		push_error("PlayerSaveManager setup is missing required references.")
@@ -142,6 +150,8 @@ func setup(
 		_cooler_capacity.capacity_changed.connect(
 			_on_cooler_capacity_changed
 		)
+	if not _art_unlocks.unlocks_changed.is_connected(_on_art_unlocks_changed):
+		_art_unlocks.unlocks_changed.connect(_on_art_unlocks_changed)
 
 
 func load_player_data() -> bool:
@@ -216,6 +226,9 @@ func load_player_data() -> bool:
 	var cooler_restored: bool = _cooler_capacity.restore_level(
 		snapshot.cooler_capacity_level
 	)
+	var art_restored: bool = _art_unlocks.restore_mask(
+		snapshot.art_unlock_mask
+	)
 	_is_restoring = false
 	if (
 		not inventory_restored
@@ -225,6 +238,7 @@ func load_player_data() -> bool:
 		or not hotbar_restored
 		or not upgrades_restored
 		or not cooler_restored
+		or not art_restored
 	):
 		push_error("Validated player save could not be restored.")
 		return false
@@ -431,6 +445,7 @@ func _build_save_dictionary() -> Dictionary:
 		},
 		"upgrades": _fishing_upgrades.to_save_data(),
 		"cooler": _cooler_capacity.to_save_data(),
+		"art": _art_unlocks.to_save_data(),
 	}
 
 
@@ -450,6 +465,7 @@ func _build_load_snapshot(save_data: Dictionary) -> LoadSnapshot:
 	var hotbar_data: Dictionary = save_data["hotbar"]
 	var upgrades_data: Dictionary = {}
 	var cooler_data: Dictionary = {}
+	var art_data: Dictionary = {}
 	if typeof(save_data.get("upgrades")) == TYPE_DICTIONARY:
 		upgrades_data = save_data["upgrades"]
 	else:
@@ -460,6 +476,8 @@ func _build_load_snapshot(save_data: Dictionary) -> LoadSnapshot:
 		cooler_data = save_data["cooler"]
 	else:
 		push_warning("Saved Cooler data was missing or invalid; using defaults.")
+	if typeof(save_data.get("art")) == TYPE_DICTIONARY:
+		art_data = save_data["art"]
 	if (
 		not wallet_data.has("balance")
 		or typeof(collection_data.get("discovered_fish_ids")) != TYPE_ARRAY
@@ -657,6 +675,11 @@ func _build_load_snapshot(save_data: Dictionary) -> LoadSnapshot:
 		PlayerCoolerCapacityType.MAX_LEVEL,
 		"cooler.capacity_level"
 	)
+	snapshot.art_unlock_mask = _read_integer(
+		art_data.get("unlock_mask"),
+		0,
+		PlayerArtUnlocksType.ALL_UNLOCK_MASK,
+	)
 	return snapshot
 
 
@@ -766,6 +789,10 @@ func _on_cooler_capacity_changed(
 	_mark_dirty()
 
 
+func _on_art_unlocks_changed(_unlock_mask: int) -> void:
+	_mark_dirty()
+
+
 func _on_autosave_timeout() -> void:
 	if _is_dirty:
 		save_now()
@@ -822,6 +849,7 @@ func _restore_defaults() -> void:
 	_hotbar.replace_state(default_slots, 0)
 	_fishing_upgrades.reset_to_defaults()
 	_cooler_capacity.reset_to_defaults()
+	_art_unlocks.reset_to_defaults()
 	_is_restoring = false
 	_is_dirty = false
 

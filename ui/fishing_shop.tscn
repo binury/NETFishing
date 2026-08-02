@@ -167,7 +167,7 @@ theme_override_constants/separation = 6
 
 [node name="Title" type="Label" parent="ShopPanel/Margin/Layout/Body/Supplies"]
 layout_mode = 2
-text = "supplies"
+text = "shop stock"
 theme_override_font_sizes/font_size = 23
 
 [node name="Scroll" type="ScrollContainer" parent="ShopPanel/Margin/Layout/Body/Supplies"]

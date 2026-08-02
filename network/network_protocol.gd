@@ -18,7 +18,8 @@ const ITEM_RELIABLE_CHANNEL: int = 7
 const CHAT_RELIABLE_CHANNEL: int = 8
 const MAIL_RELIABLE_CHANNEL: int = 9
 const ENET_CHANNEL_COUNT: int = 10
-const SURFACE_DRAWING_CAPABILITY: String = "surface_drawing_v1"
+const SURFACE_DRAWING_CAPABILITY: String = "surface_drawing_v2"
+const ART_SHOP_CAPABILITY: String = "art_shop_v1"
 
 enum RejectionCode {
 	NONE,
@@ -198,6 +199,7 @@ static func make_server_hello(
 			"fishing_v1",
 			"sale_v1",
 			"shop_v1",
+			ART_SHOP_CAPABILITY,
 			"item_use_v1",
 			"equipment_v1",
 			"fish_showcase_v1",

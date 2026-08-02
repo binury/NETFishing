@@ -14,6 +14,7 @@ func _initialize() -> void:
 
 func _run() -> void:
 	_validate_palette()
+	_validate_art_unlocks()
 	_validate_protocol_bounds()
 	_validate_grid_snapping()
 	await _validate_canvas_geometry_and_collaboration()
@@ -37,13 +38,14 @@ func _validate_palette() -> void:
 
 
 func _validate_protocol_bounds() -> void:
-	assert(SurfaceDrawingProtocol.GRID_WIDTH == 32)
-	assert(SurfaceDrawingProtocol.GRID_HEIGHT == 32)
+	assert(SurfaceDrawingProtocol.GRID_WIDTH == 16)
+	assert(SurfaceDrawingProtocol.GRID_HEIGHT == 16)
+	assert(SurfaceDrawingProtocol.GRID_SIZES == [16, 32, 64, 128])
 	assert(is_equal_approx(SurfaceDrawingProtocol.CELL_SIZE, 0.075))
 	assert(is_equal_approx(
 		float(SurfaceDrawingProtocol.GRID_WIDTH)
 			* SurfaceDrawingProtocol.CELL_SIZE,
-		2.4,
+		1.2,
 	))
 	var canvas_request: Dictionary = {
 		"request_id": "canvas-1",
@@ -64,15 +66,28 @@ func _validate_protocol_bounds() -> void:
 		"session_id": "session",
 		"canvas_id": "canvas-1",
 		"stroke_id": "stroke-1",
+		"brush_size": 1,
 		"edits": [{"x": 0, "y": 0, "color_id": "ocean_teal"}],
 	}
 	assert(SurfaceDrawingProtocol.validate_edit_request(edit_request))
 	edit_request["edits"] = [{
-		"x": SurfaceDrawingProtocol.GRID_WIDTH,
+		"x": SurfaceDrawingProtocol.MAX_GRID_SIZE,
 		"y": 0,
 		"color_id": "ocean_teal",
 	}]
 	assert(not SurfaceDrawingProtocol.validate_edit_request(edit_request))
+	edit_request["edits"] = [{"x": 0, "y": 0, "color_id": "ocean_teal"}]
+	edit_request["brush_size"] = 5
+	assert(not SurfaceDrawingProtocol.validate_edit_request(edit_request))
+	for grid_size: int in SurfaceDrawingProtocol.GRID_SIZES:
+		var sized_request: Dictionary = canvas_request.duplicate(true)
+		sized_request["width"] = grid_size
+		sized_request["height"] = grid_size
+		assert(SurfaceDrawingProtocol.validate_canvas_request(sized_request))
+	var unsupported_size: Dictionary = canvas_request.duplicate(true)
+	unsupported_size["width"] = 48
+	unsupported_size["height"] = 48
+	assert(not SurfaceDrawingProtocol.validate_canvas_request(unsupported_size))
 	var guide_request: Dictionary = {
 		"request_id": "guide-1",
 		"session_id": "session",
@@ -89,6 +104,20 @@ func _validate_protocol_bounds() -> void:
 		"stroke_id": "stroke-1",
 	}
 	assert(SurfaceDrawingProtocol.validate_undo_request(undo_request))
+
+
+func _validate_art_unlocks() -> void:
+	var unlocks := PlayerArtUnlocks.new()
+	assert(unlocks.get_unlocked_color_ids() == [&"chalk_white"])
+	assert(unlocks.get_unlocked_brush_sizes() == [1])
+	assert(unlocks.get_unlocked_grid_sizes() == [16])
+	assert(unlocks.unlock_product(&"marker_ocean_teal"))
+	assert(unlocks.unlock_product(&"brush_4x"))
+	assert(unlocks.unlock_product(&"grid_128x"))
+	assert(unlocks.is_color_unlocked(&"ocean_teal"))
+	assert(unlocks.is_brush_size_unlocked(4))
+	assert(unlocks.is_grid_size_unlocked(128))
+	assert(not unlocks.restore_mask(PlayerArtUnlocks.ALL_UNLOCK_MASK + 1))
 
 
 func _validate_grid_snapping() -> void:
@@ -109,16 +138,16 @@ func _validate_grid_snapping() -> void:
 		"cells": [],
 	}
 	var snapped: Dictionary = SurfaceDrawingPlacement.resolve(
-		Vector3(2.28, 0.02, 0.08),
+		Vector3(1.08, 0.02, 0.08),
 		Vector3.UP,
 		Vector3.RIGHT,
 		[anchor],
 	)
 	assert(bool(snapped["snapped"]))
 	var snapped_origin: Vector3 = snapped["origin"]
-	assert(snapped_origin.is_equal_approx(Vector3(2.4, 0.0, 0.0)))
+	assert(snapped_origin.is_equal_approx(Vector3(1.2, 0.0, 0.0)))
 	var unsnapped: Dictionary = SurfaceDrawingPlacement.resolve(
-		Vector3(1.2, 0.0, 0.0),
+		Vector3(0.6, 0.0, 0.0),
 		Vector3.UP,
 		Vector3.RIGHT,
 		[anchor],

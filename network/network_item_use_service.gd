@@ -1,6 +1,8 @@
 class_name NetworkItemUseService
 extends Node
 
+const ArtShopStockType = preload("res://economy/art_shop_stock.gd")
+
 const MAX_LEDGER_ENTRIES: int = 64
 
 signal local_item_use_pending(request_id: String)
@@ -324,8 +326,12 @@ func _apply_equipped(data: Dictionary) -> void:
 	var peer_id: int = data["owner_peer_id"]
 	var avatar := _spawn_service.get_avatar(peer_id)
 	if avatar != null:
-		avatar.set_active_item_is_rod(
-			int(data["category"]) == ItemData.Category.ROD
+		var item_id := StringName(str(data["item_id"]))
+		var item: ItemData = _catalog.get_item_by_id(item_id)
+		avatar.set_active_item_is_rod(int(data["category"]) == ItemData.Category.ROD)
+		avatar.set_active_art_kit(
+			item.icon if item != null else null,
+			item_id == ArtShopStockType.ART_KIT_ITEM_ID and bool(data["owns_item"]),
 		)
 	equipped_state_changed.emit(
 		peer_id, StringName(str(data["item_id"])), int(data["category"])

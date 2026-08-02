@@ -17,6 +17,10 @@ const PlayerType = preload("res://player/player.gd")
 const PlayerCoolerCapacityType = preload(
 	"res://progression/player_cooler_capacity.gd"
 )
+const PlayerArtUnlocksType = preload(
+	"res://progression/player_art_unlocks.gd"
+)
+const ArtShopStockType = preload("res://economy/art_shop_stock.gd")
 const ShopInteractionType = preload(
 	"res://world/fishing_shop_interaction.gd"
 )
@@ -66,6 +70,7 @@ var _interaction: ShopInteractionType
 var _bag: PlayerBagType
 var _item_catalog: ItemCatalogType
 var _cooler_capacity: PlayerCoolerCapacityType
+var _art_unlocks: PlayerArtUnlocksType
 var _network_shop: NetworkShopService
 var _prior_movement_enabled: bool = true
 var _prior_camera_enabled: bool = true
@@ -102,10 +107,10 @@ func _request_shop_cooler() -> void:
 
 func _focus_buy_page() -> void:
 	_feedback.text = ""
-	if _supplies_list.get_child_count() > 0:
-		var first_supply := _supplies_list.get_child(0) as Button
-		if first_supply != null and not first_supply.disabled:
-			first_supply.grab_focus()
+	for child: Node in _supplies_list.get_children():
+		var stock_button := child as Button
+		if stock_button != null and not stock_button.disabled:
+			stock_button.grab_focus()
 			return
 	_reel_purchase.grab_focus()
 
@@ -160,6 +165,7 @@ func setup(
 	bag: PlayerBagType,
 	item_catalog: ItemCatalogType,
 	cooler_capacity: PlayerCoolerCapacityType,
+	art_unlocks: PlayerArtUnlocksType,
 	network_shop: NetworkShopService,
 ) -> void:
 	_player = player
@@ -171,6 +177,7 @@ func setup(
 	_bag = bag
 	_item_catalog = item_catalog
 	_cooler_capacity = cooler_capacity
+	_art_unlocks = art_unlocks
 	_network_shop = network_shop
 	if (
 		_network_shop != null
@@ -194,6 +201,8 @@ func setup(
 		_on_cooler_capacity_changed
 	):
 		_cooler_capacity.capacity_changed.connect(_on_cooler_capacity_changed)
+	if not _art_unlocks.unlocks_changed.is_connected(_on_art_unlocks_changed):
+		_art_unlocks.unlocks_changed.connect(_on_art_unlocks_changed)
 	_refresh_all()
 
 
@@ -402,6 +411,7 @@ func _refresh_supplies() -> void:
 	for child: Node in _supplies_list.get_children():
 		_supplies_list.remove_child(child)
 		child.queue_free()
+	_add_stock_section("supplies")
 	for item_id: StringName in FishingShopStockType.get_stock_item_ids():
 		var item: ItemDataType = _item_catalog.get_item_by_id(item_id)
 		if item == null:
@@ -435,6 +445,92 @@ func _refresh_supplies() -> void:
 		UtilityPageStyleType.apply_ocean_button(button)
 		button.pressed.connect(_purchase_supply.bind(item_id))
 		_supplies_list.add_child(button)
+	_add_stock_section("art kit")
+	_add_art_kit_button()
+	_add_stock_section("markers")
+	for product_id: StringName in ArtShopStockType.MARKER_PRODUCTS:
+		_add_art_upgrade_button(product_id)
+	_add_stock_section("brushes")
+	for product_id: StringName in ArtShopStockType.BRUSH_PRODUCTS:
+		_add_art_upgrade_button(product_id)
+	_add_stock_section("grids")
+	for product_id: StringName in ArtShopStockType.GRID_PRODUCTS:
+		_add_art_upgrade_button(product_id)
+
+
+func _add_stock_section(title: String) -> void:
+	var label := Label.new()
+	label.text = title
+	label.add_theme_font_size_override("font_size", 21)
+	label.add_theme_color_override(
+		"font_color", UtilityPageStyleType.OCEAN_TEXT_SECONDARY
+	)
+	_supplies_list.add_child(label)
+
+
+func _add_art_kit_button() -> void:
+	var item: ItemDataType = _item_catalog.get_item_by_id(
+		ArtShopStockType.ART_KIT_ITEM_ID
+	)
+	if item == null:
+		return
+	var owned: bool = _bag.get_quantity(ArtShopStockType.ART_KIT_ITEM_ID) > 0
+	var button: Button = _make_stock_button(
+		"%s\n$%d • %s" % [
+			item.display_name,
+			ArtShopStockType.ART_KIT_PRICE,
+			"owned" if owned else "not owned",
+		],
+		item.description,
+	)
+	button.icon = item.icon
+	button.expand_icon = true
+	button.disabled = (
+		owned
+		or _transaction_in_progress
+		or _closing
+		or _network_shop == null
+		or not _network_shop.can_request_art_purchase()
+		or not _bag.can_add_item(ArtShopStockType.ART_KIT_ITEM_ID, 1)
+		or not _wallet.can_afford(ArtShopStockType.ART_KIT_PRICE)
+	)
+	button.pressed.connect(_purchase_art_kit)
+
+
+func _add_art_upgrade_button(product_id: StringName) -> void:
+	var kit_owned: bool = (
+		_bag.get_quantity(ArtShopStockType.ART_KIT_ITEM_ID) > 0
+	)
+	var unlocked: bool = _art_unlocks.owns_product(product_id)
+	var button: Button = _make_stock_button(
+		"%s\n$%d • %s" % [
+			ArtShopStockType.get_display_name(product_id),
+			ArtShopStockType.UPGRADE_PRICE,
+			"unlocked" if unlocked else "locked",
+		],
+		ArtShopStockType.get_description(product_id),
+	)
+	button.disabled = (
+		not kit_owned
+		or unlocked
+		or _transaction_in_progress
+		or _closing
+		or _network_shop == null
+		or not _network_shop.can_request_art_purchase()
+		or not _wallet.can_afford(ArtShopStockType.UPGRADE_PRICE)
+	)
+	button.pressed.connect(_purchase_art_upgrade.bind(product_id))
+
+
+func _make_stock_button(button_text: String, tooltip: String) -> Button:
+	var button := Button.new()
+	button.custom_minimum_size = Vector2(195, 54)
+	button.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	button.text = button_text
+	button.tooltip_text = tooltip
+	UtilityPageStyleType.apply_ocean_button(button)
+	_supplies_list.add_child(button)
+	return button
 
 
 func _refresh_cooler_capacity() -> void:
@@ -488,6 +584,20 @@ func _purchase_supply(item_id: StringName) -> void:
 		_feedback.text = "Purchase could not be completed."
 		return
 	_network_shop.request_supply(item_id)
+
+
+func _purchase_art_kit() -> void:
+	if _network_shop == null or not _is_transaction_context_valid():
+		_feedback.text = "Purchase could not be completed."
+		return
+	_network_shop.request_art_kit()
+
+
+func _purchase_art_upgrade(product_id: StringName) -> void:
+	if _network_shop == null or not _is_transaction_context_valid():
+		_feedback.text = "Purchase could not be completed."
+		return
+	_network_shop.request_art_upgrade(product_id)
 
 
 func _purchase_cooler_capacity() -> void:
@@ -592,6 +702,10 @@ func _on_bag_changed() -> void:
 
 func _on_cooler_capacity_changed(_level: int, _capacity: int) -> void:
 	_refresh_cooler_capacity()
+
+
+func _on_art_unlocks_changed(_unlock_mask: int) -> void:
+	_refresh_supplies()
 
 
 func _apply_mouse_close_policy(reason: CloseReason) -> void:

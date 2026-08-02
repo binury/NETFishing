@@ -30,6 +30,9 @@ func _run_host() -> void:
 	main.call("_enter_gameplay")
 	await physics_frame
 	await physics_frame
+	var player := main.get("_player") as Player
+	assert(player.bag.add_item(&"art_kit", 1))
+	assert(player.art_unlocks.restore_mask(PlayerArtUnlocks.ALL_UNLOCK_MASK))
 
 	var service := main.get_node(
 		"%NetworkSurfaceDrawingService"
@@ -133,6 +136,9 @@ func _run_client() -> void:
 	assert(session.supports_server_capability(
 		SurfaceDrawingProtocol.CAPABILITY
 	))
+	var player := main.get("_player") as Player
+	assert(player.bag.add_item(&"art_kit", 1))
+	assert(player.art_unlocks.restore_mask(PlayerArtUnlocks.ALL_UNLOCK_MASK))
 
 	var service := main.get_node(
 		"%NetworkSurfaceDrawingService"

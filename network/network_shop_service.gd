@@ -6,6 +6,7 @@ const FishingShopStockType = preload(
 )
 const ItemDataType = preload("res://items/item_data.gd")
 const OwnedItemType = preload("res://items/owned_item.gd")
+const ArtShopStockType = preload("res://economy/art_shop_stock.gd")
 
 const SHOP_ID: StringName = &"main_fishing_shop"
 const REEL_PRODUCT_ID: StringName = &"reel_speed_upgrade"
@@ -33,6 +34,7 @@ var _bag: PlayerBag
 var _item_catalog: ItemCatalog
 var _upgrades: PlayerFishingUpgrades
 var _cooler_capacity: PlayerCoolerCapacity
+var _art_unlocks: PlayerArtUnlocks
 var _save_manager: PlayerSaveManager
 var _request_ledgers: Dictionary[int, Dictionary] = {}
 var _pending_by_peer: Dictionary[int, String] = {}
@@ -54,6 +56,7 @@ func setup(
 	item_catalog: ItemCatalog,
 	upgrades: PlayerFishingUpgrades,
 	cooler_capacity: PlayerCoolerCapacity,
+	art_unlocks: PlayerArtUnlocks,
 	save_manager: PlayerSaveManager,
 	reservations: PlayerAssetReservationService,
 ) -> void:
@@ -66,6 +69,7 @@ func setup(
 	_item_catalog = item_catalog
 	_upgrades = upgrades
 	_cooler_capacity = cooler_capacity
+	_art_unlocks = art_unlocks
 	_save_manager = save_manager
 	_reservations = reservations
 	if not _session.peer_removed.is_connected(_on_peer_removed):
@@ -82,6 +86,18 @@ func can_request_purchase() -> bool:
 			_session.is_host()
 			or _session.supports_server_capability(
 				NetworkShopProtocol.CAPABILITY
+			)
+		)
+	)
+
+
+func can_request_art_purchase() -> bool:
+	return (
+		can_request_purchase()
+		and (
+			_session.is_host()
+			or _session.supports_server_capability(
+				NetworkShopProtocol.ART_CAPABILITY
 			)
 		)
 	)
@@ -127,6 +143,39 @@ func request_cooler_capacity_upgrade() -> String:
 	)
 
 
+func request_art_kit() -> String:
+	return _request_purchase(
+		ArtShopStockType.ART_KIT_ITEM_ID,
+		NetworkShopProtocol.ProductCategory.ART_KIT,
+		1,
+		_bag.get_quantity(ArtShopStockType.ART_KIT_ITEM_ID)
+		if _bag != null else 0,
+	)
+
+
+func request_art_upgrade(product_id: StringName) -> String:
+	if (
+		_bag == null
+		or not _bag.owns_item(ArtShopStockType.ART_KIT_ITEM_ID)
+	):
+		local_purchase_finished.emit(
+			"",
+			false,
+			"Own an Art Kit before buying upgrades.",
+			product_id,
+			NetworkShopProtocol.ProductCategory.ART_UPGRADE,
+			0,
+			0,
+		)
+		return ""
+	return _request_purchase(
+		product_id,
+		NetworkShopProtocol.ProductCategory.ART_UPGRADE,
+		1,
+		_art_unlocks.get_unlock_mask() if _art_unlocks != null else 0,
+	)
+
+
 func _request_purchase(
 	product_id: StringName,
 	category: int,
@@ -147,6 +196,18 @@ func _request_purchase(
 			category,
 			0,
 			0
+		)
+		return ""
+	if (
+		category in [
+			NetworkShopProtocol.ProductCategory.ART_KIT,
+			NetworkShopProtocol.ProductCategory.ART_UPGRADE,
+		]
+		and not can_request_art_purchase()
+	):
+		local_purchase_finished.emit(
+			"", false, "Art supplies require a newer server.",
+			product_id, category, 0, 0,
 		)
 		return ""
 	var request_id: String = _new_id("shop")
@@ -316,6 +377,43 @@ func _build_authoritative_result(
 						]
 					)
 					resulting_state = current_state + 1
+			NetworkShopProtocol.ProductCategory.ART_KIT:
+				var art_item: ItemDataType = _item_catalog.get_item_by_id(
+					product_id
+				) if _item_catalog != null else null
+				cost = ArtShopStockType.get_price(product_id)
+				if (
+					product_id != ArtShopStockType.ART_KIT_ITEM_ID
+					or art_item == null
+					or not art_item.is_valid()
+					or art_item.category != ItemDataType.Category.TOOL
+					or art_item.stackable
+					or not art_item.equippable
+					or not art_item.hotbar_allowed
+					or current_state != 0
+				):
+					rejection = (
+						"Art Kit already owned."
+						if current_state > 0
+						else "Purchase could not be completed."
+					)
+				else:
+					resulting_state = 1
+			NetworkShopProtocol.ProductCategory.ART_UPGRADE:
+				cost = ArtShopStockType.get_price(product_id)
+				if (
+					not PlayerArtUnlocks.is_product_id(product_id)
+					or current_state < 0
+					or (current_state & ~PlayerArtUnlocks.ALL_UNLOCK_MASK) != 0
+					or PlayerArtUnlocks.resulting_mask(
+						current_state, product_id
+					) == current_state
+				):
+					rejection = "Upgrade is already unlocked."
+				else:
+					resulting_state = PlayerArtUnlocks.resulting_mask(
+						current_state, product_id
+					)
 	if rejection.is_empty() and (cost < 0 or wallet_balance < cost):
 		rejection = "Not enough fish coin."
 	if not rejection.is_empty():
@@ -430,11 +528,13 @@ func _apply_purchase_result(data: Dictionary) -> void:
 	var reel_snapshot: int = _upgrades.get_reel_speed_level()
 	var barrier_snapshot: int = _upgrades.get_barrier_power_level()
 	var cooler_snapshot: int = _cooler_capacity.get_level()
+	var art_snapshot: int = _art_unlocks.get_unlock_mask()
 	var applied: bool = _apply_local_product(data)
 	if not applied or not _save_manager.save_if_dirty():
 		_bag.replace_all_items(bag_snapshot)
 		_upgrades.restore_levels(reel_snapshot, barrier_snapshot)
 		_cooler_capacity.restore_level(cooler_snapshot)
+		_art_unlocks.restore_mask(art_snapshot)
 		_wallet.restore_balance(wallet_snapshot)
 		_save_manager.save_if_dirty()
 		_fail_local_apply(data, "Purchase could not be completed.")
@@ -453,6 +553,7 @@ func _validate_local_result(data: Dictionary) -> String:
 		or _bag == null
 		or _upgrades == null
 		or _cooler_capacity == null
+		or _art_unlocks == null
 		or _save_manager == null
 		or _wallet.get_balance() != int(data["expected_wallet"])
 		or str(data["product_id"])
@@ -472,7 +573,11 @@ func _validate_local_result(data: Dictionary) -> String:
 		and _reservations.get_available_fish_coin() < cost
 	):
 		return "Reserved in a letter."
-	if int(data["resulting_state"]) != expected_state + 1:
+	var resulting_state: int = int(data["resulting_state"])
+	if (
+		category != NetworkShopProtocol.ProductCategory.ART_UPGRADE
+		and resulting_state != expected_state + 1
+	):
 		return "Purchase could not be completed."
 	if not _wallet.can_afford(cost):
 		return "Not enough fish coin."
@@ -497,6 +602,24 @@ func _validate_local_result(data: Dictionary) -> String:
 				return "Purchase could not be completed."
 			if _cooler_capacity.get_next_cost() != cost:
 				return "Purchase could not be completed."
+		NetworkShopProtocol.ProductCategory.ART_KIT:
+			if (
+				product_id != ArtShopStockType.ART_KIT_ITEM_ID
+				or _bag.get_quantity(product_id) != expected_state
+				or not _bag.can_add_item(product_id, 1)
+				or cost != ArtShopStockType.ART_KIT_PRICE
+			):
+				return "Purchase could not be completed."
+		NetworkShopProtocol.ProductCategory.ART_UPGRADE:
+			if (
+				_art_unlocks.get_unlock_mask() != expected_state
+				or not PlayerArtUnlocks.is_product_id(product_id)
+				or resulting_state != PlayerArtUnlocks.resulting_mask(
+					expected_state, product_id
+				)
+				or cost != ArtShopStockType.UPGRADE_PRICE
+			):
+				return "Purchase could not be completed."
 		_:
 			return "Purchase could not be completed."
 	return ""
@@ -517,6 +640,15 @@ func _apply_local_product(data: Dictionary) -> bool:
 			return _upgrades.purchase_barrier_power(_wallet)
 		NetworkShopProtocol.ProductCategory.COOLER_CAPACITY_UPGRADE:
 			return _cooler_capacity.purchase(_wallet)
+		NetworkShopProtocol.ProductCategory.ART_KIT:
+			return (
+				_wallet.debit(int(data["total_cost"]))
+				and _bag.add_item(product_id, 1)
+			)
+		NetworkShopProtocol.ProductCategory.ART_UPGRADE:
+			return _art_unlocks.purchase_product(
+				product_id, _wallet, int(data["total_cost"])
+			)
 	return false
 
 

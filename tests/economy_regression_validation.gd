@@ -72,6 +72,7 @@ func _run() -> void:
 	assert(session.set_host_open(false))
 
 	await _test_host_shop_purchase(main, player, shop_service)
+	await _test_host_art_shop_purchase(main, player, shop_service)
 	await _test_fishing_shop_sale_ui(
 		main, player, catalog, sale_service, reservations
 	)
@@ -205,6 +206,25 @@ func _run_multiplayer_client() -> void:
 	print("Client shop result: ", _shop_result)
 	assert(not _shop_result.is_empty() and bool(_shop_result[1]))
 	assert(not shop_service.is_local_purchase_pending())
+	var required_art_balance: int = (
+		ArtShopStock.ART_KIT_PRICE + ArtShopStock.UPGRADE_PRICE
+	)
+	if player.wallet.get_balance() < required_art_balance:
+		assert(player.wallet.credit(
+			required_art_balance - player.wallet.get_balance()
+		))
+	_shop_result.clear()
+	assert(not shop_service.request_art_kit().is_empty())
+	while _shop_result.is_empty():
+		await process_frame
+	assert(bool(_shop_result[1]))
+	_shop_result.clear()
+	assert(not shop_service.request_art_upgrade(&"grid_32x").is_empty())
+	while _shop_result.is_empty():
+		await process_frame
+	assert(bool(_shop_result[1]))
+	assert(player.bag.owns_item(ArtShopStock.ART_KIT_ITEM_ID))
+	assert(player.art_unlocks.is_grid_size_unlocked(32))
 	print("Economy multiplayer client validation: PASS")
 	session.disconnect_session("Economy client validation complete.")
 	main.queue_free()
@@ -450,6 +470,42 @@ func _test_host_shop_purchase(
 	assert(not shop_service.is_local_purchase_pending())
 
 
+func _test_host_art_shop_purchase(
+	main: Node,
+	player: Player,
+	shop_service: NetworkShopService,
+) -> void:
+	var interaction := main.get("_shop_interaction") as FishingShopInteraction
+	assert(interaction != null)
+	player.global_position = interaction.global_position
+	for _frame: int in 4:
+		await physics_frame
+	var required_balance: int = (
+		ArtShopStock.ART_KIT_PRICE + ArtShopStock.UPGRADE_PRICE * 3
+	)
+	if player.wallet.get_balance() < required_balance:
+		assert(player.wallet.credit(required_balance - player.wallet.get_balance()))
+	_shop_result.clear()
+	assert(not shop_service.request_art_kit().is_empty())
+	assert(not _shop_result.is_empty() and bool(_shop_result[1]))
+	assert(player.bag.owns_item(ArtShopStock.ART_KIT_ITEM_ID))
+	var item_catalog := main.get("item_catalog") as ItemCatalog
+	assert(item_catalog != null)
+	var art_item: ItemData = item_catalog.get_item_by_id(
+		ArtShopStock.ART_KIT_ITEM_ID
+	)
+	assert(art_item != null and art_item.hotbar_allowed and art_item.equippable)
+	assert(player.hotbar.assign_item(0, ArtShopStock.ART_KIT_ITEM_ID))
+	for product_id: StringName in [
+		&"marker_ocean_teal", &"brush_2x", &"grid_32x",
+	]:
+		_shop_result.clear()
+		assert(not shop_service.request_art_upgrade(product_id).is_empty())
+		assert(not _shop_result.is_empty() and bool(_shop_result[1]))
+		assert(player.art_unlocks.owns_product(product_id))
+	assert(not shop_service.is_local_purchase_pending())
+
+
 func _test_fishing_shop_sale_ui(
 	main: Node,
 	player: Player,
@@ -499,6 +555,11 @@ func _test_fishing_shop_sale_ui(
 	var buy_mode := shop.get_node("%BuyModeButton") as Button
 	var sell_mode := shop.get_node("%SellModeButton") as Button
 	assert(buy_mode.visible and sell_mode.visible)
+	var stock_sections: Array[String] = []
+	for child: Node in shop.get_node("%SuppliesList").get_children():
+		if child is Label:
+			stock_sections.append((child as Label).text)
+	assert(stock_sections == ["supplies", "art kit", "markers", "brushes", "grids"])
 	await _activate_focused_button(sell_mode, ui_viewport)
 	await process_frame
 	assert(shop.visible and not player_menu.visible)

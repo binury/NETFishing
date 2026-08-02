@@ -361,6 +361,7 @@ func supports_server_capability(capability: StringName) -> bool:
 	if is_host():
 		return str(capability) in PackedStringArray([
 			"movement_v1", "fishing_v1", "sale_v1", "shop_v1",
+			NetworkProtocol.ART_SHOP_CAPABILITY,
 			"item_use_v1", "equipment_v1", "fish_showcase_v1",
 			NetworkProtocol.SURFACE_DRAWING_CAPABILITY,
 			"chat_v1",

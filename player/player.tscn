@@ -1,4 +1,4 @@
-[gd_scene load_steps=16 format=3]
+[gd_scene load_steps=17 format=3]
 
 [ext_resource type="Script" path="res://player/player.gd" id="1_script"]
 [ext_resource type="Script" path="res://inventory/fish_inventory.gd" id="2_inventory"]
@@ -13,6 +13,7 @@
 [ext_resource type="Script" path="res://player/player_ground_shadow.gd" id="11_ground_shadow"]
 [ext_resource type="Material" path="res://player/materials/player_blob_shadow.tres" id="12_blob_shadow"]
 [ext_resource type="PackedScene" path="res://art/exported/characters/base/netfishing_base_character.glb" id="13_character"]
+[ext_resource type="Script" path="res://progression/player_art_unlocks.gd" id="14_art_unlocks"]
 
 [sub_resource type="CapsuleShape3D" id="PlayerShape"]
 radius = 0.45
@@ -99,6 +100,10 @@ script = ExtResource("9_effects")
 unique_name_in_owner = true
 script = ExtResource("10_capacity")
 
+[node name="ArtUnlocks" type="Node" parent="."]
+unique_name_in_owner = true
+script = ExtResource("14_art_unlocks")
+
 [node name="CatchDisplayAnchor" type="Marker3D" parent="Visuals"]
 unique_name_in_owner = true
 position = Vector3(0, 1.45, -1.15)
@@ -129,6 +134,18 @@ billboard = 1
 shaded = false
 double_sided = true
 texture_filter = 0
+
+[node name="HeldArtKitAnchor" type="Marker3D" parent="Visuals"]
+position = Vector3(0, 1.05, -0.72)
+
+[node name="HeldArtKitSprite" type="Sprite3D" parent="Visuals/HeldArtKitAnchor"]
+unique_name_in_owner = true
+visible = false
+pixel_size = 0.008
+billboard = 1
+shaded = false
+double_sided = true
+texture_filter = 1
 
 [node name="CameraYaw" type="Node3D" parent="."]
 unique_name_in_owner = true

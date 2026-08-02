@@ -33,6 +33,9 @@ const PlayerCoolerCapacityType = preload(
 )
 const ChatUIType = preload("res://ui/chat_ui.gd")
 const EmoteRadialMenuType = preload("res://ui/emote_radial_menu.gd")
+const SurfaceDrawingToolbarType = preload(
+	"res://ui/surface_drawing_toolbar.gd"
+)
 const PlayerSettingsManagerType = preload(
 	"res://settings/player_settings_manager.gd"
 )
@@ -65,10 +68,9 @@ signal shop_backdrop_visibility_changed(is_visible: bool)
 @onready var _effect_status: Label = %EffectStatus
 @onready var _chat_ui: ChatUIType = %ChatUI
 @onready var _emote_radial_menu: EmoteRadialMenuType = %EmoteRadialMenu
-@onready var _marker_hud: PanelContainer = %MarkerHUD
-@onready var _marker_swatch: ColorRect = %MarkerSwatch
-@onready var _marker_summary: Label = %MarkerSummary
-@onready var _marker_help: Label = %MarkerHelp
+@onready var _surface_drawing_toolbar: SurfaceDrawingToolbarType = (
+	%SurfaceDrawingToolbar
+)
 @onready var _title_settings_panel: SettingsPanelType = (
 	$UIRoot/TitleScreen/ResponsiveTitleStage/TitlePresentationScaleRoot/SettingsPanel
 )
@@ -142,6 +144,7 @@ func setup(
 	network_player_list: NetworkPlayerListService,
 	settings_manager: PlayerSettingsManagerType,
 	surface_drawing: NetworkSurfaceDrawingService,
+	art_unlocks: PlayerArtUnlocks,
 ) -> void:
 	_player = player
 	_fishing_spot = fishing_spot
@@ -159,6 +162,7 @@ func setup(
 	fishing_spot.status_changed.connect(_on_fishing_status_changed)
 	fishing_spot.catch_display_changed.connect(_on_catch_display_changed)
 	fishing_spot.showcase_changed.connect(_on_showcase_changed)
+	fishing_spot.art_ui_toggle_requested.connect(_toggle_surface_drawing)
 	_player_menu.menu_visibility_changed.connect(
 		_on_player_menu_visibility_changed
 	)
@@ -200,6 +204,7 @@ func setup(
 		bag,
 		item_catalog,
 		cooler_capacity,
+		art_unlocks,
 		network_shop_service,
 	)
 	_fishing_shop.menu_visibility_changed.connect(_on_shop_visibility_changed)
@@ -213,13 +218,15 @@ func setup(
 	_main_shop_buyer = main_shop_buyer
 	_shop_interaction = shop_interaction
 	_surface_drawing = surface_drawing
-	if _surface_drawing != null:
-		_surface_drawing.hud_state_changed.connect(
-			_on_surface_drawing_hud_state_changed
-		)
+	_surface_drawing_toolbar.setup(_surface_drawing, art_unlocks)
 
 
 func _input(event: InputEvent) -> void:
+	if (
+		_surface_drawing_toolbar != null
+		and _surface_drawing_toolbar.owns_pointer_event(event)
+	):
+		return
 	var drawing_can_open: bool = (
 		_gameplay_ui_enabled
 		and not _system_menu_open
@@ -253,6 +260,15 @@ func _input(event: InputEvent) -> void:
 func _on_emote_selected(emote_id: StringName) -> void:
 	if emote_id == &"sit" and _player != null:
 		_player.toggle_sitting()
+
+
+func _toggle_surface_drawing() -> void:
+	if _surface_drawing == null:
+		return
+	if _surface_drawing.is_active():
+		_surface_drawing.deactivate()
+	elif _surface_drawing.can_activate():
+		_surface_drawing.activate()
 
 
 func setup_data_and_identity(
@@ -717,35 +733,6 @@ func _on_chat_text_entry_ownership_changed(active: bool) -> void:
 	if active and _surface_drawing != null:
 		_surface_drawing.deactivate()
 	_emit_interactive_pointer_ui_changed()
-
-
-func _on_surface_drawing_hud_state_changed(
-	is_active: bool,
-	mode_name: String,
-	color_name: String,
-	color_value: Color,
-	brush_size: int,
-	status: String,
-) -> void:
-	_marker_hud.visible = is_active and _gameplay_ui_enabled
-	_marker_swatch.visible = mode_name != "place grid"
-	_marker_swatch.color = color_value
-	_marker_summary.text = (
-		"place shared grid"
-		if mode_name == "place grid"
-		else "marker • %s • brush %d" % [
-			color_name.to_lower(), brush_size,
-		]
-	)
-	_marker_help.text = (
-		status
-		if not status.is_empty()
-		else (
-			"click place/restore • shift hide • ctrl shift finish • shift scroll zoom"
-			if mode_name == "place grid"
-			else "click draw • shift click erase • ctrl z undo • shift scroll zoom"
-		)
-	)
 
 
 func _refresh_chat_availability() -> void:

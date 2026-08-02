@@ -1,0 +1,57 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://ui/surface_drawing_toolbar.gd" id="1_script"]
+[ext_resource type="Theme" path="res://ui/game_theme.tres" id="2_theme"]
+
+[node name="SurfaceDrawingToolbar" type="PanelContainer"]
+visible = false
+z_index = 85
+layout_mode = 0
+offset_left = 18.0
+offset_top = 18.0
+offset_right = 284.0
+offset_bottom = 340.0
+mouse_filter = 0
+theme = ExtResource("2_theme")
+script = ExtResource("1_script")
+
+[node name="Layout" type="HBoxContainer" parent="."]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="ColorList" type="VBoxContainer" parent="Layout"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 5
+
+[node name="Tools" type="VBoxContainer" parent="Layout"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 8
+
+[node name="Top" type="HBoxContainer" parent="Layout/Tools"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="ModeButton" type="Button" parent="Layout/Tools/Top"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "▦"
+
+[node name="BrushOption" type="OptionButton" parent="Layout/Tools/Top"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(80, 48)
+layout_mode = 2
+tooltip_text = "brush size"
+
+[node name="GridOption" type="OptionButton" parent="Layout/Tools/Top"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(92, 48)
+layout_mode = 2
+tooltip_text = "grid size"
+
+[node name="Help" type="Label" parent="Layout/Tools"]
+layout_mode = 2
+text = "click place/draw\nshift click hide/erase\nctrl z undo\nshift scroll zoom"
+theme_override_colors/font_color = Color(0.623529, 0.811765, 0.823529, 1)
+theme_override_font_sizes/font_size = 14

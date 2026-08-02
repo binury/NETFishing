@@ -1,13 +1,18 @@
 class_name SurfaceDrawingProtocol
 extends RefCounted
 
-const CAPABILITY: StringName = &"surface_drawing_v1"
+const CAPABILITY: StringName = &"surface_drawing_v2"
 const RELIABLE_CHANNEL: int = NetworkProtocol.ITEM_RELIABLE_CHANNEL
-const GRID_WIDTH: int = 32
-const GRID_HEIGHT: int = 32
+const GRID_SIZES: Array[int] = [16, 32, 64, 128]
+const DEFAULT_GRID_SIZE: int = 16
+const MAX_GRID_SIZE: int = 128
+# Compatibility aliases for callers that only need the default dimensions.
+const GRID_WIDTH: int = DEFAULT_GRID_SIZE
+const GRID_HEIGHT: int = DEFAULT_GRID_SIZE
 const CELL_SIZE: float = 0.075
 const MAX_ACTIVE_CANVASES: int = 24
 const MAX_CANVASES: int = 48
+const MAX_SESSION_GRID_CELLS: int = 49152
 const MAX_EDITS_PER_REQUEST: int = 16
 const MAX_CANVAS_ID_LENGTH: int = 64
 const MAX_REQUEST_ID_LENGTH: int = 64
@@ -26,9 +31,9 @@ static func validate_canvas_request(data: Variant) -> bool:
 		and _valid_vector(value.get("normal"))
 		and _valid_vector(value.get("tangent"))
 		and typeof(value.get("width")) == TYPE_INT
-		and int(value["width"]) == GRID_WIDTH
+		and int(value["width"]) in GRID_SIZES
 		and typeof(value.get("height")) == TYPE_INT
-		and int(value["height"]) == GRID_HEIGHT
+		and int(value["height"]) == int(value["width"])
 		and typeof(value.get("cell_size")) in [TYPE_FLOAT, TYPE_INT]
 		and is_equal_approx(float(value["cell_size"]), CELL_SIZE)
 	)
@@ -44,6 +49,9 @@ static func validate_edit_request(data: Variant) -> bool:
 		or str(value["canvas_id"]).is_empty()
 		or str(value["canvas_id"]).length() > MAX_CANVAS_ID_LENGTH
 		or not _valid_stroke_id(value.get("stroke_id"))
+		or typeof(value.get("brush_size")) != TYPE_INT
+		or int(value["brush_size"]) < 1
+		or int(value["brush_size"]) > 4
 		or typeof(value.get("edits")) != TYPE_ARRAY
 	):
 		return false
@@ -90,9 +98,9 @@ static func validate_canvas_state(data: Variant) -> bool:
 		or not _valid_vector(value.get("normal"))
 		or not _valid_vector(value.get("tangent"))
 		or typeof(value.get("width")) != TYPE_INT
-		or int(value["width"]) != GRID_WIDTH
+		or int(value["width"]) not in GRID_SIZES
 		or typeof(value.get("height")) != TYPE_INT
-		or int(value["height"]) != GRID_HEIGHT
+		or int(value["height"]) != int(value["width"])
 		or typeof(value.get("cell_size")) not in [TYPE_FLOAT, TYPE_INT]
 		or not is_equal_approx(float(value["cell_size"]), CELL_SIZE)
 		or typeof(value.get("revision")) != TYPE_INT
@@ -108,10 +116,16 @@ static func validate_canvas_state(data: Variant) -> bool:
 	):
 		return false
 	var cells: Array = value["cells"]
-	if cells.size() > GRID_WIDTH * GRID_HEIGHT:
+	var grid_width: int = int(value["width"])
+	var grid_height: int = int(value["height"])
+	if cells.size() > grid_width * grid_height:
 		return false
 	for cell_value: Variant in cells:
-		if not validate_authoritative_cell(cell_value):
+		if (
+			not validate_authoritative_cell(cell_value)
+			or int((cell_value as Dictionary)["x"]) >= grid_width
+			or int((cell_value as Dictionary)["y"]) >= grid_height
+		):
 			return false
 	return true
 
@@ -164,10 +178,10 @@ static func validate_cell_edit(data: Variant) -> bool:
 	if (
 		typeof(value.get("x")) != TYPE_INT
 		or int(value["x"]) < 0
-		or int(value["x"]) >= GRID_WIDTH
+		or int(value["x"]) >= MAX_GRID_SIZE
 		or typeof(value.get("y")) != TYPE_INT
 		or int(value["y"]) < 0
-		or int(value["y"]) >= GRID_HEIGHT
+		or int(value["y"]) >= MAX_GRID_SIZE
 		or typeof(value.get("color_id")) not in [TYPE_STRING, TYPE_STRING_NAME]
 	):
 		return false

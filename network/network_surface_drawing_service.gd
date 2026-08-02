@@ -4,6 +4,7 @@ extends Node
 const BrushHighlightShader: Shader = preload(
 	"res://drawing/surface_drawing_highlight.gdshader"
 )
+const ArtShopStockType = preload("res://economy/art_shop_stock.gd")
 
 signal hud_state_changed(
 	is_active: bool,
@@ -11,6 +12,7 @@ signal hud_state_changed(
 	color_name: String,
 	color_value: Color,
 	brush_size: int,
+	grid_size: int,
 	status: String,
 )
 signal session_artwork_changed(canvas_count: int, painted_cell_count: int)
@@ -30,6 +32,8 @@ var _session: NetworkSession
 var _spawn_service: PlayerSpawnService
 var _relationships: PlayerRelationshipStore
 var _local_player: Player
+var _bag: PlayerBag
+var _art_unlocks: PlayerArtUnlocks
 var _drawing_root: Node3D
 var _canvas_states: Dictionary[String, Dictionary] = {}
 var _canvas_nodes: Dictionary[String, SurfaceDrawingCanvas] = {}
@@ -42,6 +46,7 @@ var _placement_preview_material: StandardMaterial3D
 var _active: bool = false
 var _placing_grid: bool = false
 var _brush_size: int = 1
+var _grid_size: int = SurfaceDrawingProtocol.DEFAULT_GRID_SIZE
 var _color_ids: Array[StringName] = []
 var _color_index: int = 0
 var _painting: bool = false
@@ -60,6 +65,7 @@ var _peer_request_times: Dictionary[int, PackedInt64Array] = {}
 var _peer_request_ids: Dictionary[int, PackedStringArray] = {}
 var _stroke_history_by_peer: Dictionary[int, Dictionary] = {}
 var _cell_last_stroke: Dictionary[String, String] = {}
+var _peer_art_entitlements: Dictionary[int, Dictionary] = {}
 
 
 func setup(
@@ -68,13 +74,17 @@ func setup(
 	relationships: PlayerRelationshipStore,
 	local_player: Player,
 	drawing_root: Node3D,
+	bag: PlayerBag,
+	art_unlocks: PlayerArtUnlocks,
 ) -> void:
 	_session = session
 	_spawn_service = spawn_service
 	_relationships = relationships
 	_local_player = local_player
 	_drawing_root = drawing_root
-	_color_ids = SurfaceDrawingPalette.get_color_ids()
+	_bag = bag
+	_art_unlocks = art_unlocks
+	_refresh_local_unlocks()
 	if _session != null:
 		_session.state_changed.connect(_on_session_state_changed)
 		_session.peer_removed.connect(_on_peer_removed)
@@ -82,6 +92,14 @@ func setup(
 		_relationships.relationship_changed.connect(
 			_on_relationship_changed
 		)
+	if _bag != null and not _bag.contents_changed.is_connected(
+		_on_local_art_entitlement_changed
+	):
+		_bag.contents_changed.connect(_on_local_art_entitlement_changed)
+	if _art_unlocks != null and not _art_unlocks.unlocks_changed.is_connected(
+		_on_local_art_unlocks_changed
+	):
+		_art_unlocks.unlocks_changed.connect(_on_local_art_unlocks_changed)
 	_create_brush_preview()
 	_create_placement_preview()
 	set_process(true)
@@ -99,7 +117,7 @@ func handle_input(event: InputEvent, can_open: bool) -> bool:
 			if _active:
 				deactivate()
 				return true
-			if can_open and _drawing_available():
+			if can_open and can_activate():
 				activate()
 				return true
 			return false
@@ -180,7 +198,7 @@ func handle_input(event: InputEvent, can_open: bool) -> bool:
 		if _camera_look_active:
 			return false
 		_pointer_screen_position = _clamped_pointer_position(
-			_pointer_screen_position + motion_event.screen_relative
+			motion_event.position
 		)
 		_update_aim()
 		return true
@@ -188,18 +206,20 @@ func handle_input(event: InputEvent, can_open: bool) -> bool:
 
 
 func activate() -> void:
-	if _active or not _drawing_available():
+	if _active or not can_activate():
 		return
 	_active = true
-	_placing_grid = false
+	_placing_grid = true
+	_refresh_local_unlocks()
+	_rebuild_placement_preview()
 	_reset_stroke()
 	_pointer_screen_position = get_viewport().get_visible_rect().size * 0.5
 	_prior_mouse_mode = Input.mouse_mode
-	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	_update_aim()
 	_refresh_stencil_visibility()
 	_emit_hud_state(
-		"r place grid • click draw • shift erase • ctrl z undo • shift scroll zoom"
+		"click to place a shared grid"
 	)
 
 
@@ -226,6 +246,55 @@ func is_placement_mode() -> bool:
 	return _placing_grid
 
 
+func can_activate() -> bool:
+	return _drawing_available() and _owns_art_kit()
+
+
+func set_placement_mode(enabled: bool) -> void:
+	_set_placement_mode(enabled)
+
+
+func set_color_id(color_id: StringName) -> bool:
+	var color_index: int = _color_ids.find(color_id)
+	if color_index < 0:
+		return false
+	_color_index = color_index
+	_reset_stroke()
+	_emit_hud_state("")
+	return true
+
+
+func set_brush_size(value: int) -> bool:
+	if _art_unlocks == null or not _art_unlocks.is_brush_size_unlocked(value):
+		return false
+	_set_brush_size(value)
+	return true
+
+
+func set_grid_size(value: int) -> bool:
+	if _art_unlocks == null or not _art_unlocks.is_grid_size_unlocked(value):
+		return false
+	if _grid_size == value:
+		return true
+	_grid_size = value
+	_rebuild_placement_preview()
+	_update_previews()
+	_emit_hud_state("")
+	return true
+
+
+func get_brush_size() -> int:
+	return _brush_size
+
+
+func get_grid_size() -> int:
+	return _grid_size
+
+
+func get_color_id() -> StringName:
+	return _current_color_id()
+
+
 func get_pointer_screen_position() -> Vector2:
 	return _pointer_screen_position
 
@@ -236,12 +305,166 @@ func set_unlocked_color_ids(unlocked_ids: Array[StringName]) -> void:
 	_emit_hud_state("")
 
 
+func _refresh_local_unlocks() -> void:
+	if _art_unlocks == null:
+		_color_ids = [SurfaceDrawingPalette.DEFAULT_COLOR_ID]
+		return
+	var previous_color: StringName = _current_color_id()
+	_color_ids = _art_unlocks.get_unlocked_color_ids()
+	var previous_index: int = _color_ids.find(previous_color)
+	_color_index = previous_index if previous_index >= 0 else 0
+	if not _art_unlocks.is_brush_size_unlocked(_brush_size):
+		_brush_size = PlayerArtUnlocks.BASE_BRUSH_SIZE
+	if not _art_unlocks.is_grid_size_unlocked(_grid_size):
+		_grid_size = PlayerArtUnlocks.BASE_GRID_SIZE
+
+
+func _owns_art_kit() -> bool:
+	return _bag != null and _bag.owns_item(ArtShopStockType.ART_KIT_ITEM_ID)
+
+
+func _local_entitlement() -> Dictionary:
+	return {
+		"has_kit": _owns_art_kit(),
+		"unlock_mask": (
+			_art_unlocks.get_unlock_mask() if _art_unlocks != null else 0
+		),
+	}
+
+
+func _publish_local_entitlement() -> void:
+	if _session == null or not _session.is_gameplay_session_active():
+		return
+	var entitlement: Dictionary = _local_entitlement()
+	if _session.is_host():
+		_peer_art_entitlements[_session.get_local_peer_id()] = entitlement
+	else:
+		submit_art_entitlement.rpc_id(
+			1,
+			_session.get_session_id(),
+			bool(entitlement["has_kit"]),
+			int(entitlement["unlock_mask"]),
+		)
+
+
+@rpc(
+	"any_peer",
+	"call_remote",
+	"reliable",
+	SurfaceDrawingProtocol.RELIABLE_CHANNEL,
+)
+func submit_art_entitlement(
+	session_id: String,
+	has_kit: bool,
+	unlock_mask: int,
+) -> void:
+	var sender_id: int = multiplayer.get_remote_sender_id()
+	if (
+		_session == null
+		or not _session.is_host()
+		or not _session.is_authenticated_peer(sender_id)
+		or session_id != _session.get_session_id()
+		or unlock_mask < 0
+		or (unlock_mask & ~PlayerArtUnlocks.ALL_UNLOCK_MASK) != 0
+	):
+		return
+	_peer_art_entitlements[sender_id] = {
+		"has_kit": has_kit,
+		"unlock_mask": unlock_mask,
+	}
+
+
+func _peer_entitlement(peer_id: int) -> Dictionary:
+	if _session != null and peer_id == _session.get_local_peer_id():
+		return _local_entitlement()
+	return Dictionary(_peer_art_entitlements.get(peer_id, {}))
+
+
+func _peer_owns_art_kit(peer_id: int) -> bool:
+	return bool(_peer_entitlement(peer_id).get("has_kit", false))
+
+
+func _peer_can_place_grid(peer_id: int, grid_size: int) -> bool:
+	var entitlement: Dictionary = _peer_entitlement(peer_id)
+	return (
+		bool(entitlement.get("has_kit", false))
+		and _mask_unlocks_grid(
+			int(entitlement.get("unlock_mask", 0)), grid_size
+		)
+	)
+
+
+func _peer_can_edit(peer_id: int, request: Dictionary) -> bool:
+	var entitlement: Dictionary = _peer_entitlement(peer_id)
+	if not bool(entitlement.get("has_kit", false)):
+		return false
+	var unlock_mask: int = int(entitlement.get("unlock_mask", 0))
+	if not _mask_unlocks_brush(unlock_mask, int(request["brush_size"])):
+		return false
+	for value: Variant in request["edits"]:
+		var edit: Dictionary = value
+		var color_id := StringName(str(edit.get("color_id", "")))
+		if not color_id.is_empty() and not _mask_unlocks_color(
+			unlock_mask, color_id
+		):
+			return false
+	return true
+
+
+func _mask_unlocks_color(unlock_mask: int, color_id: StringName) -> bool:
+	if color_id == SurfaceDrawingPalette.DEFAULT_COLOR_ID:
+		return true
+	for product_id: StringName in PlayerArtUnlocks.COLOR_PRODUCTS:
+		if (
+			PlayerArtUnlocks.color_id_for_product(product_id) == color_id
+			and _mask_owns_product(unlock_mask, product_id)
+		):
+			return true
+	return false
+
+
+func _mask_unlocks_brush(unlock_mask: int, brush_size: int) -> bool:
+	if brush_size == PlayerArtUnlocks.BASE_BRUSH_SIZE:
+		return true
+	for product_id: StringName in PlayerArtUnlocks.BRUSH_PRODUCTS:
+		if (
+			PlayerArtUnlocks.brush_size_for_product(product_id) == brush_size
+			and _mask_owns_product(unlock_mask, product_id)
+		):
+			return true
+	return false
+
+
+func _mask_unlocks_grid(unlock_mask: int, grid_size: int) -> bool:
+	if grid_size == PlayerArtUnlocks.BASE_GRID_SIZE:
+		return true
+	for product_id: StringName in PlayerArtUnlocks.GRID_PRODUCTS:
+		if (
+			PlayerArtUnlocks.grid_size_for_product(product_id) == grid_size
+			and _mask_owns_product(unlock_mask, product_id)
+		):
+			return true
+	return false
+
+
+func _mask_owns_product(unlock_mask: int, product_id: StringName) -> bool:
+	var bit: int = PlayerArtUnlocks.get_product_bit(product_id)
+	return bit >= 0 and (unlock_mask & (1 << bit)) != 0
+
+
 func request_canvas_at_surface(
 	origin: Vector3,
 	normal: Vector3,
 	tangent: Vector3,
 ) -> bool:
-	if not _drawing_available() or normal.is_zero_approx() or tangent.is_zero_approx():
+	if (
+		not _drawing_available()
+		or not _owns_art_kit()
+		or _art_unlocks == null
+		or not _art_unlocks.is_grid_size_unlocked(_grid_size)
+		or normal.is_zero_approx()
+		or tangent.is_zero_approx()
+	):
 		return false
 	var data: Dictionary = {
 		"request_id": _new_request_id("canvas"),
@@ -249,8 +472,8 @@ func request_canvas_at_surface(
 		"origin": SurfaceDrawingProtocol.vector_to_array(origin),
 		"normal": SurfaceDrawingProtocol.vector_to_array(normal.normalized()),
 		"tangent": SurfaceDrawingProtocol.vector_to_array(tangent.normalized()),
-		"width": SurfaceDrawingProtocol.GRID_WIDTH,
-		"height": SurfaceDrawingProtocol.GRID_HEIGHT,
+		"width": _grid_size,
+		"height": _grid_size,
 		"cell_size": SurfaceDrawingProtocol.CELL_SIZE,
 	}
 	if _session.is_host():
@@ -265,7 +488,12 @@ func request_cell_edits(
 	edits: Array[Dictionary],
 	stroke_id: String = "",
 ) -> bool:
-	if not _drawing_available() or canvas_id.is_empty() or edits.is_empty():
+	if (
+		not _drawing_available()
+		or not _owns_art_kit()
+		or canvas_id.is_empty()
+		or edits.is_empty()
+	):
 		return false
 	var resolved_stroke_id: String = stroke_id
 	if resolved_stroke_id.is_empty():
@@ -276,6 +504,7 @@ func request_cell_edits(
 		"session_id": _session.get_session_id(),
 		"canvas_id": canvas_id,
 		"stroke_id": resolved_stroke_id,
+		"brush_size": _brush_size,
 		"edits": edits,
 	}
 	if not SurfaceDrawingProtocol.validate_edit_request(data):
@@ -292,7 +521,7 @@ func request_guide_visibility(
 	should_be_visible: bool,
 	should_finalize: bool = false,
 ) -> bool:
-	if not _drawing_available() or canvas_id.is_empty():
+	if not _drawing_available() or not _owns_art_kit() or canvas_id.is_empty():
 		return false
 	var data: Dictionary = {
 		"request_id": _new_request_id("guide"),
@@ -311,7 +540,11 @@ func request_guide_visibility(
 
 
 func request_undo_last_stroke() -> bool:
-	if not _drawing_available() or _last_local_stroke_id.is_empty():
+	if (
+		not _drawing_available()
+		or not _owns_art_kit()
+		or _last_local_stroke_id.is_empty()
+	):
 		_emit_hud_state("nothing to undo")
 		return false
 	var data: Dictionary = {
@@ -540,6 +773,7 @@ func _resolved_placement() -> Dictionary:
 		normal,
 		_surface_tangent(normal),
 		states,
+		_grid_size,
 	)
 
 
@@ -562,7 +796,7 @@ func _request_canvas_at_aim() -> void:
 			else:
 				_emit_hud_state("a shared grid already covers this area")
 			return
-	if _overlaps_existing_canvas(origin, normal):
+	if _overlaps_existing_canvas(origin, normal, _grid_size):
 		_emit_hud_state("a shared grid already covers this area")
 		return
 	if request_canvas_at_surface(origin, normal, placement["tangent"]):
@@ -586,13 +820,17 @@ func submit_canvas_request(data: Dictionary) -> void:
 
 
 func _handle_canvas_request(peer_id: int, data: Dictionary) -> void:
+	var requested_size: int = int(data.get("width", 0))
 	if (
 		not _session.is_host()
 		or not SurfaceDrawingProtocol.validate_canvas_request(data)
 		or str(data["session_id"]) != _session.get_session_id()
 		or not _accept_request(peer_id, str(data["request_id"]))
+		or not _peer_can_place_grid(peer_id, requested_size)
 		or _canvas_states.size() >= SurfaceDrawingProtocol.MAX_CANVASES
 		or _active_canvas_count() >= SurfaceDrawingProtocol.MAX_ACTIVE_CANVASES
+		or _allocated_grid_cells() + requested_size * requested_size
+			> SurfaceDrawingProtocol.MAX_SESSION_GRID_CELLS
 	):
 		return
 	var avatar: Player = _spawn_service.get_avatar(peer_id)
@@ -616,7 +854,9 @@ func _handle_canvas_request(peer_id: int, data: Dictionary) -> void:
 	var normal: Vector3 = _normalized_or(
 		surface_hit.get("normal", requested_normal), requested_normal
 	)
-	if _overlaps_existing_canvas(surface_hit["position"], normal):
+	if _overlaps_existing_canvas(
+		surface_hit["position"], normal, requested_size
+	):
 		return
 	var tangent: Vector3 = SurfaceDrawingProtocol.array_to_vector(
 		data["tangent"]
@@ -639,8 +879,8 @@ func _handle_canvas_request(peer_id: int, data: Dictionary) -> void:
 		),
 		"normal": SurfaceDrawingProtocol.vector_to_array(normal),
 		"tangent": SurfaceDrawingProtocol.vector_to_array(tangent),
-		"width": SurfaceDrawingProtocol.GRID_WIDTH,
-		"height": SurfaceDrawingProtocol.GRID_HEIGHT,
+		"width": requested_size,
+		"height": requested_size,
 		"cell_size": SurfaceDrawingProtocol.CELL_SIZE,
 		"revision": 0,
 		"guide_visible": true,
@@ -672,6 +912,7 @@ func _handle_guide_request(peer_id: int, data: Dictionary) -> void:
 		or not SurfaceDrawingProtocol.validate_guide_request(data)
 		or str(data["session_id"]) != _session.get_session_id()
 		or not _accept_request(peer_id, str(data["request_id"]))
+		or not _peer_owns_art_kit(peer_id)
 	):
 		return
 	var canvas_id: String = str(data["canvas_id"])
@@ -794,6 +1035,7 @@ func _handle_edit_request(peer_id: int, data: Dictionary) -> void:
 		or not SurfaceDrawingProtocol.validate_edit_request(data)
 		or str(data["session_id"]) != _session.get_session_id()
 		or not _accept_request(peer_id, str(data["request_id"]))
+		or not _peer_can_edit(peer_id, data)
 	):
 		return
 	var canvas_id: String = str(data["canvas_id"])
@@ -808,11 +1050,15 @@ func _handle_edit_request(peer_id: int, data: Dictionary) -> void:
 	):
 		return
 	var stroke_id: String = str(data["stroke_id"])
+	var grid_width: int = int(state["width"])
+	var grid_height: int = int(state["height"])
 	var mutations: Dictionary[String, Dictionary] = {}
 	for edit_value: Variant in data["edits"]:
 		var edit: Dictionary = edit_value
 		var x: int = int(edit["x"])
 		var y: int = int(edit["y"])
+		if x >= grid_width or y >= grid_height:
+			continue
 		var cell_position: Vector3 = _state_cell_position(
 			state, x, y
 		)
@@ -998,7 +1244,9 @@ func _publish_cell_mutations(
 		var state: Dictionary = _canvas_states.get(canvas_id, {})
 		if state.is_empty():
 			continue
-		var cells: Dictionary[int, Dictionary] = _cells_by_key(state["cells"])
+		var cells: Dictionary[int, Dictionary] = _cells_by_key(
+			state["cells"], int(state["width"])
+		)
 		var canvas_mutations: Dictionary = mutations[canvas_id]
 		var cell_keys: Array[int] = []
 		for cell_key_value: Variant in canvas_mutations.keys():
@@ -1048,6 +1296,7 @@ func _handle_undo_request(peer_id: int, data: Dictionary) -> void:
 		or not SurfaceDrawingProtocol.validate_undo_request(data)
 		or str(data["session_id"]) != _session.get_session_id()
 		or not _accept_request(peer_id, str(data["request_id"]))
+		or not _peer_owns_art_kit(peer_id)
 	):
 		return
 	var stroke_id: String = str(data["stroke_id"])
@@ -1226,10 +1475,18 @@ func _apply_canvas_update(data: Dictionary) -> void:
 	var canvas: SurfaceDrawingCanvas = _canvas_nodes.get(canvas_id)
 	if state.is_empty() or canvas == null or int(data["revision"]) <= int(state["revision"]):
 		return
-	var cells: Dictionary[int, Dictionary] = _cells_by_key(state["cells"])
+	var cells: Dictionary[int, Dictionary] = _cells_by_key(
+		state["cells"], int(state["width"])
+	)
+	var grid_width: int = int(state["width"])
+	var grid_height: int = int(state["height"])
 	for edit_value: Variant in data["edits"]:
 		var edit: Dictionary = edit_value
-		var key: int = int(edit["y"]) * int(state["width"]) + int(edit["x"])
+		var x: int = int(edit["x"])
+		var y: int = int(edit["y"])
+		if x < 0 or x >= grid_width or y < 0 or y >= grid_height:
+			return
+		var key: int = y * grid_width + x
 		if str(edit["color_id"]).is_empty():
 			cells.erase(key)
 		else:
@@ -1365,7 +1622,11 @@ func _state_cell_position(state: Dictionary, x: int, y: int) -> Vector3:
 	)
 
 
-func _overlaps_existing_canvas(origin: Vector3, normal: Vector3) -> bool:
+func _overlaps_existing_canvas(
+	origin: Vector3,
+	normal: Vector3,
+	requested_size: int,
+) -> bool:
 	for state: Dictionary in _canvas_states.values():
 		if bool(state.get("finalized", false)):
 			continue
@@ -1384,8 +1645,16 @@ func _overlaps_existing_canvas(origin: Vector3, normal: Vector3) -> bool:
 			state["tangent"]
 		).normalized()
 		var bitangent: Vector3 = existing_normal.cross(tangent).normalized()
-		var width: float = float(state["width"]) * float(state["cell_size"])
-		var height: float = float(state["height"]) * float(state["cell_size"])
+		var width: float = (
+			(float(state["width"]) + float(requested_size))
+			* float(state["cell_size"])
+			* 0.5
+		)
+		var height: float = (
+			(float(state["height"]) + float(requested_size))
+			* float(state["cell_size"])
+			* 0.5
+		)
 		var clearance: float = float(state["cell_size"]) * 0.5
 		if (
 			absf(relative.dot(tangent)) < width - clearance
@@ -1400,6 +1669,13 @@ func _active_canvas_count() -> int:
 	for state: Dictionary in _canvas_states.values():
 		if not bool(state.get("finalized", false)):
 			count += 1
+	return count
+
+
+func _allocated_grid_cells() -> int:
+	var count: int = 0
+	for state: Dictionary in _canvas_states.values():
+		count += int(state.get("width", 0)) * int(state.get("height", 0))
 	return count
 
 
@@ -1427,8 +1703,15 @@ func _create_brush_preview() -> void:
 
 
 func _create_placement_preview() -> void:
+	_rebuild_placement_preview()
+
+
+func _rebuild_placement_preview() -> void:
 	if _drawing_root == null:
 		return
+	if _placement_preview != null:
+		_placement_preview.queue_free()
+		_placement_preview = null
 	var mesh := ImmediateMesh.new()
 	_placement_preview_material = StandardMaterial3D.new()
 	_placement_preview_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
@@ -1437,22 +1720,22 @@ func _create_placement_preview() -> void:
 	_placement_preview_material.albedo_color = Color(0.46, 0.91, 0.95, 0.72)
 	mesh.surface_begin(Mesh.PRIMITIVE_LINES, _placement_preview_material)
 	var half_width: float = (
-		float(SurfaceDrawingProtocol.GRID_WIDTH)
+		float(_grid_size)
 		* SurfaceDrawingProtocol.CELL_SIZE
 		* 0.5
 	)
 	var half_height: float = (
-		float(SurfaceDrawingProtocol.GRID_HEIGHT)
+		float(_grid_size)
 		* SurfaceDrawingProtocol.CELL_SIZE
 		* 0.5
 	)
-	for x: int in range(SurfaceDrawingProtocol.GRID_WIDTH + 1):
+	for x: int in range(_grid_size + 1):
 		var horizontal: float = (
 			-half_width + float(x) * SurfaceDrawingProtocol.CELL_SIZE
 		)
 		mesh.surface_add_vertex(Vector3(horizontal, -half_height, 0.0))
 		mesh.surface_add_vertex(Vector3(horizontal, half_height, 0.0))
-	for y: int in range(SurfaceDrawingProtocol.GRID_HEIGHT + 1):
+	for y: int in range(_grid_size + 1):
 		var vertical: float = (
 			-half_height + float(y) * SurfaceDrawingProtocol.CELL_SIZE
 		)
@@ -1528,7 +1811,12 @@ func _cycle_color(direction: int) -> void:
 
 
 func _set_brush_size(value: int) -> void:
-	_brush_size = clampi(value, 1, 4)
+	var requested: int = clampi(value, 1, 4)
+	if _art_unlocks != null and not _art_unlocks.is_brush_size_unlocked(
+		requested
+	):
+		return
+	_brush_size = requested
 	_reset_stroke()
 	_emit_hud_state("")
 
@@ -1552,6 +1840,7 @@ func _emit_hud_state(status: String) -> void:
 		SurfaceDrawingPalette.get_display_name(_current_color_id()),
 		_current_color(),
 		_brush_size,
+		_grid_size,
 		status,
 	)
 
@@ -1582,14 +1871,17 @@ func _new_request_id(prefix: String) -> String:
 	return "%s-%d-%d" % [prefix, Time.get_ticks_msec(), _request_sequence]
 
 
-func _cells_by_key(values: Array) -> Dictionary[int, Dictionary]:
+func _cells_by_key(
+	values: Array,
+	grid_width: int,
+) -> Dictionary[int, Dictionary]:
 	var result: Dictionary[int, Dictionary] = {}
 	for value: Variant in values:
 		if typeof(value) != TYPE_DICTIONARY:
 			continue
 		var cell: Dictionary = value
 		var key: int = (
-			int(cell.get("y", -1)) * SurfaceDrawingProtocol.GRID_WIDTH
+			int(cell.get("y", -1)) * grid_width
 			+ int(cell.get("x", -1))
 		)
 		result[key] = cell.duplicate(true)
@@ -1597,7 +1889,9 @@ func _cells_by_key(values: Array) -> Dictionary[int, Dictionary]:
 
 
 func _state_cell(state: Dictionary, x: int, y: int) -> Dictionary:
-	var cells: Dictionary[int, Dictionary] = _cells_by_key(state.get("cells", []))
+	var cells: Dictionary[int, Dictionary] = _cells_by_key(
+		state.get("cells", []), int(state["width"])
+	)
 	return Dictionary(
 		cells.get(_cell_key_for_state(state, x, y), {})
 	).duplicate(true)
@@ -1686,6 +1980,20 @@ func _on_peer_removed(peer_id: int) -> void:
 	_peer_request_times.erase(peer_id)
 	_peer_request_ids.erase(peer_id)
 	_stroke_history_by_peer.erase(peer_id)
+	_peer_art_entitlements.erase(peer_id)
+
+
+func _on_local_art_entitlement_changed() -> void:
+	if _active and not _owns_art_kit():
+		deactivate()
+	_publish_local_entitlement()
+
+
+func _on_local_art_unlocks_changed(_unlock_mask: int) -> void:
+	_refresh_local_unlocks()
+	_rebuild_placement_preview()
+	_publish_local_entitlement()
+	_emit_hud_state("")
 
 
 func _on_relationship_changed(_fingerprint: String) -> void:
@@ -1695,7 +2003,14 @@ func _on_relationship_changed(_fingerprint: String) -> void:
 
 func _on_session_state_changed(state: NetworkSession.State) -> void:
 	if state == NetworkSession.State.JOINED_CLIENT:
+		_publish_local_entitlement()
 		request_canvas_snapshot.rpc_id(1, _new_request_id("snapshot"))
+		return
+	if state in [
+		NetworkSession.State.PRIVATE_HOST,
+		NetworkSession.State.OPEN_HOST,
+	]:
+		_publish_local_entitlement()
 		return
 	if state not in [
 		NetworkSession.State.INACTIVE,
@@ -1709,6 +2024,7 @@ func _on_session_state_changed(state: NetworkSession.State) -> void:
 	_canvas_sequence = 0
 	_peer_request_times.clear()
 	_peer_request_ids.clear()
+	_peer_art_entitlements.clear()
 
 
 func _clear_session_artwork_state() -> void:

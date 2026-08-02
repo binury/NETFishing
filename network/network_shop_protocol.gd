@@ -2,6 +2,7 @@ class_name NetworkShopProtocol
 extends RefCounted
 
 const CAPABILITY: StringName = &"shop_v1"
+const ART_CAPABILITY: StringName = &"art_shop_v1"
 const RELIABLE_CHANNEL: int = NetworkProtocol.SHOP_RELIABLE_CHANNEL
 const MAX_ID_LENGTH: int = 96
 const MAX_MESSAGE_LENGTH: int = 160
@@ -13,6 +14,8 @@ enum ProductCategory {
 	REEL_SPEED_UPGRADE,
 	BARRIER_POWER_UPGRADE,
 	COOLER_CAPACITY_UPGRADE,
+	ART_KIT,
+	ART_UPGRADE,
 }
 
 
