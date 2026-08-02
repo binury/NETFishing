@@ -32,6 +32,9 @@ func _run_host() -> void:
 	)
 	assert(session.start_private_host(TEST_PORT))
 	world_time.synchronize_time(INITIAL_HOST_TIME)
+	assert(is_equal_approx(
+		world_time.get_persistent_time_hours(), INITIAL_HOST_TIME
+	))
 	world_weather.apply_authoritative_snapshot(
 		WorldWeatherService.Weather.RAINY, 300.0
 	)
@@ -56,6 +59,9 @@ func _run_host() -> void:
 
 	await create_timer(1.0).timeout
 	world_time.synchronize_time(UPDATED_HOST_TIME)
+	assert(is_equal_approx(
+		world_time.get_persistent_time_hours(), UPDATED_HOST_TIME
+	))
 	world_weather.apply_authoritative_snapshot(
 		WorldWeatherService.Weather.FOGGY, 300.0
 	)
@@ -98,6 +104,7 @@ func _run_client() -> void:
 	assert(session.supports_server_capability(
 		NetworkProtocol.WORLD_WEATHER_CAPABILITY
 	))
+	assert(world_time.restore_persistent_time_hours(15.25))
 
 	var initial_deadline: int = Time.get_ticks_msec() + 8000
 	while (
@@ -145,6 +152,7 @@ func _run_client() -> void:
 		world_time.get_time_hours(), UPDATED_HOST_TIME
 	) <= TIME_TOLERANCE_HOURS)
 	assert(world_time.get_phase() == WorldTimeService.Phase.NIGHT)
+	assert(is_equal_approx(world_time.get_persistent_time_hours(), 15.25))
 	assert(clock_label.text == world_time.get_clock_text())
 	var fog_deadline: int = Time.get_ticks_msec() + 8000
 	while (

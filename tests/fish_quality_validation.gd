@@ -242,7 +242,14 @@ func _validate_version_four_migration() -> void:
 		version_four,
 		4,
 	)
-	assert(int(migrated.get("save_version", -1)) == 5)
+	assert(int(migrated.get("save_version", -1)) == 6)
+	assert(int((migrated["experience"] as Dictionary)["total_experience"]) == 0)
+	assert(
+		is_equal_approx(
+			float((migrated["world"] as Dictionary)["time_hours"]),
+			8.0,
+		)
+	)
 	var catches: Array = migrated["inventory"]["catches"]
 	assert(int((catches[0] as Dictionary)["quality"]) == 0)
 	var collection: Dictionary = migrated["collection"]

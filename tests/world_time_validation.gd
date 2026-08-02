@@ -25,6 +25,7 @@ func _initialize() -> void:
 
 func _run() -> void:
 	_validate_clock_boundaries_and_duration()
+	_validate_persistent_host_clock()
 	_validate_fishing_availability()
 	_validate_fishing_spot_context()
 	_validate_network_snapshot_bounds()
@@ -75,6 +76,24 @@ func _validate_clock_boundaries_and_duration() -> void:
 	assert(is_equal_approx(clock.get_time_hours(), 8.0))
 	assert(not clock.is_night_period())
 	assert(clock.is_transition())
+	clock.queue_free()
+
+
+func _validate_persistent_host_clock() -> void:
+	var clock := WorldTimeServiceType.new()
+	root.add_child(clock)
+	assert(clock.restore_persistent_time_hours(18.75))
+	clock.set_persistence_tracking_enabled(true)
+	clock.begin_session(clock.get_persistent_time_hours())
+	assert(is_equal_approx(clock.get_time_hours(), 18.75))
+	clock.synchronize_time(19.25)
+	assert(is_equal_approx(clock.get_persistent_time_hours(), 19.25))
+	clock.set_persistence_tracking_enabled(false)
+	clock.synchronize_time(6.5)
+	assert(is_equal_approx(clock.get_time_hours(), 6.5))
+	assert(is_equal_approx(clock.get_persistent_time_hours(), 19.25))
+	assert(not clock.restore_persistent_time_hours(-1.0))
+	assert(not clock.restore_persistent_time_hours(24.0))
 	clock.queue_free()
 
 

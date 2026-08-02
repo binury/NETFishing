@@ -1,4 +1,4 @@
-[gd_scene load_steps=17 format=3]
+[gd_scene load_steps=18 format=3]
 
 [ext_resource type="Script" path="res://player/player.gd" id="1_script"]
 [ext_resource type="Script" path="res://inventory/fish_inventory.gd" id="2_inventory"]
@@ -14,6 +14,7 @@
 [ext_resource type="Material" path="res://player/materials/player_blob_shadow.tres" id="12_blob_shadow"]
 [ext_resource type="PackedScene" path="res://art/exported/characters/base/netfishing_base_character.glb" id="13_character"]
 [ext_resource type="Script" path="res://progression/player_art_unlocks.gd" id="14_art_unlocks"]
+[ext_resource type="Script" path="res://progression/player_experience.gd" id="15_experience"]
 
 [sub_resource type="CapsuleShape3D" id="PlayerShape"]
 radius = 0.45
@@ -103,6 +104,10 @@ script = ExtResource("10_capacity")
 [node name="ArtUnlocks" type="Node" parent="."]
 unique_name_in_owner = true
 script = ExtResource("14_art_unlocks")
+
+[node name="Experience" type="Node" parent="."]
+unique_name_in_owner = true
+script = ExtResource("15_experience")
 
 [node name="CatchDisplayAnchor" type="Marker3D" parent="Visuals"]
 unique_name_in_owner = true

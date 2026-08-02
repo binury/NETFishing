@@ -44,6 +44,12 @@ const WorldTimeServiceType = preload("res://world/world_time_service.gd")
 const WorldWeatherServiceType = preload(
 	"res://world/world_weather_service.gd"
 )
+const PlayerExperienceType = preload(
+	"res://progression/player_experience.gd"
+)
+const UIReferencePresentationType = preload(
+	"res://ui/ui_reference_presentation.gd"
+)
 
 signal pixelation_settings_visibility_changed(is_visible: bool)
 signal crisp_reset_focus_requested
@@ -63,6 +69,13 @@ signal shop_backdrop_visibility_changed(is_visible: bool)
 @onready var _barrier_health: Label = %BarrierHealth
 @onready var _showcase_details: Label = %ShowcaseDetails
 @onready var _fishing_panel: PanelContainer = %FishingPanel
+@onready var _experience_panel: PanelContainer = %ExperienceProgressPanel
+@onready var _experience_level_label: Label = %ExperienceLevelLabel
+@onready var _experience_award_label: Label = %ExperienceAwardLabel
+@onready var _experience_progress: ProgressBar = %ExperienceProgress
+@onready var _experience_bubble: PanelContainer = %ExperienceBubble
+@onready var _experience_bubble_label: Label = %ExperienceBubbleLabel
+@onready var _canonical_stage: Control = %CanonicalStage
 @onready var _player_menu: PlayerMenuType = %PlayerMenu
 @onready var _screen_fade: ScreenFade = %ScreenFade
 @onready var _title_screen: TitleScreenType = %TitleScreen
@@ -96,6 +109,11 @@ var _item_effects: PlayerItemEffectsType
 var _main_shop_buyer: FishBuyerProfileType
 var _shop_interaction: ShopInteractionType
 var _surface_drawing: NetworkSurfaceDrawingService
+var _experience: PlayerExperienceType
+var _experience_award_queue: Array[Dictionary] = []
+var _experience_animation_active: bool = false
+var _experience_animation_generation: int = 0
+var _experience_panel_rest_y: float = 18.0
 
 
 func _ready() -> void:
@@ -124,6 +142,7 @@ func setup(
 	player: PlayerType,
 	inventory: FishInventoryType,
 	collection_log: CollectionLogType,
+	experience: PlayerExperienceType,
 	wallet: PlayerWalletType,
 	sale_service: FishSaleServiceType,
 	default_buyer: FishBuyerProfileType,
@@ -156,6 +175,14 @@ func setup(
 	_player = player
 	_fishing_spot = fishing_spot
 	_item_effects = item_effects
+	_experience = experience
+	if (
+		_experience != null
+		and not _experience.experience_awarded.is_connected(
+			_on_experience_awarded
+		)
+	):
+		_experience.experience_awarded.connect(_on_experience_awarded)
 	_chat_ui.setup(
 		network_chat_service, network_session, spawn_service, player,
 		fishing_spot, settings_manager, world_time, world_weather
@@ -304,6 +331,7 @@ func setup_data_and_identity(
 
 
 func _process(_delta: float) -> void:
+	_update_experience_bubble_position()
 	if _item_effects == null or not _gameplay_ui_enabled:
 		_effect_status.hide()
 		return
@@ -372,6 +400,7 @@ func set_gameplay_ui_enabled(enabled: bool) -> void:
 		_refresh_hotbar_visibility()
 		_hotbar_ui.set_gameplay_input_enabled(true)
 		_refresh_fishing_panel_visibility()
+		call_deferred("_start_next_experience_animation")
 
 
 func set_system_menu_open(is_open: bool) -> void:
@@ -578,6 +607,7 @@ func _on_showcase_changed(
 		_showcase_details.text = ""
 		_showcase_details.visible = false
 		_set_fishing_status("")
+		call_deferred("_start_next_experience_animation")
 		return
 	_catch_track.visible = false
 	_barrier_prompt_panel.visible = false
@@ -594,6 +624,197 @@ func _on_showcase_changed(
 	)
 	_status_label.visible = true
 	_refresh_fishing_panel_visibility()
+
+
+func _on_experience_awarded(
+	amount: int,
+	previous_total: int,
+	new_total: int,
+	previous_level: int,
+	new_level: int,
+) -> void:
+	if amount <= 0:
+		return
+	_experience_award_queue.append({
+		"amount": amount,
+		"previous_total": previous_total,
+		"new_total": new_total,
+		"previous_level": previous_level,
+		"new_level": new_level,
+	})
+
+
+func _start_next_experience_animation() -> void:
+	if (
+		_experience_animation_active
+		or _showcase_active
+		or _experience_award_queue.is_empty()
+		or not _gameplay_ui_enabled
+	):
+		return
+	var award: Dictionary = _experience_award_queue.pop_front()
+	_experience_animation_active = true
+	_experience_animation_generation += 1
+	var generation: int = _experience_animation_generation
+	_play_experience_animation(award, generation)
+
+
+func _play_experience_animation(
+	award: Dictionary,
+	generation: int,
+) -> void:
+	var amount: int = int(award.get("amount", 0))
+	var previous_total: int = int(award.get("previous_total", 0))
+	var new_total: int = int(award.get("new_total", previous_total))
+	_experience_award_label.text = "+%d xp" % amount
+	_experience_bubble_label.text = "+%d xp!" % amount
+	_update_experience_progress(previous_total)
+	_experience_panel.position.y = -_experience_panel.size.y - 8.0
+	_experience_panel.modulate.a = 0.0
+	_experience_panel.show()
+	_experience_bubble.modulate.a = 0.0
+	_experience_bubble.scale = Vector2(0.72, 0.72)
+	_experience_bubble.pivot_offset = _experience_bubble.size * 0.5
+	_experience_bubble.show()
+
+	var entry_tween: Tween = create_tween()
+	entry_tween.set_parallel(true)
+	entry_tween.tween_property(
+		_experience_panel,
+		"position:y",
+		_experience_panel_rest_y,
+		0.26,
+	).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	entry_tween.tween_property(
+		_experience_panel,
+		"modulate:a",
+		1.0,
+		0.18,
+	)
+	entry_tween.tween_property(
+		_experience_bubble,
+		"modulate:a",
+		1.0,
+		0.15,
+	)
+	entry_tween.tween_property(
+		_experience_bubble,
+		"scale",
+		Vector2.ONE,
+		0.28,
+	).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	await entry_tween.finished
+	if generation != _experience_animation_generation:
+		return
+
+	var fill_duration: float = clampf(
+		0.8 + float(amount) * 0.006,
+		0.9,
+		1.65,
+	)
+	var fill_tween: Tween = create_tween()
+	fill_tween.tween_method(
+		Callable(self, "_set_experience_animation_progress").bind(
+			previous_total,
+			new_total,
+		),
+		0.0,
+		1.0,
+		fill_duration,
+	).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	await fill_tween.finished
+	if generation != _experience_animation_generation:
+		return
+	await get_tree().create_timer(0.75).timeout
+	if generation != _experience_animation_generation:
+		return
+
+	var exit_tween: Tween = create_tween()
+	exit_tween.set_parallel(true)
+	exit_tween.tween_property(
+		_experience_panel,
+		"modulate:a",
+		0.0,
+		0.24,
+	)
+	exit_tween.tween_property(
+		_experience_bubble,
+		"modulate:a",
+		0.0,
+		0.2,
+	)
+	exit_tween.tween_property(
+		_experience_bubble,
+		"scale",
+		Vector2(0.82, 0.82),
+		0.24,
+	).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	await exit_tween.finished
+	if generation != _experience_animation_generation:
+		return
+	_experience_panel.hide()
+	_experience_bubble.hide()
+	_experience_animation_active = false
+	call_deferred("_start_next_experience_animation")
+
+
+func _set_experience_animation_progress(
+	progress: float,
+	previous_total: int,
+	new_total: int,
+) -> void:
+	var displayed_total: int = roundi(lerpf(
+		float(previous_total),
+		float(new_total),
+		clampf(progress, 0.0, 1.0),
+	))
+	_update_experience_progress(displayed_total)
+
+
+func _update_experience_progress(total_experience: int) -> void:
+	var level: int = PlayerExperienceType.level_for_total_experience(
+		total_experience
+	)
+	_experience_level_label.text = "level %d" % level
+	_experience_progress.value = (
+		PlayerExperienceType.progress_for_total_experience(total_experience)
+		* 100.0
+	)
+
+
+func _update_experience_bubble_position() -> void:
+	if not _experience_animation_active or _player == null:
+		return
+	var camera: Camera3D = _player.get_gameplay_camera()
+	var anchor_position: Vector3 = _player.get_chat_anchor_position()
+	if camera == null or camera.is_position_behind(anchor_position):
+		_experience_bubble.hide()
+		return
+	_experience_bubble.show()
+	var window_size := Vector2(get_window().size)
+	var output_scale: float = UIReferencePresentationType.get_scale(
+		window_size
+	)
+	var stage_position: Vector2 = (
+		camera.unproject_position(anchor_position) / output_scale
+		- _canonical_stage.position
+	)
+	var desired: Vector2 = stage_position - Vector2(
+		_experience_bubble.size.x * 0.5,
+		_experience_bubble.size.y + 10.0,
+	)
+	_experience_bubble.position = Vector2(
+		clampf(
+			desired.x,
+			8.0,
+			_canonical_stage.size.x - _experience_bubble.size.x - 8.0,
+		),
+		clampf(
+			desired.y,
+			8.0,
+			_canonical_stage.size.y - _experience_bubble.size.y - 8.0,
+		),
+	)
 
 
 func _on_player_menu_visibility_changed(is_open: bool) -> void:

@@ -21,6 +21,9 @@ const PlayerCoolerCapacityType = preload(
 const PlayerArtUnlocksType = preload(
 	"res://progression/player_art_unlocks.gd"
 )
+const PlayerExperienceType = preload(
+	"res://progression/player_experience.gd"
+)
 const FishingRodAttachmentScene = preload(
 	"res://player/fishing_rod_attachment.tscn"
 )
@@ -109,6 +112,7 @@ class ShowcaseCameraSnapshot:
 @onready var item_effects: PlayerItemEffectsType = %ItemEffects
 @onready var cooler_capacity: PlayerCoolerCapacityType = %CoolerCapacity
 @onready var art_unlocks: PlayerArtUnlocksType = %ArtUnlocks
+@onready var experience: PlayerExperienceType = %Experience
 @onready var _cast_origin: Marker3D = %CastOrigin
 @onready var _catch_display: Node3D = %CatchDisplay
 @onready var _catch_sprite: Sprite3D = %CatchSprite

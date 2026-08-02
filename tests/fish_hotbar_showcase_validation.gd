@@ -30,6 +30,9 @@ func _run() -> void:
 		await process_frame
 
 	var player := main.get("_player") as Player
+	var world_time := main.get_node("%WorldTimeService") as WorldTimeService
+	world_time.synchronize_time(19.75)
+	assert(player.experience.award_experience(125))
 	var fish_catalog := main.get("fish_catalog") as FishPool
 	var service := main.get_node(
 		"%NetworkFishShowcaseService"
@@ -100,7 +103,17 @@ func _run() -> void:
 	var hotbar_data: Dictionary = (parsed as Dictionary)["hotbar"]
 	assert(typeof(hotbar_data.get("fish_slots")) == TYPE_ARRAY)
 	assert(str((hotbar_data["fish_slots"] as Array)[1]) == fish_catch.catch_id)
-	assert(int((parsed as Dictionary)["save_version"]) == 5)
+	assert(int((parsed as Dictionary)["save_version"]) == 6)
+	assert(
+		int((parsed as Dictionary)["experience"]["total_experience"])
+		== 125
+	)
+	assert(
+		is_equal_approx(
+			float((parsed as Dictionary)["world"]["time_hours"]),
+			19.75,
+		)
+	)
 	var saved_catches: Array = (parsed as Dictionary)["inventory"]["catches"]
 	assert(int((saved_catches[0] as Dictionary)["quality"]) == fish_catch.quality)
 	var saved_masks: Dictionary = (
@@ -112,7 +125,12 @@ func _run() -> void:
 	)
 
 	assert(player.hotbar.clear_slot(1))
+	assert(player.experience.restore_total_experience(0))
+	world_time.synchronize_time(8.0)
 	assert(save_manager.load_player_data())
+	assert(player.experience.get_total_experience() == 125)
+	assert(is_equal_approx(world_time.get_time_hours(), 19.75))
+	assert(player.experience.get_level() == 2)
 	assert(player.hotbar.get_fish_catch_id(1) == fish_catch.catch_id)
 	assert(player.hotbar.get_selected_slot() == 1)
 	assert(

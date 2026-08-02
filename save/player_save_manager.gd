@@ -21,8 +21,12 @@ const PlayerCoolerCapacityType = preload(
 const PlayerArtUnlocksType = preload(
 	"res://progression/player_art_unlocks.gd"
 )
+const PlayerExperienceType = preload(
+	"res://progression/player_experience.gd"
+)
+const WorldTimeServiceType = preload("res://world/world_time_service.gd")
 
-const SAVE_VERSION: int = 5
+const SAVE_VERSION: int = 6
 const BASIC_ROD_ID: StringName = &"basic_fishing_rod"
 const MAX_SAFE_BALANCE: int = 1000000000000
 
@@ -42,6 +46,8 @@ class LoadSnapshot:
 	var barrier_power_level: int = 0
 	var cooler_capacity_level: int = 0
 	var art_unlock_mask: int = 0
+	var total_experience: int = 0
+	var world_time_hours: float = WorldTimeServiceType.DEFAULT_START_HOUR
 
 
 @export_range(0.05, 5.0, 0.05) var autosave_delay: float = 0.5
@@ -56,6 +62,8 @@ var _item_catalog: ItemCatalogType
 var _fishing_upgrades: PlayerFishingUpgradesType
 var _cooler_capacity: PlayerCoolerCapacityType
 var _art_unlocks: PlayerArtUnlocksType
+var _experience: PlayerExperienceType
+var _world_time: WorldTimeServiceType
 var _autosave_timer: Timer
 var _is_configured: bool = false
 var _is_restoring: bool = false
@@ -98,6 +106,8 @@ func setup(
 	fishing_upgrades: PlayerFishingUpgradesType,
 	cooler_capacity: PlayerCoolerCapacityType,
 	art_unlocks: PlayerArtUnlocksType,
+	experience: PlayerExperienceType,
+	world_time: WorldTimeServiceType,
 ) -> void:
 	_inventory = inventory
 	_collection_log = collection_log
@@ -109,6 +119,8 @@ func setup(
 	_fishing_upgrades = fishing_upgrades
 	_cooler_capacity = cooler_capacity
 	_art_unlocks = art_unlocks
+	_experience = experience
+	_world_time = world_time
 	_is_configured = (
 		_inventory != null
 		and _collection_log != null
@@ -120,6 +132,8 @@ func setup(
 		and _fishing_upgrades != null
 		and _cooler_capacity != null
 		and _art_unlocks != null
+		and _experience != null
+		and _world_time != null
 	)
 	if not _is_configured:
 		push_error("PlayerSaveManager setup is missing required references.")
@@ -154,6 +168,10 @@ func setup(
 		)
 	if not _art_unlocks.unlocks_changed.is_connected(_on_art_unlocks_changed):
 		_art_unlocks.unlocks_changed.connect(_on_art_unlocks_changed)
+	if not _experience.experience_changed.is_connected(
+		_on_experience_changed
+	):
+		_experience.experience_changed.connect(_on_experience_changed)
 
 
 func load_player_data() -> bool:
@@ -234,6 +252,12 @@ func load_player_data() -> bool:
 	var art_restored: bool = _art_unlocks.restore_mask(
 		snapshot.art_unlock_mask
 	)
+	var experience_restored: bool = _experience.restore_total_experience(
+		snapshot.total_experience
+	)
+	var world_time_restored: bool = (
+		_world_time.restore_persistent_time_hours(snapshot.world_time_hours)
+	)
 	_is_restoring = false
 	if (
 		not inventory_restored
@@ -244,6 +268,8 @@ func load_player_data() -> bool:
 		or not upgrades_restored
 		or not cooler_restored
 		or not art_restored
+		or not experience_restored
+		or not world_time_restored
 	):
 		push_error("Validated player save could not be restored.")
 		return false
@@ -335,6 +361,17 @@ func set_autosave_enabled(enabled: bool) -> void:
 
 func save_if_dirty() -> bool:
 	return not _is_dirty or save_now()
+
+
+func save_world_time_checkpoint() -> bool:
+	if (
+		not _is_configured
+		or _automatic_saving_blocked
+		or not _autosave_enabled
+	):
+		return false
+	_is_dirty = true
+	return save_now()
 
 
 func is_dirty() -> bool:
@@ -465,6 +502,10 @@ func _build_save_dictionary() -> Dictionary:
 		"upgrades": _fishing_upgrades.to_save_data(),
 		"cooler": _cooler_capacity.to_save_data(),
 		"art": _art_unlocks.to_save_data(),
+		"experience": _experience.to_save_data(),
+		"world": {
+			"time_hours": _world_time.get_persistent_time_hours(),
+		},
 	}
 
 
@@ -475,6 +516,7 @@ func _build_load_snapshot(save_data: Dictionary) -> LoadSnapshot:
 		or typeof(save_data.get("inventory")) != TYPE_DICTIONARY
 		or typeof(save_data.get("bag")) != TYPE_DICTIONARY
 		or typeof(save_data.get("hotbar")) != TYPE_DICTIONARY
+		or typeof(save_data.get("experience")) != TYPE_DICTIONARY
 	):
 		return null
 	var wallet_data: Dictionary = save_data["wallet"]
@@ -482,6 +524,10 @@ func _build_load_snapshot(save_data: Dictionary) -> LoadSnapshot:
 	var inventory_data: Dictionary = save_data["inventory"]
 	var bag_data: Dictionary = save_data["bag"]
 	var hotbar_data: Dictionary = save_data["hotbar"]
+	var experience_data: Dictionary = save_data["experience"]
+	var world_data: Dictionary = {}
+	if typeof(save_data.get("world")) == TYPE_DICTIONARY:
+		world_data = save_data["world"]
 	var upgrades_data: Dictionary = {}
 	var cooler_data: Dictionary = {}
 	var art_data: Dictionary = {}
@@ -507,6 +553,7 @@ func _build_load_snapshot(save_data: Dictionary) -> LoadSnapshot:
 		or typeof(bag_data.get("items")) != TYPE_ARRAY
 		or typeof(hotbar_data.get("slots")) != TYPE_ARRAY
 		or not hotbar_data.has("selected_slot")
+		or not experience_data.has("total_experience")
 	):
 		return null
 
@@ -525,6 +572,19 @@ func _build_load_snapshot(save_data: Dictionary) -> LoadSnapshot:
 
 	var snapshot := LoadSnapshot.new()
 	snapshot.wallet_balance = balance
+	snapshot.total_experience = _read_integer(
+		experience_data["total_experience"],
+		-1,
+		PlayerExperienceType.MAX_TOTAL_EXPERIENCE,
+	)
+	if snapshot.total_experience < 0:
+		return null
+	if world_data.has("time_hours"):
+		snapshot.world_time_hours = _read_world_time_hours(
+			world_data["time_hours"]
+		)
+		if snapshot.world_time_hours < 0.0:
+			return null
 	var discovered_values: Array = collection_data["discovered_fish_ids"]
 	var seen_discoveries: Dictionary[StringName, bool] = {}
 	for value: Variant in discovered_values:
@@ -744,6 +804,8 @@ func _migrate_save(
 				migrated = _migrate_version_3_to_4(migrated)
 			4:
 				migrated = _migrate_version_4_to_5(migrated)
+			5:
+				migrated = _migrate_version_5_to_6(migrated)
 			_:
 				return {}
 		if migrated.is_empty():
@@ -843,6 +905,16 @@ func _migrate_version_4_to_5(data: Dictionary) -> Dictionary:
 	return migrated
 
 
+func _migrate_version_5_to_6(data: Dictionary) -> Dictionary:
+	var migrated: Dictionary = data.duplicate(true)
+	migrated["save_version"] = 6
+	migrated["experience"] = {"total_experience": 0}
+	migrated["world"] = {
+		"time_hours": WorldTimeServiceType.DEFAULT_START_HOUR,
+	}
+	return migrated
+
+
 func _mark_dirty() -> void:
 	if (
 		_is_restoring
@@ -885,6 +957,10 @@ func _on_cooler_capacity_changed(
 
 
 func _on_art_unlocks_changed(_unlock_mask: int) -> void:
+	_mark_dirty()
+
+
+func _on_experience_changed(_total_experience: int, _level: int) -> void:
 	_mark_dirty()
 
 
@@ -949,6 +1025,10 @@ func _restore_defaults() -> void:
 	_fishing_upgrades.reset_to_defaults()
 	_cooler_capacity.reset_to_defaults()
 	_art_unlocks.reset_to_defaults()
+	_experience.reset_to_defaults()
+	_world_time.restore_persistent_time_hours(
+		WorldTimeServiceType.DEFAULT_START_HOUR
+	)
 	_is_restoring = false
 	_is_dirty = false
 
@@ -972,6 +1052,19 @@ func _read_integer(
 		):
 			return int(round(float_value))
 	return invalid_value
+
+
+func _read_world_time_hours(value: Variant) -> float:
+	if typeof(value) not in [TYPE_FLOAT, TYPE_INT]:
+		return -1.0
+	var time_hours: float = float(value)
+	if (
+		not is_finite(time_hours)
+		or time_hours < 0.0
+		or time_hours >= WorldTimeServiceType.HOURS_PER_DAY
+	):
+		return -1.0
+	return time_hours
 
 
 func _read_upgrade_level(

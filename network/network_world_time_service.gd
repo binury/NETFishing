@@ -39,12 +39,16 @@ func _on_session_state_changed(state: NetworkSession.State) -> void:
 			_sequence = 0
 			_last_received_sequence = -1
 			_sync_elapsed = 0.0
-			_world_time.begin_session()
+			_world_time.set_persistence_tracking_enabled(true)
+			_world_time.begin_session(
+				_world_time.get_persistent_time_hours()
+			)
 		return
 	if state == NetworkSession.State.JOINED_CLIENT:
 		_active_session_id = _session.get_session_id()
 		_last_received_sequence = -1
 		_sync_elapsed = 0.0
+		_world_time.set_persistence_tracking_enabled(false)
 		if _session.supports_server_capability(
 			NetworkProtocol.WORLD_TIME_CAPABILITY
 		):
@@ -62,6 +66,7 @@ func _on_session_state_changed(state: NetworkSession.State) -> void:
 		_sequence = 0
 		_last_received_sequence = -1
 		_sync_elapsed = 0.0
+		_world_time.set_persistence_tracking_enabled(false)
 		_world_time.end_session()
 
 

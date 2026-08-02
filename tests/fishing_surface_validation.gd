@@ -239,18 +239,29 @@ func _validate_bite_wait_distribution() -> void:
 	var fishing_spot := FishingSpotScene.instantiate() as FishingSpotType
 	root.add_child(fishing_spot)
 	await process_frame
+	var bite_rng := fishing_spot.get("_bite_rng") as RandomNumberGenerator
+	bite_rng.seed = 84219
 	var quick_count: int = 0
 	var typical_or_long_count: int = 0
+	var very_long_count: int = 0
+	var total_wait_seconds: float = 0.0
 	for _sample_index: int in 10000:
 		var wait_seconds: float = fishing_spot.roll_bite_wait_time()
 		assert(wait_seconds >= 10.0)
 		assert(wait_seconds <= 240.0)
+		total_wait_seconds += wait_seconds
 		if wait_seconds < 30.0:
 			quick_count += 1
 		else:
 			typical_or_long_count += 1
-	assert(quick_count > 0)
+		if wait_seconds >= 180.0:
+			very_long_count += 1
+	var average_wait_seconds: float = total_wait_seconds / 10000.0
+	assert(quick_count >= 2300 and quick_count <= 2700)
 	assert(typical_or_long_count > quick_count)
+	assert(very_long_count >= 100 and very_long_count <= 300)
+	assert(average_wait_seconds >= 57.0)
+	assert(average_wait_seconds <= 61.0)
 	fishing_spot.queue_free()
 	await process_frame
 

@@ -7,6 +7,10 @@ const FishPoolType = preload("res://fish/fish_pool.gd")
 const FishSelectorType = preload("res://fish/fish_selector.gd")
 const FishingContextType = preload("res://fishing/fishing_context.gd")
 const CollectionLogType = preload("res://collection/collection_log.gd")
+const FishExperienceType = preload("res://fish/fish_experience.gd")
+const PlayerExperienceType = preload(
+	"res://progression/player_experience.gd"
+)
 const RemotePresentationType = preload(
 	"res://fishing/remote_fishing_presentation.gd"
 )
@@ -29,6 +33,7 @@ var _fishing_spot: FishingSpot
 var _local_inventory: FishInventory
 var _local_collection: CollectionLog
 var _local_capacity: PlayerCoolerCapacity
+var _local_experience: PlayerExperienceType
 var _save_manager: PlayerSaveManager
 var _item_catalog: ItemCatalog
 var _fish_catalog: FishPoolType
@@ -51,6 +56,7 @@ func setup(
 	local_inventory: FishInventory,
 	local_collection: CollectionLog,
 	local_capacity: PlayerCoolerCapacity,
+	local_experience: PlayerExperienceType,
 	save_manager: PlayerSaveManager,
 	item_catalog: ItemCatalog,
 	fish_catalog: FishPoolType,
@@ -62,6 +68,7 @@ func setup(
 	_local_inventory = local_inventory
 	_local_collection = local_collection
 	_local_capacity = local_capacity
+	_local_experience = local_experience
 	_save_manager = save_manager
 	_item_catalog = item_catalog
 	_fish_catalog = fish_catalog
@@ -760,11 +767,18 @@ func _apply_target_outcome(data: Dictionary) -> void:
 	):
 		return
 	if not already_owned:
+		var experience_award: int = (
+			FishExperienceType.calculate_for_collection(
+				fish_catch,
+				_local_collection,
+			)
+		)
 		_local_inventory.add_catch(fish_catch)
 		_local_collection.mark_quality_discovered(
 			fish_id,
 			fish_catch.quality,
 		)
+		_local_experience.award_experience(experience_award)
 	if not _save_manager.save_if_dirty():
 		return
 	_result_ledgers[result_id] = true

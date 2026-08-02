@@ -9,6 +9,10 @@ const CatchControllerType = preload("res://fishing/catch_controller.gd")
 const FishingContextType = preload("res://fishing/fishing_context.gd")
 const FishingPresentationType = preload("res://fishing/fishing_presentation.gd")
 const FishInventoryType = preload("res://inventory/fish_inventory.gd")
+const FishExperienceType = preload("res://fish/fish_experience.gd")
+const PlayerExperienceType = preload(
+	"res://progression/player_experience.gd"
+)
 const ItemCatalogType = preload("res://items/item_catalog.gd")
 const ItemDataType = preload("res://items/item_data.gd")
 const PlayerBagType = preload("res://inventory/player_bag.gd")
@@ -101,9 +105,9 @@ const BITE_QUICK_MAX_SECONDS: float = 30.0
 const BITE_TYPICAL_MAX_SECONDS: float = 90.0
 const BITE_LONG_MAX_SECONDS: float = 180.0
 const BITE_MAX_SECONDS: float = 240.0
-const BITE_QUICK_PROBABILITY: float = 0.15
-const BITE_TYPICAL_PROBABILITY: float = 0.55
-const BITE_LONG_PROBABILITY: float = 0.25
+const BITE_QUICK_PROBABILITY: float = 0.25
+const BITE_TYPICAL_PROBABILITY: float = 0.65
+const BITE_LONG_PROBABILITY: float = 0.08
 const NETWORK_INPUT_RESEND_INTERVAL_SECONDS: float = 0.1
 @export_range(0.1, 10.0, 0.1) var cooldown_duration: float = 1.0
 
@@ -126,6 +130,7 @@ var _local_menu_input_owners: Dictionary[StringName, bool] = {}
 var _local_player: PlayerType
 var _local_inventory: FishInventoryType
 var _local_collection_log: CollectionLogType
+var _local_experience: PlayerExperienceType
 var _local_bag: PlayerBagType
 var _local_hotbar: PlayerHotbarType
 var _item_catalog: ItemCatalogType
@@ -186,6 +191,7 @@ func setup(
 	local_player: PlayerType,
 	local_inventory: FishInventoryType,
 	local_collection_log: CollectionLogType,
+	local_experience: PlayerExperienceType,
 	local_bag: PlayerBagType,
 	local_hotbar: PlayerHotbarType,
 	item_catalog: ItemCatalogType,
@@ -201,6 +207,7 @@ func setup(
 	_local_player = local_player
 	_local_inventory = local_inventory
 	_local_collection_log = local_collection_log
+	_local_experience = local_experience
 	_local_bag = local_bag
 	_local_hotbar = local_hotbar
 	_item_catalog = item_catalog
@@ -382,11 +389,7 @@ func _secure_showcase_catch_for_recovery() -> void:
 		and _local_inventory != null
 		and _local_collection_log != null
 	):
-		_local_inventory.add_catch(_pending_catch)
-		_local_collection_log.mark_quality_discovered(
-			_pending_catch.fish_id,
-			_pending_catch.quality,
-		)
+		_store_catch_progression(_pending_catch)
 	_pending_catch = null
 	_showcase_ready = false
 	_put_away_press_armed = false
@@ -406,11 +409,7 @@ func _exit_tree() -> void:
 		and _local_collection_log != null
 		and is_instance_valid(_local_collection_log)
 	):
-		_local_inventory.add_catch(_pending_catch)
-		_local_collection_log.mark_quality_discovered(
-			_pending_catch.fish_id,
-			_pending_catch.quality,
-		)
+		_store_catch_progression(_pending_catch)
 		_pending_catch = null
 	if _active_player != null and is_instance_valid(_active_player):
 		_active_player.end_catch_showcase(Callable(), true)
@@ -1061,11 +1060,7 @@ func _put_away_catch() -> void:
 		or _pending_catch == null
 	):
 		return
-	_local_inventory.add_catch(_pending_catch)
-	_local_collection_log.mark_quality_discovered(
-		_pending_catch.fish_id,
-		_pending_catch.quality,
-	)
+	_store_catch_progression(_pending_catch)
 	_pending_catch = null
 	_showcase_ready = false
 	_showcase_outcome_completed = false
@@ -1079,6 +1074,29 @@ func _put_away_catch() -> void:
 			""
 		)
 	)
+
+
+func _store_catch_progression(fish_catch: FishCatchType) -> void:
+	if (
+		fish_catch == null
+		or _local_inventory == null
+		or _local_collection_log == null
+		or _local_experience == null
+		or _local_inventory.contains_catch_id(fish_catch.catch_id)
+	):
+		return
+	var experience_award: int = (
+		FishExperienceType.calculate_for_collection(
+			fish_catch,
+			_local_collection_log,
+		)
+	)
+	_local_inventory.add_catch(fish_catch)
+	_local_collection_log.mark_quality_discovered(
+		fish_catch.fish_id,
+		fish_catch.quality,
+	)
+	_local_experience.award_experience(experience_award)
 
 
 func _finish_showcase_put_away(

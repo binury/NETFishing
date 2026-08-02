@@ -357,6 +357,8 @@ func _initialize_after_data_root() -> void:
 		_player.fishing_upgrades,
 		_player.cooler_capacity,
 		_player.art_unlocks,
+		_player.experience,
+		_world_time,
 	)
 	_save_manager.set_autosave_enabled(false)
 	_asset_reservations.setup(
@@ -411,6 +413,7 @@ func _initialize_after_data_root() -> void:
 		_player.inventory,
 		_player.collection_log,
 		_player.cooler_capacity,
+		_player.experience,
 		_save_manager,
 		item_catalog,
 		fish_catalog,
@@ -451,6 +454,7 @@ func _initialize_after_data_root() -> void:
 		_player,
 		_player.inventory,
 		_player.collection_log,
+		_player.experience,
 		_player.bag,
 		_player.hotbar,
 		item_catalog,
@@ -467,6 +471,7 @@ func _initialize_after_data_root() -> void:
 		_player,
 		_player.inventory,
 		_player.collection_log,
+		_player.experience,
 		_player.wallet,
 		_player.fish_sale_service,
 		pelican_buyer_profile,
@@ -1154,6 +1159,11 @@ func _on_return_to_title_requested() -> void:
 	if _quit_in_progress:
 		return
 	var pause_menu: PauseMenuType = _game_ui.get_pause_menu()
+	if not _save_manager.save_world_time_checkpoint():
+		pause_menu.report_network_error(
+			"Could not save progression before returning to title."
+		)
+		return
 	pause_menu.close_for_title_transition()
 	_network_session.disconnect_session("Returned to title.")
 	_set_gameplay_active(false)
@@ -1176,7 +1186,7 @@ func _on_title_join_game_requested(endpoint: String) -> void:
 func _on_pause_join_game_requested(endpoint: String) -> void:
 	if _quit_in_progress or not _gameplay_started:
 		return
-	if not _save_manager.save_if_dirty():
+	if not _save_manager.save_world_time_checkpoint():
 		_game_ui.get_pause_menu().report_network_error(
 			"Could not save progression before leaving this session."
 		)
@@ -1409,7 +1419,7 @@ func _on_quit_requested() -> void:
 	_quit_in_progress = true
 	_settings_manager.save_if_dirty()
 	if _gameplay_started:
-		_save_manager.save_if_dirty()
+		_save_manager.save_world_time_checkpoint()
 	_network_session.disconnect_session("Application closing.")
 	_title_music_requested = false
 	_replace_title_music_transition()

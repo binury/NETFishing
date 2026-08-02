@@ -24,6 +24,8 @@ const DUSK_END_HOUR: float = NIGHT_START_HOUR + TRANSITION_HALF_HOURS
 const DEFAULT_START_HOUR: float = DAY_START_HOUR
 
 var _time_hours: float = DEFAULT_START_HOUR
+var _persistent_time_hours: float = DEFAULT_START_HOUR
+var _persistence_tracking_enabled: bool = false
 var _running: bool = false
 var _phase: Phase = Phase.DAWN
 
@@ -61,6 +63,31 @@ func synchronize_time(authoritative_time_hours: float) -> void:
 	if not is_finite(authoritative_time_hours):
 		return
 	_set_time_hours(authoritative_time_hours, true)
+
+
+func set_persistence_tracking_enabled(enabled: bool) -> void:
+	if _persistence_tracking_enabled == enabled:
+		return
+	if _persistence_tracking_enabled:
+		_persistent_time_hours = _time_hours
+	_persistence_tracking_enabled = enabled
+
+
+func restore_persistent_time_hours(time_hours: float) -> bool:
+	if (
+		not is_finite(time_hours)
+		or time_hours < 0.0
+		or time_hours >= HOURS_PER_DAY
+	):
+		return false
+	_persistent_time_hours = time_hours
+	if _persistence_tracking_enabled:
+		_set_time_hours(_persistent_time_hours, true)
+	return true
+
+
+func get_persistent_time_hours() -> float:
+	return _persistent_time_hours
 
 
 func get_time_hours() -> float:
@@ -116,6 +143,8 @@ func _set_time_hours(time_hours: float, force_emit: bool) -> void:
 	var time_was_changed: bool = not is_equal_approx(normalized, _time_hours)
 	_time_hours = normalized
 	_phase = next_phase
+	if _persistence_tracking_enabled:
+		_persistent_time_hours = normalized
 	if phase_was_changed:
 		phase_changed.emit(_phase)
 	if force_emit or time_was_changed or phase_was_changed:
