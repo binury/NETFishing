@@ -5,6 +5,7 @@ const INPUT_OWNER: StringName = &"player_menu"
 const CollectionLogType = preload("res://collection/collection_log.gd")
 const FishCatchType = preload("res://fish/fish_catch.gd")
 const FishDataType = preload("res://fish/fish_data.gd")
+const FishQualityType = preload("res://fish/fish_quality.gd")
 const FishBuyerProfileType = preload("res://economy/fish_buyer_profile.gd")
 const FishSaleResultType = preload("res://economy/fish_sale_result.gd")
 const FishSaleServiceType = preload("res://economy/fish_sale_service.gd")
@@ -74,11 +75,6 @@ const NAVIGATION_PRESENTATION_SCALE: float = 0.60
 const NAVIGATION_CANONICAL_POSITION := Vector2(424.0, 44.0)
 const NAVIGATION_SELECTED_SCALE: float = 1.02
 const INVENTORY_TAB_LEFT_INSET: float = 96.0
-const COOLER_RARITY_COMMON := Color("e8eef0")
-const COOLER_RARITY_UNCOMMON := Color("64c87c")
-const COOLER_RARITY_RARE := Color("6098dd")
-const COOLER_RARITY_EPIC := Color("a979cf")
-const COOLER_RARITY_LEGENDARY := Color("db78a7")
 const MAIN_SHOP_BUYER_ID: StringName = &"main_fishing_shop"
 
 signal menu_visibility_changed(is_open: bool)
@@ -2609,11 +2605,14 @@ func _sync_cooler_fish_nodes(catches: Array[FishCatchType]) -> void:
 		var identity_hash: int = absi(String(fish_catch.catch_id).hash())
 		fish_node.configure(
 			fish_catch.catch_id,
-			fish_catch.fish.display_name,
+			FishQualityType.qualified_name(
+				fish_catch.fish.display_name,
+				fish_catch.quality,
+			),
 			fish_catch.fish.display_texture,
 			float(identity_hash % 628) / 100.0,
 			0.96 + float(identity_hash % 9) * 0.01,
-			_get_cooler_rarity_color(fish_catch.fish.rarity),
+			UIPalette.get_quality_color(fish_catch.quality),
 		)
 		fish_node.set_item_state(
 			_fish_selection.is_selected(fish_catch.catch_id),
@@ -2629,20 +2628,6 @@ func _sync_cooler_fish_nodes(catches: Array[FishCatchType]) -> void:
 		removed.queue_free()
 	_layout_cooler_fish(true)
 	_configure_cooler_fish_focus()
-
-
-func _get_cooler_rarity_color(rarity: int) -> Color:
-	match rarity:
-		FishDataType.Rarity.UNCOMMON:
-			return COOLER_RARITY_UNCOMMON
-		FishDataType.Rarity.RARE:
-			return COOLER_RARITY_RARE
-		FishDataType.Rarity.EPIC:
-			return COOLER_RARITY_EPIC
-		FishDataType.Rarity.LEGENDARY:
-			return COOLER_RARITY_LEGENDARY
-		_:
-			return COOLER_RARITY_COMMON
 
 
 func _layout_cooler_fish(animate: bool = true) -> void:
@@ -2926,7 +2911,10 @@ func _update_inventory_detail(fish_catch: FishCatchType) -> void:
 		and _reservations.is_fish_reserved(fish_catch.catch_id)
 	):
 		_cooler_detail_name.text += " • reserved in mail"
-	_cooler_weight_unit.text = "lb • %s" % fish_catch.fish.get_rarity_name()
+	_cooler_weight_unit.text = "lb • %s • %s" % [
+		FishQualityType.display_name(fish_catch.quality),
+		fish_catch.fish.get_rarity_name(),
+	]
 	if buyer_offer >= 0 and active_buyer != null:
 		_cooler_offer_label.text = _get_offer_label(active_buyer)
 		_cooler_offer_value.text = "$%d" % buyer_offer

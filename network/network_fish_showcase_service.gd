@@ -4,6 +4,7 @@ extends Node
 const FishPoolType = preload("res://fish/fish_pool.gd")
 const FishDataType = preload("res://fish/fish_data.gd")
 const FishCatchType = preload("res://fish/fish_catch.gd")
+const FishQualityType = preload("res://fish/fish_quality.gd")
 const FishInventoryType = preload("res://inventory/fish_inventory.gd")
 const PlayerHotbarType = preload("res://inventory/player_hotbar.gd")
 
@@ -79,6 +80,11 @@ func _submit_local_state(fish_catch: FishCatchType, should_show: bool) -> void:
 		"weight_lb": fish_catch.weight_lb if fish_catch != null else 0.0,
 		"display_scale": (
 			fish_catch.display_scale if fish_catch != null else 0.0
+		),
+		"quality": (
+			fish_catch.quality
+			if fish_catch != null
+			else FishQualityType.Tier.BORING
 		),
 		"revision": _local_revision,
 	}

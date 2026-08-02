@@ -16,6 +16,7 @@ const SALUTATION_LABELS := {
 	"salutations": "Salutations",
 	"good_luck_have_fun": "Good Luck Have Fun",
 }
+const FishQualityType = preload("res://fish/fish_quality.gd")
 
 var _service: NetworkMailService
 var _reservations: PlayerAssetReservationService
@@ -507,7 +508,11 @@ func _refresh_attachment_choices(_index: int) -> void:
 				):
 					_attachment_choice.add_item(
 						"%s — %.1f lb" % [
-							fish_catch.fish.display_name, fish_catch.weight_lb,
+							FishQualityType.qualified_name(
+								fish_catch.fish.display_name,
+								fish_catch.quality,
+							),
+							fish_catch.weight_lb,
 						]
 					)
 					_attachment_choice.set_item_metadata(
@@ -719,11 +724,18 @@ func _attachment_text(attachment: Dictionary) -> String:
 			)
 			if fish_catch != null:
 				return "%s — %.1f lb" % [
-					fish_catch.fish.display_name, fish_catch.weight_lb,
+					FishQualityType.qualified_name(
+						fish_catch.fish.display_name,
+						fish_catch.quality,
+					),
+					fish_catch.weight_lb,
 				]
 			var data: Dictionary = attachment.get("catch", {})
 			return "%s — %.1f lb" % [
-				str(data.get("fish_id", "fish")).capitalize(),
+				FishQualityType.qualified_name(
+					str(data.get("fish_id", "fish")).capitalize(),
+					int(data.get("quality", FishQualityType.Tier.BORING)),
+				),
 				float(data.get("weight_lb", 0.0)),
 			]
 		PlayerAssetReservationService.AttachmentType.CONSUMABLE:

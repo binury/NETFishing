@@ -761,7 +761,10 @@ func _apply_target_outcome(data: Dictionary) -> void:
 		return
 	if not already_owned:
 		_local_inventory.add_catch(fish_catch)
-		_local_collection.mark_discovered(fish_id)
+		_local_collection.mark_quality_discovered(
+			fish_id,
+			fish_catch.quality,
+		)
 	if not _save_manager.save_if_dirty():
 		return
 	_result_ledgers[result_id] = true

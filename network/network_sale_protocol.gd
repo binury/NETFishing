@@ -58,7 +58,7 @@ static func validate_request(data: Variant) -> String:
 		var evidence: Dictionary = value
 		for key: String in [
 			"catch_id", "fish_id", "weight_lb", "display_scale",
-			"sale_value", "is_favorited",
+			"quality", "sale_value", "is_favorited",
 		]:
 			if not evidence.has(key):
 				return "Sale could not be completed."

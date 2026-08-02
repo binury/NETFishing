@@ -7,6 +7,7 @@ signal operation_finished(success: bool, message: String)
 signal peers_changed
 
 const MAX_LEDGER: int = 256
+const FishQualityType = preload("res://fish/fish_quality.gd")
 
 var _session: NetworkSession
 var _reservations: PlayerAssetReservationService
@@ -950,7 +951,10 @@ func _apply_award(attachment: Dictionary) -> bool:
 		PlayerAssetReservationService.AttachmentType.FISH:
 			var fish_catch := _decode_catch(attachment)
 			_inventory.add_catch(fish_catch)
-			_collection_log.mark_discovered(fish_catch.fish_id)
+			_collection_log.mark_quality_discovered(
+				fish_catch.fish_id,
+				fish_catch.quality,
+			)
 			return _inventory.contains_catch_id(fish_catch.catch_id)
 		PlayerAssetReservationService.AttachmentType.CONSUMABLE:
 			return _bag.add_item(
@@ -962,10 +966,26 @@ func _apply_award(attachment: Dictionary) -> bool:
 
 func _decode_catch(attachment: Dictionary) -> FishCatch:
 	var data: Dictionary = attachment.get("catch", {})
-	var fish := _fish_catalog.get_fish_by_id(
+	var fish: FishData = _fish_catalog.get_fish_by_id(
 		StringName(str(data.get("fish_id", "")))
 	)
-	return FishCatch.from_network_dict(data, fish)
+	var fish_catch: FishCatch = FishCatch.from_network_dict(data, fish)
+	if fish_catch == null or fish == null:
+		return null
+	if (
+		fish_catch.weight_lb < fish.get_minimum_weight()
+		or fish_catch.weight_lb > fish.get_maximum_weight()
+		or not is_equal_approx(
+			fish_catch.display_scale,
+			fish.get_display_scale_for_weight(fish_catch.weight_lb),
+		)
+		or fish_catch.sale_value != FishQualityType.apply_sale_value(
+			fish.get_sale_value_for_weight(fish_catch.weight_lb),
+			fish_catch.quality,
+		)
+	):
+		return null
+	return fish_catch
 
 
 func _capture_assets() -> Dictionary:
@@ -975,6 +995,7 @@ func _capture_assets() -> Dictionary:
 		"catches": _inventory.get_all_catches(),
 		"next_sequence": _inventory.get_next_catch_sequence(),
 		"discovered": _collection_log.get_discovered_ids(),
+		"quality_masks": _collection_log.get_discovered_quality_masks(),
 	}
 
 
@@ -984,7 +1005,10 @@ func _restore_assets(snapshot: Dictionary) -> void:
 	_inventory.replace_all_catches(
 		snapshot["catches"], int(snapshot["next_sequence"])
 	)
-	_collection_log.replace_discovered_ids(snapshot["discovered"])
+	_collection_log.replace_discovery_state(
+		snapshot["discovered"],
+		snapshot["quality_masks"],
+	)
 
 
 func _emit_mailbox() -> void:

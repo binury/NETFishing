@@ -5,10 +5,12 @@ const CollectionLogType = preload("res://collection/collection_log.gd")
 const FishCatchType = preload("res://fish/fish_catch.gd")
 const FishDataType = preload("res://fish/fish_data.gd")
 const FishPoolType = preload("res://fish/fish_pool.gd")
+const FishQualityType = preload("res://fish/fish_quality.gd")
 const FishingContextType = preload("res://fishing/fishing_context.gd")
 
 var undiscovered_weight_multiplier: float = 1.5
 var rarity_weight_multipliers: Array[float] = []
+var quality_weight_multipliers: Array[float] = []
 var use_deterministic_test_seed: bool = false
 var deterministic_test_seed: int = 24680
 var selection_seed: int = 0
@@ -81,7 +83,12 @@ func create_catch(fish: FishDataType) -> FishCatchType:
 	caught_fish.display_scale = fish.get_display_scale_for_weight(
 		caught_fish.weight_lb
 	)
-	caught_fish.sale_value = fish.get_sale_value_for_weight(
-		caught_fish.weight_lb
+	caught_fish.quality = FishQualityType.roll(
+		_rng,
+		quality_weight_multipliers,
+	)
+	caught_fish.sale_value = FishQualityType.apply_sale_value(
+		fish.get_sale_value_for_weight(caught_fish.weight_lb),
+		caught_fish.quality,
 	)
 	return caught_fish

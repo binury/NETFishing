@@ -2,6 +2,7 @@ class_name PlayerSaveManager
 extends Node
 
 const FishCatchType = preload("res://fish/fish_catch.gd")
+const FishQualityType = preload("res://fish/fish_quality.gd")
 const FishInventoryType = preload("res://inventory/fish_inventory.gd")
 const CollectionLogType = preload("res://collection/collection_log.gd")
 const PlayerWalletType = preload("res://economy/player_wallet.gd")
@@ -21,7 +22,7 @@ const PlayerArtUnlocksType = preload(
 	"res://progression/player_art_unlocks.gd"
 )
 
-const SAVE_VERSION: int = 4
+const SAVE_VERSION: int = 5
 const BASIC_ROD_ID: StringName = &"basic_fishing_rod"
 const MAX_SAFE_BALANCE: int = 1000000000000
 
@@ -30,6 +31,7 @@ class LoadSnapshot:
 
 	var catches: Array[FishCatchType] = []
 	var discovered_ids: Array[StringName] = []
+	var discovered_quality_masks: Dictionary[StringName, int] = {}
 	var wallet_balance: int = 0
 	var next_catch_sequence: int = 1
 	var bag_items: Array[OwnedItemType] = []
@@ -124,10 +126,10 @@ func setup(
 		return
 	if not _inventory.catches_changed.is_connected(_mark_dirty):
 		_inventory.catches_changed.connect(_mark_dirty)
-	if not _collection_log.fish_discovered.is_connected(
-		_on_fish_discovered
+	if not _collection_log.collection_changed.is_connected(
+		_on_collection_changed
 	):
-		_collection_log.fish_discovered.connect(_on_fish_discovered)
+		_collection_log.collection_changed.connect(_on_collection_changed)
 	if not _wallet.balance_changed.is_connected(_on_balance_changed):
 		_wallet.balance_changed.connect(_on_balance_changed)
 	if not _bag.contents_changed.is_connected(_mark_dirty):
@@ -208,7 +210,10 @@ func load_player_data() -> bool:
 		snapshot.next_catch_sequence
 	)
 	var collection_restored: bool = (
-		_collection_log.replace_discovered_ids(snapshot.discovered_ids)
+		_collection_log.replace_discovery_state(
+			snapshot.discovered_ids,
+			snapshot.discovered_quality_masks,
+		)
 	)
 	var wallet_restored: bool = _wallet.restore_balance(
 		snapshot.wallet_balance
@@ -401,6 +406,19 @@ func _build_save_dictionary() -> Dictionary:
 		if fish_id.is_empty():
 			return {}
 		discovered_strings.append(String(fish_id))
+	var serialized_quality_masks: Dictionary = {}
+	var quality_masks: Dictionary[StringName, int] = (
+		_collection_log.get_discovered_quality_masks()
+	)
+	for fish_id: StringName in quality_masks:
+		var quality_mask: int = quality_masks[fish_id]
+		if (
+			fish_id.is_empty()
+			or quality_mask <= 0
+			or (quality_mask & ~FishQualityType.ALL_TIERS_MASK) != 0
+		):
+			return {}
+		serialized_quality_masks[String(fish_id)] = quality_mask
 	var serialized_items: Array[Dictionary] = []
 	for owned: OwnedItemType in _bag.get_all_items():
 		if owned == null or not owned.is_valid():
@@ -430,6 +448,7 @@ func _build_save_dictionary() -> Dictionary:
 		},
 		"collection": {
 			"discovered_fish_ids": discovered_strings,
+			"discovered_quality_masks": serialized_quality_masks,
 		},
 		"inventory": {
 			"next_catch_sequence": _inventory.get_next_catch_sequence(),
@@ -481,6 +500,8 @@ func _build_load_snapshot(save_data: Dictionary) -> LoadSnapshot:
 	if (
 		not wallet_data.has("balance")
 		or typeof(collection_data.get("discovered_fish_ids")) != TYPE_ARRAY
+		or typeof(collection_data.get("discovered_quality_masks"))
+		!= TYPE_DICTIONARY
 		or typeof(inventory_data.get("catches")) != TYPE_ARRAY
 		or not inventory_data.has("next_catch_sequence")
 		or typeof(bag_data.get("items")) != TYPE_ARRAY
@@ -514,6 +535,26 @@ func _build_load_snapshot(save_data: Dictionary) -> LoadSnapshot:
 			continue
 		seen_discoveries[fish_id] = true
 		snapshot.discovered_ids.append(fish_id)
+	var quality_mask_values: Dictionary = (
+		collection_data["discovered_quality_masks"]
+	)
+	for key: Variant in quality_mask_values:
+		if typeof(key) not in [TYPE_STRING, TYPE_STRING_NAME]:
+			return null
+		var fish_id: StringName = StringName(str(key))
+		var mask: int = _read_integer(
+			quality_mask_values[key],
+			-1,
+			FishQualityType.ALL_TIERS_MASK,
+		)
+		if (
+			fish_id.is_empty()
+			or not seen_discoveries.has(fish_id)
+			or mask <= 0
+			or (mask & ~FishQualityType.ALL_TIERS_MASK) != 0
+		):
+			return null
+		snapshot.discovered_quality_masks[fish_id] = mask
 
 	var seen_ids: Dictionary[StringName, bool] = {}
 	var seen_sequences: Dictionary[int, bool] = {}
@@ -701,6 +742,8 @@ func _migrate_save(
 				migrated = _migrate_version_2_to_3(migrated)
 			3:
 				migrated = _migrate_version_3_to_4(migrated)
+			4:
+				migrated = _migrate_version_4_to_5(migrated)
 			_:
 				return {}
 		if migrated.is_empty():
@@ -748,6 +791,58 @@ func _migrate_version_3_to_4(data: Dictionary) -> Dictionary:
 	return migrated
 
 
+func _migrate_version_4_to_5(data: Dictionary) -> Dictionary:
+	var migrated: Dictionary = data.duplicate(true)
+	if (
+		typeof(migrated.get("inventory")) != TYPE_DICTIONARY
+		or typeof(migrated.get("collection")) != TYPE_DICTIONARY
+	):
+		return {}
+	var inventory_data: Dictionary = migrated["inventory"]
+	var collection_data: Dictionary = migrated["collection"]
+	if (
+		typeof(inventory_data.get("catches")) != TYPE_ARRAY
+		or typeof(collection_data.get("discovered_fish_ids")) != TYPE_ARRAY
+	):
+		return {}
+	var catches: Array = inventory_data["catches"]
+	var discovered_values: Array = collection_data["discovered_fish_ids"]
+	var discovered_lookup: Dictionary[String, bool] = {}
+	for value: Variant in discovered_values:
+		if typeof(value) in [TYPE_STRING, TYPE_STRING_NAME]:
+			var existing_id: String = str(value)
+			if not existing_id.is_empty():
+				discovered_lookup[existing_id] = true
+	for index: int in catches.size():
+		if typeof(catches[index]) != TYPE_DICTIONARY:
+			continue
+		var catch_data: Dictionary = catches[index]
+		catch_data["quality"] = FishQualityType.Tier.BORING
+		var catch_fish_id: String = str(catch_data.get("fish_id", ""))
+		if not catch_fish_id.is_empty() and not discovered_lookup.has(
+			catch_fish_id
+		):
+			discovered_values.append(catch_fish_id)
+			discovered_lookup[catch_fish_id] = true
+		catches[index] = catch_data
+	inventory_data["catches"] = catches
+	migrated["inventory"] = inventory_data
+	var quality_masks: Dictionary = {}
+	for value: Variant in discovered_values:
+		if typeof(value) not in [TYPE_STRING, TYPE_STRING_NAME]:
+			continue
+		var fish_id: String = str(value)
+		if not fish_id.is_empty():
+			quality_masks[fish_id] = FishQualityType.bit_for(
+				FishQualityType.Tier.BORING
+			)
+	collection_data["discovered_quality_masks"] = quality_masks
+	collection_data["discovered_fish_ids"] = discovered_values
+	migrated["collection"] = collection_data
+	migrated["save_version"] = 5
+	return migrated
+
+
 func _mark_dirty() -> void:
 	if (
 		_is_restoring
@@ -760,7 +855,7 @@ func _mark_dirty() -> void:
 		_autosave_timer.start(maxf(autosave_delay, 0.05))
 
 
-func _on_fish_discovered(_fish_id: StringName) -> void:
+func _on_collection_changed() -> void:
 	_mark_dirty()
 
 
@@ -833,6 +928,7 @@ func _restore_defaults() -> void:
 	_is_restoring = true
 	var empty_catches: Array[FishCatchType] = []
 	var empty_discoveries: Array[StringName] = []
+	var empty_quality_masks: Dictionary[StringName, int] = {}
 	var default_items: Array[OwnedItemType] = []
 	var basic_rod := OwnedItemType.new()
 	basic_rod.item_id = BASIC_ROD_ID
@@ -843,7 +939,10 @@ func _restore_defaults() -> void:
 	default_slots.fill(StringName())
 	default_slots[0] = BASIC_ROD_ID
 	_inventory.replace_all_catches(empty_catches, 1)
-	_collection_log.replace_discovered_ids(empty_discoveries)
+	_collection_log.replace_discovery_state(
+		empty_discoveries,
+		empty_quality_masks,
+	)
 	_wallet.restore_balance(0)
 	_bag.replace_all_items(default_items)
 	_hotbar.replace_state(default_slots, 0)

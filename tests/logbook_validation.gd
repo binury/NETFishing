@@ -274,6 +274,8 @@ func _validate_handwritten_logbook_font(page: LogbookPage) -> void:
 	var detail_body := page.get("_detail_body") as VBoxContainer
 	for node: Node in detail_body.find_children("*", "Label", true, false):
 		var label := node as Label
+		if label.text.begins_with("quality collection"):
+			continue
 		if label.text in [
 			"fish facts",
 			"catalog number",
@@ -307,6 +309,9 @@ func _validate_detail_field_fonts(page: LogbookPage) -> void:
 	]
 	for node: Node in detail_body.find_children("*", "Label", true, false):
 		var label := node as Label
+		if label.text.begins_with("quality collection"):
+			assert(label.get_theme_font("font") == UtilityPageStyle.TuffyFont)
+			continue
 		if label.text not in field_names:
 			continue
 		assert(label.get_theme_font("font") == UtilityPageStyle.TuffyFont)

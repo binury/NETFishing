@@ -56,6 +56,7 @@ signal showcase_changed(
 	fish_name: String,
 	rarity_name: String,
 	weight_lb: float,
+	quality: int,
 	visible: bool,
 )
 signal bite_activated
@@ -382,11 +383,14 @@ func _secure_showcase_catch_for_recovery() -> void:
 		and _local_collection_log != null
 	):
 		_local_inventory.add_catch(_pending_catch)
-		_local_collection_log.mark_discovered(_pending_catch.fish_id)
+		_local_collection_log.mark_quality_discovered(
+			_pending_catch.fish_id,
+			_pending_catch.quality,
+		)
 	_pending_catch = null
 	_showcase_ready = false
 	_put_away_press_armed = false
-	showcase_changed.emit("", "", 0.0, false)
+	showcase_changed.emit("", "", 0.0, 0, false)
 	if _active_player != null:
 		_active_player.end_catch_showcase(Callable(), true)
 	_cleanup_attempt()
@@ -403,7 +407,10 @@ func _exit_tree() -> void:
 		and is_instance_valid(_local_collection_log)
 	):
 		_local_inventory.add_catch(_pending_catch)
-		_local_collection_log.mark_discovered(_pending_catch.fish_id)
+		_local_collection_log.mark_quality_discovered(
+			_pending_catch.fish_id,
+			_pending_catch.quality,
+		)
 		_pending_catch = null
 	if _active_player != null and is_instance_valid(_active_player):
 		_active_player.end_catch_showcase(Callable(), true)
@@ -1031,6 +1038,7 @@ func _on_outcome_completed(outcome: StringName) -> void:
 		_pending_catch.fish.display_name,
 		_pending_catch.fish.get_rarity_name(),
 		_pending_catch.weight_lb,
+		_pending_catch.quality,
 		true
 	)
 
@@ -1054,12 +1062,15 @@ func _put_away_catch() -> void:
 	):
 		return
 	_local_inventory.add_catch(_pending_catch)
-	_local_collection_log.mark_discovered(_pending_catch.fish_id)
+	_local_collection_log.mark_quality_discovered(
+		_pending_catch.fish_id,
+		_pending_catch.quality,
+	)
 	_pending_catch = null
 	_showcase_ready = false
 	_showcase_outcome_completed = false
 	_put_away_press_armed = false
-	showcase_changed.emit("", "", 0.0, false)
+	showcase_changed.emit("", "", 0.0, 0, false)
 	_showcase_restore_generation += 1
 	var restore_generation: int = _showcase_restore_generation
 	_active_player.end_catch_showcase(
@@ -1095,7 +1106,7 @@ func _cleanup_attempt(
 		_showcase_ready = false
 		_showcase_outcome_completed = false
 		_put_away_press_armed = false
-		showcase_changed.emit("", "", 0.0, false)
+		showcase_changed.emit("", "", 0.0, 0, false)
 		_catch_controller.reset()
 		state = FishingState.RETURNING
 		status_changed.emit("")
@@ -1138,7 +1149,7 @@ func _finalize_attempt_cleanup(cooldown_message: String) -> void:
 	_showcase_ready = false
 	_showcase_outcome_completed = false
 	_put_away_press_armed = false
-	showcase_changed.emit("", "", 0.0, false)
+	showcase_changed.emit("", "", 0.0, 0, false)
 	_catch_controller.reset()
 	_presentation.cleanup()
 	_pending_cleanup_message = ""

@@ -15,7 +15,7 @@ var _depth_scale: float = 1.0
 var _batch_selected: bool = false
 var _focused_catch: bool = false
 var _hovered: bool = false
-var _rarity_color := Color.WHITE
+var _quality_color := Color.WHITE
 
 
 func _ready() -> void:
@@ -40,7 +40,7 @@ func configure(
 	texture: Texture2D,
 	phase: float,
 	depth_scale: float,
-	rarity_color: Color,
+	quality_color: Color,
 ) -> void:
 	catch_id = identity
 	_display_name = display_name
@@ -48,7 +48,7 @@ func configure(
 	_fish_shadow.texture = texture
 	_motion_phase = phase
 	_depth_scale = depth_scale
-	_rarity_color = rarity_color
+	_quality_color = quality_color
 	_refresh_style()
 	tooltip_text = "%s · drag to a hotbar slot" % _display_name
 
@@ -136,14 +136,16 @@ func _update_visual_pivot() -> void:
 
 func _refresh_style() -> void:
 	var idle := StyleBoxEmpty.new()
-	var normal := _make_rarity_style(_rarity_color, 2, 0.25)
-	var hover := _make_rarity_style(_rarity_color.lightened(0.08), 4, 0.34)
-	var selected_fill: Color = (
-		_rarity_color.lightened(0.12)
-		if _batch_selected
-		else _rarity_color
+	var normal := _make_quality_style(_quality_color, 2, 0.25)
+	var hover := _make_quality_style(
+		_quality_color.lightened(0.08), 4, 0.34
 	)
-	var selected := _make_rarity_style(
+	var selected_fill: Color = (
+		_quality_color.lightened(0.12)
+		if _batch_selected
+		else _quality_color
+	)
+	var selected := _make_quality_style(
 		selected_fill,
 		6 if _batch_selected else 4,
 		0.46 if _batch_selected else 0.34,
@@ -169,7 +171,7 @@ func _refresh_style() -> void:
 	add_theme_stylebox_override("pressed", selected)
 
 
-func _make_rarity_style(
+func _make_quality_style(
 	fill: Color,
 	shadow_size: int,
 	shadow_alpha: float,

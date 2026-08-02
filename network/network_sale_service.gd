@@ -2,6 +2,7 @@ class_name NetworkSaleService
 extends Node
 
 const FishCatchType = preload("res://fish/fish_catch.gd")
+const FishQualityType = preload("res://fish/fish_quality.gd")
 const FishDataType = preload("res://fish/fish_data.gd")
 const FishPoolType = preload("res://fish/fish_pool.gd")
 const FishBuyerProfileType = preload("res://economy/fish_buyer_profile.gd")
@@ -252,8 +253,10 @@ func _build_authoritative_result(
 			not str(decoded.catch_id).begins_with("%s:" % fish_id)
 			or decoded.weight_lb < fish.get_minimum_weight()
 			or decoded.weight_lb > fish.get_maximum_weight()
-			or decoded.sale_value < fish.sell_value_min
-			or decoded.sale_value > fish.sell_value_max
+			or decoded.sale_value != FishQualityType.apply_sale_value(
+				fish.get_sale_value_for_weight(decoded.weight_lb),
+				decoded.quality,
+			)
 		):
 			return _rejected_result(
 				request_id, "Sale could not be completed."
@@ -262,7 +265,13 @@ func _build_authoritative_result(
 			return _rejected_result(
 				request_id, "Favorite catches cannot be sold."
 			)
-		var offer: int = buyer.get_offer(decoded.sale_value)
+		var ordinary_value: int = fish.get_sale_value_for_weight(
+			decoded.weight_lb
+		)
+		var offer: int = buyer.get_quality_offer(
+			ordinary_value,
+			decoded.quality,
+		)
 		if (
 			offer < 0
 			or base_value > 9223372036854775807 - decoded.sale_value

@@ -7,6 +7,7 @@ const MAX_SESSION_ID_LENGTH: int = 96
 const MAX_FISH_ID_LENGTH: int = 96
 const MAX_WEIGHT_LB: float = 1000.0
 const MAX_DISPLAY_SCALE: float = 20.0
+const FishQualityType = preload("res://fish/fish_quality.gd")
 
 
 static func validate_state(data: Variant) -> bool:
@@ -20,6 +21,7 @@ static func validate_state(data: Variant) -> bool:
 		"fish_id",
 		"weight_lb",
 		"display_scale",
+		"quality",
 		"revision",
 	]:
 		if not value.has(key):
@@ -37,6 +39,8 @@ static func validate_state(data: Variant) -> bool:
 		or not is_finite(float(value["weight_lb"]))
 		or typeof(value["display_scale"]) not in [TYPE_FLOAT, TYPE_INT]
 		or not is_finite(float(value["display_scale"]))
+		or typeof(value["quality"]) != TYPE_INT
+		or not FishQualityType.is_valid(int(value["quality"]))
 		or typeof(value["revision"]) != TYPE_INT
 		or int(value["revision"]) < 0
 	):
@@ -53,4 +57,5 @@ static func validate_state(data: Variant) -> bool:
 		str(value["fish_id"]).is_empty()
 		and is_zero_approx(float(value["weight_lb"]))
 		and is_zero_approx(float(value["display_scale"]))
+		and int(value["quality"]) == FishQualityType.Tier.BORING
 	)

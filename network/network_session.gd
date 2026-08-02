@@ -169,6 +169,7 @@ func start_private_host(port: int = DEFAULT_PORT) -> bool:
 		_player_identity.fingerprint,
 		_player_identity.public_pem,
 		PackedStringArray([
+			NetworkProtocol.FISH_QUALITY_CAPABILITY,
 			NetworkProtocol.SURFACE_DRAWING_CAPABILITY,
 			NetworkProtocol.WORLD_TIME_CAPABILITY,
 			NetworkProtocol.WORLD_WEATHER_CAPABILITY,
@@ -367,6 +368,7 @@ func supports_server_capability(capability: StringName) -> bool:
 			"movement_v1", "fishing_v1", "sale_v1", "shop_v1",
 			NetworkProtocol.ART_SHOP_CAPABILITY,
 			"item_use_v1", "equipment_v1", "fish_showcase_v1",
+			NetworkProtocol.FISH_QUALITY_CAPABILITY,
 			NetworkProtocol.SURFACE_DRAWING_CAPABILITY,
 			NetworkProtocol.WORLD_TIME_CAPABILITY,
 			NetworkProtocol.WORLD_WEATHER_CAPABILITY,
@@ -915,6 +917,15 @@ func submit_client_hello(data: Dictionary) -> void:
 	if not validation_error.is_empty():
 		_reject_peer(sender_id, NetworkProtocol.RejectionCode.MALFORMED_HANDSHAKE)
 		return
+	var client_capabilities: PackedStringArray = _sanitized_capabilities(
+		data.get("capability_flags", [])
+	)
+	if NetworkProtocol.FISH_QUALITY_CAPABILITY not in client_capabilities:
+		_reject_peer(
+			sender_id,
+			NetworkProtocol.RejectionCode.UNSUPPORTED_CLIENT,
+		)
+		return
 	var identity: Dictionary = _authenticated_identity_cache.get(sender_id, {})
 	if identity.is_empty():
 		_reject_peer(sender_id, NetworkProtocol.RejectionCode.INVALID_IDENTITY_PROOF)
@@ -948,7 +959,7 @@ func submit_client_hello(data: Dictionary) -> void:
 		NetworkProtocol.PROTOCOL_VERSION,
 		identity["fingerprint"],
 		identity["public_key"],
-		_sanitized_capabilities(data.get("capability_flags", [])),
+		client_capabilities,
 	):
 		_reject_peer(
 			sender_id,
@@ -1071,6 +1082,10 @@ func receive_server_hello(data: Dictionary) -> void:
 		for value: Variant in advertised_capabilities:
 			if typeof(value) in [TYPE_STRING, TYPE_STRING_NAME]:
 				_server_capabilities.append(str(value))
+	if NetworkProtocol.FISH_QUALITY_CAPABILITY not in _server_capabilities:
+		_teardown_peer()
+		_fail("This server does not support fish quality data.")
+		return
 	var local_peer_id: int = multiplayer.get_unique_id()
 	_registry.clear()
 	_registry.add_peer(
@@ -1081,6 +1096,7 @@ func receive_server_hello(data: Dictionary) -> void:
 		_player_identity.fingerprint,
 		_player_identity.public_pem,
 		PackedStringArray([
+			NetworkProtocol.FISH_QUALITY_CAPABILITY,
 			NetworkProtocol.SURFACE_DRAWING_CAPABILITY,
 			NetworkProtocol.WORLD_TIME_CAPABILITY,
 			NetworkProtocol.WORLD_WEATHER_CAPABILITY,

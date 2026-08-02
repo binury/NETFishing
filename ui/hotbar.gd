@@ -8,6 +8,7 @@ const PlayerBagType = preload("res://inventory/player_bag.gd")
 const PlayerHotbarType = preload("res://inventory/player_hotbar.gd")
 const FishInventoryType = preload("res://inventory/fish_inventory.gd")
 const FishCatchType = preload("res://fish/fish_catch.gd")
+const FishQualityType = preload("res://fish/fish_quality.gd")
 const BubbleHotbarSlotType = preload(
 	"res://ui/components/bubble_hotbar/bubble_hotbar_slot.gd"
 )
@@ -321,7 +322,10 @@ func _show_assignment_name(slot_index: int, identity: StringName) -> void:
 	if not catch_id.is_empty() and _fish_inventory != null:
 		var fish_catch: FishCatchType = _fish_inventory.get_catch_by_id(catch_id)
 		if fish_catch != null:
-			_selected_item_label.text = fish_catch.fish.display_name
+			_selected_item_label.text = FishQualityType.qualified_name(
+				fish_catch.fish.display_name,
+				fish_catch.quality,
+			)
 			_selected_item_label.visible = true
 			return
 	var item = (

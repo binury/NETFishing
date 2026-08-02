@@ -45,11 +45,17 @@ func _run() -> void:
 	fish_catch.display_scale = fish.get_display_scale_for_weight(
 		fish_catch.weight_lb
 	)
-	fish_catch.sale_value = fish.get_sale_value_for_weight(
-		fish_catch.weight_lb
+	fish_catch.quality = FishQuality.Tier.EXCEPTIONAL
+	fish_catch.sale_value = FishQuality.apply_sale_value(
+		fish.get_sale_value_for_weight(fish_catch.weight_lb),
+		fish_catch.quality,
 	)
 	fish_catch.ensure_identity()
 	player.inventory.add_catch(fish_catch)
+	player.collection_log.mark_quality_discovered(
+		fish_catch.fish_id,
+		fish_catch.quality,
+	)
 	var game_ui := main.get_node("%GameUI") as GameUI
 	var hotbar_ui := game_ui.get_node("%Hotbar") as HotbarUI
 	assert(hotbar_ui != null)
@@ -94,12 +100,27 @@ func _run() -> void:
 	var hotbar_data: Dictionary = (parsed as Dictionary)["hotbar"]
 	assert(typeof(hotbar_data.get("fish_slots")) == TYPE_ARRAY)
 	assert(str((hotbar_data["fish_slots"] as Array)[1]) == fish_catch.catch_id)
-	assert(int((parsed as Dictionary)["save_version"]) == 4)
+	assert(int((parsed as Dictionary)["save_version"]) == 5)
+	var saved_catches: Array = (parsed as Dictionary)["inventory"]["catches"]
+	assert(int((saved_catches[0] as Dictionary)["quality"]) == fish_catch.quality)
+	var saved_masks: Dictionary = (
+		(parsed as Dictionary)["collection"]["discovered_quality_masks"]
+	)
+	assert(
+		int(saved_masks[String(fish.id)])
+		== FishQuality.bit_for(FishQuality.Tier.EXCEPTIONAL)
+	)
 
 	assert(player.hotbar.clear_slot(1))
 	assert(save_manager.load_player_data())
 	assert(player.hotbar.get_fish_catch_id(1) == fish_catch.catch_id)
 	assert(player.hotbar.get_selected_slot() == 1)
+	assert(
+		player.collection_log.has_discovered_quality(
+			fish.id,
+			FishQuality.Tier.EXCEPTIONAL,
+		)
+	)
 	assert(not service.is_local_showcase_visible())
 	assert(service.toggle_selected_fish())
 	assert(service.is_local_showcase_visible())
@@ -118,6 +139,7 @@ func _run() -> void:
 		"display_scale": fish.get_display_scale_for_weight(
 			fish.get_minimum_weight()
 		),
+		"quality": FishQuality.Tier.BORING,
 		"revision": 1,
 	}
 	assert(NetworkFishShowcaseProtocol.validate_state(valid_state))
@@ -126,6 +148,10 @@ func _run() -> void:
 	assert(not NetworkFishShowcaseProtocol.validate_state(invalid_state))
 	assert(NetworkProtocol.PROTOCOL_VERSION == 3)
 	assert(NetworkProtocol.ENET_CHANNEL_COUNT == 10)
+	assert(
+		NetworkProtocol.FISH_QUALITY_CAPABILITY
+		== "fish_quality_v1"
+	)
 	assert(
 		NetworkFishShowcaseProtocol.CAPABILITY
 		== &"fish_showcase_v1"

@@ -5,6 +5,7 @@ const CollectionLogType = preload("res://collection/collection_log.gd")
 const FishBuyerProfileType = preload("res://economy/fish_buyer_profile.gd")
 const FishSaleServiceType = preload("res://economy/fish_sale_service.gd")
 const FishPoolType = preload("res://fish/fish_pool.gd")
+const FishQualityType = preload("res://fish/fish_quality.gd")
 const FishInventoryType = preload("res://inventory/fish_inventory.gd")
 const FishingSpotType = preload("res://fishing/fishing_spot.gd")
 const PlayerMenuType = preload("res://ui/player_menu.gd")
@@ -569,6 +570,7 @@ func _on_showcase_changed(
 	fish_name: String,
 	rarity_name: String,
 	weight_lb: float,
+	quality: int,
 	visible: bool,
 ) -> void:
 	_showcase_active = visible
@@ -583,11 +585,13 @@ func _on_showcase_changed(
 	_barrier_health.visible = false
 	_clear_barrier_markers()
 	_showcase_details.text = (
-		"%.1f lb • %s"
-		% [weight_lb, rarity_name]
+		"%s • %.1f lb"
+		% [rarity_name.to_lower(), weight_lb]
 	)
 	_showcase_details.visible = true
-	_status_label.text = "You caught a %s!" % fish_name
+	_status_label.text = "You caught %s!" % (
+		FishQualityType.qualified_name_with_article(fish_name, quality)
+	)
 	_status_label.visible = true
 	_refresh_fishing_panel_visibility()
 

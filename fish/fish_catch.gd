@@ -2,6 +2,7 @@ class_name FishCatch
 extends Resource
 
 const FishDataType = preload("res://fish/fish_data.gd")
+const FishQualityType = preload("res://fish/fish_quality.gd")
 
 const MAX_SAFE_WEIGHT_LB: float = 1000000.0
 const MAX_SAFE_DISPLAY_SCALE: float = 10000.0
@@ -14,6 +15,7 @@ const MAX_SAFE_SEQUENCE: int = 2147483647
 @export var catch_sequence: int = 0
 @export var weight_lb: float = 0.0
 @export var display_scale: float = 1.0
+@export_range(0, 4, 1) var quality: int = FishQualityType.Tier.BORING
 @export var sale_value: int = 0
 @export var is_favorited: bool = false
 
@@ -48,6 +50,7 @@ func is_valid() -> bool:
 		and is_finite(display_scale)
 		and display_scale > 0.0
 		and display_scale <= MAX_SAFE_DISPLAY_SCALE
+		and FishQualityType.is_valid(quality)
 		and sale_value >= 0
 		and sale_value <= MAX_SAFE_SALE_VALUE
 	)
@@ -60,6 +63,7 @@ func to_save_dict() -> Dictionary:
 		"fish_id": String(fish_id),
 		"weight_lb": weight_lb,
 		"display_scale": display_scale,
+		"quality": quality,
 		"sale_value": sale_value,
 		"is_favorited": is_favorited,
 	}
@@ -71,6 +75,7 @@ func to_network_dict() -> Dictionary:
 		"fish_id": String(fish_id),
 		"weight_lb": weight_lb,
 		"display_scale": display_scale,
+		"quality": quality,
 		"sale_value": sale_value,
 		"is_favorited": is_favorited,
 	}
@@ -88,6 +93,7 @@ static func from_save_dict(
 		"fish_id",
 		"weight_lb",
 		"display_scale",
+		"quality",
 		"sale_value",
 		"is_favorited",
 	]:
@@ -111,6 +117,11 @@ static func from_save_dict(
 		-1,
 		MAX_SAFE_SALE_VALUE
 	)
+	var loaded_quality: int = _read_safe_integer(
+		data["quality"],
+		-1,
+		FishQualityType.TIER_COUNT - 1,
+	)
 	var loaded_weight: float = _read_safe_float(
 		data["weight_lb"],
 		0.0,
@@ -128,6 +139,7 @@ static func from_save_dict(
 		or loaded_sequence <= 0
 		or loaded_sequence >= MAX_SAFE_SEQUENCE
 		or loaded_sale_value < 0
+		or not FishQualityType.is_valid(loaded_quality)
 		or loaded_weight <= 0.0
 		or loaded_scale <= 0.0
 		or typeof(loaded_favorite) != TYPE_BOOL
@@ -141,6 +153,7 @@ static func from_save_dict(
 	fish_catch.catch_sequence = loaded_sequence
 	fish_catch.weight_lb = loaded_weight
 	fish_catch.display_scale = loaded_scale
+	fish_catch.quality = loaded_quality
 	fish_catch.sale_value = loaded_sale_value
 	fish_catch.is_favorited = bool(loaded_favorite)
 	return fish_catch if fish_catch.is_valid() else null
@@ -157,6 +170,7 @@ static func from_network_dict(
 		"fish_id",
 		"weight_lb",
 		"display_scale",
+		"quality",
 		"sale_value",
 	]:
 		if not data.has(required_key):
@@ -172,6 +186,11 @@ static func from_network_dict(
 	var loaded_value: int = _read_safe_integer(
 		data.get("sale_value"), -1, MAX_SAFE_SALE_VALUE
 	)
+	var loaded_quality: int = _read_safe_integer(
+		data.get("quality"),
+		-1,
+		FishQualityType.TIER_COUNT - 1,
+	)
 	if (
 		loaded_id.is_empty()
 		or loaded_id.length() > 160
@@ -179,6 +198,7 @@ static func from_network_dict(
 		or loaded_weight <= 0.0
 		or loaded_scale <= 0.0
 		or loaded_value < 0
+		or not FishQualityType.is_valid(loaded_quality)
 	):
 		return null
 	var fish_catch := FishCatch.new()
@@ -188,6 +208,7 @@ static func from_network_dict(
 	fish_catch.catch_sequence = 0
 	fish_catch.weight_lb = loaded_weight
 	fish_catch.display_scale = loaded_scale
+	fish_catch.quality = loaded_quality
 	fish_catch.sale_value = loaded_value
 	fish_catch.is_favorited = false
 	return fish_catch if fish_catch.is_valid() else null

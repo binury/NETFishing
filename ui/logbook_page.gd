@@ -3,6 +3,7 @@ extends Control
 
 const CollectionLogType = preload("res://collection/collection_log.gd")
 const FishDataType = preload("res://fish/fish_data.gd")
+const FishQualityType = preload("res://fish/fish_quality.gd")
 const FishInventoryType = preload("res://inventory/fish_inventory.gd")
 const FishPoolType = preload("res://fish/fish_pool.gd")
 const SILHOUETTE_SHADER: Shader = preload(
@@ -559,6 +560,7 @@ func _build_known_details(fish: FishDataType) -> void:
 	facts.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	facts.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	facts_column.add_child(facts)
+	_detail_body.add_child(_build_quality_progress(fish.id))
 
 	var stats_columns := HBoxContainer.new()
 	stats_columns.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -594,8 +596,14 @@ func _build_known_details(fish: FishDataType) -> void:
 		right_stats,
 		"value range",
 		"%d–%d fish coin" % [
-			fish.sell_value_min,
-			fish.sell_value_max,
+			FishQualityType.apply_sale_value(
+				fish.sell_value_min,
+				FishQualityType.Tier.BORING,
+			),
+			FishQualityType.apply_sale_value(
+				fish.sell_value_max,
+				FishQualityType.Tier.SHINY,
+			),
 		],
 	)
 	_add_detail_row(
@@ -603,6 +611,56 @@ func _build_known_details(fish: FishDataType) -> void:
 		"number owned",
 		str(_inventory.get_count(fish.id) if _inventory != null else 0),
 	)
+
+
+func _build_quality_progress(fish_id: StringName) -> VBoxContainer:
+	var quality_section := VBoxContainer.new()
+	quality_section.add_theme_constant_override("separation", 3)
+	var discovered_count: int = 0
+	for quality: int in FishQualityType.TIER_COUNT:
+		if _collection_log.has_discovered_quality(fish_id, quality):
+			discovered_count += 1
+	var heading := _field_label(
+		"quality collection • %d / %d" % [
+			discovered_count,
+			FishQualityType.TIER_COUNT,
+		],
+		14,
+	)
+	heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	heading.add_theme_color_override("font_color", MUTED_INK)
+	quality_section.add_child(heading)
+	var tiers := HBoxContainer.new()
+	tiers.alignment = BoxContainer.ALIGNMENT_CENTER
+	tiers.add_theme_constant_override("separation", 10)
+	quality_section.add_child(tiers)
+	for quality: int in FishQualityType.TIER_COUNT:
+		var discovered: bool = _collection_log.has_discovered_quality(
+			fish_id,
+			quality,
+		)
+		var tier := HBoxContainer.new()
+		tier.alignment = BoxContainer.ALIGNMENT_CENTER
+		tier.add_theme_constant_override("separation", 3)
+		var quality_color: Color = UIPalette.get_quality_color(quality)
+		var dot := _label("●" if discovered else "○", 13)
+		dot.add_theme_color_override("font_color", quality_color)
+		dot.modulate.a = 1.0 if discovered else 0.48
+		tier.add_child(dot)
+		var tier_label := _label(FishQualityType.display_name(quality), 13)
+		tier_label.add_theme_color_override(
+			"font_color",
+			INK if discovered else MUTED_INK,
+		)
+		tier_label.modulate.a = 1.0 if discovered else 0.58
+		tier.tooltip_text = (
+			"%s quality collected"
+			if discovered
+			else "%s quality not yet collected"
+		) % FishQualityType.display_name(quality)
+		tier.add_child(tier_label)
+		tiers.add_child(tier)
+	return quality_section
 
 
 func _show_no_selection() -> void:

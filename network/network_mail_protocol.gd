@@ -144,6 +144,7 @@ static func attachment_signature_fields(value: Variant) -> Array:
 			result.append(str(fish.get("fish_id", "")))
 			result.append(str(fish.get("weight_lb", "")))
 			result.append(str(fish.get("display_scale", "")))
+			result.append(int(fish.get("quality", -1)))
 			result.append(int(fish.get("sale_value", 0)))
 			result.append(bool(fish.get("is_favorited", false)))
 		3:

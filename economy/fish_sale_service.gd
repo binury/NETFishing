@@ -128,7 +128,15 @@ func _validate_batch(
 		if fish_catch.sale_value < 0:
 			result.status = FishSaleResultType.Status.INVALID_VALUE
 			return result
-		var offer: int = buyer.get_offer(fish_catch.sale_value)
+		var ordinary_value: int = (
+			fish_catch.fish.get_sale_value_for_weight(
+				fish_catch.weight_lb
+			)
+		)
+		var offer: int = buyer.get_quality_offer(
+			ordinary_value,
+			fish_catch.quality,
+		)
 		if offer < 0:
 			result.status = FishSaleResultType.Status.INVALID_OFFER
 			return result

@@ -12,6 +12,7 @@ const PlayerBagType = preload("res://inventory/player_bag.gd")
 const PlayerHotbarType = preload("res://inventory/player_hotbar.gd")
 const FishInventoryType = preload("res://inventory/fish_inventory.gd")
 const FishCatchType = preload("res://fish/fish_catch.gd")
+const FishQualityType = preload("res://fish/fish_quality.gd")
 
 const SELECTED_SCALE: float = 1.12
 const HOVER_SCALE: float = 1.025
@@ -179,7 +180,10 @@ func refresh() -> void:
 	_quantity_label.visible = not quantity_text.is_empty()
 	tooltip_text = (
 		"%s · %.1f lb" % [
-			fish_catch.fish.display_name,
+			FishQualityType.qualified_name(
+				fish_catch.fish.display_name,
+				fish_catch.quality,
+			),
 			fish_catch.weight_lb,
 		]
 		if fish_catch != null

@@ -22,6 +22,7 @@ const SURFACE_DRAWING_CAPABILITY: String = "surface_drawing_v2"
 const ART_SHOP_CAPABILITY: String = "art_shop_v1"
 const WORLD_TIME_CAPABILITY: String = "world_time_v1"
 const WORLD_WEATHER_CAPABILITY: String = "world_weather_v1"
+const FISH_QUALITY_CAPABILITY: String = "fish_quality_v1"
 
 enum RejectionCode {
 	NONE,
@@ -88,6 +89,7 @@ static func make_client_hello(
 		"display_name": display_name,
 		"client_nonce": client_nonce,
 		"capability_flags": PackedStringArray([
+			FISH_QUALITY_CAPABILITY,
 			SURFACE_DRAWING_CAPABILITY,
 			WORLD_TIME_CAPABILITY,
 			WORLD_WEATHER_CAPABILITY,
@@ -207,6 +209,7 @@ static func make_server_hello(
 			"item_use_v1",
 			"equipment_v1",
 			"fish_showcase_v1",
+			FISH_QUALITY_CAPABILITY,
 			SURFACE_DRAWING_CAPABILITY,
 			WORLD_TIME_CAPABILITY,
 			WORLD_WEATHER_CAPABILITY,
