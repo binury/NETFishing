@@ -107,12 +107,17 @@ func _validate_catalog_and_pools() -> void:
 	var pond_context := FishingContextType.new()
 	pond_context.location_tags = [&"starter_pond"]
 	pond_context.water_type = WaterType.Type.FRESH_WATER
+	var night_pond_context := FishingContextType.new()
+	night_pond_context.location_tags = [&"starter_pond"]
+	night_pond_context.water_type = WaterType.Type.FRESH_WATER
+	night_pond_context.is_night = true
 	var ocean_context := FishingContextType.new()
 	ocean_context.location_tags = [&"coast", &"ocean"]
 	ocean_context.water_type = WaterType.Type.SALT_WATER
 	for fish_id: StringName in CATFISH_IDS:
 		var fish: FishDataType = Catalog.get_fish_by_id(fish_id)
-		assert(fish.availability.is_available(pond_context))
+		assert(not fish.availability.is_available(pond_context))
+		assert(fish.availability.is_available(night_pond_context))
 		assert(not fish.availability.is_available(ocean_context))
 		var single_species_pool := FishPoolType.new()
 		single_species_pool.candidates = [fish]
@@ -122,7 +127,7 @@ func _validate_catalog_and_pools() -> void:
 		selector.begin_roll()
 		assert(
 			selector.select_fish(
-				single_species_pool, pond_context, collection
+				single_species_pool, night_pond_context, collection
 			) == fish
 		)
 		collection.free()

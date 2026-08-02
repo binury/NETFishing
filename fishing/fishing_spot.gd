@@ -37,6 +37,10 @@ const FishingSurfaceResolverType = preload(
 	"res://fishing/fishing_surface_resolver.gd"
 )
 const ArtShopStockType = preload("res://economy/art_shop_stock.gd")
+const WorldTimeServiceType = preload("res://world/world_time_service.gd")
+const WorldWeatherServiceType = preload(
+	"res://world/world_weather_service.gd"
+)
 
 signal status_changed(status: String)
 signal catch_display_changed(
@@ -108,8 +112,6 @@ const NETWORK_INPUT_RESEND_INTERVAL_SECONDS: float = 0.1
 @export var deterministic_selection_seed: int = 24680
 
 @export_category("Context Testing")
-@export var context_is_night: bool = false
-@export var context_is_raining: bool = false
 @export var context_event_tags: Array[StringName] = []
 @export var context_bait_tags: Array[StringName] = []
 
@@ -132,6 +134,8 @@ var _network_item_use: NetworkItemUseService
 var _cooler_capacity: PlayerCoolerCapacityType
 var _network_session: NetworkSessionType
 var _network_fishing: NetworkFishingServiceType
+var _world_time: WorldTimeServiceType
+var _world_weather: WorldWeatherServiceType
 var _active_player: PlayerType
 var _state_time_remaining: float = 0.0
 var _cast_charge: float = 0.0
@@ -190,6 +194,8 @@ func setup(
 	cooler_capacity: PlayerCoolerCapacityType,
 	network_session: NetworkSessionType = null,
 	network_fishing: NetworkFishingServiceType = null,
+	world_time: WorldTimeServiceType = null,
+	world_weather: WorldWeatherServiceType = null,
 ) -> void:
 	_local_player = local_player
 	_local_inventory = local_inventory
@@ -207,6 +213,8 @@ func setup(
 	_cooler_capacity = cooler_capacity
 	_network_session = network_session
 	_network_fishing = network_fishing
+	_world_time = world_time
+	_world_weather = world_weather
 	if _network_fishing != null:
 		_network_fishing.local_cast_accepted.connect(
 			_on_network_cast_accepted
@@ -1296,8 +1304,12 @@ func _build_fishing_context(
 	context.water_type = region.water_type
 	context.active_event_tags = context_event_tags.duplicate()
 	context.active_bait_tags = context_bait_tags.duplicate()
-	context.is_night = context_is_night
-	context.is_raining = context_is_raining
+	if _world_time != null:
+		context.is_night = _world_time.is_night_period()
+		context.is_day_night_transition = _world_time.is_transition()
+	if _world_weather != null:
+		context.is_raining = _world_weather.is_raining()
+		context.is_foggy = _world_weather.is_foggy()
 	return context
 
 

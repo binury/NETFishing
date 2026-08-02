@@ -1,0 +1,10 @@
+[gd_resource type="Resource" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://fish/fish_availability.gd" id="1_availability"]
+
+[resource]
+script = ExtResource("1_availability")
+allow_day = true
+allow_night = false
+preferred_bait_tags = Array[StringName]([&"worm"])
+preferred_bait_weight_multiplier = 1.35

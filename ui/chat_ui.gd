@@ -20,6 +20,16 @@ const HANDLE_SIZE := Vector2(34, 42)
 const HANDLE_GAP: float = 6.0
 const COLLAPSED_REVEAL_WIDTH: float = 8.0
 const HINT_EDGE_MARGIN: float = 4.0
+const CLOCK_SIZE := Vector2(116.0, 34.0)
+const CLOCK_EDGE_MARGIN: float = 10.0
+const CLOCK_PANEL_GAP: float = 8.0
+const WEATHER_ICON_SIZE := Vector2(34.0, 34.0)
+const WEATHER_ICON_GAP: float = 6.0
+const WorldTimeServiceType = preload("res://world/world_time_service.gd")
+const WorldWeatherServiceType = preload(
+	"res://world/world_weather_service.gd"
+)
+const WeatherIconType = preload("res://ui/weather_icon.gd")
 
 enum PresentationState {
 	COLLAPSED,
@@ -44,6 +54,9 @@ var _height_button: Button
 var _unread_indicator: Label
 var _hint: Label
 var _speech_layer: Control
+var _clock_panel: PanelContainer
+var _clock_label: Label
+var _weather_icon: WeatherIconType
 var _speech: Dictionary[int, Dictionary] = {}
 var _draft_save_timer: Timer
 var _opacity_tween: Tween
@@ -62,6 +75,8 @@ var _prior_movement: bool = true
 var _prior_camera: bool = true
 var _output_scale: float = 1.0
 var _dock_right: bool = false
+var _world_time: WorldTimeServiceType
+var _world_weather: WorldWeatherServiceType
 
 
 func _ready() -> void:
@@ -79,6 +94,8 @@ func setup(
 	player: Player,
 	fishing_spot: FishingSpot,
 	settings: PlayerSettingsManager,
+	world_time: WorldTimeServiceType,
+	world_weather: WorldWeatherServiceType,
 ) -> void:
 	_service = service
 	_session = session
@@ -86,6 +103,29 @@ func setup(
 	_player = player
 	_fishing_spot = fishing_spot
 	_settings = settings
+	_world_time = world_time
+	_world_weather = world_weather
+	if (
+		_world_time != null
+		and not _world_time.time_changed.is_connected(
+			_on_world_time_changed
+		)
+	):
+		_world_time.time_changed.connect(_on_world_time_changed)
+		_on_world_time_changed(
+			_world_time.get_time_hours(), _world_time.get_phase()
+		)
+	if (
+		_world_weather != null
+		and not _world_weather.weather_changed.is_connected(
+			_on_world_weather_changed
+		)
+	):
+		_world_weather.weather_changed.connect(_on_world_weather_changed)
+		_on_world_weather_changed(
+			_world_weather.get_weather(),
+			_world_weather.get_seconds_remaining(),
+		)
 	set_dock_right(_settings.current_settings.chat_dock_right)
 	_service.message_received.connect(_on_message)
 	_service.local_message_confirmed.connect(_on_local_message_confirmed)
@@ -184,6 +224,31 @@ func _exit_tree() -> void:
 
 
 func _build_ui() -> void:
+	_clock_panel = PanelContainer.new()
+	_clock_panel.name = "WorldClockPanel"
+	_clock_panel.size = CLOCK_SIZE
+	_clock_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_clock_panel.add_theme_stylebox_override(
+		"panel", _clock_panel_style()
+	)
+	add_child(_clock_panel)
+	_clock_label = Label.new()
+	_clock_label.name = "WorldClockLabel"
+	_clock_label.text = "8:00 am"
+	_clock_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_clock_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_clock_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_clock_label.add_theme_font_override("font", UtilityPageStyle.TuffyFont)
+	_clock_label.add_theme_font_size_override("font_size", 18)
+	_clock_label.add_theme_color_override(
+		"font_color", UtilityPageStyle.OCEAN_TEXT_PRIMARY
+	)
+	_clock_panel.add_child(_clock_label)
+	_weather_icon = WeatherIconType.new()
+	_weather_icon.name = "WorldWeatherIcon"
+	_weather_icon.size = WEATHER_ICON_SIZE
+	_weather_icon.mouse_filter = Control.MOUSE_FILTER_STOP
+	add_child(_weather_icon)
 	_panel = PanelContainer.new()
 	_panel.name = "ChatPanel"
 	_panel.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -326,6 +391,8 @@ func _build_ui() -> void:
 	_draft_save_timer.timeout.connect(_flush_draft)
 	add_child(_draft_save_timer)
 	_panel.hide()
+	_clock_panel.hide()
+	_weather_icon.hide()
 	_collapse_button.hide()
 	_height_button.hide()
 	_unread_indicator.hide()
@@ -343,6 +410,16 @@ func _chat_panel_style() -> StyleBoxFlat:
 	style.content_margin_right = 12
 	style.content_margin_top = 10
 	style.content_margin_bottom = 10
+	return style
+
+
+func _clock_panel_style() -> StyleBoxFlat:
+	var style := _borderless_style(Color(0.025, 0.13, 0.19, 0.94))
+	style.set_corner_radius_all(12)
+	style.content_margin_left = 10
+	style.content_margin_right = 10
+	style.content_margin_top = 4
+	style.content_margin_bottom = 4
 	return style
 
 
@@ -525,11 +602,15 @@ func _refresh_history() -> void:
 func _refresh_visibility() -> void:
 	if not _available:
 		_panel.hide()
+		_clock_panel.hide()
+		_weather_icon.hide()
 		_collapse_button.hide()
 		_height_button.hide()
 		_unread_indicator.hide()
 		_hint.hide()
 		return
+	_clock_panel.show()
+	_weather_icon.show()
 	_collapse_button.show()
 	var collapsed := _presentation_state == PresentationState.COLLAPSED
 	_panel.show()
@@ -737,6 +818,25 @@ func _layout_presentation(animate: bool) -> void:
 		panel_x = -(PANEL_WIDTH - COLLAPSED_REVEAL_WIDTH) if collapsed else 0.0
 	var target_position := Vector2(panel_x, bottom - height)
 	var target_size := Vector2(PANEL_WIDTH, height)
+	var clock_x: float = (
+		viewport_width - CLOCK_SIZE.x - CLOCK_EDGE_MARGIN
+		if _dock_right else CLOCK_EDGE_MARGIN
+	)
+	var clock_position := Vector2(
+		clock_x,
+		maxf(
+			CLOCK_EDGE_MARGIN,
+			target_position.y - CLOCK_SIZE.y - CLOCK_PANEL_GAP,
+		),
+	)
+	var weather_icon_x: float = (
+		clock_position.x - WEATHER_ICON_GAP - WEATHER_ICON_SIZE.x
+		if _dock_right
+		else clock_position.x + CLOCK_SIZE.x + WEATHER_ICON_GAP
+	)
+	var weather_icon_position := Vector2(
+		weather_icon_x, clock_position.y
+	)
 	var handle_stack_height := HANDLE_SIZE.y * 2.0 + HANDLE_GAP
 	var handle_stack_top := (
 		bottom - COMPACT_HEIGHT * 0.5 - handle_stack_height * 0.5
@@ -766,6 +866,10 @@ func _layout_presentation(animate: bool) -> void:
 	if not animate:
 		_panel.position = target_position
 		_panel.size = target_size
+		_clock_panel.position = clock_position
+		_clock_panel.size = CLOCK_SIZE
+		_weather_icon.position = weather_icon_position
+		_weather_icon.size = WEATHER_ICON_SIZE
 		_collapse_button.position = collapse_position
 		_height_button.position = height_position
 		_unread_indicator.position = unread_position
@@ -778,6 +882,18 @@ func _layout_presentation(animate: bool) -> void:
 	).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	_height_tween.tween_property(
 		_panel, "size", target_size, UIMotion.CHAT_RESIZE_DURATION
+	).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	_height_tween.tween_property(
+		_clock_panel,
+		"position",
+		clock_position,
+		UIMotion.CHAT_RESIZE_DURATION,
+	).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	_height_tween.tween_property(
+		_weather_icon,
+		"position",
+		weather_icon_position,
+		UIMotion.CHAT_RESIZE_DURATION,
 	).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	_height_tween.tween_property(
 		_collapse_button,
@@ -834,6 +950,22 @@ func _restore_history_scroll(state: Dictionary) -> void:
 
 func _on_viewport_resized() -> void:
 	_layout_presentation(false)
+
+
+func _on_world_time_changed(
+	_time_hours: float,
+	_phase: WorldTimeService.Phase,
+) -> void:
+	if _clock_label != null and _world_time != null:
+		_clock_label.text = _world_time.get_clock_text()
+
+
+func _on_world_weather_changed(
+	weather: WorldWeatherService.Weather,
+	_seconds_remaining: float,
+) -> void:
+	if _weather_icon != null:
+		_weather_icon.set_weather(weather)
 
 
 func _on_exterior_handle_entered() -> void:

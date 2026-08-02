@@ -10,21 +10,34 @@ const FishingContextType = preload("res://fishing/fishing_context.gd")
 @export var allow_night: bool = true
 @export var require_rain: bool = false
 @export var forbid_rain: bool = false
+@export var require_fog: bool = false
+@export var forbid_fog: bool = false
 @export var required_bait_tags: Array[StringName] = []
 @export var preferred_bait_tags: Array[StringName] = []
 @export_range(0.01, 10.0, 0.01) var preferred_bait_weight_multiplier: float = 1.25
 
 
 func is_available(context: FishingContextType) -> bool:
-	if context == null or (require_rain and forbid_rain):
+	if (
+		context == null
+		or (require_rain and forbid_rain)
+		or (require_fog and forbid_fog)
+	):
 		return false
-	if context.is_night and not allow_night:
+	if context.is_day_night_transition:
+		if not allow_day and not allow_night:
+			return false
+	elif context.is_night and not allow_night:
 		return false
-	if not context.is_night and not allow_day:
+	elif not context.is_night and not allow_day:
 		return false
 	if require_rain and not context.is_raining:
 		return false
 	if forbid_rain and context.is_raining:
+		return false
+	if require_fog and not context.is_foggy:
+		return false
+	if forbid_fog and context.is_foggy:
 		return false
 	if (
 		not allowed_location_tags.is_empty()

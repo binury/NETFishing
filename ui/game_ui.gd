@@ -39,6 +39,10 @@ const SurfaceDrawingToolbarType = preload(
 const PlayerSettingsManagerType = preload(
 	"res://settings/player_settings_manager.gd"
 )
+const WorldTimeServiceType = preload("res://world/world_time_service.gd")
+const WorldWeatherServiceType = preload(
+	"res://world/world_weather_service.gd"
+)
 
 signal pixelation_settings_visibility_changed(is_visible: bool)
 signal crisp_reset_focus_requested
@@ -145,13 +149,15 @@ func setup(
 	settings_manager: PlayerSettingsManagerType,
 	surface_drawing: NetworkSurfaceDrawingService,
 	art_unlocks: PlayerArtUnlocks,
+	world_time: WorldTimeServiceType,
+	world_weather: WorldWeatherServiceType,
 ) -> void:
 	_player = player
 	_fishing_spot = fishing_spot
 	_item_effects = item_effects
 	_chat_ui.setup(
 		network_chat_service, network_session, spawn_service, player,
-		fishing_spot, settings_manager
+		fishing_spot, settings_manager, world_time, world_weather
 	)
 	_title_settings_panel.setup_network_profile(
 		network_profile, network_session

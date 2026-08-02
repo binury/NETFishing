@@ -15,6 +15,8 @@ const FishingShopInteractionType = preload(
 @onready var _fishing_shop: FishingShopInteractionType = (
 	_starter_island.get_fishing_shop()
 )
+@onready var _world_environment: WorldEnvironment = $Environment/WorldEnvironment
+@onready var _sun: DirectionalLight3D = $Environment/Sun
 
 
 func get_player_water_triggers() -> Array[PlayerWaterTrigger]:
@@ -38,6 +40,14 @@ func get_fishing_shop() -> FishingShopInteractionType:
 
 func get_player_spawn_transform() -> Transform3D:
 	return _starter_island.get_player_spawn_transform()
+
+
+func get_world_environment() -> WorldEnvironment:
+	return _world_environment
+
+
+func get_sun() -> DirectionalLight3D:
+	return _sun
 
 
 func get_fishable_water_regions() -> Array[FishableWaterRegion]:

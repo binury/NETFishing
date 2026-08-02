@@ -168,7 +168,11 @@ func start_private_host(port: int = DEFAULT_PORT) -> bool:
 		NetworkProtocol.PROTOCOL_VERSION,
 		_player_identity.fingerprint,
 		_player_identity.public_pem,
-		PackedStringArray([NetworkProtocol.SURFACE_DRAWING_CAPABILITY]),
+		PackedStringArray([
+			NetworkProtocol.SURFACE_DRAWING_CAPABILITY,
+			NetworkProtocol.WORLD_TIME_CAPABILITY,
+			NetworkProtocol.WORLD_WEATHER_CAPABILITY,
+		]),
 	)
 	_registry.update_appearance(1, _local_appearance_snapshot)
 	var host_profile_hello := NetworkProtocol.make_client_hello(
@@ -364,6 +368,8 @@ func supports_server_capability(capability: StringName) -> bool:
 			NetworkProtocol.ART_SHOP_CAPABILITY,
 			"item_use_v1", "equipment_v1", "fish_showcase_v1",
 			NetworkProtocol.SURFACE_DRAWING_CAPABILITY,
+			NetworkProtocol.WORLD_TIME_CAPABILITY,
+			NetworkProtocol.WORLD_WEATHER_CAPABILITY,
 			"chat_v1",
 			"mail_v1",
 			"profile_v1",
@@ -1074,7 +1080,11 @@ func receive_server_hello(data: Dictionary) -> void:
 		NetworkProtocol.PROTOCOL_VERSION,
 		_player_identity.fingerprint,
 		_player_identity.public_pem,
-		PackedStringArray([NetworkProtocol.SURFACE_DRAWING_CAPABILITY]),
+		PackedStringArray([
+			NetworkProtocol.SURFACE_DRAWING_CAPABILITY,
+			NetworkProtocol.WORLD_TIME_CAPABILITY,
+			NetworkProtocol.WORLD_WEATHER_CAPABILITY,
+		]),
 	)
 	_registry.update_appearance(local_peer_id, _local_appearance_snapshot)
 	var local_record := _registry.get_peer(local_peer_id)

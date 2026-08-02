@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" path="res://fish/fish_data.gd" id="1_fish_data"]
 [ext_resource type="Resource" path="res://fishing/common_catch_profile.tres" id="2_profile"]
-[ext_resource type="Resource" path="res://fish/default_availability.tres" id="3_availability"]
+[ext_resource type="Resource" path="res://fish/day_availability.tres" id="3_availability"]
 [ext_resource type="Texture2D" path="res://fish/species/bluegill/fish_bluegill.png" id="4_texture"]
 
 [resource]

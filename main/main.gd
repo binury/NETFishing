@@ -77,6 +77,17 @@ const PlayerAppearanceStoreType = preload(
 const NetworkProfileServiceType = preload(
 	"res://network/network_profile_service.gd"
 )
+const WorldTimeServiceType = preload("res://world/world_time_service.gd")
+const WorldTimeVisualControllerType = preload(
+	"res://world/world_time_visual_controller.gd"
+)
+const NetworkWorldTimeServiceType = preload(
+	"res://network/network_world_time_service.gd"
+)
+const WorldWeatherServiceType = preload("res://world/world_weather_service.gd")
+const NetworkWorldWeatherServiceType = preload(
+	"res://network/network_world_weather_service.gd"
+)
 
 const TITLE_MUSIC_SILENCE_DB: float = -80.0
 const PLAYER_MENU_PATTERN_SCALE: float = 0.85
@@ -108,6 +119,17 @@ const SHOP_PATTERN_SCALE: float = 1.75
 	%WorldPixelationPostprocess
 )
 @onready var _network_session: NetworkSessionType = %NetworkSession
+@onready var _world_time: WorldTimeServiceType = %WorldTimeService
+@onready var _world_time_visuals: WorldTimeVisualControllerType = (
+	%WorldTimeVisualController
+)
+@onready var _network_world_time: NetworkWorldTimeServiceType = (
+	%NetworkWorldTimeService
+)
+@onready var _world_weather: WorldWeatherServiceType = %WorldWeatherService
+@onready var _network_world_weather: NetworkWorldWeatherServiceType = (
+	%NetworkWorldWeatherService
+)
 @onready var _data_root: PlayerDataRoot = %PlayerDataRoot
 @onready var _identity_backups: IdentityBackupService = %IdentityBackupService
 @onready var _network_profile: NetworkProfilePreferencesType = (
@@ -263,6 +285,15 @@ func _initialize_after_data_root() -> void:
 		_server_trust,
 		_host_bans,
 	)
+	_world_time_visuals.setup(
+		_world_time,
+		_test_world.get_world_environment(),
+		_test_world.get_sun(),
+		_world_weather,
+		_player,
+	)
+	_network_world_time.setup(_network_session, _world_time)
+	_network_world_weather.setup(_network_session, _world_weather)
 	_identity_backups.setup(_data_root, _player_identity, _host_identity)
 	_network_profile_service.setup(
 		_network_session,
@@ -428,7 +459,9 @@ func _initialize_after_data_root() -> void:
 		_network_item_use,
 		_player.cooler_capacity,
 		_network_session,
-		_network_fishing
+		_network_fishing,
+		_world_time,
+		_world_weather,
 	)
 	_game_ui.setup(
 		_player,
@@ -460,6 +493,8 @@ func _initialize_after_data_root() -> void:
 		_settings_manager,
 		_network_surface_drawing,
 		_player.art_unlocks,
+		_world_time,
+		_world_weather,
 	)
 	_game_ui.setup_data_and_identity(
 		_data_root,

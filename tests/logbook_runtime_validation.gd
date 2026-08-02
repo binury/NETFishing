@@ -11,7 +11,11 @@ func _initialize() -> void:
 func _run() -> void:
 	var main := MainScene.instantiate()
 	root.add_child(main)
-	for _frame: int in 6:
+	for _frame: int in 4:
+		await process_frame
+	if not bool(main.get("_application_initialized")):
+		main.call("_activate_selected_data_path", "", true)
+	for _frame: int in 8:
 		await process_frame
 	assert(bool(main.get("_application_initialized")))
 	var save_manager := main.get("_save_manager") as PlayerSaveManager
@@ -45,7 +49,7 @@ func _run() -> void:
 	assert(not hotbar.visible)
 
 	var entry_buttons: Dictionary = logbook.get("_entry_buttons")
-	assert(entry_buttons.size() == 0)
+	assert(entry_buttons.size() == 6)
 	await _capture_if_requested("-unknown")
 	logbook.call(
 		"_select_category", WaterType.Type.FRESH_WATER
