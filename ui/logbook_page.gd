@@ -9,9 +9,17 @@ const SILHOUETTE_SHADER: Shader = preload(
 	"res://ui/logbook_silhouette.gdshader"
 )
 const OrganizerTabType = preload("res://ui/components/organizer_tab.gd")
+const InventoryNotepadType = preload(
+	"res://ui/components/inventory_notepad.gd"
+)
+const LogbookPortraitType = preload(
+	"res://ui/components/logbook_portrait.gd"
+)
 
 const DETAIL_FADE_DURATION: float = 0.12
 const CATEGORY_FADE_DURATION: float = UIMotion.UTILITY_EXIT_DURATION
+const HANDWRITTEN_NUMERIC_SCALE: float = 0.8
+const PORTRAIT_VIEW_MAX_SIZE := Vector2(860.0, 480.0)
 const INK := Color("251b10")
 const MUTED_INK := Color("6d5b45")
 const PAPER := Color("f2e6c9")
@@ -21,7 +29,7 @@ const LOGBOOK_TAB_LEFT_INSET: float = 34.0
 var _collection_log: CollectionLogType
 var _inventory: FishInventoryType
 var _catalog: FishPoolType
-var _category: WaterType.Type = WaterType.Type.OTHER
+var _category: WaterType.Type = WaterType.Type.FRESH_WATER
 var _selected_id: StringName
 var _selected_entry_key: StringName
 var _active: bool = false
@@ -38,14 +46,16 @@ var _catalog_scroll: ScrollContainer
 var _catalog_grid: GridContainer
 var _empty_state: Label
 var _detail_body: VBoxContainer
+var _detail_portrait_button: Button
+var _portrait_overlay: Control
+var _portrait_overlay_backdrop: Button
+var _portrait_overlay_artwork: LogbookPortraitType
 
 
 func _ready() -> void:
 	_silhouette_material = ShaderMaterial.new()
 	_silhouette_material.shader = SILHOUETTE_SHADER
 	_build_interface()
-	resized.connect(_update_responsive_layout)
-	_update_responsive_layout()
 	set_interactive(false)
 
 
@@ -79,6 +89,7 @@ func activate() -> void:
 
 func deactivate() -> void:
 	_active = false
+	_hide_portrait_overlay(false)
 	set_interactive(false)
 	_settle_tabs_for_close()
 	_cancel_detail_tween()
@@ -114,6 +125,9 @@ func set_interactive(value: bool) -> void:
 
 func focus_initial() -> void:
 	if not _active or not _interactive:
+		return
+	if _portrait_overlay != null and _portrait_overlay.visible:
+		_portrait_overlay_backdrop.grab_focus()
 		return
 	var selected := _entry_buttons.get(_selected_id) as Button
 	if selected != null:
@@ -199,6 +213,7 @@ func _build_interface() -> void:
 	)
 	left_layout.add_child(_catalog_scroll)
 	_catalog_grid = GridContainer.new()
+	_catalog_grid.columns = 5
 	_catalog_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_catalog_grid.add_theme_constant_override("h_separation", 8)
 	_catalog_grid.add_theme_constant_override("v_separation", 8)
@@ -219,16 +234,13 @@ func _build_interface() -> void:
 	var right_margin := MarginContainer.new()
 	_set_margins(right_margin, 22, 16, 22, 16)
 	right_page.add_child(right_margin)
-	var details_scroll := ScrollContainer.new()
-	details_scroll.horizontal_scroll_mode = (
-		ScrollContainer.SCROLL_MODE_DISABLED
-	)
-	right_margin.add_child(details_scroll)
 	_detail_body = VBoxContainer.new()
 	_detail_body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_detail_body.add_theme_constant_override("separation", 8)
-	details_scroll.add_child(_detail_body)
+	_detail_body.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_detail_body.add_theme_constant_override("separation", 16)
+	right_margin.add_child(_detail_body)
 	_show_no_selection()
+	_build_portrait_overlay()
 
 
 func _refresh_catalog() -> void:
@@ -284,82 +296,65 @@ func _refresh_catalog() -> void:
 
 func _make_entry(fish: FishDataType, discovered: bool) -> Button:
 	var entry := Button.new()
-	entry.custom_minimum_size = Vector2(220, 138)
+	entry.custom_minimum_size = Vector2(102, 102)
+	entry.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	entry.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	entry.toggle_mode = true
-	entry.clip_text = true
-	entry.add_theme_font_override("font", UtilityPageStyle.TuffyFont)
-	entry.add_theme_font_size_override("font_size", 17)
-	entry.add_theme_color_override("font_color", INK)
-	entry.add_theme_color_override("font_focus_color", INK)
-	entry.add_theme_color_override("font_hover_color", INK)
 	entry.add_theme_stylebox_override("normal", _entry_style(false))
 	entry.add_theme_stylebox_override("hover", _entry_style(true))
+	entry.add_theme_stylebox_override("hover_pressed", _entry_style(true))
 	entry.add_theme_stylebox_override("focus", _entry_style(true))
 	entry.add_theme_stylebox_override("pressed", _entry_style(true))
+	entry.text = ""
 	if not discovered:
-		entry.text = ""
 		entry.tooltip_text = ""
 		entry.accessibility_name = "Unknown catalog entry"
-		_add_unknown_entry_content(entry, fish.display_texture)
+		_add_entry_content(entry, fish.display_texture, "???", true)
 	else:
-		entry.text = fish.display_name
-		entry.icon = fish.display_texture
-		entry.add_theme_constant_override("icon_max_width", 118)
-		entry.expand_icon = true
-		entry.vertical_icon_alignment = VERTICAL_ALIGNMENT_TOP
 		entry.tooltip_text = fish.display_name
 		entry.accessibility_name = fish.display_name
+		_add_entry_content(
+			entry, fish.display_texture, fish.display_name, false
+		)
 	return entry
 
 
-func _add_unknown_entry_content(
+func _add_entry_content(
 	entry: Button,
 	portrait: Texture2D,
+	entry_name: String,
+	unknown: bool,
 ) -> void:
 	var content_margin := MarginContainer.new()
 	content_margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	content_margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	content_margin.add_theme_constant_override("margin_left", 7)
-	content_margin.add_theme_constant_override("margin_top", 7)
-	content_margin.add_theme_constant_override("margin_right", 7)
-	content_margin.add_theme_constant_override("margin_bottom", 7)
+	content_margin.add_theme_constant_override("margin_left", 5)
+	content_margin.add_theme_constant_override("margin_top", 8)
+	content_margin.add_theme_constant_override("margin_right", 5)
+	content_margin.add_theme_constant_override("margin_bottom", 2)
 	entry.add_child(content_margin)
 
 	var content := VBoxContainer.new()
 	content.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	content.add_theme_constant_override("separation", 2)
+	content.alignment = BoxContainer.ALIGNMENT_CENTER
+	content.add_theme_constant_override("separation", 4)
 	content_margin.add_child(content)
 
-	var portrait_view := TextureRect.new()
-	portrait_view.custom_minimum_size = Vector2(0.0, 64.0)
-	portrait_view.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	portrait_view.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	portrait_view.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	portrait_view.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	portrait_view.texture = portrait
-	portrait_view.material = _silhouette_material
+	var portrait_view := LogbookPortraitType.new()
+	portrait_view.configure(
+		portrait,
+		LogbookPortraitType.ENTRY_FRAME_SIZE,
+		_silhouette_material if unknown else null,
+	)
 	content.add_child(portrait_view)
 
-	var unknown_name := Label.new()
-	unknown_name.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	unknown_name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	unknown_name.text = "???"
-	unknown_name.add_theme_font_override("font", UtilityPageStyle.TuffyFont)
-	unknown_name.add_theme_font_size_override("font_size", 18)
-	unknown_name.add_theme_color_override("font_color", INK)
-	content.add_child(unknown_name)
-
-	var discovery_hint := Label.new()
-	discovery_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	discovery_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	discovery_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	discovery_hint.text = "Catch this creature to learn more."
-	discovery_hint.add_theme_font_override(
-		"font", UtilityPageStyle.TuffyFont
-	)
-	discovery_hint.add_theme_font_size_override("font_size", 12)
-	discovery_hint.add_theme_color_override("font_color", MUTED_INK)
-	content.add_child(discovery_hint)
+	var name_label := _label(_entry_label_text(entry_name), 16)
+	name_label.custom_minimum_size.y = 38.0
+	name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	name_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	name_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	content.add_child(name_label)
 
 
 func _select_category(category: WaterType.Type) -> void:
@@ -499,45 +494,115 @@ func _refresh_details(animate: bool) -> void:
 func _build_known_details(fish: FishDataType) -> void:
 	_clear_details()
 	var catalog_number: int = LogbookCatalog.catalog_number(fish.id)
-	var title := _label(fish.display_name, 30)
+	var summary_columns := HBoxContainer.new()
+	summary_columns.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	summary_columns.add_theme_constant_override("separation", 24)
+	_detail_body.add_child(summary_columns)
+
+	var portrait_column := VBoxContainer.new()
+	portrait_column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	portrait_column.size_flags_stretch_ratio = 1.0
+	portrait_column.add_theme_constant_override("separation", 4)
+	summary_columns.add_child(portrait_column)
+	var title := _label(fish.display_name, 26)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_detail_body.add_child(title)
+	portrait_column.add_child(title)
 	if fish.display_texture != null:
-		var artwork := TextureRect.new()
-		artwork.custom_minimum_size = Vector2(0, 150)
-		artwork.texture = fish.display_texture
-		artwork.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		artwork.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		artwork.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-		artwork.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		_detail_body.add_child(artwork)
+		_detail_portrait_button = Button.new()
+		_detail_portrait_button.custom_minimum_size = (
+			LogbookPortraitType.DETAIL_FRAME_SIZE
+		)
+		_detail_portrait_button.size_flags_horizontal = (
+			Control.SIZE_SHRINK_CENTER
+		)
+		_detail_portrait_button.tooltip_text = "View larger artwork"
+		_detail_portrait_button.accessibility_name = (
+			"View larger artwork for %s" % fish.display_name
+		)
+		_detail_portrait_button.add_theme_stylebox_override(
+			"normal", _portrait_button_style(false)
+		)
+		_detail_portrait_button.add_theme_stylebox_override(
+			"hover", _portrait_button_style(true)
+		)
+		_detail_portrait_button.add_theme_stylebox_override(
+			"focus", _portrait_button_style(true)
+		)
+		_detail_portrait_button.add_theme_stylebox_override(
+			"pressed", _portrait_button_style(true)
+		)
+		_detail_portrait_button.pressed.connect(
+			_show_portrait_overlay.bind(fish.display_texture)
+		)
+		portrait_column.add_child(_detail_portrait_button)
+		var artwork_center := CenterContainer.new()
+		artwork_center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		artwork_center.set_anchors_and_offsets_preset(
+			Control.PRESET_FULL_RECT
+		)
+		_detail_portrait_button.add_child(artwork_center)
+		var artwork := LogbookPortraitType.new()
+		artwork.configure(
+			fish.display_texture,
+			LogbookPortraitType.DETAIL_FRAME_SIZE,
+		)
+		artwork_center.add_child(artwork)
+
+	var facts_column := VBoxContainer.new()
+	facts_column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	facts_column.size_flags_stretch_ratio = 1.0
+	facts_column.add_theme_constant_override("separation", 6)
+	summary_columns.add_child(facts_column)
+	var facts_heading := _field_label("fish facts", 16)
+	facts_column.add_child(facts_heading)
+	var facts := _label(LogbookCatalog.facts_for(fish.id), 16)
+	facts.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	facts.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	facts_column.add_child(facts)
+
+	var stats_columns := HBoxContainer.new()
+	stats_columns.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	stats_columns.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	stats_columns.add_theme_constant_override("separation", 28)
+	_detail_body.add_child(stats_columns)
+	var left_stats := _make_stats_column()
+	var right_stats := _make_stats_column()
+	stats_columns.add_child(left_stats)
+	stats_columns.add_child(right_stats)
 	_add_detail_row(
+		left_stats,
 		"catalog number",
-		"#%03d" % catalog_number if catalog_number > 0 else "Unknown",
+		"#%03d" % catalog_number if catalog_number > 0 else "unknown",
 	)
-	_add_detail_row("rarity", fish.get_rarity_name())
-	_add_detail_row("body of water", WaterType.label(fish.get_primary_water_type()))
-	_add_detail_row("time of day", _availability_text(fish))
 	_add_detail_row(
+		left_stats,
+		"body of water",
+		WaterType.label(fish.get_primary_water_type()).to_lower(),
+	)
+	_add_detail_row(
+		left_stats,
 		"weight range",
 		"%.2f–%.2f lb" % [
 			fish.get_minimum_weight(),
 			fish.get_maximum_weight(),
 		],
 	)
+	_add_detail_row(left_stats, "number caught", "unknown")
+	_add_detail_row(right_stats, "rarity", fish.get_rarity_name().to_lower())
+	_add_detail_row(right_stats, "time of day", _availability_text(fish))
 	_add_detail_row(
+		right_stats,
 		"value range",
 		"%d–%d fish coin" % [
 			fish.sell_value_min,
 			fish.sell_value_max,
 		],
 	)
-	_add_detail_row("number caught", "Unknown")
 	_add_detail_row(
+		right_stats,
 		"number owned",
 		str(_inventory.get_count(fish.id) if _inventory != null else 0),
 	)
-	_add_detail_row("facts", "Unknown")
 
 
 func _show_no_selection() -> void:
@@ -561,28 +626,42 @@ func _show_unknown() -> void:
 	_detail_body.add_child(instruction)
 
 
-func _add_detail_row(row_name: String, value: String) -> void:
+func _add_detail_row(
+	parent: VBoxContainer,
+	row_name: String,
+	value: String,
+) -> void:
 	var row := VBoxContainer.new()
-	row.add_theme_constant_override("separation", 1)
-	var heading := _label(row_name, 15)
+	row.add_theme_constant_override("separation", 2)
+	var heading := _field_label(row_name, 14)
+	heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	heading.add_theme_color_override("font_color", MUTED_INK)
-	var content := _label(value, 20)
+	var content := _handwritten_value_label(value.to_lower(), 16)
+	content.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	content.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	row.add_child(heading)
 	row.add_child(content)
-	_detail_body.add_child(row)
+	parent.add_child(row)
+
+
+func _make_stats_column() -> VBoxContainer:
+	var column := VBoxContainer.new()
+	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	column.size_flags_stretch_ratio = 1.0
+	column.add_theme_constant_override("separation", 12)
+	return column
 
 
 func _availability_text(fish: FishDataType) -> String:
 	if fish.availability == null:
-		return "Unknown"
+		return "unknown"
 	if fish.availability.allow_day and fish.availability.allow_night:
 		return "day and night"
 	if fish.availability.allow_day:
 		return "day"
 	if fish.availability.allow_night:
 		return "night"
-	return "Unknown"
+	return "unknown"
 
 
 func _crossfade_details(rebuild: Callable) -> void:
@@ -626,6 +705,7 @@ func _clear_entries() -> void:
 
 
 func _clear_details() -> void:
+	_detail_portrait_button = null
 	for child: Node in _detail_body.get_children():
 		_detail_body.remove_child(child)
 		child.queue_free()
@@ -658,12 +738,6 @@ func _on_inventory_changed() -> void:
 	_refresh_details(false)
 
 
-func _update_responsive_layout() -> void:
-	if _catalog_grid == null:
-		return
-	_catalog_grid.columns = 1 if size.x < 900.0 else 2
-
-
 func _unknown_selection_key(fish: FishDataType) -> StringName:
 	var number: int = LogbookCatalog.catalog_number(fish.id)
 	return StringName("unknown_%d" % number)
@@ -672,10 +746,48 @@ func _unknown_selection_key(fish: FishDataType) -> StringName:
 func _label(text: String, font_size: int) -> Label:
 	var label := Label.new()
 	label.text = text
+	label.add_theme_font_override(
+		"font", InventoryNotepadType.HANDWRITTEN_FONT
+	)
+	label.add_theme_font_size_override("font_size", font_size)
+	label.add_theme_color_override("font_color", INK)
+	return label
+
+
+func _field_label(text: String, font_size: int) -> Label:
+	var label := Label.new()
+	label.text = text
 	label.add_theme_font_override("font", UtilityPageStyle.TuffyFont)
 	label.add_theme_font_size_override("font_size", font_size)
 	label.add_theme_color_override("font_color", INK)
 	return label
+
+
+func _handwritten_value_label(text: String, font_size: int) -> Label:
+	var adjusted_size: int = font_size
+	if _contains_ascii_digit(text):
+		adjusted_size = roundi(
+			float(font_size) * HANDWRITTEN_NUMERIC_SCALE
+		)
+	return _label(text, adjusted_size)
+
+
+func _contains_ascii_digit(text: String) -> bool:
+	for codepoint: int in text.to_utf32_buffer():
+		if codepoint >= 48 and codepoint <= 57:
+			return true
+	return false
+
+
+func _entry_label_text(entry_name: String) -> String:
+	var split_index: int = entry_name.find(" ")
+	if split_index < 0:
+		return entry_name
+	return (
+		entry_name.substr(0, split_index)
+		+ "\n"
+		+ entry_name.substr(split_index + 1)
+	)
 
 
 func _paper_style(color: Color, left: bool) -> StyleBoxFlat:
@@ -690,16 +802,117 @@ func _paper_style(color: Color, left: bool) -> StyleBoxFlat:
 	return style
 
 
-func _entry_style(selected: bool) -> StyleBoxFlat:
+func _build_portrait_overlay() -> void:
+	_portrait_overlay = Control.new()
+	_portrait_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_portrait_overlay.z_index = 500
+	_portrait_overlay.visible = false
+	_portrait_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_portrait_overlay)
+
+	_portrait_overlay_backdrop = Button.new()
+	_portrait_overlay_backdrop.set_anchors_and_offsets_preset(
+		Control.PRESET_FULL_RECT
+	)
+	_portrait_overlay_backdrop.text = ""
+	_portrait_overlay_backdrop.tooltip_text = "Return to logbook"
+	_portrait_overlay_backdrop.accessibility_name = "Return to logbook"
+	_portrait_overlay_backdrop.focus_neighbor_top = NodePath(".")
+	_portrait_overlay_backdrop.focus_neighbor_bottom = NodePath(".")
+	_portrait_overlay_backdrop.focus_neighbor_left = NodePath(".")
+	_portrait_overlay_backdrop.focus_neighbor_right = NodePath(".")
+	_portrait_overlay_backdrop.focus_next = NodePath(".")
+	_portrait_overlay_backdrop.focus_previous = NodePath(".")
+	var transparent_style := StyleBoxEmpty.new()
+	for state: StringName in [
+		&"normal", &"hover", &"focus", &"pressed", &"disabled",
+	]:
+		_portrait_overlay_backdrop.add_theme_stylebox_override(
+			state, transparent_style
+		)
+	_portrait_overlay_backdrop.pressed.connect(_hide_portrait_overlay)
+	_portrait_overlay_backdrop.gui_input.connect(
+		_on_portrait_overlay_backdrop_input
+	)
+	_portrait_overlay.add_child(_portrait_overlay_backdrop)
+
+	var center := CenterContainer.new()
+	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_portrait_overlay.add_child(center)
+	var card := PanelContainer.new()
+	card.mouse_filter = Control.MOUSE_FILTER_STOP
+	card.add_theme_stylebox_override("panel", _portrait_view_style())
+	center.add_child(card)
+	var margin := MarginContainer.new()
+	_set_margins(margin, 22, 22, 22, 22)
+	card.add_child(margin)
+	_portrait_overlay_artwork = LogbookPortraitType.new()
+	margin.add_child(_portrait_overlay_artwork)
+
+
+func _show_portrait_overlay(portrait_texture: Texture2D) -> void:
+	if portrait_texture == null or _portrait_overlay == null:
+		return
+	_portrait_overlay_artwork.configure_fitted(
+		portrait_texture,
+		PORTRAIT_VIEW_MAX_SIZE,
+	)
+	_portrait_overlay.visible = true
+	_portrait_overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+	_portrait_overlay_backdrop.grab_focus()
+
+
+func _hide_portrait_overlay(restore_focus: bool = true) -> void:
+	if _portrait_overlay == null or not _portrait_overlay.visible:
+		return
+	_portrait_overlay.visible = false
+	_portrait_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if (
+		restore_focus
+		and _detail_portrait_button != null
+		and is_instance_valid(_detail_portrait_button)
+		and _active
+		and _interactive
+	):
+		_detail_portrait_button.grab_focus()
+
+
+func _on_portrait_overlay_backdrop_input(event: InputEvent) -> void:
+	if event.is_action_pressed("ui_cancel"):
+		_hide_portrait_overlay()
+		get_viewport().set_input_as_handled()
+
+
+func _portrait_button_style(highlighted: bool) -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
-	style.bg_color = Color("fff5dc") if selected else Color("eadcbd")
-	style.border_color = Color("247a8b") if selected else Color("9b7a4f")
-	style.set_border_width_all(3 if selected else 2)
-	style.set_corner_radius_all(8)
-	style.content_margin_left = 8
-	style.content_margin_top = 8
-	style.content_margin_right = 8
-	style.content_margin_bottom = 8
+	style.bg_color = (
+		Color(1.0, 0.96, 0.86, 0.48)
+		if highlighted
+		else Color.TRANSPARENT
+	)
+	style.set_border_width_all(0)
+	style.set_corner_radius_all(12)
+	return style
+
+
+func _portrait_view_style() -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color("fff5dc")
+	style.set_border_width_all(0)
+	style.set_corner_radius_all(18)
+	return style
+
+
+func _entry_style(highlighted: bool) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color("fff5dc") if highlighted else Color.TRANSPARENT
+	style.set_border_width_all(0)
+	style.set_corner_radius_all(51)
+	style.content_margin_left = 5
+	style.content_margin_top = 5
+	style.content_margin_right = 5
+	style.content_margin_bottom = 5
 	return style
 
 
