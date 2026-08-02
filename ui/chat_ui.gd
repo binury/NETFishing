@@ -61,6 +61,7 @@ var _pending_send_body: String = ""
 var _prior_movement: bool = true
 var _prior_camera: bool = true
 var _output_scale: float = 1.0
+var _dock_right: bool = false
 
 
 func _ready() -> void:
@@ -85,6 +86,7 @@ func setup(
 	_player = player
 	_fishing_spot = fishing_spot
 	_settings = settings
+	set_dock_right(_settings.current_settings.chat_dock_right)
 	_service.message_received.connect(_on_message)
 	_service.local_message_confirmed.connect(_on_local_message_confirmed)
 	_service.history_replaced.connect(_on_history)
@@ -333,10 +335,10 @@ func _build_ui() -> void:
 
 func _chat_panel_style() -> StyleBoxFlat:
 	var style := _borderless_style(Color(0.025, 0.13, 0.19, 0.94))
-	style.corner_radius_top_left = 0
-	style.corner_radius_bottom_left = 0
-	style.corner_radius_top_right = 10
-	style.corner_radius_bottom_right = 10
+	style.corner_radius_top_left = 10 if _dock_right else 0
+	style.corner_radius_bottom_left = 10 if _dock_right else 0
+	style.corner_radius_top_right = 0 if _dock_right else 10
+	style.corner_radius_bottom_right = 0 if _dock_right else 10
 	style.content_margin_left = 12
 	style.content_margin_right = 12
 	style.content_margin_top = 10
@@ -568,10 +570,26 @@ func set_output_scale(output_scale: float) -> void:
 	_output_scale = maxf(output_scale, 0.001)
 
 
+func set_dock_right(should_dock_right: bool) -> void:
+	_dock_right = should_dock_right
+	if not is_node_ready() or _panel == null:
+		return
+	_panel.add_theme_stylebox_override("panel", _chat_panel_style())
+	_refresh_handle_labels(_presentation_state)
+	_layout_presentation(false)
+
+
+func is_docked_right() -> bool:
+	return _dock_right
+
+
 func _refresh_handle_labels(state: PresentationState) -> void:
 	var collapsed := state == PresentationState.COLLAPSED
 	var height_state := _visible_state_before_collapse if collapsed else state
-	_collapse_button.text = ">" if collapsed else "<"
+	if _dock_right:
+		_collapse_button.text = "<" if collapsed else ">"
+	else:
+		_collapse_button.text = ">" if collapsed else "<"
 	_collapse_button.tooltip_text = (
 		"Show chat" if collapsed else "Hide chat"
 	)
@@ -687,6 +705,9 @@ func _set_status(text: String) -> void:
 func _layout_presentation(animate: bool) -> void:
 	if _panel == null:
 		return
+	var viewport_width := size.x
+	if viewport_width <= 0.0:
+		viewport_width = 1280.0
 	var viewport_height := size.y
 	if viewport_height <= 0.0:
 		viewport_height = 720.0
@@ -704,32 +725,40 @@ func _layout_presentation(animate: bool) -> void:
 	if layout_state == PresentationState.EXPANDED:
 		height = maxf(MIN_HISTORY_HEIGHT, viewport_height - 2.0 * bottom_margin)
 	height = minf(height, maxf(MIN_HISTORY_HEIGHT, bottom - MIN_TOP_MARGIN))
-	var target_position := Vector2(
-		-(PANEL_WIDTH - COLLAPSED_REVEAL_WIDTH)
-		if _presentation_state == PresentationState.COLLAPSED
-		else 0.0,
-		bottom - height,
-	)
+	var collapsed := _presentation_state == PresentationState.COLLAPSED
+	var panel_x: float
+	if _dock_right:
+		panel_x = (
+			viewport_width - COLLAPSED_REVEAL_WIDTH
+			if collapsed
+			else viewport_width - PANEL_WIDTH
+		)
+	else:
+		panel_x = -(PANEL_WIDTH - COLLAPSED_REVEAL_WIDTH) if collapsed else 0.0
+	var target_position := Vector2(panel_x, bottom - height)
 	var target_size := Vector2(PANEL_WIDTH, height)
 	var handle_stack_height := HANDLE_SIZE.y * 2.0 + HANDLE_GAP
 	var handle_stack_top := (
 		bottom - COMPACT_HEIGHT * 0.5 - handle_stack_height * 0.5
 	)
+	var handle_x: float
+	if _dock_right:
+		handle_x = panel_x - HANDLE_SIZE.x
+	else:
+		handle_x = COLLAPSED_REVEAL_WIDTH if collapsed else PANEL_WIDTH
 	var collapse_position := Vector2(
-		COLLAPSED_REVEAL_WIDTH
-		if _presentation_state == PresentationState.COLLAPSED
-		else PANEL_WIDTH,
+		handle_x,
 		handle_stack_top + HANDLE_SIZE.y + HANDLE_GAP,
 	)
-	var height_position := Vector2(
-		COLLAPSED_REVEAL_WIDTH
-		if _presentation_state == PresentationState.COLLAPSED
-		else PANEL_WIDTH,
-		handle_stack_top,
-	)
-	var unread_position := collapse_position + Vector2(6.0, -18.0)
+	var height_position := Vector2(handle_x, handle_stack_top)
+	var unread_offset_x := -18.0 if _dock_right else 6.0
+	var unread_position := collapse_position + Vector2(unread_offset_x, -18.0)
 	var hint_position := Vector2(
-		HINT_EDGE_MARGIN,
+		(
+			viewport_width - _hint.size.x - HINT_EDGE_MARGIN
+			if _dock_right
+			else HINT_EDGE_MARGIN
+		),
 		viewport_height - _hint.size.y - HINT_EDGE_MARGIN,
 	)
 	if _height_tween != null and _height_tween.is_valid():

@@ -3,55 +3,97 @@
 [ext_resource type="Script" path="res://ui/surface_drawing_toolbar.gd" id="1_script"]
 [ext_resource type="Theme" path="res://ui/game_theme.tres" id="2_theme"]
 
-[node name="SurfaceDrawingToolbar" type="PanelContainer"]
+[node name="SurfaceDrawingToolbar" type="Control"]
 visible = false
 z_index = 85
 layout_mode = 0
-offset_left = 18.0
-offset_top = 18.0
-offset_right = 284.0
-offset_bottom = 340.0
-mouse_filter = 0
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -580.0
+offset_bottom = 373.0
+grow_horizontal = 0
+mouse_filter = 2
 theme = ExtResource("2_theme")
 script = ExtResource("1_script")
 
-[node name="Layout" type="HBoxContainer" parent="."]
-layout_mode = 2
-theme_override_constants/separation = 10
-
-[node name="ColorList" type="VBoxContainer" parent="Layout"]
+[node name="TopPanel" type="PanelContainer" parent="."]
 unique_name_in_owner = true
+layout_mode = 0
+offset_right = 580.0
+offset_bottom = 60.0
+
+[node name="Top" type="HBoxContainer" parent="TopPanel"]
 layout_mode = 2
 theme_override_constants/separation = 5
 
-[node name="Tools" type="VBoxContainer" parent="Layout"]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_constants/separation = 8
-
-[node name="Top" type="HBoxContainer" parent="Layout/Tools"]
-layout_mode = 2
-theme_override_constants/separation = 6
-
-[node name="ModeButton" type="Button" parent="Layout/Tools/Top"]
+[node name="ModeButton" type="Button" parent="TopPanel/Top"]
 unique_name_in_owner = true
 layout_mode = 2
+tooltip_text = "switch between grid and marker mode"
 text = "▦"
 
-[node name="BrushOption" type="OptionButton" parent="Layout/Tools/Top"]
+[node name="BrushOption" type="OptionButton" parent="TopPanel/Top"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(80, 48)
 layout_mode = 2
 tooltip_text = "brush size"
 
-[node name="GridOption" type="OptionButton" parent="Layout/Tools/Top"]
+[node name="GridOption" type="OptionButton" parent="TopPanel/Top"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(92, 48)
 layout_mode = 2
 tooltip_text = "grid size"
 
-[node name="Help" type="Label" parent="Layout/Tools"]
+[node name="EraserButton" type="Button" parent="TopPanel/Top"]
+unique_name_in_owner = true
 layout_mode = 2
-text = "click place/draw\nshift click hide/erase\nctrl z undo\nshift scroll zoom"
-theme_override_colors/font_color = Color(0.623529, 0.811765, 0.823529, 1)
-theme_override_font_sizes/font_size = 14
+tooltip_text = "toggle eraser"
+toggle_mode = true
+text = "⌫"
+
+[node name="UndoButton" type="Button" parent="TopPanel/Top"]
+unique_name_in_owner = true
+layout_mode = 2
+tooltip_text = "undo last stroke"
+text = "↶"
+
+[node name="HideGuideButton" type="Button" parent="TopPanel/Top"]
+unique_name_in_owner = true
+layout_mode = 2
+tooltip_text = "hide grid on next click"
+toggle_mode = true
+text = "◌"
+
+[node name="RestoreGuideButton" type="Button" parent="TopPanel/Top"]
+unique_name_in_owner = true
+layout_mode = 2
+tooltip_text = "restore hidden grid on next click"
+toggle_mode = true
+text = "▤"
+
+[node name="FinalizeGuideButton" type="Button" parent="TopPanel/Top"]
+unique_name_in_owner = true
+layout_mode = 2
+tooltip_text = "finish grid on next click"
+toggle_mode = true
+text = "✓"
+
+[node name="CloseButton" type="Button" parent="TopPanel/Top"]
+unique_name_in_owner = true
+layout_mode = 2
+tooltip_text = "close art tools"
+text = "×"
+
+[node name="ColorPanel" type="PanelContainer" parent="."]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 534.0
+offset_top = 54.0
+offset_right = 580.0
+offset_bottom = 373.0
+
+[node name="ColorList" type="VBoxContainer" parent="ColorPanel"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 5

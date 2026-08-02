@@ -46,7 +46,7 @@ mouse_filter = 2
 unique_name_in_owner = true
 mouse_filter = 2
 
-[node name="SurfaceDrawingToolbar" parent="UIRoot/CanonicalStage" instance=ExtResource("11_drawing_toolbar")]
+[node name="SurfaceDrawingToolbar" parent="UIRoot" instance=ExtResource("11_drawing_toolbar")]
 unique_name_in_owner = true
 
 [node name="GameplayTransientHUD" type="Control" parent="UIRoot/CanonicalStage"]

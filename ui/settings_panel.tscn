@@ -157,8 +157,8 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("3_page")
 page_id = &"display"
-bubble_paths = Array[NodePath]([NodePath("BubbleCluster/WorldValue"), NodePath("BubbleCluster/WorldLegible"), NodePath("BubbleCluster/WorldCute"), NodePath("BubbleCluster/WorldRetro"), NodePath("BubbleCluster/WorldHardcore"), NodePath("BubbleCluster/WorldWtf"), NodePath("BubbleCluster/UIValue"), NodePath("BubbleCluster/UILegible"), NodePath("BubbleCluster/UICute"), NodePath("BubbleCluster/UIRetro"), NodePath("BubbleCluster/UIHardcore"), NodePath("BubbleCluster/UIWtf"), NodePath("BubbleCluster/DisplayBackButton")])
-focus_paths = Array[NodePath]([NodePath("BubbleCluster/WorldLegible"), NodePath("BubbleCluster/WorldCute"), NodePath("BubbleCluster/WorldRetro"), NodePath("BubbleCluster/WorldHardcore"), NodePath("BubbleCluster/WorldWtf"), NodePath("BubbleCluster/UILegible"), NodePath("BubbleCluster/UICute"), NodePath("BubbleCluster/UIRetro"), NodePath("BubbleCluster/UIHardcore"), NodePath("BubbleCluster/UIWtf"), NodePath("BubbleCluster/DisplayBackButton")])
+bubble_paths = Array[NodePath]([NodePath("BubbleCluster/WorldValue"), NodePath("BubbleCluster/WorldLegible"), NodePath("BubbleCluster/WorldCute"), NodePath("BubbleCluster/WorldRetro"), NodePath("BubbleCluster/WorldHardcore"), NodePath("BubbleCluster/WorldWtf"), NodePath("BubbleCluster/UIValue"), NodePath("BubbleCluster/UILegible"), NodePath("BubbleCluster/UICute"), NodePath("BubbleCluster/UIRetro"), NodePath("BubbleCluster/UIHardcore"), NodePath("BubbleCluster/UIWtf"), NodePath("BubbleCluster/ChatDock"), NodePath("BubbleCluster/PaintDock"), NodePath("BubbleCluster/DisplayBackButton")])
+focus_paths = Array[NodePath]([NodePath("BubbleCluster/WorldLegible"), NodePath("BubbleCluster/WorldCute"), NodePath("BubbleCluster/WorldRetro"), NodePath("BubbleCluster/WorldHardcore"), NodePath("BubbleCluster/WorldWtf"), NodePath("BubbleCluster/UILegible"), NodePath("BubbleCluster/UICute"), NodePath("BubbleCluster/UIRetro"), NodePath("BubbleCluster/UIHardcore"), NodePath("BubbleCluster/UIWtf"), NodePath("BubbleCluster/ChatDock"), NodePath("BubbleCluster/PaintDock"), NodePath("BubbleCluster/DisplayBackButton")])
 initial_focus_path = NodePath("BubbleCluster/WorldRetro")
 back_focus_path = NodePath("BubbleCluster/DisplayBackButton")
 compact_maximum_layout_size = Vector2(544, 400)
@@ -178,12 +178,12 @@ custom_minimum_size = Vector2(0, 0)
 mouse_filter = 2
 focus_mode = 0
 text = "world\npixelation\nretro"
-neutral_size = Vector2(160, 150)
+neutral_size = Vector2(140, 130)
 desktop_anchor = Vector2(160, 240)
 compact_anchor = Vector2(175, 210)
-compact_minimum_size = Vector2(132, 126)
+compact_minimum_size = Vector2(118, 110)
 minimum_font_size = 15
-maximum_font_size = 25
+maximum_font_size = 22
 motion_phase = 0.2
 
 [node name="WorldLegible" parent="DisplayPage/BubbleCluster" instance=ExtResource("4_bubble")]
@@ -258,12 +258,12 @@ custom_minimum_size = Vector2(0, 0)
 mouse_filter = 2
 focus_mode = 0
 text = "ui\npixelation\nretro"
-neutral_size = Vector2(160, 150)
+neutral_size = Vector2(140, 130)
 desktop_anchor = Vector2(560, 240)
 compact_anchor = Vector2(545, 210)
-compact_minimum_size = Vector2(132, 126)
+compact_minimum_size = Vector2(118, 110)
 minimum_font_size = 15
-maximum_font_size = 25
+maximum_font_size = 22
 motion_phase = 3.55
 
 [node name="UILegible" parent="DisplayPage/BubbleCluster" instance=ExtResource("4_bubble")]
@@ -332,6 +332,30 @@ minimum_font_size = 12
 maximum_font_size = 13
 motion_phase = 0.55
 
+[node name="ChatDock" parent="DisplayPage/BubbleCluster" instance=ExtResource("4_bubble")]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 0)
+text = "chat dock\nleft"
+neutral_size = Vector2(96, 96)
+desktop_anchor = Vector2(190, 435)
+compact_anchor = Vector2(160, 378)
+compact_minimum_size = Vector2(82, 82)
+minimum_font_size = 12
+maximum_font_size = 16
+motion_phase = 1.1
+
+[node name="PaintDock" parent="DisplayPage/BubbleCluster" instance=ExtResource("4_bubble")]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 0)
+text = "paint dock\nright"
+neutral_size = Vector2(96, 96)
+desktop_anchor = Vector2(530, 435)
+compact_anchor = Vector2(448, 378)
+compact_minimum_size = Vector2(82, 82)
+minimum_font_size = 12
+maximum_font_size = 16
+motion_phase = 1.65
+
 [node name="DisplayBackButton" parent="DisplayPage/BubbleCluster" instance=ExtResource("4_bubble")]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 0)
@@ -342,7 +366,7 @@ compact_anchor = Vector2(315, 390)
 compact_minimum_size = Vector2(82, 78)
 minimum_font_size = 13
 maximum_font_size = 16
-motion_phase = 1.1
+motion_phase = 2.2
 
 [node name="ControlsPage" type="Control" parent="."]
 unique_name_in_owner = true

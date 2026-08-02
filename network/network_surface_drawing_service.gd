@@ -28,6 +28,13 @@ const MAX_RECENT_REQUEST_IDS: int = 64
 const GRID_PREVIEW_SURFACE_OFFSET: float = 0.03
 const POINTER_EDGE_MARGIN: float = 2.0
 
+enum GuideAction {
+	NONE,
+	HIDE,
+	RESTORE,
+	FINALIZE,
+}
+
 var _session: NetworkSession
 var _spawn_service: PlayerSpawnService
 var _relationships: PlayerRelationshipStore
@@ -51,6 +58,10 @@ var _color_ids: Array[StringName] = []
 var _color_index: int = 0
 var _painting: bool = false
 var _erasing: bool = false
+var _eraser_mode: bool = false
+var _armed_guide_action: int = GuideAction.NONE
+var _armed_return_placement_mode: bool = false
+var _armed_return_eraser_mode: bool = false
 var _camera_look_active: bool = false
 var _prior_mouse_mode: Input.MouseMode = Input.MOUSE_MODE_VISIBLE
 var _last_edited_cell := Vector3i(-1, -1, -1)
@@ -127,6 +138,9 @@ func handle_input(event: InputEvent, can_open: bool) -> bool:
 		deactivate()
 		return false
 	if event.is_action_pressed("ui_cancel"):
+		if _armed_guide_action != GuideAction.NONE:
+			_cancel_armed_guide_action()
+			return true
 		if _placing_grid:
 			_set_placement_mode(false)
 			return true
@@ -173,7 +187,9 @@ func handle_input(event: InputEvent, can_open: bool) -> bool:
 			MOUSE_BUTTON_LEFT:
 				if _placing_grid:
 					if mouse_event.pressed:
-						if mouse_event.shift_pressed and mouse_event.ctrl_pressed:
+						if _armed_guide_action != GuideAction.NONE:
+							_execute_armed_guide_action()
+						elif mouse_event.shift_pressed and mouse_event.ctrl_pressed:
 							_finalize_selected_guide()
 						elif mouse_event.shift_pressed:
 							_remove_selected_guide()
@@ -182,8 +198,11 @@ func handle_input(event: InputEvent, can_open: bool) -> bool:
 					return true
 				if mouse_event.pressed:
 					_begin_stroke()
-				_painting = mouse_event.pressed and not mouse_event.shift_pressed
-				_erasing = mouse_event.pressed and mouse_event.shift_pressed
+				_erasing = (
+					mouse_event.pressed
+					and (mouse_event.shift_pressed or _eraser_mode)
+				)
+				_painting = mouse_event.pressed and not _erasing
 				if _painting or _erasing:
 					_submit_current_brush(_erasing, true)
 				else:
@@ -210,6 +229,8 @@ func activate() -> void:
 		return
 	_active = true
 	_placing_grid = true
+	_eraser_mode = false
+	_clear_armed_guide_action(false)
 	_refresh_local_unlocks()
 	_rebuild_placement_preview()
 	_reset_stroke()
@@ -228,6 +249,8 @@ func deactivate() -> void:
 		return
 	_active = false
 	_placing_grid = false
+	_eraser_mode = false
+	_clear_armed_guide_action(false)
 	_camera_look_active = false
 	_reset_stroke()
 	_selected_canvas_id = ""
@@ -258,10 +281,61 @@ func set_color_id(color_id: StringName) -> bool:
 	var color_index: int = _color_ids.find(color_id)
 	if color_index < 0:
 		return false
+	_clear_armed_guide_action(true)
+	_eraser_mode = false
 	_color_index = color_index
 	_reset_stroke()
 	_emit_hud_state("")
 	return true
+
+
+func set_eraser_mode(enabled: bool) -> void:
+	if not _active:
+		return
+	_clear_armed_guide_action(true)
+	_eraser_mode = enabled
+	if _eraser_mode and _placing_grid:
+		_placing_grid = false
+	_reset_stroke()
+	_selected_canvas_id = ""
+	_update_aim()
+	_refresh_stencil_visibility()
+	_emit_hud_state("eraser selected" if _eraser_mode else "marker selected")
+
+
+func is_eraser_mode() -> bool:
+	return _eraser_mode
+
+
+func arm_guide_action(action: int) -> bool:
+	if (
+		not _active
+		or action not in [GuideAction.HIDE, GuideAction.RESTORE, GuideAction.FINALIZE]
+	):
+		return false
+	if _armed_guide_action == action:
+		_cancel_armed_guide_action()
+		return false
+	if _armed_guide_action == GuideAction.NONE:
+		_armed_return_placement_mode = _placing_grid
+		_armed_return_eraser_mode = _eraser_mode
+	_armed_guide_action = action
+	_placing_grid = true
+	_eraser_mode = false
+	_reset_stroke()
+	_selected_canvas_id = ""
+	_update_aim()
+	_refresh_stencil_visibility()
+	_emit_hud_state("click a grid to %s it" % _guide_action_verb(action))
+	return true
+
+
+func get_armed_guide_action() -> int:
+	return _armed_guide_action
+
+
+func cancel_armed_guide_action() -> void:
+	_cancel_armed_guide_action()
 
 
 func set_brush_size(value: int) -> bool:
@@ -1751,7 +1825,11 @@ func _rebuild_placement_preview() -> void:
 
 
 func _set_placement_mode(enabled: bool) -> void:
-	if not _active or _placing_grid == enabled:
+	if not _active:
+		return
+	_clear_armed_guide_action(true)
+	if _placing_grid == enabled:
+		_emit_hud_state("")
 		return
 	_placing_grid = enabled
 	_reset_stroke()
@@ -1767,6 +1845,51 @@ func _set_placement_mode(enabled: bool) -> void:
 	)
 
 
+func _execute_armed_guide_action() -> void:
+	var action: int = _armed_guide_action
+	match action:
+		GuideAction.HIDE:
+			_remove_selected_guide()
+		GuideAction.RESTORE:
+			_restore_selected_guide()
+		GuideAction.FINALIZE:
+			_finalize_selected_guide()
+	_clear_armed_guide_action(true)
+	_emit_hud_state("")
+
+
+func _cancel_armed_guide_action() -> void:
+	if _armed_guide_action == GuideAction.NONE:
+		return
+	_clear_armed_guide_action(true)
+	_emit_hud_state("")
+
+
+func _clear_armed_guide_action(restore_tool: bool) -> void:
+	if _armed_guide_action == GuideAction.NONE:
+		return
+	_armed_guide_action = GuideAction.NONE
+	if restore_tool:
+		_placing_grid = _armed_return_placement_mode
+		_eraser_mode = _armed_return_eraser_mode
+	_armed_return_placement_mode = false
+	_armed_return_eraser_mode = false
+	_reset_stroke()
+	_update_aim()
+	_refresh_stencil_visibility()
+
+
+func _guide_action_verb(action: int) -> String:
+	match action:
+		GuideAction.HIDE:
+			return "hide"
+		GuideAction.RESTORE:
+			return "restore"
+		GuideAction.FINALIZE:
+			return "finish"
+	return "use"
+
+
 func _remove_selected_guide() -> void:
 	if _selected_canvas_id.is_empty():
 		_emit_hud_state("aim at a placed grid before removing its guide")
@@ -1780,6 +1903,21 @@ func _remove_selected_guide() -> void:
 	if request_guide_visibility(_selected_canvas_id, false):
 		if not _session.is_host():
 			_emit_hud_state("hiding grid guide...")
+
+
+func _restore_selected_guide() -> void:
+	if _selected_canvas_id.is_empty():
+		_emit_hud_state("aim at a hidden grid before restoring its guide")
+		return
+	var state: Dictionary = _canvas_states.get(_selected_canvas_id, {})
+	if state.is_empty() or bool(state.get("finalized", false)):
+		return
+	if bool(state.get("guide_visible", true)):
+		_emit_hud_state("this grid guide is already visible")
+		return
+	if request_guide_visibility(_selected_canvas_id, true):
+		if not _session.is_host():
+			_emit_hud_state("restoring grid guide...")
 
 
 func _finalize_selected_guide() -> void:
@@ -1805,6 +1943,8 @@ func _clamped_pointer_position(value: Vector2) -> Vector2:
 func _cycle_color(direction: int) -> void:
 	if _color_ids.is_empty():
 		return
+	_clear_armed_guide_action(true)
+	_eraser_mode = false
 	_color_index = posmod(_color_index + direction, _color_ids.size())
 	_reset_stroke()
 	_emit_hud_state("")

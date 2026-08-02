@@ -41,6 +41,8 @@ enum PresentationMode {
 
 @onready var _world_value: BubbleButton = %WorldValue
 @onready var _ui_value: BubbleButton = %UIValue
+@onready var _chat_dock: BubbleButton = %ChatDock
+@onready var _paint_dock: BubbleButton = %PaintDock
 @onready var _mouse_value: BubbleButton = %MouseValue
 @onready var _controller_value: BubbleButton = %ControllerValue
 @onready var _invert_y_toggle: BubbleButton = %InvertYToggle
@@ -133,6 +135,8 @@ func _ready() -> void:
 		_ui_options[index].pressed.connect(
 			_set_ui_pixelation.bind(index + 1)
 		)
+	_chat_dock.pressed.connect(_toggle_chat_dock)
+	_paint_dock.pressed.connect(_toggle_paint_dock)
 	%MouseDecrease.pressed.connect(_adjust_mouse_sensitivity.bind(-1))
 	%MouseIncrease.pressed.connect(_adjust_mouse_sensitivity.bind(1))
 	_mouse_value.pressed.connect(_adjust_mouse_sensitivity.bind(1))
@@ -642,14 +646,12 @@ func _apply_settings() -> void:
 	if _settings_manager == null:
 		_feedback.text = "settings are unavailable."
 		return
-	var edited := PlayerSettings.new()
+	var edited: PlayerSettings = _settings_manager.current_settings.copy()
 	edited.auto_click_enabled = _auto_click_enabled
 	edited.auto_click_interval = _auto_click_interval_value
 	edited.mouse_camera_sensitivity = _mouse_sensitivity
 	edited.controller_camera_sensitivity = _controller_sensitivity
 	edited.invert_camera_y = _invert_camera_y
-	edited.world_pixel_size = _settings_manager.current_settings.world_pixel_size
-	edited.ui_pixel_size = _settings_manager.current_settings.ui_pixel_size
 	if _settings_manager.apply_settings(edited):
 		if (
 			_presentation_mode == PresentationMode.TITLE_EMBEDDED
@@ -685,6 +687,10 @@ func _refresh_value_labels() -> void:
 	_ui_value.text = (
 		"ui\npixelation\n"
 		+ _pixel_size_label(settings.ui_pixel_size)
+	)
+	_chat_dock.text = "chat dock\n" + ("right" if settings.chat_dock_right else "left")
+	_paint_dock.text = (
+		"paint dock\n" + ("right" if settings.paint_dock_right else "left")
 	)
 	_mouse_value.text = "mouse\nsensitivity\n%.4f" % _mouse_sensitivity
 	_controller_value.text = (
@@ -753,6 +759,28 @@ func _set_ui_pixelation(pixel_size: int) -> void:
 		pixel_size
 	):
 		_feedback.text = "failed to save pixelation settings."
+		return
+	_refresh_value_labels()
+
+
+func _toggle_chat_dock() -> void:
+	if _settings_manager == null:
+		return
+	var edited: PlayerSettings = _settings_manager.current_settings.copy()
+	edited.chat_dock_right = not edited.chat_dock_right
+	if not _settings_manager.apply_settings(edited):
+		_feedback.text = "failed to save chat dock setting."
+		return
+	_refresh_value_labels()
+
+
+func _toggle_paint_dock() -> void:
+	if _settings_manager == null:
+		return
+	var edited: PlayerSettings = _settings_manager.current_settings.copy()
+	edited.paint_dock_right = not edited.paint_dock_right
+	if not _settings_manager.apply_settings(edited):
+		_feedback.text = "failed to save paint dock setting."
 		return
 	_refresh_value_labels()
 

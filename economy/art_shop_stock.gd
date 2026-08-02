@@ -2,7 +2,7 @@ class_name ArtShopStock
 extends RefCounted
 
 const ART_KIT_ITEM_ID: StringName = &"art_kit"
-const ART_KIT_PRICE: int = 1000
+const ART_KIT_PRICE: int = 50
 const UPGRADE_PRICE: int = 50
 
 const MARKER_PRODUCTS: Array[StringName] = [

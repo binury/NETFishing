@@ -1,48 +1,94 @@
 class_name SurfaceDrawingToolbar
-extends PanelContainer
+extends Control
 
 const UtilityPageStyleType = preload("res://ui/utility_page_style.gd")
+const TOOLBAR_WIDTH: float = 580.0
+const TOOLBAR_HEIGHT: float = 373.0
+const COLOR_RAIL_WIDTH: float = 46.0
 
 @onready var _mode_button: Button = %ModeButton
 @onready var _brush_option: OptionButton = %BrushOption
 @onready var _grid_option: OptionButton = %GridOption
 @onready var _color_list: VBoxContainer = %ColorList
+@onready var _top_panel: PanelContainer = %TopPanel
+@onready var _color_panel: PanelContainer = %ColorPanel
+@onready var _eraser_button: Button = %EraserButton
+@onready var _undo_button: Button = %UndoButton
+@onready var _hide_guide_button: Button = %HideGuideButton
+@onready var _restore_guide_button: Button = %RestoreGuideButton
+@onready var _finalize_guide_button: Button = %FinalizeGuideButton
+@onready var _close_button: Button = %CloseButton
 
 var _service: NetworkSurfaceDrawingService
 var _unlocks: PlayerArtUnlocks
 var _color_buttons: Dictionary[StringName, Button] = {}
+var _dock_right: bool = true
 
 
 func _ready() -> void:
 	UtilityPageStyleType.apply_page(self)
-	var panel: StyleBoxFlat = UtilityPageStyleType.panel_style()
-	panel.content_margin_left = 10.0
-	panel.content_margin_top = 10.0
-	panel.content_margin_right = 10.0
-	panel.content_margin_bottom = 10.0
-	add_theme_stylebox_override("panel", panel)
+	_apply_toolbar_panel(_top_panel)
+	_apply_toolbar_panel(_color_panel)
 	UtilityPageStyleType.apply_ocean_button(_mode_button)
 	UtilityPageStyleType.apply_ocean_button(_brush_option)
 	UtilityPageStyleType.apply_ocean_button(_grid_option)
+	for button: Button in _action_buttons():
+		UtilityPageStyleType.apply_ocean_button(button)
+		button.custom_minimum_size = Vector2(48, 44)
+		_make_button_round(button, 22)
 	_mode_button.custom_minimum_size = Vector2(48, 48)
-	_make_mode_button_round()
+	_make_button_round(_mode_button, 24)
 	_mode_button.pressed.connect(_toggle_mode)
+	_eraser_button.pressed.connect(_toggle_eraser)
+	_undo_button.pressed.connect(_undo_last_stroke)
+	_hide_guide_button.pressed.connect(
+		_arm_guide_action.bind(NetworkSurfaceDrawingService.GuideAction.HIDE)
+	)
+	_restore_guide_button.pressed.connect(
+		_arm_guide_action.bind(NetworkSurfaceDrawingService.GuideAction.RESTORE)
+	)
+	_finalize_guide_button.pressed.connect(
+		_arm_guide_action.bind(NetworkSurfaceDrawingService.GuideAction.FINALIZE)
+	)
+	_close_button.pressed.connect(_close_toolbar)
 	_brush_option.item_selected.connect(_select_brush)
 	_grid_option.item_selected.connect(_select_grid)
 	_build_options()
+	_apply_dock_side()
 	hide()
 
 
-func _make_mode_button_round() -> void:
+func _apply_toolbar_panel(panel: PanelContainer) -> void:
+	var style: StyleBoxFlat = UtilityPageStyleType.panel_style()
+	style.content_margin_left = 6.0
+	style.content_margin_top = 6.0
+	style.content_margin_right = 6.0
+	style.content_margin_bottom = 6.0
+	style.set_corner_radius_all(10)
+	panel.add_theme_stylebox_override("panel", style)
+
+
+func _action_buttons() -> Array[Button]:
+	return [
+		_eraser_button,
+		_undo_button,
+		_hide_guide_button,
+		_restore_guide_button,
+		_finalize_guide_button,
+		_close_button,
+	]
+
+
+func _make_button_round(button: Button, radius: int) -> void:
 	for style_name: StringName in [
 		&"normal", &"hover", &"pressed", &"focus", &"disabled",
 	]:
-		var existing: StyleBox = _mode_button.get_theme_stylebox(style_name)
+		var existing: StyleBox = button.get_theme_stylebox(style_name)
 		var style := existing.duplicate() as StyleBoxFlat
 		if style == null:
 			continue
-		style.set_corner_radius_all(24)
-		_mode_button.add_theme_stylebox_override(style_name, style)
+		style.set_corner_radius_all(radius)
+		button.add_theme_stylebox_override(style_name, style)
 
 
 func setup(
@@ -62,13 +108,42 @@ func setup(
 	_refresh_unlocks()
 
 
+func set_dock_right(should_dock_right: bool) -> void:
+	_dock_right = should_dock_right
+	if is_node_ready():
+		_apply_dock_side()
+
+
+func is_docked_right() -> bool:
+	return _dock_right
+
+
+func _apply_dock_side() -> void:
+	anchor_left = 1.0 if _dock_right else 0.0
+	anchor_right = anchor_left
+	offset_left = -TOOLBAR_WIDTH if _dock_right else 0.0
+	offset_right = 0.0 if _dock_right else TOOLBAR_WIDTH
+	offset_top = 0.0
+	offset_bottom = TOOLBAR_HEIGHT
+	_color_panel.offset_left = (
+		TOOLBAR_WIDTH - COLOR_RAIL_WIDTH if _dock_right else 0.0
+	)
+	_color_panel.offset_right = (
+		TOOLBAR_WIDTH if _dock_right else COLOR_RAIL_WIDTH
+	)
+
+
 func owns_pointer_event(event: InputEvent) -> bool:
 	if not visible:
 		return false
 	if _brush_option.get_popup().visible or _grid_option.get_popup().visible:
 		return true
 	if event is InputEventMouse:
-		return get_global_rect().has_point((event as InputEventMouse).position)
+		var pointer_position: Vector2 = (event as InputEventMouse).position
+		return (
+			_top_panel.get_global_rect().has_point(pointer_position)
+			or _color_panel.get_global_rect().has_point(pointer_position)
+		)
 	return false
 
 
@@ -114,7 +189,11 @@ func _refresh_unlocks() -> void:
 		_apply_color_button_style(
 			button,
 			color_id,
-			_service != null and _service.get_color_id() == color_id,
+			(
+				_service != null
+				and not _service.is_eraser_mode()
+				and _service.get_color_id() == color_id
+			),
 		)
 
 
@@ -161,6 +240,26 @@ func _select_color(color_id: StringName) -> void:
 		_service.set_color_id(color_id)
 
 
+func _toggle_eraser() -> void:
+	if _service != null:
+		_service.set_eraser_mode(not _service.is_eraser_mode())
+
+
+func _undo_last_stroke() -> void:
+	if _service != null:
+		_service.request_undo_last_stroke()
+
+
+func _arm_guide_action(action: int) -> void:
+	if _service != null:
+		_service.arm_guide_action(action)
+
+
+func _close_toolbar() -> void:
+	if _service != null:
+		_service.deactivate()
+
+
 func _on_unlocks_changed(_unlock_mask: int) -> void:
 	_refresh_unlocks()
 
@@ -185,7 +284,24 @@ func _on_service_state_changed(
 	)
 	_select_option_by_id(_brush_option, brush_size)
 	_select_option_by_id(_grid_option, grid_size)
+	_refresh_action_state()
 	_refresh_unlocks()
+
+
+func _refresh_action_state() -> void:
+	if _service == null:
+		return
+	_eraser_button.button_pressed = _service.is_eraser_mode()
+	var guide_action: int = _service.get_armed_guide_action()
+	_hide_guide_button.button_pressed = (
+		guide_action == NetworkSurfaceDrawingService.GuideAction.HIDE
+	)
+	_restore_guide_button.button_pressed = (
+		guide_action == NetworkSurfaceDrawingService.GuideAction.RESTORE
+	)
+	_finalize_guide_button.button_pressed = (
+		guide_action == NetworkSurfaceDrawingService.GuideAction.FINALIZE
+	)
 
 
 func _select_option_by_id(option: OptionButton, item_id: int) -> void:

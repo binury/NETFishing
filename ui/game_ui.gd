@@ -219,6 +219,10 @@ func setup(
 	_shop_interaction = shop_interaction
 	_surface_drawing = surface_drawing
 	_surface_drawing_toolbar.setup(_surface_drawing, art_unlocks)
+	set_edge_docks(
+		settings_manager.current_settings.chat_dock_right,
+		settings_manager.current_settings.paint_dock_right,
+	)
 
 
 func _input(event: InputEvent) -> void:
@@ -407,6 +411,11 @@ func get_title_screen() -> TitleScreenType:
 func set_effective_ui_pixel_size(pixel_size: int) -> void:
 	_title_settings_panel.set_effective_ui_pixel_size(pixel_size)
 	_pause_settings_panel.set_effective_ui_pixel_size(pixel_size)
+
+
+func set_edge_docks(chat_dock_right: bool, paint_dock_right: bool) -> void:
+	_chat_ui.set_dock_right(chat_dock_right)
+	_surface_drawing_toolbar.set_dock_right(paint_dock_right)
 
 
 func focus_open_settings_back_button() -> void:

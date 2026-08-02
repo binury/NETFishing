@@ -931,6 +931,10 @@ func _apply_runtime_settings(settings: PlayerSettingsType) -> void:
 		settings.auto_click_enabled,
 		settings.auto_click_interval
 	)
+	_game_ui.set_edge_docks(
+		settings.chat_dock_right,
+		settings.paint_dock_right,
+	)
 
 
 func _apply_world_pixelation(pixel_size: int) -> void:

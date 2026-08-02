@@ -57,6 +57,14 @@ func load_settings() -> bool:
 			presentation.has("chat_collapsed")
 			and typeof(presentation["chat_collapsed"]) != TYPE_BOOL
 		)
+		or (
+			presentation.has("chat_dock_right")
+			and typeof(presentation["chat_dock_right"]) != TYPE_BOOL
+		)
+		or (
+			presentation.has("paint_dock_right")
+			and typeof(presentation["paint_dock_right"]) != TYPE_BOOL
+		)
 	):
 		return _use_defaults_after_corruption("Player settings values are invalid.")
 	var loaded := PlayerSettings.new()
@@ -98,6 +106,8 @@ func load_settings() -> bool:
 		PlayerSettings.MAX_CHAT_DRAFT_CHARACTERS
 	)
 	loaded.chat_collapsed = bool(presentation.get("chat_collapsed", false))
+	loaded.chat_dock_right = bool(presentation.get("chat_dock_right", false))
+	loaded.paint_dock_right = bool(presentation.get("paint_dock_right", true))
 	if not loaded.is_valid():
 		return _use_defaults_after_corruption("Player settings values are invalid.")
 	current_settings = loaded
@@ -170,6 +180,8 @@ func save_now() -> bool:
 			"ui_pixel_size": current_settings.ui_pixel_size,
 			"chat_draft": current_settings.chat_draft,
 			"chat_collapsed": current_settings.chat_collapsed,
+			"chat_dock_right": current_settings.chat_dock_right,
+			"paint_dock_right": current_settings.paint_dock_right,
 		},
 	}
 	if current_settings.chat_draft.is_empty():
