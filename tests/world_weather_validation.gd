@@ -146,7 +146,11 @@ func _validate_weather_presentation() -> void:
 	var world_environment := WorldEnvironment.new()
 	var environment := Environment.new()
 	var sky := Sky.new()
-	sky.sky_material = ProceduralSkyMaterial.new()
+	var sky_material := ShaderMaterial.new()
+	sky_material.shader = preload(
+		"res://world/environment/netfishing_sky.gdshader"
+	)
+	sky.sky_material = sky_material
 	environment.sky = sky
 	environment.adjustment_enabled = true
 	environment.fog_enabled = true

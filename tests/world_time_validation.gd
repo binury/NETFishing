@@ -14,6 +14,7 @@ const FishingSpotType = preload("res://fishing/fishing_spot.gd")
 const FishableWaterRegionType = preload(
 	"res://world/fishable_water_region.gd"
 )
+const WeatherIconType = preload("res://ui/weather_icon.gd")
 
 const Catalog: FishPoolType = preload("res://fish/pools/fish_catalog.tres")
 
@@ -28,6 +29,7 @@ func _run() -> void:
 	_validate_fishing_spot_context()
 	_validate_network_snapshot_bounds()
 	_validate_environment_presentation()
+	_validate_weather_clock_icon()
 	print("World time validation: PASS")
 	quit()
 
@@ -154,7 +156,11 @@ func _validate_environment_presentation() -> void:
 	var world_environment := WorldEnvironment.new()
 	var environment := Environment.new()
 	var sky := Sky.new()
-	sky.sky_material = ProceduralSkyMaterial.new()
+	var sky_material := ShaderMaterial.new()
+	sky_material.shader = preload(
+		"res://world/environment/netfishing_sky.gdshader"
+	)
+	sky.sky_material = sky_material
 	environment.sky = sky
 	environment.adjustment_enabled = true
 	environment.fog_enabled = true
@@ -170,13 +176,63 @@ func _validate_environment_presentation() -> void:
 	visuals.apply_time_immediately(12.0)
 	var runtime_environment: Environment = world_environment.environment
 	var runtime_sky_material := (
-		runtime_environment.sky.sky_material as ProceduralSkyMaterial
+		runtime_environment.sky.sky_material as ShaderMaterial
 	)
-	var day_horizon: Color = runtime_sky_material.sky_horizon_color
+	var day_horizon_value: Variant = runtime_sky_material.get_shader_parameter(
+		"sky_horizon_color"
+	)
+	assert(day_horizon_value is Color)
+	var day_horizon: Color = day_horizon_value as Color
+	var day_sun_visibility: float = float(
+		runtime_sky_material.get_shader_parameter("sun_visibility")
+	)
+	var day_sun_direction: Vector3 = (
+		runtime_sky_material.get_shader_parameter("sun_direction") as Vector3
+	)
+	assert(day_sun_visibility > 0.99)
+	assert(day_sun_direction.y > 0.85)
+	assert(
+		float(runtime_sky_material.get_shader_parameter("moon_visibility"))
+		< 0.01
+	)
 	var day_ambient_energy: float = runtime_environment.ambient_light_energy
 	visuals.apply_time_immediately(0.0)
-	assert(runtime_sky_material.sky_horizon_color != day_horizon)
+	var night_horizon: Color = runtime_sky_material.get_shader_parameter(
+		"sky_horizon_color"
+	) as Color
+	assert(night_horizon != day_horizon)
+	assert(
+		float(runtime_sky_material.get_shader_parameter("sun_visibility"))
+		< 0.01
+	)
+	var night_moon_visibility: float = float(
+		runtime_sky_material.get_shader_parameter("moon_visibility")
+	)
+	var night_moon_direction: Vector3 = (
+		runtime_sky_material.get_shader_parameter("moon_direction") as Vector3
+	)
+	var night_sun_direction: Vector3 = (
+		runtime_sky_material.get_shader_parameter("sun_direction") as Vector3
+	)
+	assert(night_moon_visibility > 0.99)
+	assert(night_moon_direction.y > 0.85)
+	assert(night_moon_direction.is_equal_approx(-night_sun_direction))
 	assert(runtime_environment.ambient_light_energy < day_ambient_energy)
 	visuals.apply_time_immediately(20.0)
-	assert(runtime_sky_material.sky_horizon_color.r > day_horizon.r)
+	var dusk_horizon: Color = runtime_sky_material.get_shader_parameter(
+		"sky_horizon_color"
+	) as Color
+	assert(dusk_horizon.r > day_horizon.r)
 	world_root.queue_free()
+
+
+func _validate_weather_clock_icon() -> void:
+	var weather_icon := WeatherIconType.new()
+	root.add_child(weather_icon)
+	assert(weather_icon.tooltip_text == "clear")
+	assert(not weather_icon.is_nighttime())
+	weather_icon.set_nighttime(true)
+	assert(weather_icon.is_nighttime())
+	weather_icon.set_weather(WorldWeatherService.Weather.CLOUDY)
+	assert(weather_icon.tooltip_text == "cloudy")
+	weather_icon.queue_free()

@@ -13,6 +13,7 @@ const DAY_GROUND_HORIZON := Color(0.549, 0.749, 0.765)
 const DAY_AMBIENT := Color(0.82, 0.90, 0.92)
 const DAY_FOG := Color(0.549, 0.749, 0.765)
 const DAY_SUN := Color(0.88, 0.94, 0.96)
+const DAY_SUN_DISC := Color(1.0, 0.86, 0.46)
 
 const NIGHT_SKY_TOP := Color(0.026, 0.050, 0.105)
 const NIGHT_SKY_HORIZON := Color(0.10, 0.17, 0.28)
@@ -29,6 +30,8 @@ const WARM_GROUND_HORIZON := Color(0.82, 0.34, 0.18)
 const WARM_AMBIENT := Color(0.92, 0.58, 0.40)
 const WARM_FOG := Color(0.74, 0.39, 0.27)
 const WARM_SUN := Color(1.0, 0.58, 0.30)
+const WARM_SUN_DISC := Color(1.0, 0.45, 0.16)
+const MOON_DISC := Color(0.78, 0.88, 1.0)
 
 const CLOUDY_TINT := Color(0.53, 0.61, 0.66)
 const RAINY_TINT := Color(0.31, 0.42, 0.50)
@@ -40,7 +43,7 @@ var _world_environment: WorldEnvironment
 var _sun: DirectionalLight3D
 var _rain_target: Node3D
 var _environment: Environment
-var _sky_material: ProceduralSkyMaterial
+var _sky_material: ShaderMaterial
 var _rain: GPUParticles3D
 var _elapsed: float = 0.0
 var _weather_from: WorldWeatherService.Weather = (
@@ -125,13 +128,13 @@ func _prepare_runtime_environment() -> bool:
 		return false
 	var runtime_sky: Sky = _environment.sky.duplicate(true) as Sky
 	if runtime_sky == null or runtime_sky.sky_material == null:
-		push_error("World time visuals require a procedural sky material.")
+		push_error("World time visuals require a sky material.")
 		return false
 	_sky_material = (
-		runtime_sky.sky_material.duplicate(true) as ProceduralSkyMaterial
+		runtime_sky.sky_material.duplicate(true) as ShaderMaterial
 	)
 	if _sky_material == null:
-		push_error("World time visuals require a ProceduralSkyMaterial.")
+		push_error("World time visuals require the NETfishing sky material.")
 		return false
 	runtime_sky.sky_material = _sky_material
 	_environment.sky = runtime_sky
@@ -213,15 +216,19 @@ func _apply_time(time_hours: float) -> void:
 	var tint_strength: float = _weather_value(
 		0.0, 0.30, 0.48, 0.62
 	)
-	_sky_material.sky_top_color = sky_top.lerp(weather_tint, tint_strength)
-	_sky_material.sky_horizon_color = sky_horizon.lerp(
-		weather_tint, tint_strength
+	_sky_material.set_shader_parameter(
+		"sky_top_color", sky_top.lerp(weather_tint, tint_strength)
 	)
-	_sky_material.ground_bottom_color = ground_bottom.lerp(
-		weather_tint, tint_strength * 0.62
+	_sky_material.set_shader_parameter(
+		"sky_horizon_color", sky_horizon.lerp(weather_tint, tint_strength)
 	)
-	_sky_material.ground_horizon_color = ground_horizon.lerp(
-		weather_tint, tint_strength * 0.76
+	_sky_material.set_shader_parameter(
+		"ground_bottom_color",
+		ground_bottom.lerp(weather_tint, tint_strength * 0.62),
+	)
+	_sky_material.set_shader_parameter(
+		"ground_horizon_color",
+		ground_horizon.lerp(weather_tint, tint_strength * 0.76),
 	)
 	_environment.background_energy_multiplier = (
 		lerpf(0.52, 0.85, daylight)
@@ -268,6 +275,24 @@ func _apply_time(time_hours: float) -> void:
 		-360.0 * fposmod(hour - WorldTimeService.DAY_START_HOUR, 24.0) / 24.0,
 		SUN_YAW_DEGREES,
 		0.0,
+	)
+	_sky_material.set_shader_parameter(
+		"sun_direction", _sun.global_transform.basis.z.normalized()
+	)
+	_sky_material.set_shader_parameter(
+		"sun_color", DAY_SUN_DISC.lerp(WARM_SUN_DISC, warmth)
+	)
+	_sky_material.set_shader_parameter(
+		"sun_visibility",
+		daylight * _weather_value(1.0, 0.65, 0.28, 0.15),
+	)
+	_sky_material.set_shader_parameter(
+		"moon_direction", -_sun.global_transform.basis.z.normalized()
+	)
+	_sky_material.set_shader_parameter("moon_color", MOON_DISC)
+	_sky_material.set_shader_parameter(
+		"moon_visibility",
+		(1.0 - daylight) * _weather_value(1.0, 0.72, 0.36, 0.20),
 	)
 	_sun.light_color = _blended_color(
 		NIGHT_SUN, DAY_SUN, WARM_SUN, daylight, warmth

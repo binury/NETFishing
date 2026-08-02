@@ -958,6 +958,8 @@ func _on_world_time_changed(
 ) -> void:
 	if _clock_label != null and _world_time != null:
 		_clock_label.text = _world_time.get_clock_text()
+	if _weather_icon != null and _world_time != null:
+		_weather_icon.set_nighttime(_world_time.is_night_period())
 
 
 func _on_world_weather_changed(
