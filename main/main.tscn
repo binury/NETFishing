@@ -53,6 +53,8 @@
 [ext_resource type="Script" path="res://network/network_world_weather_service.gd" id="51_network_world_weather"]
 [ext_resource type="Script" path="res://jobs/player_job_service.gd" id="52_player_jobs"]
 [ext_resource type="Script" path="res://network/network_job_service.gd" id="53_network_jobs"]
+[ext_resource type="Script" path="res://world/shoreline_ambience.gd" id="54_shoreline_ambience"]
+[ext_resource type="AudioStream" path="res://audio/ambience/waves.wav" id="55_waves"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_title_water_native"]
 shader = ExtResource("40_title_water")
@@ -276,6 +278,15 @@ unique_name_in_owner = true
 stream = ExtResource("13_title_music")
 volume_db = -80.0
 bus = &"Music"
+
+[node name="ShorelineAmbience" type="Node" parent="."]
+unique_name_in_owner = true
+script = ExtResource("54_shoreline_ambience")
+
+[node name="WavesAudio" type="AudioStreamPlayer" parent="ShorelineAmbience"]
+unique_name_in_owner = true
+stream = ExtResource("55_waves")
+bus = &"SFX"
 
 [node name="WorldPixelationPostprocess" parent="." unique_id=344378000 instance=ExtResource("16_world_pixelation")]
 unique_name_in_owner = true

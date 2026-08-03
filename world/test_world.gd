@@ -61,6 +61,10 @@ func get_pelican_convenience_landmark() -> Node3D:
 	return _starter_island.get_pelican_landmark()
 
 
+func get_saltwater_shoreline_mesh() -> MeshInstance3D:
+	return _starter_island.get_saltwater_shoreline_mesh()
+
+
 func _get_regions() -> Array[WorldRegion]:
 	var regions: Array[WorldRegion] = []
 	for child: Node in _regions_root.get_children():

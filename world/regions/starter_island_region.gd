@@ -58,6 +58,10 @@ func get_pelican_landmark() -> Node3D:
 	return get_node_or_null(pelican_landmark_path) as Node3D
 
 
+func get_saltwater_shoreline_mesh() -> MeshInstance3D:
+	return get_node_or_null(^"ShorelineRibbons/Ocean") as MeshInstance3D
+
+
 func has_terrain_collision() -> bool:
 	var collision_shape: CollisionShape3D = (
 		get_node_or_null(terrain_collision_shape_path) as CollisionShape3D
