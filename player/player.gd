@@ -94,6 +94,8 @@ class ShowcaseCameraSnapshot:
 @export var maximum_zoom: float = 8.0
 @export var zoom_step: float = 0.75
 @export var zoom_smoothing: float = 12.0
+@export_range(0.1, 12.0, 0.1) var controller_zoom_speed: float = 4.0
+@export_range(0.0, 1.0, 0.01) var controller_trigger_threshold: float = 0.55
 
 @onready var _visuals: Node3D = %Visuals
 @onready var _character_animation_player: AnimationPlayer = (
@@ -290,16 +292,26 @@ func _process(delta: float) -> void:
 			Input.get_joy_axis(0, JOY_AXIS_RIGHT_Y)
 		)
 		if stick.length() > controller_camera_deadzone:
-			var adjusted_strength: float = (
-				(stick.length() - controller_camera_deadzone)
-				/ (1.0 - controller_camera_deadzone)
-			)
-			_rotate_camera(
-				stick.normalized()
-				* adjusted_strength
-				* controller_camera_speed
-				* delta
-			)
+			if (
+				Input.get_joy_axis(0, JOY_AXIS_TRIGGER_RIGHT)
+				>= controller_trigger_threshold
+			):
+				var vertical_zoom_input: float = _apply_axis_deadzone(stick.y)
+				_set_target_zoom(
+					_target_zoom
+					+ vertical_zoom_input * controller_zoom_speed * delta
+				)
+			else:
+				var adjusted_strength: float = (
+					(stick.length() - controller_camera_deadzone)
+					/ (1.0 - controller_camera_deadzone)
+				)
+				_rotate_camera(
+					stick.normalized()
+						* adjusted_strength
+						* controller_camera_speed
+						* delta
+				)
 
 		var zoom_weight: float = 1.0 - exp(-zoom_smoothing * delta)
 		_spring_arm.spring_length = lerpf(
@@ -433,6 +445,17 @@ func _rotate_camera(delta_rotation: Vector2) -> void:
 
 func _set_target_zoom(value: float) -> void:
 	_target_zoom = clampf(value, minimum_zoom, maximum_zoom)
+
+
+func _apply_axis_deadzone(value: float) -> float:
+	var magnitude: float = absf(value)
+	if magnitude <= controller_camera_deadzone:
+		return 0.0
+	return (
+		signf(value)
+		* (magnitude - controller_camera_deadzone)
+		/ (1.0 - controller_camera_deadzone)
+	)
 
 
 func set_local_control(enabled: bool) -> void:

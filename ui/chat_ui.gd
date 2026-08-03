@@ -194,6 +194,13 @@ func close_chat() -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if event.is_action_pressed("open_chat"):
+		if _opened:
+			close_chat()
+		elif _available:
+			open_chat()
+		get_viewport().set_input_as_handled()
+		return
 	if event is InputEventKey and event.pressed and not event.echo:
 		if event.keycode in [KEY_ENTER, KEY_KP_ENTER]:
 			if _opened:

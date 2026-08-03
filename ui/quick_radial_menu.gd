@@ -1,7 +1,7 @@
-class_name EmoteRadialMenu
+class_name QuickRadialMenu
 extends Control
 
-signal emote_selected(emote_id: StringName)
+signal action_selected(action_id: StringName)
 
 const BubbleButtonScene: PackedScene = preload(
 	"res://ui/components/bubble_menu/bubble_button.tscn"
@@ -10,14 +10,33 @@ const BubbleProfile: BubbleMenuProfile = preload(
 	"res://ui/components/bubble_menu/bubble_menu_profile.tres"
 )
 const SECTOR_COUNT: int = 8
-const SIT_SECTOR: int = 0
 const RING_RADIUS: float = 172.0
 const BUBBLE_SIZE: Vector2 = Vector2(92.0, 88.0)
 const CONTROLLER_SELECTION_DEADZONE: float = 0.35
+const ACTIONS: Array[StringName] = [
+	&"stuff",
+	&"logbook",
+	&"fishnet",
+	&"mail",
+	&"profile",
+	&"online",
+	&"paint",
+	&"chat",
+]
+const LABELS: Array[String] = [
+	"stuff",
+	"logbook",
+	"fishnet",
+	"mail",
+	"profile",
+	"online",
+	"paint",
+	"chat",
+]
 
 var _buttons: Array[BubbleButton] = []
 var _is_open: bool = false
-var _selected_sector: int = SIT_SECTOR
+var _selected_sector: int = 0
 var _controller_selection_mode: bool = false
 
 
@@ -29,14 +48,14 @@ func _ready() -> void:
 		bubble.profile = BubbleProfile
 		bubble.focus_mode = Control.FOCUS_NONE
 		bubble.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		bubble.text = "Sit" if sector == SIT_SECTOR else ""
+		bubble.text = LABELS[sector]
 		add_child(bubble)
 		_buttons.append(bubble)
 	_apply_selection_styles()
 
 
 func handle_input(event: InputEvent, can_open: bool) -> bool:
-	if not event.is_action("open_emotes"):
+	if not event.is_action("open_quick_actions"):
 		return false
 	var key_event: InputEventKey = event as InputEventKey
 	if key_event != null and key_event.echo:
@@ -50,14 +69,13 @@ func handle_input(event: InputEvent, can_open: bool) -> bool:
 		return false
 	var selected: int = _selected_sector
 	close_menu()
-	if selected == SIT_SECTOR:
-		emote_selected.emit(&"sit")
+	call_deferred("_emit_selected_action", ACTIONS[selected])
 	return true
 
 
 func open_menu(controller_selection: bool = false) -> void:
 	_is_open = true
-	_selected_sector = SIT_SECTOR
+	_selected_sector = 0
 	_controller_selection_mode = controller_selection
 	visible = true
 	_layout_bubbles()
@@ -71,6 +89,10 @@ func close_menu() -> void:
 
 func is_open() -> bool:
 	return _is_open
+
+
+func _emit_selected_action(action_id: StringName) -> void:
+	action_selected.emit(action_id)
 
 
 func _process(_delta: float) -> void:

@@ -34,6 +34,10 @@ const PlayerCoolerCapacityType = preload(
 )
 const ChatUIType = preload("res://ui/chat_ui.gd")
 const EmoteRadialMenuType = preload("res://ui/emote_radial_menu.gd")
+const QuickRadialMenuType = preload("res://ui/quick_radial_menu.gd")
+const ControllerVirtualCursorType = preload(
+	"res://ui/controller_virtual_cursor.gd"
+)
 const SurfaceDrawingToolbarType = preload(
 	"res://ui/surface_drawing_toolbar.gd"
 )
@@ -58,6 +62,11 @@ signal passive_pointer_ui_changed(is_enabled: bool)
 signal player_menu_backdrop_visibility_changed(is_visible: bool)
 signal shop_backdrop_visibility_changed(is_visible: bool)
 
+const VIRTUAL_MOUSE_INPUT_OWNER: StringName = &"controller_virtual_mouse"
+const VIRTUAL_MOUSE_TRIGGER_THRESHOLD: float = 0.55
+const VIRTUAL_MOUSE_STICK_DEADZONE: float = 0.18
+const VIRTUAL_MOUSE_SPEED: float = 720.0
+
 @onready var _status_label: Label = %StatusLabel
 @onready var _gameplay_transient_hud: Control = %GameplayTransientHUD
 @onready var _experience_presentation: Control = %ExperiencePresentation
@@ -77,6 +86,7 @@ signal shop_backdrop_visibility_changed(is_visible: bool)
 @onready var _experience_bubble: PanelContainer = %ExperienceBubble
 @onready var _experience_bubble_label: Label = %ExperienceBubbleLabel
 @onready var _canonical_stage: Control = %CanonicalStage
+@onready var _ui_root: Control = %UIRoot
 @onready var _player_menu: PlayerMenuType = %PlayerMenu
 @onready var _screen_fade: ScreenFade = %ScreenFade
 @onready var _title_screen: TitleScreenType = %TitleScreen
@@ -87,6 +97,10 @@ signal shop_backdrop_visibility_changed(is_visible: bool)
 @onready var _effect_status: Label = %EffectStatus
 @onready var _chat_ui: ChatUIType = %ChatUI
 @onready var _emote_radial_menu: EmoteRadialMenuType = %EmoteRadialMenu
+@onready var _quick_radial_menu: QuickRadialMenuType = %QuickRadialMenu
+@onready var _controller_virtual_cursor: ControllerVirtualCursorType = (
+	%ControllerVirtualCursor
+)
 @onready var _surface_drawing_toolbar: SurfaceDrawingToolbarType = (
 	%SurfaceDrawingToolbar
 )
@@ -115,6 +129,15 @@ var _experience_award_queue: Array[Dictionary] = []
 var _experience_animation_active: bool = false
 var _experience_animation_generation: int = 0
 var _experience_panel_rest_y: float = 18.0
+var _emote_prior_camera_input_enabled: bool = true
+var _quick_prior_camera_input_enabled: bool = true
+var _virtual_mouse_active: bool = false
+var _virtual_mouse_prior_camera_input_enabled: bool = true
+var _virtual_mouse_prior_mouse_mode: Input.MouseMode = Input.MOUSE_MODE_VISIBLE
+var _virtual_mouse_window_position: Vector2 = Vector2.ZERO
+var _virtual_mouse_button_mask: int = 0
+var _virtual_mouse_right_pressed: bool = false
+var _injecting_virtual_mouse_event: bool = false
 
 
 func _ready() -> void:
@@ -128,6 +151,7 @@ func _ready() -> void:
 			presentation_parent.get_child_count() - 1,
 		)
 	_emote_radial_menu.emote_selected.connect(_on_emote_selected)
+	_quick_radial_menu.action_selected.connect(_on_quick_action_selected)
 	_chat_ui.text_entry_ownership_changed.connect(
 		_on_chat_text_entry_ownership_changed
 	)
@@ -275,6 +299,17 @@ func setup(
 
 func _input(event: InputEvent) -> void:
 	if (
+		_virtual_mouse_active
+		and _injecting_virtual_mouse_event
+		and event is InputEventMouseMotion
+	):
+		_update_virtual_cursor_position(
+			(event as InputEventMouseMotion).position
+		)
+	if _handle_virtual_mouse_input(event):
+		get_viewport().set_input_as_handled()
+		return
+	if (
 		_surface_drawing_toolbar != null
 		and _surface_drawing_toolbar.owns_pointer_event(event)
 	):
@@ -295,7 +330,7 @@ func _input(event: InputEvent) -> void:
 	):
 		get_viewport().set_input_as_handled()
 		return
-	if _emote_radial_menu == null:
+	if _emote_radial_menu == null or _quick_radial_menu == null:
 		return
 	var can_open: bool = (
 		_gameplay_ui_enabled
@@ -304,14 +339,254 @@ func _input(event: InputEvent) -> void:
 		and not _shop_open
 		and not _chat_input_open
 		and not _showcase_active
+		and not _virtual_mouse_active
 	)
-	if _emote_radial_menu.handle_input(event, can_open):
+	var emote_was_open: bool = _emote_radial_menu.is_open()
+	if _emote_radial_menu.handle_input(
+		event,
+		can_open and not _quick_radial_menu.is_open(),
+	):
+		var emote_is_open: bool = _emote_radial_menu.is_open()
+		if emote_is_open != emote_was_open and _player != null:
+			if emote_is_open:
+				_emote_prior_camera_input_enabled = (
+					_player.is_camera_input_enabled()
+				)
+				_player.set_camera_input_enabled(false)
+			else:
+				_player.set_camera_input_enabled(
+					_emote_prior_camera_input_enabled
+				)
+		get_viewport().set_input_as_handled()
+		return
+	var quick_was_open: bool = _quick_radial_menu.is_open()
+	if _quick_radial_menu.handle_input(
+		event,
+		can_open and not _emote_radial_menu.is_open(),
+	):
+		var quick_is_open: bool = _quick_radial_menu.is_open()
+		if quick_is_open != quick_was_open and _player != null:
+			if quick_is_open:
+				_quick_prior_camera_input_enabled = (
+					_player.is_camera_input_enabled()
+				)
+				_player.set_camera_input_enabled(false)
+			else:
+				_player.set_camera_input_enabled(
+					_quick_prior_camera_input_enabled
+				)
 		get_viewport().set_input_as_handled()
 
 
 func _on_emote_selected(emote_id: StringName) -> void:
 	if emote_id == &"sit" and _player != null:
 		_player.toggle_sitting()
+
+
+func _on_quick_action_selected(action_id: StringName) -> void:
+	match action_id:
+		&"stuff":
+			_player_menu.open_section(PlayerMenuType.Section.COOLER)
+		&"logbook":
+			_player_menu.open_section(PlayerMenuType.Section.LOGBOOK)
+		&"fishnet":
+			_player_menu.open_section(PlayerMenuType.Section.NET)
+		&"mail":
+			_player_menu.open_section(PlayerMenuType.Section.MAIL)
+		&"profile":
+			_player_menu.open_section(PlayerMenuType.Section.PROFILE)
+		&"online":
+			_player_menu.open_section(PlayerMenuType.Section.PLAYERS)
+		&"paint":
+			_toggle_surface_drawing()
+		&"chat":
+			_chat_ui.open_chat()
+
+
+func _handle_virtual_mouse_input(event: InputEvent) -> bool:
+	var motion_event: InputEventJoypadMotion = event as InputEventJoypadMotion
+	if motion_event != null:
+		if motion_event.axis == JOY_AXIS_TRIGGER_LEFT:
+			var was_active: bool = _virtual_mouse_active
+			if motion_event.axis_value >= VIRTUAL_MOUSE_TRIGGER_THRESHOLD:
+				if not _virtual_mouse_active and _can_start_virtual_mouse():
+					_begin_virtual_mouse()
+			elif _virtual_mouse_active:
+				_end_virtual_mouse()
+			return was_active or _virtual_mouse_active
+		if (
+			_virtual_mouse_active
+			and motion_event.axis == JOY_AXIS_TRIGGER_RIGHT
+		):
+			_set_virtual_mouse_button(
+				MOUSE_BUTTON_RIGHT,
+				motion_event.axis_value >= VIRTUAL_MOUSE_TRIGGER_THRESHOLD,
+			)
+			return true
+	var button_event: InputEventJoypadButton = event as InputEventJoypadButton
+	if (
+		button_event != null
+		and button_event.button_index == JOY_BUTTON_RIGHT_SHOULDER
+		and (
+			_virtual_mouse_active
+			or Input.get_joy_axis(0, JOY_AXIS_TRIGGER_LEFT)
+			>= VIRTUAL_MOUSE_TRIGGER_THRESHOLD
+		)
+	):
+		if not _virtual_mouse_active and _can_start_virtual_mouse():
+			_begin_virtual_mouse()
+		if _virtual_mouse_active:
+			_set_virtual_mouse_button(MOUSE_BUTTON_LEFT, button_event.pressed)
+			return true
+	return false
+
+
+func _can_start_virtual_mouse() -> bool:
+	return (
+		_gameplay_ui_enabled
+		and not _showcase_active
+		and _player != null
+		and _fishing_spot != null
+		and _fishing_spot.can_use_surface_drawing()
+		and not _emote_radial_menu.is_open()
+		and not _quick_radial_menu.is_open()
+	)
+
+
+func _begin_virtual_mouse() -> void:
+	if _virtual_mouse_active:
+		return
+	_virtual_mouse_active = true
+	_virtual_mouse_prior_camera_input_enabled = (
+		_player.is_camera_input_enabled()
+	)
+	_player.set_camera_input_enabled(false)
+	if _fishing_spot != null:
+		_fishing_spot.set_local_menu_input_suppressed(
+			VIRTUAL_MOUSE_INPUT_OWNER,
+			true,
+		)
+	_virtual_mouse_prior_mouse_mode = Input.mouse_mode
+	Input.mouse_mode = Input.MOUSE_MODE_HIDDEN
+	_virtual_mouse_button_mask = 0
+	_virtual_mouse_right_pressed = false
+	_virtual_mouse_window_position = Vector2(get_window().size) * 0.5
+	_controller_virtual_cursor.visible = true
+	_emit_virtual_mouse_motion(Vector2.ZERO)
+
+
+func _end_virtual_mouse() -> void:
+	if not _virtual_mouse_active:
+		return
+	if (_virtual_mouse_button_mask & MOUSE_BUTTON_MASK_LEFT) != 0:
+		_set_virtual_mouse_button(MOUSE_BUTTON_LEFT, false)
+	if _virtual_mouse_right_pressed:
+		_set_virtual_mouse_button(MOUSE_BUTTON_RIGHT, false)
+	_virtual_mouse_active = false
+	_controller_virtual_cursor.visible = false
+	if _fishing_spot != null:
+		_fishing_spot.set_local_menu_input_suppressed(
+			VIRTUAL_MOUSE_INPUT_OWNER,
+			false,
+		)
+	if _player != null and is_instance_valid(_player):
+		_player.set_camera_input_enabled(
+			_virtual_mouse_prior_camera_input_enabled
+		)
+	Input.mouse_mode = _virtual_mouse_prior_mouse_mode
+
+
+func _update_virtual_mouse(delta: float) -> void:
+	if not _virtual_mouse_active:
+		return
+	if (
+		Input.get_joy_axis(0, JOY_AXIS_TRIGGER_LEFT)
+		< VIRTUAL_MOUSE_TRIGGER_THRESHOLD
+	):
+		_end_virtual_mouse()
+		return
+	var stick: Vector2 = Vector2(
+		Input.get_joy_axis(0, JOY_AXIS_RIGHT_X),
+		Input.get_joy_axis(0, JOY_AXIS_RIGHT_Y),
+	)
+	var stick_length: float = stick.length()
+	if stick_length <= VIRTUAL_MOUSE_STICK_DEADZONE:
+		return
+	var adjusted_strength: float = (
+		(stick_length - VIRTUAL_MOUSE_STICK_DEADZONE)
+		/ (1.0 - VIRTUAL_MOUSE_STICK_DEADZONE)
+	)
+	var display_scale: float = UIReferencePresentationType.get_scale(
+		Vector2(get_window().size)
+	)
+	var relative_motion: Vector2 = (
+		stick.normalized()
+		* adjusted_strength
+		* VIRTUAL_MOUSE_SPEED
+		* display_scale
+		* delta
+	)
+	var window_size: Vector2 = Vector2(get_window().size)
+	_virtual_mouse_window_position = Vector2(
+		clampf(
+			_virtual_mouse_window_position.x + relative_motion.x,
+			0.0,
+			window_size.x,
+		),
+		clampf(
+			_virtual_mouse_window_position.y + relative_motion.y,
+			0.0,
+			window_size.y,
+		),
+	)
+	_emit_virtual_mouse_motion(relative_motion)
+
+
+func _set_virtual_mouse_button(button: MouseButton, pressed: bool) -> void:
+	var mask: int = (
+		MOUSE_BUTTON_MASK_LEFT
+		if button == MOUSE_BUTTON_LEFT
+		else MOUSE_BUTTON_MASK_RIGHT
+	)
+	var already_pressed: bool = bool(_virtual_mouse_button_mask & mask)
+	if already_pressed == pressed:
+		return
+	if pressed:
+		_virtual_mouse_button_mask |= mask
+	else:
+		_virtual_mouse_button_mask &= ~mask
+	if button == MOUSE_BUTTON_RIGHT:
+		_virtual_mouse_right_pressed = pressed
+	var mouse_event := InputEventMouseButton.new()
+	mouse_event.position = _virtual_mouse_window_position
+	mouse_event.global_position = _virtual_mouse_window_position
+	mouse_event.button_index = button
+	mouse_event.button_mask = _virtual_mouse_button_mask
+	mouse_event.pressed = pressed
+	mouse_event.factor = 1.0
+	_parse_virtual_mouse_event(mouse_event)
+
+
+func _emit_virtual_mouse_motion(relative_motion: Vector2) -> void:
+	var motion_event := InputEventMouseMotion.new()
+	motion_event.position = _virtual_mouse_window_position
+	motion_event.global_position = _virtual_mouse_window_position
+	motion_event.relative = relative_motion
+	motion_event.button_mask = _virtual_mouse_button_mask
+	_parse_virtual_mouse_event(motion_event)
+
+
+func _parse_virtual_mouse_event(event: InputEventMouse) -> void:
+	_injecting_virtual_mouse_event = true
+	Input.parse_input_event(event)
+	_injecting_virtual_mouse_event = false
+
+
+func _update_virtual_cursor_position(viewport_position: Vector2) -> void:
+	var root_transform: Transform2D = _ui_root.get_global_transform_with_canvas()
+	_controller_virtual_cursor.set_pointer_position(
+		root_transform.affine_inverse() * viewport_position
+	)
 
 
 func _toggle_surface_drawing() -> void:
@@ -344,7 +619,8 @@ func setup_data_and_identity(
 		)
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	_update_virtual_mouse(delta)
 	_update_experience_bubble_position()
 	if _item_effects == null or not _gameplay_ui_enabled:
 		_effect_status.hide()
@@ -403,6 +679,19 @@ func set_gameplay_ui_enabled(enabled: bool) -> void:
 	_experience_presentation.visible = enabled
 	_refresh_chat_availability()
 	if not enabled:
+		_end_virtual_mouse()
+		if _emote_radial_menu != null and _emote_radial_menu.is_open():
+			_emote_radial_menu.close_menu()
+			if _player != null:
+				_player.set_camera_input_enabled(
+					_emote_prior_camera_input_enabled
+				)
+		if _quick_radial_menu != null and _quick_radial_menu.is_open():
+			_quick_radial_menu.close_menu()
+			if _player != null:
+				_player.set_camera_input_enabled(
+					_quick_prior_camera_input_enabled
+				)
 		if _surface_drawing != null:
 			_surface_drawing.deactivate()
 		close_player_menu_for_session_end()

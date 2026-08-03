@@ -1,4 +1,4 @@
-[gd_scene load_steps=19 format=3]
+[gd_scene load_steps=21 format=3]
 
 [ext_resource type="Script" path="res://ui/game_ui.gd" id="1_ui"]
 [ext_resource type="PackedScene" path="res://ui/player_menu.tscn" id="2_menu"]
@@ -11,6 +11,8 @@
 [ext_resource type="Script" path="res://ui/chat_ui.gd" id="9_chat"]
 [ext_resource type="PackedScene" path="res://ui/emote_radial_menu.tscn" id="10_emote"]
 [ext_resource type="PackedScene" path="res://ui/surface_drawing_toolbar.tscn" id="11_drawing_toolbar"]
+[ext_resource type="PackedScene" path="res://ui/quick_radial_menu.tscn" id="12_quick"]
+[ext_resource type="Script" path="res://ui/controller_virtual_cursor.gd" id="13_cursor"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBox_chase_background"]
 bg_color = Color(0.032, 0.118, 0.15, 1)
@@ -328,6 +330,9 @@ unique_name_in_owner = true
 [node name="EmoteRadialMenu" parent="UIRoot/CanonicalStage" instance=ExtResource("10_emote")]
 unique_name_in_owner = true
 
+[node name="QuickRadialMenu" parent="UIRoot/CanonicalStage" instance=ExtResource("12_quick")]
+unique_name_in_owner = true
+
 [node name="ShopPrompt" type="PanelContainer" parent="UIRoot/CanonicalStage/GameplayTransientHUD"]
 unique_name_in_owner = true
 visible = false
@@ -385,6 +390,12 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 script = ExtResource("9_chat")
+
+[node name="ControllerVirtualCursor" type="Control" parent="UIRoot"]
+unique_name_in_owner = true
+z_index = 500
+mouse_filter = 2
+script = ExtResource("13_cursor")
 
 [node name="ScreenFade" type="ColorRect" parent="UIRoot"]
 unique_name_in_owner = true

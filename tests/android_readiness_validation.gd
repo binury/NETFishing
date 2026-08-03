@@ -15,16 +15,30 @@ func _init() -> void:
 	assert(_has_joypad_motion(&"move_left", JOY_AXIS_LEFT_X, -1.0))
 	assert(_has_joypad_motion(&"move_right", JOY_AXIS_LEFT_X, 1.0))
 	assert(_has_joypad_button(&"jump", JOY_BUTTON_A))
-	assert(_has_joypad_button(&"interact", JOY_BUTTON_X))
-	assert(_has_joypad_motion(&"fish_primary", JOY_AXIS_TRIGGER_RIGHT, 1.0))
+	assert(_has_joypad_button(&"ui_accept", JOY_BUTTON_A))
+	assert(_has_joypad_button(&"ui_cancel", JOY_BUTTON_B))
+	assert(_has_joypad_button(&"interact", JOY_BUTTON_Y))
+	assert(_has_joypad_button(&"fish_primary", JOY_BUTTON_RIGHT_SHOULDER))
+	assert(not _has_joypad_motion(
+		&"fish_primary", JOY_AXIS_TRIGGER_LEFT, 1.0
+	))
+	assert(not _has_joypad_motion(
+		&"fish_primary", JOY_AXIS_TRIGGER_RIGHT, 1.0
+	))
 	assert(_has_joypad_button(&"sprint", JOY_BUTTON_LEFT_STICK))
-	assert(_has_joypad_button(&"camera_zoom_out", JOY_BUTTON_LEFT_SHOULDER))
-	assert(_has_joypad_button(&"camera_zoom_in", JOY_BUTTON_RIGHT_SHOULDER))
+	assert(not _has_joypad_button(
+		&"camera_zoom_out", JOY_BUTTON_LEFT_SHOULDER
+	))
+	assert(not _has_joypad_button(
+		&"camera_zoom_in", JOY_BUTTON_RIGHT_SHOULDER
+	))
 	assert(_has_joypad_button(&"hotbar_previous", JOY_BUTTON_DPAD_LEFT))
 	assert(_has_joypad_button(&"hotbar_next", JOY_BUTTON_DPAD_RIGHT))
 	assert(_has_joypad_button(&"open_backpack", JOY_BUTTON_BACK))
 	assert(_has_joypad_button(&"open_system_menu", JOY_BUTTON_START))
 	assert(_has_joypad_button(&"open_emotes", JOY_BUTTON_DPAD_UP))
+	assert(_has_joypad_button(&"open_quick_actions", JOY_BUTTON_DPAD_DOWN))
+	assert(_has_joypad_button(&"open_chat", JOY_BUTTON_LEFT_SHOULDER))
 	print("android readiness validation passed")
 	quit()
 

@@ -701,6 +701,25 @@ func open_menu() -> void:
 	menu_visibility_changed.emit(true)
 
 
+func open_section(section: Section) -> bool:
+	if (
+		_shop_cooler_context_active
+		or _player == null
+		or _fishing_spot == null
+		or not _fishing_spot.can_open_player_menu()
+	):
+		return false
+	if visible:
+		if _transitioning or _page_transitioning or _sale_confirmation.visible:
+			return false
+		if section != _current_section:
+			_show_section(section)
+		return true
+	_current_section = section
+	open_menu()
+	return visible
+
+
 func mount_shop_cooler(
 	host: Control,
 	buyer: FishBuyerProfileType,
