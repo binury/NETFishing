@@ -16,6 +16,10 @@ const ALL_TIERS_MASK: int = (1 << TIER_COUNT) - 1
 # multipliers later without changing catch serialization or tier identity.
 const BASE_ROLL_WEIGHTS: Array[float] = [40.0, 32.0, 18.0, 8.0, 2.0]
 const SALE_MULTIPLIERS: Array[float] = [1.0, 1.1, 1.25, 1.5, 2.0]
+# Provisional challenge curve. Fish profiles continue to own their baseline
+# barrier health; quality scales that authored baseline before player upgrades
+# apply damage. This keeps future rods, bait, and lures on one shared seam.
+const BARRIER_HEALTH_MULTIPLIERS: Array[float] = [1.0, 1.25, 1.6, 2.2, 3.25]
 const DISPLAY_NAMES: PackedStringArray = [
 	"boring",
 	"average",
@@ -49,6 +53,24 @@ static func apply_sale_value(base_value: int, quality: int) -> int:
 	return maxi(
 		base_value + quality,
 		ceili(float(base_value) * sale_multiplier(quality)),
+	)
+
+
+static func barrier_health_multiplier(quality: int) -> float:
+	return (
+		BARRIER_HEALTH_MULTIPLIERS[quality]
+		if is_valid(quality)
+		else BARRIER_HEALTH_MULTIPLIERS[Tier.BORING]
+	)
+
+
+static func apply_barrier_health(base_health: int, quality: int) -> int:
+	return maxi(
+		ceili(
+			float(maxi(base_health, 1))
+			* barrier_health_multiplier(quality)
+		),
+		1,
 	)
 
 

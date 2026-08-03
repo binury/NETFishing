@@ -919,6 +919,10 @@ func _activate_bite() -> void:
 	state = FishingState.FIGHTING
 	_state_time_remaining = 0.0
 	_withdrawal_input_held = false
+	_pending_catch = _fish_selector.create_catch(_selected_fish)
+	if _pending_catch == null or not _pending_catch.is_valid():
+		_cancel_attempt()
+		return
 	bite_activated.emit()
 	status_changed.emit("fish on!")
 	_presentation.set_line_mode(FishingPresentationType.LineMode.TAUT)
@@ -926,7 +930,8 @@ func _activate_bite() -> void:
 	_catch_controller.start_encounter(
 		_selected_fish.catch_profile,
 		_get_effective_reel_speed(),
-		_get_effective_barrier_damage()
+		_get_effective_barrier_damage(),
+		_pending_catch.quality,
 	)
 	_catch_controller.set_reel_input(
 		Input.is_action_pressed("fish_primary")
@@ -993,7 +998,6 @@ func _on_catch_completed() -> void:
 		_cancel_attempt()
 		return
 
-	_pending_catch = _fish_selector.create_catch(_selected_fish)
 	if _pending_catch == null or not _pending_catch.is_valid():
 		_cancel_attempt()
 		return

@@ -8,9 +8,6 @@ extends Resource
 @export_range(0.0, 0.45, 0.01) var first_barrier_margin: float = 0.15
 @export_range(0.0, 0.45, 0.01) var final_barrier_margin: float = 0.10
 @export_range(0.01, 1.0, 0.01) var minimum_barrier_spacing: float = 0.15
-@export_range(0.0, 5.0, 0.05) var chase_start_delay: float = 1.0
-@export_range(0.01, 0.5, 0.01) var chase_start_offset: float = 0.15
-@export_range(0.0, 2.0, 0.01) var chase_speed: float = 0.14
 
 
 func get_barrier_count_range() -> Vector2i:

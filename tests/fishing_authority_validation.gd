@@ -97,6 +97,60 @@ func _run() -> void:
 	assert(player.is_movement_enabled())
 	assert(not bobber.visible)
 
+	# A private host rolls and retains the authoritative catch before the fight
+	# so its quality can scale the same barriers clients receive in snapshots.
+	fishing_spot.call("_begin_aiming", player)
+	fishing_spot.set("_cast_charge", 0.32)
+	fishing_spot.call("_update_cast_charge", 0.0)
+	fishing_spot.call("_confirm_cast")
+	var second_wait_deadline: int = Time.get_ticks_msec() + 4000
+	while (
+		Time.get_ticks_msec() < second_wait_deadline
+		and fishing_spot.state != FishingSpotType.FishingState.WAITING_FOR_BITE
+	):
+		await process_frame
+	assert(fishing_spot.state == FishingSpotType.FishingState.WAITING_FOR_BITE)
+	attempts = service.get("_attempts")
+	attempt = attempts.get(session.get_local_peer_id())
+	assert(attempt != null)
+	service.call("_start_bite", attempt)
+	await process_frame
+	assert(attempt.phase == NetworkFishingAttempt.Phase.FIGHTING)
+	var catalog: FishPool = main.get("fish_catalog") as FishPool
+	assert(catalog != null)
+	var fish: FishData = catalog.get_fish_by_id(attempt.fish_id)
+	var fish_catch := FishCatch.from_network_dict(
+		attempt.catch_payload,
+		fish,
+	)
+	assert(fish_catch != null and fish_catch.is_valid())
+	var baseline_controller := CatchController.new()
+	root.add_child(baseline_controller)
+	baseline_controller.start_authoritative_encounter(
+		fish.catch_profile,
+		attempt.reel_speed,
+		attempt.barrier_damage,
+		attempt.encounter_seed,
+		FishQuality.Tier.BORING,
+	)
+	var quality_barriers: Array = attempt.controller.get("_barriers")
+	var baseline_barriers: Array = baseline_controller.get("_barriers")
+	assert(quality_barriers.size() == baseline_barriers.size())
+	for barrier_index: int in quality_barriers.size():
+		var quality_barrier: RefCounted = quality_barriers[barrier_index]
+		var baseline_barrier: RefCounted = baseline_barriers[barrier_index]
+		assert(
+			int(quality_barrier.get("maximum_health"))
+			== FishQuality.apply_barrier_health(
+				int(baseline_barrier.get("maximum_health")),
+				fish_catch.quality,
+			)
+		)
+	baseline_controller.queue_free()
+	service.call("_cancel_attempt", session.get_local_peer_id(), "")
+	await process_frame
+	assert(not service.has_local_attempt())
+
 	print("Fishing authority validation: PASS")
 	session.disconnect_session("")
 	main.queue_free()

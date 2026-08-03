@@ -31,6 +31,7 @@ const FishingRodAttachmentScene = preload(
 const CHARACTER_IDLE_ANIMATION: StringName = &"idle"
 const CHARACTER_WALKING_ANIMATION: StringName = &"walking"
 const CHARACTER_SITTING_ANIMATION: StringName = &"sitting"
+const BASE_REEL_SPEED: float = 0.16
 
 var appearance_snapshot: Dictionary = (
 	CharacterCustomizationCatalog.default_snapshot()
@@ -69,7 +70,7 @@ class ShowcaseCameraSnapshot:
 @export var local_control_enabled: bool = true
 
 @export_category("Fishing Stats")
-@export_range(0.01, 2.0, 0.01) var reel_speed: float = 0.32
+@export_range(0.01, 2.0, 0.01) var reel_speed: float = BASE_REEL_SPEED
 @export_range(1, 100, 1) var click_power: int = 1
 
 @export_category("Showcase")

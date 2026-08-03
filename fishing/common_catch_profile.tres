@@ -11,6 +11,3 @@ barrier_health_max = 7
 first_barrier_margin = 0.15
 final_barrier_margin = 0.1
 minimum_barrier_spacing = 0.15
-chase_start_delay = 1.0
-chase_start_offset = 0.15
-chase_speed = 0.14

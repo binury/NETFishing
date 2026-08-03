@@ -429,11 +429,21 @@ func _start_bite(attempt: NetworkFishingAttempt) -> void:
 		return
 	attempt.phase = NetworkFishingAttempt.Phase.FIGHTING
 	attempt.encounter_seed = _new_seed()
+	var selector := FishSelectorType.new()
+	selector.use_deterministic_test_seed = true
+	selector.deterministic_test_seed = attempt.encounter_seed ^ 0x5F3759DF
+	selector.begin_roll()
+	var fish_catch: FishCatch = selector.create_catch(fish)
+	if fish_catch == null or not fish_catch.is_valid():
+		_cancel_attempt(attempt.owner_peer_id, "Fishing attempt ended.")
+		return
+	attempt.catch_payload = fish_catch.to_network_dict()
 	attempt.controller.start_authoritative_encounter(
 		fish.catch_profile,
 		attempt.reel_speed,
 		attempt.barrier_damage,
-		attempt.encounter_seed
+		attempt.encounter_seed,
+		fish_catch.quality,
 	)
 	var data: Dictionary = {
 		"attempt_id": attempt.attempt_id,
@@ -617,11 +627,10 @@ func _on_attempt_caught(peer_id: int) -> void:
 	if fish == null:
 		_cancel_attempt(peer_id, "Fishing attempt ended.")
 		return
-	var selector := FishSelectorType.new()
-	selector.use_deterministic_test_seed = true
-	selector.deterministic_test_seed = attempt.encounter_seed ^ 0x5F3759DF
-	selector.begin_roll()
-	var fish_catch: FishCatch = selector.create_catch(fish)
+	var fish_catch: FishCatch = FishCatchType.from_network_dict(
+		attempt.catch_payload,
+		fish,
+	)
 	if fish_catch == null or not fish_catch.is_valid():
 		_cancel_attempt(peer_id, "Fishing attempt ended.")
 		return

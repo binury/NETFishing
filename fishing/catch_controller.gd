@@ -4,6 +4,7 @@ extends Node
 const CatchDifficultyProfileType = preload(
 	"res://fishing/catch_difficulty_profile.gd"
 )
+const FishQualityType = preload("res://fish/fish_quality.gd")
 
 signal encounter_updated(
 	progress: float,
@@ -42,6 +43,13 @@ class Barrier:
 		maximum_health = barrier_health
 
 
+# Fight movement uses one shared baseline. Species and quality difficulty comes
+# from barrier placement and health, while reel upgrades affect only the
+# player's progress speed.
+const CHASE_START_DELAY: float = 0.5
+const CHASE_START_OFFSET: float = 0.04
+const CHASE_SPEED: float = 0.07
+
 @export_category("Accessibility")
 @export var auto_click_enabled: bool = false
 @export_range(0.05, 2.0, 0.01) var auto_click_interval: float = 0.20
@@ -60,9 +68,8 @@ var _active_barrier_index: int = -1
 var _reel_input_held: bool = false
 var _reel_speed: float = 0.0
 var _click_power: int = 1
-var _chase_start_delay: float = 0.0
+var _fish_quality: int = FishQualityType.Tier.BORING
 var _chase_delay_remaining: float = 0.0
-var _chase_speed: float = 0.0
 var _failure_epsilon: float = 0.0001
 var _auto_click_accumulator: float = 0.0
 var _rng: RandomNumberGenerator = RandomNumberGenerator.new()
@@ -103,6 +110,7 @@ func start_encounter(
 	profile: CatchDifficultyProfileType,
 	reel_speed: float,
 	click_power: int,
+	fish_quality: int = FishQualityType.Tier.BORING,
 ) -> void:
 	reset()
 	if profile == null:
@@ -111,10 +119,13 @@ func start_encounter(
 
 	_reel_speed = maxf(reel_speed, 0.0)
 	_click_power = maxi(click_power, 1)
-	_chase_start_delay = maxf(profile.chase_start_delay, 0.0)
-	_chase_delay_remaining = _chase_start_delay
-	chase_progress = -maxf(profile.chase_start_offset, 0.01)
-	_chase_speed = maxf(profile.chase_speed, 0.0)
+	_fish_quality = (
+		fish_quality
+		if FishQualityType.is_valid(fish_quality)
+		else FishQualityType.Tier.BORING
+	)
+	_chase_delay_remaining = CHASE_START_DELAY
+	chase_progress = -CHASE_START_OFFSET
 	_seed_encounter_rng()
 	_generate_barriers(profile)
 	progress = 0.0
@@ -127,12 +138,13 @@ func start_authoritative_encounter(
 	reel_speed: float,
 	click_power: int,
 	seed: int,
+	fish_quality: int = FishQualityType.Tier.BORING,
 ) -> void:
 	var previous_test_mode: bool = use_deterministic_test_seed
 	var previous_seed: int = deterministic_test_seed
 	use_deterministic_test_seed = true
 	deterministic_test_seed = seed
-	start_encounter(profile, reel_speed, click_power)
+	start_encounter(profile, reel_speed, click_power, fish_quality)
 	use_deterministic_test_seed = previous_test_mode
 	deterministic_test_seed = previous_seed
 
@@ -168,9 +180,8 @@ func reset() -> void:
 	_reel_input_held = false
 	_reel_speed = 0.0
 	_click_power = 1
-	_chase_start_delay = 0.0
+	_fish_quality = FishQualityType.Tier.BORING
 	_chase_delay_remaining = 0.0
-	_chase_speed = 0.0
 	_auto_click_accumulator = 0.0
 	emit_signal(
 		"encounter_updated",
@@ -215,7 +226,7 @@ func _update_chase(delta: float) -> void:
 	if active_delta <= 0.0:
 		return
 	chase_progress = minf(
-		chase_progress + _chase_speed * active_delta,
+		chase_progress + CHASE_SPEED * active_delta,
 		1.0
 	)
 
@@ -302,7 +313,14 @@ func _generate_barriers(profile: CatchDifficultyProfileType) -> void:
 			+ spacing * float(barrier_index)
 			+ random_offsets[barrier_index] * random_slack
 		)
-		var health: int = _rng.randi_range(health_range.x, health_range.y)
+		var base_health: int = _rng.randi_range(
+			health_range.x,
+			health_range.y,
+		)
+		var health: int = FishQualityType.apply_barrier_health(
+			base_health,
+			_fish_quality,
+		)
 		_barriers.append(Barrier.new(position, health))
 
 
