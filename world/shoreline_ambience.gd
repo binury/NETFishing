@@ -3,7 +3,7 @@ extends Node
 
 @export_range(0.0, 20.0, 0.1) var near_distance: float = 2.0
 @export_range(1.0, 100.0, 0.5) var far_distance: float = 24.0
-@export_range(-40.0, 12.0, 0.5) var near_volume_db: float = 5.0
+@export_range(-40.0, 12.0, 0.5) var near_volume_db: float = 1.0
 @export_range(-80.0, 0.0, 0.5) var far_volume_db: float = -18.0
 @export_range(0.05, 1.0, 0.05) var distance_update_interval: float = 0.2
 @export_range(0.1, 20.0, 0.1) var volume_smoothing_speed: float = 4.0
