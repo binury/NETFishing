@@ -922,7 +922,10 @@ func _on_peer_identity_observed(_peer_id: int, status: String) -> void:
 
 func _input(event: InputEvent) -> void:
 	if (
-		not event.is_action_pressed("ui_cancel")
+		not (
+			event.is_action_pressed("ui_cancel")
+			or event.is_action_pressed("open_system_menu")
+		)
 		or (event is InputEventKey and event.echo)
 	):
 		return

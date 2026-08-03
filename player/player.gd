@@ -373,18 +373,28 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		return
 
-	if (
+	var mouse_zoom_in: bool = (
 		event is InputEventMouseButton
 		and event.shift_pressed
 		and event.is_action_pressed("camera_zoom_in")
-	):
-		_set_target_zoom(_target_zoom - zoom_step)
-		get_viewport().set_input_as_handled()
-	elif (
+	)
+	var controller_zoom_in: bool = (
+		event is InputEventJoypadButton
+		and event.is_action_pressed("camera_zoom_in")
+	)
+	var mouse_zoom_out: bool = (
 		event is InputEventMouseButton
 		and event.shift_pressed
 		and event.is_action_pressed("camera_zoom_out")
-	):
+	)
+	var controller_zoom_out: bool = (
+		event is InputEventJoypadButton
+		and event.is_action_pressed("camera_zoom_out")
+	)
+	if mouse_zoom_in or controller_zoom_in:
+		_set_target_zoom(_target_zoom - zoom_step)
+		get_viewport().set_input_as_handled()
+	elif mouse_zoom_out or controller_zoom_out:
 		_set_target_zoom(_target_zoom + zoom_step)
 		get_viewport().set_input_as_handled()
 

@@ -193,6 +193,14 @@ func _unhandled_input(event: InputEvent) -> void:
 		or not _fishing_spot.can_change_hotbar_selection()
 	):
 		return
+	if event.is_action_pressed("hotbar_previous"):
+		_hotbar.cycle_selection(-1)
+		get_viewport().set_input_as_handled()
+		return
+	if event.is_action_pressed("hotbar_next"):
+		_hotbar.cycle_selection(1)
+		get_viewport().set_input_as_handled()
+		return
 	if event is InputEventKey and event.pressed and not event.echo:
 		for index: int in range(PlayerHotbarType.SLOT_COUNT):
 			if event.is_action_pressed("hotbar_%d" % (index + 1)):

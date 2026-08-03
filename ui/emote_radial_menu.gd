@@ -34,12 +34,12 @@ func _ready() -> void:
 
 
 func handle_input(event: InputEvent, can_open: bool) -> bool:
+	if not event.is_action("open_emotes"):
+		return false
 	var key_event: InputEventKey = event as InputEventKey
-	if key_event == null or key_event.echo:
+	if key_event != null and key_event.echo:
 		return false
-	if key_event.physical_keycode != KEY_C:
-		return false
-	if key_event.pressed:
+	if event.is_pressed():
 		if _is_open or not can_open:
 			return _is_open
 		open_menu()
