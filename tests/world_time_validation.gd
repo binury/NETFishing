@@ -17,6 +17,12 @@ const FishableWaterRegionType = preload(
 const WeatherIconType = preload("res://ui/weather_icon.gd")
 
 const Catalog: FishPoolType = preload("res://fish/pools/fish_catalog.tres")
+const SaltWaterMaterial: ShaderMaterial = preload(
+	"res://world/materials/stylized_water.tres"
+)
+const FreshWaterMaterial: ShaderMaterial = preload(
+	"res://world/materials/stylized_water_fresh.tres"
+)
 
 
 func _initialize() -> void:
@@ -243,6 +249,14 @@ func _validate_environment_presentation() -> void:
 		< 0.01
 	)
 	var day_ambient_energy: float = runtime_environment.ambient_light_energy
+	var day_water_brightness := float(
+		SaltWaterMaterial.get_shader_parameter("environment_brightness")
+	)
+	assert(day_water_brightness > 0.99)
+	assert(is_equal_approx(
+		float(FreshWaterMaterial.get_shader_parameter("environment_brightness")),
+		day_water_brightness,
+	))
 	visuals.apply_time_immediately(0.0)
 	var night_horizon: Color = runtime_sky_material.get_shader_parameter(
 		"sky_horizon_color"
@@ -265,6 +279,47 @@ func _validate_environment_presentation() -> void:
 	assert(night_moon_direction.y > 0.85)
 	assert(night_moon_direction.is_equal_approx(-night_sun_direction))
 	assert(runtime_environment.ambient_light_energy < day_ambient_energy)
+	var night_water_brightness := float(
+		SaltWaterMaterial.get_shader_parameter("environment_brightness")
+	)
+	assert(night_water_brightness < day_water_brightness * 0.4)
+	assert(is_equal_approx(
+		float(FreshWaterMaterial.get_shader_parameter("environment_brightness")),
+		night_water_brightness,
+	))
+	var night_water_tint := (
+		SaltWaterMaterial.get_shader_parameter("environment_tint") as Color
+	)
+	assert(night_water_tint.get_luminance() < 0.5)
+	var night_background_energy := runtime_environment.background_energy_multiplier
+	var night_adjustment_brightness := runtime_environment.adjustment_brightness
+	var night_adjustment_saturation := runtime_environment.adjustment_saturation
+	visuals.apply_weather_immediately(WorldWeatherService.Weather.FOGGY)
+	visuals.apply_time_immediately(0.0)
+	var foggy_sky_horizon := (
+		runtime_sky_material.get_shader_parameter("sky_horizon_color") as Color
+	)
+	assert(foggy_sky_horizon.is_equal_approx(night_horizon))
+	assert(is_zero_approx(runtime_environment.fog_sky_affect))
+	assert(is_equal_approx(runtime_environment.fog_depth_begin, 3.0))
+	assert(is_equal_approx(runtime_environment.fog_depth_end, 28.0))
+	assert(is_equal_approx(
+		float(SaltWaterMaterial.get_shader_parameter("environment_brightness")),
+		night_water_brightness,
+	))
+	assert(is_equal_approx(
+		runtime_environment.background_energy_multiplier,
+		night_background_energy,
+	))
+	assert(is_equal_approx(
+		runtime_environment.adjustment_brightness,
+		night_adjustment_brightness,
+	))
+	assert(is_equal_approx(
+		runtime_environment.adjustment_saturation,
+		night_adjustment_saturation,
+	))
+	visuals.apply_weather_immediately(WorldWeatherService.Weather.SUNNY)
 	visuals.apply_time_immediately(20.0)
 	var dusk_horizon: Color = runtime_sky_material.get_shader_parameter(
 		"sky_horizon_color"

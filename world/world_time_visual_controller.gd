@@ -12,6 +12,9 @@ const RAIN_DROP_SIZE := Vector3(0.014, 0.34, 0.014)
 const SALT_WATER_MATERIAL: ShaderMaterial = preload(
 	"res://world/materials/stylized_water.tres"
 )
+const FRESH_WATER_MATERIAL: ShaderMaterial = preload(
+	"res://world/materials/stylized_water_fresh.tres"
+)
 
 const DAY_SKY_TOP := Color(0.204, 0.498, 0.643)
 const DAY_SKY_HORIZON := Color(0.663, 0.843, 0.847)
@@ -29,6 +32,7 @@ const NIGHT_GROUND_HORIZON := Color(0.075, 0.135, 0.22)
 const NIGHT_AMBIENT := Color(0.28, 0.35, 0.48)
 const NIGHT_FOG := Color(0.13, 0.21, 0.32)
 const NIGHT_SUN := Color(0.35, 0.44, 0.62)
+const NIGHT_WATER_TINT := Color(0.34, 0.48, 0.58)
 
 const WARM_SKY_TOP := Color(0.31, 0.30, 0.42)
 const WARM_SKY_HORIZON := Color(0.96, 0.48, 0.22)
@@ -37,12 +41,9 @@ const WARM_GROUND_HORIZON := Color(0.82, 0.34, 0.18)
 const WARM_AMBIENT := Color(0.92, 0.58, 0.40)
 const WARM_FOG := Color(0.74, 0.39, 0.27)
 const WARM_SUN := Color(1.0, 0.58, 0.30)
+const WARM_WATER_TINT := Color(0.78, 0.62, 0.58)
 const WARM_SUN_DISC := Color(1.0, 0.45, 0.16)
 const MOON_DISC := Color(0.78, 0.88, 1.0)
-
-const CLOUDY_TINT := Color(0.53, 0.61, 0.66)
-const RAINY_TINT := Color(0.31, 0.42, 0.50)
-const FOGGY_TINT := Color(0.62, 0.70, 0.72)
 
 var _time_service: WorldTimeService
 var _weather_service: WorldWeatherService
@@ -219,45 +220,31 @@ func _apply_time(time_hours: float) -> void:
 	var fog_color: Color = _blended_color(
 		NIGHT_FOG, DAY_FOG, WARM_FOG, daylight, warmth
 	)
-	var weather_tint: Color = _weather_color()
-	var tint_strength: float = _weather_value(
-		0.0, 0.30, 0.48, 0.62
+	_sky_material.set_shader_parameter(
+		"sky_top_color", sky_top
 	)
 	_sky_material.set_shader_parameter(
-		"sky_top_color", sky_top.lerp(weather_tint, tint_strength)
-	)
-	_sky_material.set_shader_parameter(
-		"sky_horizon_color", sky_horizon.lerp(weather_tint, tint_strength)
+		"sky_horizon_color",
+		sky_horizon,
 	)
 	_sky_material.set_shader_parameter(
 		"ground_bottom_color",
-		ground_bottom.lerp(weather_tint, tint_strength * 0.62),
+		ground_bottom,
 	)
 	_sky_material.set_shader_parameter(
 		"ground_horizon_color",
-		ground_horizon.lerp(
-			weather_tint,
-			tint_strength * _weather_value(0.76, 0.82, 0.90, 1.0),
-		),
-	)
-	_sky_material.set_shader_parameter(
-		"horizon_blend_width",
-		_weather_value(0.01, 0.025, 0.035, 0.08),
+		ground_horizon,
 	)
 	_environment.background_energy_multiplier = (
 		lerpf(0.52, 0.85, daylight)
-		* _weather_value(1.0, 0.82, 0.66, 0.74)
+		* _weather_value(1.0, 0.82, 0.66, 1.0)
 	)
-	_environment.ambient_light_color = ambient.lerp(
-		weather_tint, tint_strength * 0.45
-	)
+	_environment.ambient_light_color = ambient
 	_environment.ambient_light_energy = (
 		lerpf(0.66, 1.08, daylight)
 		* _weather_value(1.0, 0.88, 0.76, 0.82)
 	)
-	_environment.fog_light_color = fog_color.lerp(
-		weather_tint, tint_strength * 0.82
-	)
+	_environment.fog_light_color = fog_color
 	_environment.fog_light_energy = (
 		lerpf(0.56, 0.82, daylight)
 		* _weather_value(1.0, 0.92, 0.82, 1.05)
@@ -265,26 +252,24 @@ func _apply_time(time_hours: float) -> void:
 	_environment.fog_aerial_perspective = _weather_value(
 		0.35, 0.48, 0.62, 0.92
 	)
-	_environment.fog_sky_affect = _weather_value(
-		0.35, 0.48, 0.68, 0.94
-	)
+	_environment.fog_sky_affect = 0.0
 	_environment.fog_depth_curve = _weather_value(
 		1.6, 1.5, 1.4, 1.18
 	)
 	_environment.fog_depth_begin = _weather_value(
-		42.0, 32.0, 20.0, 4.0
+		42.0, 32.0, 20.0, 3.0
 	)
 	_environment.fog_depth_end = _weather_value(
-		170.0, 140.0, 95.0, 42.0
+		170.0, 140.0, 95.0, 28.0
 	)
-	_apply_water_haze(weather_tint)
+	_apply_water_environment(daylight, warmth)
 	_environment.adjustment_brightness = (
 		lerpf(0.93, 0.98, daylight)
-		* _weather_value(1.0, 0.97, 0.92, 0.96)
+		* _weather_value(1.0, 0.97, 0.92, 1.0)
 	)
 	_environment.adjustment_saturation = (
 		lerpf(0.82, 0.91, daylight)
-		* _weather_value(1.0, 0.88, 0.78, 0.70)
+		* _weather_value(1.0, 0.88, 0.78, 1.0)
 	)
 	_sun.rotation_degrees = Vector3(
 		-360.0 * fposmod(hour - WorldTimeService.DAY_START_HOUR, 24.0) / 24.0,
@@ -299,7 +284,7 @@ func _apply_time(time_hours: float) -> void:
 	)
 	_sky_material.set_shader_parameter(
 		"sun_visibility",
-		daylight * _weather_value(1.0, 0.65, 0.28, 0.15),
+		daylight * _weather_value(1.0, 0.65, 0.28, 1.0),
 	)
 	_sky_material.set_shader_parameter(
 		"moon_direction", -_sun.global_transform.basis.z.normalized()
@@ -307,7 +292,7 @@ func _apply_time(time_hours: float) -> void:
 	_sky_material.set_shader_parameter("moon_color", MOON_DISC)
 	_sky_material.set_shader_parameter(
 		"moon_visibility",
-		(1.0 - daylight) * _weather_value(1.0, 0.72, 0.36, 0.20),
+		(1.0 - daylight) * _weather_value(1.0, 0.72, 0.36, 1.0),
 	)
 	_sun.light_color = _blended_color(
 		NIGHT_SUN, DAY_SUN, WARM_SUN, daylight, warmth
@@ -319,25 +304,30 @@ func _apply_time(time_hours: float) -> void:
 	_update_rain_amount()
 
 
-func _apply_water_haze(weather_tint: Color) -> void:
-	if SALT_WATER_MATERIAL == null:
-		return
-	SALT_WATER_MATERIAL.set_shader_parameter(
-		"distant_fog_color",
-		_environment.fog_light_color.lerp(weather_tint, 0.18),
+func _apply_water_environment(
+	daylight: float,
+	warmth: float,
+) -> void:
+	var water_tint := _blended_color(
+		NIGHT_WATER_TINT,
+		Color.WHITE,
+		WARM_WATER_TINT,
+		daylight,
+		warmth,
 	)
-	SALT_WATER_MATERIAL.set_shader_parameter(
-		"distant_fog_begin",
-		_environment.fog_depth_begin,
+	var water_brightness := (
+		lerpf(0.34, 1.0, daylight)
+		* _weather_value(1.0, 0.90, 0.78, 1.0)
 	)
-	SALT_WATER_MATERIAL.set_shader_parameter(
-		"distant_fog_end",
-		_environment.fog_depth_end,
-	)
-	SALT_WATER_MATERIAL.set_shader_parameter(
-		"distant_fog_strength",
-		_weather_value(0.18, 0.34, 0.52, 0.74),
-	)
+	for material: ShaderMaterial in [
+		SALT_WATER_MATERIAL,
+		FRESH_WATER_MATERIAL,
+	]:
+		material.set_shader_parameter("environment_tint", water_tint)
+		material.set_shader_parameter(
+			"environment_brightness",
+			water_brightness,
+		)
 
 
 func _on_weather_changed(
@@ -379,25 +369,6 @@ func _weather_state_value(
 		WorldWeatherService.Weather.FOGGY:
 			return foggy
 	return sunny
-
-
-func _weather_color() -> Color:
-	return _weather_state_color(_weather_from).lerp(
-		_weather_state_color(_weather_to), _weather_transition
-	)
-
-
-func _weather_state_color(
-	weather: WorldWeatherService.Weather,
-) -> Color:
-	match weather:
-		WorldWeatherService.Weather.CLOUDY:
-			return CLOUDY_TINT
-		WorldWeatherService.Weather.RAINY:
-			return RAINY_TINT
-		WorldWeatherService.Weather.FOGGY:
-			return FOGGY_TINT
-	return Color.WHITE
 
 
 func _update_rain_amount() -> void:
