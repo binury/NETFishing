@@ -217,15 +217,19 @@ func _validate_weather_presentation() -> void:
 	visuals.setup(
 		clock, world_environment, sun, weather, rain_target
 	)
+	var runtime_environment: Environment = world_environment.environment
+	var clear_saturation: float = runtime_environment.adjustment_saturation
 	visuals.apply_weather_immediately(
 		WorldWeatherServiceType.Weather.FOGGY
 	)
-	var runtime_environment: Environment = world_environment.environment
 	assert(runtime_environment.fog_depth_begin <= 4.01)
 	assert(runtime_environment.fog_depth_end <= 42.01)
-	assert(runtime_environment.fog_sky_affect >= 0.93)
+	assert(is_zero_approx(runtime_environment.fog_sky_affect))
 	assert(runtime_environment.fog_aerial_perspective >= 0.91)
-	assert(runtime_environment.adjustment_saturation < 0.70)
+	assert(is_equal_approx(
+		runtime_environment.adjustment_saturation,
+		clear_saturation,
+	))
 	visuals.apply_weather_immediately(
 		WorldWeatherServiceType.Weather.RAINY
 	)
