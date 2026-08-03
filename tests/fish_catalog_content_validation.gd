@@ -40,8 +40,22 @@ const CATFISH_IDS: Array[StringName] = [
 const FRESH_WATER_IDS: Array[StringName] = [
 	&"bluegill", &"carp", &"catfish_blue", &"catfish_channel",
 	&"catfish_flathead", &"catfish_white",
+	&"goby_round",
 ]
-const SALT_WATER_IDS: Array[StringName] = [&"bass", &"sunfish"]
+const SALT_WATER_IDS: Array[StringName] = [
+	&"bass",
+	&"sunfish",
+	&"tuna_albacore",
+	&"tuna_bigeye",
+	&"tuna_bluefin",
+	&"tuna_skipjack",
+	&"tuna_yellowfin",
+	&"salmon_atlantic",
+	&"salmon_chum",
+	&"salmon_coho",
+	&"salmon_pink",
+	&"salmon_sockeye",
+]
 
 
 func _initialize() -> void:
@@ -58,9 +72,9 @@ func _run() -> void:
 
 
 func _validate_catalog_and_pools() -> void:
-	assert(Catalog.candidates.size() == 8)
-	assert(PondPool.candidates.size() == 6)
-	assert(OceanPool.candidates.size() == 2)
+	assert(Catalog.candidates.size() == 19)
+	assert(PondPool.candidates.size() == 7)
+	assert(OceanPool.candidates.size() == 12)
 	for fish_id: StringName in ORIGINAL_IDS:
 		var original_fish: FishDataType = Catalog.get_fish_by_id(fish_id)
 		assert(original_fish != null)
@@ -97,6 +111,43 @@ func _validate_catalog_and_pools() -> void:
 	for fish_id: StringName in CATFISH_IDS:
 		var fish: FishDataType = Catalog.get_fish_by_id(fish_id)
 		var values: Array = expected_values[fish_id]
+		assert(int(fish.rarity) == int(values[0]))
+		assert(is_equal_approx(fish.base_catch_weight, float(values[1])))
+		assert(is_equal_approx(fish.weight_min_lb, float(values[2])))
+		assert(is_equal_approx(fish.weight_max_lb, float(values[3])))
+		assert(fish.sell_value_min == int(values[4]))
+		assert(fish.sell_value_max == int(values[5]))
+
+	var expected_tuna_values: Dictionary[StringName, Array] = {
+		&"tuna_albacore": [2, 1.5, 10.0, 45.0, 12, 24],
+		&"tuna_bigeye": [3, 0.55, 20.0, 120.0, 22, 48],
+		&"tuna_bluefin": [4, 0.18, 30.0, 250.0, 35, 90],
+		&"tuna_skipjack": [1, 3.0, 5.0, 25.0, 8, 16],
+		&"tuna_yellowfin": [2, 1.0, 15.0, 80.0, 16, 36],
+	}
+	for fish_id: StringName in expected_tuna_values:
+		var fish: FishDataType = Catalog.get_fish_by_id(fish_id)
+		var values: Array = expected_tuna_values[fish_id]
+		assert(fish != null and fish.is_selectable())
+		assert(int(fish.rarity) == int(values[0]))
+		assert(is_equal_approx(fish.base_catch_weight, float(values[1])))
+		assert(is_equal_approx(fish.weight_min_lb, float(values[2])))
+		assert(is_equal_approx(fish.weight_max_lb, float(values[3])))
+		assert(fish.sell_value_min == int(values[4]))
+		assert(fish.sell_value_max == int(values[5]))
+
+	var expected_new_values: Dictionary[StringName, Array] = {
+		&"goby_round": [0, 8.0, 0.1, 0.6, 2, 3],
+		&"salmon_atlantic": [3, 0.65, 8.0, 40.0, 20, 42],
+		&"salmon_chum": [1, 2.5, 6.0, 25.0, 10, 22],
+		&"salmon_coho": [2, 1.4, 5.0, 30.0, 14, 28],
+		&"salmon_pink": [1, 3.0, 3.0, 12.0, 8, 15],
+		&"salmon_sockeye": [2, 1.6, 4.0, 15.0, 12, 24],
+	}
+	for fish_id: StringName in expected_new_values:
+		var fish: FishDataType = Catalog.get_fish_by_id(fish_id)
+		var values: Array = expected_new_values[fish_id]
+		assert(fish != null and fish.is_selectable())
 		assert(int(fish.rarity) == int(values[0]))
 		assert(is_equal_approx(fish.base_catch_weight, float(values[1])))
 		assert(is_equal_approx(fish.weight_min_lb, float(values[2])))

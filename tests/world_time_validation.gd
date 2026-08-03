@@ -138,7 +138,21 @@ func _validate_fishing_availability() -> void:
 		assert(not night_fish.availability.is_available(day_context))
 		assert(night_fish.availability.is_available(night_context))
 		assert(night_fish.availability.is_available(transition_context))
-	for fish_id: StringName in [&"bass", &"carp"]:
+	for fish_id: StringName in [
+		&"bass",
+		&"carp",
+		&"tuna_albacore",
+		&"tuna_bigeye",
+		&"tuna_bluefin",
+		&"tuna_skipjack",
+		&"tuna_yellowfin",
+		&"goby_round",
+		&"salmon_atlantic",
+		&"salmon_chum",
+		&"salmon_coho",
+		&"salmon_pink",
+		&"salmon_sockeye",
+	]:
 		var all_time_fish: FishDataType = Catalog.get_fish_by_id(fish_id)
 		assert(all_time_fish.availability.is_available(day_context))
 		assert(all_time_fish.availability.is_available(night_context))

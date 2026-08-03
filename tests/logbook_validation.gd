@@ -49,6 +49,17 @@ func _validate_catalog() -> void:
 		&"catfish_channel",
 		&"catfish_flathead",
 		&"catfish_white",
+		&"tuna_albacore",
+		&"tuna_bigeye",
+		&"tuna_bluefin",
+		&"tuna_skipjack",
+		&"tuna_yellowfin",
+		&"goby_round",
+		&"salmon_atlantic",
+		&"salmon_chum",
+		&"salmon_coho",
+		&"salmon_pink",
+		&"salmon_sockeye",
 	]
 	assert(LogbookCatalog.CATALOG_ORDER == expected_ids)
 	for index: int in expected_ids.size():
@@ -62,7 +73,20 @@ func _validate_catalog() -> void:
 		)
 		var expected_category: WaterType.Type = (
 			WaterType.Type.SALT_WATER
-			if expected_ids[index] in [&"bass", &"sunfish"]
+			if expected_ids[index] in [
+				&"bass",
+				&"sunfish",
+				&"tuna_albacore",
+				&"tuna_bigeye",
+				&"tuna_bluefin",
+				&"tuna_skipjack",
+				&"tuna_yellowfin",
+				&"salmon_atlantic",
+				&"salmon_chum",
+				&"salmon_coho",
+				&"salmon_pink",
+				&"salmon_sockeye",
+			]
 			else WaterType.Type.FRESH_WATER
 		)
 		assert(
@@ -105,7 +129,7 @@ func _validate_page() -> void:
 		page.call("_select_category", category)
 		await create_timer(0.25).timeout
 		var entries: Dictionary = page.get("_entry_buttons")
-		assert(entries.size() == (6 if category == WaterType.Type.FRESH_WATER else 2))
+		assert(entries.size() == (7 if category == WaterType.Type.FRESH_WATER else 12))
 		for fish: FishDataType in LogbookCatalog.ordered_species(
 			CatalogResource.candidates
 		):
@@ -155,7 +179,7 @@ func _validate_page() -> void:
 						candidate.display_name
 					)
 				)
-	assert(silhouette_count == 8)
+	assert(silhouette_count == 19)
 
 	page.call("_select_category", WaterType.Type.OTHER)
 	await create_timer(0.25).timeout

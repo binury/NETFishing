@@ -48,7 +48,7 @@ func _run() -> void:
 		as PlayerAssetReservationService
 	)
 	assert(player != null)
-	assert(catalog != null and catalog.candidates.size() == 8)
+	assert(catalog != null and catalog.candidates.size() == 19)
 	assert(sale_service != null)
 	assert(shop_service != null)
 	assert(session != null and session.is_host())

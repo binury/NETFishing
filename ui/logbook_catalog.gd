@@ -14,6 +14,17 @@ const CATALOG_ORDER: Array[StringName] = [
 	&"catfish_channel",
 	&"catfish_flathead",
 	&"catfish_white",
+	&"tuna_albacore",
+	&"tuna_bigeye",
+	&"tuna_bluefin",
+	&"tuna_skipjack",
+	&"tuna_yellowfin",
+	&"goby_round",
+	&"salmon_atlantic",
+	&"salmon_chum",
+	&"salmon_coho",
+	&"salmon_pink",
+	&"salmon_sockeye",
 ]
 
 # Short presentation notes are kept here with the catalog contract rather
@@ -51,6 +62,50 @@ const FISH_FACTS: Dictionary[StringName, String] = {
 	&"catfish_white": (
 		"white catfish began along the atlantic coast between new york "
 		+ "and florida. people later carried them far beyond that home range."
+	),
+	&"tuna_albacore": (
+		"albacore have unusually long pectoral fins. their warm muscles help "
+		+ "them cruise across wide stretches of open ocean."
+	),
+	&"tuna_bigeye": (
+		"bigeye tuna make daily trips between deep, cool water and warmer "
+		+ "surface layers. their large eyes suit those dim depths."
+	),
+	&"tuna_bluefin": (
+		"bluefin tuna are powerful ocean travelers. heat retained in their "
+		+ "swimming muscles lets them thrive in surprisingly cold seas."
+	),
+	&"tuna_skipjack": (
+		"skipjack travel in fast-moving schools and have dark stripes along "
+		+ "their lower sides. they rarely stop swimming."
+	),
+	&"tuna_yellowfin": (
+		"yellowfin are named for their bright yellow fins and finlets. large "
+		+ "schools often gather with other open-ocean hunters."
+	),
+	&"goby_round": (
+		"round gobies use fused pelvic fins like a suction cup to hold onto "
+		+ "rocks. they are small fish with a famously large appetite."
+	),
+	&"salmon_atlantic": (
+		"atlantic salmon can return from the ocean to the river where they "
+		+ "hatched. unlike many salmon, some survive to make the trip again."
+	),
+	&"salmon_chum": (
+		"chum salmon travel immense distances and develop striking bars when "
+		+ "they return to fresh water to spawn."
+	),
+	&"salmon_coho": (
+		"coho salmon are agile hunters known for powerful leaps. young coho "
+		+ "may spend more than a year growing in streams."
+	),
+	&"salmon_pink": (
+		"pink salmon usually follow a strict two-year life cycle. spawning "
+		+ "males develop the hump that inspired their nickname."
+	),
+	&"salmon_sockeye": (
+		"sockeye salmon feed heavily on plankton at sea. adults turn vivid red "
+		+ "as they return inland to spawn."
 	),
 }
 

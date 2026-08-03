@@ -1,9 +1,19 @@
-[gd_resource type="Resource" load_steps=4 format=3]
+[gd_resource type="Resource" load_steps=14 format=3]
 
 [ext_resource type="Script" path="res://fish/fish_pool.gd" id="1_pool"]
 [ext_resource type="Resource" path="res://fish/species/bass/bass.tres" id="2_bass"]
 [ext_resource type="Resource" path="res://fish/species/sunfish/sunfish.tres" id="3_sunfish"]
+[ext_resource type="Resource" path="res://fish/species/tuna_albacore/tuna_albacore.tres" id="4_tuna_albacore"]
+[ext_resource type="Resource" path="res://fish/species/tuna_bigeye/tuna_bigeye.tres" id="5_tuna_bigeye"]
+[ext_resource type="Resource" path="res://fish/species/tuna_bluefin/tuna_bluefin.tres" id="6_tuna_bluefin"]
+[ext_resource type="Resource" path="res://fish/species/tuna_skipjack/tuna_skipjack.tres" id="7_tuna_skipjack"]
+[ext_resource type="Resource" path="res://fish/species/tuna_yellowfin/tuna_yellowfin.tres" id="8_tuna_yellowfin"]
+[ext_resource type="Resource" path="res://fish/species/salmon_atlantic/salmon_atlantic.tres" id="9_salmon_atlantic"]
+[ext_resource type="Resource" path="res://fish/species/salmon_chum/salmon_chum.tres" id="10_salmon_chum"]
+[ext_resource type="Resource" path="res://fish/species/salmon_coho/salmon_coho.tres" id="11_salmon_coho"]
+[ext_resource type="Resource" path="res://fish/species/salmon_pink/salmon_pink.tres" id="12_salmon_pink"]
+[ext_resource type="Resource" path="res://fish/species/salmon_sockeye/salmon_sockeye.tres" id="13_salmon_sockeye"]
 
 [resource]
 script = ExtResource("1_pool")
-candidates = [ExtResource("2_bass"), ExtResource("3_sunfish")]
+candidates = [ExtResource("2_bass"), ExtResource("3_sunfish"), ExtResource("4_tuna_albacore"), ExtResource("5_tuna_bigeye"), ExtResource("6_tuna_bluefin"), ExtResource("7_tuna_skipjack"), ExtResource("8_tuna_yellowfin"), ExtResource("9_salmon_atlantic"), ExtResource("10_salmon_chum"), ExtResource("11_salmon_coho"), ExtResource("12_salmon_pink"), ExtResource("13_salmon_sockeye")]
