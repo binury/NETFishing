@@ -60,6 +60,7 @@ signal shop_backdrop_visibility_changed(is_visible: bool)
 
 @onready var _status_label: Label = %StatusLabel
 @onready var _gameplay_transient_hud: Control = %GameplayTransientHUD
+@onready var _experience_presentation: Control = %ExperiencePresentation
 @onready var _catch_track: Control = %CatchTrack
 @onready var _green_catch_progress: ProgressBar = %GreenCatchProgress
 @onready var _red_chase_progress: ProgressBar = %RedChaseProgress
@@ -117,6 +118,15 @@ var _experience_panel_rest_y: float = 18.0
 
 
 func _ready() -> void:
+	# Reward feedback must remain above full-screen canonical menus. Keeping the
+	# overlay as the final stage child makes that ownership explicit instead of
+	# relying on scene declaration order when another menu adds high-z children.
+	var presentation_parent: Node = _experience_presentation.get_parent()
+	if presentation_parent != null:
+		presentation_parent.move_child(
+			_experience_presentation,
+			presentation_parent.get_child_count() - 1,
+		)
 	_emote_radial_menu.emote_selected.connect(_on_emote_selected)
 	_chat_ui.text_entry_ownership_changed.connect(
 		_on_chat_text_entry_ownership_changed
@@ -171,6 +181,7 @@ func setup(
 	art_unlocks: PlayerArtUnlocks,
 	world_time: WorldTimeServiceType,
 	world_weather: WorldWeatherServiceType,
+	player_jobs: PlayerJobService,
 ) -> void:
 	_player = player
 	_fishing_spot = fishing_spot
@@ -211,6 +222,7 @@ func setup(
 		player,
 		inventory,
 		collection_log,
+		experience,
 		wallet,
 		sale_service,
 		default_buyer,
@@ -226,6 +238,8 @@ func setup(
 		reservations,
 		network_profile_service,
 		network_player_list,
+		player_jobs,
+		world_time,
 	)
 	_hotbar_ui.setup(hotbar, bag, item_catalog, fishing_spot, inventory)
 	_fishing_shop.setup(
@@ -386,6 +400,7 @@ func get_pause_menu() -> PauseMenuType:
 func set_gameplay_ui_enabled(enabled: bool) -> void:
 	_gameplay_ui_enabled = enabled
 	_gameplay_transient_hud.visible = enabled and not _player_menu_open
+	_experience_presentation.visible = enabled
 	_refresh_chat_availability()
 	if not enabled:
 		if _surface_drawing != null:
@@ -642,6 +657,7 @@ func _on_experience_awarded(
 		"previous_level": previous_level,
 		"new_level": new_level,
 	})
+	_start_next_experience_animation()
 
 
 func _start_next_experience_animation() -> void:
@@ -784,6 +800,13 @@ func _update_experience_progress(total_experience: int) -> void:
 
 func _update_experience_bubble_position() -> void:
 	if not _experience_animation_active or _player == null:
+		return
+	if _player_menu_open:
+		_experience_bubble.show()
+		_experience_bubble.position = Vector2(
+			(_canonical_stage.size.x - _experience_bubble.size.x) * 0.5,
+			_experience_panel_rest_y + _experience_panel.size.y + 10.0,
+		)
 		return
 	var camera: Camera3D = _player.get_gameplay_camera()
 	var anchor_position: Vector3 = _player.get_chat_anchor_position()

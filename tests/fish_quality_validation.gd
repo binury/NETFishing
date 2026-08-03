@@ -19,6 +19,8 @@ func _initialize() -> void:
 
 func _run() -> void:
 	_validate_tiers_and_distribution()
+	_validate_barrier_challenge_curve()
+	_validate_fight_pacing_and_reel_upgrades()
 	_validate_catch_round_trip_and_sale()
 	_validate_mail_round_trip()
 	_validate_collection_mastery()
@@ -70,6 +72,115 @@ func _validate_tiers_and_distribution() -> void:
 			FishQualityType.BASE_ROLL_WEIGHTS[quality] / 100.0
 		)
 		assert(absf(observed - expected) < 0.015)
+
+
+func _validate_barrier_challenge_curve() -> void:
+	assert(
+		FishQualityType.BARRIER_HEALTH_MULTIPLIERS.size()
+		== FishQualityType.TIER_COUNT
+	)
+	var expected_health: Array[int] = [8, 10, 13, 18, 26]
+	var previous_health: int = 0
+	for quality: int in FishQualityType.TIER_COUNT:
+		var health: int = FishQualityType.apply_barrier_health(8, quality)
+		assert(health == expected_health[quality])
+		assert(health > previous_health)
+		previous_health = health
+	assert(FishQualityType.apply_barrier_health(8, -1) == 8)
+	assert(FishQualityType.apply_barrier_health(0, FishQualityType.Tier.SHINY) == 4)
+
+	var profile := CatchDifficultyProfile.new()
+	profile.barrier_count_min = 1
+	profile.barrier_count_max = 1
+	profile.barrier_health_min = 8
+	profile.barrier_health_max = 8
+	profile.first_barrier_margin = 0.2
+	profile.final_barrier_margin = 0.2
+	profile.minimum_barrier_spacing = 0.1
+	var controller := CatchController.new()
+	root.add_child(controller)
+	for quality: int in FishQualityType.TIER_COUNT:
+		controller.start_authoritative_encounter(
+			profile,
+			0.1,
+			1,
+			818181,
+			quality,
+		)
+		var barriers_value: Variant = controller.get("_barriers")
+		assert(barriers_value is Array)
+		var barriers: Array = barriers_value as Array
+		assert(barriers.size() == 1)
+		var barrier := barriers[0] as RefCounted
+		assert(barrier != null)
+		assert(int(barrier.get("maximum_health")) == expected_health[quality])
+	controller.queue_free()
+
+	var shiny_health: int = FishQualityType.apply_barrier_health(
+		8,
+		FishQualityType.Tier.SHINY,
+	)
+	var base_power_clicks: int = ceili(float(shiny_health) / 1.0)
+	var max_power_clicks: int = ceili(
+		float(shiny_health)
+		/ float(PlayerFishingUpgrades.MAX_BARRIER_POWER_LEVEL + 1)
+	)
+	assert(base_power_clicks == 26)
+	assert(max_power_clicks == 7)
+	assert(max_power_clicks < base_power_clicks)
+
+
+func _validate_fight_pacing_and_reel_upgrades() -> void:
+	assert(is_equal_approx(CatchController.CHASE_SPEED, 0.07))
+	assert(is_equal_approx(CatchController.CHASE_START_DELAY, 0.5))
+	assert(is_equal_approx(CatchController.CHASE_START_OFFSET, 0.04))
+	assert(is_equal_approx(Player.BASE_REEL_SPEED, 0.16))
+
+	var upgrades := PlayerFishingUpgrades.new()
+	assert(is_equal_approx(upgrades.get_reel_speed_multiplier(), 1.0))
+	assert(
+		upgrades.restore_levels(
+			PlayerFishingUpgrades.MAX_REEL_SPEED_LEVEL,
+			0,
+		)
+	)
+	var upgraded_multiplier: float = upgrades.get_reel_speed_multiplier()
+	assert(is_equal_approx(upgraded_multiplier, 1.5))
+
+	var profile := CatchDifficultyProfile.new()
+	profile.barrier_count_min = 0
+	profile.barrier_count_max = 0
+	var controller := CatchController.new()
+	root.add_child(controller)
+	controller.start_authoritative_encounter(
+		profile,
+		Player.BASE_REEL_SPEED,
+		1,
+		919191,
+	)
+	controller.set_reel_input(true)
+	controller.call("_update_free_reeling", 1.0)
+	var base_progress: float = controller.progress
+	assert(is_equal_approx(base_progress, Player.BASE_REEL_SPEED))
+
+	controller.reset()
+	controller.start_authoritative_encounter(
+		profile,
+		Player.BASE_REEL_SPEED * upgraded_multiplier,
+		1,
+		919191,
+	)
+	controller.set_reel_input(true)
+	controller.call("_update_free_reeling", 1.0)
+	assert(
+		is_equal_approx(
+			controller.progress,
+			Player.BASE_REEL_SPEED * upgraded_multiplier,
+		)
+	)
+	assert(controller.progress > base_progress)
+	controller.queue_free()
+	upgrades.queue_free()
 
 
 func _validate_catch_round_trip_and_sale() -> void:
@@ -242,7 +353,7 @@ func _validate_version_four_migration() -> void:
 		version_four,
 		4,
 	)
-	assert(int(migrated.get("save_version", -1)) == 6)
+	assert(int(migrated.get("save_version", -1)) == 7)
 	assert(int((migrated["experience"] as Dictionary)["total_experience"]) == 0)
 	assert(
 		is_equal_approx(
@@ -259,4 +370,7 @@ func _validate_version_four_migration() -> void:
 	var boring_bit: int = FishQualityType.bit_for(FishQualityType.Tier.BORING)
 	assert(int(masks["bluegill"]) == boring_bit)
 	assert(int(masks["carp"]) == boring_bit)
+	assert(
+		PlayerJobService.validate_save_data(migrated.get("jobs", {}))
+	)
 	manager.queue_free()

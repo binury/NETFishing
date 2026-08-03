@@ -44,6 +44,7 @@ func _on_session_state_changed(state: NetworkSession.State) -> void:
 			_sequence = 0
 			_last_received_sequence = -1
 			_sync_elapsed = 0.0
+			_world_weather.set_persistence_tracking_enabled(true)
 			_world_weather.begin_authoritative_session(
 				_active_session_id.hash()
 			)
@@ -52,6 +53,7 @@ func _on_session_state_changed(state: NetworkSession.State) -> void:
 		_active_session_id = _session.get_session_id()
 		_last_received_sequence = -1
 		_sync_elapsed = 0.0
+		_world_weather.set_persistence_tracking_enabled(false)
 		if _session.supports_server_capability(
 			NetworkProtocol.WORLD_WEATHER_CAPABILITY
 		):
@@ -69,6 +71,7 @@ func _on_session_state_changed(state: NetworkSession.State) -> void:
 		_sequence = 0
 		_last_received_sequence = -1
 		_sync_elapsed = 0.0
+		_world_weather.set_persistence_tracking_enabled(false)
 		_world_weather.end_session()
 
 

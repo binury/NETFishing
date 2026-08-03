@@ -51,6 +51,8 @@
 [ext_resource type="Script" path="res://network/network_world_time_service.gd" id="49_network_world_time"]
 [ext_resource type="Script" path="res://world/world_weather_service.gd" id="50_world_weather"]
 [ext_resource type="Script" path="res://network/network_world_weather_service.gd" id="51_network_world_weather"]
+[ext_resource type="Script" path="res://jobs/player_job_service.gd" id="52_player_jobs"]
+[ext_resource type="Script" path="res://network/network_job_service.gd" id="53_network_jobs"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_title_water_native"]
 shader = ExtResource("40_title_water")
@@ -137,6 +139,14 @@ script = ExtResource("50_world_weather")
 [node name="NetworkWorldWeatherService" type="Node" parent="."]
 unique_name_in_owner = true
 script = ExtResource("51_network_world_weather")
+
+[node name="PlayerJobService" type="Node" parent="."]
+unique_name_in_owner = true
+script = ExtResource("52_player_jobs")
+
+[node name="NetworkJobService" type="Node" parent="."]
+unique_name_in_owner = true
+script = ExtResource("53_network_jobs")
 
 [node name="PlayerDataRoot" type="Node" parent="." unique_id=281868360]
 unique_name_in_owner = true

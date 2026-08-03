@@ -11,7 +11,8 @@ enum Mode {
 }
 
 const ADDRESS_FORMAT_HELP: String = (
-	"Hostname, IPv4, or [IPv6]. Port 7777 is used when omitted."
+	"Hostname, IPv4, or [IPv6]. Port 7777 is used when omitted; "
+	+ "include the port shown by a host when it differs."
 )
 const DIRECT_WORKFLOW_HELP: String = (
 	"%s\nJoin Now connects once; Save Server stores this address locally."
@@ -435,10 +436,19 @@ func _refresh() -> void:
 		and _network_session.state != NetworkSession.State.INACTIVE
 	)
 	if _session_summary.visible:
-		_session_summary.text = "%d / %d players" % [
-			_network_session.get_player_count(),
-			_network_session.get_session_max_players(),
-		]
+		_session_summary.text = (
+			"UDP %d • %d / %d players"
+			% [
+				_network_session.get_host_port(),
+				_network_session.get_player_count(),
+				_network_session.get_session_max_players(),
+			]
+			if _network_session.is_host()
+			else "%d / %d players" % [
+				_network_session.get_player_count(),
+				_network_session.get_session_max_players(),
+			]
+		)
 	if not direct:
 		if selected:
 			_details.text = _format_entry_details(_selected_entry)

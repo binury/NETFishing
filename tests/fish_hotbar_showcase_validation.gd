@@ -31,6 +31,9 @@ func _run() -> void:
 
 	var player := main.get("_player") as Player
 	var world_time := main.get_node("%WorldTimeService") as WorldTimeService
+	var world_weather := (
+		main.get_node("%WorldWeatherService") as WorldWeatherService
+	)
 	world_time.synchronize_time(19.75)
 	assert(player.experience.award_experience(125))
 	var fish_catalog := main.get("fish_catalog") as FishPool
@@ -92,6 +95,10 @@ func _run() -> void:
 	await process_frame
 	assert(not service.is_local_showcase_visible())
 	assert(not (player.get_node("%HeldFishDisplay") as Node3D).visible)
+	var saved_weather: WorldWeatherService.Weather = (
+		world_weather.get_weather()
+	)
+	var saved_weather_seconds: float = world_weather.get_seconds_remaining()
 
 	assert(save_manager.save_now())
 	var save_path: String = str(save_manager.get("_save_path"))
@@ -103,17 +110,25 @@ func _run() -> void:
 	var hotbar_data: Dictionary = (parsed as Dictionary)["hotbar"]
 	assert(typeof(hotbar_data.get("fish_slots")) == TYPE_ARRAY)
 	assert(str((hotbar_data["fish_slots"] as Array)[1]) == fish_catch.catch_id)
-	assert(int((parsed as Dictionary)["save_version"]) == 6)
+	assert(int((parsed as Dictionary)["save_version"]) == 7)
 	assert(
 		int((parsed as Dictionary)["experience"]["total_experience"])
 		== 125
 	)
+	assert(absf(
+		float((parsed as Dictionary)["world"]["time_hours"]) - 19.75
+	) < 0.01)
 	assert(
-		is_equal_approx(
-			float((parsed as Dictionary)["world"]["time_hours"]),
-			19.75,
-		)
+		int((parsed as Dictionary)["world"]["weather"])
+		== int(saved_weather)
 	)
+	assert(absf(
+		float(
+			(parsed as Dictionary)["world"][
+				"weather_seconds_remaining"
+			]
+		) - saved_weather_seconds
+	) < 0.1)
 	var saved_catches: Array = (parsed as Dictionary)["inventory"]["catches"]
 	assert(int((saved_catches[0] as Dictionary)["quality"]) == fish_catch.quality)
 	var saved_masks: Dictionary = (
@@ -127,9 +142,18 @@ func _run() -> void:
 	assert(player.hotbar.clear_slot(1))
 	assert(player.experience.restore_total_experience(0))
 	world_time.synchronize_time(8.0)
+	world_weather.clear_daily_plan()
+	world_weather.apply_authoritative_snapshot(
+		WorldWeatherService.Weather.FOGGY,
+		10.0,
+	)
 	assert(save_manager.load_player_data())
 	assert(player.experience.get_total_experience() == 125)
-	assert(is_equal_approx(world_time.get_time_hours(), 19.75))
+	assert(absf(world_time.get_time_hours() - 19.75) < 0.01)
+	assert(world_weather.get_weather() == saved_weather)
+	assert(absf(
+		world_weather.get_seconds_remaining() - saved_weather_seconds
+	) < 2.0)
 	assert(player.experience.get_level() == 2)
 	assert(player.hotbar.get_fish_catch_id(1) == fish_catch.catch_id)
 	assert(player.hotbar.get_selected_slot() == 1)

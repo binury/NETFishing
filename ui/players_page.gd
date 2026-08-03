@@ -2,7 +2,7 @@ class_name PlayersPage
 extends Control
 
 var _service: NetworkPlayerListService
-var _header: Label
+var _count_label: Label
 var _tabs: HBoxContainer
 var _list: VBoxContainer
 var _status: Label
@@ -36,23 +36,17 @@ func deactivate() -> void:
 
 
 func _build() -> void:
-	var paper := PanelContainer.new()
-	paper.position = Vector2(58, 128)
-	paper.size = Vector2(1164, 538)
-	add_child(paper)
-	paper.add_theme_stylebox_override("panel", UtilityPageStyle.panel_style())
+	var margin: MarginContainer = UtilityPageStyle.build_laptop_screen(self)
 	var root := VBoxContainer.new()
-	root.add_theme_constant_override("separation", 10)
-	paper.add_child(root)
-	_header = Label.new()
-	_header.add_theme_font_size_override("font_size", 27)
-	_header.add_theme_color_override(
-		"font_color", UtilityPageStyle.OCEAN_TEXT_PRIMARY
-	)
-	root.add_child(_header)
+	root.add_theme_constant_override("separation", 9)
+	margin.add_child(root)
+	var tab_row := HBoxContainer.new()
+	tab_row.add_theme_constant_override("separation", 16)
+	root.add_child(tab_row)
 	_tabs = HBoxContainer.new()
+	_tabs.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_tabs.add_theme_constant_override("separation", 10)
-	root.add_child(_tabs)
+	tab_row.add_child(_tabs)
 	for index: int in 3:
 		var button := Button.new()
 		button.text = ["players", "relationships", "banned"][index]
@@ -60,12 +54,20 @@ func _build() -> void:
 		button.pressed.connect(_select_tab.bind(index))
 		UtilityPageStyle.apply_ocean_button(button)
 		_tabs.add_child(button)
+	_count_label = Label.new()
+	_count_label.add_theme_font_size_override("font_size", 17)
+	_count_label.add_theme_color_override(
+		"font_color", UtilityPageStyle.OCEAN_TEXT_SECONDARY
+	)
+	_count_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	tab_row.add_child(_count_label)
 	var scroll := ScrollContainer.new()
-	scroll.custom_minimum_size = Vector2(0, 392)
+	scroll.custom_minimum_size = Vector2(0, 310)
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	root.add_child(scroll)
 	_list = VBoxContainer.new()
-	_list.custom_minimum_size = Vector2(1080, 0)
+	_list.custom_minimum_size = Vector2(1032, 0)
 	_list.add_theme_constant_override("separation", 7)
 	scroll.add_child(_list)
 	_status = Label.new()
@@ -86,7 +88,7 @@ func _select_tab(index: int) -> void:
 func _refresh() -> void:
 	if _service == null or _list == null:
 		return
-	_header.text = "Players\n%d / %d connected" % [
+	_count_label.text = "%d / %d connected" % [
 		_service.get_connected_count(), _service.get_max_players(),
 	]
 	for index: int in _tabs.get_child_count():
@@ -168,7 +170,6 @@ func _build_active_rows() -> void:
 		ban.pressed.connect(_confirm_ban.bind(entry))
 		UtilityPageStyle.apply_ocean_button(ban)
 		row.add_child(ban)
-		_list.add_child(row)
 
 
 func _build_session_artwork_controls() -> void:
@@ -195,7 +196,6 @@ func _build_session_artwork_controls() -> void:
 	)
 	UtilityPageStyle.apply_ocean_button(reset)
 	row.add_child(reset)
-	_list.add_child(row)
 
 
 func _build_relationship_rows() -> void:
@@ -234,7 +234,6 @@ func _build_relationship_rows() -> void:
 		)
 		UtilityPageStyle.apply_ocean_button(unmute)
 		row.add_child(unmute)
-		_list.add_child(row)
 
 
 func _build_ban_rows() -> void:
@@ -262,14 +261,18 @@ func _build_ban_rows() -> void:
 		unban.pressed.connect(_confirm_unban.bind(fingerprint))
 		UtilityPageStyle.apply_ocean_button(unban)
 		row.add_child(unban)
-		_list.add_child(row)
 
 
 func _make_row() -> HBoxContainer:
+	var panel := PanelContainer.new()
+	panel.add_theme_stylebox_override(
+		"panel", UtilityPageStyle.row_style(false)
+	)
+	_list.add_child(panel)
 	var row := HBoxContainer.new()
 	row.custom_minimum_size.y = 58
 	row.add_theme_constant_override("separation", 8)
-	row.add_theme_constant_override("outline_size", 1)
+	panel.add_child(row)
 	return row
 
 

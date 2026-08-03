@@ -15,11 +15,21 @@ const SUNNY_DURATION_RANGE := Vector2(480.0, 900.0)
 const CLOUDY_DURATION_RANGE := Vector2(300.0, 720.0)
 const RAINY_DURATION_RANGE := Vector2(300.0, 600.0)
 const FOGGY_DURATION_RANGE := Vector2(300.0, 600.0)
+const MAX_PERSISTED_SECONDS: float = 1800.0
+const DAILY_PLAN_SEGMENT_HOURS: float = 2.0
+const DAILY_PLAN_SEGMENT_COUNT: int = 12
 
 var _weather: Weather = DEFAULT_WEATHER
 var _seconds_remaining: float = SUNNY_DURATION_RANGE.x
+var _persistent_weather: Weather = DEFAULT_WEATHER
+var _persistent_seconds_remaining: float = SUNNY_DURATION_RANGE.x
+var _has_persistent_state: bool = false
+var _persistence_tracking_enabled: bool = false
 var _running_authority: bool = false
 var _rng := RandomNumberGenerator.new()
+var _daily_plan_id: String = ""
+var _daily_schedule: Array[Dictionary] = []
+var _world_time: WorldTimeService
 
 
 func _ready() -> void:
@@ -34,7 +44,21 @@ func begin_authoritative_session(seed_value: int) -> void:
 	_rng.seed = seed_value
 	_running_authority = true
 	set_process(true)
-	_set_weather(DEFAULT_WEATHER, _roll_duration(DEFAULT_WEATHER), true)
+	if _daily_schedule.is_empty() or _world_time == null:
+		if _has_persistent_state:
+			_set_weather(
+				_persistent_weather,
+				_persistent_seconds_remaining,
+				true,
+			)
+		else:
+			_set_weather(
+				DEFAULT_WEATHER,
+				_roll_duration(DEFAULT_WEATHER),
+				true,
+			)
+	else:
+		_update_scheduled_weather(true)
 
 
 func begin_remote_session() -> void:
@@ -52,12 +76,17 @@ func end_session() -> void:
 func advance_weather(real_seconds: float) -> void:
 	if not _running_authority or real_seconds <= 0.0:
 		return
+	if not _daily_schedule.is_empty() and _world_time != null:
+		_update_scheduled_weather(false)
+		return
 	_seconds_remaining -= real_seconds
 	while _seconds_remaining <= 0.0:
 		var overrun: float = -_seconds_remaining
 		var next_weather: Weather = _choose_next_weather()
 		_set_weather(next_weather, _roll_duration(next_weather), true)
 		_seconds_remaining -= overrun
+	if _persistence_tracking_enabled:
+		_store_persistent_state()
 
 
 func apply_authoritative_snapshot(
@@ -67,6 +96,56 @@ func apply_authoritative_snapshot(
 	if not is_valid_weather(int(weather)) or not is_finite(seconds_remaining):
 		return
 	_set_weather(weather, maxf(seconds_remaining, 0.0), false)
+
+
+func set_persistence_tracking_enabled(enabled: bool) -> void:
+	if _persistence_tracking_enabled == enabled:
+		return
+	if _persistence_tracking_enabled:
+		_store_persistent_state()
+	_persistence_tracking_enabled = enabled
+
+
+func restore_persistent_state(
+	weather: Weather,
+	seconds_remaining: float,
+) -> bool:
+	if not is_valid_persistent_state(weather, seconds_remaining):
+		return false
+	_persistent_weather = weather
+	_persistent_seconds_remaining = seconds_remaining
+	_has_persistent_state = true
+	if _persistence_tracking_enabled:
+		_set_weather(
+			_persistent_weather,
+			_persistent_seconds_remaining,
+			true,
+		)
+	return true
+
+
+func reset_persistent_state() -> void:
+	_has_persistent_state = false
+	_persistent_weather = DEFAULT_WEATHER
+	_persistent_seconds_remaining = SUNNY_DURATION_RANGE.x
+	if _persistence_tracking_enabled and _running_authority:
+		_set_weather(
+			DEFAULT_WEATHER,
+			_roll_duration(DEFAULT_WEATHER),
+			true,
+		)
+
+
+func has_persistent_state() -> bool:
+	return _has_persistent_state
+
+
+func get_persistent_weather() -> Weather:
+	return _persistent_weather
+
+
+func get_persistent_seconds_remaining() -> float:
+	return _persistent_seconds_remaining
 
 
 func get_weather() -> Weather:
@@ -89,8 +168,93 @@ func get_weather_name() -> String:
 	return weather_name(_weather)
 
 
+func configure_daily_plan(
+	plan_id: String,
+	schedule: Array,
+	world_time: WorldTimeService,
+) -> bool:
+	if (
+		plan_id.is_empty()
+		or not is_valid_daily_plan_schedule(schedule)
+		or world_time == null
+	):
+		return false
+	_daily_plan_id = plan_id
+	_daily_schedule.clear()
+	for value: Variant in schedule:
+		_daily_schedule.append((value as Dictionary).duplicate(true))
+	_world_time = world_time
+	if _running_authority:
+		_update_scheduled_weather(true)
+	return true
+
+
+func clear_daily_plan() -> void:
+	_daily_plan_id = ""
+	_daily_schedule.clear()
+	_world_time = null
+
+
+func get_daily_plan_id() -> String:
+	return _daily_plan_id
+
+
 static func is_valid_weather(value: int) -> bool:
 	return value >= Weather.SUNNY and value <= Weather.FOGGY
+
+
+static func is_valid_persistent_state(
+	weather: Weather,
+	seconds_remaining: float,
+) -> bool:
+	return (
+		is_valid_weather(int(weather))
+		and is_finite(seconds_remaining)
+		and seconds_remaining >= 0.0
+		and seconds_remaining <= MAX_PERSISTED_SECONDS
+	)
+
+
+static func is_valid_daily_plan_schedule(value: Variant) -> bool:
+	if typeof(value) != TYPE_ARRAY:
+		return false
+	var schedule: Array = value
+	if schedule.size() != DAILY_PLAN_SEGMENT_COUNT:
+		return false
+	for entry_value: Variant in schedule:
+		if typeof(entry_value) != TYPE_DICTIONARY:
+			return false
+		var entry: Dictionary = entry_value
+		if (
+			typeof(entry.get("start_hour")) not in [TYPE_FLOAT, TYPE_INT]
+			or not is_finite(float(entry.get("start_hour", -1.0)))
+			or float(entry.get("start_hour", -1.0)) < 0.0
+			or float(entry.get("start_hour", -1.0)) >= 24.0
+			or not _is_bounded_integer(
+				entry.get("weather"), Weather.SUNNY, Weather.FOGGY
+			)
+			or not is_valid_weather(int(entry.get("weather", -1)))
+		):
+			return false
+	return true
+
+
+static func _is_bounded_integer(
+	value: Variant,
+	minimum: int,
+	maximum: int,
+) -> bool:
+	if typeof(value) == TYPE_INT:
+		return int(value) >= minimum and int(value) <= maximum
+	if typeof(value) != TYPE_FLOAT:
+		return false
+	var number: float = float(value)
+	return (
+		is_finite(number)
+		and number >= float(minimum)
+		and number <= float(maximum)
+		and is_equal_approx(number, round(number))
+	)
 
 
 static func weather_name(weather: Weather) -> String:
@@ -114,8 +278,16 @@ func _set_weather(
 	var changed: bool = weather != _weather
 	_weather = weather
 	_seconds_remaining = maxf(seconds_remaining, 0.0)
+	if _persistence_tracking_enabled:
+		_store_persistent_state()
 	if force_emit or changed:
 		weather_changed.emit(_weather, _seconds_remaining)
+
+
+func _store_persistent_state() -> void:
+	_persistent_weather = _weather
+	_persistent_seconds_remaining = _seconds_remaining
+	_has_persistent_state = true
 
 
 func _choose_next_weather() -> Weather:
@@ -150,3 +322,26 @@ func _duration_range(weather: Weather) -> Vector2:
 		Weather.FOGGY:
 			return FOGGY_DURATION_RANGE
 	return SUNNY_DURATION_RANGE
+
+
+func _update_scheduled_weather(force_emit: bool) -> void:
+	if _daily_schedule.is_empty() or _world_time == null:
+		return
+	var elapsed_hours: float = fposmod(
+		_world_time.get_time_hours() - WorldTimeService.DAY_START_HOUR,
+		WorldTimeService.HOURS_PER_DAY,
+	)
+	var segment_hours: float = DAILY_PLAN_SEGMENT_HOURS
+	var segment_index: int = clampi(
+		floori(elapsed_hours / segment_hours),
+		0,
+		_daily_schedule.size() - 1,
+	)
+	var entry: Dictionary = _daily_schedule[segment_index]
+	var weather: Weather = int(entry.get("weather", DEFAULT_WEATHER)) as Weather
+	var next_boundary: float = float(segment_index + 1) * segment_hours
+	var hours_remaining: float = maxf(next_boundary - elapsed_hours, 0.0)
+	var seconds_remaining: float = (
+		hours_remaining / WorldTimeService.HOURS_PER_REAL_SECOND
+	)
+	_set_weather(weather, seconds_remaining, force_emit)

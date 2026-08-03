@@ -28,6 +28,7 @@ var _persistent_time_hours: float = DEFAULT_START_HOUR
 var _persistence_tracking_enabled: bool = false
 var _running: bool = false
 var _phase: Phase = Phase.DAWN
+var _last_emitted_clock_minute: int = floori(DEFAULT_START_HOUR * 60.0)
 
 
 func _ready() -> void:
@@ -140,14 +141,18 @@ func _set_time_hours(time_hours: float, force_emit: bool) -> void:
 	var normalized: float = _normalized_hour(time_hours)
 	var next_phase: Phase = phase_for_hour(normalized)
 	var phase_was_changed: bool = next_phase != _phase
-	var time_was_changed: bool = not is_equal_approx(normalized, _time_hours)
+	var clock_minute: int = floori(normalized * 60.0)
+	var clock_minute_changed: bool = (
+		clock_minute != _last_emitted_clock_minute
+	)
 	_time_hours = normalized
 	_phase = next_phase
 	if _persistence_tracking_enabled:
 		_persistent_time_hours = normalized
 	if phase_was_changed:
 		phase_changed.emit(_phase)
-	if force_emit or time_was_changed or phase_was_changed:
+	if force_emit or clock_minute_changed or phase_was_changed:
+		_last_emitted_clock_minute = clock_minute
 		time_changed.emit(_time_hours, _phase)
 
 

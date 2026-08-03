@@ -26,10 +26,63 @@ const GREEN: Color = Color("31594d")
 const LIGHT_TEXT: Color = Color("f5eed9")
 const DISABLED_TEXT: Color = Color(0.33, 0.36, 0.35, 0.72)
 const MOTION_TWEEN_META: StringName = &"utility_page_motion_tween"
+const LAPTOP_RECT: Rect2 = Rect2(66.0, 132.0, 1148.0, 520.0)
 
 
 static func apply_page(root: Control) -> void:
 	root.add_theme_font_override("font", TuffyFont)
+
+
+static func rounded_style(color: Color, radius: int) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = color
+	style.set_border_width_all(0)
+	style.set_corner_radius_all(radius)
+	return style
+
+
+static func build_laptop_screen(
+	root: Control,
+	laptop_rect: Rect2 = LAPTOP_RECT,
+) -> MarginContainer:
+	var laptop := PanelContainer.new()
+	laptop.position = laptop_rect.position
+	laptop.size = laptop_rect.size
+	laptop.add_theme_stylebox_override(
+		"panel", rounded_style(OCEAN_PANEL_MID, 24)
+	)
+	root.add_child(laptop)
+
+	var shell_margin := MarginContainer.new()
+	shell_margin.add_theme_constant_override("margin_left", 20)
+	shell_margin.add_theme_constant_override("margin_top", 18)
+	shell_margin.add_theme_constant_override("margin_right", 20)
+	shell_margin.add_theme_constant_override("margin_bottom", 24)
+	laptop.add_child(shell_margin)
+
+	var screen := PanelContainer.new()
+	screen.add_theme_stylebox_override(
+		"panel", rounded_style(OCEAN_FIELD, 16)
+	)
+	shell_margin.add_child(screen)
+
+	var content_margin := MarginContainer.new()
+	content_margin.add_theme_constant_override("margin_left", 24)
+	content_margin.add_theme_constant_override("margin_top", 18)
+	content_margin.add_theme_constant_override("margin_right", 24)
+	content_margin.add_theme_constant_override("margin_bottom", 18)
+	screen.add_child(content_margin)
+
+	var base := ColorRect.new()
+	base.position = Vector2(
+		laptop_rect.position.x + 82.0,
+		laptop_rect.end.y - 6.0,
+	)
+	base.size = Vector2(laptop_rect.size.x - 164.0, 14.0)
+	base.color = OCEAN_PANEL_MID
+	base.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(base)
+	return content_margin
 
 
 static func panel_style() -> StyleBoxFlat:
@@ -118,6 +171,22 @@ static func apply_ocean_button(button: BaseButton) -> void:
 		"disabled", ocean_button_style(OCEAN_DISABLED)
 	)
 	button.custom_minimum_size.y = maxf(button.custom_minimum_size.y, 40.0)
+
+
+static func apply_compact_ocean_button(button: BaseButton) -> void:
+	apply_ocean_button(button)
+	for state: StringName in [
+		&"normal", &"hover", &"pressed", &"focus", &"disabled",
+	]:
+		var style := button.get_theme_stylebox(state).duplicate() as StyleBoxFlat
+		if style == null:
+			continue
+		style.content_margin_left = 10.0
+		style.content_margin_right = 10.0
+		style.content_margin_top = 4.0
+		style.content_margin_bottom = 4.0
+		button.add_theme_stylebox_override(state, style)
+	button.custom_minimum_size.y = 34.0
 
 
 static func apply_line_edit(edit: LineEdit) -> void:

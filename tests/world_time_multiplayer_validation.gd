@@ -38,6 +38,10 @@ func _run_host() -> void:
 	world_weather.apply_authoritative_snapshot(
 		WorldWeatherService.Weather.RAINY, 300.0
 	)
+	assert(
+		world_weather.get_persistent_weather()
+		== WorldWeatherService.Weather.RAINY
+	)
 	assert(session.set_host_open(true))
 
 	var remote_peer_id: int = 0
@@ -64,6 +68,10 @@ func _run_host() -> void:
 	))
 	world_weather.apply_authoritative_snapshot(
 		WorldWeatherService.Weather.FOGGY, 300.0
+	)
+	assert(
+		world_weather.get_persistent_weather()
+		== WorldWeatherService.Weather.FOGGY
 	)
 	var disconnect_deadline: int = Time.get_ticks_msec() + 12000
 	while (
@@ -105,6 +113,10 @@ func _run_client() -> void:
 		NetworkProtocol.WORLD_WEATHER_CAPABILITY
 	))
 	assert(world_time.restore_persistent_time_hours(15.25))
+	assert(world_weather.restore_persistent_state(
+		WorldWeatherService.Weather.CLOUDY,
+		222.0,
+	))
 
 	var initial_deadline: int = Time.get_ticks_msec() + 8000
 	while (
@@ -162,6 +174,14 @@ func _run_client() -> void:
 		await process_frame
 	assert(world_weather.is_foggy())
 	assert(weather_icon.get_weather() == WorldWeatherService.Weather.FOGGY)
+	assert(
+		world_weather.get_persistent_weather()
+		== WorldWeatherService.Weather.CLOUDY
+	)
+	assert(is_equal_approx(
+		world_weather.get_persistent_seconds_remaining(),
+		222.0,
+	))
 	chat_ui.call("set_dock_right", true)
 	await process_frame
 	assert(clock_panel.position.x > 1000.0)

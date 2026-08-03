@@ -24,6 +24,7 @@ func _initialize() -> void:
 
 func _run() -> void:
 	_validate_weather_scheduler()
+	_validate_weather_persistence()
 	_validate_snapshot_bounds()
 	_validate_fishing_weather_seams()
 	_validate_fishing_spot_context()
@@ -71,6 +72,51 @@ func _duration_is_valid(weather: WorldWeatherServiceType) -> bool:
 		WorldWeatherServiceType.Weather.RAINY, WorldWeatherServiceType.Weather.FOGGY:
 			return seconds >= 300.0 and seconds <= 600.0
 	return false
+
+
+func _validate_weather_persistence() -> void:
+	var weather := WorldWeatherServiceType.new()
+	root.add_child(weather)
+	weather.set_persistence_tracking_enabled(true)
+	weather.begin_authoritative_session(20260802)
+	weather.apply_authoritative_snapshot(
+		WorldWeatherServiceType.Weather.RAINY,
+		200.0,
+	)
+	weather.advance_weather(12.5)
+	assert(weather.has_persistent_state())
+	assert(
+		weather.get_persistent_weather()
+		== WorldWeatherServiceType.Weather.RAINY
+	)
+	assert(is_equal_approx(
+		weather.get_persistent_seconds_remaining(),
+		187.5,
+	))
+	weather.set_persistence_tracking_enabled(false)
+	weather.begin_remote_session()
+	weather.apply_authoritative_snapshot(
+		WorldWeatherServiceType.Weather.FOGGY,
+		45.0,
+	)
+	assert(weather.is_foggy())
+	assert(
+		weather.get_persistent_weather()
+		== WorldWeatherServiceType.Weather.RAINY
+	)
+	assert(is_equal_approx(
+		weather.get_persistent_seconds_remaining(),
+		187.5,
+	))
+	weather.set_persistence_tracking_enabled(true)
+	weather.begin_authoritative_session(20260803)
+	assert(weather.is_raining())
+	assert(is_equal_approx(weather.get_seconds_remaining(), 187.5))
+	assert(not weather.restore_persistent_state(
+		WorldWeatherServiceType.Weather.RAINY,
+		WorldWeatherServiceType.MAX_PERSISTED_SECONDS + 1.0,
+	))
+	weather.queue_free()
 
 
 func _validate_snapshot_bounds() -> void:
@@ -187,6 +233,22 @@ func _validate_weather_presentation() -> void:
 	assert(rain != null)
 	assert(rain.emitting)
 	assert(rain.amount_ratio > 0.99)
+	assert(rain.amount == WorldTimeVisualControllerType.RAIN_PARTICLE_AMOUNT)
+	var rain_material := rain.process_material as ParticleProcessMaterial
+	assert(rain_material != null)
+	assert(is_equal_approx(
+		rain_material.initial_velocity_min,
+		WorldTimeVisualControllerType.RAIN_VELOCITY_MIN,
+	))
+	assert(is_equal_approx(
+		rain_material.initial_velocity_max,
+		WorldTimeVisualControllerType.RAIN_VELOCITY_MAX,
+	))
+	var rain_mesh := rain.draw_pass_1 as BoxMesh
+	assert(rain_mesh != null)
+	assert(rain_mesh.size.is_equal_approx(
+		WorldTimeVisualControllerType.RAIN_DROP_SIZE
+	))
 	visuals.apply_weather_immediately(
 		WorldWeatherServiceType.Weather.SUNNY
 	)

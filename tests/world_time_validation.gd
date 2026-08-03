@@ -76,6 +76,20 @@ func _validate_clock_boundaries_and_duration() -> void:
 	assert(is_equal_approx(clock.get_time_hours(), 8.0))
 	assert(not clock.is_night_period())
 	assert(clock.is_transition())
+
+	# Small high-refresh deltas must still advance the displayed minute. Using
+	# is_equal_approx() per frame used to suppress every clock notification.
+	var emitted_times: Array[float] = []
+	clock.time_changed.connect(
+		func(time_hours: float, _phase: WorldTimeService.Phase) -> void:
+			emitted_times.append(time_hours)
+	)
+	clock.begin_session(12.0 + 31.0 / 60.0)
+	emitted_times.clear()
+	for _frame: int in 1201:
+		clock.advance_time(1.0 / 240.0)
+	assert(clock.get_clock_text() == "12:33 pm")
+	assert(emitted_times.size() >= 2)
 	clock.queue_free()
 
 

@@ -25,8 +25,12 @@ const PlayerExperienceType = preload(
 	"res://progression/player_experience.gd"
 )
 const WorldTimeServiceType = preload("res://world/world_time_service.gd")
+const WorldWeatherServiceType = preload(
+	"res://world/world_weather_service.gd"
+)
+const PlayerJobServiceType = preload("res://jobs/player_job_service.gd")
 
-const SAVE_VERSION: int = 6
+const SAVE_VERSION: int = 7
 const BASIC_ROD_ID: StringName = &"basic_fishing_rod"
 const MAX_SAFE_BALANCE: int = 1000000000000
 
@@ -48,6 +52,14 @@ class LoadSnapshot:
 	var art_unlock_mask: int = 0
 	var total_experience: int = 0
 	var world_time_hours: float = WorldTimeServiceType.DEFAULT_START_HOUR
+	var has_world_weather_state: bool = false
+	var world_weather: WorldWeatherServiceType.Weather = (
+		WorldWeatherServiceType.DEFAULT_WEATHER
+	)
+	var world_weather_seconds_remaining: float = (
+		WorldWeatherServiceType.SUNNY_DURATION_RANGE.x
+	)
+	var jobs_data: Dictionary = PlayerJobServiceType.default_save_data()
 
 
 @export_range(0.05, 5.0, 0.05) var autosave_delay: float = 0.5
@@ -64,6 +76,8 @@ var _cooler_capacity: PlayerCoolerCapacityType
 var _art_unlocks: PlayerArtUnlocksType
 var _experience: PlayerExperienceType
 var _world_time: WorldTimeServiceType
+var _world_weather: WorldWeatherServiceType
+var _jobs: PlayerJobServiceType
 var _autosave_timer: Timer
 var _is_configured: bool = false
 var _is_restoring: bool = false
@@ -108,6 +122,8 @@ func setup(
 	art_unlocks: PlayerArtUnlocksType,
 	experience: PlayerExperienceType,
 	world_time: WorldTimeServiceType,
+	world_weather: WorldWeatherServiceType,
+	jobs: PlayerJobServiceType,
 ) -> void:
 	_inventory = inventory
 	_collection_log = collection_log
@@ -121,6 +137,8 @@ func setup(
 	_art_unlocks = art_unlocks
 	_experience = experience
 	_world_time = world_time
+	_world_weather = world_weather
+	_jobs = jobs
 	_is_configured = (
 		_inventory != null
 		and _collection_log != null
@@ -134,6 +152,8 @@ func setup(
 		and _art_unlocks != null
 		and _experience != null
 		and _world_time != null
+		and _world_weather != null
+		and _jobs != null
 	)
 	if not _is_configured:
 		push_error("PlayerSaveManager setup is missing required references.")
@@ -172,6 +192,8 @@ func setup(
 		_on_experience_changed
 	):
 		_experience.experience_changed.connect(_on_experience_changed)
+	if not _jobs.changed.is_connected(_mark_dirty):
+		_jobs.changed.connect(_mark_dirty)
 
 
 func load_player_data() -> bool:
@@ -258,6 +280,13 @@ func load_player_data() -> bool:
 	var world_time_restored: bool = (
 		_world_time.restore_persistent_time_hours(snapshot.world_time_hours)
 	)
+	var world_weather_restored: bool = true
+	if snapshot.has_world_weather_state:
+		world_weather_restored = _world_weather.restore_persistent_state(
+			snapshot.world_weather,
+			snapshot.world_weather_seconds_remaining,
+		)
+	var jobs_restored: bool = _jobs.restore_from_save_data(snapshot.jobs_data)
 	_is_restoring = false
 	if (
 		not inventory_restored
@@ -270,6 +299,8 @@ func load_player_data() -> bool:
 		or not art_restored
 		or not experience_restored
 		or not world_time_restored
+		or not world_weather_restored
+		or not jobs_restored
 	):
 		push_error("Validated player save could not be restored.")
 		return false
@@ -505,7 +536,12 @@ func _build_save_dictionary() -> Dictionary:
 		"experience": _experience.to_save_data(),
 		"world": {
 			"time_hours": _world_time.get_persistent_time_hours(),
+			"weather": int(_world_weather.get_persistent_weather()),
+			"weather_seconds_remaining": (
+				_world_weather.get_persistent_seconds_remaining()
+			),
 		},
+		"jobs": _jobs.to_save_data(),
 	}
 
 
@@ -517,6 +553,7 @@ func _build_load_snapshot(save_data: Dictionary) -> LoadSnapshot:
 		or typeof(save_data.get("bag")) != TYPE_DICTIONARY
 		or typeof(save_data.get("hotbar")) != TYPE_DICTIONARY
 		or typeof(save_data.get("experience")) != TYPE_DICTIONARY
+		or typeof(save_data.get("jobs")) != TYPE_DICTIONARY
 	):
 		return null
 	var wallet_data: Dictionary = save_data["wallet"]
@@ -525,6 +562,7 @@ func _build_load_snapshot(save_data: Dictionary) -> LoadSnapshot:
 	var bag_data: Dictionary = save_data["bag"]
 	var hotbar_data: Dictionary = save_data["hotbar"]
 	var experience_data: Dictionary = save_data["experience"]
+	var jobs_data: Dictionary = save_data["jobs"]
 	var world_data: Dictionary = {}
 	if typeof(save_data.get("world")) == TYPE_DICTIONARY:
 		world_data = save_data["world"]
@@ -579,12 +617,40 @@ func _build_load_snapshot(save_data: Dictionary) -> LoadSnapshot:
 	)
 	if snapshot.total_experience < 0:
 		return null
+	if not PlayerJobServiceType.validate_save_data(jobs_data):
+		return null
+	snapshot.jobs_data = jobs_data.duplicate(true)
 	if world_data.has("time_hours"):
 		snapshot.world_time_hours = _read_world_time_hours(
 			world_data["time_hours"]
 		)
 		if snapshot.world_time_hours < 0.0:
 			return null
+	var has_weather: bool = world_data.has("weather")
+	var has_weather_seconds: bool = world_data.has(
+		"weather_seconds_remaining"
+	)
+	if has_weather != has_weather_seconds:
+		return null
+	if has_weather:
+		var weather_value: int = _read_integer(
+			world_data["weather"],
+			-1,
+			WorldWeatherServiceType.Weather.FOGGY,
+		)
+		var weather_seconds: float = _read_world_weather_seconds(
+			world_data["weather_seconds_remaining"]
+		)
+		if (
+			not WorldWeatherServiceType.is_valid_weather(weather_value)
+			or weather_seconds < 0.0
+		):
+			return null
+		snapshot.has_world_weather_state = true
+		snapshot.world_weather = (
+			weather_value as WorldWeatherServiceType.Weather
+		)
+		snapshot.world_weather_seconds_remaining = weather_seconds
 	var discovered_values: Array = collection_data["discovered_fish_ids"]
 	var seen_discoveries: Dictionary[StringName, bool] = {}
 	for value: Variant in discovered_values:
@@ -806,6 +872,8 @@ func _migrate_save(
 				migrated = _migrate_version_4_to_5(migrated)
 			5:
 				migrated = _migrate_version_5_to_6(migrated)
+			6:
+				migrated = _migrate_version_6_to_7(migrated)
 			_:
 				return {}
 		if migrated.is_empty():
@@ -912,6 +980,15 @@ func _migrate_version_5_to_6(data: Dictionary) -> Dictionary:
 	migrated["world"] = {
 		"time_hours": WorldTimeServiceType.DEFAULT_START_HOUR,
 	}
+	return migrated
+
+
+func _migrate_version_6_to_7(data: Dictionary) -> Dictionary:
+	var migrated: Dictionary = data.duplicate(true)
+	migrated["save_version"] = 7
+	# Historical catch and sale totals cannot be reconstructed honestly from
+	# current inventory. New cumulative counters begin at feature introduction.
+	migrated["jobs"] = PlayerJobServiceType.default_save_data()
 	return migrated
 
 
@@ -1029,6 +1106,8 @@ func _restore_defaults() -> void:
 	_world_time.restore_persistent_time_hours(
 		WorldTimeServiceType.DEFAULT_START_HOUR
 	)
+	_world_weather.reset_persistent_state()
+	_jobs.reset_to_defaults()
 	_is_restoring = false
 	_is_dirty = false
 
@@ -1065,6 +1144,19 @@ func _read_world_time_hours(value: Variant) -> float:
 	):
 		return -1.0
 	return time_hours
+
+
+func _read_world_weather_seconds(value: Variant) -> float:
+	if typeof(value) not in [TYPE_FLOAT, TYPE_INT]:
+		return -1.0
+	var seconds_remaining: float = float(value)
+	if (
+		not is_finite(seconds_remaining)
+		or seconds_remaining < 0.0
+		or seconds_remaining > WorldWeatherServiceType.MAX_PERSISTED_SECONDS
+	):
+		return -1.0
+	return seconds_remaining
 
 
 func _read_upgrade_level(

@@ -113,17 +113,7 @@ func set_interactive(value: bool) -> void:
 
 
 func _build_ui() -> void:
-	var paper := PanelContainer.new()
-	paper.position = Vector2(116, 126)
-	paper.size = Vector2(1048, 540)
-	paper.add_theme_stylebox_override("panel", UtilityPageStyle.panel_style())
-	add_child(paper)
-	var margin := MarginContainer.new()
-	margin.add_theme_constant_override("margin_left", 34)
-	margin.add_theme_constant_override("margin_right", 34)
-	margin.add_theme_constant_override("margin_top", 28)
-	margin.add_theme_constant_override("margin_bottom", 28)
-	paper.add_child(margin)
+	var margin: MarginContainer = UtilityPageStyle.build_laptop_screen(self)
 	var root := Control.new()
 	margin.add_child(root)
 	_inbox = _build_inbox()
@@ -133,8 +123,8 @@ func _build_ui() -> void:
 		page.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		root.add_child(page)
 	_status = Label.new()
-	_status.position = Vector2(18, 448)
-	_status.size = Vector2(900, 28)
+	_status.position = Vector2(18, 408)
+	_status.size = Vector2(1024, 28)
 	_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_status.add_theme_color_override(
 		"font_color", UtilityPageStyle.OCEAN_TEXT_SECONDARY
@@ -147,7 +137,7 @@ func _build_ui() -> void:
 func _build_inbox() -> Control:
 	var page := Control.new()
 	var title := Label.new()
-	title.text = "Mail"
+	title.text = "mail"
 	title.position = Vector2(12, 0)
 	title.size = Vector2(500, 42)
 	title.add_theme_font_size_override("font_size", 30)
@@ -170,16 +160,16 @@ func _build_inbox() -> Control:
 	page.add_child(archive_view)
 	var scroll := ScrollContainer.new()
 	scroll.position = Vector2(12, 62)
-	scroll.size = Vector2(958, 374)
+	scroll.size = Vector2(1036, 334)
 	page.add_child(scroll)
 	_inbox_list = VBoxContainer.new()
-	_inbox_list.custom_minimum_size = Vector2(930, 0)
+	_inbox_list.custom_minimum_size = Vector2(1008, 0)
 	_inbox_list.add_theme_constant_override("separation", 8)
 	scroll.add_child(_inbox_list)
 	_empty_label = Label.new()
 	_empty_label.text = "No letters yet."
 	_empty_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_empty_label.custom_minimum_size = Vector2(930, 80)
+	_empty_label.custom_minimum_size = Vector2(1008, 80)
 	_inbox_list.add_child(_empty_label)
 	return page
 
@@ -422,7 +412,7 @@ func _refresh_inbox() -> void:
 		empty.text = (
 			"No archived letters." if _showing_archive else "No letters yet."
 		)
-		empty.custom_minimum_size = Vector2(930, 80)
+		empty.custom_minimum_size = Vector2(1008, 80)
 		empty.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		_inbox_list.add_child(empty)
 		return
@@ -449,7 +439,7 @@ func _refresh_inbox() -> void:
 			first_line.left(72),
 			"  · gift enclosed" if gift else "",
 		]
-		button.custom_minimum_size = Vector2(930, 54)
+		button.custom_minimum_size = Vector2(1008, 54)
 		button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		button.pressed.connect(_open_letter.bind(str(letter["mail_id"])))
 		UtilityPageStyle.apply_ocean_button(button)

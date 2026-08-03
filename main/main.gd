@@ -88,6 +88,8 @@ const WorldWeatherServiceType = preload("res://world/world_weather_service.gd")
 const NetworkWorldWeatherServiceType = preload(
 	"res://network/network_world_weather_service.gd"
 )
+const PlayerJobServiceType = preload("res://jobs/player_job_service.gd")
+const NetworkJobServiceType = preload("res://network/network_job_service.gd")
 
 const TITLE_MUSIC_SILENCE_DB: float = -80.0
 const PLAYER_MENU_PATTERN_SCALE: float = 0.85
@@ -130,6 +132,8 @@ const SHOP_PATTERN_SCALE: float = 1.75
 @onready var _network_world_weather: NetworkWorldWeatherServiceType = (
 	%NetworkWorldWeatherService
 )
+@onready var _player_jobs: PlayerJobServiceType = %PlayerJobService
+@onready var _network_jobs: NetworkJobServiceType = %NetworkJobService
 @onready var _data_root: PlayerDataRoot = %PlayerDataRoot
 @onready var _identity_backups: IdentityBackupService = %IdentityBackupService
 @onready var _network_profile: NetworkProfilePreferencesType = (
@@ -294,6 +298,16 @@ func _initialize_after_data_root() -> void:
 	)
 	_network_world_time.setup(_network_session, _world_time)
 	_network_world_weather.setup(_network_session, _world_weather)
+	_player_jobs.setup(
+		_player.wallet,
+		_player.experience,
+		_player.collection_log,
+		fish_catalog,
+		_world_time,
+		_world_weather,
+		_network_session,
+	)
+	_network_jobs.setup(_network_session, _player_jobs)
 	_identity_backups.setup(_data_root, _player_identity, _host_identity)
 	_network_profile_service.setup(
 		_network_session,
@@ -359,7 +373,10 @@ func _initialize_after_data_root() -> void:
 		_player.art_unlocks,
 		_player.experience,
 		_world_time,
+		_world_weather,
+		_player_jobs,
 	)
+	_player_jobs.set_save_manager(_save_manager)
 	_save_manager.set_autosave_enabled(false)
 	_asset_reservations.setup(
 		_player.wallet, _player.inventory, _player.bag, item_catalog
@@ -436,6 +453,7 @@ func _initialize_after_data_root() -> void:
 		sale_buyers,
 		_asset_reservations
 	)
+	_player_jobs.bind_authoritative_services(_network_fishing, _network_sale)
 	_network_shop.setup(
 		_network_session,
 		_player_spawn_service,
@@ -500,6 +518,7 @@ func _initialize_after_data_root() -> void:
 		_player.art_unlocks,
 		_world_time,
 		_world_weather,
+		_player_jobs,
 	)
 	_game_ui.setup_data_and_identity(
 		_data_root,
@@ -1017,8 +1036,10 @@ func _set_gameplay_active(active: bool) -> void:
 	_game_ui.set_gameplay_ui_enabled(active)
 	_save_manager.set_autosave_enabled(active)
 	if active:
+		_player_jobs.begin_progression_session()
 		_refresh_active_hotbar_item()
 	else:
+		_player_jobs.end_progression_session()
 		_set_player_menu_backdrop_visible(false)
 		_set_shop_backdrop_visible(false)
 
@@ -1141,7 +1162,10 @@ func _prepare_private_host() -> bool:
 		NetworkSessionType.State.SERVER_LOST,
 	]:
 		_network_session.reset_failure()
-	if not _network_session.start_private_host():
+	if not _network_session.start_private_host(
+		NetworkSessionType.DEFAULT_PORT,
+		NetworkSessionType.DEFAULT_PRIVATE_HOST_PORT_ATTEMPTS,
+	):
 		_game_ui.get_title_screen().report_network_error(
 			"Could not start the private multiplayer session."
 		)

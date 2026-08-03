@@ -23,6 +23,7 @@ const ART_SHOP_CAPABILITY: String = "art_shop_v1"
 const WORLD_TIME_CAPABILITY: String = "world_time_v1"
 const WORLD_WEATHER_CAPABILITY: String = "world_weather_v1"
 const FISH_QUALITY_CAPABILITY: String = "fish_quality_v1"
+const JOBS_CAPABILITY: String = "jobs_v1"
 
 enum RejectionCode {
 	NONE,
@@ -93,6 +94,7 @@ static func make_client_hello(
 			SURFACE_DRAWING_CAPABILITY,
 			WORLD_TIME_CAPABILITY,
 			WORLD_WEATHER_CAPABILITY,
+			JOBS_CAPABILITY,
 		]),
 		"cosmetic_snapshot": cosmetic_snapshot,
 		"identity_fingerprint": identity_fingerprint,
@@ -213,6 +215,7 @@ static func make_server_hello(
 			SURFACE_DRAWING_CAPABILITY,
 			WORLD_TIME_CAPABILITY,
 			WORLD_WEATHER_CAPABILITY,
+			JOBS_CAPABILITY,
 			"chat_v1",
 			"mail_v1",
 			"profile_v1",

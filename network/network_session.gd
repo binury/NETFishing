@@ -2,6 +2,7 @@ class_name NetworkSession
 extends Node
 
 const DEFAULT_PORT: int = 7777
+const DEFAULT_PRIVATE_HOST_PORT_ATTEMPTS: int = 16
 const DEFAULT_SESSION_MAX_PLAYERS: int = 8
 const DEFAULT_TRANSPORT_MAX_CLIENTS: int = 31
 const CONNECTION_TIMEOUT_SECONDS: float = 10.0
@@ -97,6 +98,7 @@ var _local_appearance_snapshot: Dictionary = (
 	CharacterCustomizationCatalog.default_snapshot()
 )
 var _moderation_disconnect_message := ""
+var _host_port: int = 0
 
 
 func _ready() -> void:
@@ -131,7 +133,10 @@ func setup(
 		_profile_ready = _profile_ready and _player_identity.load_or_create()
 
 
-func start_private_host(port: int = DEFAULT_PORT) -> bool:
+func start_private_host(
+	port: int = DEFAULT_PORT,
+	port_attempts: int = 1,
+) -> bool:
 	if (
 		state != State.INACTIVE
 		or not _profile_ready
@@ -143,19 +148,31 @@ func start_private_host(port: int = DEFAULT_PORT) -> bool:
 	if not _host_identity.load_or_create():
 		_fail(_host_identity.error_message)
 		return false
-	if port < 1 or port > 65535:
+	if port < 1 or port > 65535 or port_attempts < 1:
 		_fail("The hosting port must be from 1 to 65535.")
 		return false
 	_operation_generation += 1
 	_set_state(State.STARTING_PRIVATE_HOST, "Starting private game...")
-	_replace_transport()
-	var error: Error = _transport.start_host(
-		port,
-		transport_max_clients,
-	)
-	if error != OK:
-		_fail("Could not start a private game on UDP port %d." % port)
+	var selected_port: int = 0
+	var final_port: int = mini(port + port_attempts - 1, 65535)
+	for candidate_port: int in range(port, final_port + 1):
+		if not _can_bind_udp_port(candidate_port):
+			continue
+		_replace_transport()
+		var error: Error = _transport.start_host(
+			candidate_port,
+			transport_max_clients,
+		)
+		if error == OK:
+			selected_port = candidate_port
+			break
+	if selected_port == 0:
+		_fail(
+			"Could not start a private game on UDP ports %d–%d."
+			% [port, final_port]
+		)
 		return false
+	_host_port = selected_port
 	var peer: MultiplayerPeer = _transport.get_multiplayer_peer()
 	peer.refuse_new_connections = true
 	multiplayer.multiplayer_peer = peer
@@ -173,6 +190,7 @@ func start_private_host(port: int = DEFAULT_PORT) -> bool:
 			NetworkProtocol.SURFACE_DRAWING_CAPABILITY,
 			NetworkProtocol.WORLD_TIME_CAPABILITY,
 			NetworkProtocol.WORLD_WEATHER_CAPABILITY,
+			NetworkProtocol.JOBS_CAPABILITY,
 		]),
 	)
 	_registry.update_appearance(1, _local_appearance_snapshot)
@@ -200,10 +218,21 @@ func start_private_host(port: int = DEFAULT_PORT) -> bool:
 	var host_avatar := _spawn_service.get_avatar(1)
 	if host_avatar != null:
 		host_avatar.apply_appearance_snapshot(_local_appearance_snapshot)
-	_set_state(State.PRIVATE_HOST, "Private game • UDP %d" % port)
+	_set_state(State.PRIVATE_HOST, "Private game • UDP %d" % selected_port)
 	host_openness_changed.emit(false)
 	_emit_peer_count()
 	return true
+
+
+func get_host_port() -> int:
+	return _host_port if is_host() else 0
+
+
+static func _can_bind_udp_port(port: int) -> bool:
+	var probe := PacketPeerUDP.new()
+	var error: Error = probe.bind(port)
+	probe.close()
+	return error == OK
 
 
 func join_direct(endpoint_text: String) -> bool:
@@ -283,10 +312,10 @@ func set_host_open(is_open: bool) -> bool:
 	_set_state(
 		State.OPEN_HOST if is_open else State.PRIVATE_HOST,
 		(
-			"Open game • %d / %d players"
+			"Open game • UDP %d • %d / %d players"
 			if is_open
-			else "Private game • %d / %d players"
-		) % [_registry.size(), session_max_players]
+			else "Private game • UDP %d • %d / %d players"
+		) % [_host_port, _registry.size(), session_max_players]
 	)
 	host_openness_changed.emit(is_open)
 	return true
@@ -1729,3 +1758,4 @@ func _teardown_peer() -> void:
 	_server_identity_fingerprint = ""
 	_server_identity_public_key = ""
 	_session_identity_keys.clear()
+	_host_port = 0

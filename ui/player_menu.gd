@@ -27,6 +27,9 @@ const PlayerHotbarType = preload("res://inventory/player_hotbar.gd")
 const PlayerCoolerCapacityType = preload(
 	"res://progression/player_cooler_capacity.gd"
 )
+const PlayerExperienceType = preload(
+	"res://progression/player_experience.gd"
+)
 const FishBatchSelectionType = preload(
 	"res://ui/fish_batch_selection.gd"
 )
@@ -87,6 +90,7 @@ enum Section {
 	BAG,
 	TACKLE_BOX,
 	LOGBOOK,
+	NET,
 	MAIL,
 	PROFILE,
 	PLAYERS,
@@ -197,6 +201,7 @@ const SALE_CONFIRMATION_SIZE := Vector2(520.0, 190.0)
 @onready var _bag_sprite_detail_data: Label = %BagSpriteDetailData
 @onready var _logbook_page: Control = %LogbookPage
 @onready var _catalog_logbook: LogbookPage = %CatalogLogbook
+@onready var _the_net_page: TheNetPage = %TheNetPage
 @onready var _mail_page: MailPage = %MailPage
 @onready var _profile_page: ProfilePage = %ProfilePage
 @onready var _players_page: PlayersPage = %PlayersPage
@@ -215,6 +220,7 @@ const SALE_CONFIRMATION_SIZE := Vector2(520.0, 190.0)
 @onready var _logbook_page_status: BubbleStatusBubbleType = %LogbookPageStatus
 @onready var _inventory_tab: BubbleButtonType = %InventoryTab
 @onready var _logbook_tab: BubbleButtonType = %LogbookTab
+@onready var _the_net_tab: BubbleButtonType = %TheNetTab
 @onready var _mail_tab: BubbleButtonType = %MailTab
 @onready var _profile_tab: BubbleButtonType = %ProfileTab
 @onready var _players_tab: BubbleButtonType = %PlayersTab
@@ -319,6 +325,7 @@ var _cooler_rest_position: Vector2 = Vector2.ZERO
 var _bag_rest_position: Vector2 = Vector2.ZERO
 var _tackle_rest_position: Vector2 = Vector2.ZERO
 var _logbook_rest_position: Vector2 = Vector2.ZERO
+var _the_net_rest_position: Vector2 = Vector2.ZERO
 var _mail_rest_position: Vector2 = Vector2.ZERO
 var _profile_rest_position: Vector2 = Vector2.ZERO
 var _page_outgoing_root: Control
@@ -360,6 +367,7 @@ func _ready() -> void:
 	_logbook_tab.pressed.connect(
 		_show_section.bind(Section.LOGBOOK)
 	)
+	_the_net_tab.pressed.connect(_show_section.bind(Section.NET))
 	_mail_tab.pressed.connect(_show_section.bind(Section.MAIL))
 	_profile_tab.pressed.connect(_show_section.bind(Section.PROFILE))
 	_players_tab.pressed.connect(_show_section.bind(Section.PLAYERS))
@@ -387,6 +395,7 @@ func _ready() -> void:
 	_navigation_cluster.configure([
 		_inventory_tab,
 		_logbook_tab,
+		_the_net_tab,
 		_mail_tab,
 		_profile_tab,
 		_players_tab,
@@ -477,6 +486,7 @@ func setup(
 	player: PlayerType,
 	inventory: FishInventoryType,
 	collection_log: CollectionLogType,
+	experience: PlayerExperienceType,
 	wallet: PlayerWalletType,
 	sale_service: FishSaleServiceType,
 	default_buyer: FishBuyerProfileType,
@@ -492,6 +502,8 @@ func setup(
 	reservations: PlayerAssetReservationService,
 	network_profile_service: NetworkProfileService,
 	network_player_list: NetworkPlayerListService,
+	player_jobs: PlayerJobService,
+	world_time: WorldTimeService,
 ) -> void:
 	_player = player
 	_inventory = inventory
@@ -514,9 +526,10 @@ func setup(
 	_mail_page.setup(
 		network_mail_service, reservations, inventory, wallet, bag, item_catalog
 	)
-	_profile_page.setup(network_profile_service)
+	_profile_page.setup(network_profile_service, experience)
 	_players_page.setup(network_player_list)
 	_catalog_logbook.setup(collection_log, inventory, catalog)
+	_the_net_page.setup(player_jobs, world_time)
 	_network_mail_service.unread_count_changed.connect(
 		_on_mail_unread_count_changed
 	)
@@ -898,6 +911,7 @@ func _show_section_immediate(section: Section) -> void:
 	_tackle_box_page.visible = section == Section.TACKLE_BOX
 	_inventory_sub_tabs.visible = _is_inventory_section(section)
 	_logbook_page.visible = section == Section.LOGBOOK
+	_the_net_page.visible = section == Section.NET
 	_mail_page.visible = section == Section.MAIL
 	_profile_page.visible = section == Section.PROFILE
 	_players_page.visible = section == Section.PLAYERS
@@ -922,6 +936,10 @@ func _show_section_immediate(section: Section) -> void:
 		_catalog_logbook.deactivate()
 	else:
 		_catalog_logbook.activate()
+	if section == Section.NET:
+		_the_net_page.activate()
+	else:
+		_the_net_page.deactivate()
 	if section == Section.MAIL:
 		_mail_page.activate()
 	else:
@@ -940,6 +958,7 @@ func _show_section_immediate(section: Section) -> void:
 	_tackle_sub_tab.set_selected(section == Section.TACKLE_BOX)
 	_refresh_inventory_organizer_tabs()
 	_logbook_tab.button_pressed = section == Section.LOGBOOK
+	_the_net_tab.button_pressed = section == Section.NET
 	_mail_tab.button_pressed = section == Section.MAIL
 	_profile_tab.button_pressed = section == Section.PROFILE
 	_players_tab.button_pressed = section == Section.PLAYERS
@@ -1000,6 +1019,8 @@ func _focus_current_section() -> void:
 		_tackle_sub_tab.grab_focus()
 	elif _current_section == Section.LOGBOOK:
 		_catalog_logbook.focus_initial()
+	elif _current_section == Section.NET:
+		_the_net_page.focus_initial()
 	elif _current_section == Section.MAIL:
 		_mail_tab.grab_focus()
 	elif _current_section == Section.PLAYERS:
@@ -1032,6 +1053,7 @@ func _configure_navigation_focus() -> void:
 	var navigation: Array[BubbleButtonType] = [
 		_inventory_tab,
 		_logbook_tab,
+		_the_net_tab,
 		_mail_tab,
 		_profile_tab,
 		_players_tab,
@@ -1122,6 +1144,8 @@ func _configure_active_page_focus() -> void:
 			_bait_filter.grab_focus()
 		Section.LOGBOOK:
 			_catalog_logbook.focus_initial()
+		Section.NET:
+			_the_net_page.focus_initial()
 		Section.MAIL:
 			_mail_page.activate()
 		Section.PROFILE:
@@ -1349,6 +1373,7 @@ func _apply_navigation_styles() -> void:
 	for bubble: BubbleButtonType in [
 		_inventory_tab,
 		_logbook_tab,
+		_the_net_tab,
 		_mail_tab,
 		_profile_tab,
 		_players_tab,
@@ -1380,6 +1405,7 @@ func _apply_navigation_selection_presentation() -> void:
 	for bubble: BubbleButtonType in [
 		_inventory_tab,
 		_logbook_tab,
+		_the_net_tab,
 		_mail_tab,
 		_profile_tab,
 		_players_tab,
@@ -1465,6 +1491,7 @@ func _on_mail_unread_count_changed(count: int) -> void:
 func _set_navigation_target(section: Section) -> void:
 	_inventory_tab.button_pressed = _is_inventory_section(section)
 	_logbook_tab.button_pressed = section == Section.LOGBOOK
+	_the_net_tab.button_pressed = section == Section.NET
 	_mail_tab.button_pressed = section == Section.MAIL
 	_profile_tab.button_pressed = section == Section.PROFILE
 	_players_tab.button_pressed = section == Section.PLAYERS
@@ -1643,14 +1670,18 @@ func _update_shell_layout() -> void:
 	_logbook_page.size = reference_size
 	_logbook_page.position = Vector2.ZERO
 	_logbook_rest_position = Vector2.ZERO
+	_the_net_page.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	_the_net_page.size = reference_size
+	_the_net_page.position = Vector2.ZERO
+	_the_net_rest_position = Vector2.ZERO
 	_mail_page.set_anchors_preset(Control.PRESET_TOP_LEFT)
 	_mail_page.size = reference_size
 	_mail_page.position = Vector2.ZERO
 	_mail_rest_position = Vector2.ZERO
 	_profile_page.set_anchors_preset(Control.PRESET_TOP_LEFT)
-	_profile_page.position = Vector2(42.0, 104.0)
-	_profile_page.size = Vector2(1196.0, 608.0)
-	_profile_rest_position = _profile_page.position
+	_profile_page.position = Vector2.ZERO
+	_profile_page.size = reference_size
+	_profile_rest_position = Vector2.ZERO
 	_players_page.set_anchors_preset(Control.PRESET_TOP_LEFT)
 	_players_page.position = Vector2.ZERO
 	_players_page.size = reference_size
@@ -1673,6 +1704,7 @@ func _update_shell_layout() -> void:
 		_bag_page.position = _bag_rest_position
 		_tackle_box_page.position = _tackle_rest_position
 		_logbook_page.position = _logbook_rest_position
+		_the_net_page.position = _the_net_rest_position
 		_mail_page.position = _mail_rest_position
 		_profile_page.position = _profile_rest_position
 		_players_page.position = Vector2.ZERO
@@ -1680,6 +1712,7 @@ func _update_shell_layout() -> void:
 		_bag_page.modulate.a = 1.0
 		_tackle_box_page.modulate.a = 1.0
 		_logbook_page.modulate.a = 1.0
+		_the_net_page.modulate.a = 1.0
 		_mail_page.modulate.a = 1.0
 		_profile_page.modulate.a = 1.0
 		_players_page.modulate.a = 1.0
@@ -1805,6 +1838,8 @@ func _begin_menu_exit(reason: CloseReason, restore_controls: bool) -> void:
 	_settle_inventory_tabs_for_close()
 	if _current_section == Section.LOGBOOK:
 		_catalog_logbook.deactivate()
+	elif _current_section == Section.NET:
+		_the_net_page.deactivate()
 	get_viewport().gui_release_focus()
 	var generation: int = _transition_generation
 	var closing_generation: int = _menu_generation
@@ -1851,6 +1886,7 @@ func _finish_close(
 	_cancel_presentation_tween()
 	_cancel_page_tween()
 	_cancel_logbook_page_transition(true)
+	_the_net_page.deactivate()
 	_transitioning = false
 	_page_transitioning = false
 	_bag_drag_active = false
@@ -1882,6 +1918,8 @@ func _get_section_root(section: Section) -> Control:
 			return _tackle_box_page
 		Section.LOGBOOK:
 			return _logbook_page
+		Section.NET:
+			return _the_net_page
 		Section.MAIL:
 			return _mail_page
 		Section.PROFILE:
@@ -1900,6 +1938,8 @@ func _get_section_rest_position(section: Section) -> Vector2:
 			return _tackle_rest_position
 		Section.LOGBOOK:
 			return _logbook_rest_position
+		Section.NET:
+			return _the_net_rest_position
 		Section.MAIL:
 			return _mail_rest_position
 		Section.PROFILE:
@@ -2002,6 +2042,7 @@ func _set_shell_interactive(interactive: bool) -> void:
 	for bubble: BubbleButtonType in [
 		_inventory_tab,
 		_logbook_tab,
+		_the_net_tab,
 		_mail_tab,
 		_profile_tab,
 		_players_tab,
@@ -2057,6 +2098,9 @@ func _set_content_interactive(interactive: bool) -> void:
 	)
 	_catalog_logbook.set_interactive(
 		interactive and _current_section == Section.LOGBOOK
+	)
+	_the_net_page.set_interactive(
+		interactive and _current_section == Section.NET
 	)
 	_mail_page.set_interactive(
 		interactive and _current_section == Section.MAIL
@@ -2133,6 +2177,7 @@ func _reset_page_transition_visuals() -> void:
 		Section.BAG,
 		Section.TACKLE_BOX,
 		Section.LOGBOOK,
+		Section.NET,
 		Section.MAIL,
 		Section.PROFILE,
 		Section.PLAYERS,

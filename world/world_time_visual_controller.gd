@@ -5,6 +5,10 @@ const UPDATE_INTERVAL_SECONDS: float = 0.1
 const SUN_YAW_DEGREES: float = -32.0
 const WEATHER_TRANSITION_SECONDS: float = 10.0
 const RAIN_EMITTER_OFFSET := Vector3(0.0, 7.0, 0.0)
+const RAIN_PARTICLE_AMOUNT: int = 560
+const RAIN_VELOCITY_MIN: float = 16.0
+const RAIN_VELOCITY_MAX: float = 20.0
+const RAIN_DROP_SIZE := Vector3(0.014, 0.34, 0.014)
 
 const DAY_SKY_TOP := Color(0.204, 0.498, 0.643)
 const DAY_SKY_HORIZON := Color(0.663, 0.843, 0.847)
@@ -145,7 +149,7 @@ func _prepare_runtime_environment() -> bool:
 func _prepare_rain() -> void:
 	_rain = GPUParticles3D.new()
 	_rain.name = "LocalRain"
-	_rain.amount = 480
+	_rain.amount = RAIN_PARTICLE_AMOUNT
 	_rain.amount_ratio = 0.0
 	_rain.lifetime = 1.25
 	_rain.fixed_fps = 30
@@ -160,12 +164,12 @@ func _prepare_rain() -> void:
 	process_material.emission_box_extents = Vector3(6.5, 1.0, 6.5)
 	process_material.direction = Vector3.DOWN
 	process_material.spread = 5.0
-	process_material.initial_velocity_min = 11.0
-	process_material.initial_velocity_max = 15.0
+	process_material.initial_velocity_min = RAIN_VELOCITY_MIN
+	process_material.initial_velocity_max = RAIN_VELOCITY_MAX
 	process_material.gravity = Vector3(0.0, -2.0, 0.0)
 	_rain.process_material = process_material
 	var drop_mesh := BoxMesh.new()
-	drop_mesh.size = Vector3(0.018, 0.42, 0.018)
+	drop_mesh.size = RAIN_DROP_SIZE
 	var drop_material := StandardMaterial3D.new()
 	drop_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	drop_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED

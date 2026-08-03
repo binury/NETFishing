@@ -80,7 +80,18 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 
-[node name="ExperienceProgressPanel" type="PanelContainer" parent="UIRoot/CanonicalStage/GameplayTransientHUD"]
+[node name="ExperiencePresentation" type="Control" parent="UIRoot/CanonicalStage"]
+unique_name_in_owner = true
+z_index = 200
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="ExperienceProgressPanel" type="PanelContainer" parent="UIRoot/CanonicalStage/ExperiencePresentation"]
 unique_name_in_owner = true
 visible = false
 z_index = 63
@@ -96,40 +107,40 @@ mouse_filter = 2
 theme = ExtResource("3_theme")
 theme_override_styles/panel = SubResource("StyleBox_experience_panel")
 
-[node name="Margin" type="MarginContainer" parent="UIRoot/CanonicalStage/GameplayTransientHUD/ExperienceProgressPanel"]
+[node name="Margin" type="MarginContainer" parent="UIRoot/CanonicalStage/ExperiencePresentation/ExperienceProgressPanel"]
 layout_mode = 2
 theme_override_constants/margin_left = 14
 theme_override_constants/margin_top = 7
 theme_override_constants/margin_right = 14
 theme_override_constants/margin_bottom = 9
 
-[node name="Layout" type="VBoxContainer" parent="UIRoot/CanonicalStage/GameplayTransientHUD/ExperienceProgressPanel/Margin"]
+[node name="Layout" type="VBoxContainer" parent="UIRoot/CanonicalStage/ExperiencePresentation/ExperienceProgressPanel/Margin"]
 layout_mode = 2
 theme_override_constants/separation = 4
 
-[node name="Header" type="HBoxContainer" parent="UIRoot/CanonicalStage/GameplayTransientHUD/ExperienceProgressPanel/Margin/Layout"]
+[node name="Header" type="HBoxContainer" parent="UIRoot/CanonicalStage/ExperiencePresentation/ExperienceProgressPanel/Margin/Layout"]
 layout_mode = 2
 
-[node name="ExperienceLevelLabel" type="Label" parent="UIRoot/CanonicalStage/GameplayTransientHUD/ExperienceProgressPanel/Margin/Layout/Header"]
+[node name="ExperienceLevelLabel" type="Label" parent="UIRoot/CanonicalStage/ExperiencePresentation/ExperienceProgressPanel/Margin/Layout/Header"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "level 1"
 theme_override_colors/font_color = Color(0.95, 0.98, 1, 1)
 theme_override_font_sizes/font_size = 16
 
-[node name="Spacer" type="Control" parent="UIRoot/CanonicalStage/GameplayTransientHUD/ExperienceProgressPanel/Margin/Layout/Header"]
+[node name="Spacer" type="Control" parent="UIRoot/CanonicalStage/ExperiencePresentation/ExperienceProgressPanel/Margin/Layout/Header"]
 layout_mode = 2
 size_flags_horizontal = 3
 mouse_filter = 2
 
-[node name="ExperienceAwardLabel" type="Label" parent="UIRoot/CanonicalStage/GameplayTransientHUD/ExperienceProgressPanel/Margin/Layout/Header"]
+[node name="ExperienceAwardLabel" type="Label" parent="UIRoot/CanonicalStage/ExperiencePresentation/ExperienceProgressPanel/Margin/Layout/Header"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "+0 xp"
 theme_override_colors/font_color = Color(1, 0.82, 0.4, 1)
 theme_override_font_sizes/font_size = 16
 
-[node name="ExperienceProgress" type="ProgressBar" parent="UIRoot/CanonicalStage/GameplayTransientHUD/ExperienceProgressPanel/Margin/Layout"]
+[node name="ExperienceProgress" type="ProgressBar" parent="UIRoot/CanonicalStage/ExperiencePresentation/ExperienceProgressPanel/Margin/Layout"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 20)
 layout_mode = 2
@@ -139,7 +150,7 @@ theme_override_styles/fill = SubResource("StyleBox_experience_fill")
 value = 0.0
 show_percentage = false
 
-[node name="ExperienceBubble" type="PanelContainer" parent="UIRoot/CanonicalStage/GameplayTransientHUD"]
+[node name="ExperienceBubble" type="PanelContainer" parent="UIRoot/CanonicalStage/ExperiencePresentation"]
 unique_name_in_owner = true
 visible = false
 z_index = 63
@@ -149,14 +160,14 @@ mouse_filter = 2
 theme = ExtResource("3_theme")
 theme_override_styles/panel = SubResource("StyleBox_experience_panel")
 
-[node name="Margin" type="MarginContainer" parent="UIRoot/CanonicalStage/GameplayTransientHUD/ExperienceBubble"]
+[node name="Margin" type="MarginContainer" parent="UIRoot/CanonicalStage/ExperiencePresentation/ExperienceBubble"]
 layout_mode = 2
 theme_override_constants/margin_left = 10
 theme_override_constants/margin_top = 5
 theme_override_constants/margin_right = 10
 theme_override_constants/margin_bottom = 5
 
-[node name="ExperienceBubbleLabel" type="Label" parent="UIRoot/CanonicalStage/GameplayTransientHUD/ExperienceBubble/Margin"]
+[node name="ExperienceBubbleLabel" type="Label" parent="UIRoot/CanonicalStage/ExperiencePresentation/ExperienceBubble/Margin"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "+0 xp!"
