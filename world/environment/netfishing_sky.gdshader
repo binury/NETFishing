@@ -4,6 +4,7 @@ uniform vec4 sky_top_color : source_color = vec4(0.204, 0.498, 0.643, 1.0);
 uniform vec4 sky_horizon_color : source_color = vec4(0.663, 0.843, 0.847, 1.0);
 uniform vec4 ground_bottom_color : source_color = vec4(0.157, 0.361, 0.439, 1.0);
 uniform vec4 ground_horizon_color : source_color = vec4(0.549, 0.749, 0.765, 1.0);
+uniform float horizon_blend_width : hint_range(0.005, 0.15, 0.005) = 0.01;
 
 uniform vec3 sun_direction = vec3(0.0, 1.0, 0.0);
 uniform vec4 sun_color : source_color = vec4(1.0, 0.86, 0.46, 1.0);
@@ -39,7 +40,11 @@ void sky() {
 	vec3 base_color = mix(
 		ground_color,
 		sky_color,
-		smoothstep(-0.01, 0.01, view_direction.y)
+		smoothstep(
+			-horizon_blend_width,
+			horizon_blend_width,
+			view_direction.y
+		)
 	);
 
 	float alignment = dot(view_direction, normalize(sun_direction));

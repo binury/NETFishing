@@ -35,6 +35,10 @@ uniform float open_water_drift_strength : hint_range(0.0, 0.08, 0.001) = 0.045;
 
 uniform float distant_alpha_start : hint_range(10.0, 2000.0, 1.0) = 260.0;
 uniform float distant_alpha_end : hint_range(20.0, 5000.0, 1.0) = 1400.0;
+uniform vec4 distant_fog_color : source_color = vec4(0.549, 0.749, 0.765, 1.0);
+uniform float distant_fog_begin : hint_range(0.0, 2000.0, 1.0) = 42.0;
+uniform float distant_fog_end : hint_range(1.0, 5000.0, 1.0) = 170.0;
+uniform float distant_fog_strength : hint_range(0.0, 1.0, 0.01) = 0.18;
 
 varying vec3 world_position;
 varying float surface_view_depth;
@@ -232,6 +236,15 @@ void fragment() {
 	);
 	water_color = mix(water_color, deep_color.rgb, distant_mix * 0.72);
 	water_alpha = mix(water_alpha, 0.96, distant_mix);
+
+	float fog_distance_mix = smoothstep(
+		distant_fog_begin,
+		max(distant_fog_end, distant_fog_begin + 1.0),
+		surface_view_depth
+	);
+	float water_fog_mix = fog_distance_mix * distant_fog_strength;
+	water_color = mix(water_color, distant_fog_color.rgb, water_fog_mix);
+	water_alpha = mix(water_alpha, 0.96, water_fog_mix);
 
 	ALBEDO = water_color;
 	ALPHA = clamp(water_alpha, 0.1, 0.96);

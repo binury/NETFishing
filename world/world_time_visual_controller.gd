@@ -9,6 +9,9 @@ const RAIN_PARTICLE_AMOUNT: int = 560
 const RAIN_VELOCITY_MIN: float = 16.0
 const RAIN_VELOCITY_MAX: float = 20.0
 const RAIN_DROP_SIZE := Vector3(0.014, 0.34, 0.014)
+const SALT_WATER_MATERIAL: ShaderMaterial = preload(
+	"res://world/materials/stylized_water.tres"
+)
 
 const DAY_SKY_TOP := Color(0.204, 0.498, 0.643)
 const DAY_SKY_HORIZON := Color(0.663, 0.843, 0.847)
@@ -232,7 +235,14 @@ func _apply_time(time_hours: float) -> void:
 	)
 	_sky_material.set_shader_parameter(
 		"ground_horizon_color",
-		ground_horizon.lerp(weather_tint, tint_strength * 0.76),
+		ground_horizon.lerp(
+			weather_tint,
+			tint_strength * _weather_value(0.76, 0.82, 0.90, 1.0),
+		),
+	)
+	_sky_material.set_shader_parameter(
+		"horizon_blend_width",
+		_weather_value(0.01, 0.025, 0.035, 0.08),
 	)
 	_environment.background_energy_multiplier = (
 		lerpf(0.52, 0.85, daylight)
@@ -267,6 +277,7 @@ func _apply_time(time_hours: float) -> void:
 	_environment.fog_depth_end = _weather_value(
 		170.0, 140.0, 95.0, 42.0
 	)
+	_apply_water_haze(weather_tint)
 	_environment.adjustment_brightness = (
 		lerpf(0.93, 0.98, daylight)
 		* _weather_value(1.0, 0.97, 0.92, 0.96)
@@ -306,6 +317,27 @@ func _apply_time(time_hours: float) -> void:
 		* _weather_value(1.0, 0.55, 0.25, 0.35)
 	)
 	_update_rain_amount()
+
+
+func _apply_water_haze(weather_tint: Color) -> void:
+	if SALT_WATER_MATERIAL == null:
+		return
+	SALT_WATER_MATERIAL.set_shader_parameter(
+		"distant_fog_color",
+		_environment.fog_light_color.lerp(weather_tint, 0.18),
+	)
+	SALT_WATER_MATERIAL.set_shader_parameter(
+		"distant_fog_begin",
+		_environment.fog_depth_begin,
+	)
+	SALT_WATER_MATERIAL.set_shader_parameter(
+		"distant_fog_end",
+		_environment.fog_depth_end,
+	)
+	SALT_WATER_MATERIAL.set_shader_parameter(
+		"distant_fog_strength",
+		_weather_value(0.18, 0.34, 0.52, 0.74),
+	)
 
 
 func _on_weather_changed(
