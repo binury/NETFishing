@@ -122,6 +122,9 @@ const NETWORK_INPUT_RESEND_INTERVAL_SECONDS: float = 0.1
 
 @onready var _catch_controller: CatchControllerType = %CatchController
 @onready var _presentation: FishingPresentationType = %FishingPresentation
+@onready var _bobber_audio: AudioStreamPlayer = %BobberAudio
+@onready var _fight_audio: AudioStreamPlayer = %FightAudio
+@onready var _reeling_audio: AudioStreamPlayer = %ReelingAudio
 
 var state: FishingState = FishingState.READY
 var _external_input_blocked: bool = false
@@ -177,6 +180,12 @@ var _pending_cleanup_message: String = ""
 func _ready() -> void:
 	_bite_rng.randomize()
 	_configure_surface_resolver()
+	var fight_stream := _fight_audio.stream as AudioStreamWAV
+	if fight_stream != null:
+		_configure_audio_loop(fight_stream)
+	var reeling_stream := _reeling_audio.stream as AudioStreamWAV
+	if reeling_stream != null:
+		_configure_audio_loop(reeling_stream)
 	_catch_controller.encounter_updated.connect(_on_catch_encounter_updated)
 	_catch_controller.caught.connect(_on_catch_completed)
 	_catch_controller.escaped.connect(_on_catch_escaped)
@@ -223,6 +232,15 @@ func setup(
 	_network_fishing = network_fishing
 	_world_time = world_time
 	_world_weather = world_weather
+	if (
+		_network_session != null
+		and not _network_session.state_changed.is_connected(
+			_on_network_session_state_changed
+		)
+	):
+		_network_session.state_changed.connect(
+			_on_network_session_state_changed
+		)
 	if _network_fishing != null:
 		_network_fishing.local_cast_accepted.connect(
 			_on_network_cast_accepted
@@ -348,6 +366,7 @@ func set_local_menu_input_suppressed(
 		_local_menu_input_owners.erase(owner)
 	if suppressed and state == FishingState.WAITING_FOR_BITE:
 		_withdrawal_input_held = false
+		_stop_reeling_audio()
 		_presentation.set_line_mode(
 			FishingPresentationType.LineMode.SLACK
 		)
@@ -357,6 +376,7 @@ func set_gameplay_input_enabled(enabled: bool) -> void:
 	_gameplay_input_enabled = enabled
 	if not enabled:
 		_local_menu_input_owners.clear()
+		_stop_reeling_audio()
 
 
 func configure_accessibility_auto_click(
@@ -400,6 +420,8 @@ func _secure_showcase_catch_for_recovery() -> void:
 
 
 func _exit_tree() -> void:
+	_stop_fight_audio()
+	_stop_reeling_audio()
 	_showcase_restore_generation += 1
 	if (
 		state == FishingState.SHOWING_CATCH
@@ -531,6 +553,7 @@ func _unhandled_input(event: InputEvent) -> void:
 					return
 			FishingState.WAITING_FOR_BITE:
 				_withdrawal_input_held = true
+				_start_reeling_audio()
 				if _network_fishing != null:
 					_network_primary_input_held = true
 					_network_input_resend_elapsed = 0.0
@@ -546,6 +569,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 	elif state == FishingState.WAITING_FOR_BITE:
 		_withdrawal_input_held = false
+		_stop_reeling_audio()
 		if _network_fishing != null:
 			_network_primary_input_held = false
 			_network_input_resend_elapsed = 0.0
@@ -731,6 +755,7 @@ func _on_cast_completed() -> void:
 	if not _is_cast_target_valid(_cast_target):
 		_cleanup_attempt("", &"invalid")
 		return
+	_play_bobber_audio()
 	if _network_fishing != null:
 		_network_fishing.request_local_cast(
 			_cast_origin_position,
@@ -816,6 +841,7 @@ func _update_waiting_for_bite(delta: float) -> void:
 		and not Input.is_action_pressed("fish_primary")
 	):
 		_withdrawal_input_held = false
+		_stop_reeling_audio()
 		_presentation.set_line_mode(FishingPresentationType.LineMode.SLACK)
 
 	if not _withdrawal_input_held:
@@ -908,6 +934,7 @@ func _activate_bite() -> void:
 	if state != FishingState.WAITING_FOR_BITE:
 		return
 
+	_stop_reeling_audio()
 	if (
 		_active_player == null
 		or _selected_fish == null
@@ -923,6 +950,7 @@ func _activate_bite() -> void:
 	if _pending_catch == null or not _pending_catch.is_valid():
 		_cancel_attempt()
 		return
+	_start_fight_audio()
 	bite_activated.emit()
 	status_changed.emit("fish on!")
 	_presentation.set_line_mode(FishingPresentationType.LineMode.TAUT)
@@ -1001,6 +1029,7 @@ func _on_catch_completed() -> void:
 	if _pending_catch == null or not _pending_catch.is_valid():
 		_cancel_attempt()
 		return
+	_stop_fight_audio()
 	state = FishingState.SHOWING_CATCH
 	_showcase_ready = false
 	_showcase_outcome_completed = false
@@ -1014,6 +1043,7 @@ func _on_catch_escaped() -> void:
 	if state != FishingState.FIGHTING:
 		return
 
+	_stop_fight_audio()
 	var fish_name: String = "the fish"
 	if _selected_fish != null and not _selected_fish.display_name.is_empty():
 		fish_name = "the %s" % _selected_fish.display_name
@@ -1120,6 +1150,8 @@ func _cleanup_attempt(
 	cooldown_message: String = "",
 	visual_outcome: StringName = &"",
 ) -> void:
+	_stop_fight_audio()
+	_stop_reeling_audio()
 	if not visual_outcome.is_empty():
 		if state == FishingState.RETURNING:
 			return
@@ -1422,12 +1454,14 @@ func _on_network_cast_rejected(message: String) -> void:
 func _on_network_bite_started(_attempt_id: String) -> void:
 	if state != FishingState.WAITING_FOR_BITE:
 		return
+	_stop_reeling_audio()
 	state = FishingState.FIGHTING
 	_withdrawal_input_held = false
 	_network_primary_input_held = Input.is_action_pressed("fish_primary")
 	_network_input_resend_elapsed = 0.0
 	_network_auto_click_accumulator = 0.0
 	_network_active_barrier_index = -1
+	_start_fight_audio()
 	bite_activated.emit()
 	status_changed.emit("fish on!")
 	_presentation.set_line_mode(FishingPresentationType.LineMode.TAUT)
@@ -1510,6 +1544,7 @@ func _update_network_auto_click(delta: float) -> void:
 func _on_network_catch_received(fish_catch: FishCatchType) -> void:
 	if state != FishingState.FIGHTING or fish_catch == null:
 		return
+	_stop_fight_audio()
 	_pending_catch = fish_catch
 	state = FishingState.SHOWING_CATCH
 	_showcase_ready = false
@@ -1539,6 +1574,57 @@ func _on_network_attempt_ended(
 	elif outcome == &"withdrawal":
 		visual_outcome = &"withdrawal"
 	_cleanup_attempt(message, visual_outcome)
+
+
+func _on_network_session_state_changed(state_value: NetworkSession.State) -> void:
+	if state_value in [
+		NetworkSession.State.INACTIVE,
+		NetworkSession.State.DISCONNECTING,
+		NetworkSession.State.CONNECTION_FAILED,
+		NetworkSession.State.SERVER_LOST,
+	]:
+		_stop_fight_audio()
+		_stop_reeling_audio()
+
+
+func _start_fight_audio() -> void:
+	if _fight_audio == null or _fight_audio.stream == null:
+		return
+	if not _fight_audio.playing:
+		_fight_audio.play()
+
+
+func _play_bobber_audio() -> void:
+	if _bobber_audio == null or _bobber_audio.stream == null:
+		return
+	_bobber_audio.play()
+
+
+func _stop_fight_audio() -> void:
+	if _fight_audio != null and _fight_audio.playing:
+		_fight_audio.stop()
+
+
+func _configure_audio_loop(stream: AudioStreamWAV) -> void:
+	stream.loop_mode = AudioStreamWAV.LOOP_FORWARD
+	if stream.loop_end <= stream.loop_begin:
+		stream.loop_begin = 0
+		stream.loop_end = maxi(
+			1,
+			roundi(stream.get_length() * float(stream.mix_rate)),
+		)
+
+
+func _start_reeling_audio() -> void:
+	if _reeling_audio == null or _reeling_audio.stream == null:
+		return
+	if not _reeling_audio.playing:
+		_reeling_audio.play()
+
+
+func _stop_reeling_audio() -> void:
+	if _reeling_audio != null and _reeling_audio.playing:
+		_reeling_audio.stop()
 
 
 func resolve_safe_withdrawal_surface(

@@ -201,9 +201,15 @@ var _application_initialized := false
 var _pending_existing_root_path := ""
 var _local_recovery_attempt_id: String = ""
 
+@onready var _shoreline_ambience: ShorelineAmbience = %ShorelineAmbience
+
 
 func _ready() -> void:
 	DisplayServer.window_set_title("NETfishing")
+	_shoreline_ambience.configure(
+		_player,
+		_test_world.get_saltwater_shoreline_mesh(),
+	)
 	var menu_pattern_material := (
 		_player_menu_backdrop.material as ShaderMaterial
 	)
@@ -1026,6 +1032,7 @@ func _reset_pixelation() -> void:
 
 func _set_gameplay_active(active: bool) -> void:
 	_gameplay_started = active
+	_shoreline_ambience.set_active(active)
 	_title_background.visible = not active
 	_world_pixelation.set_gameplay_active(active)
 	_ui_pixelation.set_gameplay_active(active)

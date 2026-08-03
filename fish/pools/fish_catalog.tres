@@ -1,4 +1,4 @@
-[gd_resource type="Resource" load_steps=10 format=3]
+[gd_resource type="Resource" load_steps=21 format=3]
 
 [ext_resource type="Script" path="res://fish/fish_pool.gd" id="1_pool"]
 [ext_resource type="Resource" path="res://fish/species/bluegill/bluegill.tres" id="2_bluegill"]
@@ -9,7 +9,18 @@
 [ext_resource type="Resource" path="res://fish/species/catfish_channel/catfish_channel.tres" id="7_catfish_channel"]
 [ext_resource type="Resource" path="res://fish/species/catfish_flathead/catfish_flathead.tres" id="8_catfish_flathead"]
 [ext_resource type="Resource" path="res://fish/species/catfish_white/catfish_white.tres" id="9_catfish_white"]
+[ext_resource type="Resource" path="res://fish/species/tuna_albacore/tuna_albacore.tres" id="10_tuna_albacore"]
+[ext_resource type="Resource" path="res://fish/species/tuna_bigeye/tuna_bigeye.tres" id="11_tuna_bigeye"]
+[ext_resource type="Resource" path="res://fish/species/tuna_bluefin/tuna_bluefin.tres" id="12_tuna_bluefin"]
+[ext_resource type="Resource" path="res://fish/species/tuna_skipjack/tuna_skipjack.tres" id="13_tuna_skipjack"]
+[ext_resource type="Resource" path="res://fish/species/tuna_yellowfin/tuna_yellowfin.tres" id="14_tuna_yellowfin"]
+[ext_resource type="Resource" path="res://fish/species/goby_round/goby_round.tres" id="15_goby_round"]
+[ext_resource type="Resource" path="res://fish/species/salmon_atlantic/salmon_atlantic.tres" id="16_salmon_atlantic"]
+[ext_resource type="Resource" path="res://fish/species/salmon_chum/salmon_chum.tres" id="17_salmon_chum"]
+[ext_resource type="Resource" path="res://fish/species/salmon_coho/salmon_coho.tres" id="18_salmon_coho"]
+[ext_resource type="Resource" path="res://fish/species/salmon_pink/salmon_pink.tres" id="19_salmon_pink"]
+[ext_resource type="Resource" path="res://fish/species/salmon_sockeye/salmon_sockeye.tres" id="20_salmon_sockeye"]
 
 [resource]
 script = ExtResource("1_pool")
-candidates = [ExtResource("2_bluegill"), ExtResource("3_bass"), ExtResource("4_carp"), ExtResource("5_sunfish"), ExtResource("6_catfish_blue"), ExtResource("7_catfish_channel"), ExtResource("8_catfish_flathead"), ExtResource("9_catfish_white")]
+candidates = [ExtResource("2_bluegill"), ExtResource("3_bass"), ExtResource("4_carp"), ExtResource("5_sunfish"), ExtResource("6_catfish_blue"), ExtResource("7_catfish_channel"), ExtResource("8_catfish_flathead"), ExtResource("9_catfish_white"), ExtResource("10_tuna_albacore"), ExtResource("11_tuna_bigeye"), ExtResource("12_tuna_bluefin"), ExtResource("13_tuna_skipjack"), ExtResource("14_tuna_yellowfin"), ExtResource("15_goby_round"), ExtResource("16_salmon_atlantic"), ExtResource("17_salmon_chum"), ExtResource("18_salmon_coho"), ExtResource("19_salmon_pink"), ExtResource("20_salmon_sockeye")]

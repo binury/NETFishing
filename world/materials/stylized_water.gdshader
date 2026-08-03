@@ -1,5 +1,5 @@
 shader_type spatial;
-render_mode blend_mix, depth_draw_never, cull_back, unshaded;
+render_mode blend_mix, depth_draw_never, cull_back, unshaded, fog_disabled;
 
 uniform sampler2D depth_texture : hint_depth_texture, repeat_disable, filter_nearest;
 
@@ -35,6 +35,8 @@ uniform float open_water_drift_strength : hint_range(0.0, 0.08, 0.001) = 0.045;
 
 uniform float distant_alpha_start : hint_range(10.0, 2000.0, 1.0) = 260.0;
 uniform float distant_alpha_end : hint_range(20.0, 5000.0, 1.0) = 1400.0;
+uniform vec4 environment_tint : source_color = vec4(1.0);
+uniform float environment_brightness : hint_range(0.1, 1.2, 0.01) = 1.0;
 
 varying vec3 world_position;
 varying float surface_view_depth;
@@ -232,6 +234,8 @@ void fragment() {
 	);
 	water_color = mix(water_color, deep_color.rgb, distant_mix * 0.72);
 	water_alpha = mix(water_alpha, 0.96, distant_mix);
+
+	water_color *= environment_tint.rgb * environment_brightness;
 
 	ALBEDO = water_color;
 	ALPHA = clamp(water_alpha, 0.1, 0.96);

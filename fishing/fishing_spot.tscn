@@ -1,6 +1,9 @@
-[gd_scene load_steps=12 format=3]
+[gd_scene load_steps=15 format=3]
 
 [ext_resource type="Script" path="res://fishing/fishing_spot.gd" id="1_spot"]
+[ext_resource type="AudioStream" path="res://audio/sfx/fishing/fighting.wav" id="2_fighting_audio"]
+[ext_resource type="AudioStream" path="res://audio/sfx/fishing/reeling.wav" id="2_reeling_audio"]
+[ext_resource type="AudioStream" path="res://audio/sfx/fishing/bobber.wav" id="2_bobber_audio"]
 [ext_resource type="Script" path="res://fishing/fishing_presentation.gd" id="3_presentation"]
 [ext_resource type="Script" path="res://fishing/catch_controller.gd" id="4_catch"]
 
@@ -40,6 +43,24 @@ size = Vector3(0.62, 0.04, 0.09)
 
 [node name="FishingSpot" type="Node3D"]
 script = ExtResource("1_spot")
+
+[node name="BobberAudio" type="AudioStreamPlayer" parent="."]
+unique_name_in_owner = true
+stream = ExtResource("2_bobber_audio")
+volume_db = -14.0
+bus = &"SFX"
+
+[node name="FightAudio" type="AudioStreamPlayer" parent="."]
+unique_name_in_owner = true
+stream = ExtResource("2_fighting_audio")
+volume_db = -10.0
+bus = &"SFX"
+
+[node name="ReelingAudio" type="AudioStreamPlayer" parent="."]
+unique_name_in_owner = true
+stream = ExtResource("2_reeling_audio")
+volume_db = -10.0
+bus = &"SFX"
 
 [node name="CatchController" type="Node" parent="."]
 unique_name_in_owner = true

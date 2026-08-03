@@ -1,4 +1,4 @@
-[gd_resource type="Resource" load_steps=8 format=3]
+[gd_resource type="Resource" load_steps=9 format=3]
 
 [ext_resource type="Script" path="res://fish/fish_pool.gd" id="1_pool"]
 [ext_resource type="Resource" path="res://fish/species/bluegill/bluegill.tres" id="2_bluegill"]
@@ -7,7 +7,8 @@
 [ext_resource type="Resource" path="res://fish/species/catfish_channel/catfish_channel.tres" id="7_catfish_channel"]
 [ext_resource type="Resource" path="res://fish/species/catfish_flathead/catfish_flathead.tres" id="8_catfish_flathead"]
 [ext_resource type="Resource" path="res://fish/species/catfish_white/catfish_white.tres" id="9_catfish_white"]
+[ext_resource type="Resource" path="res://fish/species/goby_round/goby_round.tres" id="10_goby_round"]
 
 [resource]
 script = ExtResource("1_pool")
-candidates = [ExtResource("2_bluegill"), ExtResource("4_carp"), ExtResource("6_catfish_blue"), ExtResource("7_catfish_channel"), ExtResource("8_catfish_flathead"), ExtResource("9_catfish_white")]
+candidates = [ExtResource("2_bluegill"), ExtResource("4_carp"), ExtResource("6_catfish_blue"), ExtResource("7_catfish_channel"), ExtResource("8_catfish_flathead"), ExtResource("9_catfish_white"), ExtResource("10_goby_round")]

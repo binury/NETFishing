@@ -32,3 +32,5 @@ shader_parameter/open_water_drift_speed = Vector2(0.01, -0.007)
 shader_parameter/open_water_drift_strength = 0.045
 shader_parameter/distant_alpha_start = 260.0
 shader_parameter/distant_alpha_end = 1400.0
+shader_parameter/environment_tint = Color(1, 1, 1, 1)
+shader_parameter/environment_brightness = 1.0

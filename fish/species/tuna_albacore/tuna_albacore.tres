@@ -1,0 +1,30 @@
+[gd_resource type="Resource" script_class="FishData" load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://fish/fish_data.gd" id="1_fish_data"]
+[ext_resource type="Resource" path="res://fishing/bass_catch_profile.tres" id="2_profile"]
+[ext_resource type="Script" path="res://fish/fish_availability.gd" id="3_availability_script"]
+[ext_resource type="Texture2D" path="res://fish/species/tuna_albacore/fish_tuna_albacore.png" id="4_texture"]
+
+[sub_resource type="Resource" id="AlbacoreAvailability"]
+script = ExtResource("3_availability_script")
+preferred_bait_tags = Array[StringName]([&"minnow"])
+preferred_bait_weight_multiplier = 1.4
+
+[resource]
+script = ExtResource("1_fish_data")
+id = &"tuna_albacore"
+display_name = "albacore tuna"
+allowed_water_types = 2
+rarity = 2
+base_catch_weight = 1.5
+catch_profile = ExtResource("2_profile")
+availability = SubResource("AlbacoreAvailability")
+weight_min_lb = 10.0
+weight_max_lb = 45.0
+display_scale_min = 1.1
+display_scale_max = 1.9
+display_scale_curve = 0.85
+sell_value_min = 12
+sell_value_max = 24
+sell_value_curve = 0.85
+display_texture = ExtResource("4_texture")
