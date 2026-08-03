@@ -206,7 +206,7 @@ unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(0.682, 0.733, 0.761, 1)
 theme_override_font_sizes/font_size = 22
-text = "v0.3.5-prealpha"
+text = "v0.3.6-prealpha"
 horizontal_alignment = 1
 
 [node name="Spacer" type="Control" parent="ResponsiveTitleStage/TitlePresentationScaleRoot/Center/MainContent"]
