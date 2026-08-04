@@ -3,6 +3,7 @@ extends Node
 
 signal active_profile_changed
 signal active_controller_changed(controller_name: String)
+signal controller_input_observed(event: InputEvent)
 
 const FORMAT_VERSION: int = 1
 const PROFILE_PATH: String = "user://controller_mappings.json"
@@ -10,6 +11,21 @@ const PROFILE_TEMP_PATH: String = "user://controller_mappings.json.tmp"
 const PROFILE_BACKUP_PATH: String = "user://controller_mappings.json.backup"
 const MAX_PROFILE_BYTES: int = 1024 * 1024
 const CAPTURE_AXIS_THRESHOLD: float = 0.55
+const CAPTURE_AXIS_RELEASE_THRESHOLD: float = 0.30
+const MUOS_MAPPING_REVISION: String = "muos-v1"
+const MUOS_CONTROLLER_NAMES: Array[String] = [
+	"muOS-Keys",
+	"Deeplay-keys",
+]
+const MUOS_MAPPING_BINDINGS: String = (
+	"a:b3,b:b4,x:b6,y:b5,"
+	+ "leftshoulder:b7,rightshoulder:b8,"
+	+ "lefttrigger:b13,righttrigger:b14,"
+	+ "guide:b11,start:b10,back:b9,"
+	+ "dpup:h0.1,dpleft:h0.8,dpright:h0.2,dpdown:h0.4,"
+	+ "leftx:a0,lefty:a1,leftstick:b12,"
+	+ "rightx:a2,righty:a3,rightstick:b15,platform:Linux,"
+)
 const ROLE_A: StringName = &"a"
 const ROLE_B: StringName = &"b"
 const ROLE_X: StringName = &"x"
@@ -149,9 +165,15 @@ var _active_profile_key: String = "default"
 var _active_controller_name: String = "controller"
 var _default_joy_events: Dictionary = {}
 var _axis_rest_by_device: Dictionary = {}
+var _installed_compatibility_guids: Dictionary = {}
 
 
 func _ready() -> void:
+	if not Input.joy_connection_changed.is_connected(
+		_on_joy_connection_changed
+	):
+		Input.joy_connection_changed.connect(_on_joy_connection_changed)
+	_install_known_controller_mappings()
 	_capture_project_defaults()
 	load_profiles()
 	_refresh_active_controller()
@@ -160,16 +182,15 @@ func _ready() -> void:
 func _input(event: InputEvent) -> void:
 	var device_id: int = -1
 	var button_event := event as InputEventJoypadButton
-	if button_event != null and button_event.pressed:
+	if button_event != null:
 		device_id = button_event.device
 	var motion_event := event as InputEventJoypadMotion
-	if (
-		motion_event != null
-		and absf(motion_event.axis_value) >= CAPTURE_AXIS_THRESHOLD
-	):
+	if motion_event != null:
 		device_id = motion_event.device
 	if device_id >= 0 and device_id != _active_device_id:
 		_set_active_controller(device_id)
+	if button_event != null or motion_event != null:
+		controller_input_observed.emit(event)
 
 
 func _process(_delta: float) -> void:
@@ -276,6 +297,31 @@ func role_expects_axis(role: StringName) -> bool:
 
 func role_accepts_axis(role: StringName) -> bool:
 	return role in STICK_AXIS_ROLES or role in TRIGGER_ROLES
+
+
+func are_capture_inputs_neutral(device_id: int = -1) -> bool:
+	var target_device: int = (
+		_active_device_id if device_id < 0 else device_id
+	)
+	for button_index: int in JOY_BUTTON_MAX:
+		if Input.is_joy_button_pressed(target_device, button_index):
+			return false
+	for axis_index: int in JOY_AXIS_MAX:
+		var rest: float = _axis_rest_value(target_device, axis_index)
+		var current: float = Input.get_joy_axis(target_device, axis_index)
+		if absf(current - rest) > CAPTURE_AXIS_RELEASE_THRESHOLD:
+			return false
+	return true
+
+
+func get_pressed_capture_button(device_id: int = -1) -> int:
+	var target_device: int = (
+		_active_device_id if device_id < 0 else device_id
+	)
+	for button_index: int in JOY_BUTTON_MAX:
+		if Input.is_joy_button_pressed(target_device, button_index):
+			return button_index
+	return -1
 
 
 func get_active_bindings() -> Dictionary:
@@ -546,6 +592,49 @@ func _refresh_active_controller() -> void:
 	_set_active_controller(connected[0] if not connected.is_empty() else 0)
 
 
+func _on_joy_connection_changed(device_id: int, connected: bool) -> void:
+	if connected:
+		_install_known_controller_mapping(device_id)
+	_refresh_active_controller()
+
+
+func _install_known_controller_mappings() -> void:
+	for device_id: int in Input.get_connected_joypads():
+		_install_known_controller_mapping(device_id)
+
+
+func _install_known_controller_mapping(device_id: int) -> bool:
+	var controller_name: String = Input.get_joy_name(device_id).strip_edges()
+	if controller_name not in MUOS_CONTROLLER_NAMES:
+		return false
+	var guid: String = Input.get_joy_guid(device_id).strip_edges()
+	if guid.is_empty():
+		return false
+	if _installed_compatibility_guids.has(guid):
+		return true
+	_installed_compatibility_guids[guid] = true
+	Input.add_joy_mapping(
+		build_muos_controller_mapping(guid, controller_name),
+		true,
+	)
+	return true
+
+
+static func build_muos_controller_mapping(
+	guid: String,
+	controller_name: String,
+) -> String:
+	return "%s,%s,%s" % [
+		guid.strip_edges(),
+		controller_name.strip_edges(),
+		MUOS_MAPPING_BINDINGS,
+	]
+
+
+static func is_muos_controller_name(controller_name: String) -> bool:
+	return controller_name.strip_edges() in MUOS_CONTROLLER_NAMES
+
+
 func _set_active_controller(device_id: int) -> void:
 	var previous_profile_key: String = _active_profile_key
 	_active_device_id = maxi(device_id, 0)
@@ -563,11 +652,12 @@ func _set_active_controller(device_id: int) -> void:
 	if controller_name.is_empty():
 		controller_name = "controller"
 	_active_controller_name = controller_name
-	_active_profile_key = (
-		guid
-		if not guid.is_empty()
-		else "name:" + controller_name
-	)
+	if guid.is_empty():
+		_active_profile_key = "name:" + controller_name
+	elif is_muos_controller_name(controller_name):
+		_active_profile_key = guid + ":" + MUOS_MAPPING_REVISION
+	else:
+		_active_profile_key = guid
 	if (
 		previous_profile_key == "name:controller"
 		and _active_profile_key != previous_profile_key

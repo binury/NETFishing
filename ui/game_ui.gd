@@ -70,6 +70,8 @@ const VIRTUAL_MOUSE_TRIGGER_THRESHOLD: float = 0.55
 const VIRTUAL_MOUSE_TRIGGER_RELEASE_THRESHOLD: float = 0.35
 const VIRTUAL_MOUSE_STICK_DEADZONE: float = 0.18
 const VIRTUAL_MOUSE_SPEED: float = 720.0
+const CONTROLLER_MENU_SCROLL_DEADZONE: float = 0.25
+const CONTROLLER_MENU_SCROLL_SPEED: float = 660.0
 # Android controller mappings may expose LT on its own axis or as the negative
 # half of the same signed axis used by RT. Support both without letting the RT
 # zoom direction enter virtual-pointer mode.
@@ -998,6 +1000,7 @@ func is_controller_mapping_capturing() -> bool:
 func _process(delta: float) -> void:
 	_poll_virtual_mouse_controller_state()
 	_update_virtual_mouse(delta)
+	_update_controller_menu_scroll(delta)
 	_update_experience_bubble_position()
 	if _item_effects == null or not _gameplay_ui_enabled:
 		_effect_status.hide()
@@ -1024,6 +1027,85 @@ func _process(delta: float) -> void:
 		)
 	_effect_status.text = "  ".join(parts)
 	_effect_status.visible = not parts.is_empty()
+
+
+func _update_controller_menu_scroll(delta: float) -> void:
+	if (
+		_controller_mapping_manager == null
+		or _virtual_mouse_active
+		or is_controller_mapping_capturing()
+	):
+		return
+	var stick_y: float = _controller_menu_scroll_axis()
+	var magnitude: float = absf(stick_y)
+	if magnitude <= CONTROLLER_MENU_SCROLL_DEADZONE:
+		return
+	var focus_owner: Control = get_viewport().gui_get_focus_owner()
+	var scroll: ScrollContainer = _focused_scroll_container(focus_owner)
+	if scroll == null:
+		return
+	var adjusted_axis: float = (
+		signf(stick_y)
+		* (magnitude - CONTROLLER_MENU_SCROLL_DEADZONE)
+		/ (1.0 - CONTROLLER_MENU_SCROLL_DEADZONE)
+	)
+	scroll.scroll_vertical += roundi(
+		adjusted_axis * CONTROLLER_MENU_SCROLL_SPEED * delta
+	)
+
+
+func _focused_scroll_container(focus_owner: Control) -> ScrollContainer:
+	if focus_owner == null or not focus_owner.is_visible_in_tree():
+		return null
+	var current: Node = focus_owner
+	while current != null:
+		var scroll := current as ScrollContainer
+		if scroll != null:
+			if _controller_scroll_container_is_available(scroll):
+				return scroll
+			return null
+		var candidates: Array[ScrollContainer] = []
+		_collect_controller_scroll_containers(current, candidates)
+		if candidates.size() == 1:
+			return candidates[0]
+		if candidates.size() > 1:
+			return null
+		current = current.get_parent()
+	return null
+
+
+func _collect_controller_scroll_containers(
+	root_node: Node,
+	result: Array[ScrollContainer],
+) -> void:
+	for child: Node in root_node.get_children():
+		var canvas_item := child as CanvasItem
+		if canvas_item != null and not canvas_item.is_visible_in_tree():
+			continue
+		var scroll := child as ScrollContainer
+		if scroll != null and _controller_scroll_container_is_available(scroll):
+			result.append(scroll)
+		_collect_controller_scroll_containers(child, result)
+
+
+func _controller_scroll_container_is_available(
+	scroll: ScrollContainer,
+) -> bool:
+	return (
+		scroll.is_visible_in_tree()
+		and scroll.vertical_scroll_mode != ScrollContainer.SCROLL_MODE_DISABLED
+	)
+
+
+func _controller_menu_scroll_axis() -> float:
+	if _controller_mapping_manager.has_custom_mapping():
+		return _controller_mapping_manager.get_role_axis(
+			ControllerMappingManagerType.ROLE_RIGHT_STICK_Y
+		)
+	return Input.get_joy_axis(
+		_controller_mapping_manager.get_active_device_id(),
+		JOY_AXIS_RIGHT_Y,
+	)
 
 
 func close_player_menu() -> void:

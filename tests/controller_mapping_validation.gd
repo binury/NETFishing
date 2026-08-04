@@ -23,6 +23,8 @@ func _run() -> void:
 	if failure.is_empty():
 		failure = _validate_virtual_mouse_bounds()
 	if failure.is_empty():
+		failure = _validate_controller_scroll_target()
+	if failure.is_empty():
 		print("controller mapping validation passed")
 		quit(0)
 		return
@@ -31,6 +33,34 @@ func _run() -> void:
 
 
 func _validate_manager(manager: ControllerMappingManagerType) -> String:
+	var muos_mapping: String = (
+		ControllerMappingManagerType.build_muos_controller_mapping(
+			"19004ca6010000000100000000010000",
+			"muOS-Keys",
+		)
+	)
+	for expected_binding: String in [
+		"a:b3",
+		"b:b4",
+		"x:b6",
+		"y:b5",
+		"leftx:a0",
+		"righty:a3",
+	]:
+		if expected_binding not in muos_mapping:
+			return "muOS compatibility mapping omitted " + expected_binding
+	if not muos_mapping.begins_with(
+		"19004ca6010000000100000000010000,muOS-Keys,"
+	):
+		return "muOS compatibility mapping does not use the runtime guid"
+	if not ControllerMappingManagerType.is_muos_controller_name(
+		"muOS-Keys"
+	):
+		return "muOS controller name was not recognized"
+	if ControllerMappingManagerType.is_muos_controller_name(
+		"ordinary controller"
+	):
+		return "muOS mapping would affect unrelated controllers"
 	var defaults: Dictionary = manager.get_active_bindings()
 	if defaults.size() != ControllerMappingManagerType.ROLE_ORDER.size():
 		return "default mapping covers %d of %d controller roles: %s" % [
@@ -89,6 +119,7 @@ func _validate_auto_map(manager: ControllerMappingManagerType) -> String:
 	panel.open_panel()
 	panel._begin_auto_map()
 	for role: StringName in ControllerMappingManagerType.ROLE_ORDER:
+		panel._process(ControllerMappingPanelType.CAPTURE_NEUTRAL_SECONDS)
 		var binding := (
 			ControllerMappingManagerType.default_bindings()[str(role)]
 			as Dictionary
@@ -103,12 +134,12 @@ func _validate_auto_map(manager: ControllerMappingManagerType) -> String:
 			var button := InputEventJoypadButton.new()
 			button.button_index = int(binding.get("button", -1))
 			button.pressed = true
-			panel._input(button)
+			manager.controller_input_observed.emit(button)
 		else:
 			var motion := InputEventJoypadMotion.new()
 			motion.axis = int(binding.get("axis", -1))
 			motion.axis_value = float(binding.get("direction", -1.0))
-			panel._input(motion)
+			manager.controller_input_observed.emit(motion)
 	if panel._auto_map_active:
 		return "auto-map did not complete after every requested input"
 	if not manager.has_custom_mapping():
@@ -130,10 +161,30 @@ func _validate_auto_map(manager: ControllerMappingManagerType) -> String:
 	):
 		return "duplicate controller bindings were not marked in red"
 	panel._begin_manual_capture(ControllerMappingManagerType.ROLE_LT)
+	panel._process(ControllerMappingPanelType.CAPTURE_NEUTRAL_SECONDS)
 	if "left trigger" in panel._progress_label.text.to_lower():
 		return "manual remapping still dictates a specific physical input"
 	if "any button" not in panel._progress_label.text.to_lower():
 		return "manual remapping does not request a generic controller input"
+	panel._cancel_capture()
+	panel._begin_auto_map()
+	panel._process(ControllerMappingPanelType.CAPTURE_NEUTRAL_SECONDS)
+	var held_left := InputEventJoypadMotion.new()
+	held_left.axis = JOY_AXIS_LEFT_X
+	held_left.axis_value = -1.0
+	for _index: int in 4:
+		manager.controller_input_observed.emit(held_left)
+	if panel._auto_map_index != 0:
+		return "auto-map accepted repeated analog motion without a neutral gate"
+	var first_button := InputEventJoypadButton.new()
+	first_button.button_index = JOY_BUTTON_A
+	first_button.pressed = true
+	manager.controller_input_observed.emit(first_button)
+	if panel._auto_map_index != 1 or not panel._waiting_for_neutral:
+		return "auto-map did not gate the next step after a captured input"
+	manager.controller_input_observed.emit(first_button)
+	if panel._auto_map_index != 1:
+		return "held input advanced more than one auto-map step"
 	panel._cancel_capture()
 	return ""
 
@@ -146,6 +197,38 @@ func _validate_virtual_mouse_bounds() -> String:
 		return "4K virtual cursor minimum bounds are incorrect: %s" % bounds
 	if not bounds.end.is_equal_approx(window_size - expected_margin):
 		return "4K virtual cursor maximum bounds are incorrect: %s" % bounds
+	return ""
+
+
+func _validate_controller_scroll_target() -> String:
+	var game_ui := GameUIType.new()
+	var page := VBoxContainer.new()
+	var scroll := ScrollContainer.new()
+	var content := VBoxContainer.new()
+	var button := Button.new()
+	var footer_button := Button.new()
+	root.add_child(page)
+	page.add_child(scroll)
+	scroll.add_child(content)
+	content.add_child(button)
+	page.add_child(footer_button)
+	var target: ScrollContainer = game_ui._focused_scroll_container(button)
+	if target != scroll:
+		game_ui.free()
+		page.free()
+		return "focused menu content did not resolve its scroll container"
+	target = game_ui._focused_scroll_container(footer_button)
+	if target != scroll:
+		game_ui.free()
+		page.free()
+		return "menu footer focus did not resolve the page's only scroll container"
+	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	if game_ui._focused_scroll_container(button) != null:
+		game_ui.free()
+		page.free()
+		return "controller scrolling ignored a disabled scroll container"
+	game_ui.free()
+	page.free()
 	return ""
 
 

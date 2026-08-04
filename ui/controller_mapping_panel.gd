@@ -7,6 +7,7 @@ const ControllerMappingManagerType = preload(
 	"res://settings/controller_mapping_manager.gd"
 )
 const UtilityPageStyleType = preload("res://ui/utility_page_style.gd")
+const CAPTURE_NEUTRAL_SECONDS: float = 0.22
 
 var _mapping_manager: ControllerMappingManagerType
 var _binding_buttons: Dictionary = {}
@@ -20,10 +21,14 @@ var _capturing_role: StringName = &""
 var _auto_map_active: bool = false
 var _auto_map_index: int = -1
 var _auto_map_draft: Dictionary = {}
+var _capture_device_id: int = 0
+var _waiting_for_neutral: bool = false
+var _neutral_elapsed: float = 0.0
 
 
 func _ready() -> void:
 	set_process_input(true)
+	set_process(true)
 	_build_interface()
 	hide()
 
@@ -40,6 +45,12 @@ func setup(mapping_manager: ControllerMappingManagerType) -> void:
 		_refresh_bindings
 	):
 		_mapping_manager.active_profile_changed.connect(_refresh_bindings)
+	if not _mapping_manager.controller_input_observed.is_connected(
+		_on_controller_input_observed
+	):
+		_mapping_manager.controller_input_observed.connect(
+			_on_controller_input_observed
+		)
 	_refresh_bindings()
 
 
@@ -91,11 +102,61 @@ func _input(event: InputEvent) -> void:
 		_cancel_capture()
 		_progress_label.text = "controller mapping cancelled"
 		return
-	if not (
-		event is InputEventJoypadButton
-		or event is InputEventJoypadMotion
+
+
+func _process(delta: float) -> void:
+	if (
+		not visible
+		or _mapping_manager == null
+		or _capturing_role.is_empty()
 	):
 		return
+	if _waiting_for_neutral:
+		if not _mapping_manager.are_capture_inputs_neutral(_capture_device_id):
+			_neutral_elapsed = 0.0
+			return
+		_neutral_elapsed += delta
+		if _neutral_elapsed < CAPTURE_NEUTRAL_SECONDS:
+			return
+		_waiting_for_neutral = false
+		_neutral_elapsed = 0.0
+		_refresh_capture_prompt()
+		return
+	var pressed_button: int = _mapping_manager.get_pressed_capture_button(
+		_capture_device_id
+	)
+	if pressed_button < 0:
+		return
+	var button_event := InputEventJoypadButton.new()
+	button_event.device = _capture_device_id
+	button_event.button_index = pressed_button as JoyButton
+	button_event.pressed = true
+	_try_capture_event(button_event)
+
+
+func _on_controller_input_observed(event: InputEvent) -> void:
+	if not visible or _mapping_manager == null:
+		return
+	if _capturing_role.is_empty():
+		return
+	get_viewport().set_input_as_handled()
+	if _waiting_for_neutral:
+		return
+	var button_event := event as InputEventJoypadButton
+	var motion_event := event as InputEventJoypadMotion
+	var event_device: int = -1
+	if button_event != null:
+		event_device = button_event.device
+	elif motion_event != null:
+		event_device = motion_event.device
+	else:
+		return
+	if event_device != _capture_device_id:
+		return
+	_try_capture_event(event)
+
+
+func _try_capture_event(event: InputEvent) -> void:
 	var binding: Dictionary = _mapping_manager.binding_from_event(
 		_capturing_role,
 		event,
@@ -104,7 +165,6 @@ func _input(event: InputEvent) -> void:
 		return
 	if not _mapping_manager.validate_binding(_capturing_role, binding):
 		return
-	get_viewport().set_input_as_handled()
 	_accept_captured_binding(binding)
 
 
@@ -258,6 +318,7 @@ func _begin_auto_map() -> void:
 	_auto_map_active = true
 	_auto_map_index = 0
 	_auto_map_draft = {}
+	_capture_device_id = _mapping_manager.get_active_device_id()
 	_set_capture_role(ControllerMappingManagerType.ROLE_ORDER[_auto_map_index])
 
 
@@ -265,27 +326,36 @@ func _begin_manual_capture(role: StringName) -> void:
 	_auto_map_active = false
 	_auto_map_index = -1
 	_auto_map_draft.clear()
+	_capture_device_id = _mapping_manager.get_active_device_id()
 	_set_capture_role(role)
 
 
 func _set_capture_role(role: StringName) -> void:
 	_capturing_role = role
+	_waiting_for_neutral = true
+	_neutral_elapsed = 0.0
 	_set_action_buttons_disabled(true)
+	_progress_label.text = "release all controller inputs"
+
+
+func _refresh_capture_prompt() -> void:
+	if _capturing_role.is_empty():
+		return
 	if _auto_map_active:
 		_progress_label.text = "step %d of %d: %s" % [
 			_auto_map_index + 1,
 			ControllerMappingManagerType.ROLE_ORDER.size(),
-			_mapping_manager.get_role_prompt(role),
+			_mapping_manager.get_role_prompt(_capturing_role),
 		]
 		return
 	var input_instruction: String = "press any controller button"
-	if _mapping_manager.role_expects_axis(role):
+	if _mapping_manager.role_expects_axis(_capturing_role):
 		input_instruction = "move any controller axis"
-	elif _mapping_manager.role_accepts_axis(role):
+	elif _mapping_manager.role_accepts_axis(_capturing_role):
 		input_instruction = "press any button or move any controller axis"
 	_progress_label.text = "%s for %s" % [
 		input_instruction,
-		_mapping_manager.get_role_label(role),
+		_mapping_manager.get_role_label(_capturing_role),
 	]
 
 
@@ -322,6 +392,8 @@ func _cancel_capture() -> void:
 	_auto_map_active = false
 	_auto_map_index = -1
 	_auto_map_draft.clear()
+	_waiting_for_neutral = false
+	_neutral_elapsed = 0.0
 	_set_action_buttons_disabled(false)
 	if _progress_label != null:
 		_progress_label.text = ""
