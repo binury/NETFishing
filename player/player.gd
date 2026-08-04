@@ -24,6 +24,9 @@ const PlayerArtUnlocksType = preload(
 const PlayerExperienceType = preload(
 	"res://progression/player_experience.gd"
 )
+const ControllerMappingManagerType = preload(
+	"res://settings/controller_mapping_manager.gd"
+)
 const FishingRodAttachmentScene = preload(
 	"res://player/fishing_rod_attachment.tscn"
 )
@@ -32,6 +35,10 @@ const CHARACTER_IDLE_ANIMATION: StringName = &"idle"
 const CHARACTER_WALKING_ANIMATION: StringName = &"walking"
 const CHARACTER_SITTING_ANIMATION: StringName = &"sitting"
 const BASE_REEL_SPEED: float = 0.16
+# The target Android handheld exposes its physical right trigger through
+# Godot's left-trigger axis. Keep the role named here so the platform mapping
+# remains isolated from camera behavior.
+const CONTROLLER_ZOOM_TRIGGER_AXIS: JoyAxis = JOY_AXIS_TRIGGER_LEFT
 
 var appearance_snapshot: Dictionary = (
 	CharacterCustomizationCatalog.default_snapshot()
@@ -160,6 +167,7 @@ var _character_animation_name: StringName = &""
 var _sitting: bool = false
 var _fishing_rod: Node3D
 var _fishing_rod_tip: Marker3D
+var _controller_mapping_manager: ControllerMappingManagerType
 
 
 func _ready() -> void:
@@ -167,6 +175,12 @@ func _ready() -> void:
 	_target_zoom = clampf(_spring_arm.spring_length, minimum_zoom, maximum_zoom)
 	_spring_arm.spring_length = _target_zoom
 	_camera.current = local_control_enabled
+
+
+func set_controller_mapping_manager(
+	mapping_manager: ControllerMappingManagerType,
+) -> void:
+	_controller_mapping_manager = mapping_manager
 
 
 func _initialize_fishing_rod() -> void:
@@ -287,13 +301,10 @@ func _process(delta: float) -> void:
 		_camera_dragging = false
 
 	if _camera_input_enabled:
-		var stick: Vector2 = Vector2(
-			Input.get_joy_axis(0, JOY_AXIS_RIGHT_X),
-			Input.get_joy_axis(0, JOY_AXIS_RIGHT_Y)
-		)
+		var stick: Vector2 = _get_controller_camera_stick()
 		if stick.length() > controller_camera_deadzone:
 			if (
-				Input.get_joy_axis(0, JOY_AXIS_TRIGGER_RIGHT)
+				_get_controller_zoom_strength()
 				>= controller_trigger_threshold
 			):
 				var vertical_zoom_input: float = _apply_axis_deadzone(stick.y)
@@ -319,6 +330,36 @@ func _process(delta: float) -> void:
 			_target_zoom,
 			zoom_weight
 		)
+
+
+func _get_controller_camera_stick() -> Vector2:
+	if (
+		_controller_mapping_manager != null
+		and _controller_mapping_manager.has_custom_mapping()
+	):
+		return Vector2(
+			_controller_mapping_manager.get_role_axis(
+				ControllerMappingManagerType.ROLE_RIGHT_STICK_X
+			),
+			_controller_mapping_manager.get_role_axis(
+				ControllerMappingManagerType.ROLE_RIGHT_STICK_Y
+			),
+		)
+	return Vector2(
+		Input.get_joy_axis(0, JOY_AXIS_RIGHT_X),
+		Input.get_joy_axis(0, JOY_AXIS_RIGHT_Y),
+	)
+
+
+func _get_controller_zoom_strength() -> float:
+	if (
+		_controller_mapping_manager != null
+		and _controller_mapping_manager.has_custom_mapping()
+	):
+		return _controller_mapping_manager.get_role_strength(
+			ControllerMappingManagerType.ROLE_RT
+		)
+	return Input.get_joy_axis(0, CONTROLLER_ZOOM_TRIGGER_AXIS)
 
 
 func _update_character_animation() -> void:

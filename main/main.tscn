@@ -55,6 +55,7 @@
 [ext_resource type="Script" path="res://network/network_job_service.gd" id="53_network_jobs"]
 [ext_resource type="Script" path="res://world/shoreline_ambience.gd" id="54_shoreline_ambience"]
 [ext_resource type="AudioStream" path="res://audio/ambience/waves.wav" id="55_waves"]
+[ext_resource type="Script" path="res://settings/controller_mapping_manager.gd" id="56_controller_mapping"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_title_water_native"]
 shader = ExtResource("40_title_water")
@@ -272,6 +273,10 @@ script = ExtResource("9_save")
 [node name="PlayerSettingsManager" type="Node" parent="." unique_id=906991991]
 unique_name_in_owner = true
 script = ExtResource("10_settings")
+
+[node name="ControllerMappingManager" type="Node" parent="."]
+unique_name_in_owner = true
+script = ExtResource("56_controller_mapping")
 
 [node name="TitleMusic" type="AudioStreamPlayer" parent="." unique_id=1292939956]
 unique_name_in_owner = true

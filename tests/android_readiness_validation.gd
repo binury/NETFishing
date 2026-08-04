@@ -1,5 +1,8 @@
 extends SceneTree
 
+const GameUIType = preload("res://ui/game_ui.gd")
+const PlayerType = preload("res://player/player.gd")
+
 
 func _init() -> void:
 	assert(
@@ -34,11 +37,50 @@ func _init() -> void:
 	))
 	assert(_has_joypad_button(&"hotbar_previous", JOY_BUTTON_DPAD_LEFT))
 	assert(_has_joypad_button(&"hotbar_next", JOY_BUTTON_DPAD_RIGHT))
-	assert(_has_joypad_button(&"open_backpack", JOY_BUTTON_BACK))
+	assert(_has_joypad_button(&"open_backpack", JOY_BUTTON_X))
 	assert(_has_joypad_button(&"open_system_menu", JOY_BUTTON_START))
 	assert(_has_joypad_button(&"open_emotes", JOY_BUTTON_DPAD_UP))
 	assert(_has_joypad_button(&"open_quick_actions", JOY_BUTTON_DPAD_DOWN))
-	assert(_has_joypad_button(&"open_chat", JOY_BUTTON_LEFT_SHOULDER))
+	assert(_has_joypad_button(&"open_chat", JOY_BUTTON_BACK))
+	assert(_has_joypad_button(&"focus_gameplay", JOY_BUTTON_LEFT_SHOULDER))
+	assert(
+		GameUIType.VIRTUAL_MOUSE_TRIGGER_AXIS == JOY_AXIS_TRIGGER_RIGHT
+	)
+	assert(
+		GameUIType.VIRTUAL_MOUSE_SHARED_TRIGGER_AXIS
+		== JOY_AXIS_TRIGGER_LEFT
+	)
+	assert(
+		GameUIType.VIRTUAL_MOUSE_SECONDARY_CLICK_AXIS
+		== JOY_AXIS_TRIGGER_LEFT
+	)
+	assert(PlayerType.CONTROLLER_ZOOM_TRIGGER_AXIS == JOY_AXIS_TRIGGER_LEFT)
+	assert(is_zero_approx(
+		GameUIType.normalized_trigger_strength(-1.0, -1.0)
+	))
+	assert(is_equal_approx(
+		GameUIType.normalized_trigger_strength(1.0, -1.0),
+		1.0,
+	))
+	assert(is_equal_approx(
+		GameUIType.normalized_trigger_strength(-1.0, 0.0),
+		1.0,
+	))
+	assert(is_equal_approx(
+		GameUIType.normalized_trigger_strength(-1.0, 1.0),
+		1.0,
+	))
+	assert(is_equal_approx(
+		GameUIType.directional_trigger_strength(-1.0, 0.0, -1.0),
+		1.0,
+	))
+	assert(is_zero_approx(
+		GameUIType.directional_trigger_strength(1.0, 0.0, -1.0)
+	))
+	assert(is_equal_approx(
+		GameUIType.directional_trigger_strength(1.0, 0.0, 1.0),
+		1.0,
+	))
 	print("android readiness validation passed")
 	quit()
 

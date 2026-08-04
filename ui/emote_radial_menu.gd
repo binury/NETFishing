@@ -14,11 +14,21 @@ const SIT_SECTOR: int = 0
 const RING_RADIUS: float = 172.0
 const BUBBLE_SIZE: Vector2 = Vector2(92.0, 88.0)
 const CONTROLLER_SELECTION_DEADZONE: float = 0.35
+const ControllerMappingManagerType = preload(
+	"res://settings/controller_mapping_manager.gd"
+)
 
 var _buttons: Array[BubbleButton] = []
 var _is_open: bool = false
 var _selected_sector: int = SIT_SECTOR
 var _controller_selection_mode: bool = false
+var _controller_mapping_manager: ControllerMappingManagerType
+
+
+func setup_controller_mapping(
+	mapping_manager: ControllerMappingManagerType,
+) -> void:
+	_controller_mapping_manager = mapping_manager
 
 
 func _ready() -> void:
@@ -92,16 +102,32 @@ func _layout_bubbles() -> void:
 
 
 func _update_selection() -> void:
-	var stick: Vector2 = Vector2(
-		Input.get_joy_axis(0, JOY_AXIS_RIGHT_X),
-		Input.get_joy_axis(0, JOY_AXIS_RIGHT_Y),
-	)
+	var stick: Vector2 = _get_selection_stick()
 	if stick.length() >= CONTROLLER_SELECTION_DEADZONE:
 		_select_sector_from_offset(stick)
 		return
 	if _controller_selection_mode:
 		return
 	_update_mouse_selection()
+
+
+func _get_selection_stick() -> Vector2:
+	if (
+		_controller_mapping_manager != null
+		and _controller_mapping_manager.has_custom_mapping()
+	):
+		return Vector2(
+			_controller_mapping_manager.get_role_axis(
+				ControllerMappingManagerType.ROLE_RIGHT_STICK_X
+			),
+			_controller_mapping_manager.get_role_axis(
+				ControllerMappingManagerType.ROLE_RIGHT_STICK_Y
+			),
+		)
+	return Vector2(
+		Input.get_joy_axis(0, JOY_AXIS_RIGHT_X),
+		Input.get_joy_axis(0, JOY_AXIS_RIGHT_Y),
+	)
 
 
 func _update_mouse_selection() -> void:

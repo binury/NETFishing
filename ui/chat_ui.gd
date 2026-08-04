@@ -20,6 +20,11 @@ const HANDLE_SIZE := Vector2(34, 42)
 const HANDLE_GAP: float = 6.0
 const COLLAPSED_REVEAL_WIDTH: float = 8.0
 const HINT_EDGE_MARGIN: float = 4.0
+const MOBILE_COMPACT_WIDTH: float = 620.0
+const MOBILE_EXPANDED_WIDTH: float = 820.0
+const MOBILE_COMPACT_HEIGHT: float = 220.0
+const MOBILE_EXPANDED_HEIGHT: float = 390.0
+const MOBILE_EDGE_MARGIN: float = 12.0
 const CLOCK_SIZE := Vector2(116.0, 34.0)
 const CLOCK_EDGE_MARGIN: float = 10.0
 const WEATHER_ICON_SIZE := Vector2(34.0, 34.0)
@@ -72,8 +77,10 @@ var _send_pending: bool = false
 var _pending_send_body: String = ""
 var _prior_movement: bool = true
 var _prior_camera: bool = true
+var _controller_refocused: bool = false
 var _output_scale: float = 1.0
 var _dock_right: bool = false
+var _mobile_mode: bool = false
 var _world_time: WorldTimeServiceType
 var _world_weather: WorldWeatherServiceType
 
@@ -125,6 +132,7 @@ func setup(
 			_world_weather.get_weather(),
 			_world_weather.get_seconds_remaining(),
 		)
+	set_mobile_mode(_settings.current_settings.chat_mobile_mode)
 	set_dock_right(_settings.current_settings.chat_dock_right)
 	_service.message_received.connect(_on_message)
 	_service.local_message_confirmed.connect(_on_local_message_confirmed)
@@ -151,6 +159,7 @@ func open_chat() -> void:
 		return
 	if _presentation_state == PresentationState.COLLAPSED:
 		_set_presentation_state(_visible_state_before_collapse, true, true)
+	_controller_refocused = false
 	_opened = true
 	text_entry_ownership_changed.emit(true)
 	_prior_movement = _player.is_movement_enabled()
@@ -162,8 +171,10 @@ func open_chat() -> void:
 	# prediction would let a remote host continue the last held movement.
 	_session.submit_neutral_local_movement()
 	_entry.show()
+	_entry.virtual_keyboard_enabled = false
 	_entry.grab_focus()
 	_hint.hide()
+	_refresh_input_ownership()
 	_update_panel_opacity(true)
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
@@ -184,6 +195,7 @@ func close_chat() -> void:
 		return
 	_opened = false
 	text_entry_ownership_changed.emit(false)
+	_entry.virtual_keyboard_enabled = false
 	_entry.release_focus()
 	_entry.hide()
 	_player.set_movement_enabled(_prior_movement)
@@ -191,14 +203,62 @@ func close_chat() -> void:
 	_fishing_spot.set_local_menu_input_suppressed(INPUT_OWNER, false)
 	_flush_draft()
 	_refresh_visibility()
+	_refresh_input_ownership()
+
+
+func toggle_chat() -> void:
+	if _presentation_state == PresentationState.COLLAPSED:
+		open_chat()
+		return
+	if _opened:
+		close_chat()
+		_set_presentation_state(PresentationState.COLLAPSED, true, true)
+		return
+	if _controller_refocused:
+		_controller_refocused = false
+		_set_presentation_state(PresentationState.COLLAPSED, true, true)
+		return
+	open_chat()
+
+
+func refocus_gameplay() -> void:
+	close_chat()
+	_controller_refocused = true
+	get_viewport().gui_release_focus()
+
+
+func toggle_focus() -> void:
+	if _presentation_state == PresentationState.COLLAPSED:
+		return
+	if _opened:
+		refocus_gameplay()
+	else:
+		open_chat()
+
+
+func request_virtual_keyboard() -> bool:
+	if not _opened or not _entry.has_focus():
+		return false
+	_entry.virtual_keyboard_enabled = true
+	# Re-entering focus after the controller accept event is the explicit
+	# request Android uses to display its keyboard. Merely focusing Chat keeps
+	# the keyboard disabled so the world remains readable.
+	_entry.release_focus()
+	_entry.call_deferred("grab_focus")
+	return true
+
+
+func is_open() -> bool:
+	return _opened
+
+
+func is_collapsed() -> bool:
+	return _presentation_state == PresentationState.COLLAPSED
 
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("open_chat"):
-		if _opened:
-			close_chat()
-		elif _available:
-			open_chat()
+		toggle_chat()
 		get_viewport().set_input_as_handled()
 		return
 	if event is InputEventKey and event.pressed and not event.echo:
@@ -404,19 +464,38 @@ func _build_ui() -> void:
 	_unread_indicator.hide()
 	_hint.hide()
 	_layout_presentation(false)
+	_refresh_input_ownership()
 
 
 func _chat_panel_style() -> StyleBoxFlat:
 	var style := _borderless_style(Color(0.025, 0.13, 0.19, 0.94))
-	style.corner_radius_top_left = 10 if _dock_right else 0
-	style.corner_radius_bottom_left = 10 if _dock_right else 0
-	style.corner_radius_top_right = 0 if _dock_right else 10
-	style.corner_radius_bottom_right = 0 if _dock_right else 10
+	if _mobile_mode:
+		style.corner_radius_top_left = 0
+		style.corner_radius_top_right = 0
+		style.corner_radius_bottom_left = 10
+		style.corner_radius_bottom_right = 10
+	else:
+		style.corner_radius_top_left = 10 if _dock_right else 0
+		style.corner_radius_bottom_left = 10 if _dock_right else 0
+		style.corner_radius_top_right = 0 if _dock_right else 10
+		style.corner_radius_bottom_right = 0 if _dock_right else 10
 	style.content_margin_left = 12
 	style.content_margin_right = 12
 	style.content_margin_top = 10
 	style.content_margin_bottom = 10
 	return style
+
+
+func _refresh_input_ownership() -> void:
+	if _panel == null or _history == null:
+		return
+	var filter: Control.MouseFilter = (
+		Control.MOUSE_FILTER_STOP
+		if _opened
+		else Control.MOUSE_FILTER_IGNORE
+	)
+	_panel.mouse_filter = filter
+	_history.mouse_filter = filter
 
 
 func _clock_panel_style() -> StyleBoxFlat:
@@ -620,7 +699,10 @@ func _refresh_visibility() -> void:
 	_collapse_button.show()
 	var collapsed := _presentation_state == PresentationState.COLLAPSED
 	_panel.show()
-	_height_button.show()
+	_height_button.visible = not _mobile_mode
+	_height_button.focus_mode = (
+		Control.FOCUS_NONE if _mobile_mode else Control.FOCUS_ALL
+	)
 	_unread_indicator.visible = collapsed and _collapsed_has_unread
 	_hint.visible = not _opened
 
@@ -670,10 +752,31 @@ func is_docked_right() -> bool:
 	return _dock_right
 
 
+func set_mobile_mode(enabled: bool) -> void:
+	_mobile_mode = enabled
+	if not is_node_ready() or _panel == null:
+		return
+	if _mobile_mode:
+		if _presentation_state == PresentationState.EXPANDED:
+			_presentation_state = PresentationState.COMPACT
+		if _visible_state_before_collapse == PresentationState.EXPANDED:
+			_visible_state_before_collapse = PresentationState.COMPACT
+	_panel.add_theme_stylebox_override("panel", _chat_panel_style())
+	_refresh_handle_labels(_presentation_state)
+	_refresh_visibility()
+	_layout_presentation(false)
+
+
+func is_mobile_mode() -> bool:
+	return _mobile_mode
+
+
 func _refresh_handle_labels(state: PresentationState) -> void:
 	var collapsed := state == PresentationState.COLLAPSED
 	var height_state := _visible_state_before_collapse if collapsed else state
-	if _dock_right:
+	if _mobile_mode:
+		_collapse_button.text = "v" if collapsed else "^"
+	elif _dock_right:
 		_collapse_button.text = "<" if collapsed else ">"
 	else:
 		_collapse_button.text = ">" if collapsed else "<"
@@ -798,32 +901,101 @@ func _layout_presentation(animate: bool) -> void:
 	var viewport_height := size.y
 	if viewport_height <= 0.0:
 		viewport_height = 720.0
+	var layout_state := (
+		_visible_state_before_collapse
+		if _presentation_state == PresentationState.COLLAPSED
+		else _presentation_state
+	)
+	var collapsed := _presentation_state == PresentationState.COLLAPSED
 	var bottom_margin := minf(
 		BOTTOM_MARGIN,
 		maxf(MIN_TOP_MARGIN, (viewport_height - MIN_HISTORY_HEIGHT) * 0.25),
 	)
 	var bottom := viewport_height - bottom_margin
 	var height := COMPACT_HEIGHT
-	var layout_state := (
-		_visible_state_before_collapse
-		if _presentation_state == PresentationState.COLLAPSED
-		else _presentation_state
-	)
-	if layout_state == PresentationState.EXPANDED:
-		height = maxf(MIN_HISTORY_HEIGHT, viewport_height - 2.0 * bottom_margin)
-	height = minf(height, maxf(MIN_HISTORY_HEIGHT, bottom - MIN_TOP_MARGIN))
-	var collapsed := _presentation_state == PresentationState.COLLAPSED
-	var panel_x: float
-	if _dock_right:
-		panel_x = (
-			viewport_width - COLLAPSED_REVEAL_WIDTH
-			if collapsed
-			else viewport_width - PANEL_WIDTH
+	var panel_width := PANEL_WIDTH
+	var panel_x: float = 0.0
+	var panel_y: float = 0.0
+	var collapse_position := Vector2.ZERO
+	var height_position := Vector2.ZERO
+	var unread_position := Vector2.ZERO
+	if _mobile_mode:
+		panel_width = (
+			MOBILE_EXPANDED_WIDTH
+			if layout_state == PresentationState.EXPANDED
+			else MOBILE_COMPACT_WIDTH
 		)
+		panel_width = minf(
+			panel_width,
+			maxf(1.0, viewport_width - MOBILE_EDGE_MARGIN * 2.0),
+		)
+		height = (
+			MOBILE_EXPANDED_HEIGHT
+			if layout_state == PresentationState.EXPANDED
+			else MOBILE_COMPACT_HEIGHT
+		)
+		height = minf(
+			height,
+			maxf(MIN_HISTORY_HEIGHT, viewport_height - HANDLE_SIZE.y),
+		)
+		panel_x = (viewport_width - panel_width) * 0.5
+		panel_y = -(height - COLLAPSED_REVEAL_WIDTH) if collapsed else 0.0
+		var mobile_handle_y: float = (
+			COLLAPSED_REVEAL_WIDTH if collapsed else height
+		)
+		collapse_position = Vector2(
+			panel_x + panel_width - HANDLE_SIZE.x,
+			mobile_handle_y,
+		)
+		height_position = Vector2(
+			collapse_position.x - HANDLE_SIZE.x - HANDLE_GAP,
+			mobile_handle_y,
+		)
+		unread_position = collapse_position + Vector2(6.0, -18.0)
 	else:
-		panel_x = -(PANEL_WIDTH - COLLAPSED_REVEAL_WIDTH) if collapsed else 0.0
-	var target_position := Vector2(panel_x, bottom - height)
-	var target_size := Vector2(PANEL_WIDTH, height)
+		if layout_state == PresentationState.EXPANDED:
+			height = maxf(
+				MIN_HISTORY_HEIGHT,
+				viewport_height - 2.0 * bottom_margin,
+			)
+		height = minf(
+			height,
+			maxf(MIN_HISTORY_HEIGHT, bottom - MIN_TOP_MARGIN),
+		)
+		if _dock_right:
+			panel_x = (
+				viewport_width - COLLAPSED_REVEAL_WIDTH
+				if collapsed
+				else viewport_width - PANEL_WIDTH
+			)
+		else:
+			panel_x = (
+				-(PANEL_WIDTH - COLLAPSED_REVEAL_WIDTH)
+				if collapsed
+				else 0.0
+			)
+		panel_y = bottom - height
+		var handle_stack_height := HANDLE_SIZE.y * 2.0 + HANDLE_GAP
+		var handle_stack_top := (
+			bottom - COMPACT_HEIGHT * 0.5 - handle_stack_height * 0.5
+		)
+		var handle_x: float = (
+			panel_x - HANDLE_SIZE.x
+			if _dock_right
+			else COLLAPSED_REVEAL_WIDTH if collapsed else PANEL_WIDTH
+		)
+		collapse_position = Vector2(
+			handle_x,
+			handle_stack_top + HANDLE_SIZE.y + HANDLE_GAP,
+		)
+		height_position = Vector2(handle_x, handle_stack_top)
+		var unread_offset_x := -18.0 if _dock_right else 6.0
+		unread_position = collapse_position + Vector2(
+			unread_offset_x,
+			-18.0,
+		)
+	var target_position := Vector2(panel_x, panel_y)
+	var target_size := Vector2(panel_width, height)
 	var clock_x: float = (
 		viewport_width - CLOCK_SIZE.x - CLOCK_EDGE_MARGIN
 		if _dock_right else CLOCK_EDGE_MARGIN
@@ -840,22 +1012,6 @@ func _layout_presentation(animate: bool) -> void:
 	var weather_icon_position := Vector2(
 		weather_icon_x, clock_position.y
 	)
-	var handle_stack_height := HANDLE_SIZE.y * 2.0 + HANDLE_GAP
-	var handle_stack_top := (
-		bottom - COMPACT_HEIGHT * 0.5 - handle_stack_height * 0.5
-	)
-	var handle_x: float
-	if _dock_right:
-		handle_x = panel_x - HANDLE_SIZE.x
-	else:
-		handle_x = COLLAPSED_REVEAL_WIDTH if collapsed else PANEL_WIDTH
-	var collapse_position := Vector2(
-		handle_x,
-		handle_stack_top + HANDLE_SIZE.y + HANDLE_GAP,
-	)
-	var height_position := Vector2(handle_x, handle_stack_top)
-	var unread_offset_x := -18.0 if _dock_right else 6.0
-	var unread_position := collapse_position + Vector2(unread_offset_x, -18.0)
 	var hint_position := Vector2(
 		(
 			viewport_width - _hint.size.x - HINT_EDGE_MARGIN

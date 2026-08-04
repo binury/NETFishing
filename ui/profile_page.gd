@@ -2,6 +2,9 @@ class_name ProfilePage
 extends Control
 
 const CHECK_DEBOUNCE_SECONDS: float = 0.4
+const ControllerMappingManagerType = preload(
+	"res://settings/controller_mapping_manager.gd"
+)
 
 var _service: NetworkProfileService
 var _experience: PlayerExperience
@@ -70,12 +73,20 @@ func setup(
 		)
 
 
+func setup_controller_mapping(
+	mapping_manager: ControllerMappingManagerType,
+) -> void:
+	if _preview != null:
+		_preview.setup_controller_mapping(mapping_manager)
+
+
 func activate() -> void:
 	visible = true
 	UtilityPageStyle.animate_in(self)
 	if _service != null:
 		_load_persisted()
-	_name_edit.grab_focus()
+	# Keep controller page switches on the Profile navigation bubble. Focusing
+	# the name field here summons the Android keyboard during LB/RB traversal.
 
 
 func deactivate() -> void:

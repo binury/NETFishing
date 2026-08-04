@@ -490,6 +490,11 @@ func _process(delta: float) -> void:
 func _input(event: InputEvent) -> void:
 	if not visible:
 		return
+	if (
+		_settings_panel.visible
+		and _settings_panel.is_controller_mapping_capturing()
+	):
+		return
 	if _join_game_page.visible:
 		if event.is_action_pressed("ui_cancel"):
 			_close_join_game()

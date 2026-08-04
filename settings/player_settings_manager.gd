@@ -62,6 +62,10 @@ func load_settings() -> bool:
 			and typeof(presentation["chat_dock_right"]) != TYPE_BOOL
 		)
 		or (
+			presentation.has("chat_mobile_mode")
+			and typeof(presentation["chat_mobile_mode"]) != TYPE_BOOL
+		)
+		or (
 			presentation.has("paint_dock_right")
 			and typeof(presentation["paint_dock_right"]) != TYPE_BOOL
 		)
@@ -107,6 +111,9 @@ func load_settings() -> bool:
 	)
 	loaded.chat_collapsed = bool(presentation.get("chat_collapsed", false))
 	loaded.chat_dock_right = bool(presentation.get("chat_dock_right", false))
+	loaded.chat_mobile_mode = bool(
+		presentation.get("chat_mobile_mode", false)
+	)
 	loaded.paint_dock_right = bool(presentation.get("paint_dock_right", true))
 	if not loaded.is_valid():
 		return _use_defaults_after_corruption("Player settings values are invalid.")
@@ -181,6 +188,7 @@ func save_now() -> bool:
 			"chat_draft": current_settings.chat_draft,
 			"chat_collapsed": current_settings.chat_collapsed,
 			"chat_dock_right": current_settings.chat_dock_right,
+			"chat_mobile_mode": current_settings.chat_mobile_mode,
 			"paint_dock_right": current_settings.paint_dock_right,
 		},
 	}

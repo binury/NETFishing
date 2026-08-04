@@ -44,6 +44,9 @@ const SurfaceDrawingToolbarType = preload(
 const PlayerSettingsManagerType = preload(
 	"res://settings/player_settings_manager.gd"
 )
+const ControllerMappingManagerType = preload(
+	"res://settings/controller_mapping_manager.gd"
+)
 const WorldTimeServiceType = preload("res://world/world_time_service.gd")
 const WorldWeatherServiceType = preload(
 	"res://world/world_weather_service.gd"
@@ -64,8 +67,15 @@ signal shop_backdrop_visibility_changed(is_visible: bool)
 
 const VIRTUAL_MOUSE_INPUT_OWNER: StringName = &"controller_virtual_mouse"
 const VIRTUAL_MOUSE_TRIGGER_THRESHOLD: float = 0.55
+const VIRTUAL_MOUSE_TRIGGER_RELEASE_THRESHOLD: float = 0.35
 const VIRTUAL_MOUSE_STICK_DEADZONE: float = 0.18
 const VIRTUAL_MOUSE_SPEED: float = 720.0
+# Android controller mappings may expose LT on its own axis or as the negative
+# half of the same signed axis used by RT. Support both without letting the RT
+# zoom direction enter virtual-pointer mode.
+const VIRTUAL_MOUSE_TRIGGER_AXIS: JoyAxis = JOY_AXIS_TRIGGER_RIGHT
+const VIRTUAL_MOUSE_SHARED_TRIGGER_AXIS: JoyAxis = JOY_AXIS_TRIGGER_LEFT
+const VIRTUAL_MOUSE_SECONDARY_CLICK_AXIS: JoyAxis = JOY_AXIS_TRIGGER_LEFT
 
 @onready var _status_label: Label = %StatusLabel
 @onready var _gameplay_transient_hud: Control = %GameplayTransientHUD
@@ -137,7 +147,12 @@ var _virtual_mouse_prior_mouse_mode: Input.MouseMode = Input.MOUSE_MODE_VISIBLE
 var _virtual_mouse_window_position: Vector2 = Vector2.ZERO
 var _virtual_mouse_button_mask: int = 0
 var _virtual_mouse_right_pressed: bool = false
-var _injecting_virtual_mouse_event: bool = false
+var _virtual_mouse_device_id: int = 0
+var _virtual_mouse_trigger_strength: float = 0.0
+var _virtual_mouse_stick: Vector2 = Vector2.ZERO
+var _virtual_mouse_trigger_rest_by_device: Dictionary[int, float] = {}
+var _shared_trigger_rest_by_device: Dictionary[int, float] = {}
+var _controller_mapping_manager: ControllerMappingManagerType
 
 
 func _ready() -> void:
@@ -294,19 +309,15 @@ func setup(
 	set_edge_docks(
 		settings_manager.current_settings.chat_dock_right,
 		settings_manager.current_settings.paint_dock_right,
+		settings_manager.current_settings.chat_mobile_mode,
 	)
 
 
 func _input(event: InputEvent) -> void:
-	if (
-		_virtual_mouse_active
-		and _injecting_virtual_mouse_event
-		and event is InputEventMouseMotion
-	):
-		_update_virtual_cursor_position(
-			(event as InputEventMouseMotion).position
-		)
 	if _handle_virtual_mouse_input(event):
+		get_viewport().set_input_as_handled()
+		return
+	if _handle_controller_chat_controls(event):
 		get_viewport().set_input_as_handled()
 		return
 	if (
@@ -378,6 +389,55 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 
 
+func _handle_controller_chat_controls(event: InputEvent) -> bool:
+	var button_event: InputEventJoypadButton = event as InputEventJoypadButton
+	if (
+		button_event == null
+		or not button_event.pressed
+		or not _gameplay_ui_enabled
+		or _system_menu_open
+		or _player_menu_open
+		or _shop_open
+	):
+		return false
+	var use_mapping: bool = (
+		_controller_mapping_manager != null
+		and _controller_mapping_manager.has_custom_mapping()
+	)
+	var select_pressed: bool = (
+		_controller_mapping_manager.event_matches_role(
+			event, ControllerMappingManagerType.ROLE_SELECT
+		)
+		if use_mapping
+		else button_event.button_index == JOY_BUTTON_BACK
+	)
+	var focus_pressed: bool = (
+		_controller_mapping_manager.event_matches_role(
+			event, ControllerMappingManagerType.ROLE_LB
+		)
+		if use_mapping
+		else button_event.button_index == JOY_BUTTON_LEFT_SHOULDER
+	)
+	var accept_pressed: bool = (
+		_controller_mapping_manager.event_matches_role(
+			event, ControllerMappingManagerType.ROLE_A
+		)
+		if use_mapping
+		else button_event.button_index == JOY_BUTTON_A
+	)
+	if select_pressed:
+		# Handle Select before focused LineEdit controls consume it. Select owns
+		# chat visibility while LB only returns input ownership to the world.
+		_chat_ui.toggle_chat()
+		return true
+	if focus_pressed:
+		_chat_ui.toggle_focus()
+		return true
+	if accept_pressed:
+		return _chat_ui.request_virtual_keyboard()
+	return false
+
+
 func _on_emote_selected(emote_id: StringName) -> void:
 	if emote_id == &"sit" and _player != null:
 		_player.toggle_sitting()
@@ -404,24 +464,59 @@ func _on_quick_action_selected(action_id: StringName) -> void:
 
 
 func _handle_virtual_mouse_input(event: InputEvent) -> bool:
+	if (
+		_controller_mapping_manager != null
+		and _controller_mapping_manager.has_custom_mapping()
+	):
+		return _handle_mapped_virtual_mouse_input(event)
 	var motion_event: InputEventJoypadMotion = event as InputEventJoypadMotion
 	if motion_event != null:
-		if motion_event.axis == JOY_AXIS_TRIGGER_LEFT:
+		if motion_event.axis in [
+			VIRTUAL_MOUSE_TRIGGER_AXIS,
+			VIRTUAL_MOUSE_SHARED_TRIGGER_AXIS,
+		]:
+			if (
+				_virtual_mouse_active
+				and motion_event.device != _virtual_mouse_device_id
+			):
+				return false
+			_sample_trigger_rest_values(motion_event.device)
+			_virtual_mouse_trigger_strength = (
+				_virtual_mouse_strength_for_device(motion_event.device)
+			)
 			var was_active: bool = _virtual_mouse_active
-			if motion_event.axis_value >= VIRTUAL_MOUSE_TRIGGER_THRESHOLD:
+			if (
+				_virtual_mouse_trigger_strength
+				>= VIRTUAL_MOUSE_TRIGGER_THRESHOLD
+			):
 				if not _virtual_mouse_active and _can_start_virtual_mouse():
-					_begin_virtual_mouse()
-			elif _virtual_mouse_active:
+					_begin_virtual_mouse(motion_event.device)
+			elif (
+				_virtual_mouse_active
+				and _virtual_mouse_trigger_strength
+				< VIRTUAL_MOUSE_TRIGGER_RELEASE_THRESHOLD
+			):
 				_end_virtual_mouse()
+			elif _virtual_mouse_active:
+				_set_virtual_mouse_button(
+					MOUSE_BUTTON_RIGHT,
+					_secondary_click_strength_for_device(
+						motion_event.device
+					) >= VIRTUAL_MOUSE_TRIGGER_THRESHOLD,
+				)
 			return was_active or _virtual_mouse_active
 		if (
 			_virtual_mouse_active
-			and motion_event.axis == JOY_AXIS_TRIGGER_RIGHT
+			and motion_event.device == _virtual_mouse_device_id
+			and motion_event.axis in [
+				JOY_AXIS_RIGHT_X,
+				JOY_AXIS_RIGHT_Y,
+			]
 		):
-			_set_virtual_mouse_button(
-				MOUSE_BUTTON_RIGHT,
-				motion_event.axis_value >= VIRTUAL_MOUSE_TRIGGER_THRESHOLD,
-			)
+			if motion_event.axis == JOY_AXIS_RIGHT_X:
+				_virtual_mouse_stick.x = motion_event.axis_value
+			else:
+				_virtual_mouse_stick.y = motion_event.axis_value
 			return true
 	var button_event: InputEventJoypadButton = event as InputEventJoypadButton
 	if (
@@ -429,34 +524,124 @@ func _handle_virtual_mouse_input(event: InputEvent) -> bool:
 		and button_event.button_index == JOY_BUTTON_RIGHT_SHOULDER
 		and (
 			_virtual_mouse_active
-			or Input.get_joy_axis(0, JOY_AXIS_TRIGGER_LEFT)
-			>= VIRTUAL_MOUSE_TRIGGER_THRESHOLD
+			or _virtual_mouse_trigger_strength
+				>= VIRTUAL_MOUSE_TRIGGER_THRESHOLD
 		)
 	):
 		if not _virtual_mouse_active and _can_start_virtual_mouse():
-			_begin_virtual_mouse()
+			_begin_virtual_mouse(button_event.device)
 		if _virtual_mouse_active:
 			_set_virtual_mouse_button(MOUSE_BUTTON_LEFT, button_event.pressed)
 			return true
 	return false
 
 
+func _handle_mapped_virtual_mouse_input(event: InputEvent) -> bool:
+	var uses_activation: bool = _controller_mapping_manager.event_uses_role(
+		event,
+		ControllerMappingManagerType.ROLE_LT,
+	)
+	if uses_activation:
+		var was_active: bool = _virtual_mouse_active
+		_virtual_mouse_trigger_strength = (
+			_controller_mapping_manager.get_role_strength(
+				ControllerMappingManagerType.ROLE_LT
+			)
+		)
+		if (
+			_virtual_mouse_trigger_strength
+			>= VIRTUAL_MOUSE_TRIGGER_THRESHOLD
+			and not _virtual_mouse_active
+			and _can_start_virtual_mouse()
+		):
+			_begin_virtual_mouse(
+				_controller_mapping_manager.get_active_device_id()
+			)
+		elif (
+			_virtual_mouse_active
+			and _virtual_mouse_trigger_strength
+			< VIRTUAL_MOUSE_TRIGGER_RELEASE_THRESHOLD
+		):
+			_end_virtual_mouse()
+		return was_active or _virtual_mouse_active
+	if not _virtual_mouse_active:
+		return false
+	if (
+		_controller_mapping_manager.event_uses_role(
+			event,
+			ControllerMappingManagerType.ROLE_RIGHT_STICK_X,
+		)
+		or _controller_mapping_manager.event_uses_role(
+			event,
+			ControllerMappingManagerType.ROLE_RIGHT_STICK_Y,
+		)
+	):
+		_virtual_mouse_stick = _mapped_virtual_mouse_stick()
+		return true
+	var button_event := event as InputEventJoypadButton
+	if button_event != null and _controller_mapping_manager.event_uses_role(
+		event,
+		ControllerMappingManagerType.ROLE_RB,
+	):
+		_set_virtual_mouse_button(MOUSE_BUTTON_LEFT, button_event.pressed)
+		return true
+	if _controller_mapping_manager.event_uses_role(
+		event,
+		ControllerMappingManagerType.ROLE_RT,
+	):
+		_set_virtual_mouse_button(
+			MOUSE_BUTTON_RIGHT,
+			_controller_mapping_manager.get_role_strength(
+				ControllerMappingManagerType.ROLE_RT
+			) >= VIRTUAL_MOUSE_TRIGGER_THRESHOLD,
+		)
+		return true
+	return false
+
+
+func _mapped_virtual_mouse_stick() -> Vector2:
+	return Vector2(
+		_controller_mapping_manager.get_role_axis(
+			ControllerMappingManagerType.ROLE_RIGHT_STICK_X
+		),
+		_controller_mapping_manager.get_role_axis(
+			ControllerMappingManagerType.ROLE_RIGHT_STICK_Y
+		),
+	)
+
+
 func _can_start_virtual_mouse() -> bool:
 	return (
 		_gameplay_ui_enabled
 		and not _showcase_active
+		and not _system_menu_open
+		and not _player_menu_open
+		and not _shop_open
+		and not _chat_input_open
 		and _player != null
 		and _fishing_spot != null
-		and _fishing_spot.can_use_surface_drawing()
+		and _fishing_spot.can_open_system_menu()
 		and not _emote_radial_menu.is_open()
 		and not _quick_radial_menu.is_open()
 	)
 
 
-func _begin_virtual_mouse() -> void:
+func _begin_virtual_mouse(device_id: int) -> void:
 	if _virtual_mouse_active:
 		return
 	_virtual_mouse_active = true
+	_virtual_mouse_device_id = maxi(device_id, 0)
+	_virtual_mouse_stick = (
+		_mapped_virtual_mouse_stick()
+		if (
+			_controller_mapping_manager != null
+			and _controller_mapping_manager.has_custom_mapping()
+		)
+		else Vector2(
+			Input.get_joy_axis(_virtual_mouse_device_id, JOY_AXIS_RIGHT_X),
+			Input.get_joy_axis(_virtual_mouse_device_id, JOY_AXIS_RIGHT_Y),
+		)
+	)
 	_virtual_mouse_prior_camera_input_enabled = (
 		_player.is_camera_input_enabled()
 	)
@@ -470,8 +655,11 @@ func _begin_virtual_mouse() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_HIDDEN
 	_virtual_mouse_button_mask = 0
 	_virtual_mouse_right_pressed = false
-	_virtual_mouse_window_position = Vector2(get_window().size) * 0.5
+	_virtual_mouse_window_position = _clamp_virtual_mouse_window_position(
+		Vector2(get_window().size) * 0.5
+	)
 	_controller_virtual_cursor.visible = true
+	_update_virtual_cursor_position(_virtual_mouse_window_position)
 	_emit_virtual_mouse_motion(Vector2.ZERO)
 
 
@@ -483,6 +671,8 @@ func _end_virtual_mouse() -> void:
 	if _virtual_mouse_right_pressed:
 		_set_virtual_mouse_button(MOUSE_BUTTON_RIGHT, false)
 	_virtual_mouse_active = false
+	_virtual_mouse_trigger_strength = 0.0
+	_virtual_mouse_stick = Vector2.ZERO
 	_controller_virtual_cursor.visible = false
 	if _fishing_spot != null:
 		_fishing_spot.set_local_menu_input_suppressed(
@@ -500,15 +690,12 @@ func _update_virtual_mouse(delta: float) -> void:
 	if not _virtual_mouse_active:
 		return
 	if (
-		Input.get_joy_axis(0, JOY_AXIS_TRIGGER_LEFT)
-		< VIRTUAL_MOUSE_TRIGGER_THRESHOLD
+		_virtual_mouse_trigger_strength
+		< VIRTUAL_MOUSE_TRIGGER_RELEASE_THRESHOLD
 	):
 		_end_virtual_mouse()
 		return
-	var stick: Vector2 = Vector2(
-		Input.get_joy_axis(0, JOY_AXIS_RIGHT_X),
-		Input.get_joy_axis(0, JOY_AXIS_RIGHT_Y),
-	)
+	var stick: Vector2 = _virtual_mouse_stick
 	var stick_length: float = stick.length()
 	if stick_length <= VIRTUAL_MOUSE_STICK_DEADZONE:
 		return
@@ -526,20 +713,164 @@ func _update_virtual_mouse(delta: float) -> void:
 		* display_scale
 		* delta
 	)
-	var window_size: Vector2 = Vector2(get_window().size)
-	_virtual_mouse_window_position = Vector2(
-		clampf(
-			_virtual_mouse_window_position.x + relative_motion.x,
-			0.0,
-			window_size.x,
-		),
-		clampf(
-			_virtual_mouse_window_position.y + relative_motion.y,
-			0.0,
-			window_size.y,
-		),
+	_virtual_mouse_window_position = _clamp_virtual_mouse_window_position(
+		_virtual_mouse_window_position + relative_motion
 	)
+	_update_virtual_cursor_position(_virtual_mouse_window_position)
 	_emit_virtual_mouse_motion(relative_motion)
+
+
+func _poll_virtual_mouse_controller_state() -> void:
+	if (
+		_controller_mapping_manager != null
+		and _controller_mapping_manager.has_custom_mapping()
+	):
+		_poll_mapped_virtual_mouse_controller_state()
+		return
+	var device_ids: Array[int] = Input.get_connected_joypads()
+	# Some Android controller backends deliver device-0 axes without including
+	# that device in get_connected_joypads(). Player camera input already uses
+	# this same primary-device fallback.
+	if device_ids.is_empty():
+		device_ids.append(0)
+	for device_id: int in device_ids:
+		_sample_trigger_rest_values(device_id)
+	if _virtual_mouse_active:
+		if not device_ids.has(_virtual_mouse_device_id):
+			_end_virtual_mouse()
+			return
+		_virtual_mouse_trigger_strength = _virtual_mouse_strength_for_device(
+			_virtual_mouse_device_id
+		)
+		_set_virtual_mouse_button(
+			MOUSE_BUTTON_RIGHT,
+			_secondary_click_strength_for_device(
+				_virtual_mouse_device_id
+			) >= VIRTUAL_MOUSE_TRIGGER_THRESHOLD,
+		)
+		_virtual_mouse_stick = Vector2(
+			Input.get_joy_axis(
+				_virtual_mouse_device_id,
+				JOY_AXIS_RIGHT_X,
+			),
+			Input.get_joy_axis(
+				_virtual_mouse_device_id,
+				JOY_AXIS_RIGHT_Y,
+			),
+		)
+		return
+	if not _can_start_virtual_mouse():
+		return
+	for device_id: int in device_ids:
+		var trigger_strength: float = _virtual_mouse_strength_for_device(
+			device_id
+		)
+		if trigger_strength < VIRTUAL_MOUSE_TRIGGER_THRESHOLD:
+			continue
+		_virtual_mouse_trigger_strength = trigger_strength
+		_begin_virtual_mouse(device_id)
+		return
+
+
+func _poll_mapped_virtual_mouse_controller_state() -> void:
+	var trigger_strength: float = _controller_mapping_manager.get_role_strength(
+		ControllerMappingManagerType.ROLE_LT
+	)
+	if _virtual_mouse_active:
+		_virtual_mouse_trigger_strength = trigger_strength
+		if trigger_strength < VIRTUAL_MOUSE_TRIGGER_RELEASE_THRESHOLD:
+			_end_virtual_mouse()
+			return
+		_virtual_mouse_stick = _mapped_virtual_mouse_stick()
+		_set_virtual_mouse_button(
+			MOUSE_BUTTON_RIGHT,
+			_controller_mapping_manager.get_role_strength(
+				ControllerMappingManagerType.ROLE_RT
+			) >= VIRTUAL_MOUSE_TRIGGER_THRESHOLD,
+		)
+		return
+	if (
+		trigger_strength >= VIRTUAL_MOUSE_TRIGGER_THRESHOLD
+		and _can_start_virtual_mouse()
+	):
+		_virtual_mouse_trigger_strength = trigger_strength
+		_begin_virtual_mouse(
+			_controller_mapping_manager.get_active_device_id()
+		)
+
+
+func _sample_trigger_rest_values(device_id: int) -> void:
+	if not _virtual_mouse_trigger_rest_by_device.has(device_id):
+		_virtual_mouse_trigger_rest_by_device[device_id] = Input.get_joy_axis(
+			device_id,
+			VIRTUAL_MOUSE_TRIGGER_AXIS,
+		)
+	if not _shared_trigger_rest_by_device.has(device_id):
+		_shared_trigger_rest_by_device[device_id] = Input.get_joy_axis(
+			device_id,
+			VIRTUAL_MOUSE_SHARED_TRIGGER_AXIS,
+		)
+
+
+func _virtual_mouse_strength_for_device(device_id: int) -> float:
+	_sample_trigger_rest_values(device_id)
+	var dedicated_rest: float = (
+		_virtual_mouse_trigger_rest_by_device[device_id]
+	)
+	var shared_rest: float = _shared_trigger_rest_by_device[device_id]
+	var dedicated_strength: float = normalized_trigger_strength(
+		Input.get_joy_axis(device_id, VIRTUAL_MOUSE_TRIGGER_AXIS),
+		dedicated_rest,
+	)
+	var shared_negative_strength: float = directional_trigger_strength(
+		Input.get_joy_axis(device_id, VIRTUAL_MOUSE_SHARED_TRIGGER_AXIS),
+		shared_rest,
+		-1.0,
+	)
+	return maxf(dedicated_strength, shared_negative_strength)
+
+
+func _secondary_click_strength_for_device(device_id: int) -> float:
+	_sample_trigger_rest_values(device_id)
+	return directional_trigger_strength(
+		Input.get_joy_axis(device_id, VIRTUAL_MOUSE_SECONDARY_CLICK_AXIS),
+		_shared_trigger_rest_by_device[device_id],
+		1.0,
+	)
+
+
+static func normalized_trigger_strength(
+	axis_value: float,
+	resting_value: float,
+) -> float:
+	var negative_travel: float = absf(-1.0 - resting_value)
+	var positive_travel: float = absf(1.0 - resting_value)
+	var available_travel: float = maxf(negative_travel, positive_travel)
+	if available_travel <= 0.001:
+		return 0.0
+	return clampf(
+		absf(axis_value - resting_value) / available_travel,
+		0.0,
+		1.0,
+	)
+
+
+static func directional_trigger_strength(
+	axis_value: float,
+	resting_value: float,
+	direction: float,
+) -> float:
+	var normalized_direction: float = signf(direction)
+	if is_zero_approx(normalized_direction):
+		return 0.0
+	var endpoint: float = normalized_direction
+	var available_travel: float = absf(endpoint - resting_value)
+	if available_travel <= 0.001:
+		return 0.0
+	var directed_travel: float = (
+		(axis_value - resting_value) * normalized_direction
+	)
+	return clampf(directed_travel / available_travel, 0.0, 1.0)
 
 
 func _set_virtual_mouse_button(button: MouseButton, pressed: bool) -> void:
@@ -577,16 +908,40 @@ func _emit_virtual_mouse_motion(relative_motion: Vector2) -> void:
 
 
 func _parse_virtual_mouse_event(event: InputEventMouse) -> void:
-	_injecting_virtual_mouse_event = true
 	Input.parse_input_event(event)
-	_injecting_virtual_mouse_event = false
 
 
 func _update_virtual_cursor_position(viewport_position: Vector2) -> void:
-	var root_transform: Transform2D = _ui_root.get_global_transform_with_canvas()
-	_controller_virtual_cursor.set_pointer_position(
-		root_transform.affine_inverse() * viewport_position
+	var output_scale: float = UIReferencePresentationType.get_scale(
+		Vector2(get_window().size)
 	)
+	_controller_virtual_cursor.set_pointer_position(
+		viewport_position / output_scale
+	)
+
+
+func _clamp_virtual_mouse_window_position(
+	window_position: Vector2,
+) -> Vector2:
+	var bounds: Rect2 = get_virtual_mouse_window_bounds(
+		Vector2(get_window().size)
+	)
+	return Vector2(
+		clampf(window_position.x, bounds.position.x, bounds.end.x),
+		clampf(window_position.y, bounds.position.y, bounds.end.y),
+	)
+
+
+static func get_virtual_mouse_window_bounds(window_size: Vector2) -> Rect2:
+	var output_scale: float = UIReferencePresentationType.get_scale(window_size)
+	var cursor_margin: Vector2 = (
+		ControllerVirtualCursorType.CURSOR_SIZE * output_scale * 0.5
+	)
+	var bounds_size: Vector2 = Vector2(
+		maxf(window_size.x - cursor_margin.x * 2.0, 0.0),
+		maxf(window_size.y - cursor_margin.y * 2.0, 0.0),
+	)
+	return Rect2(cursor_margin, bounds_size)
 
 
 func _toggle_surface_drawing() -> void:
@@ -619,7 +974,29 @@ func setup_data_and_identity(
 		)
 
 
+func setup_controller_mapping(
+	mapping_manager: ControllerMappingManagerType,
+) -> void:
+	_controller_mapping_manager = mapping_manager
+	_player.set_controller_mapping_manager(_controller_mapping_manager)
+	_emote_radial_menu.setup_controller_mapping(_controller_mapping_manager)
+	_quick_radial_menu.setup_controller_mapping(_controller_mapping_manager)
+	_player_menu.setup_controller_mapping(_controller_mapping_manager)
+	for panel: SettingsPanelType in [
+		_title_settings_panel, _pause_settings_panel
+	]:
+		panel.setup_controller_mapping(_controller_mapping_manager)
+
+
+func is_controller_mapping_capturing() -> bool:
+	return (
+		_title_settings_panel.is_controller_mapping_capturing()
+		or _pause_settings_panel.is_controller_mapping_capturing()
+	)
+
+
 func _process(delta: float) -> void:
+	_poll_virtual_mouse_controller_state()
 	_update_virtual_mouse(delta)
 	_update_experience_bubble_position()
 	if _item_effects == null or not _gameplay_ui_enabled:
@@ -753,8 +1130,13 @@ func set_effective_ui_pixel_size(pixel_size: int) -> void:
 	_pause_settings_panel.set_effective_ui_pixel_size(pixel_size)
 
 
-func set_edge_docks(chat_dock_right: bool, paint_dock_right: bool) -> void:
+func set_edge_docks(
+	chat_dock_right: bool,
+	paint_dock_right: bool,
+	chat_mobile_mode: bool,
+) -> void:
 	_chat_ui.set_dock_right(chat_dock_right)
+	_chat_ui.set_mobile_mode(chat_mobile_mode)
 	_surface_drawing_toolbar.set_dock_right(paint_dock_right)
 
 
@@ -1131,6 +1513,8 @@ func _update_experience_bubble_position() -> void:
 
 func _on_player_menu_visibility_changed(is_open: bool) -> void:
 	_player_menu_open = is_open
+	if is_open:
+		_end_virtual_mouse()
 	if is_open and _surface_drawing != null:
 		_surface_drawing.deactivate()
 	_gameplay_transient_hud.visible = _gameplay_ui_enabled and not is_open

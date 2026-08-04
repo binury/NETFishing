@@ -30,6 +30,7 @@ const UI_COMPACT_RENDER_HEIGHTS: Array[int] = [0, 408, 336, 264, 192]
 @export var chat_draft: String = ""
 @export var chat_collapsed: bool = false
 @export var chat_dock_right: bool = false
+@export var chat_mobile_mode: bool = false
 @export var paint_dock_right: bool = true
 @export_range(1, 5, 1) var world_pixel_size: int = DEFAULT_WORLD_PIXEL_SIZE
 @export_range(1, 5, 1) var ui_pixel_size: int = DEFAULT_UI_PIXEL_SIZE
@@ -65,6 +66,7 @@ func copy() -> PlayerSettings:
 	result.chat_draft = chat_draft
 	result.chat_collapsed = chat_collapsed
 	result.chat_dock_right = chat_dock_right
+	result.chat_mobile_mode = chat_mobile_mode
 	result.paint_dock_right = paint_dock_right
 	result.world_pixel_size = world_pixel_size
 	result.ui_pixel_size = ui_pixel_size

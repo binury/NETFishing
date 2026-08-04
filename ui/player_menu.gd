@@ -30,6 +30,9 @@ const PlayerCoolerCapacityType = preload(
 const PlayerExperienceType = preload(
 	"res://progression/player_experience.gd"
 )
+const ControllerMappingManagerType = preload(
+	"res://settings/controller_mapping_manager.gd"
+)
 const FishBatchSelectionType = preload(
 	"res://ui/fish_batch_selection.gd"
 )
@@ -280,6 +283,7 @@ var _network_mail_service: NetworkMailService
 var _reservations: PlayerAssetReservationService
 var _network_profile_service: NetworkProfileService
 var _network_player_list: NetworkPlayerListService
+var _controller_mapping_manager: ControllerMappingManagerType
 var _default_buyer: FishBuyerProfileType
 var _sale_buyer_override: FishBuyerProfileType
 var _shop_cooler_context_active: bool = false
@@ -564,8 +568,18 @@ func setup(
 	_refresh_all()
 
 
+func setup_controller_mapping(
+	mapping_manager: ControllerMappingManagerType,
+) -> void:
+	_controller_mapping_manager = mapping_manager
+	_profile_page.setup_controller_mapping(_controller_mapping_manager)
+
+
 func _input(event: InputEvent) -> void:
 	if event is InputEventKey and event.echo:
+		return
+	if _handle_controller_page_switch(event):
+		get_viewport().set_input_as_handled()
 		return
 	if _handle_direct_page_shortcut(event):
 		get_viewport().set_input_as_handled()
@@ -583,6 +597,71 @@ func _input(event: InputEvent) -> void:
 	):
 		open_menu()
 		get_viewport().set_input_as_handled()
+
+
+func _handle_controller_page_switch(event: InputEvent) -> bool:
+	var button_event: InputEventJoypadButton = event as InputEventJoypadButton
+	var use_mapping: bool = (
+		_controller_mapping_manager != null
+		and _controller_mapping_manager.has_custom_mapping()
+	)
+	var uses_left_bumper: bool = (
+		_controller_mapping_manager.event_uses_role(
+			event, ControllerMappingManagerType.ROLE_LB
+		)
+		if use_mapping
+		else (
+			button_event != null
+			and button_event.button_index == JOY_BUTTON_LEFT_SHOULDER
+		)
+	)
+	var uses_right_bumper: bool = (
+		_controller_mapping_manager.event_uses_role(
+			event, ControllerMappingManagerType.ROLE_RB
+		)
+		if use_mapping
+		else (
+			button_event != null
+			and button_event.button_index == JOY_BUTTON_RIGHT_SHOULDER
+		)
+	)
+	if (
+		button_event == null
+		or not (uses_left_bumper or uses_right_bumper)
+		or not visible
+	):
+		return false
+	if not button_event.pressed:
+		return true
+	# Shoulder input belongs to the Player Menu while it is visible, even when
+	# a transition or modal temporarily prevents changing pages. This keeps LB
+	# from opening Chat and RB from leaking into gameplay behind the menu.
+	if (
+		_transitioning
+		or _page_transitioning
+		or _sale_confirmation.visible
+		or get_viewport().gui_is_dragging()
+	):
+		return true
+	var sections: Array[Section] = [
+		_last_inventory_section,
+		Section.LOGBOOK,
+		Section.NET,
+		Section.MAIL,
+		Section.PROFILE,
+		Section.PLAYERS,
+	]
+	var current_index: int = 0
+	if not _is_inventory_section(_current_section):
+		current_index = sections.find(_current_section)
+		if current_index < 0:
+			current_index = 0
+	var direction: int = (
+		-1 if uses_left_bumper else 1
+	)
+	var next_index: int = wrapi(current_index + direction, 0, sections.size())
+	_show_section(sections[next_index])
+	return true
 
 
 func _handle_direct_page_shortcut(event: InputEvent) -> bool:

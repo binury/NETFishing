@@ -18,6 +18,12 @@ const PIXELATION_NAMES: PackedStringArray = [
 const SettingsManagerType = preload(
 	"res://settings/player_settings_manager.gd"
 )
+const ControllerMappingManagerType = preload(
+	"res://settings/controller_mapping_manager.gd"
+)
+const ControllerMappingPanelType = preload(
+	"res://ui/controller_mapping_panel.gd"
+)
 
 signal applied
 signal closed
@@ -42,6 +48,7 @@ enum PresentationMode {
 @onready var _world_value: BubbleButton = %WorldValue
 @onready var _ui_value: BubbleButton = %UIValue
 @onready var _chat_dock: BubbleButton = %ChatDock
+@onready var _chat_mode: BubbleButton = %ChatMode
 @onready var _paint_dock: BubbleButton = %PaintDock
 @onready var _mouse_value: BubbleButton = %MouseValue
 @onready var _controller_value: BubbleButton = %ControllerValue
@@ -84,6 +91,8 @@ var _identity_backups: IdentityBackupService
 var _player_identity: PlayerIdentityStore
 var _host_identity: HostIdentityStore
 var _interface_fonts: InterfaceFontController
+var _controller_mapping_manager: ControllerMappingManagerType
+var _controller_mapping_panel: ControllerMappingPanelType
 var _data_folder_dialog: FileDialog
 var _backup_file_dialog: FileDialog
 var _export_file_dialog: FileDialog
@@ -114,6 +123,7 @@ func _ready() -> void:
 	%RootBackButton.pressed.connect(close_panel)
 	%DisplayBackButton.pressed.connect(handle_back)
 	%ControlsBackButton.pressed.connect(handle_back)
+	%ControllerMapping.pressed.connect(_open_controller_mapping)
 	%AccessibilityBackButton.pressed.connect(handle_back)
 	%DataBackButton.pressed.connect(handle_back)
 	%RootBackButton.gui_input.connect(_on_back_bubble_gui_input)
@@ -136,6 +146,7 @@ func _ready() -> void:
 			_set_ui_pixelation.bind(index + 1)
 		)
 	_chat_dock.pressed.connect(_toggle_chat_dock)
+	_chat_mode.pressed.connect(_toggle_chat_mode)
 	_paint_dock.pressed.connect(_toggle_paint_dock)
 	%MouseDecrease.pressed.connect(_adjust_mouse_sensitivity.bind(-1))
 	%MouseIncrease.pressed.connect(_adjust_mouse_sensitivity.bind(1))
@@ -178,6 +189,11 @@ func _ready() -> void:
 		parent_control.resized.connect(_refresh_panel_size)
 	for page: SettingsBubblePage in _pages.values():
 		page.hide_page()
+	_controller_mapping_panel = ControllerMappingPanelType.new()
+	add_child(_controller_mapping_panel)
+	_controller_mapping_panel.closed.connect(
+		_on_controller_mapping_panel_closed
+	)
 	_style_data_page()
 	call_deferred("_refresh_panel_size")
 
@@ -188,6 +204,13 @@ func setup_network_profile(
 ) -> void:
 	_network_profile = profile
 	_network_session = session
+
+
+func setup_controller_mapping(
+	mapping_manager: ControllerMappingManagerType,
+) -> void:
+	_controller_mapping_manager = mapping_manager
+	_controller_mapping_panel.setup(_controller_mapping_manager)
 
 
 func setup_data_and_identity(
@@ -263,6 +286,11 @@ func close_panel(immediate: bool = false) -> void:
 
 func _finish_panel_close(applied_result: bool) -> void:
 	_cancel_page_transition()
+	if (
+		_controller_mapping_panel != null
+		and _controller_mapping_panel.is_open()
+	):
+		_controller_mapping_panel.close_panel()
 	for page: SettingsBubblePage in _pages.values():
 		page.hide_page()
 	_page_stack.clear()
@@ -276,6 +304,12 @@ func _finish_panel_close(applied_result: bool) -> void:
 
 
 func handle_back() -> void:
+	if (
+		_controller_mapping_panel != null
+		and _controller_mapping_panel.is_open()
+	):
+		_controller_mapping_panel.request_back()
+		return
 	if _page_transition_active:
 		return
 	if _page_stack.size() > 1:
@@ -284,8 +318,26 @@ func handle_back() -> void:
 	close_panel()
 
 
+func _open_controller_mapping() -> void:
+	if _controller_mapping_manager == null:
+		_feedback.text = "no controller mapping service is available"
+		return
+	_controller_mapping_panel.open_panel()
+
+
+func _on_controller_mapping_panel_closed() -> void:
+	%ControllerMapping.grab_focus()
+
+
 func get_active_page_id() -> StringName:
 	return _page_stack.back() if not _page_stack.is_empty() else StringName()
+
+
+func is_controller_mapping_capturing() -> bool:
+	return (
+		_controller_mapping_panel != null
+		and _controller_mapping_panel.is_capturing()
+	)
 
 
 func _push_page(page_id: StringName) -> void:
@@ -689,6 +741,9 @@ func _refresh_value_labels() -> void:
 		+ _pixel_size_label(settings.ui_pixel_size)
 	)
 	_chat_dock.text = "chat dock\n" + ("right" if settings.chat_dock_right else "left")
+	_chat_mode.text = (
+		"chat mode\n" + ("mobile" if settings.chat_mobile_mode else "desktop")
+	)
 	_paint_dock.text = (
 		"paint dock\n" + ("right" if settings.paint_dock_right else "left")
 	)
@@ -770,6 +825,17 @@ func _toggle_chat_dock() -> void:
 	edited.chat_dock_right = not edited.chat_dock_right
 	if not _settings_manager.apply_settings(edited):
 		_feedback.text = "failed to save chat dock setting."
+		return
+	_refresh_value_labels()
+
+
+func _toggle_chat_mode() -> void:
+	if _settings_manager == null:
+		return
+	var edited: PlayerSettings = _settings_manager.current_settings.copy()
+	edited.chat_mobile_mode = not edited.chat_mobile_mode
+	if not _settings_manager.apply_settings(edited):
+		_feedback.text = "failed to save chat mode setting."
 		return
 	_refresh_value_labels()
 

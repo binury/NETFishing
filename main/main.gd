@@ -16,6 +16,9 @@ const PlayerSettingsManagerType = preload(
 	"res://settings/player_settings_manager.gd"
 )
 const PlayerSettingsType = preload("res://settings/player_settings.gd")
+const ControllerMappingManagerType = preload(
+	"res://settings/controller_mapping_manager.gd"
+)
 const TitleScreenType = preload("res://ui/title_screen.gd")
 const PauseMenuType = preload("res://ui/pause_menu.gd")
 const ItemCatalogType = preload("res://items/item_catalog.gd")
@@ -111,6 +114,9 @@ const SHOP_PATTERN_SCALE: float = 1.75
 @onready var _water_recovery: WaterRecoveryControllerType = %WaterRecovery
 @onready var _save_manager: PlayerSaveManagerType = %PlayerSaveManager
 @onready var _settings_manager: PlayerSettingsManagerType = %PlayerSettingsManager
+@onready var _controller_mapping_manager: ControllerMappingManagerType = (
+	%ControllerMappingManager
+)
 @onready var _interface_fonts: InterfaceFontController = %InterfaceFontController
 @onready var _title_music: AudioStreamPlayer = %TitleMusic
 @onready var _ui_pixelation: UIPixelationPresenterType = %UIPresentation
@@ -534,6 +540,7 @@ func _initialize_after_data_root() -> void:
 		_network_session,
 		_interface_fonts,
 	)
+	_game_ui.setup_controller_mapping(_controller_mapping_manager)
 	_data_root.conflict_detected.connect(_on_portable_conflict)
 	_data_root.status_changed.connect(_on_data_root_status)
 	if (
@@ -927,6 +934,8 @@ func _on_peer_identity_observed(_peer_id: int, status: String) -> void:
 
 
 func _input(event: InputEvent) -> void:
+	if _game_ui.is_controller_mapping_capturing():
+		return
 	if (
 		not (
 			event.is_action_pressed("ui_cancel")
@@ -935,6 +944,7 @@ func _input(event: InputEvent) -> void:
 		or (event is InputEventKey and event.echo)
 	):
 		return
+	var pause_open_requested: bool = _is_pause_open_request(event)
 	var title_screen: TitleScreenType = _game_ui.get_title_screen()
 	if title_screen.visible or not _gameplay_started:
 		return
@@ -953,12 +963,20 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		return
 	if (
-		not _water_recovery.is_recovery_active()
+		pause_open_requested
+		and not _water_recovery.is_recovery_active()
 		and _fishing_spot.can_open_system_menu()
 	):
 		_game_ui.close_player_menu_for_game_menu()
 		pause_menu.open_menu()
 		get_viewport().set_input_as_handled()
+
+
+func _is_pause_open_request(event: InputEvent) -> bool:
+	return (
+		event.is_action_pressed("open_system_menu")
+		or event is InputEventKey
+	)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -1002,6 +1020,7 @@ func _apply_runtime_settings(settings: PlayerSettingsType) -> void:
 	_game_ui.set_edge_docks(
 		settings.chat_dock_right,
 		settings.paint_dock_right,
+		settings.chat_mobile_mode,
 	)
 
 

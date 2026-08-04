@@ -37,16 +37,32 @@ func _run() -> void:
 	var chat_ui := game_ui.get_node("%ChatUI") as ChatUI
 	assert(player != null and service != null and toolbar != null)
 	assert(chat_ui != null)
+	assert(bool(game_ui.call("_can_start_virtual_mouse")))
+	game_ui.call("_begin_virtual_mouse", 0)
+	var virtual_cursor := game_ui.get_node(
+		"%ControllerVirtualCursor"
+	) as ControllerVirtualCursor
+	assert(virtual_cursor.visible)
+	assert(not player.is_camera_input_enabled())
+	game_ui.call("_end_virtual_mouse")
+	assert(not virtual_cursor.visible)
+	assert(player.is_camera_input_enabled())
 	var settings_panel := game_ui.get(
 		"_pause_settings_panel"
 	) as SettingsPanel
 	var chat_dock_button := settings_panel.get_node("%ChatDock") as BubbleButton
+	var chat_mode_button := settings_panel.get_node("%ChatMode") as BubbleButton
 	var paint_dock_button := settings_panel.get_node("%PaintDock") as BubbleButton
 	assert(chat_dock_button.neutral_size.x == chat_dock_button.neutral_size.y)
+	assert(chat_mode_button.neutral_size.x == chat_mode_button.neutral_size.y)
 	assert(paint_dock_button.neutral_size.x == paint_dock_button.neutral_size.y)
 	assert(
 		chat_dock_button.compact_minimum_size.x
 		== chat_dock_button.compact_minimum_size.y
+	)
+	assert(
+		chat_mode_button.compact_minimum_size.x
+		== chat_mode_button.compact_minimum_size.y
 	)
 	assert(
 		paint_dock_button.compact_minimum_size.x
@@ -60,24 +76,85 @@ func _run() -> void:
 	assert(settings_manager != null)
 	var changed_docks: PlayerSettings = settings_manager.current_settings.copy()
 	changed_docks.chat_dock_right = true
+	changed_docks.chat_mobile_mode = true
 	changed_docks.paint_dock_right = false
 	assert(settings_manager.apply_settings(changed_docks))
 	await process_frame
 	assert(chat_ui.is_docked_right())
+	assert(chat_ui.is_mobile_mode())
 	assert(not toolbar.is_docked_right())
+	var chat_panel := chat_ui.get_node("ChatPanel") as PanelContainer
+	var chat_height_button := chat_ui.get_node("ChatHeightButton") as Button
+	assert(is_zero_approx(chat_panel.position.y))
+	assert(is_equal_approx(chat_panel.size.x, ChatUI.MOBILE_COMPACT_WIDTH))
+	assert(not chat_height_button.visible)
 	var reloaded_settings := PlayerSettingsManager.new()
 	root.add_child(reloaded_settings)
 	assert(reloaded_settings.load_settings())
 	assert(reloaded_settings.current_settings.chat_dock_right)
+	assert(reloaded_settings.current_settings.chat_mobile_mode)
 	assert(not reloaded_settings.current_settings.paint_dock_right)
 	reloaded_settings.queue_free()
 	var default_docks: PlayerSettings = settings_manager.current_settings.copy()
 	default_docks.chat_dock_right = false
+	default_docks.chat_mobile_mode = false
 	default_docks.paint_dock_right = true
 	assert(settings_manager.apply_settings(default_docks))
 	await process_frame
 	assert(not chat_ui.is_docked_right())
+	assert(not chat_ui.is_mobile_mode())
 	assert(toolbar.is_docked_right())
+	assert(chat_height_button.visible)
+	var select_button := InputEventJoypadButton.new()
+	select_button.button_index = JOY_BUTTON_BACK
+	select_button.pressed = true
+	assert(bool(game_ui.call("_handle_controller_chat_controls", select_button)))
+	assert(chat_ui.is_open())
+	assert(chat_panel.mouse_filter == Control.MOUSE_FILTER_STOP)
+	var typed_chat_entry := chat_ui.find_child(
+		"ChatEntry", true, false
+	) as LineEdit
+	assert(typed_chat_entry != null)
+	assert(not typed_chat_entry.virtual_keyboard_enabled)
+	var accept_button := InputEventJoypadButton.new()
+	accept_button.button_index = JOY_BUTTON_A
+	accept_button.pressed = true
+	assert(bool(game_ui.call("_handle_controller_chat_controls", accept_button)))
+	assert(typed_chat_entry.virtual_keyboard_enabled)
+	var left_bumper := InputEventJoypadButton.new()
+	left_bumper.button_index = JOY_BUTTON_LEFT_SHOULDER
+	left_bumper.pressed = true
+	assert(bool(game_ui.call("_handle_controller_chat_controls", left_bumper)))
+	assert(not chat_ui.is_open())
+	assert(chat_panel.mouse_filter == Control.MOUSE_FILTER_IGNORE)
+	assert(not typed_chat_entry.virtual_keyboard_enabled)
+	assert(bool(game_ui.call("_handle_controller_chat_controls", left_bumper)))
+	assert(chat_ui.is_open())
+	assert(not typed_chat_entry.virtual_keyboard_enabled)
+	assert(bool(game_ui.call("_handle_controller_chat_controls", left_bumper)))
+	assert(not chat_ui.is_open())
+	assert(bool(game_ui.call("_handle_controller_chat_controls", select_button)))
+	assert(not chat_ui.is_open())
+	assert(chat_ui.is_collapsed())
+	assert(bool(game_ui.call("_handle_controller_chat_controls", select_button)))
+	assert(chat_ui.is_open())
+	chat_ui.refocus_gameplay()
+	var cancel_button := InputEventJoypadButton.new()
+	cancel_button.button_index = JOY_BUTTON_B
+	cancel_button.pressed = true
+	assert(not bool(main.call("_is_pause_open_request", cancel_button)))
+	var start_button := InputEventJoypadButton.new()
+	start_button.button_index = JOY_BUTTON_START
+	start_button.pressed = true
+	assert(bool(main.call("_is_pause_open_request", start_button)))
+	var player_menu := game_ui.get_node("%PlayerMenu") as PlayerMenu
+	player_menu.open_section(PlayerMenu.Section.PROFILE)
+	for _frame: int in 12:
+		await process_frame
+	assert(root.gui_get_focus_owner() is not LineEdit)
+	player_menu.close_menu()
+	for _frame: int in 12:
+		await process_frame
 	assert(not service.can_activate())
 	assert(not service.is_active() and not toolbar.visible)
 	assert(player.bag.add_item(ArtShopStock.ART_KIT_ITEM_ID, 1))

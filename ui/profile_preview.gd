@@ -1,6 +1,10 @@
 class_name ProfilePreview
 extends SubViewportContainer
 
+const ControllerMappingManagerType = preload(
+	"res://settings/controller_mapping_manager.gd"
+)
+
 @export_range(0.1, 2.0, 0.05) var drag_sensitivity: float = 0.012
 @export_range(0.1, 4.0, 0.1) var keyboard_speed: float = 1.8
 
@@ -8,6 +12,13 @@ extends SubViewportContainer
 
 var _dragging: bool = false
 var _visuals: Node3D
+var _controller_mapping_manager: ControllerMappingManagerType
+
+
+func setup_controller_mapping(
+	mapping_manager: ControllerMappingManagerType,
+) -> void:
+	_controller_mapping_manager = mapping_manager
 
 
 func _ready() -> void:
@@ -36,7 +47,16 @@ func _process(delta: float) -> void:
 	if not has_focus():
 		return
 	var axis := Input.get_axis("ui_left", "ui_right")
-	var right_stick := Input.get_joy_axis(0, JOY_AXIS_RIGHT_X)
+	var right_stick: float = (
+		_controller_mapping_manager.get_role_axis(
+			ControllerMappingManagerType.ROLE_RIGHT_STICK_X
+		)
+		if (
+			_controller_mapping_manager != null
+			and _controller_mapping_manager.has_custom_mapping()
+		)
+		else Input.get_joy_axis(0, JOY_AXIS_RIGHT_X)
+	)
 	if absf(right_stick) > 0.2:
 		axis = right_stick
 	if absf(axis) > 0.1:
