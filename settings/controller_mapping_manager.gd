@@ -12,19 +12,19 @@ const PROFILE_BACKUP_PATH: String = "user://controller_mappings.json.backup"
 const MAX_PROFILE_BYTES: int = 1024 * 1024
 const CAPTURE_AXIS_THRESHOLD: float = 0.55
 const CAPTURE_AXIS_RELEASE_THRESHOLD: float = 0.30
-const MUOS_MAPPING_REVISION: String = "muos-v1"
+const MUOS_MAPPING_REVISION: String = "muos-v2"
 const MUOS_CONTROLLER_NAMES: Array[String] = [
 	"muOS-Keys",
 	"Deeplay-keys",
 ]
 const MUOS_MAPPING_BINDINGS: String = (
-	"a:b3,b:b4,x:b6,y:b5,"
-	+ "leftshoulder:b7,rightshoulder:b8,"
-	+ "lefttrigger:b13,righttrigger:b14,"
-	+ "guide:b11,start:b10,back:b9,"
+	"a:b2,b:b0,x:b1,y:b3,"
+	+ "leftshoulder:b6,rightshoulder:b7,"
+	+ "lefttrigger:b8,righttrigger:b9,"
+	+ "guide:b12,start:b11,back:b10,"
 	+ "dpup:h0.1,dpleft:h0.8,dpright:h0.2,dpdown:h0.4,"
-	+ "leftx:a0,lefty:a1,leftstick:b12,"
-	+ "rightx:a2,righty:a3,rightstick:b15,platform:Linux,"
+	+ "leftx:a0,lefty:a1,leftstick:b4,"
+	+ "rightx:a2,righty:a3,rightstick:b5,platform:Linux,"
 )
 const ROLE_A: StringName = &"a"
 const ROLE_B: StringName = &"b"
@@ -605,7 +605,10 @@ func _install_known_controller_mappings() -> void:
 
 func _install_known_controller_mapping(device_id: int) -> bool:
 	var controller_name: String = Input.get_joy_name(device_id).strip_edges()
-	if controller_name not in MUOS_CONTROLLER_NAMES:
+	if not should_install_muos_compatibility_mapping(
+		controller_name,
+		Input.is_joy_known(device_id),
+	):
 		return false
 	var guid: String = Input.get_joy_guid(device_id).strip_edges()
 	if guid.is_empty():
@@ -633,6 +636,15 @@ static func build_muos_controller_mapping(
 
 static func is_muos_controller_name(controller_name: String) -> bool:
 	return controller_name.strip_edges() in MUOS_CONTROLLER_NAMES
+
+
+static func should_install_muos_compatibility_mapping(
+	controller_name: String,
+	is_known: bool,
+) -> bool:
+	# Current SDL databases should remain authoritative. This fallback exists
+	# only for legacy muOS virtual controllers that SDL cannot identify.
+	return is_muos_controller_name(controller_name) and not is_known
 
 
 func _set_active_controller(device_id: int) -> void:

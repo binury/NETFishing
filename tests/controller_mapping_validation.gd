@@ -40,10 +40,16 @@ func _validate_manager(manager: ControllerMappingManagerType) -> String:
 		)
 	)
 	for expected_binding: String in [
-		"a:b3",
-		"b:b4",
-		"x:b6",
-		"y:b5",
+		"a:b2",
+		"b:b0",
+		"x:b1",
+		"y:b3",
+		"leftshoulder:b6",
+		"rightshoulder:b7",
+		"lefttrigger:b8",
+		"righttrigger:b9",
+		"back:b10",
+		"start:b11",
 		"leftx:a0",
 		"righty:a3",
 	]:
@@ -61,6 +67,21 @@ func _validate_manager(manager: ControllerMappingManagerType) -> String:
 		"ordinary controller"
 	):
 		return "muOS mapping would affect unrelated controllers"
+	if not ControllerMappingManagerType.should_install_muos_compatibility_mapping(
+		"muOS-Keys",
+		false,
+	):
+		return "unknown legacy muOS controller did not receive fallback mapping"
+	if ControllerMappingManagerType.should_install_muos_compatibility_mapping(
+		"muOS-Keys",
+		true,
+	):
+		return "recognized muOS controller would override its SDL mapping"
+	if ControllerMappingManagerType.should_install_muos_compatibility_mapping(
+		"ordinary controller",
+		false,
+	):
+		return "muOS fallback would affect an unrelated unknown controller"
 	var defaults: Dictionary = manager.get_active_bindings()
 	if defaults.size() != ControllerMappingManagerType.ROLE_ORDER.size():
 		return "default mapping covers %d of %d controller roles: %s" % [
