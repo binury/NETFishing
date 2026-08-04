@@ -20,6 +20,7 @@ const HANDLE_SIZE := Vector2(34, 42)
 const HANDLE_GAP: float = 6.0
 const COLLAPSED_REVEAL_WIDTH: float = 8.0
 const HINT_EDGE_MARGIN: float = 4.0
+const SPEECH_BUBBLE_WIDTH: float = 320.0
 const MOBILE_COMPACT_WIDTH: float = 620.0
 const MOBILE_EXPANDED_WIDTH: float = 820.0
 const MOBILE_COMPACT_HEIGHT: float = 220.0
@@ -78,6 +79,7 @@ var _pending_send_body: String = ""
 var _prior_movement: bool = true
 var _prior_camera: bool = true
 var _controller_refocused: bool = false
+var _input_lock_applied: bool = false
 var _output_scale: float = 1.0
 var _dock_right: bool = false
 var _mobile_mode: bool = false
@@ -164,6 +166,7 @@ func open_chat() -> void:
 	text_entry_ownership_changed.emit(true)
 	_prior_movement = _player.is_movement_enabled()
 	_prior_camera = _player.is_camera_input_enabled()
+	_input_lock_applied = true
 	_player.set_movement_enabled(false)
 	_player.set_camera_input_enabled(false)
 	_fishing_spot.set_local_menu_input_suppressed(INPUT_OWNER, true)
@@ -191,16 +194,18 @@ func set_available(value: bool) -> void:
 
 
 func close_chat() -> void:
-	if not _opened:
-		return
+	var ownership_was_active: bool = _opened or _input_lock_applied
 	_opened = false
-	text_entry_ownership_changed.emit(false)
 	_entry.virtual_keyboard_enabled = false
 	_entry.release_focus()
 	_entry.hide()
-	_player.set_movement_enabled(_prior_movement)
-	_player.set_camera_input_enabled(_prior_camera)
-	_fishing_spot.set_local_menu_input_suppressed(INPUT_OWNER, false)
+	if _input_lock_applied:
+		_player.set_movement_enabled(_prior_movement)
+		_player.set_camera_input_enabled(_prior_camera)
+		_fishing_spot.set_local_menu_input_suppressed(INPUT_OWNER, false)
+		_input_lock_applied = false
+	if ownership_was_active:
+		text_entry_ownership_changed.emit(false)
 	_flush_draft()
 	_refresh_visibility()
 	_refresh_input_ownership()
@@ -338,7 +343,7 @@ func _build_ui() -> void:
 	_history.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_history.fit_content = false
 	_history.scroll_active = true
-	_history.scroll_following = false
+	_history.scroll_following = true
 	_history.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
 	_history.mouse_filter = Control.MOUSE_FILTER_STOP
 	_history.add_theme_font_override("normal_font", UtilityPageStyle.TuffyFont)
@@ -623,13 +628,14 @@ func _on_message(message: Dictionary) -> void:
 	_on_peer_removed(peer_id)
 	var bubble := PanelContainer.new()
 	bubble.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	bubble.custom_minimum_size = Vector2(270, 0)
-	bubble.size = Vector2(270, 72)
+	bubble.custom_minimum_size = Vector2(SPEECH_BUBBLE_WIDTH, 0.0)
 	bubble.add_theme_stylebox_override("panel", _speech_panel_style())
 	var label := Label.new()
-	label.text = str(message["body"]).left(120)
-	label.custom_minimum_size = Vector2(246, 46)
-	label.size = Vector2(246, 62)
+	label.text = str(message["body"])
+	label.custom_minimum_size = Vector2(
+		SPEECH_BUBBLE_WIDTH - 20.0,
+		0.0,
+	)
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -670,7 +676,6 @@ func _on_rejected(message: String) -> void:
 func _refresh_history() -> void:
 	if _service == null:
 		return
-	var scroll_state := _capture_history_scroll()
 	var lines: Array[String] = []
 	var messages := _service.get_history()
 	for message: Dictionary in messages:
@@ -681,7 +686,7 @@ func _refresh_history() -> void:
 				str(message["sender_display_name"]), str(message["body"]),
 			])
 	_history.text = "\n".join(lines)
-	_restore_history_scroll.call_deferred(scroll_state)
+	_scroll_history_to_bottom.call_deferred()
 
 
 func _refresh_visibility() -> void:
@@ -1034,7 +1039,6 @@ func _layout_presentation(animate: bool) -> void:
 		_unread_indicator.position = unread_position
 		_hint.position = hint_position
 		return
-	var scroll_state := _capture_history_scroll()
 	_height_tween = create_tween().set_parallel(true)
 	_height_tween.tween_property(
 		_panel, "position", target_position, UIMotion.CHAT_RESIZE_DURATION
@@ -1073,38 +1077,18 @@ func _layout_presentation(animate: bool) -> void:
 		UIMotion.CHAT_RESIZE_DURATION,
 	).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	_height_tween.finished.connect(func() -> void:
-		_restore_history_scroll(scroll_state)
+		_scroll_history_to_bottom()
 	)
 	_hint.position = hint_position
 
 
-func _capture_history_scroll() -> Dictionary:
-	if _history == null:
-		return {"pinned": true, "value": 0.0}
-	var scroll := _history.get_v_scroll_bar()
-	if scroll == null:
-		return {"pinned": true, "value": 0.0}
-	var bottom := maxf(scroll.min_value, scroll.max_value - scroll.page)
-	return {
-		"pinned": scroll.value >= bottom - 2.0,
-		"value": scroll.value,
-	}
-
-
-func _restore_history_scroll(state: Dictionary) -> void:
+func _scroll_history_to_bottom() -> void:
 	if _history == null:
 		return
 	var scroll := _history.get_v_scroll_bar()
 	if scroll == null:
 		return
-	if bool(state.get("pinned", true)):
-		scroll.value = maxf(scroll.min_value, scroll.max_value - scroll.page)
-	else:
-		scroll.value = clampf(
-			float(state.get("value", 0.0)),
-			scroll.min_value,
-			maxf(scroll.min_value, scroll.max_value - scroll.page),
-		)
+	scroll.value = maxf(scroll.min_value, scroll.max_value - scroll.page)
 
 
 func _on_viewport_resized() -> void:

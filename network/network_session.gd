@@ -1446,6 +1446,10 @@ func _is_valid_movement_input(data: Dictionary) -> bool:
 		or typeof(data.get("sprint")) != TYPE_BOOL
 		or typeof(data.get("sneak")) != TYPE_BOOL
 		or typeof(data.get("slow_walk")) != TYPE_BOOL
+		or (
+			data.has("sitting")
+			and typeof(data.get("sitting")) != TYPE_BOOL
+		)
 		or typeof(data.get("camera_yaw")) not in [TYPE_FLOAT, TYPE_INT]
 	):
 		return false

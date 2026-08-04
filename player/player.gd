@@ -533,6 +533,7 @@ func capture_network_input(sequence: int) -> Dictionary:
 			"sprint": false,
 			"sneak": false,
 			"slow_walk": false,
+			"sitting": _sitting,
 		}
 	var axis: Vector2 = Input.get_vector(
 		"move_left",
@@ -548,6 +549,7 @@ func capture_network_input(sequence: int) -> Dictionary:
 		"sprint": Input.is_action_pressed("sprint"),
 		"sneak": Input.is_action_pressed("sneak"),
 		"slow_walk": Input.is_action_pressed("slow_walk"),
+		"sitting": _sitting,
 	}
 
 
@@ -565,6 +567,7 @@ func apply_authoritative_network_input(data: Dictionary) -> void:
 	_network_sprint = bool(data.get("sprint", false))
 	_network_sneak = bool(data.get("sneak", false))
 	_network_slow_walk = bool(data.get("slow_walk", false))
+	_set_sitting(bool(data.get("sitting", false)))
 
 
 func make_network_snapshot(peer_id: int) -> Dictionary:
@@ -575,6 +578,7 @@ func make_network_snapshot(peer_id: int) -> Dictionary:
 		"velocity": [velocity.x, velocity.y, velocity.z],
 		"visual_yaw": _visuals.rotation.y,
 		"grounded": is_on_floor(),
+		"sitting": _sitting,
 	}
 
 
@@ -585,6 +589,7 @@ func push_network_snapshot(snapshot: Dictionary) -> void:
 	_network_target_position = parsed["position"]
 	_network_target_velocity = parsed["velocity"]
 	_network_target_visual_yaw = parsed["visual_yaw"]
+	_set_sitting(bool(parsed["sitting"]))
 	if not _network_snapshot_ready:
 		global_position = _network_target_position
 		velocity = _network_target_velocity
@@ -596,6 +601,7 @@ func apply_local_prediction_correction(snapshot: Dictionary) -> void:
 	var parsed: Dictionary = _parse_network_snapshot(snapshot)
 	if parsed.is_empty():
 		return
+	_set_sitting(bool(parsed["sitting"]))
 	var authoritative_position: Vector3 = parsed["position"]
 	var error_distance: float = global_position.distance_to(
 		authoritative_position
@@ -613,6 +619,7 @@ func apply_network_teleport(snapshot: Dictionary) -> void:
 	global_position = parsed["position"]
 	velocity = parsed["velocity"]
 	_visuals.rotation.y = parsed["visual_yaw"]
+	_set_sitting(bool(parsed["sitting"]))
 	_network_target_position = global_position
 	_network_target_velocity = velocity
 	_network_target_visual_yaw = _visuals.rotation.y
@@ -640,6 +647,9 @@ func _parse_network_snapshot(snapshot: Dictionary) -> Dictionary:
 		float(network_velocity[2])
 	)
 	var visual_yaw: float = float(snapshot.get("visual_yaw", 0.0))
+	if snapshot.has("sitting") and typeof(snapshot.get("sitting")) != TYPE_BOOL:
+		return {}
+	var sitting: bool = bool(snapshot.get("sitting", false))
 	if (
 		not parsed_position.is_finite()
 		or not parsed_velocity.is_finite()
@@ -650,6 +660,7 @@ func _parse_network_snapshot(snapshot: Dictionary) -> Dictionary:
 		"position": parsed_position,
 		"velocity": parsed_velocity,
 		"visual_yaw": visual_yaw,
+		"sitting": sitting,
 	}
 
 

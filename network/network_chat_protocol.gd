@@ -3,8 +3,8 @@ extends RefCounted
 
 const CAPABILITY: StringName = &"chat_v1"
 const RELIABLE_CHANNEL: int = NetworkProtocol.CHAT_RELIABLE_CHANNEL
-const MAX_VISIBLE_CHARACTERS: int = 300
-const MAX_UTF8_BYTES: int = 1200
+const MAX_VISIBLE_CHARACTERS: int = 256
+const MAX_UTF8_BYTES: int = 1024
 const MAX_HISTORY: int = 100
 const LATE_JOIN_HISTORY: int = 50
 const MAX_ID_LENGTH: int = 96
