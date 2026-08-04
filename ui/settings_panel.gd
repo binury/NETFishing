@@ -472,7 +472,7 @@ func _choose_data_folder() -> void:
 		_interface_fonts.apply_utility_theme(_data_folder_dialog)
 		add_child(_data_folder_dialog)
 	_data_folder_dialog.current_dir = _data_root.root_path.get_base_dir()
-	_data_folder_dialog.popup_centered_ratio(0.75)
+	_interface_fonts.popup_file_dialog(_data_folder_dialog)
 
 
 func _change_data_folder(path: String) -> void:
@@ -540,7 +540,7 @@ func _choose_identity_export(identity_type: String) -> void:
 		add_child(_export_file_dialog)
 	_export_file_dialog.current_dir = suggested.get_base_dir()
 	_export_file_dialog.current_file = suggested.get_file()
-	_export_file_dialog.popup_centered_ratio(0.75)
+	_interface_fonts.popup_file_dialog(_export_file_dialog)
 
 
 func _identity_export_file_selected(path: String) -> void:
@@ -565,7 +565,7 @@ func _choose_identity_import(identity_type: String) -> void:
 		_interface_fonts.apply_utility_theme(_backup_file_dialog)
 		add_child(_backup_file_dialog)
 	_backup_file_dialog.current_dir = _data_root.identity_backup_directory()
-	_backup_file_dialog.popup_centered_ratio(0.75)
+	_interface_fonts.popup_file_dialog(_backup_file_dialog)
 
 
 func _identity_import_file_selected(path: String) -> void:

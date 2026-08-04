@@ -72,7 +72,17 @@ func resolve() -> bool:
 
 func default_visible_path() -> String:
 	var documents: String = OS.get_system_dir(OS.SYSTEM_DIR_DOCUMENTS)
-	return documents.path_join("NETFISHING") if not documents.is_empty() else ""
+	if documents.is_empty():
+		return ""
+	var candidate: String = _normalize(documents.path_join("NETFISHING"))
+	if not candidate.is_absolute_path():
+		return ""
+	var classification: StringName = classify_candidate_path(
+		candidate,
+		ProjectSettings.globalize_path("res://"),
+		OS.get_executable_path().get_base_dir(),
+	)
+	return candidate if classification == PATH_ALLOWED else ""
 
 
 func select_new_root(path: String, app_data: bool = false) -> bool:
@@ -232,14 +242,21 @@ func _validate_candidate(path: String, create: bool) -> bool:
 	var normalized: String = _normalize(path)
 	if normalized.is_empty() or not normalized.is_absolute_path():
 		return _fail("Choose an absolute filesystem folder.")
+	var app_data_path: String = _normalize(
+		ProjectSettings.globalize_path(APP_DATA_PORTABLE_PATH)
+	)
+	var exported_app_data: bool = (
+		normalized == app_data_path
+		and not OS.has_feature("editor")
+	)
 	var classification: StringName = classify_candidate_path(
 		normalized,
 		ProjectSettings.globalize_path("res://"),
 		OS.get_executable_path().get_base_dir(),
 	)
-	if classification == PATH_SOURCE_PROJECT:
+	if classification == PATH_SOURCE_PROJECT and not exported_app_data:
 		return _fail("The project folder cannot be used as the player data folder.")
-	if classification == PATH_INSTALLATION:
+	if classification == PATH_INSTALLATION and not exported_app_data:
 		return _fail(
 			"The application installation folder cannot be used as the player data folder."
 		)

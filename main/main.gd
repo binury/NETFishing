@@ -200,6 +200,8 @@ var _server_trust_dialog: ConfirmationDialog
 var _pending_trust_changed: bool = false
 var _identity_notice_dialog: AcceptDialog
 var _data_setup_dialog: ConfirmationDialog
+var _data_setup_choose_button: Button
+var _data_setup_current_button: Button
 var _data_folder_dialog: FileDialog
 var _data_folder_picker_generation: int = 0
 var _restore_data_setup_after_picker: bool = false
@@ -657,10 +659,10 @@ func _show_data_root_setup() -> void:
 		_data_setup_dialog.cancel_button_text = "Quit"
 		_data_setup_dialog.confirmed.connect(_use_default_data_root)
 		_data_setup_dialog.canceled.connect(get_tree().quit)
-		_data_setup_dialog.add_button(
+		_data_setup_choose_button = _data_setup_dialog.add_button(
 			"Choose Another Folder", false, "choose"
 		)
-		_data_setup_dialog.add_button(
+		_data_setup_current_button = _data_setup_dialog.add_button(
 			"Keep Current Location", false, "current"
 		)
 		_data_setup_dialog.custom_action.connect(_on_data_setup_action)
@@ -675,20 +677,54 @@ func _show_data_root_setup() -> void:
 		% (default_path if not default_path.is_empty() else "Choose a folder")
 	)
 	_data_setup_dialog.ok_button_text = (
-		"Move to Documents/NETFISHING" if legacy else "Use This Folder"
+		(
+			"Move to Documents/NETFISHING"
+			if legacy else "Use This Folder"
+		)
+		if not default_path.is_empty()
+		else "Keep Current Location"
 	)
+	_data_setup_current_button.visible = not default_path.is_empty()
 	if not _data_root.error_message.is_empty():
 		_data_setup_dialog.dialog_text = (
 			"Your NETfishing data folder is unavailable.\n\n%s"
 			% _data_root.error_message
 		)
 	_data_setup_dialog.popup_centered(Vector2i(640, 360))
+	_focus_data_setup_actions.call_deferred()
+
+
+func _focus_data_setup_actions() -> void:
+	if _data_setup_dialog == null or not _data_setup_dialog.visible:
+		return
+	var actions: Array[Button] = [
+		_data_setup_dialog.get_ok_button(),
+		_data_setup_choose_button,
+	]
+	if _data_setup_current_button.visible:
+		actions.append(_data_setup_current_button)
+	actions.append(_data_setup_dialog.get_cancel_button())
+	for index: int in actions.size():
+		var action: Button = actions[index]
+		var previous: Button = actions[posmod(index - 1, actions.size())]
+		var next: Button = actions[(index + 1) % actions.size()]
+		action.focus_mode = Control.FOCUS_ALL
+		action.focus_neighbor_left = action.get_path_to(previous)
+		action.focus_neighbor_top = action.focus_neighbor_left
+		action.focus_neighbor_right = action.get_path_to(next)
+		action.focus_neighbor_bottom = action.focus_neighbor_right
+	_data_setup_dialog.get_ok_button().grab_focus()
 
 
 func _use_default_data_root() -> void:
 	var path: String = _data_root.default_visible_path()
 	if path.is_empty():
-		_show_folder_picker()
+		_activate_selected_data_path(
+			ProjectSettings.globalize_path(
+				PlayerDataRoot.APP_DATA_PORTABLE_PATH
+			),
+			true,
+		)
 		return
 	_activate_selected_data_path(path)
 
@@ -737,7 +773,7 @@ func _open_folder_picker_after_modal(generation: int) -> void:
 		if not _data_root.default_visible_path().is_empty()
 		else OS.get_system_dir(OS.SYSTEM_DIR_DOCUMENTS)
 	)
-	_data_folder_dialog.popup_centered_ratio(0.75)
+	_interface_fonts.popup_file_dialog(_data_folder_dialog)
 
 
 func _on_data_folder_picker_canceled() -> void:
@@ -934,6 +970,9 @@ func _on_peer_identity_observed(_peer_id: int, status: String) -> void:
 
 
 func _input(event: InputEvent) -> void:
+	if _handle_data_root_controller_input(event):
+		get_viewport().set_input_as_handled()
+		return
 	if _game_ui.is_controller_mapping_capturing():
 		return
 	if (
@@ -970,6 +1009,64 @@ func _input(event: InputEvent) -> void:
 		_game_ui.close_player_menu_for_game_menu()
 		pause_menu.open_menu()
 		get_viewport().set_input_as_handled()
+
+
+func _handle_data_root_controller_input(event: InputEvent) -> bool:
+	var button_event := event as InputEventJoypadButton
+	if button_event == null or not button_event.pressed:
+		return false
+	var setup_visible: bool = (
+		_data_setup_dialog != null and _data_setup_dialog.visible
+	)
+	var picker_visible: bool = (
+		_data_folder_dialog != null and _data_folder_dialog.visible
+	)
+	if not setup_visible and not picker_visible:
+		return false
+	var use_mapping: bool = _controller_mapping_manager.has_custom_mapping()
+	var accept_pressed: bool = (
+		_controller_mapping_manager.event_matches_role(
+			event,
+			ControllerMappingManagerType.ROLE_A,
+		)
+		if use_mapping
+		else (
+			button_event.button_index == JOY_BUTTON_A
+			or event.is_action_pressed("ui_accept")
+		)
+	)
+	var cancel_pressed: bool = (
+		_controller_mapping_manager.event_matches_role(
+			event,
+			ControllerMappingManagerType.ROLE_B,
+		)
+		if use_mapping
+		else (
+			button_event.button_index == JOY_BUTTON_B
+			or event.is_action_pressed("ui_cancel")
+		)
+	)
+	if cancel_pressed:
+		if picker_visible:
+			_on_data_folder_picker_canceled()
+		else:
+			_data_setup_dialog.get_cancel_button().pressed.emit()
+		return true
+	if not accept_pressed:
+		return false
+	var focused: Control = (
+		_data_folder_dialog.gui_get_focus_owner()
+		if picker_visible
+		else _data_setup_dialog.gui_get_focus_owner()
+	)
+	var focused_button := focused as BaseButton
+	if focused_button != null and not focused_button.disabled:
+		focused_button.pressed.emit()
+		return true
+	if setup_visible:
+		_data_setup_dialog.get_ok_button().pressed.emit()
+		return true
+	return false
 
 
 func _is_pause_open_request(event: InputEvent) -> bool:
