@@ -12,6 +12,7 @@ const PROFILE_BACKUP_PATH: String = "user://controller_mappings.json.backup"
 const MAX_PROFILE_BYTES: int = 1024 * 1024
 const CAPTURE_AXIS_THRESHOLD: float = 0.55
 const CAPTURE_AXIS_RELEASE_THRESHOLD: float = 0.30
+const ACTIVE_DEVICE_AXIS_THRESHOLD: float = 0.35
 const MUOS_MAPPING_REVISION: String = "muos-v2"
 const MUOS_CONTROLLER_NAMES: Array[String] = [
 	"muOS-Keys",
@@ -32,8 +33,13 @@ const ROLE_X: StringName = &"x"
 const ROLE_Y: StringName = &"y"
 const ROLE_LB: StringName = &"lb"
 const ROLE_RB: StringName = &"rb"
-const ROLE_LT: StringName = &"lt"
-const ROLE_RT: StringName = &"rt"
+# Keep the serialized keys for profile compatibility, but name the roles after
+# their game actions. A handheld may expose either action as a button, a
+# dedicated trigger axis, or one half of a shared axis.
+const ROLE_POINTER_MODIFIER: StringName = &"lt"
+const ROLE_CAMERA_ZOOM: StringName = &"rt"
+const ROLE_LT: StringName = ROLE_POINTER_MODIFIER
+const ROLE_RT: StringName = ROLE_CAMERA_ZOOM
 const ROLE_SELECT: StringName = &"select"
 const ROLE_START: StringName = &"start"
 const ROLE_LEFT_STICK_CLICK: StringName = &"left_stick_click"
@@ -54,8 +60,8 @@ const ROLE_ORDER: Array[StringName] = [
 	ROLE_Y,
 	ROLE_LB,
 	ROLE_RB,
-	ROLE_LT,
-	ROLE_RT,
+	ROLE_POINTER_MODIFIER,
+	ROLE_CAMERA_ZOOM,
 	ROLE_SELECT,
 	ROLE_START,
 	ROLE_LEFT_STICK_CLICK,
@@ -77,8 +83,8 @@ const ROLE_LABELS: Dictionary = {
 	ROLE_Y: "interact",
 	ROLE_LB: "focus chat or world",
 	ROLE_RB: "primary action",
-	ROLE_LT: "virtual mouse",
-	ROLE_RT: "camera zoom",
+	ROLE_POINTER_MODIFIER: "virtual mouse modifier",
+	ROLE_CAMERA_ZOOM: "camera zoom",
 	ROLE_SELECT: "chat",
 	ROLE_START: "pause",
 	ROLE_LEFT_STICK_CLICK: "sprint",
@@ -100,8 +106,8 @@ const ROLE_PROMPTS: Dictionary = {
 	ROLE_Y: "press the y button",
 	ROLE_LB: "press the left bumper",
 	ROLE_RB: "press the right bumper",
-	ROLE_LT: "squeeze the left trigger",
-	ROLE_RT: "squeeze the right trigger",
+	ROLE_POINTER_MODIFIER: "press or squeeze the virtual mouse modifier",
+	ROLE_CAMERA_ZOOM: "press or squeeze the camera zoom control",
 	ROLE_SELECT: "press select / back",
 	ROLE_START: "press start",
 	ROLE_LEFT_STICK_CLICK: "click the left stick",
@@ -122,7 +128,10 @@ const STICK_AXIS_ROLES: Array[StringName] = [
 	ROLE_RIGHT_STICK_X,
 	ROLE_RIGHT_STICK_Y,
 ]
-const TRIGGER_ROLES: Array[StringName] = [ROLE_LT, ROLE_RT]
+const TRIGGER_ROLES: Array[StringName] = [
+	ROLE_POINTER_MODIFIER,
+	ROLE_CAMERA_ZOOM,
+]
 
 const BUTTON_ACTION_ROLES: Dictionary = {
 	&"jump": ROLE_A,
@@ -174,6 +183,8 @@ func _ready() -> void:
 	):
 		Input.joy_connection_changed.connect(_on_joy_connection_changed)
 	_install_known_controller_mappings()
+	for device_id: int in Input.get_connected_joypads():
+		_sample_axis_rest_values(device_id)
 	_capture_project_defaults()
 	load_profiles()
 	_refresh_active_controller()
@@ -187,7 +198,16 @@ func _input(event: InputEvent) -> void:
 	var motion_event := event as InputEventJoypadMotion
 	if motion_event != null:
 		device_id = motion_event.device
-	if device_id >= 0 and device_id != _active_device_id:
+	var claims_active_device: bool = (
+		button_event != null and button_event.pressed
+	)
+	if motion_event != null:
+		claims_active_device = _axis_motion_claims_device(motion_event)
+	if (
+		claims_active_device
+		and device_id >= 0
+		and device_id != _active_device_id
+	):
 		_set_active_controller(device_id)
 	if button_event != null or motion_event != null:
 		controller_input_observed.emit(event)
@@ -281,6 +301,24 @@ func get_active_device_id() -> int:
 
 func get_active_controller_name() -> String:
 	return _active_controller_name
+
+
+func get_active_controller_guid() -> String:
+	if not Input.get_connected_joypads().has(_active_device_id):
+		return ""
+	return Input.get_joy_guid(_active_device_id).strip_edges()
+
+
+func get_active_profile_key() -> String:
+	return _active_profile_key
+
+
+func get_active_controller_platform() -> String:
+	return OS.get_name()
+
+
+func recalibrate_active_device() -> void:
+	_recalibrate_device(_active_device_id)
 
 
 func get_role_label(role: StringName) -> String:
@@ -446,18 +484,70 @@ func validate_binding(role: StringName, binding: Dictionary) -> bool:
 
 func binding_label(binding: Dictionary) -> String:
 	if str(binding.get("kind", "")) == "button":
-		return "button %d" % int(binding.get("button", -1))
+		return _button_label(int(binding.get("button", -1)))
 	if str(binding.get("kind", "")) == "axis":
-		return "axis %d %s" % [
-			int(binding.get("axis", -1)),
+		return "%s %s" % [
+			_axis_label(int(binding.get("axis", -1))),
 			"+" if float(binding.get("direction", 0.0)) > 0.0 else "−",
 		]
 	return "unmapped"
 
 
+static func _button_label(button_index: int) -> String:
+	match button_index:
+		JOY_BUTTON_A:
+			return "A button"
+		JOY_BUTTON_B:
+			return "B button"
+		JOY_BUTTON_X:
+			return "X button"
+		JOY_BUTTON_Y:
+			return "Y button"
+		JOY_BUTTON_BACK:
+			return "back / select"
+		JOY_BUTTON_GUIDE:
+			return "guide button"
+		JOY_BUTTON_START:
+			return "start button"
+		JOY_BUTTON_LEFT_STICK:
+			return "left stick click"
+		JOY_BUTTON_RIGHT_STICK:
+			return "right stick click"
+		JOY_BUTTON_LEFT_SHOULDER:
+			return "left shoulder"
+		JOY_BUTTON_RIGHT_SHOULDER:
+			return "right shoulder"
+		JOY_BUTTON_DPAD_UP:
+			return "d-pad up"
+		JOY_BUTTON_DPAD_DOWN:
+			return "d-pad down"
+		JOY_BUTTON_DPAD_LEFT:
+			return "d-pad left"
+		JOY_BUTTON_DPAD_RIGHT:
+			return "d-pad right"
+		_:
+			return "button %d" % button_index
+
+
+static func _axis_label(axis_index: int) -> String:
+	match axis_index:
+		JOY_AXIS_LEFT_X:
+			return "left stick X"
+		JOY_AXIS_LEFT_Y:
+			return "left stick Y"
+		JOY_AXIS_RIGHT_X:
+			return "right stick X"
+		JOY_AXIS_RIGHT_Y:
+			return "right stick Y"
+		JOY_AXIS_TRIGGER_LEFT:
+			return "left trigger axis"
+		JOY_AXIS_TRIGGER_RIGHT:
+			return "right trigger axis"
+		_:
+			return "axis %d" % axis_index
+
+
 func get_role_strength(role: StringName) -> float:
-	if not has_custom_mapping():
-		return 0.0
 	var binding: Dictionary = get_binding(role)
 	if str(binding.get("kind", "")) == "button":
 		return (
@@ -472,8 +562,6 @@ func get_role_strength(role: StringName) -> float:
 
 
 func get_role_axis(role: StringName) -> float:
-	if not has_custom_mapping():
-		return 0.0
 	var binding: Dictionary = get_binding(role)
 	if str(binding.get("kind", "")) != "axis":
 		return 0.0
@@ -496,7 +584,7 @@ func get_role_axis(role: StringName) -> float:
 
 
 func event_matches_role(event: InputEvent, role: StringName) -> bool:
-	if not has_custom_mapping():
+	if not _event_belongs_to_active_device(event):
 		return false
 	var binding: Dictionary = get_binding(role)
 	var button := event as InputEventJoypadButton
@@ -511,7 +599,7 @@ func event_matches_role(event: InputEvent, role: StringName) -> bool:
 
 
 func event_uses_role(event: InputEvent, role: StringName) -> bool:
-	if not has_custom_mapping():
+	if not _event_belongs_to_active_device(event):
 		return false
 	var binding: Dictionary = get_binding(role)
 	var button := event as InputEventJoypadButton
@@ -533,8 +621,12 @@ static func default_bindings() -> Dictionary:
 		str(ROLE_Y): _button_binding(JOY_BUTTON_Y),
 		str(ROLE_LB): _button_binding(JOY_BUTTON_LEFT_SHOULDER),
 		str(ROLE_RB): _button_binding(JOY_BUTTON_RIGHT_SHOULDER),
-		str(ROLE_LT): _axis_binding(JOY_AXIS_TRIGGER_RIGHT, 1.0, 0.0),
-		str(ROLE_RT): _axis_binding(JOY_AXIS_TRIGGER_LEFT, 1.0, 0.0),
+		str(ROLE_POINTER_MODIFIER): _axis_binding(
+			JOY_AXIS_TRIGGER_RIGHT, 1.0, 0.0
+		),
+		str(ROLE_CAMERA_ZOOM): _axis_binding(
+			JOY_AXIS_TRIGGER_LEFT, 1.0, 0.0
+		),
 		str(ROLE_SELECT): _button_binding(JOY_BUTTON_BACK),
 		str(ROLE_START): _button_binding(JOY_BUTTON_START),
 		str(ROLE_LEFT_STICK_CLICK): _button_binding(JOY_BUTTON_LEFT_STICK),
@@ -589,12 +681,17 @@ func _axis_binding_strength(
 
 func _refresh_active_controller() -> void:
 	var connected: Array[int] = Input.get_connected_joypads()
+	if connected.has(_active_device_id):
+		_set_active_controller(_active_device_id)
+		return
 	_set_active_controller(connected[0] if not connected.is_empty() else 0)
 
 
 func _on_joy_connection_changed(device_id: int, connected: bool) -> void:
+	_axis_rest_by_device.erase(str(device_id))
 	if connected:
 		_install_known_controller_mapping(device_id)
+		call_deferred("_recalibrate_device", device_id)
 	_refresh_active_controller()
 
 
@@ -648,7 +745,9 @@ static func should_install_muos_compatibility_mapping(
 
 
 func _set_active_controller(device_id: int) -> void:
+	var previous_device_id: int = _active_device_id
 	var previous_profile_key: String = _active_profile_key
+	var previous_controller_name: String = _active_controller_name
 	_active_device_id = maxi(device_id, 0)
 	var controller_is_listed: bool = Input.get_connected_joypads().has(
 		_active_device_id
@@ -685,7 +784,29 @@ func _set_active_controller(device_id: int) -> void:
 			_save_profiles()
 	_sample_axis_rest_values(_active_device_id)
 	_apply_active_profile()
-	active_controller_changed.emit(_active_controller_name)
+	if (
+		previous_device_id != _active_device_id
+		or previous_profile_key != _active_profile_key
+		or previous_controller_name != _active_controller_name
+	):
+		active_controller_changed.emit(_active_controller_name)
+
+
+func _axis_motion_claims_device(event: InputEventJoypadMotion) -> bool:
+	var device_key: String = str(event.device)
+	if not _axis_rest_by_device.has(device_key):
+		_sample_axis_rest_values(event.device)
+		return false
+	var rest: float = _axis_rest_value(event.device, event.axis)
+	return absf(event.axis_value - rest) >= ACTIVE_DEVICE_AXIS_THRESHOLD
+
+
+func _event_belongs_to_active_device(event: InputEvent) -> bool:
+	var button := event as InputEventJoypadButton
+	if button != null:
+		return button.device == _active_device_id
+	var motion := event as InputEventJoypadMotion
+	return motion != null and motion.device == _active_device_id
 
 
 func _sample_axis_rest_values(device_id: int) -> void:
@@ -696,6 +817,16 @@ func _sample_axis_rest_values(device_id: int) -> void:
 	for axis: int in JOY_AXIS_MAX:
 		values[str(axis)] = Input.get_joy_axis(device_id, axis)
 	_axis_rest_by_device[key] = values
+
+
+func _recalibrate_device(device_id: int) -> void:
+	_axis_rest_by_device.erase(str(device_id))
+	var connected: Array[int] = Input.get_connected_joypads()
+	if not connected.has(device_id) and not (
+		connected.is_empty() and device_id == 0
+	):
+		return
+	_sample_axis_rest_values(device_id)
 
 
 func _axis_rest_value(device_id: int, axis: int) -> float:
@@ -741,7 +872,9 @@ func _restore_project_defaults() -> void:
 	for action_value: Variant in _default_joy_events:
 		var action: StringName = StringName(action_value)
 		for event: InputEvent in _default_joy_events[action]:
-			InputMap.action_add_event(action, event.duplicate())
+			var active_event: InputEvent = event.duplicate()
+			active_event.device = _active_device_id
+			InputMap.action_add_event(action, active_event)
 
 
 func _apply_active_profile() -> void:
@@ -779,7 +912,7 @@ func _add_button_action_binding(action: StringName, value: Variant) -> void:
 	if str(binding.get("kind", "")) != "button":
 		return
 	var event := InputEventJoypadButton.new()
-	event.device = -1
+	event.device = _active_device_id
 	event.button_index = int(binding.get("button", -1))
 	InputMap.action_add_event(action, event)
 
@@ -798,7 +931,7 @@ func _add_axis_action_binding(
 		float(binding.get("direction", -1.0))
 	)
 	var event := InputEventJoypadMotion.new()
-	event.device = -1
+	event.device = _active_device_id
 	event.axis = int(binding.get("axis", -1))
 	event.axis_value = logical_direction * -captured_negative_direction
 	InputMap.action_add_event(action, event)

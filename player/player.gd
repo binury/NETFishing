@@ -333,10 +333,7 @@ func _process(delta: float) -> void:
 
 
 func _get_controller_camera_stick() -> Vector2:
-	if (
-		_controller_mapping_manager != null
-		and _controller_mapping_manager.has_custom_mapping()
-	):
+	if _controller_mapping_manager != null:
 		return Vector2(
 			_controller_mapping_manager.get_role_axis(
 				ControllerMappingManagerType.ROLE_RIGHT_STICK_X
@@ -352,12 +349,9 @@ func _get_controller_camera_stick() -> Vector2:
 
 
 func _get_controller_zoom_strength() -> float:
-	if (
-		_controller_mapping_manager != null
-		and _controller_mapping_manager.has_custom_mapping()
-	):
+	if _controller_mapping_manager != null:
 		return _controller_mapping_manager.get_role_strength(
-			ControllerMappingManagerType.ROLE_RT
+			ControllerMappingManagerType.ROLE_CAMERA_ZOOM
 		)
 	return Input.get_joy_axis(0, CONTROLLER_ZOOM_TRIGGER_AXIS)
 

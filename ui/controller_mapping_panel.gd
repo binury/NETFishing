@@ -58,6 +58,7 @@ func open_panel() -> void:
 	if _mapping_manager == null:
 		return
 	_cancel_capture()
+	_mapping_manager.recalibrate_active_device()
 	show()
 	_refresh_bindings()
 	_auto_map_button.grab_focus()
@@ -140,8 +141,6 @@ func _on_controller_input_observed(event: InputEvent) -> void:
 	if _capturing_role.is_empty():
 		return
 	get_viewport().set_input_as_handled()
-	if _waiting_for_neutral:
-		return
 	var button_event := event as InputEventJoypadButton
 	var motion_event := event as InputEventJoypadMotion
 	var event_device: int = -1
@@ -152,6 +151,20 @@ func _on_controller_input_observed(event: InputEvent) -> void:
 	else:
 		return
 	if event_device != _capture_device_id:
+		return
+	if (
+		button_event != null
+		and button_event.pressed
+		and _capturing_role != ControllerMappingManagerType.ROLE_B
+		and _mapping_manager.event_matches_role(
+			event,
+			ControllerMappingManagerType.ROLE_B,
+		)
+	):
+		_cancel_capture()
+		_progress_label.text = "controller mapping cancelled"
+		return
+	if _waiting_for_neutral:
 		return
 	_try_capture_event(event)
 
@@ -224,8 +237,9 @@ func _build_interface() -> void:
 
 	_instruction_label = Label.new()
 	_instruction_label.text = (
-		"auto-map walks through a standard xbox-style controller. "
-		+ "select any row afterward to override it."
+		"auto-map walks through NETfishing's controller actions. "
+		+ "select any row afterward to override it; the mapped back "
+		+ "control cancels capture."
 	)
 	_instruction_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_instruction_label.add_theme_font_size_override("font_size", 15)

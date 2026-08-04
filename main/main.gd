@@ -1023,7 +1023,7 @@ func _handle_data_root_controller_input(event: InputEvent) -> bool:
 	)
 	if not setup_visible and not picker_visible:
 		return false
-	var use_mapping: bool = _controller_mapping_manager.has_custom_mapping()
+	var use_mapping: bool = _controller_mapping_manager != null
 	var accept_pressed: bool = (
 		_controller_mapping_manager.event_matches_role(
 			event,

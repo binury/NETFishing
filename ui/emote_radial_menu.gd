@@ -112,10 +112,7 @@ func _update_selection() -> void:
 
 
 func _get_selection_stick() -> Vector2:
-	if (
-		_controller_mapping_manager != null
-		and _controller_mapping_manager.has_custom_mapping()
-	):
+	if _controller_mapping_manager != null:
 		return Vector2(
 			_controller_mapping_manager.get_role_axis(
 				ControllerMappingManagerType.ROLE_RIGHT_STICK_X

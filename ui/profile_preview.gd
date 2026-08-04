@@ -51,10 +51,7 @@ func _process(delta: float) -> void:
 		_controller_mapping_manager.get_role_axis(
 			ControllerMappingManagerType.ROLE_RIGHT_STICK_X
 		)
-		if (
-			_controller_mapping_manager != null
-			and _controller_mapping_manager.has_custom_mapping()
-		)
+		if _controller_mapping_manager != null
 		else Input.get_joy_axis(0, JOY_AXIS_RIGHT_X)
 	)
 	if absf(right_stick) > 0.2:

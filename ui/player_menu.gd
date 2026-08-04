@@ -603,7 +603,6 @@ func _handle_controller_page_switch(event: InputEvent) -> bool:
 	var button_event: InputEventJoypadButton = event as InputEventJoypadButton
 	var use_mapping: bool = (
 		_controller_mapping_manager != null
-		and _controller_mapping_manager.has_custom_mapping()
 	)
 	var uses_left_bumper: bool = (
 		_controller_mapping_manager.event_uses_role(

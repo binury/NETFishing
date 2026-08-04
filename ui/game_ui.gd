@@ -187,6 +187,10 @@ func _ready() -> void:
 	_pause_settings_panel.crisp_reset_focus_requested.connect(
 		crisp_reset_focus_requested.emit
 	)
+	if not Input.joy_connection_changed.is_connected(
+		_on_controller_connection_changed
+	):
+		Input.joy_connection_changed.connect(_on_controller_connection_changed)
 
 
 func setup(
@@ -404,7 +408,6 @@ func _handle_controller_chat_controls(event: InputEvent) -> bool:
 		return false
 	var use_mapping: bool = (
 		_controller_mapping_manager != null
-		and _controller_mapping_manager.has_custom_mapping()
 	)
 	var select_pressed: bool = (
 		_controller_mapping_manager.event_matches_role(
@@ -541,13 +544,13 @@ func _handle_virtual_mouse_input(event: InputEvent) -> bool:
 func _handle_mapped_virtual_mouse_input(event: InputEvent) -> bool:
 	var uses_activation: bool = _controller_mapping_manager.event_uses_role(
 		event,
-		ControllerMappingManagerType.ROLE_LT,
+		ControllerMappingManagerType.ROLE_POINTER_MODIFIER,
 	)
 	if uses_activation:
 		var was_active: bool = _virtual_mouse_active
 		_virtual_mouse_trigger_strength = (
 			_controller_mapping_manager.get_role_strength(
-				ControllerMappingManagerType.ROLE_LT
+				ControllerMappingManagerType.ROLE_POINTER_MODIFIER
 			)
 		)
 		if (
@@ -589,12 +592,12 @@ func _handle_mapped_virtual_mouse_input(event: InputEvent) -> bool:
 		return true
 	if _controller_mapping_manager.event_uses_role(
 		event,
-		ControllerMappingManagerType.ROLE_RT,
+		ControllerMappingManagerType.ROLE_CAMERA_ZOOM,
 	):
 		_set_virtual_mouse_button(
 			MOUSE_BUTTON_RIGHT,
 			_controller_mapping_manager.get_role_strength(
-				ControllerMappingManagerType.ROLE_RT
+				ControllerMappingManagerType.ROLE_CAMERA_ZOOM
 			) >= VIRTUAL_MOUSE_TRIGGER_THRESHOLD,
 		)
 		return true
@@ -776,7 +779,7 @@ func _poll_virtual_mouse_controller_state() -> void:
 
 func _poll_mapped_virtual_mouse_controller_state() -> void:
 	var trigger_strength: float = _controller_mapping_manager.get_role_strength(
-		ControllerMappingManagerType.ROLE_LT
+		ControllerMappingManagerType.ROLE_POINTER_MODIFIER
 	)
 	if _virtual_mouse_active:
 		_virtual_mouse_trigger_strength = trigger_strength
@@ -787,7 +790,7 @@ func _poll_mapped_virtual_mouse_controller_state() -> void:
 		_set_virtual_mouse_button(
 			MOUSE_BUTTON_RIGHT,
 			_controller_mapping_manager.get_role_strength(
-				ControllerMappingManagerType.ROLE_RT
+				ControllerMappingManagerType.ROLE_CAMERA_ZOOM
 			) >= VIRTUAL_MOUSE_TRIGGER_THRESHOLD,
 		)
 		return
@@ -1098,14 +1101,24 @@ func _controller_scroll_container_is_available(
 
 
 func _controller_menu_scroll_axis() -> float:
-	if _controller_mapping_manager.has_custom_mapping():
+	if _controller_mapping_manager != null:
 		return _controller_mapping_manager.get_role_axis(
 			ControllerMappingManagerType.ROLE_RIGHT_STICK_Y
 		)
 	return Input.get_joy_axis(
-		_controller_mapping_manager.get_active_device_id(),
+		0,
 		JOY_AXIS_RIGHT_Y,
 	)
+
+
+func _on_controller_connection_changed(
+	device_id: int,
+	connected: bool,
+) -> void:
+	_virtual_mouse_trigger_rest_by_device.erase(device_id)
+	_shared_trigger_rest_by_device.erase(device_id)
+	if not connected and _virtual_mouse_device_id == device_id:
+		_end_virtual_mouse()
 
 
 func close_player_menu() -> void:

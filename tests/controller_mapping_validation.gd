@@ -90,19 +90,21 @@ func _validate_manager(manager: ControllerMappingManagerType) -> String:
 			str(defaults.keys()),
 		]
 	var trigger_button := InputEventJoypadButton.new()
+	trigger_button.device = manager.get_active_device_id()
 	trigger_button.button_index = JOY_BUTTON_MISC1
 	trigger_button.pressed = true
 	var trigger_binding: Dictionary = manager.binding_from_event(
-		ControllerMappingManagerType.ROLE_LT,
+		ControllerMappingManagerType.ROLE_POINTER_MODIFIER,
 		trigger_button,
 	)
 	if str(trigger_binding.get("kind", "")) != "button":
 		return "trigger role did not accept a button-backed handheld trigger"
 	var trigger_motion := InputEventJoypadMotion.new()
+	trigger_motion.device = manager.get_active_device_id()
 	trigger_motion.axis = JOY_AXIS_TRIGGER_RIGHT
 	trigger_motion.axis_value = 1.0
 	trigger_binding = manager.binding_from_event(
-		ControllerMappingManagerType.ROLE_LT,
+		ControllerMappingManagerType.ROLE_POINTER_MODIFIER,
 		trigger_motion,
 	)
 	if str(trigger_binding.get("kind", "")) != "axis":
@@ -119,13 +121,69 @@ func _validate_manager(manager: ControllerMappingManagerType) -> String:
 		"kind": "button",
 		"button": int(JOY_BUTTON_X),
 	}
-	custom[str(ControllerMappingManagerType.ROLE_LT)] = trigger_binding
+	custom[str(ControllerMappingManagerType.ROLE_POINTER_MODIFIER)] = (
+		trigger_binding
+	)
 	if not manager.replace_active_bindings(custom):
 		return "valid custom mapping could not be saved"
 	if not manager.has_custom_mapping():
 		return "saved custom mapping did not become active"
 	if _keyboard_event_count(&"jump") != keyboard_events_before:
 		return "controller remapping changed keyboard bindings"
+	var active_button := InputEventJoypadButton.new()
+	active_button.device = manager.get_active_device_id()
+	active_button.button_index = JOY_BUTTON_X
+	active_button.pressed = true
+	if not manager.event_matches_role(
+		active_button,
+		ControllerMappingManagerType.ROLE_A,
+	):
+		return "active controller event did not match its custom role"
+	var inactive_button := active_button.duplicate() as InputEventJoypadButton
+	inactive_button.device = manager.get_active_device_id() + 1
+	if manager.event_matches_role(
+		inactive_button,
+		ControllerMappingManagerType.ROLE_A,
+	):
+		return "inactive controller event matched the active profile"
+	var inactive_release := InputEventJoypadButton.new()
+	inactive_release.device = manager.get_active_device_id() + 2
+	inactive_release.button_index = JOY_BUTTON_A
+	inactive_release.pressed = false
+	var active_device_before_release: int = manager.get_active_device_id()
+	manager._input(inactive_release)
+	if manager.get_active_device_id() != active_device_before_release:
+		return "inactive controller button release stole ownership"
+	for event: InputEvent in InputMap.action_get_events(&"jump"):
+		if (
+			event is InputEventJoypadButton
+			and event.device != manager.get_active_device_id()
+		):
+			return "custom InputMap event was not scoped to the active device"
+	manager._axis_rest_by_device["4"] = {str(JOY_AXIS_LEFT_X): 0.0}
+	var drift := InputEventJoypadMotion.new()
+	drift.device = 4
+	drift.axis = JOY_AXIS_LEFT_X
+	drift.axis_value = 0.12
+	if manager._axis_motion_claims_device(drift):
+		return "minor inactive-stick drift claimed controller ownership"
+	manager._input(drift)
+	if manager.get_active_device_id() != active_device_before_release:
+		return "minor inactive-stick drift changed the active controller"
+	drift.axis_value = 0.72
+	if not manager._axis_motion_claims_device(drift):
+		return "intentional inactive-stick motion did not claim ownership"
+	manager._input(drift)
+	if manager.get_active_device_id() != drift.device:
+		return "intentional stick motion did not change controller ownership"
+	for event: InputEvent in InputMap.action_get_events(&"jump"):
+		if event is InputEventJoypadButton and event.device != drift.device:
+			return "active-device change did not rescope InputMap events"
+	manager._set_active_controller(active_device_before_release)
+	manager._axis_rest_by_device["5"] = {str(JOY_AXIS_LEFT_X): 0.0}
+	manager._on_joy_connection_changed(5, false)
+	if manager._axis_rest_by_device.has("5"):
+		return "disconnected controller retained stale axis calibration"
 	if not FileAccess.file_exists(
 		ControllerMappingManagerType.PROFILE_PATH
 	):
@@ -153,11 +211,13 @@ func _validate_auto_map(manager: ControllerMappingManagerType) -> String:
 			)
 		if str(binding.get("kind", "")) == "button":
 			var button := InputEventJoypadButton.new()
+			button.device = manager.get_active_device_id()
 			button.button_index = int(binding.get("button", -1))
 			button.pressed = true
 			manager.controller_input_observed.emit(button)
 		else:
 			var motion := InputEventJoypadMotion.new()
+			motion.device = manager.get_active_device_id()
 			motion.axis = int(binding.get("axis", -1))
 			motion.axis_value = float(binding.get("direction", -1.0))
 			manager.controller_input_observed.emit(motion)
@@ -181,16 +241,31 @@ func _validate_auto_map(manager: ControllerMappingManagerType) -> String:
 			!= UtilityPageStyle.OCEAN_DANGER
 	):
 		return "duplicate controller bindings were not marked in red"
-	panel._begin_manual_capture(ControllerMappingManagerType.ROLE_LT)
+	manager.set_binding(
+		ControllerMappingManagerType.ROLE_B,
+		ControllerMappingManagerType.default_bindings()[
+			str(ControllerMappingManagerType.ROLE_B)
+		] as Dictionary,
+	)
+	panel._begin_manual_capture(
+		ControllerMappingManagerType.ROLE_POINTER_MODIFIER
+	)
 	panel._process(ControllerMappingPanelType.CAPTURE_NEUTRAL_SECONDS)
 	if "left trigger" in panel._progress_label.text.to_lower():
 		return "manual remapping still dictates a specific physical input"
 	if "any button" not in panel._progress_label.text.to_lower():
 		return "manual remapping does not request a generic controller input"
-	panel._cancel_capture()
+	var cancel_button := InputEventJoypadButton.new()
+	cancel_button.device = manager.get_active_device_id()
+	cancel_button.button_index = JOY_BUTTON_B
+	cancel_button.pressed = true
+	manager.controller_input_observed.emit(cancel_button)
+	if panel.is_capturing():
+		return "mapped controller back input did not cancel capture"
 	panel._begin_auto_map()
 	panel._process(ControllerMappingPanelType.CAPTURE_NEUTRAL_SECONDS)
 	var held_left := InputEventJoypadMotion.new()
+	held_left.device = manager.get_active_device_id()
 	held_left.axis = JOY_AXIS_LEFT_X
 	held_left.axis_value = -1.0
 	for _index: int in 4:
@@ -198,6 +273,7 @@ func _validate_auto_map(manager: ControllerMappingManagerType) -> String:
 	if panel._auto_map_index != 0:
 		return "auto-map accepted repeated analog motion without a neutral gate"
 	var first_button := InputEventJoypadButton.new()
+	first_button.device = manager.get_active_device_id()
 	first_button.button_index = JOY_BUTTON_A
 	first_button.pressed = true
 	manager.controller_input_observed.emit(first_button)
