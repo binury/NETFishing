@@ -2,24 +2,6 @@ class_name PlayerVisualPresenter
 extends RefCounted
 
 const PlayerScene: PackedScene = preload("res://player/player.tscn")
-const EYE_TEXTURES: Dictionary = {
-	"simple_shine": preload(
-		"res://art/exported/characters/faces/eyes/eyes_simple_shine.png"
-	),
-	"simple_shine_eyebrows": preload(
-		"res://art/exported/characters/faces/eyes/eyes_simple_shine_eyebrows.png"
-	),
-}
-const MOUTH_TEXTURES: Dictionary = {
-	"three": preload(
-		"res://art/exported/characters/faces/mouth/mouth_three.png"
-	),
-}
-const NOSE_TEXTURES: Dictionary = {
-	"dog_round": preload(
-		"res://art/exported/characters/faces/noses/nose_dog_round.png"
-	),
-}
 const RUNTIME_MATERIAL_META: StringName = &"netfishing_runtime_material"
 
 
@@ -110,11 +92,21 @@ static func apply_appearance(
 	var nose_id: String = CharacterCustomizationCatalog.canonical_option_id(
 		"nose", str(snapshot.get("nose", "dog_round"))
 	)
-	_set_feature_texture(skeleton, "eyes", EYE_TEXTURES.get(eye_id) as Texture2D)
 	_set_feature_texture(
-		skeleton, "mouth", MOUTH_TEXTURES.get(mouth_id) as Texture2D
+		skeleton,
+		"eyes",
+		CharacterCustomizationCatalog.texture_for("eyes", eye_id),
 	)
-	_set_feature_texture(skeleton, "nose", NOSE_TEXTURES.get(nose_id) as Texture2D)
+	_set_feature_texture(
+		skeleton,
+		"mouth",
+		CharacterCustomizationCatalog.texture_for("mouth", mouth_id),
+	)
+	_set_feature_texture(
+		skeleton,
+		"nose",
+		CharacterCustomizationCatalog.texture_for("nose", nose_id),
+	)
 
 
 static func _set_feature_texture(
