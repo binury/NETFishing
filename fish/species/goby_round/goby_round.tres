@@ -1,9 +1,9 @@
-[gd_resource type="Resource" script_class="FishData" load_steps=5 format=3]
+[gd_resource type="Resource" script_class="FishData" format=3 uid="uid://o1pojc8xthiw"]
 
-[ext_resource type="Script" path="res://fish/fish_data.gd" id="1_fish_data"]
+[ext_resource type="Script" uid="uid://h7hg45b7wmst" path="res://fish/fish_data.gd" id="1_fish_data"]
 [ext_resource type="Resource" path="res://fishing/common_catch_profile.tres" id="2_profile"]
-[ext_resource type="Script" path="res://fish/fish_availability.gd" id="3_availability_script"]
-[ext_resource type="Texture2D" path="res://fish/species/goby_round/fish_goby_round.png" id="4_texture"]
+[ext_resource type="Script" uid="uid://bs7cqi88csolc" path="res://fish/fish_availability.gd" id="3_availability_script"]
+[ext_resource type="Texture2D" uid="uid://bdhywe0r1xcio" path="res://fish/species/goby_round/fish_goby_round.png" id="4_texture"]
 
 [sub_resource type="Resource" id="RoundGobyAvailability"]
 script = ExtResource("3_availability_script")
@@ -15,7 +15,6 @@ script = ExtResource("1_fish_data")
 id = &"goby_round"
 display_name = "round goby"
 allowed_water_types = 1
-rarity = 0
 base_catch_weight = 8.0
 catch_profile = ExtResource("2_profile")
 availability = SubResource("RoundGobyAvailability")
@@ -23,8 +22,6 @@ weight_min_lb = 0.1
 weight_max_lb = 0.6
 display_scale_min = 0.55
 display_scale_max = 0.9
-display_scale_curve = 1.0
 sell_value_min = 2
 sell_value_max = 3
-sell_value_curve = 1.0
 display_texture = ExtResource("4_texture")

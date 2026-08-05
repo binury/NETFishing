@@ -1,9 +1,9 @@
-[gd_resource type="Resource" script_class="FishData" load_steps=5 format=3]
+[gd_resource type="Resource" script_class="FishData" format=3 uid="uid://cq0ikmuba6j73"]
 
-[ext_resource type="Script" path="res://fish/fish_data.gd" id="1_fish_data"]
+[ext_resource type="Script" uid="uid://h7hg45b7wmst" path="res://fish/fish_data.gd" id="1_fish_data"]
 [ext_resource type="Resource" path="res://fishing/bass_catch_profile.tres" id="2_profile"]
-[ext_resource type="Script" path="res://fish/fish_availability.gd" id="3_availability_script"]
-[ext_resource type="Texture2D" path="res://fish/species/salmon_pink/fish_salmon_pink.png" id="4_texture"]
+[ext_resource type="Script" uid="uid://bs7cqi88csolc" path="res://fish/fish_availability.gd" id="3_availability_script"]
+[ext_resource type="Texture2D" uid="uid://bk27bsdrtlqap" path="res://fish/species/salmon_pink/fish_salmon_pink.png" id="4_texture"]
 
 [sub_resource type="Resource" id="PinkSalmonAvailability"]
 script = ExtResource("3_availability_script")
