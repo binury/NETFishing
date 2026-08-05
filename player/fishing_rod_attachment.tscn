@@ -13,7 +13,7 @@ roughness = 0.8
 bone_name = "hand.R"
 
 [node name="FishingRod" type="Node3D" parent="."]
-rotation = Vector3(-0.785398, -0.007863, 3.141593)
+rotation_degrees = Vector3(322.6, -31.2, 248.9)
 
 [node name="RodMesh" type="MeshInstance3D" parent="FishingRod"]
 position = Vector3(0, 0.42, 0)

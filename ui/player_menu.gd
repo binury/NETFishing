@@ -508,6 +508,8 @@ func setup(
 	network_player_list: NetworkPlayerListService,
 	player_jobs: PlayerJobService,
 	world_time: WorldTimeService,
+	world_environment: WorldEnvironment,
+	world_sun: DirectionalLight3D,
 ) -> void:
 	_player = player
 	_inventory = inventory
@@ -530,7 +532,12 @@ func setup(
 	_mail_page.setup(
 		network_mail_service, reservations, inventory, wallet, bag, item_catalog
 	)
-	_profile_page.setup(network_profile_service, experience)
+	_profile_page.setup(
+		network_profile_service,
+		experience,
+		world_environment,
+		world_sun,
+	)
 	_players_page.setup(network_player_list)
 	_catalog_logbook.setup(collection_log, inventory, catalog)
 	_the_net_page.setup(player_jobs, world_time)

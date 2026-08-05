@@ -27,6 +27,7 @@ var _revert_button: Button
 var _discard_confirmation: PanelContainer
 var _confirmation_label: Label
 var _confirmation_confirm: Button
+var _keep_editing_button: Button
 var _confirmation_action: String = ""
 var _debounce: Timer
 var _experience_level: Label
@@ -47,6 +48,8 @@ func _ready() -> void:
 func setup(
 	service: NetworkProfileService,
 	experience: PlayerExperience,
+	world_environment: WorldEnvironment,
+	world_sun: DirectionalLight3D,
 ) -> void:
 	_service = service
 	_experience = experience
@@ -62,6 +65,7 @@ func setup(
 		_experience.experience_changed.connect(_on_experience_changed)
 	_load_persisted()
 	_refresh_experience()
+	_preview.setup_world_lighting(world_environment, world_sun)
 	var identity_value := find_child("IdentityFingerprint", true, false) as Label
 	if identity_value != null:
 		var fingerprint := _service.get_identity_fingerprint()
@@ -344,16 +348,14 @@ func _build_ui() -> void:
 	_confirmation_confirm.pressed.connect(_confirm_pending_action)
 	UtilityPageStyle.apply_ocean_button(_confirmation_confirm)
 	confirm_buttons.add_child(_confirmation_confirm)
-	var keep := Button.new()
-	keep.name = "KeepEditing"
-	keep.unique_name_in_owner = true
-	keep.text = "keep editing"
-	keep.pressed.connect(func() -> void:
+	_keep_editing_button = Button.new()
+	_keep_editing_button.text = "keep editing"
+	_keep_editing_button.pressed.connect(func() -> void:
 		_discard_confirmation.visible = false
 		_name_edit.grab_focus()
 	)
-	UtilityPageStyle.apply_ocean_button(keep)
-	confirm_buttons.add_child(keep)
+	UtilityPageStyle.apply_ocean_button(_keep_editing_button)
+	confirm_buttons.add_child(_keep_editing_button)
 
 	_build_categories()
 
@@ -394,12 +396,15 @@ func _refresh_options() -> void:
 		"font_color", UtilityPageStyle.OCEAN_TEXT_PRIMARY
 	)
 	_option_list.add_child(title)
-	var options := CharacterCustomizationCatalog.options_for(_category_id)
+	var options: Array = CharacterCustomizationCatalog.options_for(_category_id)
 	if options.is_empty():
 		var empty := Label.new()
 		empty.text = "More options coming later."
 		empty.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		_option_list.add_child(empty)
+		return
+	if _category_id == "fur_pattern":
+		_build_fur_color_options(options)
 		return
 	for option: Dictionary in options:
 		var option_id := str(option["id"])
@@ -411,6 +416,49 @@ func _refresh_options() -> void:
 		button.pressed.connect(_select_option.bind(_category_id, option_id))
 		UtilityPageStyle.apply_compact_ocean_button(button)
 		_option_list.add_child(button)
+
+
+func _build_fur_color_options(options: Array) -> void:
+	var grid := GridContainer.new()
+	grid.columns = 4
+	grid.add_theme_constant_override("h_separation", 10)
+	grid.add_theme_constant_override("v_separation", 10)
+	_option_list.add_child(grid)
+	var selected_id: String = CharacterCustomizationCatalog.canonical_option_id(
+		"fur_pattern", str(_draft_appearance.get("fur_pattern", "white"))
+	)
+	for option: Dictionary in options:
+		var option_id: String = str(option.get("id", ""))
+		var color: Color = CharacterCustomizationCatalog.option_color(
+			"fur_pattern", option_id
+		)
+		var button := Button.new()
+		button.text = ""
+		button.tooltip_text = str(option.get("label", option_id))
+		button.toggle_mode = true
+		button.custom_minimum_size = Vector2(44.0, 44.0)
+		button.button_pressed = selected_id == option_id
+		button.pressed.connect(_select_option.bind("fur_pattern", option_id))
+		_apply_fur_swatch_style(button, color, button.button_pressed)
+		grid.add_child(button)
+
+
+func _apply_fur_swatch_style(
+	button: Button,
+	color: Color,
+	selected: bool,
+) -> void:
+	var normal: StyleBoxFlat = UtilityPageStyle.rounded_style(color, 999)
+	var hover: StyleBoxFlat = UtilityPageStyle.rounded_style(
+		color.lightened(0.12), 999
+	)
+	var selected_style: StyleBoxFlat = UtilityPageStyle.rounded_style(color, 999)
+	selected_style.border_color = UtilityPageStyle.OCEAN_TEXT_PRIMARY
+	selected_style.set_border_width_all(3 if selected else 2)
+	button.add_theme_stylebox_override("normal", normal)
+	button.add_theme_stylebox_override("hover", hover)
+	button.add_theme_stylebox_override("pressed", selected_style)
+	button.add_theme_stylebox_override("focus", selected_style)
 
 
 func _select_option(category_id: String, option_id: String) -> void:
@@ -546,7 +594,7 @@ func _show_confirmation(action: String) -> void:
 	else:
 		_confirmation_label.text = "Discard unsaved profile changes?"
 		_confirmation_confirm.text = "discard changes"
-	_discard_confirmation.get_node("%KeepEditing").grab_focus()
+	_keep_editing_button.grab_focus()
 
 
 func _confirm_pending_action() -> void:

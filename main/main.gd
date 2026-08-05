@@ -533,6 +533,8 @@ func _initialize_after_data_root() -> void:
 		_world_time,
 		_world_weather,
 		_player_jobs,
+		_test_world.get_world_environment(),
+		_test_world.get_sun(),
 	)
 	_game_ui.setup_data_and_identity(
 		_data_root,

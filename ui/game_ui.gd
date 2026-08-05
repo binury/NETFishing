@@ -227,6 +227,8 @@ func setup(
 	world_time: WorldTimeServiceType,
 	world_weather: WorldWeatherServiceType,
 	player_jobs: PlayerJobService,
+	world_environment: WorldEnvironment,
+	world_sun: DirectionalLight3D,
 ) -> void:
 	_player = player
 	_fishing_spot = fishing_spot
@@ -285,6 +287,8 @@ func setup(
 		network_player_list,
 		player_jobs,
 		world_time,
+		world_environment,
+		world_sun,
 	)
 	_hotbar_ui.setup(hotbar, bag, item_catalog, fishing_spot, inventory)
 	_fishing_shop.setup(

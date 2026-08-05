@@ -171,6 +171,7 @@ var _controller_mapping_manager: ControllerMappingManagerType
 
 
 func _ready() -> void:
+	PlayerVisualPresenter.apply_appearance(_visuals, appearance_snapshot)
 	_initialize_fishing_rod()
 	_target_zoom = clampf(_spring_arm.spring_length, minimum_zoom, maximum_zoom)
 	_spring_arm.spring_length = _target_zoom

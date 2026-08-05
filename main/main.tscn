@@ -44,18 +44,18 @@
 [ext_resource type="Shader" uid="uid://byw3iub66qvog" path="res://ui/player_menu_pattern.gdshader" id="42_menu_pattern"]
 [ext_resource type="Texture2D" uid="uid://b6xws1d2dnbnn" path="res://art/patterns/pattern_moneyfish.png" id="43_shop_pattern"]
 [ext_resource type="PackedScene" uid="uid://w7n4gjqq1juc" path="res://art/exported/characters/base/netfishing_base_character.glb" id="44_4pcu1"]
-[ext_resource type="Script" path="res://network/network_fish_showcase_service.gd" id="45_fish_showcase"]
-[ext_resource type="Script" path="res://network/network_surface_drawing_service.gd" id="46_surface_drawing"]
-[ext_resource type="Script" path="res://world/world_time_service.gd" id="47_world_time"]
-[ext_resource type="Script" path="res://world/world_time_visual_controller.gd" id="48_world_time_visuals"]
-[ext_resource type="Script" path="res://network/network_world_time_service.gd" id="49_network_world_time"]
-[ext_resource type="Script" path="res://world/world_weather_service.gd" id="50_world_weather"]
-[ext_resource type="Script" path="res://network/network_world_weather_service.gd" id="51_network_world_weather"]
-[ext_resource type="Script" path="res://jobs/player_job_service.gd" id="52_player_jobs"]
-[ext_resource type="Script" path="res://network/network_job_service.gd" id="53_network_jobs"]
-[ext_resource type="Script" path="res://world/shoreline_ambience.gd" id="54_shoreline_ambience"]
-[ext_resource type="AudioStream" path="res://audio/ambience/waves.wav" id="55_waves"]
-[ext_resource type="Script" path="res://settings/controller_mapping_manager.gd" id="56_controller_mapping"]
+[ext_resource type="Script" uid="uid://m4n0bn38f34i" path="res://network/network_fish_showcase_service.gd" id="45_fish_showcase"]
+[ext_resource type="Script" uid="uid://bkiepgu8j5r6t" path="res://network/network_surface_drawing_service.gd" id="46_surface_drawing"]
+[ext_resource type="Script" uid="uid://5lceyulaglpf" path="res://world/world_time_service.gd" id="47_world_time"]
+[ext_resource type="Script" uid="uid://svirs8vbypad" path="res://world/world_time_visual_controller.gd" id="48_world_time_visuals"]
+[ext_resource type="Script" uid="uid://blig76aes25j" path="res://network/network_world_time_service.gd" id="49_network_world_time"]
+[ext_resource type="Script" uid="uid://v4c54isq6w74" path="res://world/world_weather_service.gd" id="50_world_weather"]
+[ext_resource type="Script" uid="uid://llj46fx0oco7" path="res://network/network_world_weather_service.gd" id="51_network_world_weather"]
+[ext_resource type="Script" uid="uid://daqtje84gqgu0" path="res://jobs/player_job_service.gd" id="52_player_jobs"]
+[ext_resource type="Script" uid="uid://drlyytr2o3uw8" path="res://network/network_job_service.gd" id="53_network_jobs"]
+[ext_resource type="Script" uid="uid://b0c3o2vy76fg3" path="res://world/shoreline_ambience.gd" id="54_shoreline_ambience"]
+[ext_resource type="AudioStream" uid="uid://dck3tf8qkadea" path="res://audio/ambience/waves.wav" id="55_waves"]
+[ext_resource type="Script" uid="uid://c80x8jkdnx0xy" path="res://settings/controller_mapping_manager.gd" id="56_controller_mapping"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_title_water_native"]
 shader = ExtResource("40_title_water")
@@ -123,31 +123,31 @@ mouse_filter = 2
 unique_name_in_owner = true
 script = ExtResource("39_fonts")
 
-[node name="WorldTimeService" type="Node" parent="."]
+[node name="WorldTimeService" type="Node" parent="." unique_id=1774610576]
 unique_name_in_owner = true
 script = ExtResource("47_world_time")
 
-[node name="WorldTimeVisualController" type="Node" parent="."]
+[node name="WorldTimeVisualController" type="Node" parent="." unique_id=1861087008]
 unique_name_in_owner = true
 script = ExtResource("48_world_time_visuals")
 
-[node name="NetworkWorldTimeService" type="Node" parent="."]
+[node name="NetworkWorldTimeService" type="Node" parent="." unique_id=1136962511]
 unique_name_in_owner = true
 script = ExtResource("49_network_world_time")
 
-[node name="WorldWeatherService" type="Node" parent="."]
+[node name="WorldWeatherService" type="Node" parent="." unique_id=1812156280]
 unique_name_in_owner = true
 script = ExtResource("50_world_weather")
 
-[node name="NetworkWorldWeatherService" type="Node" parent="."]
+[node name="NetworkWorldWeatherService" type="Node" parent="." unique_id=266238117]
 unique_name_in_owner = true
 script = ExtResource("51_network_world_weather")
 
-[node name="PlayerJobService" type="Node" parent="."]
+[node name="PlayerJobService" type="Node" parent="." unique_id=2062127535]
 unique_name_in_owner = true
 script = ExtResource("52_player_jobs")
 
-[node name="NetworkJobService" type="Node" parent="."]
+[node name="NetworkJobService" type="Node" parent="." unique_id=556458360]
 unique_name_in_owner = true
 script = ExtResource("53_network_jobs")
 
@@ -223,11 +223,11 @@ script = ExtResource("23_network_shop")
 unique_name_in_owner = true
 script = ExtResource("24_network_item")
 
-[node name="NetworkFishShowcaseService" type="Node" parent="."]
+[node name="NetworkFishShowcaseService" type="Node" parent="." unique_id=148288598]
 unique_name_in_owner = true
 script = ExtResource("45_fish_showcase")
 
-[node name="NetworkSurfaceDrawingService" type="Node" parent="."]
+[node name="NetworkSurfaceDrawingService" type="Node" parent="." unique_id=80122665]
 unique_name_in_owner = true
 script = ExtResource("46_surface_drawing")
 
@@ -252,11 +252,11 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.0024132729, 0, -0.00093126
 
 [node name="Players" type="Node3D" parent="." unique_id=550630144]
 
-[node name="SurfaceDrawings" type="Node3D" parent="."]
-
 [node name="Player" parent="Players" unique_id=485429332 instance=ExtResource("2_player")]
 unique_name_in_owner = true
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 16)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3.3999481, 12.07081)
+
+[node name="SurfaceDrawings" type="Node3D" parent="." unique_id=234671307]
 
 [node name="FishingSpot" parent="." unique_id=1461328864 instance=ExtResource("4_spot")]
 unique_name_in_owner = true
@@ -274,7 +274,7 @@ script = ExtResource("9_save")
 unique_name_in_owner = true
 script = ExtResource("10_settings")
 
-[node name="ControllerMappingManager" type="Node" parent="."]
+[node name="ControllerMappingManager" type="Node" parent="." unique_id=1198390067]
 unique_name_in_owner = true
 script = ExtResource("56_controller_mapping")
 
@@ -284,11 +284,11 @@ stream = ExtResource("13_title_music")
 volume_db = -80.0
 bus = &"Music"
 
-[node name="ShorelineAmbience" type="Node" parent="."]
+[node name="ShorelineAmbience" type="Node" parent="." unique_id=1948037177]
 unique_name_in_owner = true
 script = ExtResource("54_shoreline_ambience")
 
-[node name="WavesAudio" type="AudioStreamPlayer" parent="ShorelineAmbience"]
+[node name="WavesAudio" type="AudioStreamPlayer" parent="ShorelineAmbience" unique_id=193530658]
 unique_name_in_owner = true
 stream = ExtResource("55_waves")
 bus = &"SFX"

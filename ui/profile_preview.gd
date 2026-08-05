@@ -4,15 +4,20 @@ extends SubViewportContainer
 const ControllerMappingManagerType = preload(
 	"res://settings/controller_mapping_manager.gd"
 )
+const FRONT_FACING_YAW: float = PI
 
 @export_range(0.1, 2.0, 0.05) var drag_sensitivity: float = 0.012
 @export_range(0.1, 4.0, 0.1) var keyboard_speed: float = 1.8
 
 @onready var _preview_root: Node3D = %PreviewRoot
+@onready var _preview_environment: WorldEnvironment = %WorldEnvironment
+@onready var _preview_sun: DirectionalLight3D = %KeyLight
 
 var _dragging: bool = false
 var _visuals: Node3D
 var _controller_mapping_manager: ControllerMappingManagerType
+var _source_environment: WorldEnvironment
+var _source_sun: DirectionalLight3D
 
 
 func setup_controller_mapping(
@@ -21,9 +26,19 @@ func setup_controller_mapping(
 	_controller_mapping_manager = mapping_manager
 
 
+func setup_world_lighting(
+	world_environment: WorldEnvironment,
+	world_sun: DirectionalLight3D,
+) -> void:
+	_source_environment = world_environment
+	_source_sun = world_sun
+	_sync_world_lighting()
+
+
 func _ready() -> void:
 	focus_mode = Control.FOCUS_ALL
 	gui_input.connect(_on_gui_input)
+	reset_view()
 	_visuals = PlayerVisualPresenter.instantiate_visuals()
 	_preview_root.add_child(_visuals)
 	var rod := _visuals.find_child("FishingRod", true, false) as Node3D
@@ -40,10 +55,11 @@ func apply_appearance_profile(profile: Dictionary) -> void:
 
 
 func reset_view() -> void:
-	_preview_root.rotation.y = 0.0
+	_preview_root.rotation.y = FRONT_FACING_YAW
 
 
 func _process(delta: float) -> void:
+	_sync_world_lighting()
 	if not has_focus():
 		return
 	var axis := Input.get_axis("ui_left", "ui_right")
@@ -78,3 +94,19 @@ func _notification(what: int) -> void:
 
 func _rotate(amount: float) -> void:
 	_preview_root.rotation.y = fposmod(_preview_root.rotation.y + amount, TAU)
+
+
+func _sync_world_lighting() -> void:
+	if (
+		_preview_environment == null
+		or _preview_sun == null
+		or _source_environment == null
+		or _source_sun == null
+	):
+		return
+	_preview_environment.environment = _source_environment.environment
+	_preview_sun.rotation = _source_sun.global_rotation
+	_preview_sun.light_color = _source_sun.light_color
+	_preview_sun.light_energy = _source_sun.light_energy
+	_preview_sun.light_indirect_energy = _source_sun.light_indirect_energy
+	_preview_sun.shadow_enabled = _source_sun.shadow_enabled
