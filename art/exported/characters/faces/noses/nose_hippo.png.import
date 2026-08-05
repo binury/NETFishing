@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://b345yhfv8w1j5"
-path="res://.godot/imported/eyes_simple_shine.png-33edcf4bb163d7f2bde9a662105cf788.ctex"
+uid="uid://bmfa44uf6u4or"
+path="res://.godot/imported/nose_hippo.png-059f63ab00597454d369b0d51b5712a6.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://art/exported/characters/faces/eyes/eyes_simple_shine.png"
-dest_files=["res://.godot/imported/eyes_simple_shine.png-33edcf4bb163d7f2bde9a662105cf788.ctex"]
+source_file="res://art/exported/characters/faces/noses/nose_hippo.png"
+dest_files=["res://.godot/imported/nose_hippo.png-059f63ab00597454d369b0d51b5712a6.ctex"]
 
 [params]
 

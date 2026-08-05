@@ -21,6 +21,9 @@ const HANDLE_GAP: float = 6.0
 const COLLAPSED_REVEAL_WIDTH: float = 8.0
 const HINT_EDGE_MARGIN: float = 4.0
 const SPEECH_BUBBLE_WIDTH: float = 320.0
+const SPEECH_POINTER_HALF_WIDTH: float = 12.0
+const SPEECH_POINTER_HEIGHT: float = 14.0
+const SPEECH_POINTER_OVERLAP: float = 3.0
 const MOBILE_COMPACT_WIDTH: float = 620.0
 const MOBILE_EXPANDED_WIDTH: float = 820.0
 const MOBILE_COMPACT_HEIGHT: float = 220.0
@@ -571,18 +574,29 @@ func _apply_flat_chat_button(button: Button) -> void:
 
 func _speech_panel_style() -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
-	style.bg_color = Color(UtilityPageStyle.PAPER_ALT, 0.96)
-	style.border_color = Color(UtilityPageStyle.BORDER, 0.88)
-	style.set_border_width_all(2)
+	style.bg_color = Color(UtilityPageStyle.OCEAN_PANEL_MID, 0.96)
+	style.set_border_width_all(0)
 	style.set_corner_radius_all(12)
+	style.anti_aliasing = false
 	style.content_margin_left = 10
 	style.content_margin_right = 10
 	style.content_margin_top = 6
 	style.content_margin_bottom = 6
-	style.shadow_color = Color(0, 0, 0, 0.32)
-	style.shadow_size = 4
-	style.shadow_offset = Vector2(2, 3)
 	return style
+
+
+func _create_speech_pointer() -> Polygon2D:
+	var pointer := Polygon2D.new()
+	pointer.name = "SpeechPointer"
+	pointer.polygon = PackedVector2Array([
+		Vector2(-SPEECH_POINTER_HALF_WIDTH, 0.0),
+		Vector2(SPEECH_POINTER_HALF_WIDTH, 0.0),
+		Vector2(0.0, SPEECH_POINTER_HEIGHT),
+	])
+	pointer.color = Color(UtilityPageStyle.OCEAN_PANEL_MID, 0.96)
+	pointer.antialiased = false
+	pointer.z_index = -1
+	return pointer
 
 
 func _send() -> void:
@@ -630,6 +644,8 @@ func _on_message(message: Dictionary) -> void:
 	bubble.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	bubble.custom_minimum_size = Vector2(SPEECH_BUBBLE_WIDTH, 0.0)
 	bubble.add_theme_stylebox_override("panel", _speech_panel_style())
+	var pointer := _create_speech_pointer()
+	bubble.add_child(pointer)
 	var label := Label.new()
 	label.text = str(message["body"])
 	label.custom_minimum_size = Vector2(
@@ -641,11 +657,14 @@ func _on_message(message: Dictionary) -> void:
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	label.add_theme_font_override("font", UtilityPageStyle.TuffyFont)
-	label.add_theme_color_override("font_color", UtilityPageStyle.INK)
+	label.add_theme_color_override(
+		"font_color", UtilityPageStyle.OCEAN_TEXT_PRIMARY
+	)
 	bubble.add_child(label)
 	_speech_layer.add_child(bubble)
 	_speech[peer_id] = {
 		"bubble": bubble,
+		"pointer": pointer,
 		"expires": Time.get_ticks_msec() / 1000.0 + SPEECH_SECONDS,
 		"fingerprint": str(message.get("sender_fingerprint", "")),
 	}
@@ -863,12 +882,30 @@ func _update_speech() -> void:
 			bubble.hide()
 			continue
 		var desired := screen_position - Vector2(
-			bubble.size.x * 0.5, bubble.size.y + 8.0
+			bubble.size.x * 0.5,
+			bubble.size.y + SPEECH_POINTER_HEIGHT,
 		)
 		bubble.position = Vector2(
 			clampf(desired.x, 8.0, viewport_size.x - bubble.size.x - 8.0),
-			clampf(desired.y, 8.0, viewport_size.y - bubble.size.y - 8.0),
+			clampf(
+				desired.y,
+				8.0,
+				viewport_size.y
+				- bubble.size.y
+				- SPEECH_POINTER_HEIGHT
+				- 8.0,
+			),
 		)
+		var pointer := state.get("pointer") as Polygon2D
+		if pointer != null:
+			pointer.position = Vector2(
+				clampf(
+					screen_position.x - bubble.position.x,
+					SPEECH_POINTER_HALF_WIDTH + 12.0,
+					bubble.size.x - SPEECH_POINTER_HALF_WIDTH - 12.0,
+				),
+				bubble.size.y - SPEECH_POINTER_OVERLAP,
+			)
 		bubble.show()
 
 

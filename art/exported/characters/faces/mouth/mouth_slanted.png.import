@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bbx0ywjiwymrm"
-path="res://.godot/imported/nose_dog_round.png-e1d92a8a7b661901752b05898a3f7c8b.ctex"
+uid="uid://nuj6ednwjawn"
+path="res://.godot/imported/mouth_slanted.png-cb0a217a5bb11b80e53b1a6e3e94f43d.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://art/exported/characters/faces/noses/nose_dog_round.png"
-dest_files=["res://.godot/imported/nose_dog_round.png-e1d92a8a7b661901752b05898a3f7c8b.ctex"]
+source_file="res://art/exported/characters/faces/mouth/mouth_slanted.png"
+dest_files=["res://.godot/imported/mouth_slanted.png-cb0a217a5bb11b80e53b1a6e3e94f43d.ctex"]
 
 [params]
 

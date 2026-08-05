@@ -247,21 +247,21 @@ func _validate_bite_wait_distribution() -> void:
 	var total_wait_seconds: float = 0.0
 	for _sample_index: int in 10000:
 		var wait_seconds: float = fishing_spot.roll_bite_wait_time()
-		assert(wait_seconds >= 10.0)
-		assert(wait_seconds <= 240.0)
+		assert(wait_seconds >= FishingSpotType.BITE_QUICK_MIN_SECONDS)
+		assert(wait_seconds <= FishingSpotType.BITE_MAX_SECONDS)
 		total_wait_seconds += wait_seconds
-		if wait_seconds < 30.0:
+		if wait_seconds < FishingSpotType.BITE_QUICK_MAX_SECONDS:
 			quick_count += 1
 		else:
 			typical_or_long_count += 1
-		if wait_seconds >= 180.0:
+		if wait_seconds >= FishingSpotType.BITE_LONG_MAX_SECONDS:
 			very_long_count += 1
 	var average_wait_seconds: float = total_wait_seconds / 10000.0
 	assert(quick_count >= 2300 and quick_count <= 2700)
 	assert(typical_or_long_count > quick_count)
 	assert(very_long_count >= 100 and very_long_count <= 300)
-	assert(average_wait_seconds >= 57.0)
-	assert(average_wait_seconds <= 61.0)
+	assert(average_wait_seconds >= 45.0)
+	assert(average_wait_seconds <= 49.0)
 	fishing_spot.queue_free()
 	await process_frame
 
@@ -297,7 +297,10 @@ func _validate_remote_presentation() -> void:
 	assert(fish_catch.is_valid())
 	presentation.play_return(fish_catch)
 	await create_timer(0.6).timeout
-	var catch_display := player.get_node("%CatchDisplay") as Node3D
+	var catch_display := player.find_child(
+		"CatchDisplay", true, false
+	) as Node3D
+	assert(catch_display != null)
 	assert(catch_display.visible)
 	await presentation.return_completed
 	assert(not catch_display.visible)

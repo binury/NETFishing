@@ -78,6 +78,10 @@ const CONTROLLER_MENU_SCROLL_SPEED: float = 660.0
 const VIRTUAL_MOUSE_TRIGGER_AXIS: JoyAxis = JOY_AXIS_TRIGGER_RIGHT
 const VIRTUAL_MOUSE_SHARED_TRIGGER_AXIS: JoyAxis = JOY_AXIS_TRIGGER_LEFT
 const VIRTUAL_MOUSE_SECONDARY_CLICK_AXIS: JoyAxis = JOY_AXIS_TRIGGER_LEFT
+const FISHING_PANEL_DEFAULT_TOP_OFFSET: float = -210.0
+const FISHING_PANEL_DEFAULT_BOTTOM_OFFSET: float = -140.0
+const FISHING_PANEL_SHOWCASE_TOP_OFFSET: float = -174.0
+const FISHING_PANEL_SHOWCASE_BOTTOM_OFFSET: float = -104.0
 
 @onready var _status_label: Label = %StatusLabel
 @onready var _gameplay_transient_hud: Control = %GameplayTransientHUD
@@ -155,6 +159,7 @@ var _virtual_mouse_stick: Vector2 = Vector2.ZERO
 var _virtual_mouse_trigger_rest_by_device: Dictionary[int, float] = {}
 var _shared_trigger_rest_by_device: Dictionary[int, float] = {}
 var _controller_mapping_manager: ControllerMappingManagerType
+var _settings_manager: PlayerSettingsManagerType
 
 
 func _ready() -> void:
@@ -231,6 +236,7 @@ func setup(
 	world_sun: DirectionalLight3D,
 ) -> void:
 	_player = player
+	_settings_manager = settings_manager
 	_fishing_spot = fishing_spot
 	_item_effects = item_effects
 	_experience = experience
@@ -290,6 +296,15 @@ func setup(
 		world_environment,
 		world_sun,
 	)
+	if (
+		_settings_manager != null
+		and not _settings_manager.settings_changed.is_connected(
+			_on_player_settings_changed
+		)
+	):
+		_settings_manager.settings_changed.connect(_on_player_settings_changed)
+	if _settings_manager != null:
+		_on_player_settings_changed(_settings_manager.current_settings)
 	_hotbar_ui.setup(hotbar, bag, item_catalog, fishing_spot, inventory)
 	_fishing_shop.setup(
 		player,
@@ -347,7 +362,11 @@ func _input(event: InputEvent) -> void:
 	)
 	if (
 		_surface_drawing != null
-		and _surface_drawing.handle_input(event, drawing_can_open)
+		and _surface_drawing.handle_input(
+			event,
+			drawing_can_open,
+			_drawing_pointer_window_position(),
+		)
 	):
 		get_viewport().set_input_as_handled()
 		return
@@ -959,7 +978,13 @@ func _toggle_surface_drawing() -> void:
 	if _surface_drawing.is_active():
 		_surface_drawing.deactivate()
 	elif _surface_drawing.can_activate():
-		_surface_drawing.activate()
+		_surface_drawing.activate(_drawing_pointer_window_position())
+
+
+func _drawing_pointer_window_position() -> Vector2:
+	if _virtual_mouse_active:
+		return _virtual_mouse_window_position
+	return get_window().get_mouse_position()
 
 
 func setup_data_and_identity(
@@ -1229,6 +1254,13 @@ func set_effective_ui_pixel_size(pixel_size: int) -> void:
 	_pause_settings_panel.set_effective_ui_pixel_size(pixel_size)
 
 
+func _on_player_settings_changed(settings: PlayerSettings) -> void:
+	if settings != null:
+		_player_menu.set_profile_preview_world_pixel_size(
+			settings.world_pixel_size
+		)
+
+
 func set_edge_docks(
 	chat_dock_right: bool,
 	paint_dock_right: bool,
@@ -1389,11 +1421,13 @@ func _on_showcase_changed(
 ) -> void:
 	_showcase_active = visible
 	if not visible:
+		_set_fishing_panel_showcase_position(false)
 		_showcase_details.text = ""
 		_showcase_details.visible = false
 		_set_fishing_status("")
 		call_deferred("_start_next_experience_animation")
 		return
+	_set_fishing_panel_showcase_position(true)
 	_catch_track.visible = false
 	_barrier_prompt_panel.visible = false
 	_barrier_prompt.visible = false
@@ -1409,6 +1443,19 @@ func _on_showcase_changed(
 	)
 	_status_label.visible = true
 	_refresh_fishing_panel_visibility()
+
+
+func _set_fishing_panel_showcase_position(showcase: bool) -> void:
+	_fishing_panel.offset_top = (
+		FISHING_PANEL_SHOWCASE_TOP_OFFSET
+		if showcase
+		else FISHING_PANEL_DEFAULT_TOP_OFFSET
+	)
+	_fishing_panel.offset_bottom = (
+		FISHING_PANEL_SHOWCASE_BOTTOM_OFFSET
+		if showcase
+		else FISHING_PANEL_DEFAULT_BOTTOM_OFFSET
+	)
 
 
 func _on_experience_awarded(

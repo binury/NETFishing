@@ -582,6 +582,10 @@ func setup_controller_mapping(
 	_profile_page.setup_controller_mapping(_controller_mapping_manager)
 
 
+func set_profile_preview_world_pixel_size(pixel_size: int) -> void:
+	_profile_page.set_world_pixel_size(pixel_size)
+
+
 func _input(event: InputEvent) -> void:
 	if event is InputEventKey and event.echo:
 		return

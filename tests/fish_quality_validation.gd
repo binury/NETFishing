@@ -132,7 +132,7 @@ func _validate_barrier_challenge_curve() -> void:
 
 func _validate_fight_pacing_and_reel_upgrades() -> void:
 	assert(is_equal_approx(CatchController.CHASE_SPEED, 0.07))
-	assert(is_equal_approx(CatchController.CHASE_START_DELAY, 0.5))
+	assert(is_equal_approx(CatchController.CHASE_START_DELAY, 1.0))
 	assert(is_equal_approx(CatchController.CHASE_START_OFFSET, 0.04))
 	assert(is_equal_approx(Player.BASE_REEL_SPEED, 0.16))
 

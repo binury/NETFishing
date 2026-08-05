@@ -27,6 +27,7 @@ const MAX_REQUESTS_PER_WINDOW: int = 32
 const MAX_RECENT_REQUEST_IDS: int = 64
 const GRID_PREVIEW_SURFACE_OFFSET: float = 0.03
 const POINTER_EDGE_MARGIN: float = 2.0
+const INVALID_POINTER_SCREEN_POSITION := Vector2(-1.0, -1.0)
 
 enum GuideAction {
 	NONE,
@@ -117,7 +118,11 @@ func setup(
 	_emit_hud_state("")
 
 
-func handle_input(event: InputEvent, can_open: bool) -> bool:
+func handle_input(
+	event: InputEvent,
+	can_open: bool,
+	pointer_screen_position: Vector2 = INVALID_POINTER_SCREEN_POSITION,
+) -> bool:
 	if event is InputEventKey:
 		var key_event := event as InputEventKey
 		if (
@@ -129,7 +134,7 @@ func handle_input(event: InputEvent, can_open: bool) -> bool:
 				deactivate()
 				return true
 			if can_open and can_activate():
-				activate()
+				activate(pointer_screen_position)
 				return true
 			return false
 	if not _active:
@@ -167,6 +172,11 @@ func handle_input(event: InputEvent, can_open: bool) -> bool:
 				return true
 	if event is InputEventMouseButton:
 		var mouse_event := event as InputEventMouseButton
+		_set_pointer_from_input(
+			mouse_event.position,
+			pointer_screen_position,
+		)
+		_update_aim()
 		if (
 			mouse_event.shift_pressed
 			and mouse_event.button_index in [
@@ -216,15 +226,18 @@ func handle_input(event: InputEvent, can_open: bool) -> bool:
 		var motion_event := event as InputEventMouseMotion
 		if _camera_look_active:
 			return false
-		_pointer_screen_position = _clamped_pointer_position(
-			motion_event.position
+		_set_pointer_from_input(
+			motion_event.position,
+			pointer_screen_position,
 		)
 		_update_aim()
 		return true
 	return false
 
 
-func activate() -> void:
+func activate(
+	pointer_screen_position: Vector2 = INVALID_POINTER_SCREEN_POSITION,
+) -> void:
 	if _active or not can_activate():
 		return
 	_active = true
@@ -234,7 +247,12 @@ func activate() -> void:
 	_refresh_local_unlocks()
 	_rebuild_placement_preview()
 	_reset_stroke()
-	_pointer_screen_position = get_viewport().get_visible_rect().size * 0.5
+	var initial_pointer_position: Vector2 = pointer_screen_position
+	if not _is_valid_pointer_screen_position(initial_pointer_position):
+		initial_pointer_position = get_viewport().get_mouse_position()
+	_pointer_screen_position = _clamped_pointer_position(
+		initial_pointer_position
+	)
 	_prior_mouse_mode = Input.mouse_mode
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	_update_aim()
@@ -1938,6 +1956,25 @@ func _clamped_pointer_position(value: Vector2) -> Vector2:
 		clampf(value.x, POINTER_EDGE_MARGIN, viewport_size.x - POINTER_EDGE_MARGIN),
 		clampf(value.y, POINTER_EDGE_MARGIN, viewport_size.y - POINTER_EDGE_MARGIN),
 	)
+
+
+func _set_pointer_from_input(
+	event_position: Vector2,
+	pointer_screen_position: Vector2,
+) -> void:
+	# GameUI receives input through a scaled SubViewport, so event_position is
+	# expressed in that UI viewport's render coordinates. Camera3D ray methods
+	# require coordinates in the camera's root viewport instead. GameUI supplies
+	# that authoritative window position; direct callers may still use an event
+	# position when they share this service's viewport.
+	var resolved_position: Vector2 = pointer_screen_position
+	if not _is_valid_pointer_screen_position(resolved_position):
+		resolved_position = event_position
+	_pointer_screen_position = _clamped_pointer_position(resolved_position)
+
+
+func _is_valid_pointer_screen_position(value: Vector2) -> bool:
+	return value.x >= 0.0 and value.y >= 0.0
 
 
 func _cycle_color(direction: int) -> void:

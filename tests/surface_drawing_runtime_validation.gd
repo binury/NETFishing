@@ -119,9 +119,11 @@ func _validate_marker_controls(
 	player: Player,
 ) -> void:
 	var prior_mouse_mode: Input.MouseMode = Input.mouse_mode
-	service.activate()
+	var activation_pointer := Vector2(824.0, 318.0)
+	service.activate(activation_pointer)
 	assert(service.is_active())
 	assert(service.is_placement_mode())
+	assert(service.get_pointer_screen_position() == activation_pointer)
 	if DisplayServer.get_name() != "headless":
 		assert(Input.mouse_mode == Input.MOUSE_MODE_VISIBLE)
 
@@ -136,6 +138,15 @@ func _validate_marker_controls(
 	pointer_motion.position = pointer_before + Vector2(30.0, -12.0)
 	assert(service.handle_input(pointer_motion, true))
 	assert(service.get_pointer_screen_position() != pointer_before)
+	var scaled_ui_motion := InputEventMouseMotion.new()
+	scaled_ui_motion.position = Vector2(260.0, 140.0)
+	var root_viewport_pointer := Vector2(960.0, 540.0)
+	assert(service.handle_input(
+		scaled_ui_motion,
+		true,
+		root_viewport_pointer,
+	))
+	assert(service.get_pointer_screen_position() == root_viewport_pointer)
 	var zoom_event := InputEventMouseButton.new()
 	zoom_event.button_index = MOUSE_BUTTON_WHEEL_UP
 	zoom_event.shift_pressed = true

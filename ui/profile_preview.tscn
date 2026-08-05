@@ -1,11 +1,17 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=4 format=3]
 
 [ext_resource type="Script" path="res://ui/profile_preview.gd" id="1"]
+[ext_resource type="Shader" path="res://ui/profile_preview_pixelation.gdshader" id="2_pixelation"]
 
 [sub_resource type="World3D" id="PreviewWorld"]
 
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_pixelation"]
+shader = ExtResource("2_pixelation")
+
 [node name="ProfilePreview" type="SubViewportContainer"]
+material = SubResource("ShaderMaterial_pixelation")
 custom_minimum_size = Vector2(300, 220)
+texture_filter = 1
 stretch = true
 script = ExtResource("1")
 
@@ -27,5 +33,6 @@ shadow_enabled = false
 unique_name_in_owner = true
 
 [node name="Camera3D" type="Camera3D" parent="Viewport"]
+unique_name_in_owner = true
 position = Vector3(0, 0.95, 1.9)
 current = true

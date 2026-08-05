@@ -109,49 +109,6 @@ script = ExtResource("14_art_unlocks")
 unique_name_in_owner = true
 script = ExtResource("15_experience")
 
-[node name="CatchDisplayAnchor" type="Marker3D" parent="Visuals"]
-unique_name_in_owner = true
-position = Vector3(0, 1.45, -1.15)
-
-[node name="CatchDisplay" type="Node3D" parent="Visuals/CatchDisplayAnchor"]
-unique_name_in_owner = true
-visible = false
-
-[node name="CatchSprite" type="Sprite3D" parent="Visuals/CatchDisplayAnchor/CatchDisplay"]
-unique_name_in_owner = true
-pixel_size = 0.012
-billboard = 1
-shaded = false
-double_sided = true
-texture_filter = 0
-
-[node name="HeldFishAnchor" type="Marker3D" parent="Visuals"]
-position = Vector3(0, 1.15, -0.9)
-
-[node name="HeldFishDisplay" type="Node3D" parent="Visuals/HeldFishAnchor"]
-unique_name_in_owner = true
-visible = false
-
-[node name="HeldFishSprite" type="Sprite3D" parent="Visuals/HeldFishAnchor/HeldFishDisplay"]
-unique_name_in_owner = true
-pixel_size = 0.012
-billboard = 1
-shaded = false
-double_sided = true
-texture_filter = 0
-
-[node name="HeldArtKitAnchor" type="Marker3D" parent="Visuals"]
-position = Vector3(0, 1.05, -0.72)
-
-[node name="HeldArtKitSprite" type="Sprite3D" parent="Visuals/HeldArtKitAnchor"]
-unique_name_in_owner = true
-visible = false
-pixel_size = 0.008
-billboard = 1
-shaded = false
-double_sided = true
-texture_filter = 1
-
 [node name="CameraYaw" type="Node3D" parent="."]
 unique_name_in_owner = true
 position = Vector3(0, 1.35, 0)

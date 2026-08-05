@@ -4,6 +4,44 @@ extends RefCounted
 const PlayerScene: PackedScene = preload("res://player/player.tscn")
 const RUNTIME_MATERIAL_META: StringName = &"netfishing_runtime_material"
 
+static var _feature_uv_aspects: Dictionary = {}
+
+
+static func feature_uv_aspect(feature_name: String) -> float:
+	if _feature_uv_aspects.has(feature_name):
+		return float(_feature_uv_aspects[feature_name])
+	var visuals := instantiate_visuals()
+	var skeleton := visuals.find_child("Skeleton3D", true, false) as Skeleton3D
+	var aspects: Array[float] = []
+	for head_name: String in ["head_round", "head_pointy"]:
+		var mesh_instance := skeleton.get_node_or_null(
+			"%s_%s" % [head_name, feature_name]
+		) as MeshInstance3D
+		if mesh_instance == null or mesh_instance.mesh == null:
+			continue
+		var arrays := mesh_instance.mesh.surface_get_arrays(0)
+		var uv: PackedVector2Array = arrays[Mesh.ARRAY_TEX_UV]
+		if uv.is_empty():
+			continue
+		var min_uv := Vector2(INF, INF)
+		var max_uv := Vector2(-INF, -INF)
+		for value: Vector2 in uv:
+			min_uv = min_uv.min(value)
+			max_uv = max_uv.max(value)
+		var size := max_uv - min_uv
+		if size.y > 0.001:
+			aspects.append(size.x / size.y)
+	visuals.free()
+	var result := 1.0
+	if not aspects.is_empty():
+		result = 0.0
+		for aspect: float in aspects:
+			result += aspect
+		result /= aspects.size()
+	result = clampf(result, 0.35, 2.5)
+	_feature_uv_aspects[feature_name] = result
+	return result
+
 
 static func instantiate_visuals() -> Node3D:
 	var source: Player = PlayerScene.instantiate()
@@ -40,6 +78,13 @@ static func apply_appearance(
 		return
 	# Gameplay and preview deliberately share this presentation seam. Keep all
 	# mesh selection here so profile previews and network avatars stay identical.
+	var character_scale: float = CharacterCustomizationCatalog.character_scale(
+		snapshot.get(
+			CharacterCustomizationCatalog.SCALE_CATEGORY_ID,
+			CharacterCustomizationCatalog.DEFAULT_CHARACTER_SCALE,
+		)
+	)
+	visuals.scale = Vector3.ONE * character_scale
 	var skeleton: Skeleton3D = visuals.find_child("Skeleton3D", true, false) as Skeleton3D
 	if skeleton == null:
 		return
@@ -58,7 +103,12 @@ static func apply_appearance(
 				"%s_%s" % [head_name, feature]
 			) as Node3D
 			if decal != null:
-				decal.visible = head_name == head_id
+				var feature_id := CharacterCustomizationCatalog.canonical_option_id(
+					feature, str(snapshot.get(feature, "none"))
+				)
+				decal.visible = (
+					head_name == head_id and feature_id != "none"
+				)
 
 	var selected_ears: String = CharacterCustomizationCatalog.canonical_option_id(
 		"ears", str(snapshot.get("ears", "none"))
@@ -114,14 +164,20 @@ static func _set_feature_texture(
 	feature_name: String,
 	texture: Texture2D,
 ) -> void:
-	if texture == null:
-		return
 	for head_name: String in ["head_pointy", "head_round"]:
 		var mesh_instance: MeshInstance3D = skeleton.get_node_or_null(
 			"%s_%s" % [head_name, feature_name]
 		) as MeshInstance3D
+		if texture == null:
+			if mesh_instance != null:
+				mesh_instance.visible = false
+			continue
 		var material: StandardMaterial3D = _runtime_material(mesh_instance)
 		if material != null:
+			# Feature plates are transparent geometry. The exported base model may
+			# have no preview texture, so enforce the runtime alpha mode when a
+			# drop-in PNG is assigned.
+			material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 			material.albedo_color = Color.WHITE
 			material.albedo_texture = texture
 
@@ -145,13 +201,32 @@ static func _runtime_material(
 	if mesh_instance == null or mesh_instance.mesh == null:
 		return null
 	if mesh_instance.has_meta(RUNTIME_MATERIAL_META):
-		return mesh_instance.material_override as StandardMaterial3D
+		var runtime := mesh_instance.material_override as StandardMaterial3D
+		_configure_matte_material(runtime)
+		return runtime
 	var source: StandardMaterial3D = mesh_instance.mesh.surface_get_material(
 		0
 	) as StandardMaterial3D
 	if source == null:
 		return null
 	var material: StandardMaterial3D = source.duplicate() as StandardMaterial3D
+	_configure_matte_material(material)
 	mesh_instance.material_override = material
 	mesh_instance.set_meta(RUNTIME_MATERIAL_META, true)
 	return material
+
+
+static func _configure_matte_material(material: StandardMaterial3D) -> void:
+	if material == null:
+		return
+	# Character artwork is deliberately graphic and flat. Unshaded rendering
+	# keeps the authored fur and facial colors invariant across world weather,
+	# time of day, and the isolated Profile preview.
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	material.metallic = 0.0
+	material.metallic_specular = 0.0
+	material.roughness = 1.0
+	material.diffuse_mode = BaseMaterial3D.DIFFUSE_LAMBERT
+	material.anisotropy_enabled = false
+	material.clearcoat_enabled = false
+	material.rim_enabled = false

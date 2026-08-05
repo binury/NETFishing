@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://crrw5vvop2gj7"
-path="res://.godot/imported/mouth_three.png-b0b3775e32dfd17b6cfcac16b5c64d58.ctex"
+uid="uid://b3481384do6m4"
+path="res://.godot/imported/eyes_interested.png-5e8a34c0afaf7b4543f1b892af2227c7.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://art/exported/characters/faces/mouth/mouth_three.png"
-dest_files=["res://.godot/imported/mouth_three.png-b0b3775e32dfd17b6cfcac16b5c64d58.ctex"]
+source_file="res://art/exported/characters/faces/eyes/eyes_interested.png"
+dest_files=["res://.godot/imported/eyes_interested.png-5e8a34c0afaf7b4543f1b892af2227c7.ctex"]
 
 [params]
 

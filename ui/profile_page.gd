@@ -33,6 +33,8 @@ var _debounce: Timer
 var _experience_level: Label
 var _experience_progress: ProgressBar
 var _experience_value: Label
+var _feature_preview_cache: Dictionary = {}
+var _scale_value_label: Label
 
 
 func _ready() -> void:
@@ -82,6 +84,11 @@ func setup_controller_mapping(
 ) -> void:
 	if _preview != null:
 		_preview.setup_controller_mapping(mapping_manager)
+
+
+func set_world_pixel_size(pixel_size: int) -> void:
+	if _preview != null:
+		_preview.set_world_pixel_size(pixel_size)
 
 
 func activate() -> void:
@@ -281,48 +288,51 @@ func _build_ui() -> void:
 	_category_list.add_theme_constant_override("separation", 5)
 	body.add_child(_category_list)
 	_option_list = VBoxContainer.new()
-	_option_list.custom_minimum_size = Vector2(170, 0)
+	_option_list.custom_minimum_size = Vector2(360, 0)
+	_option_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_option_list.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_option_list.add_theme_constant_override("separation", 5)
 	body.add_child(_option_list)
 	var body_spacer := Control.new()
-	body_spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	body_spacer.custom_minimum_size.x = 12.0
+	body_spacer.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	body.add_child(body_spacer)
 	var preview_stack := VBoxContainer.new()
-	preview_stack.custom_minimum_size.x = 180.0
+	preview_stack.custom_minimum_size.x = 260.0
+	preview_stack.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	preview_stack.alignment = BoxContainer.ALIGNMENT_CENTER
 	preview_stack.add_theme_constant_override("separation", 7)
 	body.add_child(preview_stack)
 	var preview_frame := PanelContainer.new()
-	preview_frame.custom_minimum_size = Vector2(180.0, 220.0)
+	preview_frame.custom_minimum_size = Vector2(260.0, 0.0)
+	preview_frame.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	preview_frame.add_theme_stylebox_override(
 		"panel", UtilityPageStyle.rounded_style(
 			UtilityPageStyle.OCEAN_FIELD, 18
 		)
 	)
 	preview_stack.add_child(preview_frame)
+	var preview_layer := Control.new()
+	preview_layer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	preview_layer.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	preview_layer.mouse_filter = Control.MOUSE_FILTER_PASS
+	preview_frame.add_child(preview_layer)
 	_preview = preload("res://ui/profile_preview.tscn").instantiate()
-	_preview.custom_minimum_size = Vector2(180.0, 220.0)
-	preview_frame.add_child(_preview)
-	var preview_actions := VBoxContainer.new()
-	preview_actions.alignment = BoxContainer.ALIGNMENT_CENTER
-	preview_actions.add_theme_constant_override("separation", 4)
-	preview_stack.add_child(preview_actions)
-	var preview_note := Label.new()
-	preview_note.text = "drag or use left / right"
-	preview_note.custom_minimum_size.x = 180.0
-	preview_note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	preview_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	preview_note.add_theme_font_size_override("font_size", 12)
-	preview_note.add_theme_color_override(
-		"font_color", UtilityPageStyle.OCEAN_TEXT_SECONDARY
-	)
-	preview_actions.add_child(preview_note)
+	_preview.custom_minimum_size = Vector2(260.0, 0.0)
+	_preview.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_preview.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	preview_layer.add_child(_preview)
+	_preview.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	var reset_view := Button.new()
-	reset_view.text = "reset view"
-	reset_view.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	reset_view.text = "↶"
+	reset_view.tooltip_text = "reset view"
+	reset_view.custom_minimum_size = Vector2(36.0, 36.0)
+	reset_view.position = Vector2(-8.0, -8.0)
+	reset_view.z_index = 2
 	reset_view.pressed.connect(_preview.reset_view)
 	UtilityPageStyle.apply_compact_ocean_button(reset_view)
-	preview_actions.add_child(reset_view)
+	reset_view.add_theme_font_size_override("font_size", 22)
+	preview_layer.add_child(reset_view)
 
 	_discard_confirmation = PanelContainer.new()
 	_discard_confirmation.visible = false
@@ -396,6 +406,9 @@ func _refresh_options() -> void:
 		"font_color", UtilityPageStyle.OCEAN_TEXT_PRIMARY
 	)
 	_option_list.add_child(title)
+	if _category_id == CharacterCustomizationCatalog.SCALE_CATEGORY_ID:
+		_build_scale_option()
+		return
 	var options: Array = CharacterCustomizationCatalog.options_for(_category_id)
 	if options.is_empty():
 		var empty := Label.new()
@@ -406,16 +419,174 @@ func _refresh_options() -> void:
 	if _category_id == "fur_pattern":
 		_build_fur_color_options(options)
 		return
+	if _category_id in CharacterCustomizationCatalog.FEATURE_CATEGORIES:
+		_build_feature_preview_options(options)
+		return
 	for option: Dictionary in options:
 		var option_id := str(option["id"])
 		var button := Button.new()
-		button.text = str(option["label"])
+		button.text = "×" if option_id == "none" else str(option["label"])
+		button.tooltip_text = "none" if option_id == "none" else str(
+			option["label"]
+		)
 		button.toggle_mode = true
 		button.custom_minimum_size.x = 170.0
 		button.button_pressed = _draft_appearance.get(_category_id) == option_id
 		button.pressed.connect(_select_option.bind(_category_id, option_id))
 		UtilityPageStyle.apply_compact_ocean_button(button)
+		if option_id == "none":
+			button.add_theme_font_size_override("font_size", 24)
 		_option_list.add_child(button)
+
+
+func _build_scale_option() -> void:
+	var description := Label.new()
+	description.text = "Adjust your character's visual size."
+	description.add_theme_font_size_override("font_size", 14)
+	description.add_theme_color_override(
+		"font_color", UtilityPageStyle.OCEAN_TEXT_SECONDARY
+	)
+	_option_list.add_child(description)
+
+	var value_row := HBoxContainer.new()
+	value_row.add_theme_constant_override("separation", 10)
+	value_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_option_list.add_child(value_row)
+
+	var small_label := Label.new()
+	small_label.text = "small"
+	small_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	small_label.add_theme_color_override(
+		"font_color", UtilityPageStyle.OCEAN_TEXT_SECONDARY
+	)
+	value_row.add_child(small_label)
+
+	var slider := HSlider.new()
+	slider.name = "CharacterScaleSlider"
+	slider.min_value = CharacterCustomizationCatalog.MIN_CHARACTER_SCALE
+	slider.max_value = CharacterCustomizationCatalog.MAX_CHARACTER_SCALE
+	slider.step = CharacterCustomizationCatalog.CHARACTER_SCALE_STEP
+	slider.custom_minimum_size = Vector2(220.0, 40.0)
+	slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	slider.tooltip_text = "character size"
+	slider.value = CharacterCustomizationCatalog.character_scale(
+		_draft_appearance.get(
+			CharacterCustomizationCatalog.SCALE_CATEGORY_ID,
+			CharacterCustomizationCatalog.DEFAULT_CHARACTER_SCALE,
+		)
+	)
+	slider.value_changed.connect(_select_scale)
+	value_row.add_child(slider)
+
+	var large_label := Label.new()
+	large_label.text = "large"
+	large_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	large_label.add_theme_color_override(
+		"font_color", UtilityPageStyle.OCEAN_TEXT_SECONDARY
+	)
+	value_row.add_child(large_label)
+
+	_scale_value_label = Label.new()
+	_scale_value_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_scale_value_label.add_theme_font_size_override("font_size", 20)
+	_scale_value_label.add_theme_color_override(
+		"font_color", UtilityPageStyle.OCEAN_TEXT_PRIMARY
+	)
+	_option_list.add_child(_scale_value_label)
+	_update_scale_value_label(float(slider.value))
+
+	var gameplay_note := Label.new()
+	gameplay_note.text = "Movement and collision stay the same."
+	gameplay_note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	gameplay_note.add_theme_font_size_override("font_size", 12)
+	gameplay_note.add_theme_color_override(
+		"font_color", UtilityPageStyle.OCEAN_TEXT_SECONDARY
+	)
+	_option_list.add_child(gameplay_note)
+
+
+func _build_feature_preview_options(options: Array) -> void:
+	var scroll := ScrollContainer.new()
+	scroll.custom_minimum_size = Vector2(190.0, 0.0)
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	_option_list.add_child(scroll)
+	var grid := GridContainer.new()
+	grid.columns = 4
+	grid.add_theme_constant_override("h_separation", 8)
+	grid.add_theme_constant_override("v_separation", 8)
+	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(grid)
+	var selected_id := CharacterCustomizationCatalog.canonical_option_id(
+		_category_id, str(_draft_appearance.get(_category_id, ""))
+	)
+	for option: Dictionary in options:
+		var option_id := str(option.get("id", ""))
+		var button := Button.new()
+		var is_none := option_id == "none"
+		button.text = "×" if is_none else ""
+		button.tooltip_text = "none" if is_none else str(
+			option.get("label", option_id)
+		)
+		button.toggle_mode = true
+		button.button_pressed = selected_id == option_id
+		button.custom_minimum_size = Vector2(84.0, 64.0)
+		button.alignment = HORIZONTAL_ALIGNMENT_CENTER
+		button.clip_contents = true
+		button.pressed.connect(_select_option.bind(_category_id, option_id))
+		UtilityPageStyle.apply_compact_ocean_button(button)
+		button.custom_minimum_size = Vector2(84.0, 64.0)
+		if is_none:
+			button.add_theme_font_size_override("font_size", 28)
+		else:
+			var preview := TextureRect.new()
+			preview.texture = _feature_preview_texture(
+				_category_id, option_id
+			)
+			preview.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			preview.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+			preview.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			var preview_height := 50.0
+			var preview_width := clampf(
+				preview_height * PlayerVisualPresenter.feature_uv_aspect(
+					_category_id
+				),
+				32.0,
+				74.0,
+			)
+			preview.custom_minimum_size = Vector2(preview_width, preview_height)
+			preview.size = Vector2(preview_width, preview_height)
+			preview.position = Vector2((84.0 - preview_width) * 0.5, 7.0)
+			button.add_child(preview)
+		grid.add_child(button)
+
+
+func _feature_preview_texture(
+	category_id: String,
+	option_id: String,
+) -> Texture2D:
+	var cache_key := "%s:%s" % [category_id, option_id]
+	if _feature_preview_cache.has(cache_key):
+		return _feature_preview_cache[cache_key] as Texture2D
+	var source := CharacterCustomizationCatalog.texture_for(
+		category_id, option_id
+	)
+	if source == null:
+		return null
+	var image := source.get_image()
+	var used := image.get_used_rect()
+	if used.size.x <= 0 or used.size.y <= 0:
+		_feature_preview_cache[cache_key] = source
+		return source
+	var padding := 12
+	used.position -= Vector2i(padding, padding)
+	used.size += Vector2i(padding * 2, padding * 2)
+	used = used.intersection(Rect2i(Vector2i.ZERO, image.get_size()))
+	var cropped := image.get_region(used)
+	var preview := ImageTexture.create_from_image(cropped)
+	_feature_preview_cache[cache_key] = preview
+	return preview
 
 
 func _build_fur_color_options(options: Array) -> void:
@@ -467,6 +638,26 @@ func _select_option(category_id: String, option_id: String) -> void:
 	_dirty = _draft_differs()
 	_refresh_options()
 	_refresh_actions()
+
+
+func _select_scale(value: float) -> void:
+	var resolved_scale: float = CharacterCustomizationCatalog.character_scale(
+		value
+	)
+	_draft_appearance[CharacterCustomizationCatalog.SCALE_CATEGORY_ID] = (
+		resolved_scale
+	)
+	_update_scale_value_label(resolved_scale)
+	_preview.apply_appearance_profile(_draft_appearance)
+	_dirty = _draft_differs()
+	_refresh_actions()
+
+
+func _update_scale_value_label(value: float) -> void:
+	if _scale_value_label != null:
+		_scale_value_label.text = "%d%%" % (
+			CharacterCustomizationCatalog.character_scale_percent(value)
+		)
 
 
 func _on_name_changed(value: String) -> void:

@@ -136,9 +136,10 @@ func _validate_save_round_trip(
 			player.inventory.get_catches_by_fish_id(fish_id).front()
 		)
 		player.begin_catch_showcase(fish_catch)
-		var catch_sprite := player.get_node(
-			"%CatchSprite"
+		var catch_sprite := player.find_child(
+			"CatchSprite", true, false
 		) as Sprite3D
+		assert(catch_sprite != null)
 		assert(catch_sprite.texture == fish_catch.fish.display_texture)
 		player.end_catch_showcase(Callable(), true)
 

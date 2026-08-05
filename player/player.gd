@@ -30,10 +30,16 @@ const ControllerMappingManagerType = preload(
 const FishingRodAttachmentScene = preload(
 	"res://player/fishing_rod_attachment.tscn"
 )
+const HeldItemAttachmentScene = preload(
+	"res://player/held_item_attachment.tscn"
+)
 
 const CHARACTER_IDLE_ANIMATION: StringName = &"idle"
+const CHARACTER_IDLE_SHOW_ANIMATION: StringName = &"idle_show"
+const CHARACTER_IDLE_SIT_ANIMATION: StringName = &"idle_sit"
+const CHARACTER_IDLE_SIT_SHOW_ANIMATION: StringName = &"idle_sit_show"
 const CHARACTER_WALKING_ANIMATION: StringName = &"walking"
-const CHARACTER_SITTING_ANIMATION: StringName = &"sitting"
+const CHARACTER_WALKING_SHOW_ANIMATION: StringName = &"walking_show"
 const BASE_REEL_SPEED: float = 0.16
 # The target Android handheld exposes its physical right trigger through
 # Godot's left-trigger axis. Keep the role named here so the platform mapping
@@ -105,6 +111,9 @@ class ShowcaseCameraSnapshot:
 @export_range(0.0, 1.0, 0.01) var controller_trigger_threshold: float = 0.55
 
 @onready var _visuals: Node3D = %Visuals
+@onready var _character_rig: Node3D = get_node_or_null(
+	"Visuals/CharacterRig/CharacterRig"
+) as Node3D
 @onready var _character_animation_player: AnimationPlayer = (
 	get_node_or_null("Visuals/CharacterRig/AnimationPlayer") as AnimationPlayer
 )
@@ -124,11 +133,14 @@ class ShowcaseCameraSnapshot:
 @onready var art_unlocks: PlayerArtUnlocksType = %ArtUnlocks
 @onready var experience: PlayerExperienceType = %Experience
 @onready var _cast_origin: Marker3D = %CastOrigin
-@onready var _catch_display: Node3D = %CatchDisplay
-@onready var _catch_sprite: Sprite3D = %CatchSprite
-@onready var _held_fish_display: Node3D = %HeldFishDisplay
-@onready var _held_fish_sprite: Sprite3D = %HeldFishSprite
-@onready var _held_art_kit_sprite: Sprite3D = %HeldArtKitSprite
+var _catch_display: Node3D
+var _catch_sprite: Sprite3D
+var _held_item_attachment: BoneAttachment3D
+var _held_fish_display: Node3D
+var _held_fish_attachment_offset: Vector3 = Vector3(0.0, 0.08, 0.04)
+var _held_fish_sprite: Sprite3D
+var _held_art_kit_sprite: Sprite3D
+var _catch_attachment_offset: Vector3 = Vector3(0.0, 0.08, 0.04)
 
 var _gravity: float = float(ProjectSettings.get_setting("physics/3d/default_gravity"))
 var _camera_dragging: bool = false
@@ -165,6 +177,8 @@ var _network_target_visual_yaw: float = 0.0
 var _network_snapshot_ready: bool = false
 var _character_animation_name: StringName = &""
 var _sitting: bool = false
+var _held_fish_visible: bool = false
+var _showcase_animation_active: bool = false
 var _fishing_rod: Node3D
 var _fishing_rod_tip: Marker3D
 var _controller_mapping_manager: ControllerMappingManagerType
@@ -176,6 +190,7 @@ func _ready() -> void:
 	_target_zoom = clampf(_spring_arm.spring_length, minimum_zoom, maximum_zoom)
 	_spring_arm.spring_length = _target_zoom
 	_camera.current = local_control_enabled
+	_initialize_held_item_attachment()
 
 
 func set_controller_mapping_manager(
@@ -200,6 +215,32 @@ func _initialize_fishing_rod() -> void:
 	_fishing_rod_tip = attachment.get_node(
 		"FishingRod/FishingRodTip"
 	) as Marker3D
+
+
+func _initialize_held_item_attachment() -> void:
+	var skeleton := get_node_or_null(
+		"Visuals/CharacterRig/CharacterRig/Skeleton3D"
+	) as Skeleton3D
+	if skeleton == null:
+		push_error("Player character skeleton is unavailable for held items.")
+		return
+	var attachment := HeldItemAttachmentScene.instantiate() as BoneAttachment3D
+	if attachment == null:
+		push_error("Held item attachment could not be instantiated.")
+		return
+	skeleton.add_child(attachment)
+	_held_item_attachment = attachment
+	_held_fish_display = attachment.get_node("HeldFishDisplay") as Node3D
+	_held_fish_attachment_offset = _held_fish_display.position
+	_held_fish_sprite = attachment.get_node(
+		"HeldFishDisplay/HeldFishSprite"
+	) as Sprite3D
+	_held_art_kit_sprite = attachment.get_node(
+		"HeldArtKitDisplay/HeldArtKitSprite"
+	) as Sprite3D
+	_catch_display = attachment.get_node("CatchDisplay") as Node3D
+	_catch_attachment_offset = _catch_display.position
+	_catch_sprite = attachment.get_node("CatchDisplay/CatchSprite") as Sprite3D
 
 
 func _physics_process(delta: float) -> void:
@@ -283,6 +324,22 @@ func _physics_process(delta: float) -> void:
 
 func _process(delta: float) -> void:
 	_update_character_animation()
+	# The hand bone supplies the attachment position, but its animated wrist
+	# rotation should not turn the flat fish/catch artwork edge-on. Keep each
+	# display aligned with the character's facing while it follows the hand.
+	if _character_rig != null and _held_item_attachment != null:
+		var facing_rotation: Vector3 = _character_rig.global_rotation
+		for display: Node3D in [_held_fish_display, _catch_display]:
+			if display != null:
+				var attachment_offset: Vector3 = (
+					_held_fish_attachment_offset
+					if display == _held_fish_display
+					else _catch_attachment_offset
+				)
+				display.global_position = (
+					_held_item_attachment.global_transform * attachment_offset
+				)
+				display.global_rotation = facing_rotation
 	if _remote_recovery_presentation_active:
 		_remote_recovery_elapsed += delta
 		_visuals.position = (
@@ -363,16 +420,65 @@ func _update_character_animation() -> void:
 	var horizontal_speed_squared: float = (
 		velocity.x * velocity.x + velocity.z * velocity.z
 	)
-	var next_animation: StringName = (
-		CHARACTER_SITTING_ANIMATION
-		if _sitting
-		else (
-			CHARACTER_WALKING_ANIMATION
-			if horizontal_speed_squared > 0.0025
-			else CHARACTER_IDLE_ANIMATION
-		)
-	)
-	if not _character_animation_player.has_animation(next_animation):
+	var is_walking: bool = horizontal_speed_squared > 0.0025
+	var requested_animation: Array[StringName] = []
+	if _showcase_animation_active:
+		if _sitting:
+			requested_animation = [
+				CHARACTER_IDLE_SIT_SHOW_ANIMATION,
+				&"idle_sit_show_loop",
+				CHARACTER_IDLE_SIT_ANIMATION,
+				&"idle_sit_loop",
+				&"idle_loop_sit",
+			]
+		else:
+			requested_animation = [
+				CHARACTER_IDLE_SHOW_ANIMATION,
+				&"idle_show_loop",
+				&"show",
+				&"show_loop",
+			]
+	elif _sitting:
+		if _held_fish_visible:
+			requested_animation = [
+				CHARACTER_IDLE_SIT_SHOW_ANIMATION,
+				&"idle_sit_show_loop",
+				CHARACTER_IDLE_SIT_ANIMATION,
+				&"idle_sit_loop",
+				&"idle_loop_sit",
+			]
+		else:
+			requested_animation = [
+				CHARACTER_IDLE_SIT_ANIMATION,
+				&"idle_sit_loop",
+				&"sitting",
+				&"idle_loop_sit",
+			]
+	elif is_walking and _held_fish_visible:
+		requested_animation = [
+			CHARACTER_WALKING_SHOW_ANIMATION,
+			&"walking_show_loop",
+		]
+	elif _held_fish_visible:
+		requested_animation = [
+			CHARACTER_IDLE_SHOW_ANIMATION,
+			&"idle_show_loop",
+			&"show",
+			&"show_loop",
+		]
+	elif is_walking:
+		requested_animation = [
+			CHARACTER_WALKING_ANIMATION,
+			&"walking_loop",
+		]
+	else:
+		requested_animation = [CHARACTER_IDLE_ANIMATION, &"idle_loop"]
+	var next_animation: StringName = &""
+	for candidate: StringName in requested_animation:
+		if _character_animation_player.has_animation(candidate):
+			next_animation = candidate
+			break
+	if next_animation.is_empty():
 		return
 	if _character_animation_name == next_animation:
 		return
@@ -385,12 +491,24 @@ func toggle_sitting() -> void:
 	if should_sit:
 		if (
 			_character_animation_player == null
-			or not _character_animation_player.has_animation(
-				CHARACTER_SITTING_ANIMATION
-			)
+			or not _has_any_character_animation([
+				CHARACTER_IDLE_SIT_ANIMATION,
+				&"idle_sit_loop",
+				&"sitting",
+				&"idle_loop_sit",
+			])
 		):
 			return
 	_set_sitting(should_sit)
+
+
+func _has_any_character_animation(candidates: Array[StringName]) -> bool:
+	if _character_animation_player == null:
+		return false
+	for candidate: StringName in candidates:
+		if _character_animation_player.has_animation(candidate):
+			return true
+	return false
 
 
 func _set_sitting(should_sit: bool) -> void:
@@ -822,10 +940,13 @@ func set_held_fish(
 	should_show: bool,
 ) -> void:
 	if not should_show or fish == null or fish.display_texture == null:
+		_held_fish_visible = false
 		_held_fish_display.visible = false
 		_held_fish_display.scale = Vector3.ONE
 		_held_fish_sprite.texture = null
+		_update_character_animation()
 		return
+	_held_fish_visible = true
 	_held_fish_sprite.texture = fish.display_texture
 	_held_fish_display.scale = (
 		Vector3.ONE
@@ -833,6 +954,7 @@ func set_held_fish(
 		* catch_presentation_base_scale
 	)
 	_held_fish_display.visible = true
+	_update_character_animation()
 
 
 func get_cast_origin_position() -> Vector3:
@@ -842,6 +964,8 @@ func get_cast_origin_position() -> Vector3:
 func begin_catch_showcase(fish_catch: FishCatchType) -> void:
 	if fish_catch == null or not fish_catch.is_valid():
 		return
+	_showcase_animation_active = true
+	_update_character_animation()
 	_kill_showcase_camera_tween()
 	_kill_showcase_restore_tween()
 	_capture_showcase_camera_snapshot()
@@ -867,6 +991,8 @@ func begin_remote_catch_showcase(fish_catch: FishCatchType) -> void:
 	if local_control_enabled or fish_catch == null or not fish_catch.is_valid():
 		return
 	end_catch_showcase(Callable(), true)
+	_showcase_animation_active = true
+	_update_character_animation()
 	_showcase_rod_visibility = _fishing_rod.visible
 	_showcase_rod_state_stored = true
 	_fishing_rod.visible = false
@@ -883,6 +1009,8 @@ func end_catch_showcase(
 	restored_callback: Callable = Callable(),
 	immediate: bool = false,
 ) -> void:
+	_showcase_animation_active = false
+	_update_character_animation()
 	_kill_showcase_turn_tween()
 	_kill_showcase_camera_tween()
 	_kill_showcase_restore_tween()

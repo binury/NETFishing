@@ -46,7 +46,7 @@ class Barrier:
 # Fight movement uses one shared baseline. Species and quality difficulty comes
 # from barrier placement and health, while reel upgrades affect only the
 # player's progress speed.
-const CHASE_START_DELAY: float = 0.5
+const CHASE_START_DELAY: float = 1.0
 const CHASE_START_OFFSET: float = 0.04
 const CHASE_SPEED: float = 0.07
 

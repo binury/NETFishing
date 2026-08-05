@@ -100,11 +100,11 @@ enum FishingState {
 @export_range(0.0, 1.0, 0.01) var withdrawal_surface_clearance: float = 0.4
 
 @export_category("Timing")
-const BITE_QUICK_MIN_SECONDS: float = 10.0
-const BITE_QUICK_MAX_SECONDS: float = 30.0
-const BITE_TYPICAL_MAX_SECONDS: float = 90.0
-const BITE_LONG_MAX_SECONDS: float = 180.0
-const BITE_MAX_SECONDS: float = 240.0
+const BITE_QUICK_MIN_SECONDS: float = 8.0
+const BITE_QUICK_MAX_SECONDS: float = 24.0
+const BITE_TYPICAL_MAX_SECONDS: float = 72.0
+const BITE_LONG_MAX_SECONDS: float = 144.0
+const BITE_MAX_SECONDS: float = 192.0
 const BITE_QUICK_PROBABILITY: float = 0.25
 const BITE_TYPICAL_PROBABILITY: float = 0.65
 const BITE_LONG_PROBABILITY: float = 0.08

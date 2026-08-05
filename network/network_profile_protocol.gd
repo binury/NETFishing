@@ -49,6 +49,12 @@ static func signature_fields(data: Dictionary) -> Array:
 		str(data.get("sender_fingerprint", "")),
 		str(data.get("display_name", "")),
 		str(appearance.get("species", "")),
+		CharacterCustomizationCatalog.character_scale_percent(
+			appearance.get(
+				CharacterCustomizationCatalog.SCALE_CATEGORY_ID,
+				CharacterCustomizationCatalog.DEFAULT_CHARACTER_SCALE,
+			)
+		),
 		str(appearance.get("fur_pattern", "")),
 		str(appearance.get("ears", "")),
 		str(appearance.get("eyes", "")),

@@ -1,0 +1,42 @@
+[gd_scene format=3]
+
+[node name="HeldItemAttachment" type="BoneAttachment3D"]
+bone_name = "hand.R"
+
+[node name="HeldFishDisplay" type="Node3D" parent="."]
+unique_name_in_owner = true
+position = Vector3(0, 0.08, 0.04)
+top_level = true
+visible = false
+
+[node name="HeldFishSprite" type="Sprite3D" parent="HeldFishDisplay"]
+unique_name_in_owner = true
+pixel_size = 0.012
+shaded = false
+double_sided = true
+texture_filter = 0
+
+[node name="HeldArtKitDisplay" type="Node3D" parent="."]
+unique_name_in_owner = true
+position = Vector3(0, 0.08, 0.04)
+visible = false
+
+[node name="HeldArtKitSprite" type="Sprite3D" parent="HeldArtKitDisplay"]
+unique_name_in_owner = true
+pixel_size = 0.008
+shaded = false
+double_sided = true
+texture_filter = 1
+
+[node name="CatchDisplay" type="Node3D" parent="."]
+unique_name_in_owner = true
+position = Vector3(0, 0.08, 0.04)
+top_level = true
+visible = false
+
+[node name="CatchSprite" type="Sprite3D" parent="CatchDisplay"]
+unique_name_in_owner = true
+pixel_size = 0.012
+shaded = false
+double_sided = true
+texture_filter = 0

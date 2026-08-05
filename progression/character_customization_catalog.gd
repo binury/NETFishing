@@ -3,6 +3,7 @@ extends RefCounted
 
 const CATEGORY_IDS: PackedStringArray = [
 	"species",
+	"scale",
 	"fur_pattern",
 	"ears",
 	"eyes",
@@ -13,6 +14,7 @@ const CATEGORY_IDS: PackedStringArray = [
 
 const CATEGORY_LABELS: Dictionary = {
 	"species": "head",
+	"scale": "size",
 	"fur_pattern": "fur color",
 	"ears": "ears",
 	"eyes": "eyes",
@@ -20,6 +22,12 @@ const CATEGORY_LABELS: Dictionary = {
 	"mouth": "mouth",
 	"tail": "tail",
 }
+
+const SCALE_CATEGORY_ID: String = "scale"
+const MIN_CHARACTER_SCALE: float = 0.75
+const MAX_CHARACTER_SCALE: float = 1.25
+const DEFAULT_CHARACTER_SCALE: float = 1.0
+const CHARACTER_SCALE_STEP: float = 0.05
 
 const FEATURE_CATEGORIES: PackedStringArray = ["eyes", "nose", "mouth"]
 const FEATURE_ASSET_ROOTS: Dictionary = {
@@ -33,19 +41,6 @@ const FEATURE_LABEL_OVERRIDES: Dictionary = {
 	"dog_round": "round",
 	"three": "three",
 }
-const FEATURE_FALLBACK_TEXTURES: Dictionary = {
-	"eyes": {
-		"simple_shine": "res://art/exported/characters/faces/eyes/eyes_simple_shine.png",
-		"simple_shine_eyebrows": "res://art/exported/characters/faces/eyes/eyes_simple_shine_eyebrows.png",
-	},
-	"mouth": {
-		"three": "res://art/exported/characters/faces/mouth/mouth_three.png",
-	},
-	"nose": {
-		"dog_round": "res://art/exported/characters/faces/noses/nose_dog_round.png",
-	},
-}
-
 const OPTIONS: Dictionary = {
 	"species": [
 		{"id": "round", "label": "round"},
@@ -97,15 +92,32 @@ static var _feature_textures: Dictionary = {}
 
 
 static func default_snapshot() -> Dictionary:
+	_ensure_feature_assets()
 	return {
 		"species": "round",
+		"scale": DEFAULT_CHARACTER_SCALE,
 		"fur_pattern": "white",
 		"ears": "none",
-		"eyes": "simple_shine",
-		"nose": "dog_round",
-		"mouth": "three",
+		"eyes": _default_feature_option("eyes", "simple_shine"),
+		"nose": _default_feature_option("nose", "dog_round"),
+		"mouth": _default_feature_option("mouth", "three"),
 		"tail": "none",
 	}
+
+
+static func _default_feature_option(
+	category_id: String,
+	legacy_id: String,
+) -> String:
+	var options: Array = _feature_options.get(category_id, []) as Array
+	for option: Dictionary in options:
+		if str(option.get("id", "")) == legacy_id:
+			return legacy_id
+	for option: Dictionary in options:
+		var option_id := str(option.get("id", ""))
+		if option_id != "none":
+			return option_id
+	return "none"
 
 
 static func options_for(category_id: String) -> Array:
@@ -136,7 +148,7 @@ static func _ensure_feature_assets() -> void:
 		return
 	_feature_assets_ready = true
 	for category_id: String in FEATURE_CATEGORIES:
-		var options: Array = []
+		var options: Array = [{"id": "none", "label": "none"}]
 		var textures: Dictionary = {}
 		var root_path := str(FEATURE_ASSET_ROOTS[category_id])
 		var directory := DirAccess.open(root_path)
@@ -164,22 +176,6 @@ static func _ensure_feature_assets() -> void:
 					"id": option_id,
 					"label": _feature_label(option_id),
 				})
-
-		if options.is_empty():
-			for fallback: Dictionary in OPTIONS.get(category_id, []):
-				var fallback_id := str(fallback.get("id", ""))
-				options.append(fallback.duplicate(true))
-				var fallback_path := str(
-					(FEATURE_FALLBACK_TEXTURES.get(category_id, {}) as Dictionary).get(
-						fallback_id, ""
-					)
-				)
-				if not fallback_path.is_empty():
-					var fallback_texture := ResourceLoader.load(
-						fallback_path
-					) as Texture2D
-					if fallback_texture != null:
-						textures[fallback_id] = fallback_texture
 
 		_feature_options[category_id] = options
 		_feature_textures[category_id] = textures
@@ -243,6 +239,10 @@ static func validate_snapshot(value: Variant) -> bool:
 	if snapshot.size() != CATEGORY_IDS.size():
 		return false
 	for category_id: String in CATEGORY_IDS:
+		if category_id == SCALE_CATEGORY_ID:
+			if not is_valid_character_scale(snapshot.get(category_id)):
+				return false
+			continue
 		if (
 			typeof(snapshot.get(category_id)) != TYPE_STRING
 			or not is_valid_option(category_id, str(snapshot[category_id]))
@@ -257,9 +257,43 @@ static func sanitized_snapshot(value: Variant) -> Dictionary:
 		return result
 	var snapshot: Dictionary = value
 	for category_id: String in CATEGORY_IDS:
+		if category_id == SCALE_CATEGORY_ID:
+			result[category_id] = character_scale(
+				snapshot.get(category_id, DEFAULT_CHARACTER_SCALE)
+			)
+			continue
 		var option_id: String = canonical_option_id(
 			category_id, str(snapshot.get(category_id, ""))
 		)
 		if is_valid_option(category_id, option_id):
 			result[category_id] = option_id
 	return result
+
+
+static func character_scale(value: Variant) -> float:
+	if typeof(value) not in [TYPE_FLOAT, TYPE_INT]:
+		return DEFAULT_CHARACTER_SCALE
+	var number: float = float(value)
+	if not is_finite(number):
+		return DEFAULT_CHARACTER_SCALE
+	return clampf(
+		snappedf(number, CHARACTER_SCALE_STEP),
+		MIN_CHARACTER_SCALE,
+		MAX_CHARACTER_SCALE,
+	)
+
+
+static func is_valid_character_scale(value: Variant) -> bool:
+	if typeof(value) not in [TYPE_FLOAT, TYPE_INT]:
+		return false
+	var number: float = float(value)
+	return (
+		is_finite(number)
+		and number >= MIN_CHARACTER_SCALE
+		and number <= MAX_CHARACTER_SCALE
+		and is_equal_approx(number, character_scale(number))
+	)
+
+
+static func character_scale_percent(value: Variant) -> int:
+	return roundi(character_scale(value) * 100.0)
