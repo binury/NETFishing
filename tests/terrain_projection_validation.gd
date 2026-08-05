@@ -22,8 +22,14 @@ func _run() -> void:
 	assert(terrain.mesh.surface_get_name(3) == "cliff_wall")
 	assert(terrain.mesh.surface_get_name(4) == "dirt_wall")
 
-	_validate_projected_material(terrain.get_surface_override_material(0))
-	_validate_projected_material(terrain.get_surface_override_material(2))
+	_validate_projected_material(
+		terrain.get_surface_override_material(0),
+		"res://art/exported/environment/textures/grass_lite.png"
+	)
+	_validate_projected_material(
+		terrain.get_surface_override_material(2),
+		"res://art/exported/environment/textures/sand.png"
+	)
 	for surface: int in [1, 3, 4]:
 		assert(terrain.get_surface_override_material(surface) == null)
 		assert(terrain.mesh.surface_get_material(surface) is StandardMaterial3D)
@@ -33,7 +39,10 @@ func _run() -> void:
 	quit()
 
 
-func _validate_projected_material(material: Material) -> void:
+func _validate_projected_material(
+	material: Material,
+	expected_texture_path: String,
+) -> void:
 	assert(material is ShaderMaterial)
 	var shader_material := material as ShaderMaterial
 	assert(
@@ -58,3 +67,12 @@ func _validate_projected_material(material: Material) -> void:
 			2.0
 		)
 	)
+	var texture: Texture2D = shader_material.get_shader_parameter(
+		"albedo_texture"
+	) as Texture2D
+	assert(texture != null)
+	assert(texture.resource_path == expected_texture_path)
+	var imported_image: Image = texture.get_image()
+	assert(imported_image != null)
+	assert(not imported_image.has_mipmaps())
+	assert(imported_image.get_format() == Image.FORMAT_RGBA8)

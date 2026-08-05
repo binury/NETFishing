@@ -1,7 +1,7 @@
 shader_type spatial;
 render_mode cull_back;
 
-uniform sampler2D albedo_texture : source_color, repeat_enable, filter_nearest_mipmap_anisotropic;
+uniform sampler2D albedo_texture : source_color, repeat_enable, filter_nearest;
 uniform vec4 albedo_tint : source_color = vec4(1.0);
 uniform float tile_world_size : hint_range(0.1, 20.0, 0.05) = 2.5;
 uniform float blend_sharpness : hint_range(1.0, 16.0, 0.25) = 6.0;

@@ -1,9 +1,28 @@
-[gd_resource type="Sky" load_steps=3 format=3 uid="uid://dersyay71dyat"]
+[gd_resource type="Sky" format=3 uid="uid://dersyay71dyat"]
 
-[ext_resource type="Shader" path="res://world/environment/netfishing_sky.gdshader" id="1_sky_shader"]
+[ext_resource type="Shader" uid="uid://chbcdlhui3ro4" path="res://world/environment/netfishing_sky.gdshader" id="1_sky_shader"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_netfishing"]
 shader = ExtResource("1_sky_shader")
+shader_parameter/sky_top_color = Color(0.204, 0.498, 0.643, 1)
+shader_parameter/sky_horizon_color = Color(0.663, 0.843, 0.847, 1)
+shader_parameter/ground_bottom_color = Color(0.157, 0.361, 0.439, 1)
+shader_parameter/ground_horizon_color = Color(0.549, 0.749, 0.765, 1)
+shader_parameter/horizon_blend_width = 0.01
+shader_parameter/sun_direction = Vector3(0, 1, 0)
+shader_parameter/sun_color = Color(1, 0.86, 0.46, 1)
+shader_parameter/sun_visibility = 1.0
+shader_parameter/sun_radius = 0.055
+shader_parameter/sun_edge_softness = 0.003
+shader_parameter/sun_halo_radius = 0.14
+shader_parameter/sun_halo_strength = 0.16
+shader_parameter/moon_direction = Vector3(0, -1, 0)
+shader_parameter/moon_color = Color(0.78, 0.88, 1, 1)
+shader_parameter/moon_visibility = 0.0
+shader_parameter/moon_radius = 0.045
+shader_parameter/moon_edge_softness = 0.003
+shader_parameter/moon_halo_radius = 0.11
+shader_parameter/moon_halo_strength = 0.12
 
 [resource]
 sky_material = SubResource("ShaderMaterial_netfishing")
