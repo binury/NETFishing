@@ -155,15 +155,21 @@ static func _ensure_feature_assets() -> void:
 		if directory != null:
 			var files := directory.get_files()
 			files.sort()
+			var normalized_paths: Dictionary = {}
 			for file_name: String in files:
-				if not file_name.to_lower().ends_with(".png"):
+				var normalized_file_name := _canonical_feature_filename(file_name)
+				if (
+					normalized_file_name.is_empty()
+					or normalized_paths.has(normalized_file_name)
+				):
 					continue
+				normalized_paths[normalized_file_name] = true
 				var option_id := _feature_id_from_filename(
-					category_id, file_name
+					category_id, normalized_file_name
 				)
 				if option_id.is_empty() or textures.has(option_id):
 					continue
-				var resource_path := root_path.path_join(file_name)
+				var resource_path := root_path.path_join(normalized_file_name)
 				var texture := ResourceLoader.load(resource_path) as Texture2D
 				if texture == null:
 					push_warning(
@@ -179,6 +185,18 @@ static func _ensure_feature_assets() -> void:
 
 		_feature_options[category_id] = options
 		_feature_textures[category_id] = textures
+
+
+static func _canonical_feature_filename(file_name: String) -> String:
+	var lower_name := file_name.to_lower()
+	for sidecar_suffix: String in [".import", ".remap"]:
+		if lower_name.ends_with(".png" + sidecar_suffix):
+			return file_name.substr(
+				0, file_name.length() - sidecar_suffix.length()
+			)
+	if lower_name.ends_with(".png"):
+		return file_name
+	return ""
 
 
 static func _feature_id_from_filename(
