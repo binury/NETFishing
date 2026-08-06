@@ -1,9 +1,9 @@
-[gd_resource type="Resource" script_class="FishData" format=3]
+[gd_resource type="Resource" script_class="FishData" format=3 uid="uid://n3ixatlsfp8y"]
 
-[ext_resource type="Script" path="res://fish/fish_data.gd" id="1_fish_data"]
+[ext_resource type="Script" uid="uid://h7hg45b7wmst" path="res://fish/fish_data.gd" id="1_fish_data"]
 [ext_resource type="Resource" path="res://fishing/common_catch_profile.tres" id="2_profile"]
-[ext_resource type="Script" path="res://fish/fish_availability.gd" id="3_availability_script"]
-[ext_resource type="Texture2D" path="res://fish/species/trout_golden/fish_trout_golden.png" id="4_texture"]
+[ext_resource type="Script" uid="uid://bs7cqi88csolc" path="res://fish/fish_availability.gd" id="3_availability_script"]
+[ext_resource type="Texture2D" uid="uid://b64w3kwf3wins" path="res://fish/species/trout_golden/fish_trout_golden.png" id="4_texture"]
 
 [sub_resource type="Resource" id="TroutGoldenAvailability"]
 script = ExtResource("3_availability_script")
@@ -21,7 +21,6 @@ availability = SubResource("TroutGoldenAvailability")
 weight_min_lb = 0.2
 weight_max_lb = 3
 display_scale_min = 0.85
-display_scale_max = 1.2
 display_scale_curve = 0.9
 sell_value_min = 8
 sell_value_max = 16

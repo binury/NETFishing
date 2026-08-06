@@ -1,9 +1,9 @@
-[gd_resource type="Resource" script_class="FishData" format=3]
+[gd_resource type="Resource" script_class="FishData" format=3 uid="uid://n7u2krjf4ril"]
 
-[ext_resource type="Script" path="res://fish/fish_data.gd" id="1_fish_data"]
+[ext_resource type="Script" uid="uid://h7hg45b7wmst" path="res://fish/fish_data.gd" id="1_fish_data"]
 [ext_resource type="Resource" path="res://fishing/common_catch_profile.tres" id="2_profile"]
-[ext_resource type="Script" path="res://fish/fish_availability.gd" id="3_availability_script"]
-[ext_resource type="Texture2D" path="res://fish/species/chub_lake/fish_chub_lake.png" id="4_texture"]
+[ext_resource type="Script" uid="uid://bs7cqi88csolc" path="res://fish/fish_availability.gd" id="3_availability_script"]
+[ext_resource type="Texture2D" uid="uid://w8cjrpnv350h" path="res://fish/species/chub_lake/fish_chub_lake.png" id="4_texture"]
 
 [sub_resource type="Resource" id="ChubLakeAvailability"]
 script = ExtResource("3_availability_script")
@@ -14,7 +14,6 @@ script = ExtResource("1_fish_data")
 id = &"chub_lake"
 display_name = "lake chub"
 allowed_water_types = 1
-rarity = 0
 base_catch_weight = 0.55
 catch_profile = ExtResource("2_profile")
 availability = SubResource("ChubLakeAvailability")
