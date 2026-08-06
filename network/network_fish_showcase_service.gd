@@ -168,14 +168,9 @@ func _state_matches_catalog(data: Dictionary) -> bool:
 	if fish == null or not fish.is_selectable():
 		return false
 	var weight_lb: float = float(data["weight_lb"])
-	var display_scale: float = float(data["display_scale"])
 	return (
 		weight_lb >= fish.get_minimum_weight()
 		and weight_lb <= fish.get_maximum_weight()
-		and is_equal_approx(
-			display_scale,
-			fish.get_display_scale_for_weight(weight_lb),
-		)
 	)
 
 
@@ -190,7 +185,11 @@ func _apply_state(data: Dictionary) -> void:
 	var fish: FishDataType = _fish_catalog.get_fish_by_id(
 		StringName(str(data["fish_id"]))
 	)
-	avatar.set_held_fish(fish, float(data["display_scale"]), true)
+	avatar.set_held_fish(
+		fish,
+		fish.get_display_scale_for_weight(float(data["weight_lb"])),
+		true,
+	)
 
 
 func _on_selected_assignment_changed(

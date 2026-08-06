@@ -55,6 +55,20 @@ const SALT_WATER_IDS: Array[StringName] = [
 	&"salmon_coho",
 	&"salmon_pink",
 	&"salmon_sockeye",
+	&"anchovy_european", &"anchovy_northern",
+	&"grouper_gulf", &"grouper_red",
+	&"mackerel_atlantic", &"mackerel_cero", &"mackerel_chub",
+	&"mackerel_king", &"mackerel_spanish",
+	&"marlin_black", &"marlin_blue", &"marlin_white",
+	&"pomfret_black", &"pomfret_chinese", &"pomfret_golden",
+	&"pomfret_white", &"sailfish",
+	&"snapper_lane", &"snapper_mangrove", &"snapper_mutton",
+	&"snapper_red", &"swordfish",
+]
+const NEW_FRESH_WATER_IDS: Array[StringName] = [
+	&"chub_european", &"chub_flame", &"chub_lake", &"goldfish",
+	&"goldfish_bubbleeye", &"sauger", &"saugeye", &"trout_cutthroat",
+	&"trout_golden", &"trout_rainbow", &"trout_steelhead", &"walleye",
 ]
 
 
@@ -64,6 +78,7 @@ func _initialize() -> void:
 
 func _run() -> void:
 	_validate_catalog_and_pools()
+	_validate_weight_based_display_scale()
 	_validate_starter_water_bodies()
 	_validate_authoritative_water_filter()
 	_validate_catches_and_authoritative_sale()
@@ -71,10 +86,42 @@ func _run() -> void:
 	quit()
 
 
+func _validate_weight_based_display_scale() -> void:
+	var previous_scale: float = 0.0
+	for fish: FishDataType in Catalog.candidates:
+		assert(fish.is_selectable())
+		assert(fish.weight_min_lb > 0.0)
+		assert(fish.weight_max_lb <= 1000.0)
+		var minimum_scale: float = fish.get_display_scale_for_weight(
+			fish.weight_min_lb
+		)
+		var maximum_scale: float = fish.get_display_scale_for_weight(
+			fish.weight_max_lb
+		)
+		assert(minimum_scale >= FishDataType.DISPLAY_MIN_SCALE)
+		assert(maximum_scale <= FishDataType.DISPLAY_MAX_SCALE)
+		assert(maximum_scale >= minimum_scale)
+		var midpoint_weight: float = lerpf(
+			fish.weight_min_lb,
+			fish.weight_max_lb,
+			0.5,
+		)
+		assert(
+			fish.get_display_scale_for_weight(midpoint_weight)
+			>= minimum_scale
+		)
+		# A one-pound catch is a shared visual reference, not a per-species
+		# texture-size decision.
+		var reference_scale: float = fish.get_display_scale_for_weight(1.0)
+		assert(is_equal_approx(reference_scale, FishDataType.DISPLAY_REFERENCE_SCALE))
+		previous_scale = maxf(previous_scale, maximum_scale)
+	assert(previous_scale <= FishDataType.DISPLAY_MAX_SCALE)
+
+
 func _validate_catalog_and_pools() -> void:
-	assert(Catalog.candidates.size() == 19)
-	assert(PondPool.candidates.size() == 7)
-	assert(OceanPool.candidates.size() == 12)
+	assert(Catalog.candidates.size() == 53)
+	assert(PondPool.candidates.size() == 19)
+	assert(OceanPool.candidates.size() == 34)
 	for fish_id: StringName in ORIGINAL_IDS:
 		var original_fish: FishDataType = Catalog.get_fish_by_id(fish_id)
 		assert(original_fish != null)
@@ -100,6 +147,12 @@ func _validate_catalog_and_pools() -> void:
 		assert(PondPool.get_fish_by_id(fish_id) == fish)
 		assert(OceanPool.get_fish_by_id(fish_id) == null)
 		assert(fish.availability.allowed_location_tags == [&"starter_pond"])
+		assert(LogbookCatalog.category_for(fish) == WaterType.Type.FRESH_WATER)
+	for fish_id: StringName in NEW_FRESH_WATER_IDS:
+		var fish: FishDataType = Catalog.get_fish_by_id(fish_id)
+		assert(fish != null and fish.is_selectable())
+		assert(PondPool.get_fish_by_id(fish_id) == fish)
+		assert(OceanPool.get_fish_by_id(fish_id) == null)
 		assert(LogbookCatalog.category_for(fish) == WaterType.Type.FRESH_WATER)
 
 	var expected_values: Dictionary[StringName, Array] = {
@@ -302,6 +355,12 @@ func _validate_catches_and_authoritative_sale() -> void:
 		assert(loaded != null)
 		assert(loaded.fish_id == fish.id)
 		assert(loaded.fish == fish)
+		assert(
+			is_equal_approx(
+				loaded.display_scale,
+				fish.get_display_scale_for_weight(loaded.weight_lb),
+			)
+		)
 
 		var replicated: FishCatch = FishCatchType.from_network_dict(
 			fish_catch.to_network_dict(), Catalog.get_fish_by_id(fish.id)
@@ -309,6 +368,12 @@ func _validate_catches_and_authoritative_sale() -> void:
 		assert(replicated != null)
 		assert(replicated.fish_id == fish.id)
 		assert(replicated.fish.display_texture == fish.display_texture)
+		assert(
+			is_equal_approx(
+				replicated.display_scale,
+				fish.get_display_scale_for_weight(replicated.weight_lb),
+			)
+		)
 
 		inventory.add_catch(loaded)
 		assert(inventory.contains_catch_id(loaded.catch_id))

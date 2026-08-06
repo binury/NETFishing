@@ -495,7 +495,9 @@ func _finish_close(reason: CloseReason, restore_controls: bool) -> void:
 	hide()
 	if _fishing_spot != null and is_instance_valid(_fishing_spot):
 		_fishing_spot.set_local_menu_input_suppressed(INPUT_OWNER, false)
-	get_viewport().gui_release_focus()
+	var current_viewport: Viewport = get_viewport()
+	if current_viewport != null:
+		current_viewport.gui_release_focus()
 	if restore_controls:
 		_restore_controls()
 	else:

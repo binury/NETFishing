@@ -60,17 +60,54 @@ func _validate_catalog() -> void:
 		&"salmon_coho",
 		&"salmon_pink",
 		&"salmon_sockeye",
+		&"anchovy_european",
+		&"anchovy_northern",
+		&"chub_european",
+		&"chub_flame",
+		&"chub_lake",
+		&"goldfish",
+		&"goldfish_bubbleeye",
+		&"grouper_gulf",
+		&"grouper_red",
+		&"mackerel_atlantic",
+		&"mackerel_cero",
+		&"mackerel_chub",
+		&"mackerel_king",
+		&"mackerel_spanish",
+		&"marlin_black",
+		&"marlin_blue",
+		&"marlin_white",
+		&"pomfret_black",
+		&"pomfret_chinese",
+		&"pomfret_golden",
+		&"pomfret_white",
+		&"sailfish",
+		&"sauger",
+		&"saugeye",
+		&"snapper_lane",
+		&"snapper_mangrove",
+		&"snapper_mutton",
+		&"snapper_red",
+		&"swordfish",
+		&"trout_cutthroat",
+		&"trout_golden",
+		&"trout_rainbow",
+		&"trout_steelhead",
+		&"walleye",
 	]
 	assert(LogbookCatalog.CATALOG_ORDER == expected_ids)
 	for index: int in expected_ids.size():
 		var fish := CatalogResource.get_fish_by_id(expected_ids[index])
 		assert(fish != null)
-		assert(LogbookCatalog.facts_for(fish.id) != "unknown")
 		assert(not LogbookCatalog.facts_for(fish.id).is_empty())
 		assert(
 			LogbookCatalog.facts_for(fish.id)
 			== LogbookCatalog.facts_for(fish.id).to_lower()
 		)
+		if LogbookCatalog.FISH_FACTS.has(fish.id):
+			assert(LogbookCatalog.facts_for(fish.id) != "unknown")
+		else:
+			assert(LogbookCatalog.facts_for(fish.id) == "unknown")
 		var expected_category: WaterType.Type = (
 			WaterType.Type.SALT_WATER
 			if expected_ids[index] in [
@@ -86,6 +123,28 @@ func _validate_catalog() -> void:
 				&"salmon_coho",
 				&"salmon_pink",
 				&"salmon_sockeye",
+				&"anchovy_european",
+				&"anchovy_northern",
+				&"grouper_gulf",
+				&"grouper_red",
+				&"mackerel_atlantic",
+				&"mackerel_cero",
+				&"mackerel_chub",
+				&"mackerel_king",
+				&"mackerel_spanish",
+				&"marlin_black",
+				&"marlin_blue",
+				&"marlin_white",
+				&"pomfret_black",
+				&"pomfret_chinese",
+				&"pomfret_golden",
+				&"pomfret_white",
+				&"sailfish",
+				&"snapper_lane",
+				&"snapper_mangrove",
+				&"snapper_mutton",
+				&"snapper_red",
+				&"swordfish",
 			]
 			else WaterType.Type.FRESH_WATER
 		)
@@ -129,7 +188,7 @@ func _validate_page() -> void:
 		page.call("_select_category", category)
 		await create_timer(0.25).timeout
 		var entries: Dictionary = page.get("_entry_buttons")
-		assert(entries.size() == (7 if category == WaterType.Type.FRESH_WATER else 12))
+		assert(entries.size() == (19 if category == WaterType.Type.FRESH_WATER else 34))
 		for fish: FishDataType in LogbookCatalog.ordered_species(
 			CatalogResource.candidates
 		):
@@ -179,7 +238,7 @@ func _validate_page() -> void:
 						candidate.display_name
 					)
 				)
-	assert(silhouette_count == 19)
+	assert(silhouette_count == 53)
 
 	page.call("_select_category", WaterType.Type.OTHER)
 	await create_timer(0.25).timeout

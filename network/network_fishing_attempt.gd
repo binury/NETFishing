@@ -21,6 +21,7 @@ var origin: Vector3
 var target: Vector3
 var bobber_position: Vector3
 var fish_id: StringName
+var bait_tags: Array[StringName] = []
 var encounter_seed: int = 0
 var bite_time_remaining: float = 0.0
 var withdrawal_progress: float = 0.0

@@ -8,6 +8,7 @@ const FishDataType = preload("res://fish/fish_data.gd")
 const FishSaleServiceType = preload("res://economy/fish_sale_service.gd")
 const PlayerWalletType = preload("res://economy/player_wallet.gd")
 const PlayerBagType = preload("res://inventory/player_bag.gd")
+const ItemDataType = preload("res://items/item_data.gd")
 const PlayerHotbarType = preload("res://inventory/player_hotbar.gd")
 const PlayerFishingUpgradesType = preload(
 	"res://progression/player_fishing_upgrades.gd"
@@ -49,6 +50,25 @@ const CONTROLLER_ZOOM_TRIGGER_AXIS: JoyAxis = JOY_AXIS_TRIGGER_LEFT
 var appearance_snapshot: Dictionary = (
 	CharacterCustomizationCatalog.default_snapshot()
 )
+var active_bait_id: StringName = StringName()
+signal active_bait_changed(item_id: StringName)
+
+
+func equip_bait(item: ItemDataType) -> bool:
+	if item == null or not item.is_bait() or bag == null:
+		return false
+	if not bag.owns_item(item.item_id):
+		return false
+	active_bait_id = item.item_id
+	active_bait_changed.emit(active_bait_id)
+	return true
+
+
+func unequip_bait() -> void:
+	if active_bait_id.is_empty():
+		return
+	active_bait_id = StringName()
+	active_bait_changed.emit(active_bait_id)
 
 
 func apply_appearance_snapshot(snapshot: Dictionary) -> void:
@@ -69,7 +89,7 @@ class ShowcaseCameraSnapshot:
 
 
 @export_category("Movement")
-@export var walk_speed: float = 4.5
+@export var walk_speed: float = 2.25
 @export var sprint_speed: float = 7.2
 @export var sneak_speed: float = 1.8
 @export var slow_walk_speed: float = 2.9

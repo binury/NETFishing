@@ -79,15 +79,38 @@ func _validate_barrier_challenge_curve() -> void:
 		FishQualityType.BARRIER_HEALTH_MULTIPLIERS.size()
 		== FishQualityType.TIER_COUNT
 	)
-	var expected_health: Array[int] = [8, 10, 13, 18, 26]
+	var expected_minimums: Array[int] = [1, 10, 50, 100, 200]
+	var expected_maximums: Array[int] = [9, 50, 100, 200, 400]
 	var previous_health: int = 0
 	for quality: int in FishQualityType.TIER_COUNT:
 		var health: int = FishQualityType.apply_barrier_health(8, quality)
-		assert(health == expected_health[quality])
 		assert(health > previous_health)
 		previous_health = health
 	assert(FishQualityType.apply_barrier_health(8, -1) == 8)
 	assert(FishQualityType.apply_barrier_health(0, FishQualityType.Tier.SHINY) == 4)
+	var impressive_low_input: int = FishQualityType.barrier_health_for_catch(
+		FishQualityType.Tier.IMPRESSIVE,
+		0,
+		0.0,
+		1.0,
+	)
+	var impressive_high_input: int = FishQualityType.barrier_health_for_catch(
+		FishQualityType.Tier.IMPRESSIVE,
+		4,
+		1.0,
+		1.0,
+	)
+	assert(impressive_low_input >= 50 and impressive_low_input <= 100)
+	assert(impressive_high_input > impressive_low_input)
+	assert(impressive_high_input <= 100)
+	assert(
+		FishQualityType.barrier_health_for_catch(
+			FishQualityType.Tier.BORING,
+			4,
+			1.0,
+			1.0,
+		) <= 9
+	)
 
 	var profile := CatchDifficultyProfile.new()
 	profile.barrier_count_min = 1
@@ -113,20 +136,24 @@ func _validate_barrier_challenge_curve() -> void:
 		assert(barriers.size() == 1)
 		var barrier := barriers[0] as RefCounted
 		assert(barrier != null)
-		assert(int(barrier.get("maximum_health")) == expected_health[quality])
+		var health: int = int(barrier.get("maximum_health"))
+		assert(health >= expected_minimums[quality])
+		assert(health <= expected_maximums[quality])
 	controller.queue_free()
 
-	var shiny_health: int = FishQualityType.apply_barrier_health(
-		8,
+	var shiny_health: int = FishQualityType.barrier_health_for_catch(
 		FishQualityType.Tier.SHINY,
+		4,
+		1.0,
+		1.0,
 	)
 	var base_power_clicks: int = ceili(float(shiny_health) / 1.0)
 	var max_power_clicks: int = ceili(
 		float(shiny_health)
 		/ float(PlayerFishingUpgrades.MAX_BARRIER_POWER_LEVEL + 1)
 	)
-	assert(base_power_clicks == 26)
-	assert(max_power_clicks == 7)
+	assert(base_power_clicks == 400)
+	assert(max_power_clicks == 100)
 	assert(max_power_clicks < base_power_clicks)
 
 
@@ -191,7 +218,7 @@ func _validate_catch_round_trip_and_sale() -> void:
 	selector.deterministic_test_seed = 9911
 	selector.quality_weight_multipliers = [0.0, 0.0, 0.0, 0.0, 1.0]
 	selector.begin_roll()
-	var fish_catch: FishCatch = selector.create_catch(fish)
+	var fish_catch: FishCatch = selector.create_catch(fish, [&"worm"])
 	assert(fish_catch != null)
 	assert(fish_catch.quality == FishQualityType.Tier.SHINY)
 	assert(

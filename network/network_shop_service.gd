@@ -108,11 +108,13 @@ func is_local_purchase_pending() -> bool:
 
 
 func request_supply(item_id: StringName) -> String:
+	var owned: int = _bag.get_quantity(item_id) if _bag != null else 0
+	var quantity: int = FishingShopStockType.get_purchase_quantity(item_id, owned)
 	return _request_purchase(
 		item_id,
 		NetworkShopProtocol.ProductCategory.SUPPLY,
-		1,
-		_bag.get_quantity(item_id) if _bag != null else 0
+		quantity,
+		owned
 	)
 
 
@@ -307,7 +309,7 @@ func _build_authoritative_result(
 	var rejection: String = ""
 	if StringName(str(request["shop_id"])) != SHOP_ID:
 		rejection = "The shop is unavailable."
-	elif quantity != 1:
+	elif quantity < 1:
 		rejection = "Purchase could not be completed."
 	else:
 		match category:
@@ -322,10 +324,11 @@ func _build_authoritative_result(
 					or product_id not in (
 						FishingShopStockType.get_stock_item_ids()
 					)
-					or item.category != ItemDataType.Category.CONSUMABLE
+					or (item.category != ItemDataType.Category.CONSUMABLE and not FishingShopStockType.is_bait_topoff(product_id))
 					or not item.stackable
-					or not item.usable
+					or (not item.usable and not FishingShopStockType.is_bait_topoff(product_id))
 					or current_state >= item.max_stack
+					or current_state + quantity > item.max_stack
 				):
 					rejection = (
 						"Your Bag is full."
@@ -333,7 +336,11 @@ func _build_authoritative_result(
 						else "Purchase could not be completed."
 					)
 				else:
-					resulting_state = current_state + 1
+					if not FishingShopStockType.is_bait_topoff(product_id) and quantity != 1:
+						rejection = "Purchase could not be completed."
+					else:
+						cost *= quantity
+						resulting_state = current_state + quantity
 			NetworkShopProtocol.ProductCategory.ROD:
 				rejection = "This item is not sold here."
 			NetworkShopProtocol.ProductCategory.REEL_SPEED_UPGRADE:
@@ -576,7 +583,7 @@ func _validate_local_result(data: Dictionary) -> String:
 	var resulting_state: int = int(data["resulting_state"])
 	if (
 		category != NetworkShopProtocol.ProductCategory.ART_UPGRADE
-		and resulting_state != expected_state + 1
+		and resulting_state != expected_state + int(data["quantity"])
 	):
 		return "Purchase could not be completed."
 	if not _wallet.can_afford(cost):
@@ -584,6 +591,8 @@ func _validate_local_result(data: Dictionary) -> String:
 	match category:
 		NetworkShopProtocol.ProductCategory.SUPPLY:
 			if _bag.get_quantity(product_id) != expected_state:
+				return "Purchase could not be completed."
+			if cost != FishingShopStockType.get_price(product_id) * int(data["quantity"]):
 				return "Purchase could not be completed."
 			if not _bag.can_add_item(product_id, data["quantity"]):
 				return "Your Bag is full."

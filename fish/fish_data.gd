@@ -1,6 +1,16 @@
 class_name FishData
 extends Resource
 
+# Fish are displayed by their physical weight, rather than by per-species
+# texture or resource dimensions.  A cube-root curve approximates the way a
+# fish's linear dimensions grow with mass while keeping large catches readable
+# beside the player.
+const DISPLAY_REFERENCE_WEIGHT_LB: float = 1.0
+const DISPLAY_REFERENCE_SCALE: float = 0.85
+const DISPLAY_WEIGHT_EXPONENT: float = 0.33333334
+const DISPLAY_MIN_SCALE: float = 0.45
+const DISPLAY_MAX_SCALE: float = 3.0
+
 const CatchDifficultyProfileType = preload(
 	"res://fishing/catch_difficulty_profile.gd"
 )
@@ -24,6 +34,8 @@ var allowed_water_types: int = WaterType.ALL_FISHABLE_MASK
 @export var availability: FishAvailabilityType
 @export_range(0.01, 1000.0, 0.01) var weight_min_lb: float = 0.5
 @export_range(0.01, 1000.0, 0.01) var weight_max_lb: float = 1.0
+# Retained in resource files for compatibility with existing authored data;
+# runtime presentation is derived from absolute weight below.
 @export_range(0.01, 20.0, 0.01) var display_scale_min: float = 0.8
 @export_range(0.01, 20.0, 0.01) var display_scale_max: float = 1.2
 @export_range(0.01, 10.0, 0.01) var display_scale_curve: float = 1.0
@@ -69,23 +81,26 @@ func get_maximum_weight() -> float:
 	return maxf(weight_max_lb, get_minimum_weight())
 
 
-func get_display_scale_for_weight(weight_lb: float) -> float:
+func get_weight_percentile(weight_lb: float) -> float:
 	var minimum_weight: float = get_minimum_weight()
 	var maximum_weight: float = get_maximum_weight()
-	var normalized_weight: float = 0.0
-	if maximum_weight > minimum_weight:
-		normalized_weight = inverse_lerp(
-			minimum_weight,
-			maximum_weight,
-			weight_lb
-		)
-	normalized_weight = pow(
-		clampf(normalized_weight, 0.0, 1.0),
-		maxf(display_scale_curve, 0.01)
+	if maximum_weight <= minimum_weight:
+		return 0.0
+	return clampf(
+		inverse_lerp(minimum_weight, maximum_weight, weight_lb),
+		0.0,
+		1.0,
 	)
-	var minimum_scale: float = maxf(display_scale_min, 0.01)
-	var maximum_scale: float = maxf(display_scale_max, minimum_scale)
-	return lerpf(minimum_scale, maximum_scale, normalized_weight)
+
+
+func get_display_scale_for_weight(weight_lb: float) -> float:
+	var safe_weight_lb: float = maxf(weight_lb, 0.01)
+	var weight_ratio: float = safe_weight_lb / DISPLAY_REFERENCE_WEIGHT_LB
+	var weight_scale: float = DISPLAY_REFERENCE_SCALE * pow(
+		weight_ratio,
+		DISPLAY_WEIGHT_EXPONENT,
+	)
+	return clampf(weight_scale, DISPLAY_MIN_SCALE, DISPLAY_MAX_SCALE)
 
 
 func get_sale_value_for_weight(weight_lb: float) -> int:

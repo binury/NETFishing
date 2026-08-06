@@ -16,6 +16,7 @@ enum Category {
 @export var display_name: String
 @export_multiline var description: String
 @export var category: Category = Category.UTILITY
+@export var bait_tags: Array[StringName] = []
 @export var icon: Texture2D
 @export var stackable: bool = false
 @export_range(1, 999, 1) var max_stack: int = 1
@@ -35,3 +36,7 @@ func is_valid() -> bool:
 
 func get_category_name() -> String:
 	return Category.keys()[category].to_lower()
+
+
+func is_bait() -> bool:
+	return category == Category.BAIT and not bait_tags.is_empty()

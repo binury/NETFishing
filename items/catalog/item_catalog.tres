@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="ItemCatalog" load_steps=9 format=3]
+[gd_resource type="Resource" script_class="ItemCatalog" load_steps=10 format=3]
 
 [ext_resource type="Script" path="res://items/item_catalog.gd" id="1_script"]
 [ext_resource type="Resource" path="res://items/catalog/basic_fishing_rod.tres" id="2_rod"]
@@ -8,7 +8,8 @@
 [ext_resource type="Resource" path="res://items/catalog/fish_finder.tres" id="6_finder"]
 [ext_resource type="Resource" path="res://items/catalog/cooler_expansion.tres" id="7_cooler"]
 [ext_resource type="Resource" path="res://items/catalog/art_kit.tres" id="8_art_kit"]
+[ext_resource type="Resource" path="res://items/catalog/worms.tres" id="9_worms"]
 
 [resource]
 script = ExtResource("1_script")
-items = [ExtResource("2_rod"), ExtResource("3_coffee"), ExtResource("4_energy"), ExtResource("5_snack"), ExtResource("6_finder"), ExtResource("7_cooler"), ExtResource("8_art_kit")]
+items = [ExtResource("2_rod"), ExtResource("3_coffee"), ExtResource("4_energy"), ExtResource("5_snack"), ExtResource("6_finder"), ExtResource("7_cooler"), ExtResource("8_art_kit"), ExtResource("9_worms")]

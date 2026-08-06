@@ -1,0 +1,29 @@
+[gd_resource type="Resource" script_class="FishData" format=3]
+
+[ext_resource type="Script" path="res://fish/fish_data.gd" id="1_fish_data"]
+[ext_resource type="Resource" path="res://fishing/common_catch_profile.tres" id="2_profile"]
+[ext_resource type="Script" path="res://fish/fish_availability.gd" id="3_availability_script"]
+[ext_resource type="Texture2D" path="res://fish/species/pomfret_white/fish_pomfret_white.png" id="4_texture"]
+
+[sub_resource type="Resource" id="PomfretWhiteAvailability"]
+script = ExtResource("3_availability_script")
+allowed_location_tags = Array[StringName]([&"ocean"])
+
+[resource]
+script = ExtResource("1_fish_data")
+id = &"pomfret_white"
+display_name = "white pomfret"
+allowed_water_types = 2
+rarity = 0
+base_catch_weight = 0.45
+catch_profile = ExtResource("2_profile")
+availability = SubResource("PomfretWhiteAvailability")
+weight_min_lb = 0.5
+weight_max_lb = 10
+display_scale_min = 0.85
+display_scale_max = 1.6
+display_scale_curve = 0.9
+sell_value_min = 5
+sell_value_max = 12
+sell_value_curve = 0.9
+display_texture = ExtResource("4_texture")

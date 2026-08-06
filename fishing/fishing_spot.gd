@@ -95,7 +95,7 @@ enum FishingState {
 @export_range(0.01, 0.5, 0.01) var solid_bobber_clearance: float = 0.13
 
 @export_category("Withdrawal")
-@export_range(0.1, 20.0, 0.1) var withdrawal_rate: float = 4.9
+@export_range(0.1, 20.0, 0.1) var withdrawal_rate: float = 2.45
 @export_range(0.1, 10.0, 0.1) var withdrawal_cancel_distance: float = 1.0
 @export_range(0.0, 1.0, 0.01) var withdrawal_surface_clearance: float = 0.4
 
@@ -787,6 +787,7 @@ func _on_cast_completed() -> void:
 	if _selected_fish == null:
 		_cleanup_attempt("nothing is biting here.", &"invalid")
 		return
+	_consume_active_bait()
 
 	state = FishingState.WAITING_FOR_BITE
 	_state_time_remaining = roll_bite_wait_time() * (
@@ -806,6 +807,13 @@ func _on_cast_completed() -> void:
 	)
 	_presentation.set_line_mode(FishingPresentationType.LineMode.SLACK)
 	status_changed.emit("waiting for a bite...")
+
+
+func _consume_active_bait() -> void:
+	if _active_player == null or _active_player.active_bait_id.is_empty():
+		return
+	if _local_bag == null or not _local_bag.remove_item(_active_player.active_bait_id, 1):
+		_active_player.unequip_bait()
 
 
 func roll_bite_wait_time() -> float:
@@ -960,6 +968,8 @@ func _activate_bite() -> void:
 		_get_effective_reel_speed(),
 		_get_effective_barrier_damage(),
 		_pending_catch.quality,
+		int(_pending_catch.fish.rarity),
+		_pending_catch.fish.get_weight_percentile(_pending_catch.weight_lb),
 	)
 	_catch_controller.set_reel_input(
 		Input.is_action_pressed("fish_primary")
@@ -1368,7 +1378,7 @@ func _build_fishing_context(
 	context.location_tags = region.location_tags.duplicate()
 	context.water_type = region.water_type
 	context.active_event_tags = context_event_tags.duplicate()
-	context.active_bait_tags = context_bait_tags.duplicate()
+	context.active_bait_tags = _get_active_bait_tags()
 	if _world_time != null:
 		context.is_night = _world_time.is_night_period()
 		context.is_day_night_transition = _world_time.is_transition()
@@ -1384,6 +1394,16 @@ func build_network_context(
 	return _build_fishing_context(region)
 
 
+func _get_active_bait_tags() -> Array[StringName]:
+	if _local_player == null or _item_catalog == null:
+		return []
+	var bait_id: StringName = _local_player.active_bait_id
+	if bait_id.is_empty() or _local_bag == null or not _local_bag.owns_item(bait_id):
+		return []
+	var item: ItemDataType = _item_catalog.get_item_by_id(bait_id)
+	return item.bait_tags.duplicate() if item != null and item.is_bait() else []
+
+
 func _build_network_evidence() -> Dictionary:
 	var rarity_multipliers: Array[float] = []
 	for rarity: int in range(FishDataType.Rarity.size()):
@@ -1394,6 +1414,7 @@ func _build_network_evidence() -> Dictionary:
 			discovered_ids.append(str(fish_id))
 	var item: ItemDataType = _get_active_item()
 	return {
+		"bait_id": str(_active_player.active_bait_id),
 		"rod_id": str(item.item_id) if item != null else "",
 		"reel_speed": _active_player.reel_speed * (
 			_fishing_upgrades.get_reel_speed_multiplier()

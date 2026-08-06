@@ -290,7 +290,9 @@ func close_shop(
 	_closing = true
 	_transaction_in_progress = false
 	hide()
-	get_viewport().gui_release_focus()
+	var current_viewport: Viewport = get_viewport()
+	if current_viewport != null:
+		current_viewport.gui_release_focus()
 	if _fishing_spot != null and is_instance_valid(_fishing_spot):
 		_fishing_spot.set_local_menu_input_suppressed(INPUT_OWNER, false)
 	if (
@@ -426,15 +428,23 @@ func _refresh_supplies() -> void:
 			FishingShopStockType.get_price(item_id),
 			_bag.get_quantity(item_id),
 		]
+		if FishingShopStockType.is_bait_topoff(item_id):
+			button.text = "%s\n$%d each • %d/%d" % [
+				item.display_name,
+				FishingShopStockType.get_price(item_id),
+				_bag.get_quantity(item_id),
+				FishingShopStockType.WORM_MAX_STACK,
+			]
 		button.tooltip_text = item.description
 		button.disabled = (
 			_transaction_in_progress
 			or _closing
 			or _network_shop == null
 			or not _network_shop.can_request_purchase()
-			or not _bag.can_add_item(item_id, 1)
+			or FishingShopStockType.get_purchase_quantity(item_id, _bag.get_quantity(item_id)) <= 0
+			or not _bag.can_add_item(item_id, FishingShopStockType.get_purchase_quantity(item_id, _bag.get_quantity(item_id)))
 			or not _wallet.can_afford(
-				FishingShopStockType.get_price(item_id)
+				FishingShopStockType.get_price(item_id) * FishingShopStockType.get_purchase_quantity(item_id, _bag.get_quantity(item_id))
 			)
 		)
 		button.tooltip_text = (
@@ -574,10 +584,12 @@ func _purchase_supply(item_id: StringName) -> void:
 	if _transaction_in_progress or not _is_transaction_context_valid():
 		_feedback.text = "unable to complete purchase."
 		return
-	if not _bag.can_add_item(item_id, 1):
+	var owned: int = _bag.get_quantity(item_id)
+	var quantity: int = FishingShopStockType.get_purchase_quantity(item_id, owned)
+	if quantity <= 0 or not _bag.can_add_item(item_id, quantity):
 		_feedback.text = "Your Bag is full."
 		return
-	if not _wallet.can_afford(FishingShopStockType.get_price(item_id)):
+	if not _wallet.can_afford(FishingShopStockType.get_price(item_id) * quantity):
 		_feedback.text = "Not enough fish coin."
 		return
 	if _network_shop == null:

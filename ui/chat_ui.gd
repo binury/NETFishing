@@ -232,7 +232,9 @@ func toggle_chat() -> void:
 func refocus_gameplay() -> void:
 	close_chat()
 	_controller_refocused = true
-	get_viewport().gui_release_focus()
+	var current_viewport: Viewport = get_viewport()
+	if current_viewport != null:
+		current_viewport.gui_release_focus()
 
 
 func toggle_focus() -> void:

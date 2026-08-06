@@ -2,6 +2,7 @@ class_name ProfilePage
 extends Control
 
 const CHECK_DEBOUNCE_SECONDS: float = 0.4
+const OPTION_GRID_COLUMNS: int = 6
 const ControllerMappingManagerType = preload(
 	"res://settings/controller_mapping_manager.gd"
 )
@@ -513,7 +514,7 @@ func _build_feature_preview_options(options: Array) -> void:
 	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
 	_option_list.add_child(scroll)
 	var grid := GridContainer.new()
-	grid.columns = 4
+	grid.columns = OPTION_GRID_COLUMNS
 	grid.add_theme_constant_override("h_separation", 8)
 	grid.add_theme_constant_override("v_separation", 8)
 	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -591,7 +592,7 @@ func _feature_preview_texture(
 
 func _build_fur_color_options(options: Array) -> void:
 	var grid := GridContainer.new()
-	grid.columns = 4
+	grid.columns = OPTION_GRID_COLUMNS
 	grid.add_theme_constant_override("h_separation", 10)
 	grid.add_theme_constant_override("v_separation", 10)
 	_option_list.add_child(grid)

@@ -5,14 +5,17 @@ const ItemCatalogType = preload("res://items/item_catalog.gd")
 const ItemDataType = preload("res://items/item_data.gd")
 const PlayerBagType = preload("res://inventory/player_bag.gd")
 const PlayerWalletType = preload("res://economy/player_wallet.gd")
+const WORM_MAX_STACK: int = 10
 
 const ITEM_PRICES: Dictionary[StringName, int] = {
+	&"worms": 1,
 	&"coffee": 20,
 	&"energy_drink": 35,
 	&"snack": 30,
 	&"fish_finder": 60,
 }
 const ITEM_ORDER: Array[StringName] = [
+	&"worms",
 	&"coffee",
 	&"energy_drink",
 	&"snack",
@@ -26,6 +29,16 @@ static func get_price(item_id: StringName) -> int:
 
 static func get_stock_item_ids() -> Array[StringName]:
 	return ITEM_ORDER.duplicate()
+
+
+static func get_purchase_quantity(item_id: StringName, owned: int) -> int:
+	if item_id == &"worms":
+		return maxi(WORM_MAX_STACK - owned, 0)
+	return 1
+
+
+static func is_bait_topoff(item_id: StringName) -> bool:
+	return item_id == &"worms"
 
 
 static func purchase_one(
@@ -42,9 +55,9 @@ static func purchase_one(
 		price < 0
 		or item == null
 		or not item.is_valid()
-		or item.category != ItemDataType.Category.CONSUMABLE
+		or (item.category != ItemDataType.Category.CONSUMABLE and not is_bait_topoff(item_id))
 		or not item.stackable
-		or not item.usable
+		or (not item.usable and not is_bait_topoff(item_id))
 		or not bag.can_add_item(item_id, 1)
 		or not wallet.can_afford(price)
 	):

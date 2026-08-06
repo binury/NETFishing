@@ -1,0 +1,29 @@
+[gd_resource type="Resource" script_class="FishData" format=3]
+
+[ext_resource type="Script" path="res://fish/fish_data.gd" id="1_fish_data"]
+[ext_resource type="Resource" path="res://fishing/common_catch_profile.tres" id="2_profile"]
+[ext_resource type="Script" path="res://fish/fish_availability.gd" id="3_availability_script"]
+[ext_resource type="Texture2D" path="res://fish/species/mackerel_spanish/fish_mackerel_spanish.png" id="4_texture"]
+
+[sub_resource type="Resource" id="MackerelSpanishAvailability"]
+script = ExtResource("3_availability_script")
+allowed_location_tags = Array[StringName]([&"ocean"])
+
+[resource]
+script = ExtResource("1_fish_data")
+id = &"mackerel_spanish"
+display_name = "spanish mackerel"
+allowed_water_types = 2
+rarity = 1
+base_catch_weight = 0.35
+catch_profile = ExtResource("2_profile")
+availability = SubResource("MackerelSpanishAvailability")
+weight_min_lb = 1
+weight_max_lb = 15
+display_scale_min = 0.85
+display_scale_max = 1.6
+display_scale_curve = 0.9
+sell_value_min = 8
+sell_value_max = 18
+sell_value_curve = 0.9
+display_texture = ExtResource("4_texture")

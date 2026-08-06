@@ -167,21 +167,6 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 1
 
-[node name="CoolerEmpty" type="Label" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/CoolerPage/CoolerOuterWall/CoolerWallMargin/CoolerInnerLiner/CoolerInnerMargin/CoolerScroll/CoolerHost"]
-unique_name_in_owner = true
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-mouse_filter = 2
-theme_override_colors/font_color = Color(0.91, 0.97, 0.98, 0.82)
-theme_override_font_sizes/font_size = 24
-text = "the cooler is empty"
-horizontal_alignment = 1
-vertical_alignment = 1
-
 [node name="DetailConstellation" type="Control" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/CoolerPage"]
 unique_name_in_owner = true
 layout_mode = 0
@@ -705,12 +690,21 @@ theme_override_constants/margin_top = 20
 theme_override_constants/margin_right = 20
 theme_override_constants/margin_bottom = 20
 
-[node name="TackleDetailText" type="Label" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/TackleBoxPage/TackleDetailPanel/Margin"]
+[node name="Layout" type="VBoxContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/TackleBoxPage/TackleDetailPanel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="TackleDetailText" type="Label" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/TackleBoxPage/TackleDetailPanel/Margin/Layout"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Select bait or a lure for details."
 autowrap_mode = 2
-vertical_alignment = 1
+
+[node name="TackleEquipButton" type="Button" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/TackleBoxPage/TackleDetailPanel/Margin/Layout"]
+unique_name_in_owner = true
+layout_mode = 2
+custom_minimum_size = Vector2(0, 44)
+text = "equip worms"
 
 [node name="LogbookPage" type="Control" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot"]
 unique_name_in_owner = true

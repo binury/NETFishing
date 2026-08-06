@@ -127,7 +127,7 @@ static func from_save_dict(
 		0.0,
 		MAX_SAFE_WEIGHT_LB
 	)
-	var loaded_scale: float = _read_safe_float(
+	var _loaded_scale: float = _read_safe_float(
 		data["display_scale"],
 		0.0,
 		MAX_SAFE_DISPLAY_SCALE
@@ -141,7 +141,7 @@ static func from_save_dict(
 		or loaded_sale_value < 0
 		or not FishQualityType.is_valid(loaded_quality)
 		or loaded_weight <= 0.0
-		or loaded_scale <= 0.0
+		or _loaded_scale <= 0.0
 		or typeof(loaded_favorite) != TYPE_BOOL
 	):
 		return null
@@ -152,7 +152,12 @@ static func from_save_dict(
 	fish_catch.catch_id = loaded_catch_id
 	fish_catch.catch_sequence = loaded_sequence
 	fish_catch.weight_lb = loaded_weight
-	fish_catch.display_scale = loaded_scale
+	# Recompute presentation size from authoritative weight.  This keeps saves
+	# written before the weight-based sizing rule from retaining oversized
+	# per-species display values.
+	fish_catch.display_scale = resolved_fish.get_display_scale_for_weight(
+		loaded_weight
+	)
 	fish_catch.quality = loaded_quality
 	fish_catch.sale_value = loaded_sale_value
 	fish_catch.is_favorited = bool(loaded_favorite)
@@ -180,7 +185,7 @@ static func from_network_dict(
 	var loaded_weight: float = _read_safe_float(
 		data.get("weight_lb"), 0.0, MAX_SAFE_WEIGHT_LB
 	)
-	var loaded_scale: float = _read_safe_float(
+	var _loaded_scale: float = _read_safe_float(
 		data.get("display_scale"), 0.0, MAX_SAFE_DISPLAY_SCALE
 	)
 	var loaded_value: int = _read_safe_integer(
@@ -196,7 +201,7 @@ static func from_network_dict(
 		or loaded_id.length() > 160
 		or loaded_fish_id != resolved_fish.id
 		or loaded_weight <= 0.0
-		or loaded_scale <= 0.0
+		or _loaded_scale <= 0.0
 		or loaded_value < 0
 		or not FishQualityType.is_valid(loaded_quality)
 	):
@@ -207,7 +212,9 @@ static func from_network_dict(
 	fish_catch.catch_id = loaded_id
 	fish_catch.catch_sequence = 0
 	fish_catch.weight_lb = loaded_weight
-	fish_catch.display_scale = loaded_scale
+	fish_catch.display_scale = resolved_fish.get_display_scale_for_weight(
+		loaded_weight
+	)
 	fish_catch.quality = loaded_quality
 	fish_catch.sale_value = loaded_value
 	fish_catch.is_favorited = false

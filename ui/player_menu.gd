@@ -145,7 +145,6 @@ const SALE_CONFIRMATION_SIZE := Vector2(520.0, 190.0)
 @onready var _cooler_inner_liner: PanelContainer = %CoolerInnerLiner
 @onready var _cooler_water_surface: ColorRect = %WaterSurface
 @onready var _fish_field: Control = %FishField
-@onready var _cooler_empty: Label = %CoolerEmpty
 @onready var _cooler_sort_controls: HBoxContainer = %CoolerSortControls
 @onready var _cooler_sort_option: NotepadInkChoiceType = %CoolerSortOption
 @onready var _cooler_sort_direction: NotepadInkActionType = %CoolerSortDirection
@@ -190,6 +189,7 @@ const SALE_CONFIRMATION_SIZE := Vector2(520.0, 190.0)
 @onready var _lures_filter: Button = %LuresFilter
 @onready var _tackle_empty: Label = %TackleEmpty
 @onready var _tackle_detail_text: Label = %TackleDetailText
+@onready var _tackle_equip_button: Button = %TackleEquipButton
 @onready var _tackle_item_list: VBoxContainer = %TackleItemList
 @onready var _bag_outer_wall: PanelContainer = %BagOuterWall
 @onready var _bag_inner_liner: PanelContainer = %BagInnerLiner
@@ -368,6 +368,7 @@ func _ready() -> void:
 	)
 	_bait_filter.pressed.connect(_set_tackle_view.bind(TackleView.BAIT))
 	_lures_filter.pressed.connect(_set_tackle_view.bind(TackleView.LURES))
+	_tackle_equip_button.pressed.connect(_toggle_active_bait)
 	_logbook_tab.pressed.connect(
 		_show_section.bind(Section.LOGBOOK)
 	)
@@ -566,6 +567,8 @@ func setup(
 		_fishing_spot.bite_activated.connect(_on_bite_activated)
 	if not _bag.contents_changed.is_connected(_on_bag_changed):
 		_bag.contents_changed.connect(_on_bag_changed)
+	if not _player.active_bait_changed.is_connected(_on_active_bait_changed):
+		_player.active_bait_changed.connect(_on_active_bait_changed)
 	if not _hotbar.slots_changed.is_connected(_on_hotbar_changed):
 		_hotbar.slots_changed.connect(_on_hotbar_changed)
 	if not _cooler_capacity.capacity_changed.is_connected(
@@ -1369,12 +1372,14 @@ func _update_tackle_detail() -> void:
 		else null
 	)
 	if item == null:
+		_tackle_equip_button.visible = false
 		_tackle_detail_text.text = (
 			"Select bait for details."
 			if _tackle_view == TackleView.BAIT
 			else "Select a lure for details."
 		)
 		return
+	_tackle_equip_button.visible = item.is_bait()
 	var quantity: int = _bag.get_quantity(item.item_id) if _bag != null else 0
 	var assigned_slot: int = -1
 	if _hotbar != null:
@@ -1397,6 +1402,30 @@ func _update_tackle_detail() -> void:
 			item.description,
 		]
 	)
+	if item.is_bait():
+		_tackle_equip_button.text = (
+			"dequip %s" % item.display_name
+			if _player != null and _player.active_bait_id == item.item_id
+			else "equip %s" % item.display_name
+		)
+		_tackle_equip_button.disabled = quantity <= 0
+
+
+func _toggle_active_bait() -> void:
+	if _player == null or _item_catalog == null:
+		return
+	var item: ItemDataType = _item_catalog.get_item_by_id(_selected_tackle_item_id)
+	if item == null or not item.is_bait():
+		return
+	if _player.active_bait_id == item.item_id:
+		_player.unequip_bait()
+	else:
+		_player.equip_bait(item)
+	_update_tackle_detail()
+
+
+func _on_active_bait_changed(_item_id: StringName) -> void:
+	_update_tackle_detail()
 
 
 func _apply_cooler_control_styles() -> void:
@@ -1948,7 +1977,9 @@ func _begin_menu_exit(reason: CloseReason, restore_controls: bool) -> void:
 		_catalog_logbook.deactivate()
 	elif _current_section == Section.NET:
 		_the_net_page.deactivate()
-	get_viewport().gui_release_focus()
+	var current_viewport: Viewport = get_viewport()
+	if current_viewport != null:
+		current_viewport.gui_release_focus()
 	var generation: int = _transition_generation
 	var closing_generation: int = _menu_generation
 	_presentation_tween = create_tween().set_parallel(true)
@@ -2003,7 +2034,9 @@ func _finish_close(
 	_presentation_scale_root.scale = Vector2.ONE
 	visible = false
 	set_process(false)
-	get_viewport().gui_release_focus()
+	var current_viewport: Viewport = get_viewport()
+	if current_viewport != null:
+		current_viewport.gui_release_focus()
 	if _fishing_spot != null and is_instance_valid(_fishing_spot):
 		_fishing_spot.set_local_menu_input_suppressed(INPUT_OWNER, false)
 	if restore_controls:
@@ -2062,7 +2095,9 @@ func _begin_page_transition(section: Section) -> void:
 	_cancel_page_tween()
 	_page_transitioning = true
 	_set_content_interactive(false)
-	get_viewport().gui_release_focus()
+	var current_viewport: Viewport = get_viewport()
+	if current_viewport != null:
+		current_viewport.gui_release_focus()
 	var outgoing_section: Section = _current_section
 	var outgoing_inventory: bool = _is_inventory_section(outgoing_section)
 	var incoming_inventory: bool = _is_inventory_section(section)
@@ -2722,7 +2757,6 @@ func _refresh_inventory() -> void:
 	catches.sort_custom(_compare_catches)
 	_sorted_catches = catches
 	_inventory_empty.visible = catches.is_empty()
-	_cooler_empty.visible = catches.is_empty()
 	var visible_ids: Array[StringName] = []
 	for fish_catch: FishCatchType in catches:
 		visible_ids.append(fish_catch.catch_id)
@@ -3600,7 +3634,9 @@ func _release_focus_from(node: Node, fallback: Control) -> void:
 		)
 	):
 		return
-	get_viewport().gui_release_focus()
+	var current_viewport: Viewport = get_viewport()
+	if current_viewport != null:
+		current_viewport.gui_release_focus()
 	if (
 		visible
 		and not _transitioning

@@ -69,6 +69,8 @@ var _reel_input_held: bool = false
 var _reel_speed: float = 0.0
 var _click_power: int = 1
 var _fish_quality: int = FishQualityType.Tier.BORING
+var _fish_rarity: int = 0
+var _fish_weight_percentile: float = 0.0
 var _chase_delay_remaining: float = 0.0
 var _failure_epsilon: float = 0.0001
 var _auto_click_accumulator: float = 0.0
@@ -111,6 +113,8 @@ func start_encounter(
 	reel_speed: float,
 	click_power: int,
 	fish_quality: int = FishQualityType.Tier.BORING,
+	fish_rarity: int = 0,
+	fish_weight_percentile: float = 0.0,
 ) -> void:
 	reset()
 	if profile == null:
@@ -124,6 +128,8 @@ func start_encounter(
 		if FishQualityType.is_valid(fish_quality)
 		else FishQualityType.Tier.BORING
 	)
+	_fish_rarity = clampi(fish_rarity, 0, 4)
+	_fish_weight_percentile = clampf(fish_weight_percentile, 0.0, 1.0)
 	_chase_delay_remaining = CHASE_START_DELAY
 	chase_progress = -CHASE_START_OFFSET
 	_seed_encounter_rng()
@@ -139,12 +145,21 @@ func start_authoritative_encounter(
 	click_power: int,
 	seed: int,
 	fish_quality: int = FishQualityType.Tier.BORING,
+	fish_rarity: int = 0,
+	fish_weight_percentile: float = 0.0,
 ) -> void:
 	var previous_test_mode: bool = use_deterministic_test_seed
 	var previous_seed: int = deterministic_test_seed
 	use_deterministic_test_seed = true
 	deterministic_test_seed = seed
-	start_encounter(profile, reel_speed, click_power, fish_quality)
+	start_encounter(
+		profile,
+		reel_speed,
+		click_power,
+		fish_quality,
+		fish_rarity,
+		fish_weight_percentile,
+	)
 	use_deterministic_test_seed = previous_test_mode
 	deterministic_test_seed = previous_seed
 
@@ -289,7 +304,6 @@ func _seed_encounter_rng() -> void:
 
 func _generate_barriers(profile: CatchDifficultyProfileType) -> void:
 	var count_range: Vector2i = profile.get_barrier_count_range()
-	var health_range: Vector2i = profile.get_barrier_health_range()
 	var interval: Vector2 = profile.get_generation_interval()
 	var spacing: float = maxf(profile.minimum_barrier_spacing, 0.01)
 	var available_distance: float = maxf(interval.y - interval.x, 0.0)
@@ -313,13 +327,11 @@ func _generate_barriers(profile: CatchDifficultyProfileType) -> void:
 			+ spacing * float(barrier_index)
 			+ random_offsets[barrier_index] * random_slack
 		)
-		var base_health: int = _rng.randi_range(
-			health_range.x,
-			health_range.y,
-		)
-		var health: int = FishQualityType.apply_barrier_health(
-			base_health,
+		var health: int = FishQualityType.barrier_health_for_catch(
 			_fish_quality,
+			_fish_rarity,
+			_fish_weight_percentile,
+			_rng.randf_range(0.9, 1.1),
 		)
 		_barriers.append(Barrier.new(position, health))
 

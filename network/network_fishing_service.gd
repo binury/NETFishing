@@ -14,6 +14,7 @@ const PlayerExperienceType = preload(
 const RemotePresentationType = preload(
 	"res://fishing/remote_fishing_presentation.gd"
 )
+const ItemDataType = preload("res://items/item_data.gd")
 
 const MAX_LEDGER_ENTRIES_PER_PEER: int = 64
 const CAST_ORIGIN_TOLERANCE: float = 2.5
@@ -109,6 +110,7 @@ func request_local_cast(
 		"rarity_multipliers": evidence.get("rarity_multipliers", []),
 		"discovered_fish_ids": evidence.get("discovered_fish_ids", []),
 		"capacity_available": bool(evidence.get("capacity_available", false)),
+		"bait_id": str(evidence.get("bait_id", "")),
 	}
 	if _session.is_host():
 		_handle_cast_request(_session.get_local_peer_id(), data)
@@ -292,6 +294,11 @@ func _handle_cast_request(peer_id: int, data: Dictionary) -> void:
 	):
 		_record_and_reject(peer_id, request_id, "Nothing is biting here.")
 		return
+	var bait_id: StringName = StringName(str(data.get("bait_id", "")))
+	var avatar_bag: PlayerBag = avatar.bag
+	if not bait_id.is_empty() and (avatar_bag == null or not avatar_bag.remove_item(bait_id, 1)):
+		_record_and_reject(peer_id, request_id, "No bait available.")
+		return
 	var attempt := NetworkFishingAttempt.new()
 	attempt.owner_peer_id = peer_id
 	attempt.request_id = request_id
@@ -302,6 +309,7 @@ func _handle_cast_request(peer_id: int, data: Dictionary) -> void:
 	attempt.target = authoritative_target
 	attempt.bobber_position = authoritative_target
 	attempt.fish_id = selected_fish.id
+	attempt.bait_tags = _bait_tags_for_request(data)
 	attempt.reel_speed = float(data["reel_speed"]) * (
 		effects.get_reel_multiplier() if effects != null else 1.0
 	)
@@ -413,11 +421,20 @@ func _select_authoritative_fish(
 		)
 	selector.begin_roll()
 	var context: FishingContextType = _fishing_spot.build_network_context(region)
+	context.active_bait_tags = _bait_tags_for_request(data)
 	var selected_fish := selector.select_fish(
 		region.fish_pool, context, evidence_log
 	)
 	evidence_log.free()
 	return selected_fish
+
+
+func _bait_tags_for_request(data: Dictionary) -> Array[StringName]:
+	var bait_id: StringName = StringName(str(data.get("bait_id", "")))
+	if bait_id.is_empty() or _item_catalog == null:
+		return []
+	var bait: ItemDataType = _item_catalog.get_item_by_id(bait_id)
+	return bait.bait_tags.duplicate() if bait != null and bait.is_bait() else []
 
 
 func _start_bite(attempt: NetworkFishingAttempt) -> void:
@@ -433,7 +450,7 @@ func _start_bite(attempt: NetworkFishingAttempt) -> void:
 	selector.use_deterministic_test_seed = true
 	selector.deterministic_test_seed = attempt.encounter_seed ^ 0x5F3759DF
 	selector.begin_roll()
-	var fish_catch: FishCatch = selector.create_catch(fish)
+	var fish_catch: FishCatch = selector.create_catch(fish, attempt.bait_tags)
 	if fish_catch == null or not fish_catch.is_valid():
 		_cancel_attempt(attempt.owner_peer_id, "Fishing attempt ended.")
 		return
@@ -444,6 +461,8 @@ func _start_bite(attempt: NetworkFishingAttempt) -> void:
 		attempt.barrier_damage,
 		attempt.encounter_seed,
 		fish_catch.quality,
+		int(fish.rarity),
+		fish.get_weight_percentile(fish_catch.weight_lb),
 	)
 	var data: Dictionary = {
 		"attempt_id": attempt.attempt_id,

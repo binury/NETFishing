@@ -53,6 +53,8 @@ static func validate_cast_request(data: Variant) -> String:
 		or typeof(payload["capacity_available"]) != TYPE_BOOL
 	):
 		return "Malformed fishing request."
+	if payload.has("bait_id") and typeof(payload["bait_id"]) not in [TYPE_STRING, TYPE_STRING_NAME]:
+		return "Malformed fishing request."
 	var request_id: String = payload["request_id"]
 	var session_id: String = payload["session_id"]
 	var origin: Array = payload["origin"]

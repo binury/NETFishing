@@ -15,11 +15,20 @@ const ALL_TIERS_MASK: int = (1 << TIER_COUNT) - 1
 # Starting distribution. Equipment and tackle can supply per-tier
 # multipliers later without changing catch serialization or tier identity.
 const BASE_ROLL_WEIGHTS: Array[float] = [40.0, 32.0, 18.0, 8.0, 2.0]
+const WORM_ROLL_WEIGHTS: Array[float] = [80.0, 10.0, 5.0, 4.0, 1.0]
 const SALE_MULTIPLIERS: Array[float] = [1.0, 1.1, 1.25, 1.5, 2.0]
-# Provisional challenge curve. Fish profiles continue to own their baseline
-# barrier health; quality scales that authored baseline before player upgrades
-# apply damage. This keeps future rods, bait, and lures on one shared seam.
+# Legacy profile multiplier retained for serialized/profile compatibility.
+# New encounters use the weighted quality/rarity/weight bands below.
 const BARRIER_HEALTH_MULTIPLIERS: Array[float] = [1.0, 1.25, 1.6, 2.2, 3.25]
+# Barrier health is weighted 70% by quality, 20% by rarity, and 10% by the
+# catch's position in its authored weight range.  The upper bounds define the
+# intended per-barrier challenge bands; a small seeded variance keeps barriers
+# from feeling identical without crossing those bands.
+const BARRIER_QUALITY_WEIGHT: float = 0.70
+const BARRIER_RARITY_WEIGHT: float = 0.20
+const BARRIER_WEIGHT_WEIGHT: float = 0.10
+const BARRIER_HEALTH_MINIMUMS: Array[int] = [1, 10, 50, 100, 200]
+const BARRIER_HEALTH_MAXIMUMS: Array[int] = [9, 50, 100, 200, 400]
 const DISPLAY_NAMES: PackedStringArray = [
 	"boring",
 	"average",
@@ -74,6 +83,32 @@ static func apply_barrier_health(base_health: int, quality: int) -> int:
 	)
 
 
+static func barrier_health_for_catch(
+	quality: int,
+	rarity: int,
+	weight_percentile: float,
+	variance: float = 1.0,
+) -> int:
+	var safe_quality: int = (
+		quality if is_valid(quality) else Tier.BORING
+	)
+	var safe_rarity: float = clampf(float(rarity) / 4.0, 0.0, 1.0)
+	var safe_weight: float = clampf(weight_percentile, 0.0, 1.0)
+	var weighted_health: float = float(BARRIER_HEALTH_MAXIMUMS[safe_quality]) * (
+		BARRIER_QUALITY_WEIGHT
+		+ BARRIER_RARITY_WEIGHT * safe_rarity
+		+ BARRIER_WEIGHT_WEIGHT * safe_weight
+	)
+	var varied_health: int = roundi(
+		weighted_health * clampf(variance, 0.8, 1.2)
+	)
+	return clampi(
+		varied_health,
+		BARRIER_HEALTH_MINIMUMS[safe_quality],
+		BARRIER_HEALTH_MAXIMUMS[safe_quality],
+	)
+
+
 static func roll(
 	rng: RandomNumberGenerator,
 	weight_multipliers: Array[float] = [],
@@ -98,6 +133,21 @@ static func roll(
 		if rolled_weight <= accumulated_weight:
 			return quality
 	return Tier.SHINY
+
+
+static func roll_weights_for_bait(active_bait_tags: Array[StringName]) -> Array[float]:
+	var weights: Array[float] = []
+	if active_bait_tags.is_empty():
+		weights.assign([2.5, 0.0, 0.0, 0.0, 0.0])
+	else:
+		weights.assign([
+			WORM_ROLL_WEIGHTS[0] / BASE_ROLL_WEIGHTS[0],
+			WORM_ROLL_WEIGHTS[1] / BASE_ROLL_WEIGHTS[1],
+			WORM_ROLL_WEIGHTS[2] / BASE_ROLL_WEIGHTS[2],
+			WORM_ROLL_WEIGHTS[3] / BASE_ROLL_WEIGHTS[3],
+			WORM_ROLL_WEIGHTS[4] / BASE_ROLL_WEIGHTS[4],
+		])
+	return weights
 
 
 static func qualified_name(fish_name: String, quality: int) -> String:
