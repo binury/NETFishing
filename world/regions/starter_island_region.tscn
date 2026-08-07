@@ -12,6 +12,7 @@
 [ext_resource type="Material" path="res://world/materials/starter_island_grass.tres" id="9_grass"]
 [ext_resource type="Script" uid="uid://dtcgnxl1kmdu1" path="res://world/water_body_authoring.gd" id="10_water_body"]
 [ext_resource type="Material" path="res://world/materials/starter_island_sand.tres" id="11_sand"]
+[ext_resource type="Material" path="res://world/materials/starter_island_sandstone.tres" id="20_sandstone"]
 [ext_resource type="Material" path="res://world/materials/stylized_water.tres" id="13_water"]
 [ext_resource type="Script" path="res://world/water/shoreline_ribbon_baker.gd" id="14_shoreline_baker"]
 [ext_resource type="Script" path="res://world/water/shoreline_ribbon_config.gd" id="15_shoreline_config"]
@@ -91,8 +92,12 @@ output_resource_path = "res://world/generated/shorelines/starter_ocean_shoreline
 
 [node name="StarterIslandRegion" type="Node3D" unique_id=1830415700]
 script = ExtResource("1_region")
+apply_surface_overrides = true
 grass_material = ExtResource("9_grass")
+sand_surface_index = 4
 sand_material = ExtResource("11_sand")
+sandstone_material = ExtResource("20_sandstone")
+sandstone_surface_index = 5
 region_id = &"starter_island"
 fishable_water_root = NodePath("WaterBodies")
 water_recovery_root = NodePath("WaterBodies")
