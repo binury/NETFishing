@@ -1,16 +1,16 @@
 shader_type spatial;
 render_mode blend_mix, depth_draw_never, cull_disabled, unshaded;
 
-uniform vec4 lead_color : source_color = vec4(0.620, 0.875, 0.855, 1.0);
-uniform vec4 trail_color : source_color = vec4(0.430, 0.780, 0.770, 1.0);
-uniform float ribbon_width : hint_range(0.2, 2.0, 0.01) = 0.85;
-uniform float land_inset : hint_range(0.0, 0.4, 0.01) = 0.10;
+uniform vec4 lead_color : source_color = vec4(0.780, 0.960, 0.930, 1.0);
+uniform vec4 trail_color : source_color = vec4(0.500, 0.840, 0.820, 1.0);
+uniform float ribbon_width : hint_range(0.2, 2.0, 0.01) = 1.35;
+uniform float land_inset : hint_range(0.0, 0.4, 0.01) = 0.12;
 uniform float tide_speed : hint_range(0.1, 3.0, 0.01) = 1.42;
-uniform float tide_distance : hint_range(0.0, 0.6, 0.01) = 0.30;
-uniform float lead_width : hint_range(0.01, 0.2, 0.005) = 0.065;
-uniform float trail_width : hint_range(0.02, 0.4, 0.005) = 0.18;
-uniform float lead_strength : hint_range(0.0, 1.0, 0.01) = 0.48;
-uniform float trail_strength : hint_range(0.0, 1.0, 0.01) = 0.25;
+uniform float tide_distance : hint_range(0.0, 0.6, 0.01) = 0.42;
+uniform float lead_width : hint_range(0.01, 0.2, 0.005) = 0.14;
+uniform float trail_width : hint_range(0.02, 0.4, 0.005) = 0.32;
+uniform float lead_strength : hint_range(0.0, 1.0, 0.01) = 0.88;
+uniform float trail_strength : hint_range(0.0, 1.0, 0.01) = 0.52;
 uniform float phase_scale : hint_range(0.001, 0.2, 0.001) = 0.035;
 uniform float phase_strength : hint_range(0.0, 2.0, 0.01) = 0.55;
 

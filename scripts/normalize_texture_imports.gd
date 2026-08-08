@@ -25,30 +25,27 @@ const DEFAULT_PROFILE: Dictionary = {
 		"process/hdr_clamp_exposure": false,
 		"process/size_limit": 0,
 		"detect_3d/compress_to": 0,
-		"import_profile": "managed_default",
 	},
 }
 
-const CUSTOM_PROFILE_KEY := "custom"
-
-var apply_changes := false
-var verbose := false
+var apply_changes: bool = false
+var verbose: bool = false
 var roots: PackedStringArray = PackedStringArray()
-var user_root_overrides := false
-var should_exit := false
+var should_exit: bool = false
 
-var skipped_custom := 0
-var skipped_non_texture := 0
-var skipped_unreadable := 0
-var updated := 0
-var unchanged := 0
+var errors: int = 0
+var skipped_non_texture: int = 0
+var updated: int = 0
+var unchanged: int = 0
 
 func _initialize() -> void:
 	_parse_args()
 	if should_exit:
 		return
-	if roots.is_empty() and not user_root_overrides:
-		roots.append("res://")
+	if roots.is_empty():
+		printerr("At least one --root path is required.")
+		quit(2)
+		return
 
 	for root: String in roots:
 		var normalized_root := root
@@ -63,7 +60,7 @@ func _initialize() -> void:
 		_scan_directory(normalized_root)
 
 	print_summary()
-	quit(0)
+	quit(1 if errors > 0 else 0)
 
 
 func _parse_args() -> void:
@@ -89,25 +86,23 @@ func _parse_args() -> void:
 				quit(1)
 				return
 			i += 1
-			roots.append(args[i])
-			i += 1
-			user_root_overrides = true
-		elif arg.begins_with("--root="):
-			roots.append(arg.trim_prefix("--root="))
-			i += 1
-			user_root_overrides = true
+				roots.append(args[i])
+				i += 1
+			elif arg.begins_with("--root="):
+				roots.append(arg.trim_prefix("--root="))
+				i += 1
 		else:
-			if arg.begins_with("-"):
-				_print("Ignoring unknown option: %s" % arg)
-			i += 1
-			continue
+			printerr("Unknown argument: ", arg)
+			should_exit = true
+			quit(2)
+			return
 
 
 func _scan_directory(path: String) -> void:
 	var dir := DirAccess.open(path)
 	if dir == null:
 		printerr("Failed to open root: ", path)
-		skipped_non_texture += 1
+		errors += 1
 		return
 
 	dir.list_dir_begin()
@@ -136,7 +131,7 @@ func _handle_import_file(import_path: String) -> void:
 	var err := cfg.load(import_path)
 	if err != OK:
 		printerr("Could not load import settings: ", import_path, " (", err, ")")
-		skipped_unreadable += 1
+		errors += 1
 		return
 
 	if not cfg.has_section("remap") or not cfg.has_section_key("remap", "importer"):
@@ -145,15 +140,6 @@ func _handle_import_file(import_path: String) -> void:
 
 	if str(cfg.get_value("remap", "importer")) != "texture":
 		skipped_non_texture += 1
-		return
-
-	var current_profile := ""
-	if cfg.has_section("params") and cfg.has_section_key("params", "import_profile"):
-		current_profile = str(cfg.get_value("params", "import_profile"))
-	if current_profile == CUSTOM_PROFILE_KEY:
-		skipped_custom += 1
-		if verbose:
-			_print("Skipping custom profile: %s" % import_path)
 		return
 
 	var changed := false
@@ -178,7 +164,7 @@ func _handle_import_file(import_path: String) -> void:
 		err = cfg.save(import_path)
 		if err != OK:
 			printerr("Could not save import settings: ", import_path, " (", err, ")")
-			skipped_unreadable += 1
+			errors += 1
 			return
 		if verbose:
 			_print("Updated: %s" % import_path)
@@ -190,11 +176,18 @@ func _handle_import_file(import_path: String) -> void:
 
 func print_summary() -> void:
 	if apply_changes:
-		_print("Texture import normalization complete: updated=%d unchanged=%d skipped_custom=%d skipped_non_texture=%d skipped_unreadable=%d" % [updated, unchanged, skipped_custom, skipped_non_texture, skipped_unreadable])
+		_print(
+			"Texture import normalization complete: "
+			+ "updated=%d unchanged=%d skipped_non_texture=%d errors=%d"
+			% [updated, unchanged, skipped_non_texture, errors]
+		)
 	else:
-		_print("Dry-run complete: would-update=%d unchanged=%d skipped_custom=%d skipped_non_texture=%d skipped_unreadable=%d" % [updated, unchanged, skipped_custom, skipped_non_texture, skipped_unreadable])
+		_print(
+			"Dry-run complete: "
+			+ "would-update=%d unchanged=%d skipped_non_texture=%d errors=%d"
+			% [updated, unchanged, skipped_non_texture, errors]
+		)
 		_print("Pass --apply to write normalized settings into .import files.")
-		_print("Set [params] import_profile = \"custom\" to opt a texture out of default normalization.")
 
 
 func _print(msg: String) -> void:
@@ -207,6 +200,5 @@ func _print_usage() -> void:
 	print()
 	print("Defaults:")
 	print("- Dry-run only unless --apply is provided")
-	print("- Scans all .import files under each root")
+	print("- Requires at least one explicit --root path")
 	print("- Skips .godot")
-	print("- Skips textures marked with [params] import_profile = \"custom\"")

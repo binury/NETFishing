@@ -5,11 +5,11 @@ const WATER_PLANE_EPSILON := 0.001
 const ENDPOINT_MERGE_TOLERANCE := 0.03
 const LOOP_CLOSURE_TOLERANCE := 0.06
 const MINIMUM_FRAGMENT_LENGTH := 2.0
-const SIMPLIFICATION_TOLERANCE := 0.20
-const SMOOTHING_ITERATIONS := 2
-const RESAMPLE_SPACING := 0.22
-const RIBBON_WIDTH := 0.85
-const LAND_INSET := 0.10
+const SIMPLIFICATION_TOLERANCE := 0.025
+const SMOOTHING_ITERATIONS := 0
+const RESAMPLE_SPACING := 0.10
+const RIBBON_WIDTH := 1.35
+const LAND_INSET := 0.12
 const SURFACE_OFFSET := 0.018
 
 
@@ -342,6 +342,11 @@ static func _build_mesh(
 	for path_data: Dictionary in paths:
 		var points: PackedVector2Array = path_data["points"]
 		var closed: bool = path_data["closed"]
+		var closed_water_side := (
+			_closed_path_water_side(points, water_is_inside)
+			if closed
+			else 0.0
+		)
 		var base_index := vertices.size()
 		var path_distance := 0.0
 		for index: int in points.size():
@@ -352,16 +357,39 @@ static func _build_mesh(
 			if not closed:
 				previous = points[maxi(index - 1, 0)]
 				following = points[mini(index + 1, points.size() - 1)]
-			var tangent := previous.direction_to(following)
-			var water_normal := Vector2(-tangent.y, tangent.x)
-			var toward_reference := points[index].direction_to(water_reference)
-			if (
-				(water_is_inside and water_normal.dot(toward_reference) < 0.0)
-				or (not water_is_inside and water_normal.dot(toward_reference) > 0.0)
-			):
-				water_normal = -water_normal
-			var land_point := points[index] - water_normal * LAND_INSET
-			var water_point := points[index] + water_normal * (RIBBON_WIDTH - LAND_INSET)
+			var point := points[index]
+			var incoming := previous.direction_to(point)
+			var outgoing := point.direction_to(following)
+			if incoming.is_zero_approx():
+				incoming = outgoing
+			if outgoing.is_zero_approx():
+				outgoing = incoming
+			var incoming_normal := Vector2(-incoming.y, incoming.x)
+			var outgoing_normal := Vector2(-outgoing.y, outgoing.x)
+			var water_normal := incoming_normal + outgoing_normal
+			if water_normal.is_zero_approx():
+				water_normal = outgoing_normal
+			water_normal = water_normal.normalized()
+			if closed:
+				water_normal *= closed_water_side
+			else:
+				var toward_reference := point.direction_to(water_reference)
+				if (
+					(water_is_inside and water_normal.dot(toward_reference) < 0.0)
+					or (not water_is_inside and water_normal.dot(toward_reference) > 0.0)
+				):
+					water_normal = -water_normal
+			var join_scale := minf(
+				1.0 / maxf(absf(water_normal.dot(outgoing_normal)), 0.55),
+				1.65,
+			)
+			var land_point := (
+				point - water_normal * LAND_INSET * join_scale
+			)
+			var water_point := (
+				point
+				+ water_normal * (RIBBON_WIDTH - LAND_INSET) * join_scale
+			)
 			vertices.append(Vector3(land_point.x, water_height + SURFACE_OFFSET, land_point.y))
 			vertices.append(Vector3(water_point.x, water_height + SURFACE_OFFSET, water_point.y))
 			normals.append(Vector3.UP)
@@ -386,6 +414,19 @@ static func _build_mesh(
 	if not vertices.is_empty():
 		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
 	return mesh
+
+
+static func _closed_path_water_side(
+	points: PackedVector2Array,
+	water_is_inside: bool,
+) -> float:
+	var signed_area_twice := 0.0
+	for index: int in points.size():
+		signed_area_twice += points[index].cross(
+			points[(index + 1) % points.size()]
+		)
+	var interior_side := 1.0 if signed_area_twice >= 0.0 else -1.0
+	return interior_side if water_is_inside else -interior_side
 
 
 static func _point_key(point: Vector2) -> Vector2i:

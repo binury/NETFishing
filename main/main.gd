@@ -91,6 +91,7 @@ const WorldWeatherServiceType = preload("res://world/world_weather_service.gd")
 const NetworkWorldWeatherServiceType = preload(
 	"res://network/network_world_weather_service.gd"
 )
+const RainAmbienceType = preload("res://world/rain_ambience.gd")
 const PlayerJobServiceType = preload("res://jobs/player_job_service.gd")
 const NetworkJobServiceType = preload("res://network/network_job_service.gd")
 
@@ -210,10 +211,15 @@ var _pending_existing_root_path := ""
 var _local_recovery_attempt_id: String = ""
 
 @onready var _shoreline_ambience: ShorelineAmbience = %ShorelineAmbience
+var _rain_ambience: RainAmbienceType
 
 
 func _ready() -> void:
 	DisplayServer.window_set_title("NETfishing")
+	_rain_ambience = RainAmbienceType.new()
+	_rain_ambience.name = "RainAmbience"
+	add_child(_rain_ambience)
+	_rain_ambience.configure(_world_weather)
 	_shoreline_ambience.configure(
 		_player,
 		_test_world.get_saltwater_shoreline_mesh(),
@@ -1096,7 +1102,16 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _process(_delta: float) -> void:
-	_game_ui.set_shop_prompt_visible(_can_show_shop_prompt())
+	var show_shop_prompt := _can_show_shop_prompt()
+	var shop_prompt_anchor := (
+		_shop_interaction.get_prompt_anchor_position()
+		if _shop_interaction != null
+		else Vector3.ZERO
+	)
+	_game_ui.set_shop_prompt_visible(
+		show_shop_prompt,
+		shop_prompt_anchor,
+	)
 
 
 func _apply_runtime_settings(settings: PlayerSettingsType) -> void:
@@ -1151,6 +1166,7 @@ func _reset_pixelation() -> void:
 func _set_gameplay_active(active: bool) -> void:
 	_gameplay_started = active
 	_shoreline_ambience.set_active(active)
+	_rain_ambience.set_active(active)
 	_title_background.visible = not active
 	_world_pixelation.set_gameplay_active(active)
 	_ui_pixelation.set_gameplay_active(active)

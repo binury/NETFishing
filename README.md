@@ -38,32 +38,6 @@ scripts/run_validations.sh quick
 Additional suites and individual commands are documented in
 [`docs/TESTING.md`](docs/TESTING.md).
 
-## Texture import normalization
-
-Texture import settings are cached in `.import` sidecars. To keep new textures
-consistent by default, normalize imported textures before committing:
-
-```sh
-./scripts/normalize_texture_profiles.sh
-```
-
-To normalize only a specific directory (for example environment textures):
-
-```sh
-./scripts/normalize_texture_profiles.sh res://art/exported/environment/textures
-```
-
-The script enforces a single baseline texture profile by default and sets
-`import_profile = "managed_default"` in `[params]`. If any texture needs
-custom settings, set:
-
-```ini
-[params]
-import_profile="custom"
-```
-
-in its `.import` file to opt it out.
-
 ## Building
 
 Export presets are maintained for Linux, Windows, and Android. Repository

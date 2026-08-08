@@ -5,15 +5,15 @@
 [resource]
 render_priority = 1
 shader = ExtResource("1_shader")
-shader_parameter/lead_color = Color(0.619608, 0.87451, 0.854902, 1)
-shader_parameter/trail_color = Color(0.431373, 0.780392, 0.768627, 1)
-shader_parameter/ribbon_width = 0.85
-shader_parameter/land_inset = 0.1
+shader_parameter/lead_color = Color(0.78, 0.96, 0.93, 1)
+shader_parameter/trail_color = Color(0.5, 0.84, 0.82, 1)
+shader_parameter/ribbon_width = 1.35
+shader_parameter/land_inset = 0.12
 shader_parameter/tide_speed = 1.42
-shader_parameter/tide_distance = 0.3
-shader_parameter/lead_width = 0.065
-shader_parameter/trail_width = 0.18
-shader_parameter/lead_strength = 0.48
-shader_parameter/trail_strength = 0.25
+shader_parameter/tide_distance = 0.42
+shader_parameter/lead_width = 0.14
+shader_parameter/trail_width = 0.32
+shader_parameter/lead_strength = 0.88
+shader_parameter/trail_strength = 0.52
 shader_parameter/phase_scale = 0.035
 shader_parameter/phase_strength = 0.55

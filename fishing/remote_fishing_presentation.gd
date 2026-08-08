@@ -1,6 +1,10 @@
 class_name RemoteFishingPresentation
 extends Node3D
 
+const WaterSurfaceMotionType = preload(
+	"res://world/water_surface_motion.gd"
+)
+
 signal return_completed
 
 var _owner: Player
@@ -140,6 +144,10 @@ func _set_cast_sample(
 ) -> void:
 	_target = start.lerp(target, progress)
 	_target.y += sin(progress * PI) * 2.0
+	_target.y += (
+		WaterSurfaceMotionType.get_default_height_offset()
+		* smoothstep(0.72, 1.0, progress)
+	)
 	_bobber.global_position = _target
 
 
@@ -152,7 +160,10 @@ func _on_cast_finished() -> void:
 
 func _apply_bobber_idle_motion() -> void:
 	var phase: float = _bobber_idle_elapsed * 0.7 * TAU
-	_target = _pending_target + Vector3.UP * sin(phase) * 0.035
+	_target = _pending_target + Vector3.UP * (
+		WaterSurfaceMotionType.get_default_height_offset()
+		+ sin(phase) * 0.035
+	)
 	_bobber.global_position = _target
 	_bobber.rotation.z = deg_to_rad(4.0) * sin(phase * 0.73)
 

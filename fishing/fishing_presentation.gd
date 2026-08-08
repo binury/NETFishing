@@ -1,6 +1,10 @@
 class_name FishingPresentation
 extends Node3D
 
+const WaterSurfaceMotionType = preload(
+	"res://world/water_surface_motion.gd"
+)
+
 signal cast_completed
 signal outcome_completed(outcome: StringName)
 signal presentation_interrupted
@@ -52,6 +56,7 @@ var _rod: Node3D
 var _rod_tip: Marker3D
 var _rod_neutral_rotation: Vector3
 var _cast_arrival_position: Vector3
+var _cast_tracks_water_surface: bool = false
 var _bobber_surface_position: Vector3
 var _bobber_idle_elapsed: float = 0.0
 var _active_tween: Tween
@@ -68,6 +73,9 @@ func _process(delta: float) -> void:
 	if _mode == VisualMode.FISHING and _bobber.visible:
 		_bobber_idle_elapsed += delta
 		_apply_bobber_idle_motion()
+		var bobber_position := _bobber.global_position
+		bobber_position.y += WaterSurfaceMotionType.get_default_height_offset()
+		_bobber.global_position = bobber_position
 	if _line_mode != LineMode.HIDDEN:
 		_update_line(delta)
 
@@ -154,6 +162,7 @@ func begin_cast(
 	_cast_arrival_position = (
 		blocked_landing_position if cast_is_blocked else target
 	)
+	_cast_tracks_water_surface = not cast_is_blocked
 
 	var cast_start: Vector3 = _rod_tip.global_position
 	_bobber.global_position = cast_start
@@ -289,6 +298,7 @@ func cleanup() -> void:
 	_bobber.scale = Vector3.ONE
 	_bobber.rotation = Vector3.ZERO
 	_cast_arrival_position = Vector3.ZERO
+	_cast_tracks_water_surface = false
 	_bobber_surface_position = Vector3.ZERO
 	_bobber_idle_elapsed = 0.0
 	set_line_mode(LineMode.HIDDEN)
@@ -306,6 +316,11 @@ func _set_cast_sample(
 ) -> void:
 	var sample: Vector3 = start.lerp(target, progress)
 	sample.y += sin(progress * PI) * cast_arc_height
+	if _cast_tracks_water_surface:
+		sample.y += (
+			WaterSurfaceMotionType.get_default_height_offset()
+			* smoothstep(0.72, 1.0, progress)
+		)
 	_bobber.global_position = sample
 
 

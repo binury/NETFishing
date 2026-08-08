@@ -4,6 +4,9 @@ extends RefCounted
 const FishableWaterRegionType = preload(
 	"res://world/fishable_water_region.gd"
 )
+const WaterSurfaceMotionType = preload(
+	"res://world/water_surface_motion.gd"
+)
 
 var has_surface: bool = false
 var position: Vector3 = Vector3.ZERO
@@ -19,7 +22,12 @@ func is_fishable() -> bool:
 func get_marker_position(vertical_offset: float) -> Vector3:
 	if not has_surface:
 		return position
-	return position + normal.normalized() * vertical_offset
+	var presentation_offset := vertical_offset
+	if is_water_surface:
+		presentation_offset += (
+			WaterSurfaceMotionType.get_default_height_offset()
+		)
+	return position + normal.normalized() * presentation_offset
 
 
 func get_bobber_position(solid_clearance: float) -> Vector3:

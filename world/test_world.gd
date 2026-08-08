@@ -57,10 +57,6 @@ func get_fishable_water_regions() -> Array[FishableWaterRegion]:
 	return waters
 
 
-func get_pelican_convenience_landmark() -> Node3D:
-	return _starter_island.get_pelican_landmark()
-
-
 func get_saltwater_shoreline_mesh() -> MeshInstance3D:
 	return _starter_island.get_saltwater_shoreline_mesh()
 
