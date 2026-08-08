@@ -19,6 +19,7 @@ var _return_tween: Tween
 var _showcase_tween: Tween
 var _return_showcase_catch: FishCatch
 var _bobber_idle_elapsed: float = 0.0
+var _bobber_base_scale: Vector3 = Vector3.ONE
 
 
 func setup(owning_player: Player) -> void:
@@ -52,11 +53,12 @@ func show_cast(origin: Vector3, target: Vector3) -> void:
 		return
 	_kill_cast_tween()
 	_active = true
+	_bobber_base_scale = Vector3.ONE * _owner.get_character_visual_scale()
 	_target = origin
 	_pending_target = target
 	_bobber_idle_elapsed = 0.0
 	_bobber.global_position = origin
-	_bobber.scale = Vector3.ONE
+	_bobber.scale = _bobber_base_scale
 	_bobber.visible = true
 	_line.visible = true
 	_owner.set_active_item_is_rod(true)
@@ -87,12 +89,16 @@ func update_bobber(world_position: Vector3) -> void:
 func show_bite() -> void:
 	if not _active:
 		return
+	if _owner != null and is_instance_valid(_owner):
+		_owner.set_fighting_visual(true)
 	var tween: Tween = create_tween()
-	tween.tween_property(_bobber, "scale", Vector3.ONE * 0.7, 0.08)
-	tween.tween_property(_bobber, "scale", Vector3.ONE, 0.12)
+	tween.tween_property(_bobber, "scale", _bobber_base_scale * 0.7, 0.08)
+	tween.tween_property(_bobber, "scale", _bobber_base_scale, 0.12)
 
 
 func play_return(showcase_catch: FishCatch = null) -> void:
+	if _owner != null and is_instance_valid(_owner):
+		_owner.set_fighting_visual(false)
 	if not _active or _bobber == null:
 		cleanup()
 		return_completed.emit()
@@ -128,10 +134,12 @@ func cleanup() -> void:
 	_return_showcase_catch = null
 	_bobber_idle_elapsed = 0.0
 	if _owner != null and is_instance_valid(_owner):
+		_owner.set_fighting_visual(false)
 		_owner.end_catch_showcase(Callable(), true)
 	if _bobber != null:
 		_bobber.visible = false
 		_bobber.scale = Vector3.ONE
+	_bobber_base_scale = Vector3.ONE
 	if _line != null:
 		_line.visible = false
 	_line_mesh.clear_surfaces()

@@ -41,6 +41,7 @@ const CHARACTER_IDLE_SIT_ANIMATION: StringName = &"idle_sit"
 const CHARACTER_IDLE_SIT_SHOW_ANIMATION: StringName = &"idle_sit_show"
 const CHARACTER_WALKING_ANIMATION: StringName = &"walking"
 const CHARACTER_WALKING_SHOW_ANIMATION: StringName = &"walking_show"
+const FIGHTING_EYES_ID: String = "alligator_eyes"
 const BASE_REEL_SPEED: float = 0.16
 # The target Android handheld exposes its physical right trigger through
 # Godot's left-trigger axis. Keep the role named here so the platform mapping
@@ -75,7 +76,33 @@ func unequip_bait() -> void:
 func apply_appearance_snapshot(snapshot: Dictionary) -> void:
 	if CharacterCustomizationCatalog.validate_snapshot(snapshot):
 		appearance_snapshot = snapshot.duplicate(true)
-		PlayerVisualPresenter.apply_appearance(_visuals, appearance_snapshot)
+		_apply_presented_appearance()
+
+
+func get_character_visual_scale() -> float:
+	return CharacterCustomizationCatalog.character_scale(
+		appearance_snapshot.get(
+			CharacterCustomizationCatalog.SCALE_CATEGORY_ID,
+			CharacterCustomizationCatalog.DEFAULT_CHARACTER_SCALE,
+		)
+	)
+
+
+func set_fighting_visual(active: bool) -> void:
+	if _fighting_visual_active == active:
+		return
+	_fighting_visual_active = active
+	_apply_presented_appearance()
+
+
+func _apply_presented_appearance() -> void:
+	if not is_node_ready() or _visuals == null:
+		return
+	var presented_appearance := appearance_snapshot
+	if _fighting_visual_active:
+		presented_appearance = appearance_snapshot.duplicate(true)
+		presented_appearance["eyes"] = FIGHTING_EYES_ID
+	PlayerVisualPresenter.apply_appearance(_visuals, presented_appearance)
 
 
 func apply_animalese_voice_id(voice_id: String) -> void:
@@ -218,6 +245,7 @@ var _sitting_intent_pending: bool = false
 var _sitting_intent_sequence: int = -1
 var _held_fish_visible: bool = false
 var _showcase_animation_active: bool = false
+var _fighting_visual_active: bool = false
 var _fishing_rod: Node3D
 var _fishing_rod_tip: Marker3D
 var _controller_mapping_manager: ControllerMappingManagerType
@@ -226,7 +254,7 @@ var _controller_mapping_manager: ControllerMappingManagerType
 func _ready() -> void:
 	if not bag.contents_changed.is_connected(_on_bag_contents_changed):
 		bag.contents_changed.connect(_on_bag_contents_changed)
-	PlayerVisualPresenter.apply_appearance(_visuals, appearance_snapshot)
+	_apply_presented_appearance()
 	_initialize_fishing_rod()
 	_target_zoom = clampf(_spring_arm.spring_length, minimum_zoom, maximum_zoom)
 	_spring_arm.spring_length = _target_zoom

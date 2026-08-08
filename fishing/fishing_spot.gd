@@ -609,7 +609,8 @@ func _begin_aiming(player: PlayerType) -> void:
 		_active_player.get_fishing_rod(),
 		preview_position,
 		_aim_surface_sample.normal,
-		target_is_fishable
+		target_is_fishable,
+		_active_player.get_character_visual_scale(),
 	)
 
 
@@ -952,6 +953,7 @@ func _activate_bite() -> void:
 		return
 
 	state = FishingState.FIGHTING
+	_active_player.set_fighting_visual(true)
 	_state_time_remaining = 0.0
 	_withdrawal_input_held = false
 	_pending_catch = _fish_selector.create_catch(_selected_fish)
@@ -1040,6 +1042,7 @@ func _on_catch_completed() -> void:
 		_cancel_attempt()
 		return
 	_stop_fight_audio()
+	_active_player.set_fighting_visual(false)
 	state = FishingState.SHOWING_CATCH
 	_showcase_ready = false
 	_showcase_outcome_completed = false
@@ -1162,6 +1165,8 @@ func _cleanup_attempt(
 ) -> void:
 	_stop_fight_audio()
 	_stop_reeling_audio()
+	if _active_player != null:
+		_active_player.set_fighting_visual(false)
 	if not visual_outcome.is_empty():
 		if state == FishingState.RETURNING:
 			return
@@ -1190,6 +1195,7 @@ func _cleanup_attempt(
 func _finalize_attempt_cleanup(cooldown_message: String) -> void:
 	_showcase_restore_generation += 1
 	if _active_player != null:
+		_active_player.set_fighting_visual(false)
 		_active_player.end_catch_showcase()
 		_active_player.set_movement_enabled(true)
 	_active_player = null
@@ -1477,6 +1483,8 @@ func _on_network_bite_started(_attempt_id: String) -> void:
 		return
 	_stop_reeling_audio()
 	state = FishingState.FIGHTING
+	if _active_player != null:
+		_active_player.set_fighting_visual(true)
 	_withdrawal_input_held = false
 	_network_primary_input_held = Input.is_action_pressed("fish_primary")
 	_network_input_resend_elapsed = 0.0
@@ -1567,6 +1575,8 @@ func _on_network_catch_received(fish_catch: FishCatchType) -> void:
 		return
 	_stop_fight_audio()
 	_pending_catch = fish_catch
+	if _active_player != null:
+		_active_player.set_fighting_visual(false)
 	state = FishingState.SHOWING_CATCH
 	_showcase_ready = false
 	_showcase_outcome_completed = false

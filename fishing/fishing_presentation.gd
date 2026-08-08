@@ -59,6 +59,7 @@ var _cast_arrival_position: Vector3
 var _cast_tracks_water_surface: bool = false
 var _bobber_surface_position: Vector3
 var _bobber_idle_elapsed: float = 0.0
+var _bobber_base_scale: Vector3 = Vector3.ONE
 var _active_tween: Tween
 var _rod_tween: Tween
 var _bite_tween: Tween
@@ -94,11 +95,13 @@ func begin_aim(
 	minimum_target: Vector3,
 	target_normal: Vector3,
 	target_is_fishable: bool,
+	character_scale: float = 1.0,
 ) -> void:
 	cleanup()
 	if rod_tip == null or rod == null:
 		return
 
+	_bobber_base_scale = Vector3.ONE * maxf(character_scale, 0.01)
 	_mode = VisualMode.AIMING
 	_rod = rod
 	_rod_tip = rod_tip
@@ -158,7 +161,7 @@ func begin_cast(
 	_mode = VisualMode.CASTING
 	_target_marker.visible = false
 	_bobber.visible = true
-	_bobber.scale = Vector3.ONE
+	_bobber.scale = _bobber_base_scale
 	_cast_arrival_position = (
 		blocked_landing_position if cast_is_blocked else target
 	)
@@ -188,26 +191,26 @@ func show_bite() -> void:
 		return
 
 	_kill_bite_tween()
-	_bobber.scale = Vector3.ONE
+	_bobber.scale = _bobber_base_scale
 	_bite_tween = create_tween()
 	_bite_tween.set_trans(Tween.TRANS_QUAD)
 	_bite_tween.set_ease(Tween.EASE_IN_OUT)
 	_bite_tween.tween_property(
 		_bobber,
 		"scale",
-		Vector3.ONE * 0.68,
+		_bobber_base_scale * 0.68,
 		0.08
 	)
 	_bite_tween.tween_property(
 		_bobber,
 		"scale",
-		Vector3.ONE * 1.2,
+		_bobber_base_scale * 1.2,
 		0.1
 	)
 	_bite_tween.tween_property(
 		_bobber,
 		"scale",
-		Vector3.ONE,
+		_bobber_base_scale,
 		0.1
 	)
 	_bite_tween.finished.connect(_on_bite_tween_finished)
@@ -247,7 +250,7 @@ func play_outcome(outcome: StringName) -> void:
 		# Withdrawal is a visible return, not an instant cancellation. Keep the
 		# bobber present even if the preceding reel update hid or reset it.
 		_bobber.visible = true
-		_bobber.scale = Vector3.ONE
+		_bobber.scale = _bobber_base_scale
 	_active_tween = create_tween()
 	_active_tween.set_trans(Tween.TRANS_QUAD)
 	_active_tween.set_ease(Tween.EASE_IN)
@@ -296,6 +299,7 @@ func cleanup() -> void:
 	_invalid_target_marker.visible = false
 	_bobber.visible = false
 	_bobber.scale = Vector3.ONE
+	_bobber_base_scale = Vector3.ONE
 	_bobber.rotation = Vector3.ZERO
 	_cast_arrival_position = Vector3.ZERO
 	_cast_tracks_water_surface = false
@@ -475,7 +479,7 @@ func _kill_bite_tween() -> void:
 		_bite_tween.kill()
 	_bite_tween = null
 	if is_instance_valid(_bobber):
-		_bobber.scale = Vector3.ONE
+		_bobber.scale = _bobber_base_scale
 
 
 func _on_bite_tween_finished() -> void:
