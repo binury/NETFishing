@@ -19,6 +19,8 @@ func _run() -> void:
 	await process_frame
 	var failure: String = _validate_manager(manager)
 	if failure.is_empty():
+		failure = _validate_portmaster_launcher()
+	if failure.is_empty():
 		failure = _validate_auto_map(manager)
 	if failure.is_empty():
 		failure = _validate_virtual_mouse_bounds()
@@ -40,19 +42,19 @@ func _validate_manager(manager: ControllerMappingManagerType) -> String:
 		)
 	)
 	for expected_binding: String in [
-		"a:b4",
-		"b:b3",
-		"x:b5",
-		"y:b6",
-		"leftshoulder:b7",
-		"rightshoulder:b8",
-		"lefttrigger:b13",
-		"righttrigger:b14",
-		"back:b9",
-		"start:b10",
-		"guide:b11",
-		"leftstick:b12",
-		"rightstick:b15",
+		"a:b0",
+		"b:b1",
+		"x:b3",
+		"y:b2",
+		"leftshoulder:b4",
+		"rightshoulder:b5",
+		"lefttrigger:b10",
+		"righttrigger:b11",
+		"back:b6",
+		"start:b7",
+		"guide:b8",
+		"leftstick:b9",
+		"rightstick:b12",
 		"leftx:a0",
 		"righty:a3",
 	]:
@@ -79,7 +81,7 @@ func _validate_manager(manager: ControllerMappingManagerType) -> String:
 		"muOS-Keys",
 		true,
 	):
-		return "recognized muOS controller would override its SDL mapping"
+		return "recognized muOS controller would be replaced at runtime"
 	if ControllerMappingManagerType.should_install_muos_compatibility_mapping(
 		"ordinary controller",
 		false,
@@ -194,6 +196,30 @@ func _validate_manager(manager: ControllerMappingManagerType) -> String:
 	return ""
 
 
+func _validate_portmaster_launcher() -> String:
+	const launcher_path: String = "res://scripts/portmaster/NETfishing.sh"
+	if not FileAccess.file_exists(launcher_path):
+		return "PortMaster launcher template is missing"
+	var launcher: String = FileAccess.get_file_as_string(launcher_path)
+	for expected_fragment: String in [
+		"19004ca6010000000100000000010000",
+		"19000000010000000100000000010000",
+		"a:b0,b:b1,x:b3,y:b2",
+		"leftshoulder:b4,rightshoulder:b5",
+		"lefttrigger:b10,righttrigger:b11",
+		"guide:b8,start:b7,back:b6",
+		"leftstick:b9",
+		"rightstick:b12",
+		"netfishing_controllerconfig=\"$GODOT_MUOS_MAPPING\"",
+		"SDL_GAMECONTROLLERCONFIG=\"$netfishing_controllerconfig\" \\",
+	]:
+		if expected_fragment not in launcher:
+			return "PortMaster launcher omitted " + expected_fragment
+	if "$'\\n'" in launcher:
+		return "PortMaster launcher appends mappings across a Weston-unsafe newline"
+	return ""
+
+
 func _validate_auto_map(manager: ControllerMappingManagerType) -> String:
 	var panel := ControllerMappingPanelType.new()
 	root.add_child(panel)
@@ -258,13 +284,35 @@ func _validate_auto_map(manager: ControllerMappingManagerType) -> String:
 		return "manual remapping still dictates a specific physical input"
 	if "any button" not in panel._progress_label.text.to_lower():
 		return "manual remapping does not request a generic controller input"
-	var cancel_button := InputEventJoypadButton.new()
-	cancel_button.device = manager.get_active_device_id()
-	cancel_button.button_index = JOY_BUTTON_B
-	cancel_button.pressed = true
-	manager.controller_input_observed.emit(cancel_button)
-	if panel.is_capturing():
-		return "mapped controller back input did not cancel capture"
+	panel._cancel_capture()
+	panel._begin_auto_map()
+	panel._process(ControllerMappingPanelType.CAPTURE_NEUTRAL_SECONDS)
+	var lone_button := InputEventJoypadButton.new()
+	lone_button.device = manager.get_active_device_id()
+	lone_button.button_index = JOY_BUTTON_B
+	lone_button.pressed = true
+	manager.controller_input_observed.emit(lone_button)
+	if not panel._auto_map_active or panel._auto_map_index != 1:
+		return "a single controller button cancelled auto-map"
+	panel._cancel_capture()
+	panel._begin_auto_map()
+	panel._process(ControllerMappingPanelType.CAPTURE_NEUTRAL_SECONDS)
+	var left_bumper := InputEventJoypadButton.new()
+	left_bumper.device = manager.get_active_device_id()
+	left_bumper.button_index = JOY_BUTTON_LEFT_SHOULDER
+	left_bumper.pressed = true
+	manager.controller_input_observed.emit(left_bumper)
+	var right_bumper := InputEventJoypadButton.new()
+	right_bumper.device = manager.get_active_device_id()
+	right_bumper.button_index = JOY_BUTTON_RIGHT_SHOULDER
+	right_bumper.pressed = true
+	manager.controller_input_observed.emit(right_bumper)
+	panel._process(ControllerMappingPanelType.CANCEL_COMBO_HOLD_SECONDS - 0.01)
+	if not panel._auto_map_active:
+		return "bumper combo cancelled auto-map before the hold threshold"
+	panel._process(0.02)
+	if panel._auto_map_active or panel.is_capturing():
+		return "sustained bumper combo did not cancel auto-map"
 	panel._begin_auto_map()
 	panel._process(ControllerMappingPanelType.CAPTURE_NEUTRAL_SECONDS)
 	var held_left := InputEventJoypadMotion.new()

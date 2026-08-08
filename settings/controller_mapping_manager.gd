@@ -13,19 +13,19 @@ const MAX_PROFILE_BYTES: int = 1024 * 1024
 const CAPTURE_AXIS_THRESHOLD: float = 0.55
 const CAPTURE_AXIS_RELEASE_THRESHOLD: float = 0.30
 const ACTIVE_DEVICE_AXIS_THRESHOLD: float = 0.35
-const MUOS_MAPPING_REVISION: String = "muos-v3"
+const MUOS_MAPPING_REVISION: String = "muos-v4"
 const MUOS_CONTROLLER_NAMES: Array[String] = [
 	"muOS-Keys",
 	"Deeplay-keys",
 ]
 const MUOS_MAPPING_BINDINGS: String = (
-	"a:b4,b:b3,x:b5,y:b6,"
-	+ "leftshoulder:b7,rightshoulder:b8,"
-	+ "lefttrigger:b13,righttrigger:b14,"
-	+ "guide:b11,start:b10,back:b9,"
+	"a:b0,b:b1,x:b3,y:b2,"
+	+ "leftshoulder:b4,rightshoulder:b5,"
+	+ "lefttrigger:b10,righttrigger:b11,"
+	+ "guide:b8,start:b7,back:b6,"
 	+ "dpup:h0.1,dpleft:h0.8,dpright:h0.2,dpdown:h0.4,"
-	+ "leftx:a0,lefty:a1,leftstick:b12,"
-	+ "rightx:a2,righty:a3,rightstick:b15,platform:Linux,"
+	+ "leftx:a0,lefty:a1,leftstick:b9,"
+	+ "rightx:a2,righty:a3,rightstick:b12,platform:Linux,"
 )
 const ROLE_A: StringName = &"a"
 const ROLE_B: StringName = &"b"
@@ -739,8 +739,8 @@ static func should_install_muos_compatibility_mapping(
 	controller_name: String,
 	is_known: bool,
 ) -> bool:
-	# Current SDL databases should remain authoritative. This fallback exists
-	# only for legacy muOS virtual controllers that SDL cannot identify.
+	# Never update an already-recognized virtual controller at runtime. Godot
+	# can stop delivering its standardized input events after that replacement.
 	return is_muos_controller_name(controller_name) and not is_known
 
 

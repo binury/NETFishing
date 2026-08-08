@@ -8,6 +8,7 @@ const ControllerMappingManagerType = preload(
 )
 const UtilityPageStyleType = preload("res://ui/utility_page_style.gd")
 const CAPTURE_NEUTRAL_SECONDS: float = 0.22
+const CANCEL_COMBO_HOLD_SECONDS: float = 1.25
 
 var _mapping_manager: ControllerMappingManagerType
 var _binding_buttons: Dictionary = {}
@@ -24,6 +25,9 @@ var _auto_map_draft: Dictionary = {}
 var _capture_device_id: int = 0
 var _waiting_for_neutral: bool = false
 var _neutral_elapsed: float = 0.0
+var _cancel_left_bumper_pressed: bool = false
+var _cancel_right_bumper_pressed: bool = false
+var _cancel_combo_elapsed: float = 0.0
 
 
 func _ready() -> void:
@@ -112,6 +116,14 @@ func _process(delta: float) -> void:
 		or _capturing_role.is_empty()
 	):
 		return
+	if _cancel_left_bumper_pressed and _cancel_right_bumper_pressed:
+		_cancel_combo_elapsed += delta
+		_progress_label.text = "keep holding both bumpers to cancel"
+		if _cancel_combo_elapsed >= CANCEL_COMBO_HOLD_SECONDS:
+			_cancel_capture()
+			_progress_label.text = "controller mapping cancelled"
+		return
+	_cancel_combo_elapsed = 0.0
 	if _waiting_for_neutral:
 		if not _mapping_manager.are_capture_inputs_neutral(_capture_device_id):
 			_neutral_elapsed = 0.0
@@ -152,18 +164,7 @@ func _on_controller_input_observed(event: InputEvent) -> void:
 		return
 	if event_device != _capture_device_id:
 		return
-	if (
-		button_event != null
-		and button_event.pressed
-		and _capturing_role != ControllerMappingManagerType.ROLE_B
-		and _mapping_manager.event_matches_role(
-			event,
-			ControllerMappingManagerType.ROLE_B,
-		)
-	):
-		_cancel_capture()
-		_progress_label.text = "controller mapping cancelled"
-		return
+	_track_cancel_combo_button(button_event)
 	if _waiting_for_neutral:
 		return
 	_try_capture_event(event)
@@ -332,6 +333,7 @@ func _begin_auto_map() -> void:
 	_auto_map_active = true
 	_auto_map_index = 0
 	_auto_map_draft = {}
+	_reset_cancel_combo()
 	_capture_device_id = _mapping_manager.get_active_device_id()
 	_set_capture_role(ControllerMappingManagerType.ROLE_ORDER[_auto_map_index])
 
@@ -340,6 +342,7 @@ func _begin_manual_capture(role: StringName) -> void:
 	_auto_map_active = false
 	_auto_map_index = -1
 	_auto_map_draft.clear()
+	_reset_cancel_combo()
 	_capture_device_id = _mapping_manager.get_active_device_id()
 	_set_capture_role(role)
 
@@ -356,10 +359,14 @@ func _refresh_capture_prompt() -> void:
 	if _capturing_role.is_empty():
 		return
 	if _auto_map_active:
-		_progress_label.text = "step %d of %d: %s" % [
+		_progress_label.text = (
+			"step %d of %d: %s\n"
+			+ "hold both bumpers for %.2f seconds to cancel"
+		) % [
 			_auto_map_index + 1,
 			ControllerMappingManagerType.ROLE_ORDER.size(),
 			_mapping_manager.get_role_prompt(_capturing_role),
+			CANCEL_COMBO_HOLD_SECONDS,
 		]
 		return
 	var input_instruction: String = "press any controller button"
@@ -408,9 +415,32 @@ func _cancel_capture() -> void:
 	_auto_map_draft.clear()
 	_waiting_for_neutral = false
 	_neutral_elapsed = 0.0
+	_reset_cancel_combo()
 	_set_action_buttons_disabled(false)
 	if _progress_label != null:
 		_progress_label.text = ""
+
+
+func _track_cancel_combo_button(button_event: InputEventJoypadButton) -> void:
+	if button_event == null:
+		return
+	match button_event.button_index:
+		JOY_BUTTON_LEFT_SHOULDER:
+			_cancel_left_bumper_pressed = button_event.pressed
+		JOY_BUTTON_RIGHT_SHOULDER:
+			_cancel_right_bumper_pressed = button_event.pressed
+		_:
+			return
+	if not (
+		_cancel_left_bumper_pressed and _cancel_right_bumper_pressed
+	):
+		_cancel_combo_elapsed = 0.0
+
+
+func _reset_cancel_combo() -> void:
+	_cancel_left_bumper_pressed = false
+	_cancel_right_bumper_pressed = false
+	_cancel_combo_elapsed = 0.0
 
 
 func _set_action_buttons_disabled(disabled: bool) -> void:
