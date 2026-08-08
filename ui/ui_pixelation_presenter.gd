@@ -5,6 +5,13 @@ const MIN_UI_VIEWPORT_SIZE: Vector2i = Vector2i(256, 180)
 const UIReferencePresentationType = preload(
 	"res://ui/ui_reference_presentation.gd"
 )
+const ControllerFocusPresentationType = preload(
+	"res://ui/controller_focus_presentation.gd"
+)
+const ControllerFocusRecoveryType = preload(
+	"res://ui/controller_focus_recovery.gd"
+)
+const OnScreenKeyboardType = preload("res://ui/on_screen_keyboard.gd")
 
 signal effective_pixel_size_changed(
 	requested_pixel_size: int,
@@ -16,6 +23,9 @@ signal effective_pixel_size_changed(
 @onready var _canonical_stage: Control = (
 	$UIViewport/GameUI/UIRoot/CanonicalStage
 )
+@onready var _hotbar: HotbarUI = (
+	$UIViewport/GameUI/UIRoot/CanonicalStage/Hotbar
+)
 @onready var _chat_ui: ChatUI = $UIViewport/GameUI/UIRoot/ChatUI
 @onready var _title_content_stage: Control = (
 	$UIViewport/GameUI/UIRoot/TitleScreen/ResponsiveTitleStage
@@ -26,12 +36,23 @@ var _effective_pixel_size: int = PlayerSettings.DEFAULT_UI_PIXEL_SIZE
 var _gameplay_active: bool = false
 var _interactive_ui_open: bool = false
 var _passive_pointer_ui_enabled: bool = false
+var _on_screen_keyboard: OnScreenKeyboardType
 
 
 func _ready() -> void:
+	_on_screen_keyboard = OnScreenKeyboardType.new()
+	_ui_root.add_child(_on_screen_keyboard)
+	var controller_focus_recovery := ControllerFocusRecoveryType.new()
+	_ui_root.add_child(controller_focus_recovery)
+	var controller_focus_presentation := ControllerFocusPresentationType.new()
+	_ui_root.add_child(controller_focus_presentation)
 	var root_viewport: Viewport = get_viewport()
 	root_viewport.size_changed.connect(_resize_presentation)
 	_resize_presentation()
+
+
+func set_on_screen_keyboard_enabled(enabled: bool) -> void:
+	_on_screen_keyboard.set_enabled(enabled)
 
 
 func set_pixel_size(pixel_size: int) -> void:
@@ -120,6 +141,7 @@ func _resize_presentation() -> void:
 		UIReferencePresentationType.get_stage_position(display_size)
 	)
 	_canonical_stage.size = UIReferencePresentationType.REFERENCE_SIZE
+	_hotbar.position = Vector2(0.0, _canonical_stage.position.y)
 	_title_content_stage.set_anchors_preset(Control.PRESET_TOP_LEFT)
 	_title_content_stage.position = _canonical_stage.position
 	_title_content_stage.size = UIReferencePresentationType.REFERENCE_SIZE

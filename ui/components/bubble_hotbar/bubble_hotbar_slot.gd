@@ -56,6 +56,8 @@ var _base_position: Vector2 = Vector2.ZERO
 var _presented_size: Vector2 = Vector2.ZERO
 var _compact: bool = false
 var _presentation_initialized: bool = false
+var _controller_preview_active: bool = false
+var _controller_preview_texture: Texture2D
 
 
 func _ready() -> void:
@@ -146,6 +148,15 @@ func set_drag_enabled(enabled: bool) -> void:
 		_hovered = false
 
 
+func set_controller_placement_preview(
+	active: bool,
+	texture: Texture2D,
+) -> void:
+	_controller_preview_active = active
+	_controller_preview_texture = texture
+	refresh()
+
+
 func refresh() -> void:
 	if _hotbar == null:
 		return
@@ -161,10 +172,15 @@ func refresh() -> void:
 		if _fish_inventory != null and not catch_id.is_empty()
 		else null
 	)
-	_item_icon.texture = (
+	var assigned_texture: Texture2D = (
 		fish_catch.fish.display_texture
 		if fish_catch != null
 		else item.icon if item != null else null
+	)
+	_item_icon.texture = (
+		_controller_preview_texture
+		if _controller_preview_active
+		else assigned_texture
 	)
 	var quantity: int = (
 		_bag.get_quantity(item_id)
@@ -177,7 +193,9 @@ func refresh() -> void:
 		else ""
 	)
 	_quantity_label.text = quantity_text
-	_quantity_label.visible = not quantity_text.is_empty()
+	_quantity_label.visible = (
+		not _controller_preview_active and not quantity_text.is_empty()
+	)
 	tooltip_text = (
 		"%s · %.1f lb" % [
 			FishQualityType.qualified_name(
@@ -192,7 +210,11 @@ func refresh() -> void:
 	var was_selected: bool = _selected
 	var was_empty: bool = _empty
 	_selected = slot_index == _hotbar.get_selected_slot()
-	_empty = item == null and fish_catch == null
+	_empty = (
+		not _controller_preview_active
+		and item == null
+		and fish_catch == null
+	)
 	if was_selected != _selected or was_empty != _empty:
 		_apply_style()
 
@@ -220,7 +242,9 @@ func _apply_style() -> void:
 	var normal_fill: Color = profile.normal_fill
 	normal_fill.a = 1.0
 	var selected_fill: Color = normal_fill
-	if _selected:
+	if _controller_preview_active:
+		selected_fill = normal_fill.lightened(0.22)
+	elif _selected:
 		selected_fill = normal_fill.lightened(0.12)
 	add_theme_stylebox_override(
 		"normal",

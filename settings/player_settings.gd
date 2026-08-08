@@ -27,6 +27,7 @@ const UI_COMPACT_RENDER_HEIGHTS: Array[int] = [0, 408, 336, 264, 192]
 @export_range(0.001, 0.012, 0.0005) var mouse_camera_sensitivity: float = 0.005
 @export_range(0.5, 5.0, 0.1) var controller_camera_sensitivity: float = 2.5
 @export var invert_camera_y: bool = false
+@export var on_screen_keyboard_enabled: bool = false
 @export var chat_draft: String = ""
 @export var chat_collapsed: bool = false
 @export var chat_dock_right: bool = false
@@ -63,6 +64,7 @@ func copy() -> PlayerSettings:
 	result.mouse_camera_sensitivity = mouse_camera_sensitivity
 	result.controller_camera_sensitivity = controller_camera_sensitivity
 	result.invert_camera_y = invert_camera_y
+	result.on_screen_keyboard_enabled = on_screen_keyboard_enabled
 	result.chat_draft = chat_draft
 	result.chat_collapsed = chat_collapsed
 	result.chat_dock_right = chat_dock_right

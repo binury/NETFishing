@@ -608,6 +608,10 @@ func _prepare_awaiting_start_input() -> void:
 	_navigation_focus_active = false
 	_modal_restore_navigation_focus = false
 	_button_center.show()
+	var bubble_field := get_node_or_null("%BubbleField") as Control
+	if bubble_field != null:
+		bubble_field.hide()
+	call_deferred("set_process", visible)
 	_feedback_label.show()
 	_feedback_label.modulate.a = 0.0
 	_continue_stats_hovered = false
@@ -650,6 +654,10 @@ func _reveal_primary_menu() -> void:
 	):
 		return
 	_awaiting_start_input = false
+	_button_center.show()
+	var bubble_field := get_node_or_null("%BubbleField") as Control
+	if bubble_field != null:
+		bubble_field.show()
 	_stop_entry_prompt_animation()
 	_title_entry_generation += 1
 	_title_entry_transition_active = true

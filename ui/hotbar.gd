@@ -41,6 +41,12 @@ var _item_name_suppressed: bool = false
 var _motion_elapsed: float = 0.0
 var _compact_layout: bool = false
 var _player_menu_context: bool = false
+var _controller_placement_active: bool = false
+var _controller_placement_kind: PlayerHotbarType.AssignmentKind = (
+	PlayerHotbarType.AssignmentKind.EMPTY
+)
+var _controller_placement_identity: StringName
+var _controller_placement_texture: Texture2D
 var _visibility_tween: Tween
 var _visibility_generation: int = 0
 
@@ -97,6 +103,79 @@ func set_drag_enabled(enabled: bool) -> void:
 	if not enabled:
 		_hovered_slot_index = -1
 		_hide_item_name()
+
+
+func begin_controller_placement(
+	assignment_kind: PlayerHotbarType.AssignmentKind,
+	identity: StringName,
+	initial_slot: int,
+) -> void:
+	if _hotbar == null or identity.is_empty():
+		return
+	_controller_placement_active = true
+	_controller_placement_kind = assignment_kind
+	_controller_placement_identity = identity
+	_controller_placement_texture = _resolve_controller_placement_texture()
+	var slot_count: int = _slots.size()
+	for index: int in slot_count:
+		var slot: BubbleHotbarSlotType = _slots[index]
+		slot.focus_mode = Control.FOCUS_ALL
+		slot.focus_neighbor_left = slot.get_path_to(
+			_slots[wrapi(index - 1, 0, slot_count)]
+		)
+		slot.focus_neighbor_right = slot.get_path_to(
+			_slots[wrapi(index + 1, 0, slot_count)]
+		)
+		slot.focus_neighbor_top = slot.get_path_to(slot)
+		slot.focus_neighbor_bottom = slot.get_path_to(slot)
+	var target_index: int = clampi(initial_slot, 0, slot_count - 1)
+	_hotbar.select_slot(target_index)
+	_refresh_controller_placement_preview()
+	_slots[target_index].call_deferred("grab_focus")
+
+
+func end_controller_placement() -> void:
+	if not _controller_placement_active:
+		return
+	_controller_placement_active = false
+	_controller_placement_kind = PlayerHotbarType.AssignmentKind.EMPTY
+	_controller_placement_identity = StringName()
+	_controller_placement_texture = null
+	for slot: BubbleHotbarSlotType in _slots:
+		slot.focus_mode = Control.FOCUS_NONE
+		slot.set_controller_placement_preview(false, null)
+	_show_selected_item_briefly()
+
+
+func _resolve_controller_placement_texture() -> Texture2D:
+	if (
+		_controller_placement_kind == PlayerHotbarType.AssignmentKind.FISH
+		and _fish_inventory != null
+	):
+		var fish_catch: FishCatchType = _fish_inventory.get_catch_by_id(
+			_controller_placement_identity
+		)
+		return fish_catch.fish.display_texture if fish_catch != null else null
+	if (
+		_controller_placement_kind == PlayerHotbarType.AssignmentKind.ITEM
+		and _catalog != null
+	):
+		var item: ItemDataType = _catalog.get_item_by_id(
+			_controller_placement_identity
+		)
+		return item.icon if item != null else null
+	return null
+
+
+func _refresh_controller_placement_preview() -> void:
+	if not _controller_placement_active or _hotbar == null:
+		return
+	var target_index: int = _hotbar.get_selected_slot()
+	for slot: BubbleHotbarSlotType in _slots:
+		slot.set_controller_placement_preview(
+			slot.slot_index == target_index,
+			_controller_placement_texture,
+		)
 
 
 func set_player_menu_context(enabled: bool) -> void:
@@ -230,6 +309,9 @@ func _collect_slots() -> void:
 		slot.item_hover_ended.connect(_on_slot_item_hover_ended)
 		slot.item_drag_started.connect(_on_slot_drag_started)
 		slot.item_drag_finished.connect(_on_slot_drag_finished)
+		slot.focus_entered.connect(
+			_on_controller_slot_focused.bind(slot.slot_index)
+		)
 		_slots.append(slot)
 	_slots.sort_custom(
 		func(
@@ -278,8 +360,18 @@ func _on_selected_slot_changed(
 	_item_id: StringName,
 ) -> void:
 	_refresh()
+	if _controller_placement_active:
+		_refresh_controller_placement_preview()
+		return
 	if _hovered_slot_index < 0:
 		_show_selected_item_briefly()
+
+
+func _on_controller_slot_focused(slot_index: int) -> void:
+	if not _controller_placement_active or _hotbar == null:
+		return
+	_hotbar.select_slot(slot_index)
+	_refresh_controller_placement_preview()
 
 
 func _on_slot_item_hovered(

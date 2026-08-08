@@ -336,7 +336,32 @@ func _confirm(text: String, action: Callable) -> void:
 
 
 func _focus_first() -> void:
-	for child: Node in _tabs.get_children():
-		if child is Button and child.visible and not child.disabled:
-			child.grab_focus()
-			return
+	var candidates: Array[Control] = []
+	_collect_focusable_player_controls(self, candidates)
+	if candidates.is_empty():
+		return
+	candidates.sort_custom(func(first: Control, second: Control) -> bool:
+		if not is_equal_approx(first.global_position.y, second.global_position.y):
+			return first.global_position.y < second.global_position.y
+		return first.global_position.x < second.global_position.x
+	)
+	candidates[0].grab_focus()
+
+
+func _collect_focusable_player_controls(
+	root: Node,
+	output: Array[Control],
+) -> void:
+	for child: Node in root.get_children():
+		if child == _tabs:
+			continue
+		var control := child as Control
+		if control != null and not control.is_visible_in_tree():
+			continue
+		if (
+			control != null
+			and control.focus_mode != Control.FOCUS_NONE
+			and not control is ScrollBar
+		):
+			output.append(control)
+		_collect_focusable_player_controls(child, output)

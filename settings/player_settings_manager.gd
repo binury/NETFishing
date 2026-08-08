@@ -46,6 +46,10 @@ func load_settings() -> bool:
 		typeof(accessibility.get("auto_click_enabled")) != TYPE_BOOL
 		or typeof(camera.get("invert_vertical")) != TYPE_BOOL
 		or (
+			accessibility.has("on_screen_keyboard_enabled")
+			and typeof(accessibility["on_screen_keyboard_enabled"]) != TYPE_BOOL
+		)
+		or (
 			accessibility.has("use_readable_interface_font")
 			and typeof(accessibility["use_readable_interface_font"]) != TYPE_BOOL
 		)
@@ -88,6 +92,9 @@ func load_settings() -> bool:
 		-1.0
 	)
 	loaded.invert_camera_y = camera["invert_vertical"]
+	loaded.on_screen_keyboard_enabled = bool(
+		accessibility.get("on_screen_keyboard_enabled", false)
+	)
 	loaded.world_pixel_size = _read_clamped_integer(
 		presentation.get(
 			"world_pixel_size",
@@ -176,6 +183,9 @@ func save_now() -> bool:
 			"auto_click_enabled": current_settings.auto_click_enabled,
 			"auto_click_interval": current_settings.auto_click_interval,
 			"use_readable_interface_font": true,
+			"on_screen_keyboard_enabled": (
+				current_settings.on_screen_keyboard_enabled
+			),
 		},
 		"camera": {
 			"mouse_sensitivity": current_settings.mouse_camera_sensitivity,

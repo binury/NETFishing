@@ -53,6 +53,7 @@ enum PresentationMode {
 @onready var _mouse_value: BubbleButton = %MouseValue
 @onready var _controller_value: BubbleButton = %ControllerValue
 @onready var _invert_y_toggle: BubbleButton = %InvertYToggle
+@onready var _on_screen_keyboard_toggle: BubbleButton = %OnScreenKeyboardToggle
 @onready var _auto_click_toggle: BubbleButton = %AutoClickToggle
 @onready var _auto_click_interval: BubbleButton = %AutoClickIntervalValue
 
@@ -84,6 +85,7 @@ var _auto_click_interval_value: float = 0.20
 var _mouse_sensitivity: float = 0.005
 var _controller_sensitivity: float = 2.5
 var _invert_camera_y: bool = false
+var _on_screen_keyboard_enabled: bool = false
 var _network_profile: NetworkProfilePreferences
 var _network_session: NetworkSession
 var _data_root: PlayerDataRoot
@@ -161,6 +163,7 @@ func _ready() -> void:
 		_adjust_controller_sensitivity.bind(1)
 	)
 	_invert_y_toggle.pressed.connect(_toggle_invert_y)
+	_on_screen_keyboard_toggle.pressed.connect(_toggle_on_screen_keyboard)
 	_auto_click_toggle.pressed.connect(_toggle_auto_click)
 	for control: Control in [_auto_click_toggle, _auto_click_interval]:
 		control.mouse_entered.connect(
@@ -704,6 +707,7 @@ func _apply_settings() -> void:
 	edited.mouse_camera_sensitivity = _mouse_sensitivity
 	edited.controller_camera_sensitivity = _controller_sensitivity
 	edited.invert_camera_y = _invert_camera_y
+	edited.on_screen_keyboard_enabled = _on_screen_keyboard_enabled
 	if _settings_manager.apply_settings(edited):
 		if (
 			_presentation_mode == PresentationMode.TITLE_EMBEDDED
@@ -725,6 +729,7 @@ func _load_controls() -> void:
 	_mouse_sensitivity = settings.mouse_camera_sensitivity
 	_controller_sensitivity = settings.controller_camera_sensitivity
 	_invert_camera_y = settings.invert_camera_y
+	_on_screen_keyboard_enabled = settings.on_screen_keyboard_enabled
 	_refresh_value_labels()
 
 
@@ -754,6 +759,10 @@ func _refresh_value_labels() -> void:
 	_invert_y_toggle.text = (
 		"invert\nvertical\ncamera\n"
 		+ ("on" if _invert_camera_y else "off")
+	)
+	_on_screen_keyboard_toggle.text = (
+		"on-screen\nkeyboard\n"
+		+ ("on" if _on_screen_keyboard_enabled else "off")
 	)
 	_auto_click_toggle.text = (
 		"accessibility\nauto-click\n"
@@ -880,6 +889,11 @@ func _adjust_auto_click_interval(direction: int) -> void:
 
 func _toggle_invert_y() -> void:
 	_invert_camera_y = not _invert_camera_y
+	_refresh_value_labels()
+
+
+func _toggle_on_screen_keyboard() -> void:
+	_on_screen_keyboard_enabled = not _on_screen_keyboard_enabled
 	_refresh_value_labels()
 
 

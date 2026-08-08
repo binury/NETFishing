@@ -1,6 +1,10 @@
 class_name BubbleCluster
 extends Control
 
+const ControllerFocusNavigationType = preload(
+	"res://ui/controller_focus_navigation.gd"
+)
+
 @export var profile: BubbleMenuProfile
 @export var desktop_reference_size: Vector2 = Vector2(396.0, 318.0)
 @export var compact_reference_size: Vector2 = Vector2(294.0, 200.0)
@@ -18,14 +22,6 @@ func configure(bubbles: Array[BubbleButton]) -> void:
 		if bubble.profile == null:
 			bubble.profile = profile
 			bubble.apply_profile()
-		if index > 0:
-			bubble.focus_neighbor_top = bubble.get_path_to(
-				_bubbles[index - 1]
-			)
-		if index + 1 < _bubbles.size():
-			bubble.focus_neighbor_bottom = bubble.get_path_to(
-				_bubbles[index + 1]
-			)
 
 
 func apply_layout(field_size: Vector2, compact: bool) -> void:
@@ -52,6 +48,7 @@ func apply_layout(field_size: Vector2, compact: bool) -> void:
 			bubble_size,
 			profile.font_size_ratio
 		)
+	ControllerFocusNavigationType.configure_spatial_neighbors(_bubbles)
 
 
 func advance_motion(delta: float) -> void:

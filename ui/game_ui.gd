@@ -133,6 +133,8 @@ const SHOP_SPEECH_CHARACTERS_PER_SECOND: float = 28.0
 @onready var _shop_prompt_key: Label = %ShopPromptKey
 @onready var _shop_prompt_pointer: Polygon2D = %ShopPromptPointer
 var _shop_animalese_voice: AnimaleseVoiceType
+var _shop_npc_player_in_range: bool = false
+var _shop_npc_spoken_for_current_visit: bool = false
 @onready var _effect_status: Label = %EffectStatus
 @onready var _chat_ui: ChatUIType = %ChatUI
 @onready var _emote_radial_menu: EmoteRadialMenuType = %EmoteRadialMenu
@@ -206,6 +208,12 @@ func _ready() -> void:
 	)
 	_hotbar_ui.presentation_transition_finished.connect(
 		_on_hotbar_presentation_transition_finished
+	)
+	_player_menu.controller_hotbar_placement_requested.connect(
+		_hotbar_ui.begin_controller_placement
+	)
+	_player_menu.controller_hotbar_placement_ended.connect(
+		_hotbar_ui.end_controller_placement
 	)
 	_title_settings_panel.panel_visibility_changed.connect(
 		_on_settings_visibility_changed
@@ -503,7 +511,7 @@ func _handle_controller_chat_controls(event: InputEvent) -> bool:
 		_chat_ui.toggle_chat()
 		return true
 	if focus_pressed:
-		_chat_ui.toggle_focus()
+		_chat_ui.refocus_gameplay()
 		return true
 	if accept_pressed:
 		return _chat_ui.request_virtual_keyboard()
@@ -1302,6 +1310,8 @@ func _on_hud_bait_inventory_changed() -> void:
 
 func set_gameplay_ui_enabled(enabled: bool) -> void:
 	_gameplay_ui_enabled = enabled
+	if enabled:
+		_try_start_shop_npc_speech()
 	_gameplay_transient_hud.visible = enabled and not _player_menu_open
 	_experience_presentation.visible = enabled
 	_refresh_chat_availability()
@@ -1362,7 +1372,6 @@ func set_shop_prompt_visible(
 	world_anchor: Vector3 = Vector3(0.0, INF, 0.0),
 ) -> void:
 	_apply_shop_prompt_style()
-	var was_visible := _shop_prompt.visible
 	_shop_prompt.visible = (
 		is_visible
 		and _gameplay_ui_enabled
@@ -1371,21 +1380,40 @@ func set_shop_prompt_visible(
 		and not _shop_open
 	)
 	if _shop_prompt.visible:
-		if not was_visible:
-			_ensure_shop_animalese_voice()
-			TypewriterRevealType.start(
-				_shop_prompt_message,
-				SHOP_SPEECH_CHARACTERS_PER_SECOND,
-			)
-			_shop_animalese_voice.speak_text(
-				_shop_prompt_message,
-				_shop_prompt_message.text,
-				"shopkeeper",
-				SHOP_ANIMALESE_VOICE_ID,
-				SHOP_SPEECH_CHARACTERS_PER_SECOND,
-			)
 		if world_anchor.is_finite():
 			_position_shop_prompt(world_anchor)
+
+
+func set_shop_npc_player_in_range(in_range: bool) -> void:
+	if _shop_npc_player_in_range == in_range:
+		return
+	_shop_npc_player_in_range = in_range
+	if not in_range:
+		_shop_npc_spoken_for_current_visit = false
+		return
+	_try_start_shop_npc_speech()
+
+
+func _try_start_shop_npc_speech() -> void:
+	if (
+		not _shop_npc_player_in_range
+		or _shop_npc_spoken_for_current_visit
+		or not _gameplay_ui_enabled
+	):
+		return
+	_shop_npc_spoken_for_current_visit = true
+	_ensure_shop_animalese_voice()
+	TypewriterRevealType.start(
+		_shop_prompt_message,
+		SHOP_SPEECH_CHARACTERS_PER_SECOND,
+	)
+	_shop_animalese_voice.speak_text(
+		_shop_prompt_message,
+		_shop_prompt_message.text,
+		"shopkeeper",
+		SHOP_ANIMALESE_VOICE_ID,
+		SHOP_SPEECH_CHARACTERS_PER_SECOND,
+	)
 
 
 func _ensure_shop_animalese_voice() -> void:

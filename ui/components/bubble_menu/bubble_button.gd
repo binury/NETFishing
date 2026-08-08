@@ -42,6 +42,53 @@ func _ready() -> void:
 	_apply_icon_presentation(neutral_size)
 
 
+func _gui_input(event: InputEvent) -> void:
+	if _adjustment_direction(self) == 0:
+		return
+	var direction: int = 0
+	if event.is_action_pressed(&"ui_left"):
+		direction = -1
+	elif event.is_action_pressed(&"ui_right"):
+		direction = 1
+	if direction == 0:
+		return
+	var adjustment_button: BaseButton = _find_adjustment_button(direction)
+	if adjustment_button == null:
+		return
+	adjustment_button.pressed.emit()
+	accept_event()
+
+
+func _find_adjustment_button(direction: int) -> BaseButton:
+	var parent_node: Node = get_parent()
+	if parent_node == null:
+		return null
+	for child: Node in parent_node.get_children():
+		var button := child as BaseButton
+		if (
+			button != null
+			and button.visible
+			and not button.disabled
+			and _adjustment_direction(button) == direction
+		):
+			return button
+	return null
+
+
+func _adjustment_direction(button: BaseButton) -> int:
+	var descriptions: Array[String] = [
+		button.text.strip_edges().to_lower(),
+		button.tooltip_text.strip_edges().to_lower(),
+		button.accessibility_name.strip_edges().to_lower(),
+	]
+	for description: String in descriptions:
+		if description in ["-", "−", "minus", "decrease"]:
+			return -1
+		if description in ["+", "plus", "increase"]:
+			return 1
+	return 0
+
+
 func apply_layout(
 	center: Vector2,
 	bubble_size: Vector2,

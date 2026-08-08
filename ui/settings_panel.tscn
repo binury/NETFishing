@@ -397,8 +397,8 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("3_page")
 page_id = &"controls"
-bubble_paths = Array[NodePath]([NodePath("BubbleCluster/MouseDecrease"), NodePath("BubbleCluster/MouseValue"), NodePath("BubbleCluster/MouseIncrease"), NodePath("BubbleCluster/ControllerDecrease"), NodePath("BubbleCluster/ControllerValue"), NodePath("BubbleCluster/ControllerIncrease"), NodePath("BubbleCluster/InvertYToggle"), NodePath("BubbleCluster/ControllerMapping"), NodePath("BubbleCluster/ControlsBackButton")])
-focus_paths = Array[NodePath]([NodePath("BubbleCluster/MouseDecrease"), NodePath("BubbleCluster/MouseValue"), NodePath("BubbleCluster/MouseIncrease"), NodePath("BubbleCluster/ControllerDecrease"), NodePath("BubbleCluster/ControllerValue"), NodePath("BubbleCluster/ControllerIncrease"), NodePath("BubbleCluster/InvertYToggle"), NodePath("BubbleCluster/ControllerMapping"), NodePath("BubbleCluster/ControlsBackButton")])
+bubble_paths = Array[NodePath]([NodePath("BubbleCluster/MouseDecrease"), NodePath("BubbleCluster/MouseValue"), NodePath("BubbleCluster/MouseIncrease"), NodePath("BubbleCluster/ControllerDecrease"), NodePath("BubbleCluster/ControllerValue"), NodePath("BubbleCluster/ControllerIncrease"), NodePath("BubbleCluster/InvertYToggle"), NodePath("BubbleCluster/OnScreenKeyboardToggle"), NodePath("BubbleCluster/ControllerMapping"), NodePath("BubbleCluster/ControlsBackButton")])
+focus_paths = Array[NodePath]([NodePath("BubbleCluster/MouseDecrease"), NodePath("BubbleCluster/MouseValue"), NodePath("BubbleCluster/MouseIncrease"), NodePath("BubbleCluster/ControllerDecrease"), NodePath("BubbleCluster/ControllerValue"), NodePath("BubbleCluster/ControllerIncrease"), NodePath("BubbleCluster/InvertYToggle"), NodePath("BubbleCluster/OnScreenKeyboardToggle"), NodePath("BubbleCluster/ControllerMapping"), NodePath("BubbleCluster/ControlsBackButton")])
 initial_focus_path = NodePath("BubbleCluster/MouseValue")
 back_focus_path = NodePath("BubbleCluster/ControlsBackButton")
 
@@ -491,17 +491,29 @@ neutral_size = Vector2(176, 170)
 compact_minimum_size = Vector2(170, 164)
 minimum_font_size = 14
 maximum_font_size = 24
-desktop_anchor = Vector2(525, 145)
-compact_anchor = Vector2(485, 135)
+desktop_anchor = Vector2(525, 105)
+compact_anchor = Vector2(485, 95)
 motion_phase = 4.5
+
+[node name="OnScreenKeyboardToggle" parent="ControlsPage/BubbleCluster" instance=ExtResource("4_bubble")]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 0)
+text = "on-screen\nkeyboard\noff"
+neutral_size = Vector2(170, 150)
+compact_minimum_size = Vector2(154, 136)
+minimum_font_size = 14
+maximum_font_size = 22
+desktop_anchor = Vector2(525, 255)
+compact_anchor = Vector2(485, 235)
+motion_phase = 4.7
 
 [node name="ControllerMapping" parent="ControlsPage/BubbleCluster" instance=ExtResource("4_bubble")]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 0)
 text = "map\ncontroller"
 neutral_size = Vector2(160, 150)
-desktop_anchor = Vector2(525, 330)
-compact_anchor = Vector2(485, 300)
+desktop_anchor = Vector2(525, 390)
+compact_anchor = Vector2(485, 355)
 compact_minimum_size = Vector2(148, 138)
 minimum_font_size = 14
 maximum_font_size = 23
@@ -512,8 +524,8 @@ unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 0)
 text = "back"
 neutral_size = Vector2(100, 94)
-desktop_anchor = Vector2(635, 445)
-compact_anchor = Vector2(555, 405)
+desktop_anchor = Vector2(635, 470)
+compact_anchor = Vector2(555, 420)
 compact_minimum_size = Vector2(84, 80)
 minimum_font_size = 14
 maximum_font_size = 17

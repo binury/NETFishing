@@ -568,6 +568,21 @@ func _refresh_input_ownership() -> void:
 	)
 	_panel.mouse_filter = filter
 	_history.mouse_filter = filter
+	_entry.focus_mode = (
+		Control.FOCUS_ALL if _opened else Control.FOCUS_NONE
+	)
+	_collapse_button.focus_mode = (
+		Control.FOCUS_ALL if _opened else Control.FOCUS_NONE
+	)
+	_height_button.focus_mode = (
+		Control.FOCUS_ALL
+		if _opened and not _mobile_mode
+		else Control.FOCUS_NONE
+	)
+	if not _opened:
+		var focus_owner: Control = get_viewport().gui_get_focus_owner()
+		if focus_owner in [_entry, _collapse_button, _height_button]:
+			get_viewport().gui_release_focus()
 
 
 func _clock_panel_style() -> StyleBoxFlat:
@@ -886,9 +901,14 @@ func _refresh_visibility() -> void:
 	_collapse_button.show()
 	var collapsed := _presentation_state == PresentationState.COLLAPSED
 	_panel.show()
+	_collapse_button.focus_mode = (
+		Control.FOCUS_ALL if _opened else Control.FOCUS_NONE
+	)
 	_height_button.visible = not _mobile_mode
 	_height_button.focus_mode = (
-		Control.FOCUS_NONE if _mobile_mode else Control.FOCUS_ALL
+		Control.FOCUS_ALL
+		if _opened and not _mobile_mode
+		else Control.FOCUS_NONE
 	)
 	_unread_indicator.visible = collapsed and _collapsed_has_unread
 	_hint.visible = not _opened

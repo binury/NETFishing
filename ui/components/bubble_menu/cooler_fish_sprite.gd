@@ -19,6 +19,7 @@ var _quality_color := Color.WHITE
 
 
 func _ready() -> void:
+	set_meta(&"controller_focus_inversion_disabled", true)
 	resized.connect(_update_visual_pivot)
 	focus_entered.connect(_refresh_style)
 	focus_exited.connect(_refresh_style)

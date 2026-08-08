@@ -1,6 +1,10 @@
 class_name SettingsBubblePage
 extends Control
 
+const ControllerFocusNavigationType = preload(
+	"res://ui/controller_focus_navigation.gd"
+)
+
 @export var page_id: StringName
 @export var cluster_path: NodePath = ^"BubbleCluster"
 @export var bubble_paths: Array[NodePath] = []
@@ -169,23 +173,13 @@ func _update_layout() -> void:
 		_cluster.position = _resting_cluster_position
 	_cluster.size = field_size
 	_cluster.apply_layout(field_size, compact)
+	ControllerFocusNavigationType.configure_spatial_neighbors(_focus_bubbles)
 
 
 func _configure_focus_order() -> void:
 	for bubble: BubbleButton in _bubbles:
 		bubble.focus_mode = Control.FOCUS_NONE
-	for index: int in _focus_bubbles.size():
-		var bubble: BubbleButton = _focus_bubbles[index]
-		if index > 0:
-			bubble.focus_neighbor_top = bubble.get_path_to(
-				_focus_bubbles[index - 1]
-			)
-			bubble.focus_neighbor_left = bubble.focus_neighbor_top
-		if index + 1 < _focus_bubbles.size():
-			bubble.focus_neighbor_bottom = bubble.get_path_to(
-				_focus_bubbles[index + 1]
-			)
-			bubble.focus_neighbor_right = bubble.focus_neighbor_bottom
+	ControllerFocusNavigationType.configure_spatial_neighbors(_focus_bubbles)
 
 
 func _set_interactive(interactive: bool) -> void:

@@ -94,7 +94,10 @@ func _run() -> void:
 		assert(player_menu.size.is_equal_approx(
 			UIReferencePresentationType.REFERENCE_SIZE
 		))
-		assert(hotbar.position.is_equal_approx(Vector2.ZERO))
+		assert(hotbar.position.is_equal_approx(Vector2(
+			0.0,
+			canonical_stage.position.y,
+		)))
 		assert(hotbar.size.is_equal_approx(
 			UIReferencePresentationType.REFERENCE_SIZE
 		))

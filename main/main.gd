@@ -380,6 +380,9 @@ func _initialize_after_data_root() -> void:
 	_shop_interaction.local_player_range_changed.connect(
 		_on_shop_range_changed
 	)
+	_game_ui.set_shop_npc_player_in_range(
+		_shop_interaction.is_local_player_in_range()
+	)
 	_save_manager.setup(
 		_player.inventory,
 		_player.collection_log,
@@ -1119,6 +1122,9 @@ func _apply_runtime_settings(settings: PlayerSettingsType) -> void:
 		return
 	_apply_world_pixelation(settings.world_pixel_size)
 	_ui_pixelation.set_pixel_size(settings.ui_pixel_size)
+	_ui_pixelation.set_on_screen_keyboard_enabled(
+		settings.on_screen_keyboard_enabled
+	)
 	_game_ui.get_title_screen().set_world_pixelation(
 		settings.world_pixel_size
 	)
@@ -1141,7 +1147,11 @@ func _apply_runtime_settings(settings: PlayerSettingsType) -> void:
 func _apply_world_pixelation(pixel_size: int) -> void:
 	var root_viewport: Viewport = get_viewport()
 	root_viewport.scaling_3d_mode = Viewport.SCALING_3D_MODE_NEAREST
-	root_viewport.scaling_3d_scale = 1.0
+	root_viewport.scaling_3d_scale = (
+		0.75
+		if OS.get_environment("NETFISHING_LOW_END") == "1"
+		else 1.0
+	)
 	root_viewport.msaa_3d = Viewport.MSAA_DISABLED
 	root_viewport.screen_space_aa = Viewport.SCREEN_SPACE_AA_DISABLED
 	root_viewport.use_taa = false
@@ -1670,6 +1680,7 @@ func _exit_tree() -> void:
 
 
 func _on_shop_range_changed(in_range: bool) -> void:
+	_game_ui.set_shop_npc_player_in_range(in_range)
 	if not in_range:
 		_game_ui.get_fishing_shop().close_for_range_exit()
 	_game_ui.set_shop_prompt_visible(_can_show_shop_prompt())
