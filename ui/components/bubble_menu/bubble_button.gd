@@ -1,6 +1,8 @@
 class_name BubbleButton
 extends Button
 
+const ICON_FILL_RATIO: float = 0.76
+
 @export var profile: BubbleMenuProfile
 
 @export_group("Authored Layout")
@@ -37,6 +39,7 @@ func _ready() -> void:
 	resized.connect(_update_pivot)
 	_update_pivot()
 	apply_profile()
+	_apply_icon_presentation(neutral_size)
 
 
 func apply_layout(
@@ -49,6 +52,7 @@ func apply_layout(
 	neutral_position = position
 	presented_size = bubble_size
 	_update_pivot()
+	_apply_icon_presentation(bubble_size)
 	var label_control: Control = get_label_control()
 	var font_size := clampi(
 		roundi(minf(bubble_size.x, bubble_size.y) * font_size_ratio),
@@ -63,6 +67,9 @@ func get_layout_size(layout_scale: float, compact: bool) -> Vector2:
 	if compact:
 		bubble_size.x = maxf(bubble_size.x, compact_minimum_size.x)
 		bubble_size.y = maxf(bubble_size.y, compact_minimum_size.y)
+	if _uses_icon_only_presentation():
+		var diameter: float = maxf(bubble_size.x, bubble_size.y)
+		bubble_size = Vector2(diameter, diameter)
 	return bubble_size
 
 
@@ -76,6 +83,24 @@ func get_label_control() -> Control:
 		if custom_label != null:
 			return custom_label
 	return self
+
+
+func _uses_icon_only_presentation() -> bool:
+	return icon != null and text.is_empty() and label_control_path.is_empty()
+
+
+func _apply_icon_presentation(bubble_size: Vector2) -> void:
+	if not _uses_icon_only_presentation():
+		return
+	alignment = HORIZONTAL_ALIGNMENT_CENTER
+	icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vertical_icon_alignment = VERTICAL_ALIGNMENT_CENTER
+	expand_icon = true
+	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	add_theme_constant_override(
+		"icon_max_width",
+		maxi(1, roundi(minf(bubble_size.x, bubble_size.y) * ICON_FILL_RATIO)),
+	)
 
 
 func advance_emphasis(delta: float) -> void:
@@ -122,6 +147,8 @@ func calculate_visual_scale(
 		* motion_scale
 		* lerpf(1.0, profile.emphasized_deformation_scale, emphasis)
 	)
+	if _uses_icon_only_presentation():
+		deformation_amount = 0.0
 	var hover_scale: float = lerpf(
 		1.0,
 		profile.hover_focus_scale,

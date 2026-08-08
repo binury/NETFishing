@@ -6,6 +6,7 @@ const RECENT_SECONDS: float = 8.0
 const SPEECH_SECONDS: float = 6.0
 const DRAFT_SAVE_DELAY: float = 0.4
 const IDLE_ALPHA: float = 0.58
+const CHAT_SURFACE_COLOR := Color(0.025, 0.13, 0.19, 0.94)
 const ORIGINAL_PANEL_WIDTH: float = 390.0
 const PANEL_WIDTH: float = ORIGINAL_PANEL_WIDTH * 0.85
 const COMPACT_HEIGHT: float = 250.0
@@ -33,11 +34,30 @@ const CLOCK_SIZE := Vector2(116.0, 34.0)
 const CLOCK_EDGE_MARGIN: float = 10.0
 const WEATHER_ICON_SIZE := Vector2(34.0, 34.0)
 const WEATHER_ICON_GAP: float = 6.0
+const CHAT_SHOW_ICON: Texture2D = preload(
+	"res://ui/icons/pictograms/arrow_light_right_more.png"
+)
+const CHAT_HIDE_ICON: Texture2D = preload(
+	"res://ui/icons/pictograms/arrow_light_left_more.png"
+)
+const CHAT_EXPAND_ICON: Texture2D = preload(
+	"res://ui/icons/pictograms/arrow_light_up_more.png"
+)
+const CHAT_COMPACT_ICON: Texture2D = preload(
+	"res://ui/icons/pictograms/arrow_light_down_more.png"
+)
 const WorldTimeServiceType = preload("res://world/world_time_service.gd")
 const WorldWeatherServiceType = preload(
 	"res://world/world_weather_service.gd"
 )
 const WeatherIconType = preload("res://ui/weather_icon.gd")
+
+const TypewriterRevealType = preload("res://ui/typewriter_reveal.gd")
+const AnimaleseVoiceType = preload("res://ui/animalese_voice.gd")
+const VoiceProfilesType = preload(
+	"res://player/animalese_voice_profiles.gd"
+)
+
 
 enum PresentationState {
 	COLLAPSED,
@@ -62,6 +82,7 @@ var _height_button: Button
 var _unread_indicator: Label
 var _hint: Label
 var _speech_layer: Control
+var _animalese_voice: AnimaleseVoiceType
 var _clock_panel: PanelContainer
 var _clock_label: Label
 var _weather_icon: WeatherIconType
@@ -379,6 +400,15 @@ func _build_ui() -> void:
 	_collapse_button.mouse_filter = Control.MOUSE_FILTER_STOP
 	_collapse_button.focus_mode = Control.FOCUS_ALL
 	_collapse_button.z_index = 3
+	_collapse_button.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	_collapse_button.expand_icon = true
+	_collapse_button.alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_collapse_button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_collapse_button.vertical_icon_alignment = VERTICAL_ALIGNMENT_CENTER
+	_collapse_button.add_theme_constant_override(
+		"icon_max_width",
+		roundi(minf(HANDLE_SIZE.x, HANDLE_SIZE.y) * 0.5),
+	)
 	_collapse_button.tooltip_text = "Collapse chat"
 	_collapse_button.pressed.connect(func() -> void:
 		if _presentation_state == PresentationState.COLLAPSED:
@@ -405,6 +435,15 @@ func _build_ui() -> void:
 	_height_button.mouse_filter = Control.MOUSE_FILTER_STOP
 	_height_button.focus_mode = Control.FOCUS_ALL
 	_height_button.z_index = 3
+	_height_button.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	_height_button.expand_icon = true
+	_height_button.alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_height_button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_height_button.vertical_icon_alignment = VERTICAL_ALIGNMENT_CENTER
+	_height_button.add_theme_constant_override(
+		"icon_max_width",
+		roundi(minf(HANDLE_SIZE.x, HANDLE_SIZE.y) * 0.5),
+	)
 	_height_button.pressed.connect(func() -> void:
 		if _presentation_state == PresentationState.COLLAPSED:
 			_visible_state_before_collapse = (
@@ -461,6 +500,9 @@ func _build_ui() -> void:
 	_speech_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_speech_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_speech_layer)
+	_animalese_voice = AnimaleseVoiceType.new()
+	_animalese_voice.name = "PlayerAnimaleseVoice"
+	add_child(_animalese_voice)
 	_draft_save_timer = Timer.new()
 	_draft_save_timer.one_shot = true
 	_draft_save_timer.wait_time = DRAFT_SAVE_DELAY
@@ -478,7 +520,7 @@ func _build_ui() -> void:
 
 
 func _chat_panel_style() -> StyleBoxFlat:
-	var style := _borderless_style(Color(0.025, 0.13, 0.19, 0.94))
+	var style := _borderless_style(CHAT_SURFACE_COLOR)
 	if _mobile_mode:
 		style.corner_radius_top_left = 0
 		style.corner_radius_top_right = 0
@@ -509,7 +551,7 @@ func _refresh_input_ownership() -> void:
 
 
 func _clock_panel_style() -> StyleBoxFlat:
-	var style := _borderless_style(Color(0.025, 0.13, 0.19, 0.94))
+	var style := _borderless_style(CHAT_SURFACE_COLOR)
 	style.set_corner_radius_all(12)
 	style.content_margin_left = 10
 	style.content_margin_right = 10
@@ -522,6 +564,10 @@ func _borderless_style(color: Color) -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
 	style.bg_color = color
 	style.set_border_width_all(0)
+	style.anti_aliasing = false
+	style.shadow_size = 0
+	style.shadow_color = Color.TRANSPARENT
+	style.shadow_offset = Vector2.ZERO
 	return style
 
 
@@ -530,6 +576,12 @@ func _flat_chat_button_style(color: Color) -> StyleBoxFlat:
 	style.bg_color = color
 	style.set_border_width_all(0)
 	style.set_corner_radius_all(0)
+	if _dock_right:
+		style.corner_radius_top_left = 10
+		style.corner_radius_bottom_left = 10
+	else:
+		style.corner_radius_top_right = 10
+		style.corner_radius_bottom_right = 10
 	style.anti_aliasing = false
 	style.shadow_size = 0
 	style.shadow_color = Color.TRANSPARENT
@@ -572,6 +624,18 @@ func _apply_flat_chat_button(button: Button) -> void:
 	button.add_theme_stylebox_override(
 		"disabled", _flat_chat_button_style(UtilityPageStyle.OCEAN_DISABLED)
 	)
+	for state: StringName in [
+		&"normal",
+		&"hover",
+		&"pressed",
+		&"hover_pressed",
+		&"focus",
+		&"disabled",
+	]:
+		button.add_theme_stylebox_override(
+			state,
+			_flat_chat_button_style(CHAT_SURFACE_COLOR),
+		)
 
 
 func _speech_panel_style() -> StyleBoxFlat:
@@ -605,6 +669,8 @@ func _send() -> void:
 	if _send_pending:
 		return
 	var body := _entry.text
+	if _handle_chat_command(body):
+		return
 	_send_pending = true
 	_pending_send_body = NetworkChatProtocol.sanitize_body(body)
 	_entry.editable = false
@@ -614,6 +680,59 @@ func _send() -> void:
 		_entry.editable = true
 	elif _send_pending:
 		_set_status("Sending…")
+
+
+func _handle_chat_command(body: String) -> bool:
+	var command_text := body.strip_edges()
+	if not command_text.begins_with("/"):
+		return false
+	var parts: PackedStringArray = command_text.split(" ", false)
+	var command := String(parts[0]).trim_prefix("/").to_lower()
+	match command:
+		"time":
+			_handle_time_command(parts)
+		"":
+			_set_status("Enter a command after /.")
+		_:
+			_set_status("Unknown command: /%s" % command)
+	_entry.clear()
+	_flush_draft()
+	return true
+
+
+func _handle_time_command(parts: PackedStringArray) -> void:
+	if parts.size() != 2:
+		_set_status("Usage: /time [dawn, day, dusk, night]")
+		return
+	if _session == null or not _session.is_host():
+		_set_status("Only the host can change world time.")
+		return
+	if _world_time == null:
+		_set_status("World time is unavailable.")
+		return
+	var phase_name := String(parts[1]).to_lower()
+	var target_hour: float
+	match phase_name:
+		"dawn":
+			target_hour = WorldTimeServiceType.DAWN_START_HOUR
+		"day":
+			target_hour = WorldTimeServiceType.DAWN_END_HOUR
+		"dusk":
+			target_hour = WorldTimeServiceType.DUSK_START_HOUR
+		"night":
+			target_hour = WorldTimeServiceType.DUSK_END_HOUR
+		_:
+			_set_status("Usage: /time [dawn, day, dusk, night]")
+			return
+	if not _world_time.set_authoritative_time(target_hour):
+		_set_status("World time could not be changed.")
+		return
+	_set_status("")
+	_service.broadcast_system_message(
+		"World time set to %s (%s)."
+		% [phase_name, _world_time.get_clock_text()]
+	)
+	close_chat()
 
 
 func _on_local_message_confirmed(message: Dictionary) -> void:
@@ -664,10 +783,27 @@ func _on_message(message: Dictionary) -> void:
 	)
 	bubble.add_child(label)
 	_speech_layer.add_child(bubble)
+	var reveal_seconds := TypewriterRevealType.start(label)
+	var voice_profile_id: String = VoiceProfilesType.DEFAULT_ID
+	var speaker_avatar := _spawn.get_avatar(peer_id)
+	if speaker_avatar != null:
+		voice_profile_id = VoiceProfilesType.sanitized_id(
+			speaker_avatar.get_animalese_voice_id()
+		)
+	_animalese_voice.speak_text(
+		label,
+		label.text,
+		str(peer_id),
+		voice_profile_id,
+	)
 	_speech[peer_id] = {
 		"bubble": bubble,
 		"pointer": pointer,
-		"expires": Time.get_ticks_msec() / 1000.0 + SPEECH_SECONDS,
+		"expires": (
+			Time.get_ticks_msec() / 1000.0
+			+ reveal_seconds
+			+ SPEECH_SECONDS
+		),
 		"fingerprint": str(message.get("sender_fingerprint", "")),
 	}
 
@@ -770,6 +906,8 @@ func set_dock_right(should_dock_right: bool) -> void:
 	if not is_node_ready() or _panel == null:
 		return
 	_panel.add_theme_stylebox_override("panel", _chat_panel_style())
+	_apply_flat_chat_button(_collapse_button)
+	_apply_flat_chat_button(_height_button)
 	_refresh_handle_labels(_presentation_state)
 	_layout_presentation(false)
 
@@ -800,21 +938,24 @@ func is_mobile_mode() -> bool:
 func _refresh_handle_labels(state: PresentationState) -> void:
 	var collapsed := state == PresentationState.COLLAPSED
 	var height_state := _visible_state_before_collapse if collapsed else state
-	if _mobile_mode:
-		_collapse_button.text = "v" if collapsed else "^"
-	elif _dock_right:
-		_collapse_button.text = "<" if collapsed else ">"
-	else:
-		_collapse_button.text = ">" if collapsed else "<"
+	_collapse_button.text = ""
+	_collapse_button.icon = CHAT_SHOW_ICON if collapsed else CHAT_HIDE_ICON
 	_collapse_button.tooltip_text = (
 		"Show chat" if collapsed else "Hide chat"
 	)
-	_height_button.text = "v" if height_state == PresentationState.EXPANDED else "^"
+	_collapse_button.accessibility_name = _collapse_button.tooltip_text
+	_height_button.text = ""
+	_height_button.icon = (
+		CHAT_COMPACT_ICON
+		if height_state == PresentationState.EXPANDED
+		else CHAT_EXPAND_ICON
+	)
 	_height_button.tooltip_text = (
 		"Compact chat"
 		if height_state == PresentationState.EXPANDED
 		else "Expand chat history"
 	)
+	_height_button.accessibility_name = _height_button.tooltip_text
 
 
 func _update_panel_opacity(immediate_recheck: bool = false) -> void:
@@ -823,10 +964,8 @@ func _update_panel_opacity(immediate_recheck: bool = false) -> void:
 	if _presentation_state == PresentationState.COLLAPSED:
 		if _height_tween == null or not _height_tween.is_running():
 			_panel.modulate.a = IDLE_ALPHA
-			_collapse_button.modulate.a = (
-				1.0 if _collapsed_has_unread else 0.82
-			)
-			_height_button.modulate.a = 0.82
+			_collapse_button.modulate.a = IDLE_ALPHA
+			_height_button.modulate.a = IDLE_ALPHA
 		return
 	var recent := (
 		Time.get_ticks_msec() / 1000.0 - _last_message_time < RECENT_SECONDS

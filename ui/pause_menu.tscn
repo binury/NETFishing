@@ -1,4 +1,4 @@
-[gd_scene load_steps=11 format=3]
+[gd_scene load_steps=16 format=3]
 
 [ext_resource type="Script" path="res://ui/pause_menu.gd" id="1_script"]
 [ext_resource type="PackedScene" path="res://ui/settings_panel.tscn" id="2_settings"]
@@ -10,6 +10,11 @@
 [ext_resource type="Script" path="res://ui/components/bubble_menu/bubble_transition_flurry.gd" id="8_flurry"]
 [ext_resource type="PackedScene" path="res://ui/components/bubble_menu/bubble_confirmation_page.tscn" id="9_confirmation"]
 [ext_resource type="PackedScene" path="res://ui/network/join_game_page.tscn" id="10_join_page"]
+[ext_resource type="Texture2D" path="res://ui/icons/pictograms/online_dark.png" id="11_online_dark"]
+[ext_resource type="Texture2D" path="res://ui/icons/pictograms/save_dark.png" id="12_save_dark"]
+[ext_resource type="Texture2D" path="res://ui/icons/pictograms/settings_dark.png" id="13_settings_dark"]
+[ext_resource type="Texture2D" path="res://ui/icons/pictograms/undo_dark.png" id="14_undo_dark"]
+[ext_resource type="Texture2D" path="res://ui/icons/pictograms/x_dark.png" id="15_x_dark"]
 
 [node name="PauseMenu" type="Control"]
 unique_name_in_owner = true
@@ -87,7 +92,9 @@ compact_reference_size = Vector2(608, 448)
 [node name="ResumeButton" parent="ResponsivePauseStage/PausePresentationScaleRoot/RootPage/BubbleCluster" instance=ExtResource("5_bubble")]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 0)
-text = "return\nto game"
+texture_filter = 1
+icon = ExtResource("14_undo_dark")
+tooltip_text = "return to game"
 accessibility_name = "return to game"
 neutral_size = Vector2(174, 164)
 desktop_anchor = Vector2(335, 220)
@@ -100,7 +107,9 @@ motion_phase = 0.3
 [node name="SaveButton" parent="ResponsivePauseStage/PausePresentationScaleRoot/RootPage/BubbleCluster" instance=ExtResource("5_bubble")]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 0)
-text = "save\nnow"
+texture_filter = 1
+icon = ExtResource("12_save_dark")
+tooltip_text = "save now"
 accessibility_name = "save now"
 neutral_size = Vector2(126, 120)
 desktop_anchor = Vector2(185, 185)
@@ -113,7 +122,10 @@ motion_phase = 1.15
 [node name="SettingsButton" parent="ResponsivePauseStage/PausePresentationScaleRoot/RootPage/BubbleCluster" instance=ExtResource("5_bubble")]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 0)
-text = "settings"
+texture_filter = 1
+icon = ExtResource("13_settings_dark")
+tooltip_text = "settings"
+accessibility_name = "settings"
 neutral_size = Vector2(144, 136)
 desktop_anchor = Vector2(485, 170)
 compact_anchor = Vector2(515, 175)
@@ -125,7 +137,9 @@ motion_phase = 2.05
 [node name="JoinGameButton" parent="ResponsivePauseStage/PausePresentationScaleRoot/RootPage/BubbleCluster" instance=ExtResource("5_bubble")]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 0)
-text = "join\ngame"
+texture_filter = 1
+icon = ExtResource("11_online_dark")
+tooltip_text = "join game"
 accessibility_name = "join game"
 neutral_size = Vector2(126, 120)
 desktop_anchor = Vector2(105, 320)
@@ -164,7 +178,10 @@ motion_phase = 3.9
 [node name="QuitButton" parent="ResponsivePauseStage/PausePresentationScaleRoot/RootPage/BubbleCluster" instance=ExtResource("5_bubble")]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 0)
-text = "quit"
+texture_filter = 1
+icon = ExtResource("15_x_dark")
+tooltip_text = "quit"
+accessibility_name = "quit"
 neutral_size = Vector2(102, 98)
 desktop_anchor = Vector2(390, 395)
 compact_anchor = Vector2(390, 410)

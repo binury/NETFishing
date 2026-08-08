@@ -23,9 +23,26 @@ const HANDWRITTEN_NUMERIC_SCALE: float = 0.8
 const PORTRAIT_VIEW_MAX_SIZE := Vector2(860.0, 480.0)
 const INK := Color("251b10")
 const MUTED_INK := Color("6d5b45")
-const PAPER := Color("f2e6c9")
-const PAPER_DARK := Color("e8d7b4")
-const LOGBOOK_TAB_LEFT_INSET: float = 34.0
+const LOGBOOK_ARTWORK: Texture2D = preload(
+	"res://ui/assets/logbook/ui_logbook.png"
+)
+const SCROLL_UP_TEXTURE: Texture2D = preload(
+	"res://ui/icons/pictograms/arrow_dark_up_full.png"
+)
+const SCROLL_DOWN_TEXTURE: Texture2D = preload(
+	"res://ui/icons/pictograms/arrow_dark_down_full.png"
+)
+const LOGBOOK_ARTWORK_SOURCE_SIZE := Vector2(512.0, 247.0)
+const LEFT_PAGE_CONTENT_RECT := Rect2(56.0, 26.0, 190.0, 198.0)
+const RIGHT_PAGE_CONTENT_RECT := Rect2(267.0, 26.0, 210.0, 198.0)
+const LOGBOOK_TAB_LEFT_INSET: float = 122.0
+const PAGE_CONTENT_SCALE: float = 0.97
+const CATALOG_PORTRAIT_SIZE := Vector2(78.0, 36.0)
+const CATALOG_ENTRY_SIZE := Vector2(92.0, 92.0)
+const CATALOG_ROW_STEP: float = 98.0
+const CATALOG_SNAP_DELAY: float = 0.12
+const DETAIL_PORTRAIT_SIZE := Vector2(160.0, 88.0)
+const DETAIL_BOTTOM_INSET: float = 35.0
 
 var _collection_log: CollectionLogType
 var _inventory: FishInventoryType
@@ -41,10 +58,14 @@ var _detail_tween: Tween
 var _category_generation: int = 0
 var _category_tween: Tween
 var _silhouette_material: ShaderMaterial
+var _snapping_catalog_scroll: bool = false
+var _catalog_scroll_snap_timer: Timer
 
 var _category_tabs: Array[Button] = []
 var _catalog_scroll: ScrollContainer
 var _catalog_grid: GridContainer
+var _catalog_scroll_up_indicator: TextureRect
+var _catalog_scroll_down_indicator: TextureRect
 var _empty_state: Label
 var _detail_body: VBoxContainer
 var _detail_portrait_button: Button
@@ -145,7 +166,7 @@ func _build_interface() -> void:
 	var outer := MarginContainer.new()
 	outer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	outer.add_theme_constant_override("margin_left", 52)
-	outer.add_theme_constant_override("margin_top", 116)
+	outer.add_theme_constant_override("margin_top", 85)
 	outer.add_theme_constant_override("margin_right", 52)
 	outer.add_theme_constant_override("margin_bottom", 18)
 	add_child(outer)
@@ -155,9 +176,8 @@ func _build_interface() -> void:
 	outer.add_child(stack)
 
 	var tabs := HBoxContainer.new()
-	# The 26 px page corner plus 8 px clearance keeps the flange behind
-	# the straight portion of the spread.
-	tabs.position = Vector2(LOGBOOK_TAB_LEFT_INSET, 20.0)
+	# Align the first flange with the authored left paper edge.
+	tabs.position = Vector2(LOGBOOK_TAB_LEFT_INSET, 37.0)
 	tabs.size = Vector2(384.0, 38.0)
 	tabs.z_index = 10
 	tabs.mouse_filter = Control.MOUSE_FILTER_PASS
@@ -179,69 +199,204 @@ func _build_interface() -> void:
 		_category_tabs.append(tab)
 	_configure_category_focus()
 
-	var book := HBoxContainer.new()
+	var book := Control.new()
 	book.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	book.offset_top = 50.0
 	book.z_index = 20
-	book.add_theme_constant_override("separation", 12)
+	book.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	stack.add_child(book)
 
-	var left_page := PanelContainer.new()
-	left_page.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	left_page.size_flags_stretch_ratio = 1.12
-	left_page.add_theme_stylebox_override(
-		"panel", _paper_style(PAPER, true)
-	)
+	var artwork := TextureRect.new()
+	artwork.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	artwork.texture = LOGBOOK_ARTWORK
+	artwork.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	artwork.stretch_mode = TextureRect.STRETCH_SCALE
+	artwork.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	artwork.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	book.add_child(artwork)
+
+	var left_page := Control.new()
+	left_page.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_apply_artwork_rect(left_page, LEFT_PAGE_CONTENT_RECT)
 	book.add_child(left_page)
-	var left_margin := MarginContainer.new()
-	_set_margins(left_margin, 18, 16, 18, 16)
-	left_page.add_child(left_margin)
 	var left_layout := VBoxContainer.new()
+	left_layout.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	left_layout.add_theme_constant_override("separation", 8)
-	left_margin.add_child(left_layout)
-	var heading := _label("catch catalog", 25)
-	heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	left_layout.add_child(heading)
+	left_page.add_child(left_layout)
+	_apply_page_content_scale(left_layout)
+	var scroll_indicator_top_lane := Control.new()
+	scroll_indicator_top_lane.custom_minimum_size.y = 20.0
+	scroll_indicator_top_lane.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	left_layout.add_child(scroll_indicator_top_lane)
 	_empty_state = _label("", 18)
 	_empty_state.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_empty_state.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_empty_state.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	left_layout.add_child(_empty_state)
+	var catalog_scroll_margin := MarginContainer.new()
+	catalog_scroll_margin.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	catalog_scroll_margin.add_theme_constant_override("margin_left", 20)
+	left_layout.add_child(catalog_scroll_margin)
 	_catalog_scroll = ScrollContainer.new()
 	_catalog_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_catalog_scroll.horizontal_scroll_mode = (
 		ScrollContainer.SCROLL_MODE_DISABLED
 	)
-	left_layout.add_child(_catalog_scroll)
+	_catalog_scroll.scroll_vertical_custom_step = CATALOG_ROW_STEP
+	catalog_scroll_margin.add_child(_catalog_scroll)
 	_catalog_grid = GridContainer.new()
-	_catalog_grid.columns = 5
+	_catalog_grid.columns = 4
 	_catalog_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_catalog_grid.add_theme_constant_override("h_separation", 8)
-	_catalog_grid.add_theme_constant_override("v_separation", 8)
+	_catalog_grid.add_theme_constant_override("h_separation", 6)
+	_catalog_grid.add_theme_constant_override("v_separation", 6)
 	_catalog_scroll.add_child(_catalog_grid)
-
-	var gutter := ColorRect.new()
-	gutter.custom_minimum_size.x = 10
-	gutter.color = Color("795f3f")
-	gutter.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	book.add_child(gutter)
-
-	var right_page := PanelContainer.new()
-	right_page.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	right_page.add_theme_stylebox_override(
-		"panel", _paper_style(PAPER_DARK, false)
+	var scroll_indicator_bottom_lane := Control.new()
+	scroll_indicator_bottom_lane.custom_minimum_size.y = 32.0
+	scroll_indicator_bottom_lane.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	left_layout.add_child(scroll_indicator_bottom_lane)
+	_configure_catalog_scroll_bar()
+	_catalog_scroll_up_indicator = _make_scroll_indicator(
+		"CatalogScrollUpIndicator",
+		SCROLL_UP_TEXTURE,
+		true,
 	)
+	left_page.add_child(_catalog_scroll_up_indicator)
+	_catalog_scroll_down_indicator = _make_scroll_indicator(
+		"CatalogScrollDownIndicator",
+		SCROLL_DOWN_TEXTURE,
+		false,
+	)
+	left_page.add_child(_catalog_scroll_down_indicator)
+
+	var right_page := Control.new()
+	right_page.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_apply_artwork_rect(right_page, RIGHT_PAGE_CONTENT_RECT)
 	book.add_child(right_page)
-	var right_margin := MarginContainer.new()
-	_set_margins(right_margin, 22, 16, 22, 16)
-	right_page.add_child(right_margin)
 	_detail_body = VBoxContainer.new()
+	_detail_body.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_detail_body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_detail_body.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_detail_body.add_theme_constant_override("separation", 16)
-	right_margin.add_child(_detail_body)
+	right_page.add_child(_detail_body)
+	_apply_page_content_scale(_detail_body)
 	_show_no_selection()
 	_build_portrait_overlay()
+
+
+func _apply_artwork_rect(control: Control, source_rect: Rect2) -> void:
+	control.anchor_left = source_rect.position.x / LOGBOOK_ARTWORK_SOURCE_SIZE.x
+	control.anchor_top = source_rect.position.y / LOGBOOK_ARTWORK_SOURCE_SIZE.y
+	control.anchor_right = source_rect.end.x / LOGBOOK_ARTWORK_SOURCE_SIZE.x
+	control.anchor_bottom = source_rect.end.y / LOGBOOK_ARTWORK_SOURCE_SIZE.y
+	control.offset_left = 0.0
+	control.offset_top = 0.0
+	control.offset_right = 0.0
+	control.offset_bottom = 0.0
+
+
+func _apply_page_content_scale(control: Control) -> void:
+	control.scale = Vector2.ONE * PAGE_CONTENT_SCALE
+	control.resized.connect(_center_scaled_content.bind(control))
+	_center_scaled_content.call_deferred(control)
+
+
+func _center_scaled_content(control: Control) -> void:
+	if is_instance_valid(control):
+		control.pivot_offset = control.size * 0.5
+
+
+func _configure_catalog_scroll_bar() -> void:
+	_catalog_scroll_snap_timer = Timer.new()
+	_catalog_scroll_snap_timer.one_shot = true
+	_catalog_scroll_snap_timer.wait_time = CATALOG_SNAP_DELAY
+	_catalog_scroll_snap_timer.timeout.connect(_snap_catalog_scroll_to_row)
+	_catalog_scroll.add_child(_catalog_scroll_snap_timer)
+	var scroll_bar: VScrollBar = _catalog_scroll.get_v_scroll_bar()
+	scroll_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	scroll_bar.focus_mode = Control.FOCUS_NONE
+	scroll_bar.self_modulate = Color.TRANSPARENT
+	scroll_bar.custom_minimum_size.x = 0.0
+	scroll_bar.add_theme_constant_override("scroll_size", 0)
+	var empty_style := StyleBoxEmpty.new()
+	for style_name: StringName in [
+		&"scroll",
+		&"scroll_focus",
+		&"grabber",
+		&"grabber_highlight",
+		&"grabber_pressed",
+	]:
+		scroll_bar.add_theme_stylebox_override(style_name, empty_style)
+	scroll_bar.changed.connect(_refresh_catalog_scroll_indicators)
+	scroll_bar.value_changed.connect(_on_catalog_scroll_value_changed)
+
+
+func _make_scroll_indicator(
+	indicator_name: String,
+	indicator_texture: Texture2D,
+	at_top: bool,
+) -> TextureRect:
+	var indicator := TextureRect.new()
+	indicator.name = indicator_name
+	indicator.anchor_left = 0.5
+	indicator.anchor_right = 0.5
+	indicator.anchor_top = 0.0 if at_top else 1.0
+	indicator.anchor_bottom = indicator.anchor_top
+	indicator.offset_left = -14.0
+	indicator.offset_right = 14.0
+	indicator.offset_top = -8.0 if at_top else -35.0
+	indicator.offset_bottom = 20.0 if at_top else -7.0
+	indicator.z_index = 30
+	indicator.texture = indicator_texture
+	indicator.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	indicator.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	indicator.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	indicator.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	indicator.visible = false
+	return indicator
+
+
+func _on_catalog_scroll_value_changed(value: float) -> void:
+	if _snapping_catalog_scroll:
+		return
+	_catalog_scroll_snap_timer.start()
+	_refresh_catalog_scroll_indicators()
+
+
+func _snap_catalog_scroll_to_row() -> void:
+	var scroll_bar: VScrollBar = _catalog_scroll.get_v_scroll_bar()
+	var value: float = scroll_bar.value
+	var maximum_scroll: float = scroll_bar.max_value - scroll_bar.page
+	var snapped_value: float = clampf(
+		roundf(value / CATALOG_ROW_STEP) * CATALOG_ROW_STEP,
+		scroll_bar.min_value,
+		maximum_scroll,
+	)
+	if not is_equal_approx(value, snapped_value):
+		_snapping_catalog_scroll = true
+		_catalog_scroll.scroll_vertical = roundi(snapped_value)
+		_snapping_catalog_scroll = false
+	_refresh_catalog_scroll_indicators()
+
+
+func _refresh_catalog_scroll_indicators() -> void:
+	if (
+		_catalog_scroll == null
+		or _catalog_scroll_up_indicator == null
+		or _catalog_scroll_down_indicator == null
+	):
+		return
+	var scroll_bar: VScrollBar = _catalog_scroll.get_v_scroll_bar()
+	var maximum_scroll: float = scroll_bar.max_value - scroll_bar.page
+	var has_overflow: bool = (
+		_catalog_scroll.visible
+		and maximum_scroll > scroll_bar.min_value + 0.5
+	)
+	_catalog_scroll_up_indicator.visible = (
+		has_overflow and scroll_bar.value > scroll_bar.min_value + 0.5
+	)
+	_catalog_scroll_down_indicator.visible = (
+		has_overflow and scroll_bar.value < maximum_scroll - 0.5
+	)
 
 
 func _refresh_catalog() -> void:
@@ -293,11 +448,12 @@ func _refresh_catalog() -> void:
 	_refresh_selection_styles()
 	_refresh_details(false)
 	set_interactive(_interactive)
+	_refresh_catalog_scroll_indicators.call_deferred()
 
 
 func _make_entry(fish: FishDataType, discovered: bool) -> Button:
 	var entry := Button.new()
-	entry.custom_minimum_size = Vector2(102, 102)
+	entry.custom_minimum_size = CATALOG_ENTRY_SIZE
 	entry.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	entry.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	entry.toggle_mode = true
@@ -344,7 +500,7 @@ func _add_entry_content(
 	var portrait_view := LogbookPortraitType.new()
 	portrait_view.configure(
 		portrait,
-		LogbookPortraitType.ENTRY_FRAME_SIZE,
+		CATALOG_PORTRAIT_SIZE,
 		_silhouette_material if unknown else null,
 	)
 	content.add_child(portrait_view)
@@ -495,10 +651,14 @@ func _refresh_details(animate: bool) -> void:
 func _build_known_details(fish: FishDataType) -> void:
 	_clear_details()
 	var catalog_number: int = LogbookCatalog.catalog_number(fish.id)
+	var summary_margin := MarginContainer.new()
+	summary_margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_set_margins(summary_margin, 40, 0, 40, 0)
+	_detail_body.add_child(summary_margin)
 	var summary_columns := HBoxContainer.new()
 	summary_columns.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	summary_columns.add_theme_constant_override("separation", 24)
-	_detail_body.add_child(summary_columns)
+	summary_margin.add_child(summary_columns)
 
 	var portrait_column := VBoxContainer.new()
 	portrait_column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -510,12 +670,11 @@ func _build_known_details(fish: FishDataType) -> void:
 	portrait_column.add_child(title)
 	if fish.display_texture != null:
 		_detail_portrait_button = Button.new()
-		_detail_portrait_button.custom_minimum_size = (
-			LogbookPortraitType.DETAIL_FRAME_SIZE
-		)
+		_detail_portrait_button.custom_minimum_size = DETAIL_PORTRAIT_SIZE
 		_detail_portrait_button.size_flags_horizontal = (
 			Control.SIZE_SHRINK_CENTER
 		)
+		_detail_portrait_button.clip_contents = true
 		_detail_portrait_button.tooltip_text = "View larger artwork"
 		_detail_portrait_button.accessibility_name = (
 			"View larger artwork for %s" % fish.display_name
@@ -545,7 +704,7 @@ func _build_known_details(fish: FishDataType) -> void:
 		var artwork := LogbookPortraitType.new()
 		artwork.configure(
 			fish.display_texture,
-			LogbookPortraitType.DETAIL_FRAME_SIZE,
+			DETAIL_PORTRAIT_SIZE,
 		)
 		artwork_center.add_child(artwork)
 
@@ -562,11 +721,15 @@ func _build_known_details(fish: FishDataType) -> void:
 	facts_column.add_child(facts)
 	_detail_body.add_child(_build_quality_progress(fish.id))
 
+	var stats_anchor := VBoxContainer.new()
+	stats_anchor.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	stats_anchor.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	stats_anchor.alignment = BoxContainer.ALIGNMENT_END
+	_detail_body.add_child(stats_anchor)
 	var stats_columns := HBoxContainer.new()
 	stats_columns.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	stats_columns.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	stats_columns.add_theme_constant_override("separation", 28)
-	_detail_body.add_child(stats_columns)
+	stats_anchor.add_child(stats_columns)
 	var left_stats := _make_stats_column()
 	var right_stats := _make_stats_column()
 	stats_columns.add_child(left_stats)
@@ -611,11 +774,16 @@ func _build_known_details(fish: FishDataType) -> void:
 		"number owned",
 		str(_inventory.get_count(fish.id) if _inventory != null else 0),
 	)
+	var bottom_inset := Control.new()
+	bottom_inset.custom_minimum_size.y = DETAIL_BOTTOM_INSET
+	bottom_inset.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	stats_anchor.add_child(bottom_inset)
 
 
 func _build_quality_progress(fish_id: StringName) -> VBoxContainer:
 	var quality_section := VBoxContainer.new()
-	quality_section.add_theme_constant_override("separation", 3)
+	quality_section.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	quality_section.add_theme_constant_override("separation", 6)
 	var discovered_count: int = 0
 	for quality: int in FishQualityType.TIER_COUNT:
 		if _collection_log.has_discovered_quality(fish_id, quality):
@@ -625,29 +793,36 @@ func _build_quality_progress(fish_id: StringName) -> VBoxContainer:
 			discovered_count,
 			FishQualityType.TIER_COUNT,
 		],
-		14,
+		17,
 	)
 	heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	heading.add_theme_color_override("font_color", MUTED_INK)
 	quality_section.add_child(heading)
-	var tiers := HBoxContainer.new()
-	tiers.alignment = BoxContainer.ALIGNMENT_CENTER
-	tiers.add_theme_constant_override("separation", 10)
+	var tiers := VBoxContainer.new()
+	tiers.add_theme_constant_override("separation", 6)
 	quality_section.add_child(tiers)
 	for quality: int in FishQualityType.TIER_COUNT:
+		var row: HBoxContainer
+		if quality % 2 == 0:
+			row = HBoxContainer.new()
+			row.alignment = BoxContainer.ALIGNMENT_CENTER
+			row.add_theme_constant_override("separation", 28)
+			tiers.add_child(row)
+		else:
+			row = tiers.get_child(tiers.get_child_count() - 1) as HBoxContainer
 		var discovered: bool = _collection_log.has_discovered_quality(
 			fish_id,
 			quality,
 		)
 		var tier := HBoxContainer.new()
 		tier.alignment = BoxContainer.ALIGNMENT_CENTER
-		tier.add_theme_constant_override("separation", 3)
+		tier.add_theme_constant_override("separation", 5)
 		var quality_color: Color = UIPalette.get_quality_color(quality)
-		var dot := _label("●" if discovered else "○", 13)
+		var dot := _label("●" if discovered else "○", 17)
 		dot.add_theme_color_override("font_color", quality_color)
 		dot.modulate.a = 1.0 if discovered else 0.48
 		tier.add_child(dot)
-		var tier_label := _label(FishQualityType.display_name(quality), 13)
+		var tier_label := _label(FishQualityType.display_name(quality), 16)
 		tier_label.add_theme_color_override(
 			"font_color",
 			INK if discovered else MUTED_INK,
@@ -659,7 +834,7 @@ func _build_quality_progress(fish_id: StringName) -> VBoxContainer:
 			else "%s quality not yet collected"
 		) % FishQualityType.display_name(quality)
 		tier.add_child(tier_label)
-		tiers.add_child(tier)
+		row.add_child(tier)
 	return quality_section
 
 
@@ -846,18 +1021,6 @@ func _entry_label_text(entry_name: String) -> String:
 		+ "\n"
 		+ entry_name.substr(split_index + 1)
 	)
-
-
-func _paper_style(color: Color, left: bool) -> StyleBoxFlat:
-	var style := StyleBoxFlat.new()
-	style.bg_color = color
-	style.border_color = Color("9b7a4f")
-	style.set_border_width_all(3)
-	style.corner_radius_top_left = 26 if left else 6
-	style.corner_radius_bottom_left = 32 if left else 6
-	style.corner_radius_top_right = 6 if left else 28
-	style.corner_radius_bottom_right = 6 if left else 34
-	return style
 
 
 func _build_portrait_overlay() -> void:

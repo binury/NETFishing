@@ -12,6 +12,7 @@ const PlayerMenuType = preload("res://ui/player_menu.gd")
 const PlayerType = preload("res://player/player.gd")
 const PlayerWalletType = preload("res://economy/player_wallet.gd")
 const ItemCatalogType = preload("res://items/item_catalog.gd")
+const ItemDataType = preload("res://items/item_data.gd")
 const PlayerBagType = preload("res://inventory/player_bag.gd")
 const PlayerHotbarType = preload("res://inventory/player_hotbar.gd")
 const HotbarUIType = preload("res://ui/hotbar.gd")
@@ -57,6 +58,12 @@ const PlayerExperienceType = preload(
 const UIReferencePresentationType = preload(
 	"res://ui/ui_reference_presentation.gd"
 )
+const MAIN_BUBBLE_PROFILE: BubbleMenuProfile = preload(
+	"res://ui/components/bubble_menu/bubble_menu_profile.tres"
+)
+const ACTIVE_BAIT_EMPTY_ICON: Texture2D = preload(
+	"res://ui/icons/pictograms/x_dark.png"
+)
 
 signal pixelation_settings_visibility_changed(is_visible: bool)
 signal crisp_reset_focus_requested
@@ -85,6 +92,9 @@ const FISHING_PANEL_SHOWCASE_BOTTOM_OFFSET: float = -104.0
 
 @onready var _status_label: Label = %StatusLabel
 @onready var _gameplay_transient_hud: Control = %GameplayTransientHUD
+@onready var _active_bait_button: Button = %ActiveBaitButton
+@onready var _active_bait_quantity_badge: Panel = %ActiveBaitQuantityBadge
+@onready var _active_bait_quantity: Label = %ActiveBaitQuantity
 @onready var _experience_presentation: Control = %ExperiencePresentation
 @onready var _catch_track: Control = %CatchTrack
 @onready var _green_catch_progress: ProgressBar = %GreenCatchProgress
@@ -101,6 +111,13 @@ const FISHING_PANEL_SHOWCASE_BOTTOM_OFFSET: float = -104.0
 @onready var _experience_progress: ProgressBar = %ExperienceProgress
 @onready var _experience_bubble: PanelContainer = %ExperienceBubble
 @onready var _experience_bubble_label: Label = %ExperienceBubbleLabel
+const TypewriterRevealType = preload("res://ui/typewriter_reveal.gd")
+const AnimaleseVoiceType = preload("res://ui/animalese_voice.gd")
+const SHOP_ANIMALESE_VOICE_ID: String = "natural"
+const SHOP_ANIMALESE_BASE_PITCH: float = 1.08
+const SHOP_SPEECH_CHARACTERS_PER_SECOND: float = 28.0
+
+
 @onready var _canonical_stage: Control = %CanonicalStage
 @onready var _ui_root: Control = %UIRoot
 @onready var _player_menu: PlayerMenuType = %PlayerMenu
@@ -109,7 +126,13 @@ const FISHING_PANEL_SHOWCASE_BOTTOM_OFFSET: float = -104.0
 @onready var _pause_menu: PauseMenuType = %PauseMenu
 @onready var _hotbar_ui: HotbarUIType = %Hotbar
 @onready var _fishing_shop: FishingShopType = %FishingShop
-@onready var _shop_prompt: PanelContainer = %ShopPrompt
+@onready var _shop_prompt: Control = %ShopPrompt
+@onready var _shop_prompt_bubble: PanelContainer = %ShopPromptBubble
+@onready var _shop_prompt_message: Label = %ShopPromptMessage
+@onready var _shop_prompt_key_badge: Panel = %ShopPromptKeyBadge
+@onready var _shop_prompt_key: Label = %ShopPromptKey
+@onready var _shop_prompt_pointer: Polygon2D = %ShopPromptPointer
+var _shop_animalese_voice: AnimaleseVoiceType
 @onready var _effect_status: Label = %EffectStatus
 @onready var _chat_ui: ChatUIType = %ChatUI
 @onready var _emote_radial_menu: EmoteRadialMenuType = %EmoteRadialMenu
@@ -129,6 +152,8 @@ const FISHING_PANEL_SHOWCASE_BOTTOM_OFFSET: float = -104.0
 
 var _showcase_active: bool = false
 var _player: PlayerType
+var _bag: PlayerBagType
+var _item_catalog: ItemCatalogType
 var _player_menu_open: bool = false
 var _gameplay_ui_enabled: bool = false
 var _fishing_spot: FishingSpotType
@@ -163,6 +188,8 @@ var _settings_manager: PlayerSettingsManagerType
 
 
 func _ready() -> void:
+	_apply_active_bait_indicator_style()
+	_refresh_active_bait_indicator()
 	# Reward feedback must remain above full-screen canonical menus. Keeping the
 	# overlay as the final stage child makes that ownership explicit instead of
 	# relying on scene declaration order when another menu adds high-z children.
@@ -236,10 +263,27 @@ func setup(
 	world_sun: DirectionalLight3D,
 ) -> void:
 	_player = player
+	_bag = bag
+	_item_catalog = item_catalog
 	_settings_manager = settings_manager
 	_fishing_spot = fishing_spot
 	_item_effects = item_effects
 	_experience = experience
+	if (
+		_player != null
+		and not _player.active_bait_changed.is_connected(
+			_on_hud_active_bait_changed
+		)
+	):
+		_player.active_bait_changed.connect(_on_hud_active_bait_changed)
+	if (
+		_bag != null
+		and not _bag.contents_changed.is_connected(
+			_on_hud_bait_inventory_changed
+		)
+	):
+		_bag.contents_changed.connect(_on_hud_bait_inventory_changed)
+	_refresh_active_bait_indicator()
 	if (
 		_experience != null
 		and not _experience.experience_awarded.is_connected(
@@ -1174,6 +1218,88 @@ func get_pause_menu() -> PauseMenuType:
 	return _pause_menu
 
 
+func _apply_active_bait_indicator_style() -> void:
+	var normal_style: StyleBoxFlat = MAIN_BUBBLE_PROFILE.make_normal_style()
+	var hover_style: StyleBoxFlat = MAIN_BUBBLE_PROFILE.make_hover_style()
+	var pressed_style: StyleBoxFlat = MAIN_BUBBLE_PROFILE.make_pressed_style()
+	var disabled_style: StyleBoxFlat = MAIN_BUBBLE_PROFILE.make_disabled_style()
+	for style: StyleBoxFlat in [
+		normal_style,
+		hover_style,
+		pressed_style,
+		disabled_style,
+	]:
+		style.set_corner_radius_all(36)
+		style.content_margin_left = 13.5
+		style.content_margin_top = 13.5
+		style.content_margin_right = 13.5
+		style.content_margin_bottom = 13.5
+	_active_bait_button.add_theme_stylebox_override("normal", normal_style)
+	_active_bait_button.add_theme_stylebox_override("hover", hover_style)
+	_active_bait_button.add_theme_stylebox_override("focus", hover_style)
+	_active_bait_button.add_theme_stylebox_override("pressed", pressed_style)
+	_active_bait_button.add_theme_stylebox_override("disabled", disabled_style)
+	for state: StringName in [
+		&"icon_normal_color",
+		&"icon_hover_color",
+		&"icon_focus_color",
+		&"icon_pressed_color",
+	]:
+		_active_bait_button.add_theme_color_override(state, Color.WHITE)
+	var badge_style := StyleBoxFlat.new()
+	badge_style.bg_color = Color("0b5558")
+	badge_style.set_corner_radius_all(12)
+	badge_style.anti_aliasing = false
+	_active_bait_quantity_badge.add_theme_stylebox_override(
+		"panel",
+		badge_style,
+	)
+
+
+func _refresh_active_bait_indicator() -> void:
+	if not is_node_ready():
+		return
+	var item: ItemDataType
+	if (
+		_player != null
+		and _item_catalog != null
+		and not _player.active_bait_id.is_empty()
+	):
+		item = _item_catalog.get_item_by_id(_player.active_bait_id)
+	var has_active_bait: bool = item != null and item.is_bait()
+	_active_bait_button.icon = (
+		item.icon
+		if has_active_bait and item.icon != null
+		else ACTIVE_BAIT_EMPTY_ICON
+	)
+	_active_bait_quantity_badge.visible = has_active_bait
+	if not has_active_bait:
+		_active_bait_button.tooltip_text = "no bait selected"
+		return
+	var quantity: int = (
+		_bag.get_quantity(item.item_id)
+		if _bag != null
+		else 0
+	)
+	_active_bait_quantity.text = str(quantity)
+	_active_bait_quantity.add_theme_font_size_override(
+		"font_size",
+		13 if quantity >= 100 else 15,
+	)
+	_active_bait_button.tooltip_text = "%s ×%d" % [
+		item.display_name,
+		quantity,
+	]
+
+
+func _on_hud_active_bait_changed(_item_id: StringName) -> void:
+	_refresh_active_bait_indicator()
+
+
+func _on_hud_bait_inventory_changed() -> void:
+	_refresh_active_bait_indicator()
+
+
 func set_gameplay_ui_enabled(enabled: bool) -> void:
 	_gameplay_ui_enabled = enabled
 	_gameplay_transient_hud.visible = enabled and not _player_menu_open
@@ -1231,13 +1357,124 @@ func get_fishing_shop() -> FishingShopType:
 	return _fishing_shop
 
 
-func set_shop_prompt_visible(is_visible: bool) -> void:
+func set_shop_prompt_visible(
+	is_visible: bool,
+	world_anchor: Vector3 = Vector3(0.0, INF, 0.0),
+) -> void:
+	_apply_shop_prompt_style()
+	var was_visible := _shop_prompt.visible
 	_shop_prompt.visible = (
 		is_visible
 		and _gameplay_ui_enabled
 		and not _system_menu_open
 		and not _player_menu_open
 		and not _shop_open
+	)
+	if _shop_prompt.visible:
+		if not was_visible:
+			_ensure_shop_animalese_voice()
+			TypewriterRevealType.start(
+				_shop_prompt_message,
+				SHOP_SPEECH_CHARACTERS_PER_SECOND,
+			)
+			_shop_animalese_voice.speak_text(
+				_shop_prompt_message,
+				_shop_prompt_message.text,
+				"shopkeeper",
+				SHOP_ANIMALESE_VOICE_ID,
+				SHOP_SPEECH_CHARACTERS_PER_SECOND,
+			)
+		if world_anchor.is_finite():
+			_position_shop_prompt(world_anchor)
+
+
+func _ensure_shop_animalese_voice() -> void:
+	if _shop_animalese_voice != null:
+		return
+	_shop_animalese_voice = AnimaleseVoiceType.new()
+	_shop_animalese_voice.name = "ShopAnimaleseVoice"
+	_shop_animalese_voice.base_pitch = SHOP_ANIMALESE_BASE_PITCH
+	add_child(_shop_animalese_voice)
+
+
+func _apply_shop_prompt_style() -> void:
+	if _shop_prompt.has_meta(&"shop_prompt_styled"):
+		return
+	_shop_prompt.set_meta(&"shop_prompt_styled", true)
+	var bubble_style := StyleBoxFlat.new()
+	bubble_style.bg_color = Color(UtilityPageStyle.OCEAN_PANEL_MID, 0.96)
+	bubble_style.set_border_width_all(0)
+	bubble_style.set_corner_radius_all(12)
+	bubble_style.anti_aliasing = false
+	_shop_prompt_bubble.add_theme_stylebox_override("panel", bubble_style)
+	var badge_style := StyleBoxFlat.new()
+	badge_style.bg_color = Color("0b5558")
+	badge_style.set_border_width_all(0)
+	badge_style.set_corner_radius_all(12)
+	badge_style.anti_aliasing = false
+	_shop_prompt_key_badge.add_theme_stylebox_override("panel", badge_style)
+	for label: Label in [_shop_prompt_message, _shop_prompt_key]:
+		label.add_theme_font_override("font", UtilityPageStyle.TuffyFont)
+		label.add_theme_color_override(
+			"font_color",
+			UtilityPageStyle.OCEAN_TEXT_PRIMARY,
+		)
+	_shop_prompt_pointer.color = Color(
+		UtilityPageStyle.OCEAN_PANEL_MID,
+		0.96,
+	)
+
+
+func _position_shop_prompt(world_anchor: Vector3) -> void:
+	if _player == null:
+		_shop_prompt.hide()
+		return
+	var camera: Camera3D = _player.get_gameplay_camera()
+	if camera == null or camera.is_position_behind(world_anchor):
+		_shop_prompt.hide()
+		return
+	var camera_viewport_size := camera.get_viewport().get_visible_rect().size
+	var ui_viewport_size: Vector2 = _canonical_stage.size
+	if camera_viewport_size.x <= 0.0 or camera_viewport_size.y <= 0.0:
+		_shop_prompt.hide()
+		return
+	var screen_position := (
+		camera.unproject_position(world_anchor)
+		* ui_viewport_size
+		/ camera_viewport_size
+	)
+	if (
+		screen_position.x < -80.0
+		or screen_position.x > ui_viewport_size.x + 80.0
+		or screen_position.y < -80.0
+		or screen_position.y > ui_viewport_size.y + 80.0
+	):
+		_shop_prompt.hide()
+		return
+	var pointer_height := 10.0
+	var desired := screen_position - Vector2(
+		_shop_prompt.size.x * 0.5,
+		_shop_prompt.size.y + pointer_height,
+	)
+	_shop_prompt.position = Vector2(
+		clampf(
+			desired.x,
+			8.0,
+			ui_viewport_size.x - _shop_prompt.size.x - 8.0,
+		),
+		clampf(
+			desired.y,
+			8.0,
+			ui_viewport_size.y - _shop_prompt.size.y - pointer_height - 8.0,
+		),
+	)
+	_shop_prompt_pointer.position = Vector2(
+		clampf(
+			screen_position.x - _shop_prompt.position.x,
+			20.0,
+			_shop_prompt.size.x - 20.0,
+		),
+		_shop_prompt.size.y - 1.0,
 	)
 
 

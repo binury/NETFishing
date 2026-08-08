@@ -407,9 +407,9 @@ func _refresh_forecast(force: bool) -> void:
 		slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		_forecast_list.add_child(slot)
 		var icon := WeatherIcon.new()
-		icon.position = Vector2(1.0, 7.0)
-		icon.size = Vector2(56.0, 56.0)
-		icon.custom_minimum_size = Vector2(56.0, 56.0)
+		icon.position = Vector2(10.5, 17.0)
+		icon.size = Vector2(42.0, 42.0)
+		icon.custom_minimum_size = Vector2(42.0, 42.0)
 		icon.set_weather(weather)
 		icon.set_nighttime(
 			WorldTimeService.phase_for_hour(start_hour)
@@ -417,13 +417,13 @@ func _refresh_forecast(force: bool) -> void:
 		)
 		slot.add_child(icon)
 		var time_label := Label.new()
-		time_label.position = Vector2(34.0, 0.0)
-		time_label.size = Vector2(29.0, 18.0)
+		time_label.position = Vector2(27.0, 0.0)
+		time_label.size = Vector2(36.0, 22.0)
 		time_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		time_label.text = _forecast_exponent_time(start_hour)
 		time_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		time_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		time_label.add_theme_font_size_override("font_size", 10)
+		time_label.add_theme_font_size_override("font_size", 13)
 		time_label.add_theme_constant_override("outline_size", 3)
 		time_label.add_theme_color_override(
 			"font_color", UtilityPageStyle.OCEAN_TEXT_PRIMARY

@@ -82,6 +82,71 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 
+[node name="ActiveBaitIndicator" type="Control" parent="UIRoot/CanonicalStage/GameplayTransientHUD"]
+unique_name_in_owner = true
+z_index = 54
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -88.0
+offset_top = -88.0
+offset_right = -16.0
+offset_bottom = -16.0
+grow_horizontal = 0
+grow_vertical = 0
+mouse_filter = 2
+theme = ExtResource("3_theme")
+
+[node name="ActiveBaitButton" type="Button" parent="UIRoot/CanonicalStage/GameplayTransientHUD/ActiveBaitIndicator"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+focus_mode = 0
+texture_filter = 1
+expand_icon = true
+alignment = 1
+icon_alignment = 1
+vertical_icon_alignment = 1
+
+[node name="ActiveBaitQuantityBadge" type="Panel" parent="UIRoot/CanonicalStage/GameplayTransientHUD/ActiveBaitIndicator"]
+unique_name_in_owner = true
+z_index = 2
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -27.0
+offset_top = 3.0
+offset_right = -3.0
+offset_bottom = 27.0
+grow_horizontal = 0
+mouse_filter = 2
+
+[node name="ActiveBaitQuantity" type="Label" parent="UIRoot/CanonicalStage/GameplayTransientHUD/ActiveBaitIndicator/ActiveBaitQuantityBadge"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 1.0
+offset_right = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.905882, 0.960784, 0.956863, 1)
+theme_override_font_sizes/font_size = 15
+text = "0"
+horizontal_alignment = 1
+vertical_alignment = 1
+
 [node name="ExperiencePresentation" type="Control" parent="UIRoot/CanonicalStage"]
 unique_name_in_owner = true
 z_index = 200
@@ -333,35 +398,67 @@ unique_name_in_owner = true
 [node name="QuickRadialMenu" parent="UIRoot/CanonicalStage" instance=ExtResource("12_quick")]
 unique_name_in_owner = true
 
-[node name="ShopPrompt" type="PanelContainer" parent="UIRoot/CanonicalStage/GameplayTransientHUD"]
+[node name="ShopPrompt" type="Control" parent="UIRoot/CanonicalStage/GameplayTransientHUD"]
 unique_name_in_owner = true
 visible = false
 z_index = 55
-anchors_preset = 7
-anchor_left = 0.5
-anchor_top = 1.0
-anchor_right = 0.5
-anchor_bottom = 1.0
-offset_left = -150.0
-offset_top = -284.0
-offset_right = 150.0
-offset_bottom = -246.0
-grow_horizontal = 2
-grow_vertical = 0
+offset_right = 300.0
+offset_bottom = 72.0
 mouse_filter = 2
 theme = ExtResource("3_theme")
 
-[node name="Margin" type="MarginContainer" parent="UIRoot/CanonicalStage/GameplayTransientHUD/ShopPrompt"]
+[node name="ShopPromptBubble" type="PanelContainer" parent="UIRoot/CanonicalStage/GameplayTransientHUD/ShopPrompt"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Margin" type="MarginContainer" parent="UIRoot/CanonicalStage/GameplayTransientHUD/ShopPrompt/ShopPromptBubble"]
 layout_mode = 2
 theme_override_constants/margin_left = 12
-theme_override_constants/margin_top = 7
+theme_override_constants/margin_top = 8
 theme_override_constants/margin_right = 12
-theme_override_constants/margin_bottom = 7
+theme_override_constants/margin_bottom = 8
 
-[node name="Label" type="Label" parent="UIRoot/CanonicalStage/GameplayTransientHUD/ShopPrompt/Margin"]
+[node name="ShopPromptMessage" type="Label" parent="UIRoot/CanonicalStage/GameplayTransientHUD/ShopPrompt/ShopPromptBubble/Margin"]
+unique_name_in_owner = true
 layout_mode = 2
-text = "press e to open fishing shop"
+theme_override_font_sizes/font_size = 18
+text = "Hey, if you've got any fish I've got cash! OwO"
 horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 2
+
+[node name="ShopPromptKeyBadge" type="Panel" parent="UIRoot/CanonicalStage/GameplayTransientHUD/ShopPrompt"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 282.0
+offset_top = -8.0
+offset_right = 306.0
+offset_bottom = 16.0
+mouse_filter = 2
+
+[node name="ShopPromptKey" type="Label" parent="UIRoot/CanonicalStage/GameplayTransientHUD/ShopPrompt/ShopPromptKeyBadge"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_font_sizes/font_size = 15
+text = "E"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="ShopPromptPointer" type="Polygon2D" parent="UIRoot/CanonicalStage/GameplayTransientHUD/ShopPrompt"]
+unique_name_in_owner = true
+polygon = PackedVector2Array(-8, 0, 8, 0, 0, 10)
 
 [node name="FishingShop" parent="UIRoot/CanonicalStage" instance=ExtResource("8_shop")]
 unique_name_in_owner = true

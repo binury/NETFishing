@@ -17,6 +17,12 @@ func setup(session: NetworkSession, world_time: WorldTimeService) -> void:
 	_world_time = world_time
 	_session.state_changed.connect(_on_session_state_changed)
 	_session.peer_authenticated.connect(_on_peer_authenticated)
+	if not _world_time.authoritative_time_set.is_connected(
+		_on_authoritative_time_set
+	):
+		_world_time.authoritative_time_set.connect(
+			_on_authoritative_time_set
+		)
 	set_process(true)
 
 
@@ -80,6 +86,13 @@ func _on_peer_authenticated(peer_id: int, _display_name: String) -> void:
 	):
 		return
 	_send_snapshot(peer_id)
+
+
+func _on_authoritative_time_set(_time_hours: float) -> void:
+	if _session == null or not _session.is_host():
+		return
+	_sync_elapsed = 0.0
+	_broadcast_snapshot()
 
 
 func _broadcast_snapshot() -> void:

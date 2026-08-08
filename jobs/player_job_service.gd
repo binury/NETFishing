@@ -36,7 +36,7 @@ var _pending_rewards: Array[Dictionary] = []
 var _lifetime_claimed: Array[String] = []
 var _total_catches: int = 0
 var _total_sold: int = 0
-var _previous_hour: float = WorldTimeService.DEFAULT_START_HOUR
+var _daily_clock_hour: float = WorldTimeService.DEFAULT_START_HOUR
 
 
 func setup(
@@ -55,8 +55,8 @@ func setup(
 	_world_time = world_time
 	_world_weather = world_weather
 	_session = session
-	_previous_hour = _world_time.get_time_hours()
-	_world_time.time_changed.connect(_on_time_changed)
+	_daily_clock_hour = _world_time.get_time_hours()
+	_world_time.natural_time_advanced.connect(_on_natural_time_advanced)
 	_session.state_changed.connect(_on_session_state_changed)
 	_collection.collection_changed.connect(_on_current_state_changed)
 	_experience.experience_changed.connect(_on_experience_changed)
@@ -86,7 +86,6 @@ func set_save_manager(save_manager: PlayerSaveManager) -> void:
 
 func begin_progression_session() -> void:
 	_progression_ready = true
-	_previous_hour = _world_time.get_time_hours()
 	if _session.is_host():
 		_activate_host_board()
 	changed.emit()
@@ -155,7 +154,7 @@ func get_time_until_refresh_text() -> String:
 	if _active_plan_id.is_empty() or _world_time == null:
 		return "daily jobs unavailable"
 	var elapsed: float = fposmod(
-		_world_time.get_time_hours() - DAILY_REFRESH_HOUR,
+		_daily_clock_hour - DAILY_REFRESH_HOUR,
 		WorldTimeService.HOURS_PER_DAY,
 	)
 	var hours_remaining: float = WorldTimeService.HOURS_PER_DAY - elapsed
@@ -185,7 +184,10 @@ func claim(claim_id: String) -> bool:
 
 
 func get_host_board_network_data() -> Dictionary:
-	return _host_board.duplicate(true)
+	var board := _host_board.duplicate(true)
+	if not board.is_empty():
+		board["daily_clock_hour"] = _daily_clock_hour
+	return board
 
 
 func apply_remote_board(board: Dictionary) -> bool:
@@ -198,6 +200,8 @@ func apply_remote_board(board: Dictionary) -> bool:
 		_daily_progress.clear()
 		_daily_completions.clear()
 	_active_board = board.duplicate(true)
+	if board.has("daily_clock_hour"):
+		_daily_clock_hour = float(board["daily_clock_hour"])
 	changed.emit()
 	return true
 
@@ -223,6 +227,7 @@ func to_save_data() -> Dictionary:
 		"active_plan_id": _active_plan_id,
 		"daily_progress": progress,
 		"daily_completions": completions,
+		"daily_clock_hour": _daily_clock_hour,
 		"pending_rewards": _pending_rewards.duplicate(true),
 		"lifetime_claimed": _lifetime_claimed.duplicate(),
 		"statistics": {
@@ -246,6 +251,12 @@ func restore_from_save_data(data: Dictionary) -> bool:
 	var completions: Dictionary = data.get("daily_completions", {})
 	for key: Variant in completions:
 		_daily_completions[str(key)] = mini(int(completions[key]), 1)
+	_daily_clock_hour = float(data.get(
+		"daily_clock_hour",
+		_world_time.get_time_hours()
+		if _world_time != null
+		else WorldTimeService.DEFAULT_START_HOUR,
+	))
 	_pending_rewards.clear()
 	var rewards: Array = data.get("pending_rewards", [])
 	var restored_daily_rewards: Dictionary[String, bool] = {}
@@ -290,6 +301,7 @@ func reset_to_defaults() -> void:
 	_lifetime_claimed.clear()
 	_total_catches = 0
 	_total_sold = 0
+	_daily_clock_hour = WorldTimeService.DEFAULT_START_HOUR
 	changed.emit()
 
 
@@ -300,6 +312,7 @@ static func default_save_data() -> Dictionary:
 		"active_plan_id": "",
 		"daily_progress": {},
 		"daily_completions": {},
+		"daily_clock_hour": WorldTimeService.DEFAULT_START_HOUR,
 		"pending_rewards": [],
 		"lifetime_claimed": [],
 		"statistics": {"fish_caught": 0, "fish_sold": 0},
@@ -362,6 +375,16 @@ static func validate_save_data(value: Variant) -> bool:
 		return false
 	var host_board: Dictionary = data.get("host_board", {})
 	if not host_board.is_empty() and not validate_board(host_board):
+		return false
+	if (
+		data.has("daily_clock_hour")
+		and (
+			typeof(data["daily_clock_hour"]) not in [TYPE_FLOAT, TYPE_INT]
+			or not is_finite(float(data["daily_clock_hour"]))
+			or float(data["daily_clock_hour"]) < 0.0
+			or float(data["daily_clock_hour"]) >= WorldTimeService.HOURS_PER_DAY
+		)
+	):
 		return false
 	var progress: Dictionary = data.get("daily_progress", {})
 	if progress.size() > 8:
@@ -475,19 +498,22 @@ func _apply_host_weather_plan() -> void:
 	)
 
 
-func _on_time_changed(
-	time_hours: float,
-	_phase: WorldTimeService.Phase,
-) -> void:
+func _on_natural_time_advanced(hours: float) -> void:
+	if not is_finite(hours) or hours <= 0.0:
+		return
+	var previous_hour := _daily_clock_hour
+	_daily_clock_hour = fposmod(
+		_daily_clock_hour + hours,
+		WorldTimeService.HOURS_PER_DAY,
+	)
 	if (
 		_progression_ready
 		and _session != null
 		and _session.is_host()
-		and _crossed_daily_refresh(_previous_hour, time_hours)
+		and _crossed_daily_refresh(previous_hour, _daily_clock_hour)
 	):
 		var cycle: int = int(_host_board.get("cycle", -1)) + 1
 		_generate_host_board(maxi(cycle, 0))
-	_previous_hour = time_hours
 
 
 func _on_session_state_changed(state: NetworkSession.State) -> void:

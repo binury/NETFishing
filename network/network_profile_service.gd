@@ -1,6 +1,10 @@
 class_name NetworkProfileService
 extends Node
 
+const VoiceProfilesType = preload(
+	"res://player/animalese_voice_profiles.gd"
+)
+
 signal conflict_result(
 	request_id: String,
 	has_conflict: bool,
@@ -18,6 +22,8 @@ var _preferences: NetworkProfilePreferences
 var _appearance_store: PlayerAppearanceStore
 var _spawn_service: PlayerSpawnService
 var _pending_apply: Dictionary[String, Dictionary] = {}
+var _pending_voice_ids: Dictionary[String, String] = {}
+var _pending_speech_speed_ids: Dictionary[String, String] = {}
 var _host_pending_apply: Dictionary[String, Dictionary] = {}
 var _latest_check_id: String = ""
 var _latest_check_name: String = ""
@@ -40,6 +46,7 @@ func setup(
 	_session.join_authenticated.connect(_on_join_authenticated)
 	_session.state_changed.connect(_on_session_state_changed)
 	_apply_to_avatar(1, _appearance_store.get_snapshot())
+	_apply_local_voice_to_avatar()
 
 
 func get_persisted_name() -> String:
@@ -48,6 +55,14 @@ func get_persisted_name() -> String:
 
 func get_persisted_appearance() -> Dictionary:
 	return _appearance_store.get_snapshot()
+
+
+func get_persisted_voice_id() -> String:
+	return _preferences.voice_id
+
+
+func get_persisted_speech_speed_id() -> String:
+	return _preferences.speech_speed_id
 
 
 func get_identity_fingerprint() -> String:
@@ -87,11 +102,15 @@ func apply_profile(
 	display_name: String,
 	appearance: Dictionary,
 	use_anyway: bool,
+	voice_id: String = VoiceProfilesType.DEFAULT_ID,
+	speech_speed_id: String = VoiceProfilesType.DEFAULT_SPEED_ID,
 ) -> bool:
 	var clean_name := display_name.strip_edges()
 	if (
 		not NetworkProfilePreferences.is_valid_display_name(clean_name)
 		or not CharacterCustomizationCatalog.validate_snapshot(appearance)
+		or not VoiceProfilesType.is_valid(voice_id)
+		or not VoiceProfilesType.is_valid_speed(speech_speed_id)
 	):
 		apply_finished.emit(false, "Check the player name and appearance choices.")
 		return false
@@ -108,6 +127,8 @@ func apply_profile(
 		"profile_update", NetworkProfileProtocol.signature_fields(request)
 	)
 	_pending_apply[request_id] = request
+	_pending_voice_ids[request_id] = voice_id
+	_pending_speech_speed_ids[request_id] = speech_speed_id
 	if _session == null or not _session.is_gameplay_session_active():
 		_apply_local_result(request_id, true, "", false, PackedStringArray())
 	elif _session.is_host():
@@ -264,20 +285,46 @@ func _apply_local_result(
 		return
 	if not accepted:
 		_pending_apply.erase(request_id)
+		_pending_voice_ids.erase(request_id)
+		_pending_speech_speed_ids.erase(request_id)
 		conflict_result.emit(request_id, conflict, suggestions)
 		apply_finished.emit(false, message)
 		return
 	var previous_name := _preferences.display_name
-	if not _preferences.set_display_name(str(request["display_name"])):
+	var previous_voice_id := _preferences.voice_id
+	var previous_speech_speed_id := _preferences.speech_speed_id
+	var requested_voice_id: String = _pending_voice_ids.get(
+		request_id,
+		VoiceProfilesType.DEFAULT_ID,
+	)
+	var requested_speech_speed_id: String = _pending_speech_speed_ids.get(
+		request_id,
+		VoiceProfilesType.DEFAULT_SPEED_ID,
+	)
+	if not _preferences.set_profile_identity(
+		str(request["display_name"]),
+		requested_voice_id,
+		requested_speech_speed_id,
+	):
 		_pending_apply.erase(request_id)
+		_pending_voice_ids.erase(request_id)
+		_pending_speech_speed_ids.erase(request_id)
 		apply_finished.emit(false, "Profile could not be saved.")
 		return
 	if not _appearance_store.save_snapshot(request["appearance"]):
-		_preferences.set_display_name(previous_name)
+		_preferences.set_profile_identity(
+			previous_name,
+			previous_voice_id,
+			previous_speech_speed_id,
+		)
 		_pending_apply.erase(request_id)
+		_pending_voice_ids.erase(request_id)
+		_pending_speech_speed_ids.erase(request_id)
 		apply_finished.emit(false, "Profile could not be saved.")
 		return
 	_pending_apply.erase(request_id)
+	_pending_voice_ids.erase(request_id)
+	_pending_speech_speed_ids.erase(request_id)
 	if _session != null and _session.is_gameplay_session_active():
 		if _session.is_host():
 			_session.apply_canonical_profile(
@@ -304,6 +351,7 @@ func _apply_local_result(
 		_session.get_local_peer_id() if _session != null else 1,
 		_appearance_store.get_snapshot(),
 	)
+	_apply_local_voice_to_avatar()
 	apply_finished.emit(true, "Profile saved.")
 
 
@@ -361,6 +409,7 @@ func _on_join_authenticated() -> void:
 	_apply_to_avatar(
 		_session.get_local_peer_id(), _appearance_store.get_snapshot()
 	)
+	_apply_local_voice_to_avatar()
 
 
 func _on_peer_removed(_peer_id: int) -> void:
@@ -400,6 +449,8 @@ func _refresh_latest_check() -> void:
 func _on_session_state_changed(state: NetworkSession.State) -> void:
 	if state == NetworkSession.State.INACTIVE:
 		_pending_apply.clear()
+		_pending_voice_ids.clear()
+		_pending_speech_speed_ids.clear()
 		_host_pending_apply.clear()
 		_latest_check_id = ""
 		_latest_check_name = ""
@@ -463,6 +514,17 @@ func _apply_to_avatar(peer_id: int, appearance: Dictionary) -> void:
 	var avatar := _spawn_service.get_avatar(peer_id)
 	if avatar != null:
 		avatar.apply_appearance_snapshot(appearance)
+
+
+func _apply_local_voice_to_avatar() -> void:
+	if _spawn_service == null:
+		return
+	var local_peer_id := (
+		_session.get_local_peer_id() if _session != null else 1
+	)
+	var avatar := _spawn_service.get_avatar(local_peer_id)
+	if avatar != null:
+		avatar.apply_animalese_voice_id(_preferences.voice_id)
 
 
 func _new_id() -> String:

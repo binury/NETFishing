@@ -6,6 +6,12 @@ const OPTION_GRID_COLUMNS: int = 6
 const ControllerMappingManagerType = preload(
 	"res://settings/controller_mapping_manager.gd"
 )
+const AnimaleseVoiceType = preload("res://ui/animalese_voice.gd")
+const TypewriterRevealType = preload("res://ui/typewriter_reveal.gd")
+const VoiceProfilesType = preload(
+	"res://player/animalese_voice_profiles.gd"
+)
+const VOICE_CATEGORY_ID: String = "voice"
 
 var _service: NetworkProfileService
 var _experience: PlayerExperience
@@ -13,6 +19,10 @@ var _draft_name: String = ""
 var _draft_appearance: Dictionary = {}
 var _persisted_name: String = ""
 var _persisted_appearance: Dictionary = {}
+var _draft_voice_id: String = VoiceProfilesType.DEFAULT_ID
+var _persisted_voice_id: String = VoiceProfilesType.DEFAULT_ID
+var _draft_speech_speed_id: String = VoiceProfilesType.DEFAULT_SPEED_ID
+var _persisted_speech_speed_id: String = VoiceProfilesType.DEFAULT_SPEED_ID
 var _category_id: String = "species"
 var _dirty: bool = false
 var _allow_duplicate: bool = false
@@ -36,6 +46,8 @@ var _experience_progress: ProgressBar
 var _experience_value: Label
 var _feature_preview_cache: Dictionary = {}
 var _scale_value_label: Label
+var _voice_preview: AnimaleseVoiceType
+var _voice_preview_tween: Tween
 
 
 func _ready() -> void:
@@ -104,6 +116,8 @@ func activate() -> void:
 func deactivate() -> void:
 	visible = false
 	_debounce.stop()
+	if _voice_preview_tween != null and _voice_preview_tween.is_valid():
+		_voice_preview_tween.kill()
 	_preview.reset_view()
 
 
@@ -368,15 +382,22 @@ func _build_ui() -> void:
 	UtilityPageStyle.apply_ocean_button(_keep_editing_button)
 	confirm_buttons.add_child(_keep_editing_button)
 
+	_voice_preview = AnimaleseVoiceType.new()
+	_voice_preview.name = "ProfileVoicePreview"
+	add_child(_voice_preview)
 	_build_categories()
 
 
 func _build_categories() -> void:
 	for child: Node in _category_list.get_children():
 		child.queue_free()
-	for category_id: String in CharacterCustomizationCatalog.CATEGORY_IDS:
+	var category_ids: Array[String] = []
+	for appearance_category: String in CharacterCustomizationCatalog.CATEGORY_IDS:
+		category_ids.append(appearance_category)
+	category_ids.append(VOICE_CATEGORY_ID)
+	for category_id: String in category_ids:
 		var button := Button.new()
-		button.text = CharacterCustomizationCatalog.category_label(category_id)
+		button.text = _category_label(category_id)
 		button.toggle_mode = true
 		button.custom_minimum_size.x = 120.0
 		button.button_pressed = category_id == _category_id
@@ -392,7 +413,7 @@ func _select_category(category_id: String) -> void:
 		var button := child as Button
 		if button != null:
 			button.button_pressed = button.text == (
-				CharacterCustomizationCatalog.category_label(category_id)
+				_category_label(category_id)
 			)
 	_refresh_options()
 
@@ -401,12 +422,15 @@ func _refresh_options() -> void:
 	for child: Node in _option_list.get_children():
 		child.queue_free()
 	var title := Label.new()
-	title.text = CharacterCustomizationCatalog.category_label(_category_id)
+	title.text = _category_label(_category_id)
 	title.add_theme_font_size_override("font_size", 18)
 	title.add_theme_color_override(
 		"font_color", UtilityPageStyle.OCEAN_TEXT_PRIMARY
 	)
 	_option_list.add_child(title)
+	if _category_id == VOICE_CATEGORY_ID:
+		_build_voice_options()
+		return
 	if _category_id == CharacterCustomizationCatalog.SCALE_CATEGORY_ID:
 		_build_scale_option()
 		return
@@ -438,6 +462,106 @@ func _refresh_options() -> void:
 		if option_id == "none":
 			button.add_theme_font_size_override("font_size", 24)
 		_option_list.add_child(button)
+
+
+func _category_label(category_id: String) -> String:
+	return (
+		"voice"
+		if category_id == VOICE_CATEGORY_ID
+		else CharacterCustomizationCatalog.category_label(category_id)
+	)
+
+
+func _build_voice_options() -> void:
+	var description := Label.new()
+	description.text = "Choose how your character sounds in chat."
+	description.add_theme_color_override(
+		"font_color", UtilityPageStyle.OCEAN_TEXT_SECONDARY
+	)
+	_option_list.add_child(description)
+	var grid := GridContainer.new()
+	grid.columns = 2
+	grid.add_theme_constant_override("h_separation", 8)
+	grid.add_theme_constant_override("v_separation", 8)
+	_option_list.add_child(grid)
+	for option: Dictionary in VoiceProfilesType.OPTIONS:
+		var option_id := str(option.get("id", ""))
+		var button := Button.new()
+		button.text = str(option.get("label", option_id))
+		button.toggle_mode = true
+		button.custom_minimum_size = Vector2(170.0, 42.0)
+		button.button_pressed = _draft_voice_id == option_id
+		button.pressed.connect(_select_voice_option.bind(option_id))
+		UtilityPageStyle.apply_compact_ocean_button(button)
+		grid.add_child(button)
+	var divider := HSeparator.new()
+	divider.custom_minimum_size.y = 8.0
+	_option_list.add_child(divider)
+	var speed_title := Label.new()
+	speed_title.text = "speech speed"
+	speed_title.add_theme_font_size_override("font_size", 16)
+	speed_title.add_theme_color_override(
+		"font_color", UtilityPageStyle.OCEAN_TEXT_PRIMARY
+	)
+	_option_list.add_child(speed_title)
+	var speed_description := Label.new()
+	speed_description.text = "Controls player chat speech on this device only."
+	speed_description.add_theme_color_override(
+		"font_color", UtilityPageStyle.OCEAN_TEXT_SECONDARY
+	)
+	_option_list.add_child(speed_description)
+	var speed_grid := GridContainer.new()
+	speed_grid.columns = 2
+	speed_grid.add_theme_constant_override("h_separation", 8)
+	speed_grid.add_theme_constant_override("v_separation", 8)
+	_option_list.add_child(speed_grid)
+	for option: Dictionary in VoiceProfilesType.SPEED_OPTIONS:
+		var speed_id := str(option.get("id", ""))
+		var speed_button := Button.new()
+		speed_button.text = str(option.get("label", speed_id))
+		speed_button.tooltip_text = "%d characters per second" % roundi(
+			float(option.get("characters_per_second", 28.0))
+		)
+		speed_button.toggle_mode = true
+		speed_button.custom_minimum_size = Vector2(170.0, 38.0)
+		speed_button.button_pressed = _draft_speech_speed_id == speed_id
+		speed_button.pressed.connect(
+			_select_speech_speed_option.bind(speed_id)
+		)
+		UtilityPageStyle.apply_compact_ocean_button(speed_button)
+		speed_grid.add_child(speed_button)
+
+
+func _select_voice_option(voice_id: String) -> void:
+	if not VoiceProfilesType.is_valid(voice_id):
+		return
+	_draft_voice_id = voice_id
+	_dirty = _draft_differs()
+	_refresh_options()
+	_refresh_actions()
+	_play_voice_preview()
+
+
+func _select_speech_speed_option(speed_id: String) -> void:
+	if not VoiceProfilesType.is_valid_speed(speed_id):
+		return
+	_draft_speech_speed_id = speed_id
+	_dirty = _draft_differs()
+	_refresh_options()
+	_refresh_actions()
+	_play_voice_preview()
+
+
+func _play_voice_preview() -> void:
+	if _voice_preview_tween != null and _voice_preview_tween.is_valid():
+		_voice_preview_tween.kill()
+	_voice_preview_tween = _voice_preview.speak_text(
+		self,
+		"hello there!",
+		"profile-preview",
+		_draft_voice_id,
+		VoiceProfilesType.speed_for(_draft_speech_speed_id),
+	)
 
 
 func _build_scale_option() -> void:
@@ -741,7 +865,13 @@ func _apply() -> void:
 	if _service == null:
 		return
 	_apply_button.disabled = true
-	_service.apply_profile(_draft_name, _draft_appearance, _allow_duplicate)
+	_service.apply_profile(
+		_draft_name,
+		_draft_appearance,
+		_allow_duplicate,
+		_draft_voice_id,
+		_draft_speech_speed_id,
+	)
 
 
 func _on_apply_finished(accepted: bool, message: String) -> void:
@@ -756,8 +886,17 @@ func _load_persisted() -> void:
 		return
 	_persisted_name = _service.get_persisted_name()
 	_persisted_appearance = _service.get_persisted_appearance()
+	_persisted_voice_id = _service.get_persisted_voice_id()
+	_persisted_speech_speed_id = (
+		_service.get_persisted_speech_speed_id()
+	)
 	_draft_name = _persisted_name
 	_draft_appearance = _persisted_appearance.duplicate(true)
+	_draft_voice_id = _persisted_voice_id
+	_draft_speech_speed_id = _persisted_speech_speed_id
+	TypewriterRevealType.set_characters_per_second(
+		VoiceProfilesType.speed_for(_persisted_speech_speed_id)
+	)
 	_name_edit.text = _draft_name
 	_preview.apply_appearance_profile(_draft_appearance)
 	_dirty = false
@@ -793,6 +932,8 @@ func _confirm_pending_action() -> void:
 	_discard_confirmation.visible = false
 	if _confirmation_action == "defaults":
 		_draft_appearance = CharacterCustomizationCatalog.default_snapshot()
+		_draft_voice_id = VoiceProfilesType.DEFAULT_ID
+		_draft_speech_speed_id = VoiceProfilesType.DEFAULT_SPEED_ID
 		_preview.apply_appearance_profile(_draft_appearance)
 		_dirty = _draft_differs()
 		_refresh_options()
@@ -806,6 +947,8 @@ func _draft_differs() -> bool:
 	return (
 		_draft_name.strip_edges() != _persisted_name
 		or _draft_appearance != _persisted_appearance
+		or _draft_voice_id != _persisted_voice_id
+		or _draft_speech_speed_id != _persisted_speech_speed_id
 	)
 
 

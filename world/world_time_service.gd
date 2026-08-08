@@ -3,6 +3,8 @@ extends Node
 
 signal time_changed(time_hours: float, phase: Phase)
 signal phase_changed(phase: Phase)
+signal authoritative_time_set(time_hours: float)
+signal natural_time_advanced(hours: float)
 
 enum Phase {
 	DAWN,
@@ -54,16 +56,30 @@ func end_session() -> void:
 func advance_time(real_seconds: float) -> void:
 	if not _running or real_seconds <= 0.0:
 		return
+	var advanced_hours := real_seconds * HOURS_PER_REAL_SECOND
 	_set_time_hours(
-		_time_hours + real_seconds * HOURS_PER_REAL_SECOND,
+		_time_hours + advanced_hours,
 		false,
 	)
+	natural_time_advanced.emit(advanced_hours)
 
 
 func synchronize_time(authoritative_time_hours: float) -> void:
 	if not is_finite(authoritative_time_hours):
 		return
 	_set_time_hours(authoritative_time_hours, true)
+
+
+func set_authoritative_time(time_hours: float) -> bool:
+	if (
+		not is_finite(time_hours)
+		or time_hours < 0.0
+		or time_hours >= HOURS_PER_DAY
+	):
+		return false
+	_set_time_hours(time_hours, true)
+	authoritative_time_set.emit(_time_hours)
+	return true
 
 
 func set_persistence_tracking_enabled(enabled: bool) -> void:

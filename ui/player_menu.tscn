@@ -1,4 +1,4 @@
-[gd_scene load_steps=26 format=3]
+[gd_scene load_steps=27 format=3]
 
 [ext_resource type="Script" path="res://ui/player_menu.gd" id="1_menu"]
 [ext_resource type="Theme" path="res://ui/game_theme.tres" id="2_theme"]
@@ -24,6 +24,7 @@
 [ext_resource type="Script" path="res://ui/components/inventory_notepad.gd" id="22_inventory_notepad"]
 [ext_resource type="Script" path="res://ui/components/organizer_tab.gd" id="23_organizer_tab"]
 [ext_resource type="PackedScene" path="res://ui/the_net_page.tscn" id="24_the_net_page"]
+[ext_resource type="Texture2D" path="res://ui/icons/pictograms/online_dark.png" id="25_online_dark"]
 
 [sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_collection"]
 
@@ -700,11 +701,13 @@ layout_mode = 2
 text = "Select bait or a lure for details."
 autowrap_mode = 2
 
-[node name="TackleEquipButton" type="Button" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/TackleBoxPage/TackleDetailPanel/Margin/Layout"]
+[node name="TackleEquipButton" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/TackleBoxPage/TackleDetailPanel/Margin/Layout" instance=ExtResource("12_ink_action")]
 unique_name_in_owner = true
 layout_mode = 2
-custom_minimum_size = Vector2(0, 44)
+custom_minimum_size = Vector2(150, 68)
+size_flags_horizontal = 4
 text = "equip worms"
+allow_persistent_mark = true
 
 [node name="LogbookPage" type="Control" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot"]
 unique_name_in_owner = true
@@ -1506,7 +1509,9 @@ deformation_period = 6.5
 unique_name_in_owner = true
 layout_mode = 0
 toggle_mode = true
-text = "online"
+texture_filter = 1
+icon = ExtResource("25_online_dark")
+tooltip_text = "online"
 accessibility_name = "online"
 script = ExtResource("6_bubble")
 profile = ExtResource("4_profile")

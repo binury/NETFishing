@@ -1,11 +1,21 @@
 class_name WeatherIcon
 extends Control
 
-const BUBBLE_COLOR := Color(0.025, 0.13, 0.19, 0.94)
-const ICON_COLOR := Color(0.78, 0.91, 0.95)
-const SUN_COLOR := Color(0.98, 0.82, 0.34)
-const MOON_COLOR := Color(0.78, 0.88, 1.0)
-const RAIN_COLOR := Color(0.28, 0.73, 0.82)
+const CLEAR_DAY_TEXTURE: Texture2D = preload(
+	"res://ui/icons/weather/weather_clear_day.png"
+)
+const CLEAR_NIGHT_TEXTURE: Texture2D = preload(
+	"res://ui/icons/weather/weather_clear_night_full.png"
+)
+const CLOUDY_TEXTURE: Texture2D = preload(
+	"res://ui/icons/weather/weather_cloudy.png"
+)
+const FOG_TEXTURE: Texture2D = preload(
+	"res://ui/icons/weather/weather_fog.png"
+)
+const RAIN_TEXTURE: Texture2D = preload(
+	"res://ui/icons/weather/weather_rain.png"
+)
 
 var _weather: WorldWeatherService.Weather = WorldWeatherService.Weather.SUNNY
 var _is_nighttime: bool = false
@@ -14,6 +24,7 @@ var _is_nighttime: bool = false
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_PASS
 	focus_mode = Control.FOCUS_NONE
+	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	custom_minimum_size = Vector2(34.0, 34.0)
 	_update_tooltip()
 	queue_redraw()
@@ -44,55 +55,22 @@ func get_weather() -> WorldWeatherService.Weather:
 
 
 func _draw() -> void:
-	var center: Vector2 = size * 0.5
-	var radius: float = minf(size.x, size.y) * 0.5
-	draw_circle(center, radius, BUBBLE_COLOR)
+	var icon_size := Vector2.ONE * minf(size.x, size.y)
+	var icon_rect := Rect2((size - icon_size) * 0.5, icon_size)
+	draw_texture_rect(_get_weather_texture(), icon_rect, false)
+
+
+func _get_weather_texture() -> Texture2D:
 	match _weather:
 		WorldWeatherService.Weather.SUNNY:
-			if _is_nighttime:
-				_draw_moon(center)
-			else:
-				_draw_sun(center)
+			return CLEAR_NIGHT_TEXTURE if _is_nighttime else CLEAR_DAY_TEXTURE
 		WorldWeatherService.Weather.CLOUDY:
-			_draw_cloud(center + Vector2(0.0, 1.0))
+			return CLOUDY_TEXTURE
 		WorldWeatherService.Weather.RAINY:
-			_draw_cloud(center + Vector2(0.0, -2.0))
-			for x_offset: float in PackedFloat32Array([-6.0, 0.0, 6.0]):
-				draw_line(
-					center + Vector2(x_offset + 1.0, 5.0),
-					center + Vector2(x_offset - 1.0, 9.0),
-					RAIN_COLOR,
-					2.0,
-					true,
-				)
+			return RAIN_TEXTURE
 		WorldWeatherService.Weather.FOGGY:
-			for y_offset: float in PackedFloat32Array([-6.0, 0.0, 6.0]):
-				draw_line(
-					center + Vector2(-9.0, y_offset),
-					center + Vector2(9.0, y_offset),
-					ICON_COLOR,
-					2.0,
-					true,
-				)
-
-
-func _draw_sun(center: Vector2) -> void:
-	draw_circle(center, 5.0, SUN_COLOR)
-	for index: int in 8:
-		var angle: float = TAU * float(index) / 8.0
-		var direction := Vector2(cos(angle), sin(angle))
-		draw_line(
-			center + direction * 8.0,
-			center + direction * 11.0,
-			SUN_COLOR,
-			2.0,
-			true,
-		)
-
-
-func _draw_moon(center: Vector2) -> void:
-	draw_circle(center, 8.0, MOON_COLOR)
-	draw_circle(center + Vector2(4.0, -2.0), 7.0, BUBBLE_COLOR)
+			return FOG_TEXTURE
+	return CLEAR_DAY_TEXTURE
 
 
 func _update_tooltip() -> void:
@@ -101,10 +79,3 @@ func _update_tooltip() -> void:
 		if _weather == WorldWeatherService.Weather.SUNNY
 		else WorldWeatherService.weather_name(_weather)
 	)
-
-
-func _draw_cloud(center: Vector2) -> void:
-	draw_circle(center + Vector2(-5.0, 0.0), 5.0, ICON_COLOR)
-	draw_circle(center + Vector2(0.0, -3.0), 6.0, ICON_COLOR)
-	draw_circle(center + Vector2(6.0, 0.0), 5.0, ICON_COLOR)
-	draw_rect(Rect2(center + Vector2(-9.0, 0.0), Vector2(18.0, 5.0)), ICON_COLOR)

@@ -50,6 +50,7 @@ const CONTROLLER_ZOOM_TRIGGER_AXIS: JoyAxis = JOY_AXIS_TRIGGER_LEFT
 var appearance_snapshot: Dictionary = (
 	CharacterCustomizationCatalog.default_snapshot()
 )
+var animalese_voice_id: String = "natural"
 var active_bait_id: StringName = StringName()
 signal active_bait_changed(item_id: StringName)
 
@@ -75,6 +76,14 @@ func apply_appearance_snapshot(snapshot: Dictionary) -> void:
 	if CharacterCustomizationCatalog.validate_snapshot(snapshot):
 		appearance_snapshot = snapshot.duplicate(true)
 		PlayerVisualPresenter.apply_appearance(_visuals, appearance_snapshot)
+
+
+func apply_animalese_voice_id(voice_id: String) -> void:
+	animalese_voice_id = voice_id
+
+
+func get_animalese_voice_id() -> String:
+	return animalese_voice_id
 
 class ShowcaseCameraSnapshot:
 	extends RefCounted
@@ -129,6 +138,8 @@ class ShowcaseCameraSnapshot:
 @export var zoom_smoothing: float = 12.0
 @export_range(0.1, 12.0, 0.1) var controller_zoom_speed: float = 4.0
 @export_range(0.0, 1.0, 0.01) var controller_trigger_threshold: float = 0.55
+@export_range(1.0, 40.0, 0.5) var free_camera_speed: float = 10.0
+@export_range(1.0, 10.0, 0.5) var free_camera_sprint_multiplier: float = 3.0
 
 @onready var _visuals: Node3D = %Visuals
 @onready var _character_rig: Node3D = get_node_or_null(
@@ -141,6 +152,7 @@ class ShowcaseCameraSnapshot:
 @onready var _camera_pitch: Node3D = %CameraPitch
 @onready var _spring_arm: SpringArm3D = %SpringArm3D
 @onready var _camera: Camera3D = %Camera3D
+@onready var _player_collision_shape: CollisionShape3D = $CollisionShape3D
 @onready var inventory: FishInventoryType = %Inventory
 @onready var collection_log: CollectionLogType = %CollectionLog
 @onready var wallet: PlayerWalletType = %Wallet
@@ -165,6 +177,11 @@ var _catch_attachment_offset: Vector3 = Vector3(0.0, 0.08, 0.04)
 var _gravity: float = float(ProjectSettings.get_setting("physics/3d/default_gravity"))
 var _camera_dragging: bool = false
 var _camera_input_enabled: bool = true
+var _free_camera_active: bool = false
+var _free_camera_body: CharacterBody3D
+var _free_camera: Camera3D
+var _free_camera_yaw: float = 0.0
+var _free_camera_pitch: float = 0.0
 var _movement_enabled: bool = true
 var _water_recovery_active: bool = false
 var _remote_recovery_presentation_active: bool = false
@@ -197,6 +214,8 @@ var _network_target_visual_yaw: float = 0.0
 var _network_snapshot_ready: bool = false
 var _character_animation_name: StringName = &""
 var _sitting: bool = false
+var _sitting_intent_pending: bool = false
+var _sitting_intent_sequence: int = -1
 var _held_fish_visible: bool = false
 var _showcase_animation_active: bool = false
 var _fishing_rod: Node3D
@@ -205,12 +224,22 @@ var _controller_mapping_manager: ControllerMappingManagerType
 
 
 func _ready() -> void:
+	if not bag.contents_changed.is_connected(_on_bag_contents_changed):
+		bag.contents_changed.connect(_on_bag_contents_changed)
 	PlayerVisualPresenter.apply_appearance(_visuals, appearance_snapshot)
 	_initialize_fishing_rod()
 	_target_zoom = clampf(_spring_arm.spring_length, minimum_zoom, maximum_zoom)
 	_spring_arm.spring_length = _target_zoom
 	_camera.current = local_control_enabled
 	_initialize_held_item_attachment()
+
+
+func _on_bag_contents_changed() -> void:
+	if (
+		not active_bait_id.is_empty()
+		and bag.get_quantity(active_bait_id) <= 0
+	):
+		unequip_bait()
 
 
 func set_controller_mapping_manager(
@@ -267,8 +296,18 @@ func _physics_process(delta: float) -> void:
 	if _network_interpolation_enabled:
 		_update_network_interpolation(delta)
 		return
+	if local_control_enabled and _free_camera_active:
+		_update_free_camera_physics()
+		velocity.x = 0.0
+		velocity.z = 0.0
+		if not is_on_floor():
+			velocity.y -= _gravity * fall_gravity_multiplier * delta
+		move_and_slide()
+		_network_jump_pending = false
+		return
 	var jump_requested: bool = (
 		_movement_enabled
+		and not _free_camera_active
 		and (
 			(local_control_enabled and Input.is_action_just_pressed("jump"))
 			or (_network_authoritative_simulation and _network_jump_pending)
@@ -276,7 +315,7 @@ func _physics_process(delta: float) -> void:
 	)
 	if _sitting:
 		if jump_requested:
-			_set_sitting(false)
+			_set_sitting(false, local_control_enabled)
 		else:
 			velocity = Vector3.ZERO
 			_network_jump_pending = false
@@ -369,6 +408,8 @@ func _process(delta: float) -> void:
 			* 0.08
 		)
 	if not local_control_enabled:
+		return
+	if _free_camera_active:
 		return
 
 	if (
@@ -519,7 +560,7 @@ func toggle_sitting() -> void:
 			])
 		):
 			return
-	_set_sitting(should_sit)
+	_set_sitting(should_sit, local_control_enabled)
 
 
 func _has_any_character_animation(candidates: Array[StringName]) -> bool:
@@ -531,10 +572,16 @@ func _has_any_character_animation(candidates: Array[StringName]) -> bool:
 	return false
 
 
-func _set_sitting(should_sit: bool) -> void:
+func _set_sitting(
+	should_sit: bool,
+	is_local_intent: bool = false,
+) -> void:
 	if _sitting == should_sit:
 		return
 	_sitting = should_sit
+	if is_local_intent:
+		_sitting_intent_pending = true
+		_sitting_intent_sequence = -1
 	if _sitting:
 		velocity = Vector3.ZERO
 	_character_animation_name = &""
@@ -548,6 +595,10 @@ func is_sitting() -> bool:
 func _unhandled_input(event: InputEvent) -> void:
 	if not local_control_enabled or not _camera_input_enabled:
 		return
+	if event.is_action_pressed("toggle_free_camera"):
+		_set_free_camera_active(not _free_camera_active)
+		get_viewport().set_input_as_handled()
+		return
 
 	if event.is_action("camera_drag"):
 		_camera_dragging = event.is_pressed()
@@ -555,8 +606,13 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 
 	if event is InputEventMouseMotion and _camera_dragging:
-		_rotate_camera(event.relative * mouse_sensitivity)
+		if _free_camera_active:
+			_rotate_free_camera(event.relative * mouse_sensitivity)
+		else:
+			_rotate_camera(event.relative * mouse_sensitivity)
 		get_viewport().set_input_as_handled()
+		return
+	if _free_camera_active:
 		return
 
 	var mouse_zoom_in: bool = (
@@ -617,6 +673,98 @@ func _rotate_camera(delta_rotation: Vector2) -> void:
 	)
 
 
+func _set_free_camera_active(active: bool) -> void:
+	if _free_camera_active == active:
+		return
+	if active:
+		var camera_transform: Transform3D = _camera.global_transform
+		var duplicated_camera := _camera.duplicate() as Camera3D
+		if duplicated_camera == null:
+			return
+		var camera_body := CharacterBody3D.new()
+		camera_body.name = "FreeCameraBody"
+		camera_body.collision_layer = 0
+		camera_body.collision_mask = collision_mask
+		camera_body.motion_mode = CharacterBody3D.MOTION_MODE_FLOATING
+		add_child(camera_body)
+		camera_body.top_level = true
+		camera_body.global_position = camera_transform.origin
+		var camera_collision := CollisionShape3D.new()
+		camera_collision.name = "FreeCameraCollision"
+		camera_collision.shape = _player_collision_shape.shape
+		camera_body.add_child(camera_collision)
+		duplicated_camera.name = "FreeCamera"
+		duplicated_camera.unique_name_in_owner = false
+		camera_body.add_child(duplicated_camera)
+		duplicated_camera.transform = Transform3D(
+			camera_transform.basis,
+			Vector3.ZERO,
+		)
+		_free_camera_body = camera_body
+		_free_camera = duplicated_camera
+		var camera_rotation: Vector3 = _free_camera.global_rotation
+		_free_camera_yaw = camera_rotation.y
+		_free_camera_pitch = camera_rotation.x
+		_camera.current = false
+		_free_camera.current = true
+		_free_camera_active = true
+		return
+	_free_camera_active = false
+	_camera_dragging = false
+	if _free_camera != null:
+		_free_camera.current = false
+		_free_camera = null
+	if _free_camera_body != null:
+		_free_camera_body.queue_free()
+		_free_camera_body = null
+	_camera.current = local_control_enabled
+
+
+func _update_free_camera_physics() -> void:
+	if _free_camera == null or _free_camera_body == null:
+		_set_free_camera_active(false)
+		return
+	var input_vector: Vector2 = Input.get_vector(
+		"move_left",
+		"move_right",
+		"move_forward",
+		"move_backward",
+	)
+	var vertical_input: float = (
+		Input.get_action_strength("jump")
+		- Input.get_action_strength("sneak")
+	)
+	var movement: Vector3 = (
+		_free_camera.global_basis.x * input_vector.x
+		+ _free_camera.global_basis.z * input_vector.y
+		+ Vector3.UP * vertical_input
+	)
+	if movement.length_squared() > 1.0:
+		movement = movement.normalized()
+	var movement_speed: float = free_camera_speed
+	if Input.is_action_pressed("sprint"):
+		movement_speed *= free_camera_sprint_multiplier
+	_free_camera_body.velocity = movement * movement_speed
+	_free_camera_body.move_and_slide()
+
+
+func _rotate_free_camera(delta_rotation: Vector2) -> void:
+	if _free_camera == null:
+		return
+	_free_camera_yaw -= delta_rotation.x
+	var vertical_direction: float = -1.0 if invert_camera_y else 1.0
+	_free_camera_pitch = clampf(
+		_free_camera_pitch - delta_rotation.y * vertical_direction,
+		deg_to_rad(minimum_pitch_degrees),
+		deg_to_rad(maximum_pitch_degrees),
+	)
+	_free_camera.global_rotation = Vector3(
+		_free_camera_pitch,
+		_free_camera_yaw,
+		0.0,
+	)
+
+
 func _set_target_zoom(value: float) -> void:
 	_target_zoom = clampf(value, minimum_zoom, maximum_zoom)
 
@@ -633,6 +781,8 @@ func _apply_axis_deadzone(value: float) -> float:
 
 
 func set_local_control(enabled: bool) -> void:
+	if not enabled and _free_camera_active:
+		_set_free_camera_active(false)
 	local_control_enabled = enabled
 	if is_node_ready():
 		_camera.current = enabled
@@ -657,7 +807,9 @@ func configure_network_remote(authoritative_simulation: bool) -> void:
 
 
 func capture_network_input(sequence: int) -> Dictionary:
-	if not _movement_enabled or _water_recovery_active:
+	if _sitting_intent_pending and _sitting_intent_sequence < 0:
+		_sitting_intent_sequence = sequence
+	if not _movement_enabled or _water_recovery_active or _free_camera_active:
 		return {
 			"sequence": sequence,
 			"axis": [0.0, 0.0],
@@ -734,7 +886,17 @@ func apply_local_prediction_correction(snapshot: Dictionary) -> void:
 	var parsed: Dictionary = _parse_network_snapshot(snapshot)
 	if parsed.is_empty():
 		return
-	_set_sitting(bool(parsed["sitting"]))
+	var acknowledged_input: int = parsed["acknowledged_input"]
+	var sitting_intent_acknowledged: bool = (
+		_sitting_intent_pending
+		and _sitting_intent_sequence >= 0
+		and acknowledged_input >= _sitting_intent_sequence
+	)
+	if sitting_intent_acknowledged:
+		_sitting_intent_pending = false
+		_sitting_intent_sequence = -1
+	if not _sitting_intent_pending:
+		_set_sitting(bool(parsed["sitting"]))
 	var authoritative_position: Vector3 = parsed["position"]
 	var error_distance: float = global_position.distance_to(
 		authoritative_position
@@ -780,6 +942,17 @@ func _parse_network_snapshot(snapshot: Dictionary) -> Dictionary:
 		float(network_velocity[2])
 	)
 	var visual_yaw: float = float(snapshot.get("visual_yaw", 0.0))
+	if (
+		snapshot.has("acknowledged_input")
+		and (
+			typeof(snapshot.get("acknowledged_input")) != TYPE_INT
+			or int(snapshot.get("acknowledged_input")) < 0
+		)
+	):
+		return {}
+	var acknowledged_input: int = int(
+		snapshot.get("acknowledged_input", 0)
+	)
 	if snapshot.has("sitting") and typeof(snapshot.get("sitting")) != TYPE_BOOL:
 		return {}
 	var sitting: bool = bool(snapshot.get("sitting", false))
@@ -793,6 +966,7 @@ func _parse_network_snapshot(snapshot: Dictionary) -> Dictionary:
 		"position": parsed_position,
 		"velocity": parsed_velocity,
 		"visual_yaw": visual_yaw,
+		"acknowledged_input": acknowledged_input,
 		"sitting": sitting,
 	}
 
@@ -835,7 +1009,10 @@ func set_camera_input_enabled(enabled: bool) -> void:
 
 
 func set_camera_active(active: bool) -> void:
-	_camera.current = active
+	if _free_camera_active and _free_camera != null:
+		_free_camera.current = active
+	else:
+		_camera.current = active
 
 
 func apply_camera_settings(

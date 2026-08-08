@@ -79,6 +79,21 @@ func send_local_message(body: String) -> bool:
 	return true
 
 
+func broadcast_system_message(body: String) -> bool:
+	if _session == null or not _session.is_host():
+		return false
+	var clean := NetworkChatProtocol.sanitize_body(body)
+	if clean.is_empty():
+		return false
+	_broadcast(_make_message(
+		NetworkChatProtocol.Kind.SYSTEM,
+		0,
+		"",
+		clean,
+	))
+	return true
+
+
 func get_history() -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for message: Dictionary in _history:
