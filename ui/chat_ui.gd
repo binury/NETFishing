@@ -104,6 +104,7 @@ var _prior_movement: bool = true
 var _prior_camera: bool = true
 var _controller_refocused: bool = false
 var _input_lock_applied: bool = false
+var _last_submit_frame: int = -1
 var _output_scale: float = 1.0
 var _dock_right: bool = false
 var _mobile_mode: bool = false
@@ -186,10 +187,10 @@ func open_chat() -> void:
 	if _presentation_state == PresentationState.COLLAPSED:
 		_set_presentation_state(_visible_state_before_collapse, true, true)
 	_controller_refocused = false
-	_opened = true
-	text_entry_ownership_changed.emit(true)
 	_prior_movement = _player.is_movement_enabled()
 	_prior_camera = _player.is_camera_input_enabled()
+	_opened = true
+	text_entry_ownership_changed.emit(true)
 	_input_lock_applied = true
 	_player.set_movement_enabled(false)
 	_player.set_camera_input_enabled(false)
@@ -204,6 +205,15 @@ func open_chat() -> void:
 	_refresh_input_ownership()
 	_update_panel_opacity(true)
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+
+
+func open_command_chat() -> void:
+	open_chat()
+	if not _opened:
+		return
+	if not _entry.text.begins_with("/"):
+		_entry.text = "/" + _entry.text
+	_entry.caret_column = _entry.text.length()
 
 
 func set_available(value: bool) -> void:
@@ -295,15 +305,25 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo:
 		if event.keycode in [KEY_ENTER, KEY_KP_ENTER]:
 			if _opened:
+				_last_submit_frame = Engine.get_process_frames()
 				_send()
 			elif (
 				_available
 				and get_viewport().gui_get_focus_owner() is not LineEdit
+				and Engine.get_process_frames() != _last_submit_frame
 			):
 				open_chat()
 			get_viewport().set_input_as_handled()
 		elif event.keycode == KEY_T and not _opened and _available:
 			open_chat()
+			get_viewport().set_input_as_handled()
+		elif (
+			event.unicode == 47
+			and not _opened
+			and _available
+			and get_viewport().gui_get_focus_owner() is not LineEdit
+		):
+			open_command_chat()
 			get_viewport().set_input_as_handled()
 		elif event.keycode == KEY_ESCAPE and _opened:
 			close_chat()
@@ -388,7 +408,7 @@ func _build_ui() -> void:
 	_entry.name = "ChatEntry"
 	_entry.placeholder_text = "type a message…"
 	_entry.max_length = NetworkChatProtocol.MAX_VISIBLE_CHARACTERS
-	_entry.text_submitted.connect(func(_value: String) -> void: _send())
+	_entry.text_submitted.connect(_on_entry_text_submitted)
 	_entry.text_changed.connect(_on_draft_changed)
 	UtilityPageStyle.apply_ocean_line_edit(_entry)
 	_entry.add_theme_font_size_override("font_size", INPUT_FONT_SIZE)
@@ -663,6 +683,11 @@ func _create_speech_pointer() -> Polygon2D:
 	pointer.antialiased = false
 	pointer.z_index = -1
 	return pointer
+
+
+func _on_entry_text_submitted(_value: String) -> void:
+	_last_submit_frame = Engine.get_process_frames()
+	_send()
 
 
 func _send() -> void:
