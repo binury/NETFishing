@@ -109,7 +109,15 @@ func is_local_purchase_pending() -> bool:
 
 func request_supply(item_id: StringName) -> String:
 	var owned: int = _bag.get_quantity(item_id) if _bag != null else 0
-	var quantity: int = FishingShopStockType.get_purchase_quantity(item_id, owned)
+	var item: ItemDataType = (
+		_item_catalog.get_item_by_id(item_id)
+		if _item_catalog != null else null
+	)
+	var quantity: int = FishingShopStockType.get_purchase_quantity(
+		item_id,
+		owned,
+		item.max_stack if item != null else FishingShopStockType.WORM_MAX_STACK,
+	)
 	return _request_purchase(
 		item_id,
 		NetworkShopProtocol.ProductCategory.SUPPLY,
@@ -223,6 +231,13 @@ func _request_purchase(
 		"wallet_balance": _wallet.get_balance() if _wallet != null else 0,
 		"current_state": current_state,
 	}
+	if (
+		category == NetworkShopProtocol.ProductCategory.SUPPLY
+		and FishingShopStockType.is_bait_topoff(product_id)
+	):
+		request["bait_unlocked"] = (
+			_bag != null and _bag.is_bait_unlocked(product_id)
+		)
 	_pending_local_request = request.duplicate(true)
 	local_purchase_pending.emit(request_id)
 	if _session.is_host():
@@ -317,16 +332,18 @@ func _build_authoritative_result(
 				var item: ItemDataType = _item_catalog.get_item_by_id(
 					product_id
 				) if _item_catalog != null else null
-				cost = FishingShopStockType.get_price(product_id)
+				var bait_topoff: bool = (
+					FishingShopStockType.is_bait_topoff(product_id)
+				)
 				if (
 					item == null
 					or not item.is_valid()
 					or product_id not in (
 						FishingShopStockType.get_stock_item_ids()
 					)
-					or (item.category != ItemDataType.Category.CONSUMABLE and not FishingShopStockType.is_bait_topoff(product_id))
+					or (item.category != ItemDataType.Category.CONSUMABLE and not bait_topoff)
 					or not item.stackable
-					or (not item.usable and not FishingShopStockType.is_bait_topoff(product_id))
+					or (not item.usable and not bait_topoff)
 					or current_state >= item.max_stack
 					or current_state + quantity > item.max_stack
 				):
@@ -336,10 +353,21 @@ func _build_authoritative_result(
 						else "Purchase could not be completed."
 					)
 				else:
-					if not FishingShopStockType.is_bait_topoff(product_id) and quantity != 1:
+					var expected_quantity: int = (
+						FishingShopStockType.get_purchase_quantity(
+							product_id, current_state, item.max_stack
+						)
+					)
+					if quantity != expected_quantity:
 						rejection = "Purchase could not be completed."
 					else:
-						cost *= quantity
+						cost = FishingShopStockType.get_purchase_cost(
+							product_id,
+							quantity,
+							bool(request.get("bait_unlocked", true)),
+						)
+						if cost < 0:
+							rejection = "Purchase could not be completed."
 						resulting_state = current_state + quantity
 			NetworkShopProtocol.ProductCategory.ROD:
 				rejection = "This item is not sold here."
@@ -532,6 +560,9 @@ func _apply_purchase_result(data: Dictionary) -> void:
 		return
 	var wallet_snapshot: int = _wallet.get_balance()
 	var bag_snapshot: Array[OwnedItemType] = _bag.get_all_items()
+	var bait_unlock_snapshot: Array[StringName] = (
+		_bag.get_unlocked_bait_ids()
+	)
 	var reel_snapshot: int = _upgrades.get_reel_speed_level()
 	var barrier_snapshot: int = _upgrades.get_barrier_power_level()
 	var cooler_snapshot: int = _cooler_capacity.get_level()
@@ -539,6 +570,7 @@ func _apply_purchase_result(data: Dictionary) -> void:
 	var applied: bool = _apply_local_product(data)
 	if not applied or not _save_manager.save_if_dirty():
 		_bag.replace_all_items(bag_snapshot)
+		_bag.replace_unlocked_bait_ids(bait_unlock_snapshot)
 		_upgrades.restore_levels(reel_snapshot, barrier_snapshot)
 		_cooler_capacity.restore_level(cooler_snapshot)
 		_art_unlocks.restore_mask(art_snapshot)
@@ -590,9 +622,22 @@ func _validate_local_result(data: Dictionary) -> String:
 		return "Not enough fish coin."
 	match category:
 		NetworkShopProtocol.ProductCategory.SUPPLY:
-			if _bag.get_quantity(product_id) != expected_state:
+			var item: ItemDataType = (
+				_item_catalog.get_item_by_id(product_id)
+				if _item_catalog != null else null
+			)
+			var bait_unlocked: bool = _bag.is_bait_unlocked(product_id)
+			if (
+				item == null
+				or _bag.get_quantity(product_id) != expected_state
+				or int(data["quantity"]) != FishingShopStockType.get_purchase_quantity(
+					product_id, expected_state, item.max_stack
+				)
+			):
 				return "Purchase could not be completed."
-			if cost != FishingShopStockType.get_price(product_id) * int(data["quantity"]):
+			if cost != FishingShopStockType.get_purchase_cost(
+				product_id, int(data["quantity"]), bait_unlocked
+			):
 				return "Purchase could not be completed."
 			if not _bag.can_add_item(product_id, data["quantity"]):
 				return "Your Bag is full."

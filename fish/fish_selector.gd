@@ -81,9 +81,9 @@ func select_fish(
 
 
 func _roll_rarity(context: FishingContextType) -> int:
-	var weights: Array[float] = [100.0, 0.0, 0.0, 0.0, 0.0]
-	if not context.active_bait_tags.is_empty():
-		weights = [80.0, 10.0, 5.0, 4.0, 1.0]
+	var weights: Array[float] = FishQualityType.rarity_weights_for_bait(
+		context.active_bait_tags
+	)
 	for index: int in range(weights.size()):
 		if index < rarity_weight_multipliers.size():
 			weights[index] *= maxf(rarity_weight_multipliers[index], 0.0)

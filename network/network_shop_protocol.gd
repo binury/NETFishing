@@ -57,6 +57,11 @@ static func validate_request(data: Variant) -> String:
 	var wallet_balance: int = payload["wallet_balance"]
 	var current_state: int = payload["current_state"]
 	if (
+		payload.has("bait_unlocked")
+		and typeof(payload["bait_unlocked"]) != TYPE_BOOL
+	):
+		return "Purchase could not be completed."
+	if (
 		request_id.is_empty()
 		or request_id.length() > MAX_ID_LENGTH
 		or session_id.is_empty()

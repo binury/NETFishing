@@ -16,6 +16,12 @@ const ALL_TIERS_MASK: int = (1 << TIER_COUNT) - 1
 # multipliers later without changing catch serialization or tier identity.
 const BASE_ROLL_WEIGHTS: Array[float] = [40.0, 32.0, 18.0, 8.0, 2.0]
 const WORM_ROLL_WEIGHTS: Array[float] = [80.0, 10.0, 5.0, 4.0, 1.0]
+const SNAIL_ROLL_WEIGHTS: Array[float] = [68.0, 16.0, 8.0, 6.0, 2.0]
+const SHRIMP_ROLL_WEIGHTS: Array[float] = [56.0, 21.0, 12.0, 8.0, 3.0]
+const SQUID_ROLL_WEIGHTS: Array[float] = [44.0, 25.0, 16.0, 11.0, 4.0]
+const ANCHOVY_ROLL_WEIGHTS: Array[float] = [34.0, 27.0, 20.0, 13.0, 6.0]
+const SARDINE_ROLL_WEIGHTS: Array[float] = [25.0, 28.0, 23.0, 16.0, 8.0]
+const LUMINOUS_ROE_ROLL_WEIGHTS: Array[float] = [16.0, 26.0, 26.0, 20.0, 12.0]
 const SALE_MULTIPLIERS: Array[float] = [1.0, 1.1, 1.25, 1.5, 2.0]
 # Legacy profile multiplier retained for serialized/profile compatibility.
 # New encounters use the weighted quality/rarity/weight bands below.
@@ -136,17 +142,34 @@ static func roll(
 
 
 static func roll_weights_for_bait(active_bait_tags: Array[StringName]) -> Array[float]:
+	var bait_weights: Array[float] = rarity_weights_for_bait(active_bait_tags)
+	var weights: Array[float] = []
+	for quality: int in TIER_COUNT:
+		weights.append(bait_weights[quality] / BASE_ROLL_WEIGHTS[quality])
+	return weights
+
+
+static func rarity_weights_for_bait(
+	active_bait_tags: Array[StringName],
+) -> Array[float]:
 	var weights: Array[float] = []
 	if active_bait_tags.is_empty():
-		weights.assign([2.5, 0.0, 0.0, 0.0, 0.0])
+		weights.assign([100.0, 0.0, 0.0, 0.0, 0.0])
+	elif active_bait_tags.has(&"bait_rarity_6"):
+		weights.assign(LUMINOUS_ROE_ROLL_WEIGHTS)
+	elif active_bait_tags.has(&"bait_rarity_5"):
+		weights.assign(SARDINE_ROLL_WEIGHTS)
+	elif active_bait_tags.has(&"bait_rarity_4"):
+		weights.assign(ANCHOVY_ROLL_WEIGHTS)
+	elif active_bait_tags.has(&"bait_rarity_3"):
+		weights.assign(SQUID_ROLL_WEIGHTS)
+	elif active_bait_tags.has(&"bait_rarity_2"):
+		weights.assign(SHRIMP_ROLL_WEIGHTS)
+	elif active_bait_tags.has(&"bait_rarity_1"):
+		weights.assign(SNAIL_ROLL_WEIGHTS)
 	else:
-		weights.assign([
-			WORM_ROLL_WEIGHTS[0] / BASE_ROLL_WEIGHTS[0],
-			WORM_ROLL_WEIGHTS[1] / BASE_ROLL_WEIGHTS[1],
-			WORM_ROLL_WEIGHTS[2] / BASE_ROLL_WEIGHTS[2],
-			WORM_ROLL_WEIGHTS[3] / BASE_ROLL_WEIGHTS[3],
-			WORM_ROLL_WEIGHTS[4] / BASE_ROLL_WEIGHTS[4],
-		])
+		# Unknown and legacy bait tags retain the original worms behavior.
+		weights.assign(WORM_ROLL_WEIGHTS)
 	return weights
 
 

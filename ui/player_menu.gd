@@ -189,7 +189,7 @@ const SALE_CONFIRMATION_SIZE := Vector2(520.0, 190.0)
 @onready var _lures_filter: Button = %LuresFilter
 @onready var _tackle_empty: Label = %TackleEmpty
 @onready var _tackle_detail_text: Label = %TackleDetailText
-@onready var _tackle_equip_button: Button = %TackleEquipButton
+@onready var _tackle_equip_button: NotepadInkActionType = %TackleEquipButton
 @onready var _tackle_item_list: VBoxContainer = %TackleItemList
 @onready var _bag_outer_wall: PanelContainer = %BagOuterWall
 @onready var _bag_inner_liner: PanelContainer = %BagInnerLiner
@@ -847,7 +847,7 @@ func mount_shop_cooler(
 	_set_content_interactive(true)
 	_update_cooler_water_mask()
 	set_process(true)
-	call_deferred("_focus_shop_cooler")
+	_cooler_sort_option.call_deferred("grab_focus")
 	return true
 
 
@@ -1323,7 +1323,12 @@ func _refresh_tackle_box() -> void:
 		child.queue_free()
 	var matching_items: Array[OwnedItemType] = []
 	if _bag != null and _item_catalog != null:
-		for owned: OwnedItemType in _bag.get_all_items():
+		var available_items: Array[OwnedItemType] = (
+			_bag.get_unlocked_bait_items()
+			if _tackle_view == TackleView.BAIT
+			else _bag.get_all_items()
+		)
+		for owned: OwnedItemType in available_items:
 			var item: ItemDataType = _item_catalog.get_item_by_id(
 				owned.item_id
 			)
@@ -1343,12 +1348,23 @@ func _refresh_tackle_box() -> void:
 	for owned: OwnedItemType in matching_items:
 		var item: ItemDataType = _item_catalog.get_item_by_id(owned.item_id)
 		var row := Button.new()
-		row.text = "%s  ×%d" % [item.display_name, owned.quantity]
 		row.icon = item.icon
-		row.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		row.tooltip_text = "%s ×%d" % [item.display_name, owned.quantity]
+		if item.is_bait() and item.icon != null:
+			row.custom_minimum_size = Vector2(72, 72)
+			row.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+			row.expand_icon = true
+			row.alignment = HORIZONTAL_ALIGNMENT_CENTER
+		else:
+			row.text = "%s  ×%d" % [item.display_name, owned.quantity]
+			row.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		row.toggle_mode = true
 		row.button_pressed = owned.item_id == _selected_tackle_item_id
-		UtilityPageStyle.apply_ocean_button(row)
+		if item.is_bait() and item.icon != null:
+			_apply_tackle_bait_button_style(row)
+			_add_tackle_quantity_badge(row, owned.quantity)
+		else:
+			UtilityPageStyle.apply_ocean_button(row)
 		row.pressed.connect(_select_tackle_item.bind(owned.item_id))
 		_tackle_item_list.add_child(row)
 	_tackle_empty.text = (
@@ -1358,6 +1374,68 @@ func _refresh_tackle_box() -> void:
 	)
 	_tackle_empty.visible = matching_items.is_empty()
 	_update_tackle_detail()
+
+
+func _add_tackle_quantity_badge(row: Button, quantity: int) -> void:
+	var badge := Panel.new()
+	badge.name = "QuantityBadge"
+	badge.anchor_left = 1.0
+	badge.anchor_right = 1.0
+	badge.offset_left = -27.0
+	badge.offset_top = 3.0
+	badge.offset_right = -3.0
+	badge.offset_bottom = 27.0
+	badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	badge.z_index = 2
+	var badge_style := StyleBoxFlat.new()
+	badge_style.bg_color = Color("0b5558")
+	badge_style.set_corner_radius_all(12)
+	badge_style.anti_aliasing = false
+	badge.add_theme_stylebox_override("panel", badge_style)
+	row.add_child(badge)
+	var quantity_label := Label.new()
+	quantity_label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	quantity_label.offset_left = 1.0
+	quantity_label.offset_right = 1.0
+	quantity_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	quantity_label.text = str(quantity)
+	quantity_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	quantity_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	quantity_label.add_theme_font_override("font", UtilityPageStyle.TuffyFont)
+	quantity_label.add_theme_font_size_override(
+		"font_size",
+		13 if quantity >= 100 else 15,
+	)
+	quantity_label.add_theme_color_override("font_color", Color("e7f5f4"))
+	badge.add_child(quantity_label)
+
+
+func _apply_tackle_bait_button_style(button: Button) -> void:
+	var profile := BubbleMenuProfile.new()
+	var normal_style: StyleBoxFlat = profile.make_normal_style()
+	var hover_style: StyleBoxFlat = profile.make_hover_style()
+	var pressed_style: StyleBoxFlat = profile.make_pressed_style()
+	var disabled_style: StyleBoxFlat = profile.make_disabled_style()
+	for style: StyleBoxFlat in [
+		normal_style,
+		hover_style,
+		pressed_style,
+		disabled_style,
+	]:
+		style.set_corner_radius_all(36)
+		style.content_margin_left = 13.5
+		style.content_margin_top = 13.5
+		style.content_margin_right = 13.5
+		style.content_margin_bottom = 13.5
+	button.add_theme_stylebox_override("normal", normal_style)
+	button.add_theme_stylebox_override("hover", hover_style)
+	button.add_theme_stylebox_override("focus", hover_style)
+	button.add_theme_stylebox_override("pressed", pressed_style)
+	button.add_theme_stylebox_override("disabled", disabled_style)
+	button.add_theme_color_override("icon_normal_color", Color.WHITE)
+	button.add_theme_color_override("icon_hover_color", Color.WHITE)
+	button.add_theme_color_override("icon_focus_color", Color.WHITE)
+	button.add_theme_color_override("icon_pressed_color", Color.WHITE)
 
 
 func _select_tackle_item(item_id: StringName) -> void:
@@ -1373,6 +1451,7 @@ func _update_tackle_detail() -> void:
 	)
 	if item == null:
 		_tackle_equip_button.visible = false
+		_tackle_equip_button.persistent_mark = false
 		_tackle_detail_text.text = (
 			"Select bait for details."
 			if _tackle_view == TackleView.BAIT
@@ -1387,28 +1466,28 @@ func _update_tackle_detail() -> void:
 			if _hotbar.get_item_id(slot_index) == item.item_id:
 				assigned_slot = slot_index
 				break
-	var state_text: String = (
-		"hotbar slot %d" % (assigned_slot + 1)
-		if assigned_slot >= 0
-		else "not assigned"
-	)
-	_tackle_detail_text.text = (
-		"%s\n\nType: %s\nQuantity: %d\n%s\n\n%s"
-		% [
-			item.display_name,
-			item.get_category_name(),
-			quantity,
-			state_text,
-			item.description,
-		]
-	)
+	var detail_lines: Array[String] = [
+		item.display_name,
+		"",
+		"quantity: %d" % quantity,
+	]
+	if assigned_slot >= 0:
+		detail_lines.append("hotbar slot %d" % (assigned_slot + 1))
+	detail_lines.append("")
+	detail_lines.append(item.description)
+	_tackle_detail_text.text = "\n".join(detail_lines)
 	if item.is_bait():
+		var is_equipped: bool = (
+			_player != null and _player.active_bait_id == item.item_id
+		)
 		_tackle_equip_button.text = (
 			"dequip %s" % item.display_name
-			if _player != null and _player.active_bait_id == item.item_id
+			if is_equipped
 			else "equip %s" % item.display_name
 		)
+		_tackle_equip_button.persistent_mark = is_equipped
 		_tackle_equip_button.disabled = quantity <= 0
+		_tackle_equip_button.refresh_ink_state()
 
 
 func _toggle_active_bait() -> void:

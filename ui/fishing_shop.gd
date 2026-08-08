@@ -423,34 +423,71 @@ func _refresh_supplies() -> void:
 		button.icon = item.icon
 		button.expand_icon = true
 		button.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		var owned: int = _bag.get_quantity(item_id)
+		var bait_topoff: bool = FishingShopStockType.is_bait_topoff(item_id)
+		var bait_unlocked: bool = (
+			not bait_topoff or _bag.is_bait_unlocked(item_id)
+		)
+		var quantity: int = FishingShopStockType.get_purchase_quantity(
+			item_id, owned, item.max_stack
+		)
+		var total_cost: int = FishingShopStockType.get_purchase_cost(
+			item_id, quantity, bait_unlocked
+		)
 		button.text = "%s\n$%d • owned %d" % [
 			item.display_name,
 			FishingShopStockType.get_price(item_id),
-			_bag.get_quantity(item_id),
+			owned,
 		]
-		if FishingShopStockType.is_bait_topoff(item_id):
-			button.text = "%s\n$%d each • %d/%d" % [
-				item.display_name,
-				FishingShopStockType.get_price(item_id),
-				_bag.get_quantity(item_id),
-				FishingShopStockType.WORM_MAX_STACK,
-			]
-		button.tooltip_text = item.description
+		var tooltip_text: String = item.description
+		if bait_topoff:
+			if item.icon != null:
+				button.custom_minimum_size = Vector2(72, 72)
+				button.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+				button.alignment = HORIZONTAL_ALIGNMENT_CENTER
+				button.text = ""
+			else:
+				button.text = (
+					"%s\nunlock $%d" % [item.display_name, total_cost]
+					if not bait_unlocked
+					else "%s\n$%d each • %d/%d" % [
+						item.display_name,
+						FishingShopStockType.get_price(item_id),
+						owned,
+						item.max_stack,
+					]
+				)
+			tooltip_text = (
+				"%s\nunlock $%d • fills to %d/%d\n%s" % [
+					item.display_name,
+					total_cost,
+					item.max_stack,
+					item.max_stack,
+					item.description,
+				]
+				if not bait_unlocked
+				else "%s\n$%d each • %d/%d\n%s" % [
+					item.display_name,
+					FishingShopStockType.get_price(item_id),
+					owned,
+					item.max_stack,
+					item.description,
+				]
+			)
 		button.disabled = (
 			_transaction_in_progress
 			or _closing
 			or _network_shop == null
 			or not _network_shop.can_request_purchase()
-			or FishingShopStockType.get_purchase_quantity(item_id, _bag.get_quantity(item_id)) <= 0
-			or not _bag.can_add_item(item_id, FishingShopStockType.get_purchase_quantity(item_id, _bag.get_quantity(item_id)))
-			or not _wallet.can_afford(
-				FishingShopStockType.get_price(item_id) * FishingShopStockType.get_purchase_quantity(item_id, _bag.get_quantity(item_id))
-			)
+			or quantity <= 0
+			or total_cost < 0
+			or not _bag.can_add_item(item_id, quantity)
+			or not _wallet.can_afford(total_cost)
 		)
 		button.tooltip_text = (
 			"Purchases are unavailable in this session."
 			if _network_shop == null or not _network_shop.can_request_purchase()
-			else item.description
+			else tooltip_text
 		)
 		UtilityPageStyleType.apply_ocean_button(button)
 		button.pressed.connect(_purchase_supply.bind(item_id))
@@ -585,11 +622,20 @@ func _purchase_supply(item_id: StringName) -> void:
 		_feedback.text = "unable to complete purchase."
 		return
 	var owned: int = _bag.get_quantity(item_id)
-	var quantity: int = FishingShopStockType.get_purchase_quantity(item_id, owned)
+	var item: ItemDataType = _item_catalog.get_item_by_id(item_id)
+	if item == null:
+		_feedback.text = "Purchase could not be completed."
+		return
+	var quantity: int = FishingShopStockType.get_purchase_quantity(
+		item_id, owned, item.max_stack
+	)
 	if quantity <= 0 or not _bag.can_add_item(item_id, quantity):
 		_feedback.text = "Your Bag is full."
 		return
-	if not _wallet.can_afford(FishingShopStockType.get_price(item_id) * quantity):
+	var total_cost: int = FishingShopStockType.get_purchase_cost(
+		item_id, quantity, _bag.is_bait_unlocked(item_id)
+	)
+	if total_cost < 0 or not _wallet.can_afford(total_cost):
 		_feedback.text = "Not enough fish coin."
 		return
 	if _network_shop == null:

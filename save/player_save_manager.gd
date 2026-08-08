@@ -43,6 +43,7 @@ class LoadSnapshot:
 	var wallet_balance: int = 0
 	var next_catch_sequence: int = 1
 	var bag_items: Array[OwnedItemType] = []
+	var unlocked_bait_ids: Array[StringName] = []
 	var hotbar_slots: Array[StringName] = []
 	var fish_hotbar_slots: Array[StringName] = []
 	var selected_hotbar_slot: int = 0
@@ -258,7 +259,10 @@ func load_player_data() -> bool:
 	var wallet_restored: bool = _wallet.restore_balance(
 		snapshot.wallet_balance
 	)
-	var bag_restored: bool = _bag.replace_all_items(snapshot.bag_items)
+	var bag_restored: bool = (
+		_bag.replace_all_items(snapshot.bag_items)
+		and _bag.replace_unlocked_bait_ids(snapshot.unlocked_bait_ids)
+	)
 	var hotbar_restored: bool = _hotbar.replace_state(
 		snapshot.hotbar_slots,
 		snapshot.selected_hotbar_slot,
@@ -492,6 +496,12 @@ func _build_save_dictionary() -> Dictionary:
 		if owned == null or not owned.is_valid():
 			return {}
 		serialized_items.append(owned.to_save_dict())
+	var serialized_unlocked_baits: Array[String] = []
+	for item_id: StringName in _bag.get_unlocked_bait_ids():
+		var item_data = _item_catalog.get_item_by_id(item_id)
+		if item_data == null or not item_data.is_valid() or not item_data.is_bait():
+			return {}
+		serialized_unlocked_baits.append(String(item_id))
 	var serialized_slots: Array[String] = []
 	for item_id: StringName in _hotbar.get_slots():
 		serialized_slots.append(String(item_id))
@@ -524,6 +534,7 @@ func _build_save_dictionary() -> Dictionary:
 		},
 		"bag": {
 			"items": serialized_items,
+			"unlocked_bait_ids": serialized_unlocked_baits,
 		},
 		"hotbar": {
 			"selected_slot": _hotbar.get_selected_slot(),
@@ -589,6 +600,10 @@ func _build_load_snapshot(save_data: Dictionary) -> LoadSnapshot:
 		or typeof(inventory_data.get("catches")) != TYPE_ARRAY
 		or not inventory_data.has("next_catch_sequence")
 		or typeof(bag_data.get("items")) != TYPE_ARRAY
+		or (
+			bag_data.has("unlocked_bait_ids")
+			and typeof(bag_data.get("unlocked_bait_ids")) != TYPE_ARRAY
+		)
 		or typeof(hotbar_data.get("slots")) != TYPE_ARRAY
 		or not hotbar_data.has("selected_slot")
 		or not experience_data.has("total_experience")
@@ -780,6 +795,34 @@ func _build_load_snapshot(save_data: Dictionary) -> LoadSnapshot:
 		owned.quantity = quantity
 		seen_items[item_id] = true
 		snapshot.bag_items.append(owned)
+
+	var seen_unlocked_baits: Dictionary[StringName, bool] = {}
+	if bag_data.has("unlocked_bait_ids"):
+		var unlocked_bait_values: Array = bag_data["unlocked_bait_ids"]
+		for value: Variant in unlocked_bait_values:
+			if typeof(value) not in [TYPE_STRING, TYPE_STRING_NAME]:
+				continue
+			var bait_id: StringName = StringName(str(value))
+			var bait_data = _item_catalog.get_item_by_id(bait_id)
+			if (
+				bait_id.is_empty()
+				or seen_unlocked_baits.has(bait_id)
+				or bait_data == null
+				or not bait_data.is_valid()
+				or not bait_data.is_bait()
+			):
+				continue
+			seen_unlocked_baits[bait_id] = true
+			snapshot.unlocked_bait_ids.append(bait_id)
+	for owned: OwnedItemType in snapshot.bag_items:
+		var owned_item_data = _item_catalog.get_item_by_id(owned.item_id)
+		if (
+			owned_item_data != null
+			and owned_item_data.is_bait()
+			and not seen_unlocked_baits.has(owned.item_id)
+		):
+			seen_unlocked_baits[owned.item_id] = true
+			snapshot.unlocked_bait_ids.append(owned.item_id)
 
 	var slot_values: Array = hotbar_data["slots"]
 	snapshot.hotbar_slots.resize(PlayerHotbarType.SLOT_COUNT)
@@ -1098,6 +1141,8 @@ func _restore_defaults() -> void:
 	)
 	_wallet.restore_balance(0)
 	_bag.replace_all_items(default_items)
+	var default_unlocked_baits: Array[StringName] = []
+	_bag.replace_unlocked_bait_ids(default_unlocked_baits)
 	_hotbar.replace_state(default_slots, 0)
 	_fishing_upgrades.reset_to_defaults()
 	_cooler_capacity.reset_to_defaults()

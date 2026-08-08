@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="ItemData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://items/item_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+item_id = &"whole_anchovy"
+display_name = "whole anchovy"
+description = "premium whole bait with high rare catch potential."
+category = 2
+bait_tags = Array[StringName]([&"bait_rarity_4"])
+stackable = true
+max_stack = 10
+hotbar_allowed = false

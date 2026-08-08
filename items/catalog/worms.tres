@@ -1,14 +1,16 @@
-[gd_resource type="Resource" script_class="ItemData" load_steps=2 format=3]
+[gd_resource type="Resource" script_class="ItemData" load_steps=3 format=3]
 
 [ext_resource type="Script" path="res://items/item_data.gd" id="1"]
+[ext_resource type="Texture2D" path="res://items/icons/bait/64_bait_worms.png" id="2_icon"]
 
 [resource]
 script = ExtResource("1")
 item_id = &"worms"
 display_name = "worms"
-description = "common bait. fills your tacklebox at the fishing shop."
+description = "basic bait that opens a small chance for rarer catches."
+icon = ExtResource("2_icon")
 category = 2
-bait_tags = Array[StringName]([&"worm"])
+bait_tags = Array[StringName]([&"worm", &"bait_rarity_0"])
 stackable = true
 max_stack = 10
 hotbar_allowed = false

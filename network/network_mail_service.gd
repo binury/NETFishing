@@ -992,6 +992,7 @@ func _capture_assets() -> Dictionary:
 	return {
 		"wallet": _wallet.get_balance(),
 		"bag": _bag.get_all_items(),
+		"unlocked_bait_ids": _bag.get_unlocked_bait_ids(),
 		"catches": _inventory.get_all_catches(),
 		"next_sequence": _inventory.get_next_catch_sequence(),
 		"discovered": _collection_log.get_discovered_ids(),
@@ -1002,6 +1003,7 @@ func _capture_assets() -> Dictionary:
 func _restore_assets(snapshot: Dictionary) -> void:
 	_wallet.restore_balance(int(snapshot["wallet"]))
 	_bag.replace_all_items(snapshot["bag"])
+	_bag.replace_unlocked_bait_ids(snapshot["unlocked_bait_ids"])
 	_inventory.replace_all_catches(
 		snapshot["catches"], int(snapshot["next_sequence"])
 	)

@@ -5,10 +5,15 @@ const ItemCatalogType = preload("res://items/item_catalog.gd")
 const ItemDataType = preload("res://items/item_data.gd")
 const OwnedItemType = preload("res://items/owned_item.gd")
 
+const DEFAULT_UNLOCKED_BAIT_IDS: Array[StringName] = [&"worms"]
+
 signal contents_changed
 
 var _catalog: ItemCatalogType
 var _items: Array[OwnedItemType] = []
+var _unlocked_bait_ids: Array[StringName] = (
+	DEFAULT_UNLOCKED_BAIT_IDS.duplicate()
+)
 
 
 func setup(catalog: ItemCatalogType) -> void:
@@ -27,6 +32,8 @@ func add_item(item_id: StringName, quantity: int = 1) -> bool:
 		owned.item_id = item_id
 		owned.quantity = quantity
 		_items.append(owned)
+	if item.is_bait() and not _unlocked_bait_ids.has(item_id):
+		_unlocked_bait_ids.append(item_id)
 	contents_changed.emit()
 	return true
 
@@ -83,6 +90,46 @@ func get_all_items() -> Array[OwnedItemType]:
 		if owned != null:
 			result.append(owned.duplicate_record())
 	return result
+
+
+func get_unlocked_bait_ids() -> Array[StringName]:
+	return _unlocked_bait_ids.duplicate()
+
+
+func is_bait_unlocked(item_id: StringName) -> bool:
+	return _unlocked_bait_ids.has(item_id)
+
+
+func get_unlocked_bait_items() -> Array[OwnedItemType]:
+	var result: Array[OwnedItemType] = []
+	for item_id: StringName in _unlocked_bait_ids:
+		var owned: OwnedItemType = get_owned_item(item_id)
+		if owned != null:
+			result.append(owned.duplicate_record())
+			continue
+		var empty_record := OwnedItemType.new()
+		empty_record.item_id = item_id
+		empty_record.quantity = 0
+		result.append(empty_record)
+	return result
+
+
+func replace_unlocked_bait_ids(item_ids: Array[StringName]) -> bool:
+	var validated: Array[StringName] = DEFAULT_UNLOCKED_BAIT_IDS.duplicate()
+	var seen: Dictionary[StringName, bool] = {}
+	for item_id: StringName in item_ids:
+		if item_id.is_empty() or seen.has(item_id):
+			return false
+		seen[item_id] = true
+		if validated.has(item_id):
+			continue
+		var item: ItemDataType = _resolve_valid_item(item_id)
+		if item == null or not item.is_bait():
+			return false
+		validated.append(item_id)
+	_unlocked_bait_ids = validated
+	contents_changed.emit()
+	return true
 
 
 func replace_all_items(items: Array[OwnedItemType]) -> bool:
