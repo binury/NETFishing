@@ -25,6 +25,15 @@ const PlayerVisualPresenterType = preload(
 	"pointy_short",
 	"pointy_wide",
 ) var ears_id: String = "none"
+@export_enum(
+	"none",
+	"bear",
+	"bunny",
+	"cat",
+	"fox",
+	"gator",
+	"pointy",
+) var tail_id: String = "none"
 @export var eyes_id: String = "simple_shine"
 @export var nose_id: String = "dog_round"
 @export var mouth_id: String = "three"
@@ -48,6 +57,7 @@ func _ready() -> void:
 	appearance["species"] = species_id
 	appearance["fur_pattern"] = fur_color_id
 	appearance["ears"] = ears_id
+	appearance["tail"] = tail_id
 	appearance["eyes"] = eyes_id
 	appearance["nose"] = nose_id
 	appearance["mouth"] = mouth_id

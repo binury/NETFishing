@@ -15,6 +15,7 @@ script = ExtResource("3_display")
 species_id = "pointy"
 fur_color_id = "white"
 ears_id = "pointy_wide"
+tail_id = "fox"
 eyes_id = "punk_purple"
 nose_id = "triangle_small"
 mouth_id = "slanted"

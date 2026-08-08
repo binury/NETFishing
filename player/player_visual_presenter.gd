@@ -3,6 +3,22 @@ extends RefCounted
 
 const PlayerScene: PackedScene = preload("res://player/player.tscn")
 const RUNTIME_MATERIAL_META: StringName = &"netfishing_runtime_material"
+const EAR_MESH_NAMES: Array[String] = [
+	"ears_antlers_round",
+	"ears_bear",
+	"ears_bunny",
+	"ears_pointy_long",
+	"ears_pointy_short",
+	"ears_pointy_wide",
+]
+const TAIL_MESH_NAMES: Array[String] = [
+	"tails_bear",
+	"tails_bunny",
+	"tails_cat",
+	"tails_fox",
+	"tails_gator",
+	"tails_pointy",
+]
 
 static var _feature_uv_aspects: Dictionary = {}
 
@@ -113,15 +129,17 @@ static func apply_appearance(
 	var selected_ears: String = CharacterCustomizationCatalog.canonical_option_id(
 		"ears", str(snapshot.get("ears", "none"))
 	)
-	var ear_names: Array[String] = [
-		"ears_pointy_long",
-		"ears_pointy_short",
-		"ears_pointy_wide",
-	]
-	for ear_name: String in ear_names:
+	for ear_name: String in EAR_MESH_NAMES:
 		var ears: Node3D = skeleton.get_node_or_null(ear_name) as Node3D
 		if ears != null:
 			ears.visible = selected_ears == ear_name.trim_prefix("ears_")
+	var selected_tail: String = CharacterCustomizationCatalog.canonical_option_id(
+		"tail", str(snapshot.get("tail", "none"))
+	)
+	for tail_name: String in TAIL_MESH_NAMES:
+		var tail: Node3D = skeleton.get_node_or_null(tail_name) as Node3D
+		if tail != null:
+			tail.visible = selected_tail == tail_name.trim_prefix("tails_")
 
 	var fur_color: Color = CharacterCustomizationCatalog.option_color(
 		"fur_pattern", str(snapshot.get("fur_pattern", "white"))
@@ -130,8 +148,10 @@ static func apply_appearance(
 	_set_mesh_color(skeleton, "body_main", fur_color)
 	_set_mesh_color(skeleton, "head_pointy", fur_color)
 	_set_mesh_color(skeleton, "head_round", fur_color)
-	for ear_name: String in ear_names:
+	for ear_name: String in EAR_MESH_NAMES:
 		_set_mesh_color(skeleton, ear_name, fur_color)
+	for tail_name: String in TAIL_MESH_NAMES:
+		_set_mesh_color(skeleton, tail_name, fur_color)
 
 	var eye_id: String = CharacterCustomizationCatalog.canonical_option_id(
 		"eyes", str(snapshot.get("eyes", "simple_shine"))

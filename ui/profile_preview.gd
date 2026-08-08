@@ -9,6 +9,7 @@ const UIReferencePresentationType = preload(
 )
 const FRONT_FACING_YAW: float = PI
 const DEFAULT_CAMERA_DISTANCE: float = 1.9
+const DEFAULT_CAMERA_PITCH: float = 0.12
 const MIN_CAMERA_DISTANCE: float = 1.05
 const MAX_CAMERA_DISTANCE: float = 2.8
 const CAMERA_ZOOM_STEP: float = 0.14
@@ -25,7 +26,7 @@ const CAMERA_TARGET_HEIGHT: float = 0.95
 
 var _dragging: bool = false
 var _camera_yaw: float = 0.0
-var _camera_pitch: float = 0.0
+var _camera_pitch: float = DEFAULT_CAMERA_PITCH
 var _camera_distance: float = DEFAULT_CAMERA_DISTANCE
 var _visuals: Node3D
 var _controller_mapping_manager: ControllerMappingManagerType
@@ -85,11 +86,9 @@ func apply_appearance_profile(profile: Dictionary) -> void:
 func reset_view() -> void:
 	_preview_root.rotation.y = FRONT_FACING_YAW
 	_camera_yaw = 0.0
-	_camera_pitch = 0.0
+	_camera_pitch = DEFAULT_CAMERA_PITCH
 	_camera_distance = DEFAULT_CAMERA_DISTANCE
 	_apply_camera_orbit()
-	if _preview_camera != null:
-		_preview_camera.position.z = DEFAULT_CAMERA_DISTANCE
 
 
 func _process(delta: float) -> void:

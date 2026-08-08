@@ -24,8 +24,8 @@ const CATEGORY_LABELS: Dictionary = {
 }
 
 const SCALE_CATEGORY_ID: String = "scale"
-const MIN_CHARACTER_SCALE: float = 0.75
-const MAX_CHARACTER_SCALE: float = 1.25
+const MIN_CHARACTER_SCALE: float = 0.5
+const MAX_CHARACTER_SCALE: float = 1.5
 const DEFAULT_CHARACTER_SCALE: float = 1.0
 const CHARACTER_SCALE_STEP: float = 0.05
 
@@ -51,16 +51,24 @@ const OPTIONS: Dictionary = {
 	# authored pattern layer is ready.
 	"fur_pattern": [
 		{"id": "white", "label": "white", "color": Color("f2f0e8")},
+		{"id": "cream", "label": "cream", "color": Color("e6d39b")},
 		{"id": "gray", "label": "gray", "color": Color("819398")},
 		{"id": "charcoal", "label": "charcoal", "color": Color("34444a")},
 		{"id": "brown", "label": "brown", "color": Color("7b4a32")},
 		{"id": "orange", "label": "orange", "color": Color("c86c36")},
+		{"id": "red", "label": "red", "color": Color("a9433f")},
+		{"id": "pink", "label": "pink", "color": Color("d8899e")},
 		{"id": "yellow", "label": "yellow", "color": Color("d8c545")},
 		{"id": "green", "label": "green", "color": Color("6f913c")},
 		{"id": "teal", "label": "teal", "color": Color("3a8790")},
+		{"id": "blue", "label": "blue", "color": Color("4d76a8")},
+		{"id": "purple", "label": "purple", "color": Color("76558f")},
 	],
 	"ears": [
 		{"id": "none", "label": "none"},
+		{"id": "antlers_round", "label": "antlers"},
+		{"id": "bear", "label": "bear"},
+		{"id": "bunny", "label": "bunny"},
 		{"id": "pointy_long", "label": "long"},
 		{"id": "pointy_short", "label": "short"},
 		{"id": "pointy_wide", "label": "wide"},
@@ -74,13 +82,22 @@ const OPTIONS: Dictionary = {
 	],
 	"nose": [{"id": "dog_round", "label": "round"}],
 	"mouth": [{"id": "three", "label": "three"}],
-	"tail": [{"id": "none", "label": "none"}],
+	"tail": [
+		{"id": "none", "label": "none"},
+		{"id": "bear", "label": "bear"},
+		{"id": "bunny", "label": "bunny"},
+		{"id": "cat", "label": "cat"},
+		{"id": "fox", "label": "fox"},
+		{"id": "gator", "label": "gator"},
+		{"id": "pointy", "label": "pointy"},
+	],
 }
 
 const LEGACY_OPTION_ALIASES: Dictionary = {
 	"species": {"default": "round"},
 	"fur_pattern": {"solid": "white"},
 	"ears": {"default": "none"},
+	"tail": {"default": "none"},
 	"eyes": {"default": "simple_shine"},
 	"nose": {"default": "dog_round"},
 	"mouth": {"default": "three"},
@@ -125,6 +142,82 @@ static func options_for(category_id: String) -> Array:
 		_ensure_feature_assets()
 		return _feature_options.get(category_id, []) as Array
 	return OPTIONS.get(category_id, [])
+
+
+static func feature_option_groups(category_id: String) -> Array:
+	if category_id not in FEATURE_CATEGORIES:
+		return []
+	var options: Array = options_for(category_id)
+	var option_ids: Array[String] = []
+	for option: Dictionary in options:
+		option_ids.append(str(option.get("id", "")))
+	var grouped_options: Dictionary = {}
+	var group_order: Array[String] = []
+	for option: Dictionary in options:
+		var option_id := str(option.get("id", ""))
+		var group_id := _feature_variant_root(option_id, option_ids)
+		if not grouped_options.has(group_id):
+			grouped_options[group_id] = []
+			group_order.append(group_id)
+		var group: Array = grouped_options[group_id] as Array
+		group.append(option)
+		grouped_options[group_id] = group
+	var result: Array = []
+	for group_id: String in group_order:
+		result.append({
+			"id": group_id,
+			"options": grouped_options[group_id],
+		})
+	return result
+
+
+static func _feature_variant_root(
+	option_id: String,
+	option_ids: Array[String],
+) -> String:
+	if option_id == "none":
+		return option_id
+	# Prefer the shortest authored base option. This keeps nested names such as
+	# `beady_extra_shine` in the `beady` drawer rather than creating drawers
+	# inside drawers.
+	var authored_root := ""
+	for candidate_id: String in option_ids:
+		if candidate_id == "none":
+			continue
+		if (
+			option_id != candidate_id
+			and not option_id.begins_with(candidate_id + "_")
+		):
+			continue
+		var has_descendant := false
+		for descendant_id: String in option_ids:
+			if descendant_id.begins_with(candidate_id + "_"):
+				has_descendant = true
+				break
+		if (
+			has_descendant
+			and (
+				authored_root.is_empty()
+				or candidate_id.length() < authored_root.length()
+			)
+		):
+			authored_root = candidate_id
+	if not authored_root.is_empty():
+		return authored_root
+
+	# Some families have no unqualified base asset. Group those siblings by
+	# their leading name segment, making the sorted first asset representative.
+	var separator_index := option_id.find("_")
+	if separator_index <= 0:
+		return option_id
+	var leading_segment := option_id.substr(0, separator_index)
+	var sibling_count := 0
+	for candidate_id: String in option_ids:
+		if candidate_id.begins_with(leading_segment + "_"):
+			sibling_count += 1
+	if sibling_count >= 2:
+		return leading_segment
+	return option_id
 
 
 static func texture_for(category_id: String, option_id: String) -> Texture2D:

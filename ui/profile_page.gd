@@ -3,6 +3,7 @@ extends Control
 
 const CHECK_DEBOUNCE_SECONDS: float = 0.4
 const OPTION_GRID_COLUMNS: int = 6
+const FEATURE_DRAWER_ANIMATION_SECONDS: float = 0.16
 const ControllerMappingManagerType = preload(
 	"res://settings/controller_mapping_manager.gd"
 )
@@ -45,6 +46,8 @@ var _experience_level: Label
 var _experience_progress: ProgressBar
 var _experience_value: Label
 var _feature_preview_cache: Dictionary = {}
+var _expanded_feature_drawers: Dictionary = {}
+var _feature_drawer_animation_key: String = ""
 var _scale_value_label: Label
 var _voice_preview: AnimaleseVoiceType
 var _voice_preview_tween: Tween
@@ -630,7 +633,7 @@ func _build_scale_option() -> void:
 	_option_list.add_child(gameplay_note)
 
 
-func _build_feature_preview_options(options: Array) -> void:
+func _build_feature_preview_options(_options: Array) -> void:
 	var scroll := ScrollContainer.new()
 	scroll.custom_minimum_size = Vector2(190.0, 0.0)
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -646,45 +649,153 @@ func _build_feature_preview_options(options: Array) -> void:
 	var selected_id := CharacterCustomizationCatalog.canonical_option_id(
 		_category_id, str(_draft_appearance.get(_category_id, ""))
 	)
-	for option: Dictionary in options:
-		var option_id := str(option.get("id", ""))
-		var button := Button.new()
-		var is_none := option_id == "none"
-		button.text = "×" if is_none else ""
-		button.tooltip_text = "none" if is_none else str(
-			option.get("label", option_id)
+	var groups: Array = CharacterCustomizationCatalog.feature_option_groups(
+		_category_id
+	)
+	var expanded_drawer_id := str(
+		_expanded_feature_drawers.get(_category_id, "")
+	)
+	if expanded_drawer_id.is_empty():
+		for group: Dictionary in groups:
+			var group_options: Array = group.get("options", []) as Array
+			if group_options.size() <= 1:
+				continue
+			var representative_id := str(
+				(group_options[0] as Dictionary).get("id", "")
+			)
+			for option: Dictionary in group_options:
+				if (
+					str(option.get("id", "")) == selected_id
+					and selected_id != representative_id
+				):
+					expanded_drawer_id = str(group.get("id", ""))
+					_expanded_feature_drawers[_category_id] = (
+						expanded_drawer_id
+					)
+					break
+			if not expanded_drawer_id.is_empty():
+				break
+
+	var animation_key := _feature_drawer_animation_key
+	for group: Dictionary in groups:
+		var group_id := str(group.get("id", ""))
+		var group_options: Array = group.get("options", []) as Array
+		if group_options.is_empty():
+			continue
+		var has_variants := group_options.size() > 1
+		var is_expanded := has_variants and group_id == expanded_drawer_id
+		for option_index: int in range(group_options.size()):
+			if option_index > 0 and not is_expanded:
+				continue
+			var option: Dictionary = group_options[option_index] as Dictionary
+			var button := _build_feature_option_button(
+				option,
+				selected_id,
+				group_id,
+				option_index == 0,
+				has_variants,
+				is_expanded,
+			)
+			grid.add_child(button)
+			if (
+				option_index > 0
+				and animation_key == "%s:%s" % [_category_id, group_id]
+			):
+				_animate_feature_drawer_button(button)
+	_feature_drawer_animation_key = ""
+
+
+func _build_feature_option_button(
+	option: Dictionary,
+	selected_id: String,
+	drawer_id: String,
+	is_representative: bool,
+	has_variants: bool,
+	is_expanded: bool,
+) -> Button:
+	var option_id := str(option.get("id", ""))
+	var button := Button.new()
+	var is_none := option_id == "none"
+	button.text = "×" if is_none else ""
+	button.tooltip_text = "none" if is_none else str(
+		option.get("label", option_id)
+	)
+	if is_representative and has_variants:
+		button.tooltip_text += (
+			" (hide variants)" if is_expanded else " (show variants)"
 		)
-		button.toggle_mode = true
-		button.button_pressed = selected_id == option_id
-		button.custom_minimum_size = Vector2(84.0, 64.0)
-		button.alignment = HORIZONTAL_ALIGNMENT_CENTER
-		button.clip_contents = true
+	button.toggle_mode = true
+	button.button_pressed = selected_id == option_id
+	button.custom_minimum_size = Vector2(84.0, 64.0)
+	button.alignment = HORIZONTAL_ALIGNMENT_CENTER
+	button.clip_contents = true
+	if is_representative and has_variants:
+		button.pressed.connect(
+			_select_feature_drawer.bind(_category_id, drawer_id, option_id)
+		)
+	else:
 		button.pressed.connect(_select_option.bind(_category_id, option_id))
-		UtilityPageStyle.apply_compact_ocean_button(button)
-		button.custom_minimum_size = Vector2(84.0, 64.0)
-		if is_none:
-			button.add_theme_font_size_override("font_size", 28)
-		else:
-			var preview := TextureRect.new()
-			preview.texture = _feature_preview_texture(
-				_category_id, option_id
-			)
-			preview.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-			preview.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-			preview.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			var preview_height := 50.0
-			var preview_width := clampf(
-				preview_height * PlayerVisualPresenter.feature_uv_aspect(
-					_category_id
-				),
-				32.0,
-				74.0,
-			)
-			preview.custom_minimum_size = Vector2(preview_width, preview_height)
-			preview.size = Vector2(preview_width, preview_height)
-			preview.position = Vector2((84.0 - preview_width) * 0.5, 7.0)
-			button.add_child(preview)
-		grid.add_child(button)
+	UtilityPageStyle.apply_compact_ocean_button(button)
+	button.custom_minimum_size = Vector2(84.0, 64.0)
+	if is_none:
+		button.add_theme_font_size_override("font_size", 28)
+	else:
+		var preview := TextureRect.new()
+		preview.texture = _feature_preview_texture(_category_id, option_id)
+		preview.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		preview.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		preview.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var preview_height := 50.0
+		var preview_width := clampf(
+			preview_height * PlayerVisualPresenter.feature_uv_aspect(_category_id),
+			32.0,
+			74.0,
+		)
+		preview.custom_minimum_size = Vector2(preview_width, preview_height)
+		preview.size = Vector2(preview_width, preview_height)
+		preview.position = Vector2((84.0 - preview_width) * 0.5, 7.0)
+		button.add_child(preview)
+	if is_representative and has_variants:
+		var indicator := Label.new()
+		indicator.text = "<" if is_expanded else ">"
+		indicator.position = Vector2(66.0, 1.0)
+		indicator.size = Vector2(14.0, 16.0)
+		indicator.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		indicator.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		indicator.add_theme_font_size_override("font_size", 13)
+		indicator.add_theme_color_override(
+			"font_color", UtilityPageStyle.OCEAN_TEXT_PRIMARY
+		)
+		button.add_child(indicator)
+	return button
+
+
+func _select_feature_drawer(
+	category_id: String,
+	drawer_id: String,
+	option_id: String,
+) -> void:
+	if str(_expanded_feature_drawers.get(category_id, "")) == drawer_id:
+		_expanded_feature_drawers.erase(category_id)
+	else:
+		_expanded_feature_drawers[category_id] = drawer_id
+		_feature_drawer_animation_key = "%s:%s" % [category_id, drawer_id]
+	_select_option(category_id, option_id)
+
+
+func _animate_feature_drawer_button(button: Button) -> void:
+	button.scale = Vector2(0.05, 1.0)
+	var faded := button.modulate
+	faded.a = 0.0
+	button.modulate = faded
+	var tween := button.create_tween()
+	tween.set_parallel(true)
+	tween.tween_property(
+		button, "scale", Vector2.ONE, FEATURE_DRAWER_ANIMATION_SECONDS
+	).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tween.tween_property(
+		button, "modulate:a", 1.0, FEATURE_DRAWER_ANIMATION_SECONDS
+	).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 
 
 func _feature_preview_texture(
