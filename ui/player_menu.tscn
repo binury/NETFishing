@@ -1,4 +1,4 @@
-[gd_scene load_steps=27 format=3]
+[gd_scene load_steps=33 format=3]
 
 [ext_resource type="Script" path="res://ui/player_menu.gd" id="1_menu"]
 [ext_resource type="Theme" path="res://ui/game_theme.tres" id="2_theme"]
@@ -24,7 +24,13 @@
 [ext_resource type="Script" path="res://ui/components/inventory_notepad.gd" id="22_inventory_notepad"]
 [ext_resource type="Script" path="res://ui/components/organizer_tab.gd" id="23_organizer_tab"]
 [ext_resource type="PackedScene" path="res://ui/the_net_page.tscn" id="24_the_net_page"]
-[ext_resource type="Texture2D" path="res://ui/icons/pictograms/online_dark.png" id="25_online_dark"]
+[ext_resource type="Texture2D" path="res://ui/icons/tab_menu/inventory_simple.png" id="25_inventory_simple"]
+[ext_resource type="Texture2D" path="res://ui/icons/tab_menu/logbook_icon_simple.png" id="26_logbook_simple"]
+[ext_resource type="Texture2D" path="res://ui/icons/tab_menu/fishnet_simple.png" id="27_fishnet_simple"]
+[ext_resource type="Texture2D" path="res://ui/icons/tab_menu/mail_simple.png" id="28_mail_simple"]
+[ext_resource type="Texture2D" path="res://ui/icons/tab_menu/profile_simple.png" id="29_profile_simple"]
+[ext_resource type="Texture2D" path="res://ui/icons/tab_menu/online_simple.png" id="30_online_simple"]
+[ext_resource type="Texture2D" path="res://ui/icons/tab_menu/close.png" id="31_close"]
 
 [sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_collection"]
 
@@ -1391,7 +1397,8 @@ compact_reference_size = Vector2(840, 100)
 unique_name_in_owner = true
 layout_mode = 0
 toggle_mode = true
-text = "stuff"
+icon = ExtResource("25_inventory_simple")
+tooltip_text = "stuff"
 accessibility_name = "stuff"
 script = ExtResource("6_bubble")
 profile = ExtResource("4_profile")
@@ -1412,7 +1419,9 @@ deformation_period = 6.4
 unique_name_in_owner = true
 layout_mode = 0
 toggle_mode = true
-text = "logbook"
+icon = ExtResource("26_logbook_simple")
+tooltip_text = "logbook"
+accessibility_name = "logbook"
 script = ExtResource("6_bubble")
 profile = ExtResource("4_profile")
 neutral_size = Vector2(112, 108)
@@ -1432,7 +1441,8 @@ deformation_period = 6.7
 unique_name_in_owner = true
 layout_mode = 0
 toggle_mode = true
-text = "fishnet"
+icon = ExtResource("27_fishnet_simple")
+tooltip_text = "fishnet"
 accessibility_name = "net"
 script = ExtResource("6_bubble")
 profile = ExtResource("4_profile")
@@ -1453,7 +1463,9 @@ deformation_period = 6.45
 unique_name_in_owner = true
 layout_mode = 0
 toggle_mode = true
-text = "mail"
+icon = ExtResource("28_mail_simple")
+tooltip_text = "mail"
+accessibility_name = "mail"
 script = ExtResource("6_bubble")
 profile = ExtResource("4_profile")
 neutral_size = Vector2(112, 108)
@@ -1489,7 +1501,9 @@ vertical_alignment = 1
 unique_name_in_owner = true
 layout_mode = 0
 toggle_mode = true
-text = "profile"
+icon = ExtResource("29_profile_simple")
+tooltip_text = "profile"
+accessibility_name = "profile"
 script = ExtResource("6_bubble")
 profile = ExtResource("4_profile")
 neutral_size = Vector2(112, 108)
@@ -1510,7 +1524,7 @@ unique_name_in_owner = true
 layout_mode = 0
 toggle_mode = true
 texture_filter = 1
-icon = ExtResource("25_online_dark")
+icon = ExtResource("30_online_simple")
 tooltip_text = "online"
 accessibility_name = "online"
 script = ExtResource("6_bubble")
@@ -1531,7 +1545,9 @@ deformation_period = 6.4
 [node name="CloseButton" type="Button" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/NavigationCluster"]
 unique_name_in_owner = true
 layout_mode = 0
-text = "close"
+icon = ExtResource("31_close")
+tooltip_text = "close"
+accessibility_name = "close"
 script = ExtResource("6_bubble")
 profile = ExtResource("4_profile")
 neutral_size = Vector2(96, 94)
