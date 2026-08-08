@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ANDROID_HOME="${ANDROID_HOME:-/home/sol6_vi/Android/Sdk}"
+ANDROID_HOME="${ANDROID_HOME:-${HOME}/Android/Sdk}"
 JAVA_HOME="${JAVA_HOME:-}"
 INSTALL=0
 AUTO=0
@@ -55,6 +55,9 @@ done
 
 PROJECT_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 GODOT="${GODOT_BIN:-godot}"
+PROJECT_VERSION="$(
+  sed -n 's/^config\/version="\([^"]*\)"/\1/p' "${PROJECT_ROOT}/project.godot"
+)"
 MISSING=0
 
 print_status() { printf '%s %s\n' "[$1]" "$2"; }
@@ -71,7 +74,7 @@ check_dir() {
 
 check_file() {
   local path="$1" label="$2"
-  if [[ -x "$path" || -f "$path" ]]; then
+  if [[ -x "$path" ]]; then
     print_status OK "${label}: ${path}"
   else
     print_status ERR "Missing ${label}: ${path}"
@@ -113,6 +116,8 @@ resolve_java_home() {
 check_java() {
   if resolve_java_home && [[ -x "$JAVA_HOME/bin/java" ]]; then
     print_status OK "Java binary: $JAVA_HOME/bin/java"
+    check_file "$JAVA_HOME/bin/javac" "javac binary"
+    check_file "$JAVA_HOME/bin/keytool" "keytool binary"
     "$JAVA_HOME/bin/java" -version 2>&1 | sed -n '1,2p'
     local java_ver
     java_ver=$("$JAVA_HOME/bin/java" -version 2>&1 | sed -n '1p')
@@ -161,18 +166,13 @@ check_sdk_paths() {
   check_dir "$ANDROID_HOME/platform-tools" "platform-tools"
   check_file "$ANDROID_HOME/platform-tools/adb" "adb binary"
 
-  if [[ -d "$ANDROID_HOME/build-tools" ]]; then
-    local bt
-    bt="$(ls -1v "$ANDROID_HOME/build-tools" 2>/dev/null | tail -n 1 || true)"
-    if [[ -n "$bt" ]]; then
-      print_status OK "build-tools versions: $(ls -1 "$ANDROID_HOME/build-tools" | tr '\n' ' ')"
-      check_file "$ANDROID_HOME/build-tools/$bt/apksigner" "apksigner"
-    else
-      print_status ERR "build-tools directory exists but is empty"
-      MISSING=$((MISSING+1))
-    fi
+  if [[ -d "$ANDROID_HOME/build-tools/$BUILDTOOLS_VERSION" ]]; then
+    print_status OK "build-tools ${BUILDTOOLS_VERSION}: present"
+    check_file \
+      "$ANDROID_HOME/build-tools/$BUILDTOOLS_VERSION/apksigner" \
+      "apksigner"
   else
-    print_status ERR "Missing build-tools root: $ANDROID_HOME/build-tools"
+    print_status ERR "Missing build-tools version: ${BUILDTOOLS_VERSION}"
     MISSING=$((MISSING+1))
   fi
 
@@ -198,6 +198,7 @@ check_sdk_paths() {
 
 install_jdk_hint() {
   local pm=0
+  local -a elevate=()
   echo "Attempting automatic JDK install..."
   if command -v apt-get >/dev/null 2>&1; then
     pm="apt-get"
@@ -212,19 +213,18 @@ install_jdk_hint() {
   fi
 
   if [[ $EUID -ne 0 ]]; then
-    local sudo_cmd=(sudo)
     if ! command -v sudo >/dev/null 2>&1; then
       echo "sudo not found; please run with root privileges for package install."
       return 1
     fi
+    elevate=(sudo)
   fi
 
   if [[ "$pm" == "apt-get" ]]; then
     echo "apt-get install -y openjdk-17-jdk"
     if [[ $AUTO -eq 1 ]]; then
-      if command -v sudo >/dev/null 2>&1; then
-        sudo apt-get update && sudo apt-get install -y openjdk-17-jdk
-      fi
+      "${elevate[@]}" apt-get update
+      "${elevate[@]}" apt-get install -y openjdk-17-jdk
     else
       echo "Run as manual step first: sudo apt-get update && sudo apt-get install -y openjdk-17-jdk"
       return 1
@@ -232,14 +232,14 @@ install_jdk_hint() {
   elif [[ "$pm" == "dnf" ]]; then
     echo "dnf install -y java-17-openjdk-devel"
     if [[ $AUTO -eq 1 ]]; then
-      sudo dnf install -y java-17-openjdk-devel
+      "${elevate[@]}" dnf install -y java-17-openjdk-devel
     else
       return 1
     fi
   else
     echo "pacman -S --noconfirm jdk17-openjdk"
     if [[ $AUTO -eq 1 ]]; then
-      sudo pacman -S --noconfirm jdk17-openjdk
+      "${elevate[@]}" pacman -S --noconfirm jdk17-openjdk
     else
       return 1
     fi
@@ -305,7 +305,7 @@ install_sdk_components() {
     echo "Cannot install SDK packages without sdkmanager."
     return 1
   fi
-  "$sdkmanager_path" --sdk_root="${ANDROID_HOME}" --list | head -n 40 | sed -n '1,40p'
+  "$sdkmanager_path" --sdk_root="${ANDROID_HOME}" --list | sed -n '1,40p'
   echo "Installing required SDK components: platform-tools, platform-android-${SDK_VERSION}, build-tools-${BUILDTOOLS_VERSION}"
   if [[ $AUTO -eq 1 ]]; then
     yes | "$sdkmanager_path" --sdk_root="${ANDROID_HOME}" --install "platform-tools" "platforms;android-${SDK_VERSION}" "build-tools;${BUILDTOOLS_VERSION}"
@@ -336,7 +336,7 @@ check_editor_settings() {
 run_export_hint() {
   echo
   echo "Example export commands:"
-  echo "  ${GODOT} --headless --path \"$PROJECT_ROOT\" --export-release \"Android\" builds/v0.5.1-prealpha/android/NETFISHING.apk"
+  echo "  ${GODOT} --headless --path \"$PROJECT_ROOT\" --export-release \"Android\" builds/${PROJECT_VERSION}/android/NETfishing.apk"
   echo "  ${GODOT} --headless --path \"$PROJECT_ROOT\" --export-debug \"Android\" builds/android/NETfishing-debug.apk"
 }
 
@@ -354,7 +354,12 @@ fi
 if [[ $INSTALL -eq 1 ]]; then
   echo
   print_status INFO "Attempting dependency install path..."
-  if [[ -z "$JAVA_HOME" || ! -x "$JAVA_HOME/bin/java" ]]; then
+  if [[ \
+    -z "$JAVA_HOME" \
+    || ! -x "$JAVA_HOME/bin/java" \
+    || ! -x "$JAVA_HOME/bin/javac" \
+    || ! -x "$JAVA_HOME/bin/keytool" \
+  ]]; then
     install_jdk_hint || true
   fi
 
@@ -377,11 +382,11 @@ if [[ $INSTALL -eq 1 ]]; then
 fi
 
 print_status ERR "Dependency check failed with ${MISSING} issue(s)."
-cat <<'TIPS'
+cat <<TIPS
 Suggested manual recovery:
 1) Install OpenJDK 17 JDK.
 2) Install Android SDK command line tools and run:
-   sdkmanager --sdk_root="${ANDROID_HOME}" --install "platform-tools" "platforms;android-33" "build-tools;34.0.0"
+   sdkmanager --sdk_root="${ANDROID_HOME}" --install "platform-tools" "platforms;android-${SDK_VERSION}" "build-tools;${BUILDTOOLS_VERSION}"
 3) Set JAVA_HOME and ANDROID_HOME in your shell and Godot Exporter settings.
 4) Re-run this script without --install (verification), then re-run Godot Android export.
 TIPS
