@@ -68,15 +68,3 @@ scripts do not create or publish tags.
 See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) and
 [`world/README-WORLD-AUTHORING.md`](world/README-WORLD-AUTHORING.md) for more
 detail.
-
-## Authorship and assets
-
-NETfishing uses a mixture of original assets and
-software-development assistance. The project records this plainly rather than
-claiming that repository history can prove how each line was produced. See
-[`CREDITS.md`](CREDITS.md) and
-[`docs/ASSET-PROVENANCE.md`](docs/ASSET-PROVENANCE.md).
-
-No project-wide source license has been selected yet. Do not assume permission
-to redistribute the source or bundled assets beyond rights stated in their
-individual license records.
