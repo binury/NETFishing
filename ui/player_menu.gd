@@ -91,6 +91,8 @@ signal controller_hotbar_placement_requested(
 	initial_slot: int,
 )
 signal controller_hotbar_placement_ended
+signal controller_hotbar_management_requested(initial_slot: int)
+signal controller_hotbar_management_ended
 signal menu_exit_started
 signal shop_cooler_modal_changed(is_open: bool)
 
@@ -133,6 +135,7 @@ enum CloseReason {
 enum ControllerOwnership {
 	ITEM_LIST,
 	NOTEPAD_ACTIONS,
+	HOTBAR_MANAGEMENT,
 	HOTBAR_PLACEMENT,
 }
 
@@ -678,6 +681,17 @@ func _handle_controller_ownership_input(event: InputEvent) -> bool:
 			JOY_BUTTON_Y,
 		)
 	)
+	if _controller_ownership == ControllerOwnership.HOTBAR_MANAGEMENT:
+		if cancel_pressed:
+			_release_controller_ownership(true, false)
+			return true
+		if alternate_pressed:
+			if _hotbar != null:
+				_hotbar.clear_slot(_hotbar.get_selected_slot())
+			return true
+		if accept_pressed:
+			return true
+		return false
 	if _controller_ownership == ControllerOwnership.HOTBAR_PLACEMENT:
 		if accept_pressed:
 			_confirm_controller_hotbar_placement()
@@ -902,6 +916,11 @@ func _release_controller_ownership(
 		if restore_previous_hotbar_slot and _hotbar != null:
 			_hotbar.select_slot(_controller_previous_hotbar_slot)
 		controller_hotbar_placement_ended.emit()
+	if prior_ownership == ControllerOwnership.HOTBAR_MANAGEMENT:
+		controller_hotbar_management_ended.emit()
+		inventory_hotbar_context_changed.emit(
+			_current_section in [Section.COOLER, Section.BAG]
+		)
 	if restore_source_focus:
 		call_deferred(
 			"_restore_controller_item_focus",
@@ -914,7 +933,10 @@ func _restore_controller_item_focus(
 	section: Section,
 	identity: StringName,
 ) -> void:
-	if not visible or section != _current_section or identity.is_empty():
+	if not visible or section != _current_section:
+		return
+	if identity.is_empty():
+		_focus_current_section()
 		return
 	var target: Control
 	if section == Section.COOLER:
@@ -940,6 +962,8 @@ func _restore_controller_item_focus(
 		and target.focus_mode != Control.FOCUS_NONE
 	):
 		target.grab_focus()
+	else:
+		_focus_current_section()
 
 
 func _handle_controller_page_switch(event: InputEvent) -> bool:
@@ -1047,6 +1071,10 @@ func _handle_controller_secondary_switch(event: InputEvent) -> bool:
 		return false
 	if not button_event.pressed:
 		return true
+	var direction: int = -1 if uses_left_bumper else 1
+	if _controller_ownership == ControllerOwnership.HOTBAR_MANAGEMENT:
+		_cycle_from_controller_hotbar_management(direction)
+		return true
 	if (
 		_transitioning
 		or _page_transitioning
@@ -1055,12 +1083,17 @@ func _handle_controller_secondary_switch(event: InputEvent) -> bool:
 		or _controller_ownership != ControllerOwnership.ITEM_LIST
 	):
 		return true
-	var direction: int = -1 if uses_left_bumper else 1
 	if _is_inventory_section(_current_section):
+		if (
+			(direction > 0 and _current_section == Section.BAG)
+			or (direction < 0 and _current_section == Section.COOLER)
+		):
+			_begin_controller_hotbar_management()
+			return true
 		var inventory_sections: Array[Section] = [
 			Section.COOLER,
-			Section.BAG,
 			Section.TACKLE_BOX,
+			Section.BAG,
 		]
 		var inventory_index: int = inventory_sections.find(_current_section)
 		_show_section(inventory_sections[wrapi(
@@ -1071,6 +1104,35 @@ func _handle_controller_secondary_switch(event: InputEvent) -> bool:
 		return true
 	_cycle_visible_secondary_tabs(direction)
 	return true
+
+
+func _begin_controller_hotbar_management() -> void:
+	if _hotbar == null:
+		return
+	_controller_source_section = _current_section
+	_controller_source_identity = StringName()
+	var focus_owner: Control = get_viewport().gui_get_focus_owner()
+	if _current_section == Section.COOLER:
+		var fish_node := focus_owner as CoolerFishSpriteType
+		if fish_node != null:
+			_controller_source_identity = fish_node.catch_id
+	elif _current_section == Section.BAG:
+		var item_node := focus_owner as BagItemSpriteType
+		if item_node != null:
+			_controller_source_identity = item_node.item_id
+	_controller_ownership = ControllerOwnership.HOTBAR_MANAGEMENT
+	controller_hotbar_management_requested.emit(_hotbar.get_selected_slot())
+
+
+func _cycle_from_controller_hotbar_management(direction: int) -> void:
+	_release_controller_ownership(false, false)
+	var target_section: Section = (
+		Section.COOLER if direction > 0 else Section.BAG
+	)
+	if target_section == _current_section:
+		call_deferred("_focus_current_section")
+	else:
+		_show_section(target_section)
 
 
 func _cycle_visible_secondary_tabs(direction: int) -> bool:
@@ -1257,6 +1319,9 @@ func open_menu() -> void:
 	_update_shell_layout()
 	_begin_menu_entry()
 	menu_visibility_changed.emit(true)
+	inventory_hotbar_context_changed.emit(
+		_current_section in [Section.COOLER, Section.BAG]
+	)
 
 
 func open_section(section: Section) -> bool:

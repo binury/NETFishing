@@ -4,6 +4,7 @@ extends Control
 signal presentation_transition_finished(is_visible: bool)
 
 const ItemCatalogType = preload("res://items/item_catalog.gd")
+const ItemDataType = preload("res://items/item_data.gd")
 const PlayerBagType = preload("res://inventory/player_bag.gd")
 const PlayerHotbarType = preload("res://inventory/player_hotbar.gd")
 const FishInventoryType = preload("res://inventory/fish_inventory.gd")
@@ -42,6 +43,7 @@ var _motion_elapsed: float = 0.0
 var _compact_layout: bool = false
 var _player_menu_context: bool = false
 var _controller_placement_active: bool = false
+var _controller_management_active: bool = false
 var _controller_placement_kind: PlayerHotbarType.AssignmentKind = (
 	PlayerHotbarType.AssignmentKind.EMPTY
 )
@@ -144,6 +146,36 @@ func end_controller_placement() -> void:
 	for slot: BubbleHotbarSlotType in _slots:
 		slot.focus_mode = Control.FOCUS_NONE
 		slot.set_controller_placement_preview(false, null)
+	_show_selected_item_briefly()
+
+
+func begin_controller_management(initial_slot: int) -> void:
+	if _hotbar == null or _slots.is_empty():
+		return
+	_controller_management_active = true
+	var slot_count: int = _slots.size()
+	for index: int in slot_count:
+		var slot: BubbleHotbarSlotType = _slots[index]
+		slot.focus_mode = Control.FOCUS_ALL
+		slot.focus_neighbor_left = slot.get_path_to(
+			_slots[wrapi(index - 1, 0, slot_count)]
+		)
+		slot.focus_neighbor_right = slot.get_path_to(
+			_slots[wrapi(index + 1, 0, slot_count)]
+		)
+		slot.focus_neighbor_top = slot.get_path_to(slot)
+		slot.focus_neighbor_bottom = slot.get_path_to(slot)
+	var target_index: int = clampi(initial_slot, 0, slot_count - 1)
+	_hotbar.select_slot(target_index)
+	_slots[target_index].call_deferred("grab_focus")
+
+
+func end_controller_management() -> void:
+	if not _controller_management_active:
+		return
+	_controller_management_active = false
+	for slot: BubbleHotbarSlotType in _slots:
+		slot.focus_mode = Control.FOCUS_NONE
 	_show_selected_item_briefly()
 
 
@@ -368,10 +400,14 @@ func _on_selected_slot_changed(
 
 
 func _on_controller_slot_focused(slot_index: int) -> void:
-	if not _controller_placement_active or _hotbar == null:
+	if (
+		not (_controller_placement_active or _controller_management_active)
+		or _hotbar == null
+	):
 		return
 	_hotbar.select_slot(slot_index)
-	_refresh_controller_placement_preview()
+	if _controller_placement_active:
+		_refresh_controller_placement_preview()
 
 
 func _on_slot_item_hovered(

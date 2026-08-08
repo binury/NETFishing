@@ -210,10 +210,16 @@ func _ready() -> void:
 		_on_hotbar_presentation_transition_finished
 	)
 	_player_menu.controller_hotbar_placement_requested.connect(
-		_hotbar_ui.begin_controller_placement
+		_on_controller_hotbar_placement_requested
 	)
 	_player_menu.controller_hotbar_placement_ended.connect(
-		_hotbar_ui.end_controller_placement
+		_on_controller_hotbar_placement_ended
+	)
+	_player_menu.controller_hotbar_management_requested.connect(
+		_on_controller_hotbar_management_requested
+	)
+	_player_menu.controller_hotbar_management_ended.connect(
+		_on_controller_hotbar_management_ended
 	)
 	_title_settings_panel.panel_visibility_changed.connect(
 		_on_settings_visibility_changed
@@ -2043,6 +2049,48 @@ func _on_inventory_hotbar_context_changed(show_hotbar: bool) -> void:
 		return
 	if not _player_menu_open:
 		_refresh_hotbar_visibility()
+
+
+func _on_controller_hotbar_placement_requested(
+	assignment_kind: PlayerHotbarType.AssignmentKind,
+	identity: StringName,
+	initial_slot: int,
+) -> void:
+	_player_menu_hotbar_visible = true
+	_hotbar_ui.set_player_menu_context(true)
+	_hotbar_ui.set_drag_enabled(false)
+	_hotbar_ui.set_presentation_visible(true, false)
+	_hotbar_ui.begin_controller_placement(
+		assignment_kind,
+		identity,
+		initial_slot,
+	)
+
+
+func _on_controller_hotbar_placement_ended() -> void:
+	_hotbar_ui.end_controller_placement()
+	_hotbar_ui.set_drag_enabled(
+		_player_menu_open
+		and _player_menu_hotbar_visible
+		and not _system_menu_open
+	)
+
+
+func _on_controller_hotbar_management_requested(initial_slot: int) -> void:
+	_player_menu_hotbar_visible = true
+	_hotbar_ui.set_player_menu_context(true)
+	_hotbar_ui.set_drag_enabled(false)
+	_hotbar_ui.set_presentation_visible(true, false)
+	_hotbar_ui.begin_controller_management(initial_slot)
+
+
+func _on_controller_hotbar_management_ended() -> void:
+	_hotbar_ui.end_controller_management()
+	_hotbar_ui.set_drag_enabled(
+		_player_menu_open
+		and _player_menu_hotbar_visible
+		and not _system_menu_open
+	)
 
 
 func _on_hotbar_presentation_transition_finished(

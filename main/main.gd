@@ -1102,6 +1102,9 @@ func _unhandled_input(event: InputEvent) -> void:
 	):
 		_game_ui.set_shop_prompt_visible(false)
 		get_viewport().set_input_as_handled()
+	elif event is InputEventJoypadButton and _player != null:
+		_player.hotbar.clear_slot(_player.hotbar.get_selected_slot())
+		get_viewport().set_input_as_handled()
 
 
 func _process(_delta: float) -> void:
