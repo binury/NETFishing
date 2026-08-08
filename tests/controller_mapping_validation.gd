@@ -35,28 +35,31 @@ func _run() -> void:
 func _validate_manager(manager: ControllerMappingManagerType) -> String:
 	var muos_mapping: String = (
 		ControllerMappingManagerType.build_muos_controller_mapping(
-			"19004ca6010000000100000000010000",
+			"19000000010000000100000000010000",
 			"muOS-Keys",
 		)
 	)
 	for expected_binding: String in [
-		"a:b2",
-		"b:b0",
-		"x:b1",
-		"y:b3",
-		"leftshoulder:b6",
-		"rightshoulder:b7",
-		"lefttrigger:b8",
-		"righttrigger:b9",
-		"back:b10",
-		"start:b11",
+		"a:b4",
+		"b:b3",
+		"x:b5",
+		"y:b6",
+		"leftshoulder:b7",
+		"rightshoulder:b8",
+		"lefttrigger:b13",
+		"righttrigger:b14",
+		"back:b9",
+		"start:b10",
+		"guide:b11",
+		"leftstick:b12",
+		"rightstick:b15",
 		"leftx:a0",
 		"righty:a3",
 	]:
 		if expected_binding not in muos_mapping:
 			return "muOS compatibility mapping omitted " + expected_binding
 	if not muos_mapping.begins_with(
-		"19004ca6010000000100000000010000,muOS-Keys,"
+		"19000000010000000100000000010000,muOS-Keys,"
 	):
 		return "muOS compatibility mapping does not use the runtime guid"
 	if not ControllerMappingManagerType.is_muos_controller_name(

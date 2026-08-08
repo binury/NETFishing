@@ -13,19 +13,19 @@ const MAX_PROFILE_BYTES: int = 1024 * 1024
 const CAPTURE_AXIS_THRESHOLD: float = 0.55
 const CAPTURE_AXIS_RELEASE_THRESHOLD: float = 0.30
 const ACTIVE_DEVICE_AXIS_THRESHOLD: float = 0.35
-const MUOS_MAPPING_REVISION: String = "muos-v2"
+const MUOS_MAPPING_REVISION: String = "muos-v3"
 const MUOS_CONTROLLER_NAMES: Array[String] = [
 	"muOS-Keys",
 	"Deeplay-keys",
 ]
 const MUOS_MAPPING_BINDINGS: String = (
-	"a:b2,b:b0,x:b1,y:b3,"
-	+ "leftshoulder:b6,rightshoulder:b7,"
-	+ "lefttrigger:b8,righttrigger:b9,"
-	+ "guide:b12,start:b11,back:b10,"
+	"a:b4,b:b3,x:b5,y:b6,"
+	+ "leftshoulder:b7,rightshoulder:b8,"
+	+ "lefttrigger:b13,righttrigger:b14,"
+	+ "guide:b11,start:b10,back:b9,"
 	+ "dpup:h0.1,dpleft:h0.8,dpright:h0.2,dpdown:h0.4,"
-	+ "leftx:a0,lefty:a1,leftstick:b4,"
-	+ "rightx:a2,righty:a3,rightstick:b5,platform:Linux,"
+	+ "leftx:a0,lefty:a1,leftstick:b12,"
+	+ "rightx:a2,righty:a3,rightstick:b15,platform:Linux,"
 )
 const ROLE_A: StringName = &"a"
 const ROLE_B: StringName = &"b"
