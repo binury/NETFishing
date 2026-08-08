@@ -1,6 +1,6 @@
 # World authoring
 
-The active test world uses the human-authored starter island through
+The active test world uses the canonical starter island through
 `world/regions/starter_island_region.tscn`.
 
 ## Active composition

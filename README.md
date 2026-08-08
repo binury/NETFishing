@@ -71,7 +71,7 @@ detail.
 
 ## Authorship and assets
 
-NETfishing is human-directed and uses a mixture of human-authored assets and
+NETfishing uses a mixture of original assets and
 software-development assistance. The project records this plainly rather than
 claiming that repository history can prove how each line was produced. See
 [`CREDITS.md`](CREDITS.md) and

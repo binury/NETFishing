@@ -1,0 +1,39 @@
+{
+  "version": 4,
+  "name": "netfishing.zip",
+  "items": [
+    "NETfishing.sh",
+    "netfishing/"
+  ],
+  "items_opt": null,
+  "attr": {
+    "title": "NETfishing",
+    "porter": [
+      "Voyager",
+      "asellite"
+    ],
+    "desc": "A relaxed multiplayer fishing game about exploring a small island, catching and collecting fish, customizing your character, and spending time by the water.",
+    "desc_md": null,
+    "inst": "Ready to run on supported ARM64 PortMaster devices. This alpha package requires two analog sticks.",
+    "inst_md": null,
+    "genres": [
+      "adventure",
+      "simulation"
+    ],
+    "image": {},
+    "rtr": false,
+    "exp": false,
+    "runtime": [
+      "weston_pkg_0.2.squashfs"
+    ],
+    "store": [],
+    "availability": "full",
+    "reqs": [
+      "analog_2"
+    ],
+    "arch": [
+      "aarch64"
+    ],
+    "min_glibc": "2.28"
+  }
+}

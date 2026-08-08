@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<gameList>
+  <game>
+    <path>./NETfishing.sh</path>
+    <name>NETfishing</name>
+    <desc>A relaxed multiplayer fishing game about exploring a small island, catching and collecting fish, customizing your character, and spending time by the water.</desc>
+    <releasedate>20260804T000000</releasedate>
+    <developer>NETfishing project</developer>
+    <publisher>Independent</publisher>
+    <genre>adventure, simulation</genre>
+    <image>./netfishing/screenshot.png</image>
+  </game>
+</gameList>
