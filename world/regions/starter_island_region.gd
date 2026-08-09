@@ -5,6 +5,14 @@ extends WorldRegion
 const FishingShopInteractionType = preload(
 	"res://world/fishing_shop_interaction.gd"
 )
+const FOLIAGE_WIND_SHADER: Shader = preload(
+	"res://world/materials/foliage_wind.gdshader"
+)
+const FOLIAGE_MATERIAL_NAMES: Array[StringName] = [
+	&"leaf",
+	&"leaf_light",
+	&"leaf_dark",
+]
 
 @export_group("Owned Nodes")
 @export_node_path("MeshInstance3D")
@@ -25,10 +33,14 @@ var fishing_shop_path: NodePath = (
 )
 @export_group("Terrain Collision")
 @export var rebuild_terrain_collision_on_ready: bool = false
+@export_group("Foliage Wind")
+@export_range(0.0, 0.4, 0.005) var foliage_wind_strength: float = 0.12
+@export_range(0.0, 4.0, 0.05) var foliage_wind_speed: float = 0.9
 
 func _ready() -> void:
 	if rebuild_terrain_collision_on_ready or not has_terrain_collision():
 		_build_terrain_collision()
+	_apply_foliage_wind()
 	if Engine.is_editor_hint():
 		update_configuration_warnings()
 
@@ -105,6 +117,73 @@ func _collect_terrain_mesh_instances(root: Node) -> Array[MeshInstance3D]:
 	for child: Node in root.get_children():
 		mesh_instances.append_array(_collect_terrain_mesh_instances(child))
 	return mesh_instances
+
+
+func _apply_foliage_wind() -> void:
+	var terrain_root: Node = get_node_or_null(terrain_visual_root_path)
+	if terrain_root == null:
+		return
+	for mesh_instance: MeshInstance3D in _collect_terrain_mesh_instances(
+		terrain_root
+	):
+		_apply_foliage_wind_to_mesh(mesh_instance)
+
+
+func _apply_foliage_wind_to_mesh(mesh_instance: MeshInstance3D) -> void:
+	if mesh_instance.mesh == null:
+		return
+	var bounds: AABB = mesh_instance.get_aabb()
+	var global_scale: Vector3 = mesh_instance.global_basis.get_scale().abs()
+	var horizontal_scale: float = maxf(
+		(global_scale.x + global_scale.z) * 0.5,
+		0.001,
+	)
+	var local_strength: float = foliage_wind_strength / horizontal_scale
+	var phase: float = fposmod(
+		mesh_instance.global_position.x * 0.73
+		+ mesh_instance.global_position.z * 0.41,
+		TAU,
+	)
+	for surface_index: int in mesh_instance.mesh.get_surface_count():
+		var source_material: Material = mesh_instance.get_active_material(
+			surface_index
+		)
+		if not source_material is StandardMaterial3D:
+			continue
+		if not FOLIAGE_MATERIAL_NAMES.has(
+			StringName(source_material.resource_name)
+		):
+			continue
+		var source_standard := source_material as StandardMaterial3D
+		var wind_material := ShaderMaterial.new()
+		wind_material.shader = FOLIAGE_WIND_SHADER
+		wind_material.set_shader_parameter(
+			"albedo_color",
+			source_standard.albedo_color,
+		)
+		wind_material.set_shader_parameter(
+			"material_roughness",
+			source_standard.roughness,
+		)
+		wind_material.set_shader_parameter(
+			"material_metallic",
+			source_standard.metallic,
+		)
+		wind_material.set_shader_parameter("local_min_y", bounds.position.y)
+		wind_material.set_shader_parameter(
+			"local_height",
+			maxf(bounds.size.y, 0.001),
+		)
+		wind_material.set_shader_parameter(
+			"local_wind_strength",
+			local_strength,
+		)
+		wind_material.set_shader_parameter("wind_speed", foliage_wind_speed)
+		wind_material.set_shader_parameter("wind_phase", phase)
+		mesh_instance.set_surface_override_material(
+			surface_index,
+			wind_material,
+		)
 
 
 func _get_configuration_warnings() -> PackedStringArray:
