@@ -96,6 +96,7 @@ const PlayerJobServiceType = preload("res://jobs/player_job_service.gd")
 const NetworkJobServiceType = preload("res://network/network_job_service.gd")
 
 const TITLE_MUSIC_SILENCE_DB: float = -80.0
+const TIME_CROSSING_EPSILON_HOURS: float = 0.000001
 const PLAYER_MENU_PATTERN_SCALE: float = 0.85
 const PLAYER_MENU_PATTERN_SCROLL_VELOCITY := Vector2(-7.0, -5.0)
 const SHOP_PATTERN_SCALE: float = 1.75
@@ -120,6 +121,7 @@ const SHOP_PATTERN_SCALE: float = 1.75
 )
 @onready var _interface_fonts: InterfaceFontController = %InterfaceFontController
 @onready var _title_music: AudioStreamPlayer = %TitleMusic
+@onready var _dusk_music: AudioStreamPlayer = %DuskMusic
 @onready var _ui_pixelation: UIPixelationPresenterType = %UIPresentation
 @onready var _pixelation_reset: PixelationResetOverlayType = (
 	%PixelationResetOverlay
@@ -191,6 +193,7 @@ var _shop_interaction: FishingShopInteractionType
 var _title_music_tween: Tween
 var _title_music_transition_generation: int = 0
 var _title_music_requested: bool = false
+var _dusk_music_played_for_natural_day: bool = false
 var _quit_in_progress: bool = false
 var _join_requested_from_title: bool = false
 var _join_requested_from_pause: bool = false
@@ -316,6 +319,12 @@ func _initialize_after_data_root() -> void:
 		_world_weather,
 		_player,
 	)
+	if not _world_time.natural_time_advanced.is_connected(
+		_on_natural_time_advanced
+	):
+		_world_time.natural_time_advanced.connect(
+			_on_natural_time_advanced
+		)
 	_network_world_time.setup(_network_session, _world_time)
 	_network_world_weather.setup(_network_session, _world_weather)
 	_player_jobs.setup(
@@ -1184,9 +1193,18 @@ func _reset_pixelation() -> void:
 
 
 func _set_gameplay_active(active: bool) -> void:
+	var was_gameplay_started: bool = _gameplay_started
 	_gameplay_started = active
 	_shoreline_ambience.set_active(active)
 	_rain_ambience.set_active(active)
+	if active and not was_gameplay_started:
+		var current_hour: float = _world_time.get_time_hours()
+		_dusk_music_played_for_natural_day = (
+			current_hour >= WorldTimeServiceType.DUSK_START_HOUR
+			or current_hour < WorldTimeServiceType.DAWN_START_HOUR
+		)
+	elif not active:
+		_dusk_music.stop()
 	_title_background.visible = not active
 	_world_pixelation.set_gameplay_active(active)
 	_ui_pixelation.set_gameplay_active(active)
@@ -1206,6 +1224,50 @@ func _set_gameplay_active(active: bool) -> void:
 		_player_jobs.end_progression_session()
 		_set_player_menu_backdrop_visible(false)
 		_set_shop_backdrop_visible(false)
+
+
+func _on_natural_time_advanced(advanced_hours: float) -> void:
+	if not _gameplay_started or advanced_hours <= 0.0:
+		return
+	var current_hour: float = _world_time.get_time_hours()
+	var previous_hour: float = fposmod(
+		current_hour - advanced_hours,
+		WorldTimeServiceType.HOURS_PER_DAY,
+	)
+	if _natural_interval_crosses_hour(
+		previous_hour,
+		advanced_hours,
+		WorldTimeServiceType.DAWN_START_HOUR,
+	):
+		_dusk_music_played_for_natural_day = false
+	if (
+		not _dusk_music_played_for_natural_day
+		and _natural_interval_crosses_hour(
+			previous_hour,
+			advanced_hours,
+			WorldTimeServiceType.DUSK_START_HOUR,
+		)
+	):
+		_dusk_music_played_for_natural_day = true
+		_dusk_music.play(0.0)
+
+
+static func _natural_interval_crosses_hour(
+	previous_hour: float,
+	advanced_hours: float,
+	target_hour: float,
+) -> bool:
+	if advanced_hours >= WorldTimeServiceType.HOURS_PER_DAY:
+		return true
+	var distance_to_target: float = fposmod(
+		target_hour - previous_hour,
+		WorldTimeServiceType.HOURS_PER_DAY,
+	)
+	return (
+		distance_to_target > 0.0
+		and distance_to_target
+		<= advanced_hours + TIME_CROSSING_EPSILON_HOURS
+	)
 
 
 func _set_player_menu_backdrop_visible(is_visible: bool) -> void:
@@ -1687,6 +1749,9 @@ func _exit_tree() -> void:
 	if is_instance_valid(_title_music):
 		_title_music.stop()
 		_title_music.stream = null
+	if is_instance_valid(_dusk_music):
+		_dusk_music.stop()
+		_dusk_music.stream = null
 
 
 func _on_shop_range_changed(in_range: bool) -> void:
