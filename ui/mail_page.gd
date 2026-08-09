@@ -1,8 +1,6 @@
 class_name MailPage
 extends Control
 
-signal focus_requested
-
 const GREETING_LABELS := {
 	"dear": "Dear",
 	"to": "To",

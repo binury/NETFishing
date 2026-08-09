@@ -481,4 +481,6 @@ static func _mesh_triangle_count(mesh: ArrayMesh) -> int:
 	if mesh.get_surface_count() == 0:
 		return 0
 	var arrays := mesh.surface_get_arrays(0)
-	return (arrays[Mesh.ARRAY_INDEX] as PackedInt32Array).size() / 3
+	return floori(
+		float((arrays[Mesh.ARRAY_INDEX] as PackedInt32Array).size()) / 3.0
+	)

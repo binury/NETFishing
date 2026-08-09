@@ -93,14 +93,14 @@ func _initialize_motion() -> void:
 	_set_visual_y(_target_y())
 
 
-func _on_toggled(pressed: bool) -> void:
-	if _selected and not pressed:
+func _on_toggled(is_pressed: bool) -> void:
+	if _selected and not is_pressed:
 		# A selected organizer tab is a page marker, not a collapsible toggle.
 		# Restore without another signal before any lower-state frame is drawn.
 		set_pressed_no_signal(true)
 		refresh_state(false)
 		return
-	_selected = pressed
+	_selected = is_pressed
 	refresh_state()
 
 

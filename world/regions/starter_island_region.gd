@@ -133,9 +133,9 @@ func _apply_foliage_wind_to_mesh(mesh_instance: MeshInstance3D) -> void:
 	if mesh_instance.mesh == null:
 		return
 	var bounds: AABB = mesh_instance.get_aabb()
-	var global_scale: Vector3 = mesh_instance.global_basis.get_scale().abs()
+	var mesh_global_scale: Vector3 = mesh_instance.global_basis.get_scale().abs()
 	var horizontal_scale: float = maxf(
-		(global_scale.x + global_scale.z) * 0.5,
+		(mesh_global_scale.x + mesh_global_scale.z) * 0.5,
 		0.001,
 	)
 	var local_strength: float = foliage_wind_strength / horizontal_scale

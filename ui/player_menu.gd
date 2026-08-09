@@ -214,7 +214,6 @@ const SALE_CONFIRMATION_SIZE := Vector2(520.0, 190.0)
 @onready var _bag_item_field: Control = %BagItemField
 @onready var _bag_empty_state: Label = %BagEmptyState
 @onready var _bag_detail_constellation: Control = %BagDetailConstellation
-@onready var _bag_sprite_detail_bubble: Control = %BagDetailBubble
 @onready var _bag_sprite_detail_texture: TextureRect = %BagSpriteDetailTexture
 @onready var _bag_sprite_detail_name: Label = %BagSpriteDetailName
 @onready var _bag_sprite_detail_data: Label = %BagSpriteDetailData
@@ -228,7 +227,6 @@ const SALE_CONFIRMATION_SIZE := Vector2(520.0, 190.0)
 @onready var _book_spread: BoxContainer = %BookSpread
 @onready var _left_page: PanelContainer = %LeftPage
 @onready var _right_page: PanelContainer = %RightPage
-@onready var _book_gutter: ColorRect = %BookGutter
 @onready var _left_heading: Label = %LeftHeading
 @onready var _right_heading: Label = %RightHeading
 @onready var _left_entry_field: BoxContainer = %LeftEntryField
@@ -259,7 +257,6 @@ const SALE_CONFIRMATION_SIZE := Vector2(520.0, 190.0)
 @onready var _offer_status: BubbleStatusBubbleType = %OfferStatus
 @onready var _inventory_section: Control = %InventorySection
 @onready var _bag_section: Control = %BagSection
-@onready var _logbook_section: Control = %LogbookSection
 @onready var _bag_empty: Label = %BagEmpty
 @onready var _bag_grid: GridContainer = %BagGrid
 @onready var _bag_list: Control = %BagList
@@ -272,9 +269,6 @@ const SALE_CONFIRMATION_SIZE := Vector2(520.0, 190.0)
 @onready var _held_value: Label = %HeldValue
 @onready var _cooler_count: Label = %CoolerCount
 @onready var _inventory_empty: Label = %InventoryEmpty
-@onready var _detail_texture: TextureRect = %DetailTexture
-@onready var _detail_name: Label = %DetailName
-@onready var _detail_data: Label = %DetailData
 @onready var _selection_summary: Label = %SelectionSummary
 @onready var _favorite_button: Button = %FavoriteButton
 @onready var _sell_button: Button = %SellButton
@@ -285,7 +279,6 @@ const SALE_CONFIRMATION_SIZE := Vector2(520.0, 190.0)
 @onready var _confirm_sale_button: Button = %ConfirmSaleButton
 @onready var _cancel_sale_button: Button = %CancelSaleButton
 @onready var _logbook_empty: Label = %LogbookEmpty
-@onready var _logbook_grid: GridContainer = %LogbookGrid
 
 var _compact_layout: bool = false
 var _player: PlayerType
@@ -1196,11 +1189,9 @@ func _collect_visible_toggle_buttons(
 				or not navigation_cluster.is_ancestor_of(button)
 			)
 		):
-			var group_key: Variant = (
-				button.button_group
-				if button.button_group != null
-				else button.get_parent()
-			)
+			var group_key: Variant = button.get_parent()
+			if button.button_group != null:
+				group_key = button.button_group
 			if not grouped_buttons.has(group_key):
 				grouped_buttons[group_key] = []
 			var buttons := grouped_buttons[group_key] as Array
@@ -3355,7 +3346,7 @@ func _update_bag_detail() -> void:
 			item_state = "equippable"
 		elif item.usable:
 			item_state = "usable"
-	_bag_detail_texture.texture = item.icon if item != null else null
+	_bag_detail_texture.texture = null
 	_bag_detail_name.text = item.display_name if item != null else ""
 	_bag_detail_data.text = (
 		"%s\nquantity: %d\n%s\n%s\n%s"
@@ -3369,7 +3360,10 @@ func _update_bag_detail() -> void:
 		if item != null
 		else "select a bag item for details."
 	)
-	_bag_sprite_detail_texture.texture = item.icon if item != null else null
+	_bag_sprite_detail_texture.texture = null
+	if item != null:
+		_bag_detail_texture.texture = item.icon
+		_bag_sprite_detail_texture.texture = item.icon
 	_bag_sprite_detail_name.text = (
 		item.display_name if item != null else ""
 	)
@@ -3857,11 +3851,6 @@ func _update_inventory_detail(fish_catch: FishCatchType) -> void:
 	_favorite_bubble.refresh_ink_state()
 	_detail_constellation.visible = _current_section == Section.COOLER
 	_cooler_sort_controls.visible = true
-	var detail_interactive: bool = (
-		_detail_constellation.visible
-		and not _transitioning
-		and not _page_transitioning
-	)
 	_refresh_cooler_notepad_action_interactivity()
 	_configure_cooler_fish_focus()
 
@@ -3881,16 +3870,12 @@ func _refresh_cooler_notepad_action_interactivity() -> void:
 		_sell_all_bubble,
 	]:
 		var action_interactive: bool = detail_interactive and not action.disabled
-		action.focus_mode = (
-			Control.FOCUS_ALL
-			if action_interactive
-			else Control.FOCUS_NONE
-		)
-		action.mouse_filter = (
-			Control.MOUSE_FILTER_STOP
-			if action_interactive
-			else Control.MOUSE_FILTER_IGNORE
-		)
+		if action_interactive:
+			action.focus_mode = Control.FOCUS_ALL
+			action.mouse_filter = Control.MOUSE_FILTER_STOP
+		else:
+			action.focus_mode = Control.FOCUS_NONE
+			action.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		action.refresh_ink_state()
 
 

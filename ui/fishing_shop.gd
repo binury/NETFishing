@@ -525,7 +525,7 @@ func _refresh_supplies() -> void:
 			FishingShopStockType.get_price(item_id),
 			owned,
 		]
-		var tooltip_text: String = item.description
+		var item_tooltip_text: String = item.description
 		if bait_topoff:
 			if item.icon != null:
 				button.custom_minimum_size = Vector2(72, 72)
@@ -543,7 +543,7 @@ func _refresh_supplies() -> void:
 						item.max_stack,
 					]
 				)
-			tooltip_text = (
+			item_tooltip_text = (
 				"%s\nunlock $%d • fills to %d/%d\n%s" % [
 					item.display_name,
 					total_cost,
@@ -573,7 +573,7 @@ func _refresh_supplies() -> void:
 		button.tooltip_text = (
 			"Purchases are unavailable in this session."
 			if _network_shop == null or not _network_shop.can_request_purchase()
-			else tooltip_text
+			else item_tooltip_text
 		)
 		UtilityPageStyleType.apply_ocean_button(button)
 		button.pressed.connect(_purchase_supply.bind(item_id))

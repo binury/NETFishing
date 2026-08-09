@@ -125,7 +125,6 @@ const SHOP_NPC_SPEECH_COOLDOWN_MILLISECONDS: int = 5000
 
 
 @onready var _canonical_stage: Control = %CanonicalStage
-@onready var _ui_root: Control = %UIRoot
 @onready var _player_menu: PlayerMenuType = %PlayerMenu
 @onready var _screen_fade: ScreenFade = %ScreenFade
 @onready var _title_screen: TitleScreenType = %TitleScreen
@@ -1458,12 +1457,12 @@ func get_fishing_shop() -> FishingShopType:
 
 
 func set_shop_prompt_visible(
-	is_visible: bool,
+	requested_visible: bool,
 	world_anchor: Vector3 = Vector3(0.0, INF, 0.0),
 ) -> void:
 	_apply_shop_prompt_style()
 	_shop_prompt.visible = (
-		is_visible
+		requested_visible
 		and _gameplay_ui_enabled
 		and not _system_menu_open
 		and not _player_menu_open
@@ -1688,8 +1687,8 @@ func _refresh_fishing_panel_visibility() -> void:
 	)
 
 
-func _on_bite_prompt_changed(is_visible: bool) -> void:
-	_bite_prompt_button.visible = is_visible
+func _on_bite_prompt_changed(prompt_visible: bool) -> void:
+	_bite_prompt_button.visible = prompt_visible
 	_refresh_fishing_panel_visibility()
 
 
@@ -1705,10 +1704,10 @@ func _on_catch_display_changed(
 	barrier_health: PackedInt32Array,
 	_barrier_max_health: PackedInt32Array,
 	active_barrier_index: int,
-	visible: bool,
+	encounter_requested_visible: bool,
 ) -> void:
 	var encounter_visible: bool = (
-		visible
+		encounter_requested_visible
 		and _fishing_spot != null
 		and _fishing_spot.is_fighting()
 	)
@@ -1789,10 +1788,10 @@ func _on_showcase_changed(
 	rarity_name: String,
 	weight_lb: float,
 	quality: int,
-	visible: bool,
+	showcase_visible: bool,
 ) -> void:
-	_showcase_active = visible
-	if not visible:
+	_showcase_active = showcase_visible
+	if not showcase_visible:
 		_set_fishing_panel_showcase_position(false)
 		_showcase_details.text = ""
 		_showcase_details.visible = false
@@ -2195,10 +2194,10 @@ func _on_controller_hotbar_management_ended() -> void:
 
 
 func _on_hotbar_presentation_transition_finished(
-	is_visible: bool,
+	presentation_visible: bool,
 ) -> void:
 	_hotbar_ui.set_drag_enabled(
-		is_visible
+		presentation_visible
 		and _player_menu_open
 		and _player_menu_hotbar_visible
 		and not _system_menu_open

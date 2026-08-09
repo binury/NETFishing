@@ -34,13 +34,13 @@ func _ready() -> void:
 
 
 func speak_text(
-	owner: Node,
+	tween_owner: Node,
 	text: String,
 	voice_key: String,
 	voice_profile_id: String = VoiceProfilesType.DEFAULT_ID,
 	characters_per_second: float = -1.0,
 ) -> Tween:
-	var speech_tween := owner.create_tween()
+	var speech_tween := tween_owner.create_tween()
 	var resolved_characters_per_second := (
 		characters_per_second
 		if characters_per_second > 0.0
@@ -108,7 +108,8 @@ func _play_character(
 		- 0.5
 	) * 0.10
 	var question_lift := 0.0
-	if full_text.ends_with("?") and character_index >= full_text.length() * 3 / 4:
+	var question_lift_start: int = floori(float(full_text.length()) * 0.75)
+	if full_text.ends_with("?") and character_index >= question_lift_start:
 		var final_progress := (
 			float(character_index) / maxf(float(full_text.length() - 1), 1.0)
 		)

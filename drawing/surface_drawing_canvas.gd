@@ -340,13 +340,13 @@ func _sample_cell_transform(
 		tangent = Vector3.RIGHT
 	var bitangent: Vector3 = normal.cross(tangent).normalized()
 	var pixel_size: float = cell_size * clampf(fill, 0.05, 1.0)
-	var basis := Basis(
+	var cell_basis := Basis(
 		tangent * pixel_size,
 		bitangent * pixel_size,
 		normal,
 	)
 	return Transform3D(
-		basis,
+		cell_basis,
 		to_local(point + normal * _surface_offset()),
 	)
 

@@ -355,7 +355,7 @@ func _make_scroll_indicator(
 	return indicator
 
 
-func _on_catalog_scroll_value_changed(value: float) -> void:
+func _on_catalog_scroll_value_changed(_value: float) -> void:
 	if _snapping_catalog_scroll:
 		return
 	_catalog_scroll_snap_timer.start()

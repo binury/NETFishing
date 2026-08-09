@@ -1270,11 +1270,11 @@ static func _natural_interval_crosses_hour(
 	)
 
 
-func _set_player_menu_backdrop_visible(is_visible: bool) -> void:
+func _set_player_menu_backdrop_visible(requested_visible: bool) -> void:
 	if _player_menu_backdrop_tween != null:
 		_player_menu_backdrop_tween.kill()
 		_player_menu_backdrop_tween = null
-	var should_show: bool = is_visible and _gameplay_started
+	var should_show: bool = requested_visible and _gameplay_started
 	if should_show:
 		var was_visible: bool = _player_menu_backdrop.visible
 		_player_menu_backdrop.visible = true
@@ -1305,11 +1305,11 @@ func _set_player_menu_backdrop_visible(is_visible: bool) -> void:
 	)
 
 
-func _set_shop_backdrop_visible(is_visible: bool) -> void:
+func _set_shop_backdrop_visible(requested_visible: bool) -> void:
 	if _shop_backdrop_tween != null:
 		_shop_backdrop_tween.kill()
 		_shop_backdrop_tween = null
-	var should_show: bool = is_visible and _gameplay_started
+	var should_show: bool = requested_visible and _gameplay_started
 	if should_show:
 		var was_visible: bool = _shop_backdrop.visible
 		_shop_backdrop.visible = true

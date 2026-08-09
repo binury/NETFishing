@@ -143,7 +143,7 @@ func start_authoritative_encounter(
 	profile: CatchDifficultyProfileType,
 	reel_speed: float,
 	click_power: int,
-	seed: int,
+	encounter_seed_value: int,
 	fish_quality: int = FishQualityType.Tier.BORING,
 	fish_rarity: int = 0,
 	fish_weight_percentile: float = 0.0,
@@ -151,7 +151,7 @@ func start_authoritative_encounter(
 	var previous_test_mode: bool = use_deterministic_test_seed
 	var previous_seed: int = deterministic_test_seed
 	use_deterministic_test_seed = true
-	deterministic_test_seed = seed
+	deterministic_test_seed = encounter_seed_value
 	start_encounter(
 		profile,
 		reel_speed,

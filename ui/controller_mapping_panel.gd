@@ -389,22 +389,22 @@ func _accept_captured_binding(binding: Dictionary) -> void:
 				ControllerMappingManagerType.ROLE_ORDER[_auto_map_index]
 			)
 			return
-		var saved: bool = _mapping_manager.replace_active_bindings(
+		var profile_saved: bool = _mapping_manager.replace_active_bindings(
 			_auto_map_draft
 		)
 		_cancel_capture()
 		_progress_label.text = (
 			"controller mapped successfully"
-			if saved else "could not save the controller mapping"
+			if profile_saved else "could not save the controller mapping"
 		)
 		_refresh_bindings()
 		return
 	var role: StringName = _capturing_role
-	var saved: bool = _mapping_manager.set_binding(role, binding)
+	var binding_saved: bool = _mapping_manager.set_binding(role, binding)
 	_cancel_capture()
 	_progress_label.text = (
 		"updated " + _mapping_manager.get_role_label(role)
-		if saved else "could not save that controller input"
+		if binding_saved else "could not save that controller input"
 	)
 	_refresh_bindings()
 

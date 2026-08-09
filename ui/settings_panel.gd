@@ -720,7 +720,7 @@ func _identity_operation_allowed() -> bool:
 	return true
 
 
-func _on_identity_operation_finished(success: bool, message: String) -> void:
+func _on_identity_operation_finished(_success: bool, message: String) -> void:
 	_feedback.text = message
 
 

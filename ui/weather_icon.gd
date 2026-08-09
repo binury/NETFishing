@@ -39,10 +39,10 @@ func set_weather(weather: WorldWeatherService.Weather) -> void:
 	queue_redraw()
 
 
-func set_nighttime(is_nighttime: bool) -> void:
-	if _is_nighttime == is_nighttime:
+func set_nighttime(nighttime: bool) -> void:
+	if _is_nighttime == nighttime:
 		return
-	_is_nighttime = is_nighttime
+	_is_nighttime = nighttime
 	queue_redraw()
 
 

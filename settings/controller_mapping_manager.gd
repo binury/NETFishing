@@ -913,7 +913,7 @@ func _add_button_action_binding(action: StringName, value: Variant) -> void:
 		return
 	var event := InputEventJoypadButton.new()
 	event.device = _active_device_id
-	event.button_index = int(binding.get("button", -1))
+	event.button_index = int(binding.get("button", -1)) as JoyButton
 	InputMap.action_add_event(action, event)
 
 
@@ -932,7 +932,7 @@ func _add_axis_action_binding(
 	)
 	var event := InputEventJoypadMotion.new()
 	event.device = _active_device_id
-	event.axis = int(binding.get("axis", -1))
+	event.axis = int(binding.get("axis", -1)) as JoyAxis
 	event.axis_value = logical_direction * -captured_negative_direction
 	InputMap.action_add_event(action, event)
 

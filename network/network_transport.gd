@@ -1,6 +1,7 @@
 class_name NetworkTransport
 extends Node
 
+@warning_ignore("unused_signal")
 signal transport_error(message: String)
 
 var _peer: MultiplayerPeer
