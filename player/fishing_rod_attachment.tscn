@@ -13,12 +13,12 @@ roughness = 0.8
 bone_name = "hand.R"
 
 [node name="FishingRod" type="Node3D" parent="."]
-rotation_degrees = Vector3(322.6, -31.2, 248.9)
+rotation_degrees = Vector3(65, 0, 0)
 
 [node name="RodMesh" type="MeshInstance3D" parent="FishingRod"]
-position = Vector3(0, 0.42, 0)
+position = Vector3(0, 0.5, 0)
 mesh = SubResource("FishingRodMesh")
 material_override = SubResource("FishingRodMaterial")
 
 [node name="FishingRodTip" type="Marker3D" parent="FishingRod"]
-position = Vector3(0, 0.95, 0)
+position = Vector3(0, 1.1, 0)

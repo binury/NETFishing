@@ -143,12 +143,19 @@ text = ""
 horizontal_alignment = 1
 theme_override_colors/font_color = Color(1, 0.82, 0.4, 1)
 
+[node name="ShopTabBar" type="HBoxContainer" parent="ShopPanel/Margin/Layout"]
+unique_name_in_owner = true
+layout_mode = 2
+alignment = 1
+theme_override_constants/separation = 6
+
 [node name="Body" type="HBoxContainer" parent="ShopPanel/Margin/Layout"]
 layout_mode = 2
 size_flags_vertical = 3
-theme_override_constants/separation = 12
+theme_override_constants/separation = 0
 
 [node name="Upgrades" type="VBoxContainer" parent="ShopPanel/Margin/Layout/Body"]
+unique_name_in_owner = true
 custom_minimum_size = Vector2(270, 0)
 layout_mode = 2
 size_flags_horizontal = 3
@@ -160,12 +167,14 @@ text = "fishing upgrades"
 theme_override_font_sizes/font_size = 23
 
 [node name="Supplies" type="VBoxContainer" parent="ShopPanel/Margin/Layout/Body"]
+unique_name_in_owner = true
 custom_minimum_size = Vector2(210, 0)
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/separation = 6
 
-[node name="Title" type="Label" parent="ShopPanel/Margin/Layout/Body/Supplies"]
+[node name="StockTitle" type="Label" parent="ShopPanel/Margin/Layout/Body/Supplies"]
+unique_name_in_owner = true
 layout_mode = 2
 text = "shop stock"
 theme_override_font_sizes/font_size = 23

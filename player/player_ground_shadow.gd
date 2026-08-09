@@ -54,7 +54,7 @@ func _physics_process(delta: float) -> void:
 	_visual.transparency = 1.0 - _opacity
 
 
-func _place_on_surface(position: Vector3, normal: Vector3) -> void:
+func _place_on_surface(surface_position: Vector3, normal: Vector3) -> void:
 	var tangent := Vector3.RIGHT - normal * Vector3.RIGHT.dot(normal)
 	if tangent.length_squared() < 0.001:
 		tangent = Vector3.FORWARD - normal * Vector3.FORWARD.dot(normal)
@@ -62,5 +62,5 @@ func _place_on_surface(position: Vector3, normal: Vector3) -> void:
 	var bitangent := tangent.cross(normal).normalized()
 	_placement.global_transform = Transform3D(
 		Basis(tangent, normal, bitangent),
-		position + normal * surface_offset,
+		surface_position + normal * surface_offset,
 	)

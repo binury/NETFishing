@@ -335,15 +335,29 @@ func _build_authoritative_result(
 				var bait_topoff: bool = (
 					FishingShopStockType.is_bait_topoff(product_id)
 				)
+				var permanent_unlock: bool = (
+					FishingShopStockType.is_permanent_unlock(product_id, item)
+				)
 				if (
 					item == null
 					or not item.is_valid()
 					or product_id not in (
 						FishingShopStockType.get_stock_item_ids()
 					)
-					or (item.category != ItemDataType.Category.CONSUMABLE and not bait_topoff)
-					or not item.stackable
-					or (not item.usable and not bait_topoff)
+					or (
+						item.category != ItemDataType.Category.CONSUMABLE
+						and not bait_topoff
+						and not permanent_unlock
+					)
+					or (not item.stackable and not permanent_unlock)
+					or (
+						not item.usable
+						and not bait_topoff
+						and not permanent_unlock
+						and not FishingShopStockType.is_passive_supply(
+							product_id
+						)
+					)
 					or current_state >= item.max_stack
 					or current_state + quantity > item.max_stack
 				):

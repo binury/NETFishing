@@ -24,6 +24,7 @@ const MIN_CAST_INTERVAL: float = 0.25
 signal local_cast_accepted(attempt_id: String, target: Vector3)
 signal local_cast_rejected(message: String)
 signal local_bite_started(attempt_id: String)
+signal local_bite_pending(attempt_id: String)
 signal local_snapshot_received(snapshot: Dictionary)
 signal local_catch_received(fish_catch: FishCatch)
 signal local_attempt_ended(outcome: StringName, message: String)
@@ -111,6 +112,7 @@ func request_local_cast(
 		"discovered_fish_ids": evidence.get("discovered_fish_ids", []),
 		"capacity_available": bool(evidence.get("capacity_available", false)),
 		"bait_id": str(evidence.get("bait_id", "")),
+		"lure_id": str(evidence.get("lure_id", "")),
 	}
 	if _session.is_host():
 		_handle_cast_request(_session.get_local_peer_id(), data)
@@ -176,12 +178,17 @@ func _process(delta: float) -> void:
 			continue
 		match attempt.phase:
 			NetworkFishingAttempt.Phase.WAITING_FOR_BITE:
+				if attempt.bite_confirmation_pending:
+					continue
 				_update_waiting_attempt(attempt, delta)
 				if not _attempts.has(peer_id):
 					continue
 				attempt.bite_time_remaining -= delta
 				if attempt.bite_time_remaining <= 0.0:
-					_start_bite(attempt)
+					if &"deferred_fight" in attempt.lure_effects:
+						_set_bite_pending(attempt)
+					else:
+						_start_bite(attempt)
 			NetworkFishingAttempt.Phase.PENDING_CAPACITY:
 				if now >= attempt.capacity_deadline:
 					_cancel_attempt(peer_id, "Fishing attempt ended.")
@@ -296,6 +303,23 @@ func _handle_cast_request(peer_id: int, data: Dictionary) -> void:
 		return
 	var bait_id: StringName = StringName(str(data.get("bait_id", "")))
 	var avatar_bag: PlayerBag = avatar.bag
+	var lure_id: StringName = StringName(str(data.get("lure_id", "")))
+	var lure: ItemDataType = (
+		_item_catalog.get_item_by_id(lure_id)
+		if not lure_id.is_empty() and _item_catalog != null
+		else null
+	)
+	if (
+		not lure_id.is_empty()
+		and (
+			lure == null
+			or not lure.is_lure()
+			or avatar_bag == null
+			or not avatar_bag.owns_item(lure_id)
+		)
+	):
+		_record_and_reject(peer_id, request_id, "Lure is unavailable.")
+		return
 	if not bait_id.is_empty() and (avatar_bag == null or not avatar_bag.remove_item(bait_id, 1)):
 		_record_and_reject(peer_id, request_id, "No bait available.")
 		return
@@ -310,6 +334,10 @@ func _handle_cast_request(peer_id: int, data: Dictionary) -> void:
 	attempt.bobber_position = authoritative_target
 	attempt.fish_id = selected_fish.id
 	attempt.bait_tags = _bait_tags_for_request(data)
+	attempt.lure_effects.clear()
+	if lure != null:
+		for effect_id: StringName in lure.lure_effects:
+			attempt.lure_effects.append(effect_id)
 	attempt.reel_speed = float(data["reel_speed"]) * (
 		effects.get_reel_multiplier() if effects != null else 1.0
 	)
@@ -437,6 +465,23 @@ func _bait_tags_for_request(data: Dictionary) -> Array[StringName]:
 	return bait.bait_tags.duplicate() if bait != null and bait.is_bait() else []
 
 
+func _set_bite_pending(attempt: NetworkFishingAttempt) -> void:
+	if (
+		attempt.phase != NetworkFishingAttempt.Phase.WAITING_FOR_BITE
+		or attempt.bite_confirmation_pending
+	):
+		return
+	attempt.bite_confirmation_pending = true
+	attempt.bite_time_remaining = 0.0
+	attempt.input_held = false
+	var data: Dictionary = {
+		"attempt_id": attempt.attempt_id,
+		"owner_peer_id": attempt.owner_peer_id,
+	}
+	_apply_bite_pending(data)
+	receive_bite_pending.rpc(data)
+
+
 func _start_bite(attempt: NetworkFishingAttempt) -> void:
 	if attempt.phase != NetworkFishingAttempt.Phase.WAITING_FOR_BITE:
 		return
@@ -444,6 +489,7 @@ func _start_bite(attempt: NetworkFishingAttempt) -> void:
 	if fish == null or fish.catch_profile == null:
 		_cancel_attempt(attempt.owner_peer_id, "Fishing attempt ended.")
 		return
+	attempt.bite_confirmation_pending = false
 	attempt.phase = NetworkFishingAttempt.Phase.FIGHTING
 	attempt.encounter_seed = _new_seed()
 	var selector := FishSelectorType.new()
@@ -496,6 +542,14 @@ func _handle_fishing_input(peer_id: int, data: Dictionary) -> void:
 		return
 	attempt.last_input_sequence = int(data["sequence"])
 	attempt.input_held = bool(data["held"])
+	if (
+		attempt.phase == NetworkFishingAttempt.Phase.WAITING_FOR_BITE
+		and attempt.bite_confirmation_pending
+	):
+		if bool(data["pressed"]):
+			attempt.input_held = false
+			_start_bite(attempt)
+		return
 	if attempt.phase != NetworkFishingAttempt.Phase.FIGHTING:
 		return
 	attempt.controller.set_reel_input(attempt.input_held)
@@ -976,6 +1030,21 @@ func _apply_cast_accepted(data: Dictionary) -> void:
 		var presentation := _get_remote_presentation(peer_id)
 		if presentation != null:
 			presentation.show_cast(origin, target)
+
+
+@rpc("authority", "call_remote", "reliable", 0)
+func receive_bite_pending(data: Dictionary) -> void:
+	_apply_bite_pending(data)
+
+
+func _apply_bite_pending(data: Dictionary) -> void:
+	if (
+		typeof(data.get("attempt_id")) != TYPE_STRING
+		or typeof(data.get("owner_peer_id")) != TYPE_INT
+	):
+		return
+	if int(data["owner_peer_id"]) == _session.get_local_peer_id():
+		local_bite_pending.emit(str(data["attempt_id"]))
 
 
 @rpc("authority", "call_remote", "reliable", 0)

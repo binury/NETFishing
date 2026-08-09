@@ -279,6 +279,16 @@ text = ""
 horizontal_alignment = 1
 theme_override_font_sizes/font_size = 16
 
+[node name="BitePromptButton" type="Button" parent="UIRoot/CanonicalStage/GameplayTransientHUD/FishingPanel/MarginContainer/VBoxContainer"]
+unique_name_in_owner = true
+visible = false
+custom_minimum_size = Vector2(0, 42)
+layout_mode = 2
+focus_mode = 0
+mouse_default_cursor_shape = 2
+text = "you got a bite!"
+theme_override_font_sizes/font_size = 22
+
 [node name="ShowcaseDetails" type="Label" parent="UIRoot/CanonicalStage/GameplayTransientHUD/FishingPanel/MarginContainer/VBoxContainer"]
 unique_name_in_owner = true
 visible = false

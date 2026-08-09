@@ -41,6 +41,10 @@ const CHARACTER_IDLE_SIT_ANIMATION: StringName = &"idle_sit"
 const CHARACTER_IDLE_SIT_SHOW_ANIMATION: StringName = &"idle_sit_show"
 const CHARACTER_WALKING_ANIMATION: StringName = &"walking"
 const CHARACTER_WALKING_SHOW_ANIMATION: StringName = &"walking_show"
+const CHARACTER_FISHING_ANIMATION: StringName = &"fishing"
+const CHARACTER_FISHING_SIT_ANIMATION: StringName = &"fishing_sit"
+const CHARACTER_FIGHTING_ANIMATION: StringName = &"fighting"
+const CHARACTER_FIGHTING_SIT_ANIMATION: StringName = &"fighting_sit"
 const FIGHTING_EYES_ID: String = "alligator_eyes"
 const BASE_REEL_SPEED: float = 0.16
 # The target Android handheld exposes its physical right trigger through
@@ -53,7 +57,9 @@ var appearance_snapshot: Dictionary = (
 )
 var animalese_voice_id: String = "natural"
 var active_bait_id: StringName = StringName()
+var active_lure_id: StringName = StringName()
 signal active_bait_changed(item_id: StringName)
+signal active_lure_changed(item_id: StringName)
 
 
 func equip_bait(item: ItemDataType) -> bool:
@@ -71,6 +77,23 @@ func unequip_bait() -> void:
 		return
 	active_bait_id = StringName()
 	active_bait_changed.emit(active_bait_id)
+
+
+func equip_lure(item: ItemDataType) -> bool:
+	if item == null or not item.is_lure() or bag == null:
+		return false
+	if not bag.owns_item(item.item_id):
+		return false
+	active_lure_id = item.item_id
+	active_lure_changed.emit(active_lure_id)
+	return true
+
+
+func unequip_lure() -> void:
+	if active_lure_id.is_empty():
+		return
+	active_lure_id = StringName()
+	active_lure_changed.emit(active_lure_id)
 
 
 func apply_appearance_snapshot(snapshot: Dictionary) -> void:
@@ -93,6 +116,16 @@ func set_fighting_visual(active: bool) -> void:
 		return
 	_fighting_visual_active = active
 	_apply_presented_appearance()
+	_character_animation_name = &""
+	_update_character_animation()
+
+
+func set_fishing_visual(active: bool) -> void:
+	if _fishing_visual_active == active:
+		return
+	_fishing_visual_active = active
+	_character_animation_name = &""
+	_update_character_animation()
 
 
 func _apply_presented_appearance() -> void:
@@ -246,6 +279,7 @@ var _sitting_intent_sequence: int = -1
 var _held_fish_visible: bool = false
 var _showcase_animation_active: bool = false
 var _fighting_visual_active: bool = false
+var _fishing_visual_active: bool = false
 var _fishing_rod: Node3D
 var _fishing_rod_tip: Marker3D
 var _controller_mapping_manager: ControllerMappingManagerType
@@ -268,6 +302,11 @@ func _on_bag_contents_changed() -> void:
 		and bag.get_quantity(active_bait_id) <= 0
 	):
 		unequip_bait()
+	if (
+		not active_lure_id.is_empty()
+		and not bag.owns_item(active_lure_id)
+	):
+		unequip_lure()
 
 
 func set_controller_mapping_manager(
@@ -526,6 +565,30 @@ func _update_character_animation() -> void:
 				&"idle_show_loop",
 				&"show",
 				&"show_loop",
+			]
+	elif _fighting_visual_active:
+		if _sitting:
+			requested_animation = [
+				CHARACTER_FIGHTING_SIT_ANIMATION,
+				CHARACTER_IDLE_SIT_ANIMATION,
+				&"idle_sit_loop",
+			]
+		else:
+			requested_animation = [
+				CHARACTER_FIGHTING_ANIMATION,
+				CHARACTER_IDLE_ANIMATION,
+			]
+	elif _fishing_visual_active:
+		if _sitting:
+			requested_animation = [
+				CHARACTER_FISHING_SIT_ANIMATION,
+				CHARACTER_IDLE_SIT_ANIMATION,
+				&"idle_sit_loop",
+			]
+		else:
+			requested_animation = [
+				CHARACTER_FISHING_ANIMATION,
+				CHARACTER_IDLE_ANIMATION,
 			]
 	elif _sitting:
 		if _held_fish_visible:

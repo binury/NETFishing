@@ -91,6 +91,7 @@ const FISHING_PANEL_SHOWCASE_TOP_OFFSET: float = -174.0
 const FISHING_PANEL_SHOWCASE_BOTTOM_OFFSET: float = -104.0
 
 @onready var _status_label: Label = %StatusLabel
+@onready var _bite_prompt_button: Button = %BitePromptButton
 @onready var _gameplay_transient_hud: Control = %GameplayTransientHUD
 @onready var _active_bait_button: Button = %ActiveBaitButton
 @onready var _active_bait_quantity_badge: Panel = %ActiveBaitQuantityBadge
@@ -190,6 +191,7 @@ var _settings_manager: PlayerSettingsManagerType
 
 
 func _ready() -> void:
+	_bite_prompt_button.pressed.connect(_on_bite_prompt_pressed)
 	_apply_active_bait_indicator_style()
 	_refresh_active_bait_indicator()
 	# Reward feedback must remain above full-screen canonical menus. Keeping the
@@ -307,7 +309,7 @@ func setup(
 		_experience.experience_awarded.connect(_on_experience_awarded)
 	_chat_ui.setup(
 		network_chat_service, network_session, spawn_service, player,
-		fishing_spot, settings_manager, world_time, world_weather
+		fishing_spot, settings_manager, world_time, world_weather, item_effects
 	)
 	_title_settings_panel.setup_network_profile(
 		network_profile, network_session
@@ -316,6 +318,7 @@ func setup(
 		network_profile, network_session
 	)
 	fishing_spot.status_changed.connect(_on_fishing_status_changed)
+	fishing_spot.bite_prompt_changed.connect(_on_bite_prompt_changed)
 	fishing_spot.catch_display_changed.connect(_on_catch_display_changed)
 	fishing_spot.showcase_changed.connect(_on_showcase_changed)
 	fishing_spot.art_ui_toggle_requested.connect(_toggle_surface_drawing)
@@ -1590,11 +1593,22 @@ func _refresh_fishing_panel_visibility() -> void:
 	var has_content: bool = (
 		not _status_label.text.strip_edges().is_empty()
 		or not _showcase_details.text.strip_edges().is_empty()
+		or _bite_prompt_button.visible
 	)
 	_fishing_panel.visible = (
 		_gameplay_ui_enabled
 		and has_content
 	)
+
+
+func _on_bite_prompt_changed(is_visible: bool) -> void:
+	_bite_prompt_button.visible = is_visible
+	_refresh_fishing_panel_visibility()
+
+
+func _on_bite_prompt_pressed() -> void:
+	if _fishing_spot != null:
+		_fishing_spot.confirm_pending_bite()
 
 
 func _on_catch_display_changed(

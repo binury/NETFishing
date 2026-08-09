@@ -189,6 +189,7 @@ const SALE_CONFIRMATION_SIZE := Vector2(520.0, 190.0)
 @onready var _cooler_combined_offer_value: Label = %CoolerCombinedOfferValue
 @onready var _favorite_bubble: NotepadInkActionType = %FavoriteBubble
 @onready var _sell_bubble: NotepadInkActionType = %SellBubble
+@onready var _sell_all_bubble: NotepadInkActionType = %SellAllBubble
 @onready var _bag_page: Control = %BagPage
 @onready var _tackle_box_page: Control = %TackleBoxPage
 @onready var _inventory_sub_tabs: HBoxContainer = %InventorySubTabs
@@ -392,7 +393,7 @@ func _ready() -> void:
 	)
 	_bait_filter.pressed.connect(_set_tackle_view.bind(TackleView.BAIT))
 	_lures_filter.pressed.connect(_set_tackle_view.bind(TackleView.LURES))
-	_tackle_equip_button.pressed.connect(_toggle_active_bait)
+	_tackle_equip_button.pressed.connect(_toggle_active_tackle)
 	_logbook_tab.pressed.connect(
 		_show_section.bind(Section.LOGBOOK)
 	)
@@ -409,6 +410,7 @@ func _ready() -> void:
 	_sell_button.pressed.connect(_on_sell_pressed)
 	_favorite_bubble.pressed.connect(_on_favorite_pressed)
 	_sell_bubble.pressed.connect(_on_sell_pressed)
+	_sell_all_bubble.pressed.connect(_on_sell_all_pressed)
 	_confirm_sale_button.pressed.connect(_on_confirm_sale_pressed)
 	_cancel_sale_button.pressed.connect(_close_sale_confirmation)
 	_configure_sale_confirmation_focus()
@@ -593,6 +595,8 @@ func setup(
 		_bag.contents_changed.connect(_on_bag_changed)
 	if not _player.active_bait_changed.is_connected(_on_active_bait_changed):
 		_player.active_bait_changed.connect(_on_active_bait_changed)
+	if not _player.active_lure_changed.is_connected(_on_active_lure_changed):
+		_player.active_lure_changed.connect(_on_active_lure_changed)
 	if not _hotbar.slots_changed.is_connected(_on_hotbar_changed):
 		_hotbar.slots_changed.connect(_on_hotbar_changed)
 	if not _cooler_capacity.capacity_changed.is_connected(
@@ -754,6 +758,8 @@ func _try_enter_notepad_controller_ownership() -> bool:
 			actions.append(_favorite_bubble)
 		if not _sell_bubble.disabled:
 			actions.append(_sell_bubble)
+		if not _sell_all_bubble.disabled:
+			actions.append(_sell_all_bubble)
 	elif _current_section == Section.TACKLE_BOX:
 		if not focus_owner.has_meta(&"controller_tackle_item_id"):
 			return false
@@ -1943,21 +1949,30 @@ func _refresh_tackle_box() -> void:
 		var item: ItemDataType = _item_catalog.get_item_by_id(owned.item_id)
 		var row := Button.new()
 		row.icon = item.icon
-		row.tooltip_text = "%s ×%d" % [item.display_name, owned.quantity]
-		if item.is_bait() and item.icon != null:
+		row.tooltip_text = (
+			"%s ×%d" % [item.display_name, owned.quantity]
+			if item.is_bait()
+			else item.display_name
+		)
+		var compact_tackle_item: bool = item.is_bait() or item.is_lure()
+		if compact_tackle_item:
 			row.custom_minimum_size = Vector2(72, 72)
 			row.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-			row.expand_icon = true
+			row.expand_icon = item.icon != null
 			row.alignment = HORIZONTAL_ALIGNMENT_CENTER
+			row.text = "" if item.icon != null else item.display_name
+			if item.icon == null:
+				row.add_theme_font_size_override("font_size", 12)
 		else:
 			row.text = "%s  ×%d" % [item.display_name, owned.quantity]
 			row.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		row.toggle_mode = true
 		row.set_meta(&"controller_tackle_item_id", owned.item_id)
 		row.button_pressed = owned.item_id == _selected_tackle_item_id
-		if item.is_bait() and item.icon != null:
+		if compact_tackle_item:
 			_apply_tackle_bait_button_style(row)
-			_add_tackle_quantity_badge(row, owned.quantity)
+			if item.is_bait():
+				_add_tackle_quantity_badge(row, owned.quantity)
 		else:
 			UtilityPageStyle.apply_ocean_button(row)
 		row.pressed.connect(_select_tackle_item.bind(owned.item_id))
@@ -2053,7 +2068,7 @@ func _update_tackle_detail() -> void:
 			else "Select a lure for details."
 		)
 		return
-	_tackle_equip_button.visible = item.is_bait()
+	_tackle_equip_button.visible = item.is_bait() or item.is_lure()
 	var quantity: int = _bag.get_quantity(item.item_id) if _bag != null else 0
 	var assigned_slot: int = -1
 	if _hotbar != null:
@@ -2061,19 +2076,22 @@ func _update_tackle_detail() -> void:
 			if _hotbar.get_item_id(slot_index) == item.item_id:
 				assigned_slot = slot_index
 				break
-	var detail_lines: Array[String] = [
-		item.display_name,
-		"",
-		"quantity: %d" % quantity,
-	]
+	var detail_lines: Array[String] = [item.display_name, ""]
+	if item.is_bait():
+		detail_lines.append("quantity: %d" % quantity)
 	if assigned_slot >= 0:
 		detail_lines.append("hotbar slot %d" % (assigned_slot + 1))
 	detail_lines.append("")
 	detail_lines.append(item.description)
 	_tackle_detail_text.text = "\n".join(detail_lines)
-	if item.is_bait():
+	if item.is_bait() or item.is_lure():
 		var is_equipped: bool = (
-			_player != null and _player.active_bait_id == item.item_id
+			_player != null
+			and (
+				_player.active_bait_id == item.item_id
+				if item.is_bait()
+				else _player.active_lure_id == item.item_id
+			)
 		)
 		_tackle_equip_button.text = (
 			"dequip %s" % item.display_name
@@ -2085,20 +2103,32 @@ func _update_tackle_detail() -> void:
 		_tackle_equip_button.refresh_ink_state()
 
 
-func _toggle_active_bait() -> void:
+func _toggle_active_tackle() -> void:
 	if _player == null or _item_catalog == null:
 		return
 	var item: ItemDataType = _item_catalog.get_item_by_id(_selected_tackle_item_id)
-	if item == null or not item.is_bait():
+	if item == null:
 		return
-	if _player.active_bait_id == item.item_id:
-		_player.unequip_bait()
+	if item.is_bait():
+		if _player.active_bait_id == item.item_id:
+			_player.unequip_bait()
+		else:
+			_player.equip_bait(item)
+	elif item.is_lure():
+		if _player.active_lure_id == item.item_id:
+			_player.unequip_lure()
+		else:
+			_player.equip_lure(item)
 	else:
-		_player.equip_bait(item)
+		return
 	_update_tackle_detail()
 
 
 func _on_active_bait_changed(_item_id: StringName) -> void:
+	_update_tackle_detail()
+
+
+func _on_active_lure_changed(_item_id: StringName) -> void:
 	_update_tackle_detail()
 
 
@@ -2426,6 +2456,9 @@ func _update_shell_layout() -> void:
 	_sell_bubble.custom_minimum_size = (
 		Vector2(74.0, 42.0) if compact else Vector2(118.0, 50.0)
 	)
+	_sell_all_bubble.custom_minimum_size = (
+		Vector2(96.0, 38.0) if compact else Vector2(122.0, 44.0)
+	)
 	_favorite_bubble.position = (
 		Vector2(144.0, 148.0) if compact else Vector2(26.0, 378.0)
 	)
@@ -2438,11 +2471,20 @@ func _update_shell_layout() -> void:
 	_sell_bubble.size = (
 		Vector2(74.0, 42.0) if compact else Vector2(118.0, 50.0)
 	)
+	_sell_all_bubble.position = (
+		Vector2(102.0, 190.0) if compact else Vector2(78.0, 426.0)
+	)
+	_sell_all_bubble.size = (
+		Vector2(96.0, 38.0) if compact else Vector2(122.0, 44.0)
+	)
 	_favorite_bubble.add_theme_font_size_override(
 		"font_size", 11 if compact else 17,
 	)
 	_sell_bubble.add_theme_font_size_override(
 		"font_size", 11 if compact else 17,
+	)
+	_sell_all_bubble.add_theme_font_size_override(
+		"font_size", 11 if compact else 15,
 	)
 	_update_sort_direction_text()
 	_bag_page.size = reference_size
@@ -2946,7 +2988,11 @@ func _set_content_interactive(interactive: bool) -> void:
 	var detail_interactive: bool = (
 		cooler_interactive and _detail_constellation.visible
 	)
-	for action: NotepadInkActionType in [_favorite_bubble, _sell_bubble]:
+	for action: NotepadInkActionType in [
+		_favorite_bubble,
+		_sell_bubble,
+		_sell_all_bubble,
+	]:
 		var action_interactive: bool = detail_interactive and not action.disabled
 		action.focus_mode = (
 			Control.FOCUS_ALL
@@ -3595,6 +3641,11 @@ func _configure_cooler_fish_focus() -> void:
 				not _favorite_bubble.disabled
 				and index + columns >= controls.size()
 			)
+			else control.get_path_to(_sell_all_bubble)
+			if (
+				not _sell_all_bubble.disabled
+				and index + columns >= controls.size()
+			)
 			else control.get_path_to(
 				controls[mini(index + columns, controls.size() - 1)]
 			)
@@ -3620,6 +3671,18 @@ func _configure_cooler_fish_focus() -> void:
 		_sell_bubble.get_path_to(_close_button)
 	)
 	_sell_bubble.focus_neighbor_top = _sell_bubble.get_path_to(focused_node)
+	_sell_bubble.focus_neighbor_bottom = (
+		_sell_bubble.get_path_to(_sell_all_bubble)
+	)
+	_sell_all_bubble.focus_neighbor_left = (
+		_sell_all_bubble.get_path_to(_favorite_bubble)
+	)
+	_sell_all_bubble.focus_neighbor_right = (
+		_sell_all_bubble.get_path_to(_close_button)
+	)
+	_sell_all_bubble.focus_neighbor_top = (
+		_sell_all_bubble.get_path_to(_sell_bubble)
+	)
 
 
 func _compare_catches(left: FishCatchType, right: FishCatchType) -> bool:
@@ -3684,6 +3747,7 @@ func _close_detail_constellation() -> void:
 	_sell_bubble.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_favorite_bubble.refresh_ink_state()
 	_sell_bubble.refresh_ink_state()
+	_refresh_cooler_notepad_action_interactivity()
 	_configure_cooler_fish_focus()
 
 
@@ -3750,6 +3814,7 @@ func _update_inventory_detail(fish_catch: FishCatchType) -> void:
 		_sell_bubble.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		_favorite_bubble.refresh_ink_state()
 		_sell_bubble.refresh_ink_state()
+		_refresh_cooler_notepad_action_interactivity()
 		_configure_cooler_fish_focus()
 		return
 	_cooler_detail_texture.texture = fish_catch.fish.display_texture
@@ -3797,7 +3862,24 @@ func _update_inventory_detail(fish_catch: FishCatchType) -> void:
 		and not _transitioning
 		and not _page_transitioning
 	)
-	for action: NotepadInkActionType in [_favorite_bubble, _sell_bubble]:
+	_refresh_cooler_notepad_action_interactivity()
+	_configure_cooler_fish_focus()
+
+
+func _refresh_cooler_notepad_action_interactivity() -> void:
+	var detail_interactive: bool = (
+		_detail_constellation.visible
+		and _current_section == Section.COOLER
+		and (visible or _shop_cooler_context_active)
+		and not _transitioning
+		and not _page_transitioning
+		and not _sale_confirmation.visible
+	)
+	for action: NotepadInkActionType in [
+		_favorite_bubble,
+		_sell_bubble,
+		_sell_all_bubble,
+	]:
 		var action_interactive: bool = detail_interactive and not action.disabled
 		action.focus_mode = (
 			Control.FOCUS_ALL
@@ -3810,7 +3892,6 @@ func _update_inventory_detail(fish_catch: FishCatchType) -> void:
 			else Control.MOUSE_FILTER_IGNORE
 		)
 		action.refresh_ink_state()
-	_configure_cooler_fish_focus()
 
 
 func _update_sale_summary() -> void:
@@ -3818,6 +3899,7 @@ func _update_sale_summary() -> void:
 	var buyer_id: StringName = (
 		active_buyer.id if active_buyer != null else StringName()
 	)
+	_update_sell_all_action(active_buyer, buyer_id)
 	var offer_label: String = _get_offer_label(active_buyer)
 	var selected_ids: Array[StringName] = _fish_selection.get_selected_ids()
 	var selected_count: int = selected_ids.size()
@@ -3927,6 +4009,55 @@ func _update_sale_summary() -> void:
 	_sale_unavailable.visible = not _sale_unavailable.text.is_empty()
 
 
+func _update_sell_all_action(
+	active_buyer: FishBuyerProfileType,
+	buyer_id: StringName,
+) -> void:
+	var sell_all_ids: Array[StringName] = _get_sell_all_catch_ids()
+	var sale_available: bool = (
+		not _sale_in_progress
+		and (
+			_network_sale_service == null
+			or not _network_sale_service.is_local_sale_pending()
+		)
+		and _network_sale_service != null
+		and not buyer_id.is_empty()
+		and _network_sale_service.can_request_sale(buyer_id)
+		and _sale_service != null
+		and active_buyer != null
+		and not sell_all_ids.is_empty()
+	)
+	if sale_available:
+		var preview: FishSaleResultType = _sale_service.preview_batch(
+			sell_all_ids,
+			active_buyer,
+		)
+		sale_available = preview.is_success()
+	_sell_all_bubble.text = "sell all fish"
+	_sell_all_bubble.disabled = not sale_available
+	_sell_all_bubble.persistent_mark = false
+	_sell_all_bubble.refresh_ink_state()
+
+
+func _get_sell_all_catch_ids() -> Array[StringName]:
+	var catch_ids: Array[StringName] = []
+	if _inventory == null:
+		return catch_ids
+	for fish_catch: FishCatchType in _inventory.get_all_catches():
+		if (
+			fish_catch == null
+			or not fish_catch.is_valid()
+			or fish_catch.is_favorited
+			or (
+				_reservations != null
+				and _reservations.is_fish_reserved(fish_catch.catch_id)
+			)
+		):
+			continue
+		catch_ids.append(fish_catch.catch_id)
+	return catch_ids
+
+
 func _on_favorite_pressed() -> void:
 	var focused_id: StringName = _fish_selection.get_focused_id()
 	if _inventory == null or focused_id.is_empty():
@@ -3951,6 +4082,18 @@ func _on_favorite_pressed() -> void:
 
 
 func _on_sell_pressed() -> void:
+	_begin_sale_confirmation(_fish_selection.get_selected_ids())
+
+
+func _on_sell_all_pressed() -> void:
+	var catch_ids: Array[StringName] = _get_sell_all_catch_ids()
+	if catch_ids.is_empty():
+		_transaction_feedback.text = "No sellable fish in the cooler."
+		return
+	_begin_sale_confirmation(catch_ids)
+
+
+func _begin_sale_confirmation(catch_ids: Array[StringName]) -> void:
 	var active_buyer: FishBuyerProfileType = _get_active_sale_buyer()
 	var buyer_id: StringName = (
 		active_buyer.id if active_buyer != null else StringName()
@@ -3973,16 +4116,15 @@ func _on_sell_pressed() -> void:
 			"Selling is not supported by this server."
 		)
 		return
-	var selected_ids: Array[StringName] = _fish_selection.get_selected_ids()
 	if (
 		_inventory == null
 		or _sale_service == null
 		or active_buyer == null
-		or selected_ids.is_empty()
+		or catch_ids.is_empty()
 	):
 		return
 	var preview: FishSaleResultType = _sale_service.preview_batch(
-		selected_ids,
+		catch_ids,
 		active_buyer
 	)
 	if not preview.is_success():
@@ -3994,7 +4136,7 @@ func _on_sell_pressed() -> void:
 		)
 		_refresh_inventory()
 		return
-	_confirmation_catch_ids = selected_ids.duplicate()
+	_confirmation_catch_ids = catch_ids.duplicate()
 	_confirmation_buyer = active_buyer
 	_confirmation_buyer_id = active_buyer.id
 	_confirmation_generation = _menu_generation

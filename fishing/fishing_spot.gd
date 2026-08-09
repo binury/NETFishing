@@ -47,6 +47,7 @@ const WorldWeatherServiceType = preload(
 )
 
 signal status_changed(status: String)
+signal local_speech_requested(message: String)
 signal catch_display_changed(
 	progress: float,
 	chase_progress: float,
@@ -64,6 +65,7 @@ signal showcase_changed(
 	visible: bool,
 )
 signal bite_activated
+signal bite_prompt_changed(is_visible: bool)
 signal ready_for_equipment_refresh
 signal fish_showcase_toggle_requested
 signal art_ui_toggle_requested
@@ -175,6 +177,8 @@ var _network_auto_click_accumulator: float = 0.0
 var _network_active_barrier_index: int = -1
 var _bite_rng: RandomNumberGenerator = RandomNumberGenerator.new()
 var _pending_cleanup_message: String = ""
+var _bite_confirmation_pending: bool = false
+var _bite_confirmation_requested: bool = false
 
 
 func _ready() -> void:
@@ -250,6 +254,9 @@ func setup(
 		)
 		_network_fishing.local_bite_started.connect(
 			_on_network_bite_started
+		)
+		_network_fishing.local_bite_pending.connect(
+			_on_network_bite_pending
 		)
 		_network_fishing.local_snapshot_received.connect(
 			_on_network_fishing_snapshot
@@ -514,14 +521,25 @@ func _unhandled_input(event: InputEvent) -> void:
 					return
 				if (
 					active_item != null
-					and active_item.category == ItemDataType.Category.CONSUMABLE
+					and (
+						active_item.category == ItemDataType.Category.CONSUMABLE
+						or (
+							active_item.item_id == PlayerItemEffectsType.FISH_FINDER_ID
+						)
+					)
 				):
 					if _network_item_use != null:
 						_network_item_use.request_use(active_item.item_id)
-					elif _item_effects.use_consumable(active_item, _local_bag):
+					elif _item_effects.use_item(active_item, _local_bag):
 						status_changed.emit(_item_effects.get_feedback(
 							active_item.item_id
 						))
+					elif (
+						active_item.item_id == PlayerItemEffectsType.FISH_FINDER_ID
+					):
+						local_speech_requested.emit(
+							PlayerItemEffectsType.FISH_FINDER_DEAD_MESSAGE
+						)
 					get_viewport().set_input_as_handled()
 					return
 				if not has_active_fishing_rod():
@@ -552,6 +570,10 @@ func _unhandled_input(event: InputEvent) -> void:
 				else:
 					return
 			FishingState.WAITING_FOR_BITE:
+				if _bite_confirmation_pending:
+					confirm_pending_bite()
+					get_viewport().set_input_as_handled()
+					return
 				_withdrawal_input_held = true
 				_start_reeling_audio()
 				if _network_fishing != null:
@@ -568,6 +590,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		_confirm_cast()
 		get_viewport().set_input_as_handled()
 	elif state == FishingState.WAITING_FOR_BITE:
+		if _bite_confirmation_pending:
+			get_viewport().set_input_as_handled()
+			return
 		_withdrawal_input_held = false
 		_stop_reeling_audio()
 		if _network_fishing != null:
@@ -682,6 +707,28 @@ func is_fighting() -> bool:
 	return state == FishingState.FIGHTING
 
 
+func confirm_pending_bite() -> void:
+	if state != FishingState.WAITING_FOR_BITE or not _bite_confirmation_pending:
+		return
+	_bite_confirmation_requested = true
+	if _network_fishing != null:
+		_network_primary_input_held = false
+		_network_input_resend_elapsed = 0.0
+		_network_fishing.submit_local_input(false, true)
+	else:
+		_activate_bite(true)
+
+
+func _set_bite_confirmation_pending(is_pending: bool) -> void:
+	if _bite_confirmation_pending == is_pending:
+		if not is_pending:
+			_bite_confirmation_requested = false
+		return
+	_bite_confirmation_pending = is_pending
+	_bite_confirmation_requested = false
+	bite_prompt_changed.emit(is_pending)
+
+
 func is_returning() -> bool:
 	return state == FishingState.RETURNING
 
@@ -791,6 +838,7 @@ func _on_cast_completed() -> void:
 	_consume_active_bait()
 
 	state = FishingState.WAITING_FOR_BITE
+	_active_player.set_fishing_visual(true)
 	_state_time_remaining = roll_bite_wait_time() * (
 		_item_effects.get_bite_time_multiplier()
 		if _item_effects != null
@@ -845,6 +893,8 @@ func roll_bite_wait_time() -> float:
 
 
 func _update_waiting_for_bite(delta: float) -> void:
+	if _bite_confirmation_pending:
+		return
 	if (
 		_withdrawal_input_held
 		and not Input.is_action_pressed("fish_primary")
@@ -939,7 +989,7 @@ func _get_withdrawable_distance() -> float:
 	return landing_offset.length() - withdrawal_cancel_distance
 
 
-func _activate_bite() -> void:
+func _activate_bite(confirmation_override: bool = false) -> void:
 	if state != FishingState.WAITING_FOR_BITE:
 		return
 
@@ -951,7 +1001,19 @@ func _activate_bite() -> void:
 	):
 		_cancel_attempt()
 		return
+	if (
+		not confirmation_override
+		and _active_lure_has_effect(&"deferred_fight")
+	):
+		_state_time_remaining = 0.0
+		_withdrawal_input_held = false
+		_set_bite_confirmation_pending(true)
+		status_changed.emit("")
+		_presentation.set_line_mode(FishingPresentationType.LineMode.TAUT)
+		_presentation.show_bite()
+		return
 
+	_set_bite_confirmation_pending(false)
 	state = FishingState.FIGHTING
 	_active_player.set_fighting_visual(true)
 	_state_time_remaining = 0.0
@@ -1043,6 +1105,7 @@ func _on_catch_completed() -> void:
 		return
 	_stop_fight_audio()
 	_active_player.set_fighting_visual(false)
+	_active_player.set_fishing_visual(false)
 	state = FishingState.SHOWING_CATCH
 	_showcase_ready = false
 	_showcase_outcome_completed = false
@@ -1163,10 +1226,12 @@ func _cleanup_attempt(
 	cooldown_message: String = "",
 	visual_outcome: StringName = &"",
 ) -> void:
+	_set_bite_confirmation_pending(false)
 	_stop_fight_audio()
 	_stop_reeling_audio()
 	if _active_player != null:
 		_active_player.set_fighting_visual(false)
+		_active_player.set_fishing_visual(false)
 	if not visual_outcome.is_empty():
 		if state == FishingState.RETURNING:
 			return
@@ -1196,6 +1261,7 @@ func _finalize_attempt_cleanup(cooldown_message: String) -> void:
 	_showcase_restore_generation += 1
 	if _active_player != null:
 		_active_player.set_fighting_visual(false)
+		_active_player.set_fishing_visual(false)
 		_active_player.end_catch_showcase()
 		_active_player.set_movement_enabled(true)
 	_active_player = null
@@ -1410,6 +1476,21 @@ func _get_active_bait_tags() -> Array[StringName]:
 	return item.bait_tags.duplicate() if item != null and item.is_bait() else []
 
 
+func _active_lure_has_effect(effect_id: StringName) -> bool:
+	if (
+		_local_player == null
+		or _item_catalog == null
+		or _local_bag == null
+		or _local_player.active_lure_id.is_empty()
+		or not _local_bag.owns_item(_local_player.active_lure_id)
+	):
+		return false
+	var lure: ItemDataType = _item_catalog.get_item_by_id(
+		_local_player.active_lure_id
+	)
+	return lure != null and lure.is_lure() and effect_id in lure.lure_effects
+
+
 func _build_network_evidence() -> Dictionary:
 	var rarity_multipliers: Array[float] = []
 	for rarity: int in range(FishDataType.Rarity.size()):
@@ -1421,6 +1502,7 @@ func _build_network_evidence() -> Dictionary:
 	var item: ItemDataType = _get_active_item()
 	return {
 		"bait_id": str(_active_player.active_bait_id),
+		"lure_id": str(_active_player.active_lure_id),
 		"rod_id": str(item.item_id) if item != null else "",
 		"reel_speed": _active_player.reel_speed * (
 			_fishing_upgrades.get_reel_speed_multiplier()
@@ -1441,6 +1523,13 @@ func _on_network_item_use_finished(
 	accepted: bool,
 	message: String,
 ) -> void:
+	if (
+		not accepted
+		and message == PlayerItemEffectsType.FISH_FINDER_DEAD_MESSAGE
+	):
+		status_changed.emit("")
+		local_speech_requested.emit(message)
+		return
 	status_changed.emit(message)
 	if accepted:
 		refresh_active_item_status()
@@ -1455,6 +1544,8 @@ func _on_network_cast_accepted(
 	_cast_target = target
 	_bobber_water_position = target
 	state = FishingState.WAITING_FOR_BITE
+	if _active_player != null:
+		_active_player.set_fishing_visual(true)
 	_network_primary_input_held = false
 	_network_input_resend_elapsed = 0.0
 	_presentation.show_withdrawal_position(_bobber_water_position)
@@ -1478,10 +1569,24 @@ func _on_network_cast_rejected(message: String) -> void:
 	_cleanup_attempt(visible_message, &"invalid")
 
 
+func _on_network_bite_pending(_attempt_id: String) -> void:
+	if state != FishingState.WAITING_FOR_BITE:
+		return
+	_stop_reeling_audio()
+	_withdrawal_input_held = false
+	_network_primary_input_held = false
+	_network_input_resend_elapsed = 0.0
+	_set_bite_confirmation_pending(true)
+	status_changed.emit("")
+	_presentation.set_line_mode(FishingPresentationType.LineMode.TAUT)
+	_presentation.show_bite()
+
+
 func _on_network_bite_started(_attempt_id: String) -> void:
 	if state != FishingState.WAITING_FOR_BITE:
 		return
 	_stop_reeling_audio()
+	_set_bite_confirmation_pending(false)
 	state = FishingState.FIGHTING
 	if _active_player != null:
 		_active_player.set_fighting_visual(true)
@@ -1512,7 +1617,10 @@ func _resend_network_input_state(delta: float) -> void:
 		_network_input_resend_elapsed,
 		NETWORK_INPUT_RESEND_INTERVAL_SECONDS,
 	)
-	_network_fishing.submit_local_input(_network_primary_input_held, false)
+	_network_fishing.submit_local_input(
+		false if _bite_confirmation_pending else _network_primary_input_held,
+		_bite_confirmation_pending and _bite_confirmation_requested,
+	)
 
 
 func _on_network_fishing_snapshot(snapshot: Dictionary) -> void:
@@ -1577,6 +1685,7 @@ func _on_network_catch_received(fish_catch: FishCatchType) -> void:
 	_pending_catch = fish_catch
 	if _active_player != null:
 		_active_player.set_fighting_visual(false)
+		_active_player.set_fishing_visual(false)
 	state = FishingState.SHOWING_CATCH
 	_showcase_ready = false
 	_showcase_outcome_completed = false

@@ -7,10 +7,11 @@
 script = ExtResource("1")
 item_id = &"fish_finder"
 display_name = "fish finder"
-description = "temporarily shortens bite waits and improves rarity weights."
-category = 3
+description = "uses one battery to temporarily shorten bite waits and improve rarity weights."
+category = 1
 icon = ExtResource("2")
-stackable = true
-max_stack = 99
+stackable = false
+max_stack = 1
 usable = true
+equippable = true
 hotbar_allowed = true

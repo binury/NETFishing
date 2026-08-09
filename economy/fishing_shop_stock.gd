@@ -6,6 +6,8 @@ const ItemDataType = preload("res://items/item_data.gd")
 const PlayerBagType = preload("res://inventory/player_bag.gd")
 const PlayerWalletType = preload("res://economy/player_wallet.gd")
 const WORM_MAX_STACK: int = 10
+const FISH_FINDER_ID: StringName = &"fish_finder"
+const BATTERIES_ID: StringName = &"batteries"
 
 const ITEM_PRICES: Dictionary[StringName, int] = {
 	&"worms": 1,
@@ -15,10 +17,12 @@ const ITEM_PRICES: Dictionary[StringName, int] = {
 	&"whole_anchovy": 30,
 	&"whole_sardine": 60,
 	&"luminous_roe": 125,
+	&"the_standby": 750,
 	&"coffee": 20,
 	&"energy_drink": 35,
 	&"snack": 30,
-	&"fish_finder": 60,
+	FISH_FINDER_ID: 500,
+	BATTERIES_ID: 15,
 }
 const BAIT_UNLOCK_PRICES: Dictionary[StringName, int] = {
 	&"snails": 400,
@@ -36,10 +40,12 @@ const ITEM_ORDER: Array[StringName] = [
 	&"whole_anchovy",
 	&"whole_sardine",
 	&"luminous_roe",
+	&"the_standby",
+	FISH_FINDER_ID,
 	&"coffee",
 	&"energy_drink",
 	&"snack",
-	&"fish_finder",
+	BATTERIES_ID,
 ]
 
 
@@ -69,6 +75,20 @@ static func is_bait_topoff(item_id: StringName) -> bool:
 	return item_id == &"worms" or BAIT_UNLOCK_PRICES.has(item_id)
 
 
+static func is_permanent_unlock(
+	item_id: StringName,
+	item: ItemDataType,
+) -> bool:
+	return (
+		item != null
+		and (item.is_lure() or item_id == FISH_FINDER_ID)
+	)
+
+
+static func is_passive_supply(item_id: StringName) -> bool:
+	return item_id == BATTERIES_ID
+
+
 static func get_purchase_cost(
 	item_id: StringName,
 	quantity: int,
@@ -92,6 +112,7 @@ static func purchase_one(
 		return false
 	var item: ItemDataType = catalog.get_item_by_id(item_id)
 	var bait_topoff: bool = is_bait_topoff(item_id)
+	var permanent_unlock: bool = is_permanent_unlock(item_id, item)
 	var quantity: int = get_purchase_quantity(
 		item_id,
 		bag.get_quantity(item_id),
@@ -106,9 +127,18 @@ static func purchase_one(
 		price < 0
 		or item == null
 		or not item.is_valid()
-		or (item.category != ItemDataType.Category.CONSUMABLE and not bait_topoff)
-		or not item.stackable
-		or (not item.usable and not bait_topoff)
+		or (
+			item.category != ItemDataType.Category.CONSUMABLE
+			and not bait_topoff
+			and not permanent_unlock
+		)
+		or (not item.stackable and not permanent_unlock)
+		or (
+			not item.usable
+			and not bait_topoff
+			and not permanent_unlock
+			and not is_passive_supply(item_id)
+		)
 		or not bag.can_add_item(item_id, quantity)
 		or not wallet.can_afford(price)
 	):

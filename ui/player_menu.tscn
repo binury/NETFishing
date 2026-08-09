@@ -470,6 +470,16 @@ offset_right = 256.0
 offset_bottom = 464.0
 text = "sell fish"
 
+[node name="SellAllBubble" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/CoolerPage/DetailConstellation" instance=ExtResource("12_ink_action")]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(122, 44)
+layout_mode = 0
+offset_left = 78.0
+offset_top = 426.0
+offset_right = 200.0
+offset_bottom = 470.0
+text = "sell all fish"
+
 [node name="BagPage" type="Control" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot"]
 unique_name_in_owner = true
 visible = false

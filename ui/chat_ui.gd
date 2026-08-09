@@ -34,6 +34,10 @@ const CLOCK_SIZE := Vector2(116.0, 34.0)
 const CLOCK_EDGE_MARGIN: float = 10.0
 const WEATHER_ICON_SIZE := Vector2(34.0, 34.0)
 const WEATHER_ICON_GAP: float = 6.0
+const FISH_FINDER_EFFECT_ICON_SIZE := Vector2(18.0, 18.0)
+const FISH_FINDER_EFFECT_ICON: Texture2D = preload(
+	"res://items/icons/consumables/64_consumable_fishfinder.png"
+)
 const CHAT_SHOW_ICON: Texture2D = preload(
 	"res://ui/icons/pictograms/arrow_light_right_more.png"
 )
@@ -86,6 +90,7 @@ var _animalese_voice: AnimaleseVoiceType
 var _clock_panel: PanelContainer
 var _clock_label: Label
 var _weather_icon: WeatherIconType
+var _fish_finder_effect_icon: TextureRect
 var _speech: Dictionary[int, Dictionary] = {}
 var _draft_save_timer: Timer
 var _opacity_tween: Tween
@@ -110,6 +115,7 @@ var _dock_right: bool = false
 var _mobile_mode: bool = false
 var _world_time: WorldTimeServiceType
 var _world_weather: WorldWeatherServiceType
+var _item_effects: PlayerItemEffects
 
 
 func _ready() -> void:
@@ -129,6 +135,7 @@ func setup(
 	settings: PlayerSettingsManager,
 	world_time: WorldTimeServiceType,
 	world_weather: WorldWeatherServiceType,
+	item_effects: PlayerItemEffects,
 ) -> void:
 	_service = service
 	_session = session
@@ -138,6 +145,14 @@ func setup(
 	_settings = settings
 	_world_time = world_time
 	_world_weather = world_weather
+	_item_effects = item_effects
+	if (
+		_fishing_spot != null
+		and not _fishing_spot.local_speech_requested.is_connected(
+			show_local_speech
+		)
+	):
+		_fishing_spot.local_speech_requested.connect(show_local_speech)
 	if (
 		_world_time != null
 		and not _world_time.time_changed.is_connected(
@@ -361,6 +376,15 @@ func _build_ui() -> void:
 		"font_color", UtilityPageStyle.OCEAN_TEXT_PRIMARY
 	)
 	_clock_panel.add_child(_clock_label)
+	_fish_finder_effect_icon = TextureRect.new()
+	_fish_finder_effect_icon.name = "FishFinderEffectIcon"
+	_fish_finder_effect_icon.texture = FISH_FINDER_EFFECT_ICON
+	_fish_finder_effect_icon.size = FISH_FINDER_EFFECT_ICON_SIZE
+	_fish_finder_effect_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_fish_finder_effect_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_fish_finder_effect_icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	_fish_finder_effect_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_fish_finder_effect_icon)
 	_weather_icon = WeatherIconType.new()
 	_weather_icon.name = "WorldWeatherIcon"
 	_weather_icon.size = WEATHER_ICON_SIZE
@@ -800,6 +824,24 @@ func _on_message(message: Dictionary) -> void:
 	if int(message["kind"]) != NetworkChatProtocol.Kind.PLAYER:
 		return
 	var peer_id: int = message["sender_peer_id"]
+	_show_speech_bubble(
+		peer_id,
+		str(message["body"]),
+		str(message.get("sender_fingerprint", "")),
+	)
+
+
+func show_local_speech(body: String) -> void:
+	if body.strip_edges().is_empty() or _session == null:
+		return
+	_show_speech_bubble(_session.get_local_peer_id(), body, "")
+
+
+func _show_speech_bubble(
+	peer_id: int,
+	body: String,
+	fingerprint: String,
+) -> void:
 	_on_peer_removed(peer_id)
 	var bubble := PanelContainer.new()
 	bubble.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -808,7 +850,7 @@ func _on_message(message: Dictionary) -> void:
 	var pointer := _create_speech_pointer()
 	bubble.add_child(pointer)
 	var label := Label.new()
-	label.text = str(message["body"])
+	label.text = body
 	label.custom_minimum_size = Vector2(
 		SPEECH_BUBBLE_WIDTH - 20.0,
 		0.0,
@@ -844,7 +886,7 @@ func _on_message(message: Dictionary) -> void:
 			+ reveal_seconds
 			+ SPEECH_SECONDS
 		),
-		"fingerprint": str(message.get("sender_fingerprint", "")),
+		"fingerprint": fingerprint,
 	}
 
 
@@ -891,6 +933,7 @@ func _refresh_visibility() -> void:
 		_panel.hide()
 		_clock_panel.hide()
 		_weather_icon.hide()
+		_fish_finder_effect_icon.hide()
 		_collapse_button.hide()
 		_height_button.hide()
 		_unread_indicator.hide()
@@ -898,6 +941,10 @@ func _refresh_visibility() -> void:
 		return
 	_clock_panel.show()
 	_weather_icon.show()
+	_fish_finder_effect_icon.visible = (
+		_item_effects != null
+		and _item_effects.is_active(PlayerItemEffects.FISH_FINDER_ID)
+	)
 	_collapse_button.show()
 	var collapsed := _presentation_state == PresentationState.COLLAPSED
 	_panel.show()
@@ -1232,6 +1279,11 @@ func _layout_presentation(animate: bool) -> void:
 		clock_x,
 		CLOCK_EDGE_MARGIN,
 	)
+	var fish_finder_effect_position := Vector2(
+		clock_position.x
+		+ (CLOCK_SIZE.x - FISH_FINDER_EFFECT_ICON_SIZE.x) * 0.5,
+		clock_position.y + CLOCK_SIZE.y + 2.0,
+	)
 	var weather_icon_x: float = (
 		clock_position.x - WEATHER_ICON_GAP - WEATHER_ICON_SIZE.x
 		if _dock_right
@@ -1255,6 +1307,8 @@ func _layout_presentation(animate: bool) -> void:
 		_panel.size = target_size
 		_clock_panel.position = clock_position
 		_clock_panel.size = CLOCK_SIZE
+		_fish_finder_effect_icon.position = fish_finder_effect_position
+		_fish_finder_effect_icon.size = FISH_FINDER_EFFECT_ICON_SIZE
 		_weather_icon.position = weather_icon_position
 		_weather_icon.size = WEATHER_ICON_SIZE
 		_collapse_button.position = collapse_position
@@ -1273,6 +1327,12 @@ func _layout_presentation(animate: bool) -> void:
 		_clock_panel,
 		"position",
 		clock_position,
+		UIMotion.CHAT_RESIZE_DURATION,
+	).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	_height_tween.tween_property(
+		_fish_finder_effect_icon,
+		"position",
+		fish_finder_effect_position,
 		UIMotion.CHAT_RESIZE_DURATION,
 	).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	_height_tween.tween_property(

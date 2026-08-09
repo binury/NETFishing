@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="ItemData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://items/item_data.gd" id="1_item"]
+
+[resource]
+script = ExtResource("1_item")
+item_id = &"the_standby"
+display_name = "The Standby"
+description = "holds a bite until you're ready to start the fight."
+category = 7
+lure_effects = Array[StringName]([&"deferred_fight"])
+stackable = false
+max_stack = 1
+usable = false
+equippable = true
+hotbar_allowed = false

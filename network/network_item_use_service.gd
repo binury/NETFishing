@@ -50,9 +50,19 @@ func request_use(item_id: StringName) -> String:
 	if not _pending_local.is_empty():
 		local_item_use_finished.emit(false, "An item use is already pending.")
 		return ""
+	var consumed_item_id: StringName = _consumed_item_id(item_id)
+	if item_id == PlayerItemEffects.FISH_FINDER_ID and (
+		_local_bag == null
+		or not _local_bag.owns_item(item_id)
+		or _local_bag.get_quantity(consumed_item_id) < 1
+	):
+		local_item_use_finished.emit(
+			false, PlayerItemEffects.FISH_FINDER_DEAD_MESSAGE
+		)
+		return ""
 	if (
 		_reservations != null
-		and _reservations.get_available_item_quantity(item_id) < 1
+		and _reservations.get_available_item_quantity(consumed_item_id) < 1
 	):
 		local_item_use_finished.emit(false, "Reserved in a letter.")
 		return ""
@@ -73,7 +83,7 @@ func request_use(item_id: StringName) -> String:
 		"request_id": request_id,
 		"session_id": _session.get_session_id(),
 		"item_id": str(item_id),
-		"quantity": _local_bag.get_quantity(item_id),
+		"quantity": _local_bag.get_quantity(consumed_item_id),
 	}
 	_pending_local = data.duplicate(true)
 	local_item_use_pending.emit(request_id)
@@ -109,14 +119,28 @@ func _handle_use_request(peer_id: int, data: Dictionary) -> void:
 	var item: ItemData = _catalog.get_item_by_id(item_id)
 	var avatar: Player = _spawn_service.get_avatar(peer_id)
 	var duration: float = 0.0
+	var is_fish_finder: bool = (
+		item_id == PlayerItemEffects.FISH_FINDER_ID
+		and item != null
+		and item.category == ItemData.Category.TOOL
+		and item.usable
+		and item.equippable
+	)
 	if error.is_empty() and (
 		item == null
-		or item.category != ItemData.Category.CONSUMABLE
+		or (
+			item.category != ItemData.Category.CONSUMABLE
+			and not is_fish_finder
+		)
 		or not item.usable
 	):
 		error = "That item cannot be used now."
 	if error.is_empty() and int(data["quantity"]) < 1:
-		error = "You do not have that item."
+		error = (
+			PlayerItemEffects.FISH_FINDER_DEAD_MESSAGE
+			if is_fish_finder
+			else "You do not have that item."
+		)
 	if error.is_empty() and (
 		avatar == null
 		or avatar.is_water_recovery_active()
@@ -180,9 +204,10 @@ func _apply_result(data: Dictionary) -> void:
 		_acknowledge(data, false, str(data["message"]))
 		return
 	var item_id := StringName(str(data["item_id"]))
+	var consumed_item_id: StringName = _consumed_item_id(item_id)
 	if (
 		_reservations != null
-		and _reservations.get_available_item_quantity(item_id) < 1
+		and _reservations.get_available_item_quantity(consumed_item_id) < 1
 	):
 		_pending_local.clear()
 		local_item_use_finished.emit(false, "Reserved in a letter.")
@@ -190,8 +215,8 @@ func _apply_result(data: Dictionary) -> void:
 		return
 	var bag_snapshot := _local_bag.get_all_items()
 	if (
-		_local_bag.get_quantity(item_id) < 1
-		or not _local_bag.remove_item(item_id, 1)
+		_local_bag.get_quantity(consumed_item_id) < 1
+		or not _local_bag.remove_item(consumed_item_id, 1)
 		or not _save_manager.save_if_dirty()
 	):
 		_local_bag.replace_all_items(bag_snapshot)
@@ -409,3 +434,11 @@ func _new_id(prefix: String) -> String:
 	return "%s:%s" % [
 		prefix, Crypto.new().generate_random_bytes(16).hex_encode(),
 	]
+
+
+func _consumed_item_id(item_id: StringName) -> StringName:
+	return (
+		PlayerItemEffects.BATTERIES_ID
+		if item_id == PlayerItemEffects.FISH_FINDER_ID
+		else item_id
+	)

@@ -55,6 +55,8 @@ static func validate_cast_request(data: Variant) -> String:
 		return "Malformed fishing request."
 	if payload.has("bait_id") and typeof(payload["bait_id"]) not in [TYPE_STRING, TYPE_STRING_NAME]:
 		return "Malformed fishing request."
+	if payload.has("lure_id") and typeof(payload["lure_id"]) not in [TYPE_STRING, TYPE_STRING_NAME]:
+		return "Malformed fishing request."
 	var request_id: String = payload["request_id"]
 	var session_id: String = payload["session_id"]
 	var origin: Array = payload["origin"]
@@ -89,6 +91,7 @@ static func validate_cast_request(data: Variant) -> String:
 		or discovered.size() > MAX_EVIDENCE_FISH_IDS
 		or str(payload["rod_id"]).is_empty()
 		or str(payload["rod_id"]).length() > 96
+		or str(payload.get("lure_id", "")).length() > 96
 	):
 		return "Fishing request values are outside allowed limits."
 	for value: Variant in rarity:

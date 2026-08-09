@@ -25,6 +25,7 @@ const ShopInteractionType = preload(
 	"res://world/fishing_shop_interaction.gd"
 )
 const UtilityPageStyleType = preload("res://ui/utility_page_style.gd")
+const OrganizerTabType = preload("res://ui/components/organizer_tab.gd")
 
 signal menu_visibility_changed(is_open: bool)
 signal sell_fish_requested
@@ -39,6 +40,22 @@ enum CloseReason {
 	TEARDOWN,
 }
 
+enum ShopSection {
+	UPGRADES,
+	BAIT,
+	SNACKS,
+	EQUIPMENT,
+	ART_SUPPLIES,
+}
+
+const SHOP_SECTION_LABELS: Array[String] = [
+	"Upgrades",
+	"Bait",
+	"Snacks",
+	"Equipment",
+	"Art Supplies",
+]
+
 @onready var _wallet_label: Label = %WalletLabel
 @onready var _shop_panel: PanelContainer = %ShopPanel
 @onready var _shop_cooler_page: Control = %ShopCoolerPage
@@ -47,6 +64,10 @@ enum CloseReason {
 @onready var _buy_mode_button: Button = %BuyModeButton
 @onready var _sell_mode_button: Button = %SellModeButton
 @onready var _feedback: Label = %Feedback
+@onready var _shop_tab_bar: HBoxContainer = %ShopTabBar
+@onready var _upgrades_content: VBoxContainer = %Upgrades
+@onready var _supplies_content: VBoxContainer = %Supplies
+@onready var _stock_title: Label = %StockTitle
 @onready var _reel_level: Label = %ReelLevel
 @onready var _reel_effect: Label = %ReelEffect
 @onready var _reel_cost: Label = %ReelCost
@@ -81,11 +102,14 @@ var _transaction_in_progress: bool = false
 var _closing: bool = false
 var _cooler_page_active: bool = false
 var _cooler_modal_open: bool = false
+var _shop_section: ShopSection = ShopSection.UPGRADES
+var _shop_tabs: Array[OrganizerTab] = []
 
 
 func _ready() -> void:
 	UtilityPageStyleType.apply_page(self)
 	_apply_shop_styles()
+	_build_shop_tabs()
 	%CloseButton.pressed.connect(close_shop)
 	_buy_mode_button.pressed.connect(_focus_buy_page)
 	_sell_mode_button.pressed.connect(_request_shop_cooler)
@@ -107,12 +131,39 @@ func _request_shop_cooler() -> void:
 
 func _focus_buy_page() -> void:
 	_feedback.text = ""
+	if _shop_section == ShopSection.UPGRADES:
+		_reel_purchase.grab_focus()
+		return
 	for child: Node in _supplies_list.get_children():
 		var stock_button := child as Button
 		if stock_button != null and not stock_button.disabled:
 			stock_button.grab_focus()
 			return
-	_reel_purchase.grab_focus()
+	_buy_mode_button.grab_focus()
+
+
+func _build_shop_tabs() -> void:
+	for section_index: int in range(ShopSection.size()):
+		var tab: OrganizerTab = OrganizerTabType.new()
+		tab.text = SHOP_SECTION_LABELS[section_index]
+		tab.palette_index = section_index
+		tab.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		tab.pressed.connect(_select_shop_section.bind(section_index, true))
+		_shop_tab_bar.add_child(tab)
+		_shop_tabs.append(tab)
+	_select_shop_section(ShopSection.UPGRADES, false)
+
+
+func _select_shop_section(section_index: int, focus_content: bool) -> void:
+	_shop_section = section_index as ShopSection
+	var showing_upgrades: bool = _shop_section == ShopSection.UPGRADES
+	_upgrades_content.visible = showing_upgrades
+	_supplies_content.visible = not showing_upgrades
+	for tab_index: int in range(_shop_tabs.size()):
+		_shop_tabs[tab_index].set_selected(tab_index == section_index, true)
+	_refresh_supplies()
+	if focus_content and visible:
+		_focus_buy_page()
 
 
 func _apply_shop_styles() -> void:
@@ -236,6 +287,7 @@ func open_shop() -> bool:
 	_feedback.text = ""
 	deactivate_shop_cooler_page()
 	show()
+	_select_shop_section(ShopSection.UPGRADES, false)
 	_refresh_all()
 	_buy_mode_button.grab_focus()
 	menu_visibility_changed.emit(true)
@@ -413,10 +465,12 @@ func _refresh_supplies() -> void:
 	for child: Node in _supplies_list.get_children():
 		_supplies_list.remove_child(child)
 		child.queue_free()
-	_add_stock_section("supplies")
+	if _shop_section == ShopSection.UPGRADES:
+		return
+	_stock_title.text = SHOP_SECTION_LABELS[int(_shop_section)]
 	for item_id: StringName in FishingShopStockType.get_stock_item_ids():
 		var item: ItemDataType = _item_catalog.get_item_by_id(item_id)
-		if item == null:
+		if item == null or not _item_belongs_in_current_section(item):
 			continue
 		var button := Button.new()
 		button.custom_minimum_size = Vector2(195, 54)
@@ -492,17 +546,32 @@ func _refresh_supplies() -> void:
 		UtilityPageStyleType.apply_ocean_button(button)
 		button.pressed.connect(_purchase_supply.bind(item_id))
 		_supplies_list.add_child(button)
-	_add_stock_section("art kit")
-	_add_art_kit_button()
-	_add_stock_section("markers")
-	for product_id: StringName in ArtShopStockType.MARKER_PRODUCTS:
-		_add_art_upgrade_button(product_id)
-	_add_stock_section("brushes")
-	for product_id: StringName in ArtShopStockType.BRUSH_PRODUCTS:
-		_add_art_upgrade_button(product_id)
-	_add_stock_section("grids")
-	for product_id: StringName in ArtShopStockType.GRID_PRODUCTS:
-		_add_art_upgrade_button(product_id)
+	if _shop_section == ShopSection.ART_SUPPLIES:
+		_add_stock_section("art kit")
+		_add_art_kit_button()
+		_add_stock_section("markers")
+		for product_id: StringName in ArtShopStockType.MARKER_PRODUCTS:
+			_add_art_upgrade_button(product_id)
+		_add_stock_section("brushes")
+		for product_id: StringName in ArtShopStockType.BRUSH_PRODUCTS:
+			_add_art_upgrade_button(product_id)
+		_add_stock_section("grids")
+		for product_id: StringName in ArtShopStockType.GRID_PRODUCTS:
+			_add_art_upgrade_button(product_id)
+
+
+func _item_belongs_in_current_section(item: ItemDataType) -> bool:
+	match _shop_section:
+		ShopSection.BAIT:
+			return item.is_bait()
+		ShopSection.SNACKS:
+			return item.category == ItemDataType.Category.CONSUMABLE
+		ShopSection.EQUIPMENT:
+			return item.category in [
+				ItemDataType.Category.TOOL,
+				ItemDataType.Category.LURE,
+			]
+	return false
 
 
 func _add_stock_section(title: String) -> void:

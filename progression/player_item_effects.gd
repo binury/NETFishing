@@ -10,6 +10,8 @@ const COFFEE_ID: StringName = &"coffee"
 const ENERGY_DRINK_ID: StringName = &"energy_drink"
 const SNACK_ID: StringName = &"snack"
 const FISH_FINDER_ID: StringName = &"fish_finder"
+const BATTERIES_ID: StringName = &"batteries"
+const FISH_FINDER_DEAD_MESSAGE: String = "hmm... batteries are dead..."
 const COFFEE_DURATION: float = 90.0
 const ENERGY_DRINK_DURATION: float = 90.0
 const SNACK_DURATION: float = 60.0
@@ -45,16 +47,35 @@ func use_consumable(
 	item: ItemDataType,
 	bag: PlayerBagType,
 ) -> bool:
+	return use_item(item, bag)
+
+
+func use_item(
+	item: ItemDataType,
+	bag: PlayerBagType,
+) -> bool:
+	var is_fish_finder: bool = (
+		item != null
+		and item.item_id == FISH_FINDER_ID
+		and item.category == ItemDataType.Category.TOOL
+		and item.equippable
+	)
 	if (
 		item == null
 		or bag == null
-		or item.category != ItemDataType.Category.CONSUMABLE
+		or (
+			item.category != ItemDataType.Category.CONSUMABLE
+			and not is_fish_finder
+		)
 		or not item.usable
 		or not _remaining.has(item.item_id)
 		or not bag.owns_item(item.item_id)
 	):
 		return false
-	if not bag.remove_item(item.item_id, 1):
+	var consumed_item_id: StringName = (
+		BATTERIES_ID if is_fish_finder else item.item_id
+	)
+	if not bag.remove_item(consumed_item_id, 1):
 		return false
 	_remaining[item.item_id] = _get_duration(item.item_id)
 	effects_changed.emit()
