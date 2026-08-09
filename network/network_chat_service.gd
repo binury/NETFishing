@@ -4,17 +4,37 @@ extends Node
 const BURST_COUNT: int = 3
 const WINDOW_COUNT: int = 5
 const WINDOW_SECONDS: float = 10.0
+const CALL_COOLDOWN_MILLISECONDS: int = 180
+const CALL_PITCH_VARIANTS: Array[float] = [
+	0.96,
+	1.03,
+	0.985,
+	1.055,
+	1.0,
+	0.975,
+	1.04,
+]
+const VoiceProfilesType = preload(
+	"res://player/animalese_voice_profiles.gd"
+)
 
 signal message_received(message: Dictionary)
 signal local_message_confirmed(message: Dictionary)
 signal send_rejected(message: String)
 signal history_replaced(messages: Array[Dictionary])
+signal character_call_received(
+	peer_id: int,
+	call_id: String,
+	pitch_scale: float,
+)
 
 var _session: NetworkSession
 var _history: Array[Dictionary] = []
 var _seen_messages: Dictionary[String, bool] = {}
 var _request_ledgers: Dictionary[int, Dictionary] = {}
 var _rate_times: Dictionary[int, Array] = {}
+var _last_call_msec: Dictionary[int, int] = {}
+var _call_variant_indices: Dictionary[int, int] = {}
 var _sequence: int = 0
 var _peer_names: Dictionary[int, String] = {}
 var _relationships: PlayerRelationshipStore
@@ -77,6 +97,134 @@ func send_local_message(body: String) -> bool:
 	else:
 		submit_chat_message.rpc_id(1, request)
 	return true
+
+
+func send_local_character_call(call_id: String) -> bool:
+	if (
+		_session == null
+		or not _session.is_gameplay_session_active()
+		or not VoiceProfilesType.is_valid_call(call_id)
+		or (
+			not _session.is_host()
+			and not _session.supports_server_capability(
+				NetworkChatProtocol.CAPABILITY
+			)
+		)
+	):
+		return false
+	var request := {
+		"request_id": _new_id("character_call"),
+		"session_id": _session.get_session_id(),
+		"call_id": call_id,
+		"sender_fingerprint": _session.get_local_identity_fingerprint(),
+	}
+	request["sender_signature"] = _session.sign_local_action(
+		"character_call", _character_call_signature_fields(request)
+	)
+	if _session.is_host():
+		_handle_character_call(_session.get_local_peer_id(), request)
+	else:
+		submit_character_call.rpc_id(1, request)
+	return true
+
+
+@rpc("any_peer", "call_remote", "reliable", NetworkChatProtocol.RELIABLE_CHANNEL)
+func submit_character_call(data: Dictionary) -> void:
+	var sender_id := multiplayer.get_remote_sender_id()
+	if _session.is_host() and _session.is_authenticated_peer(sender_id):
+		_handle_character_call(sender_id, data)
+
+
+func _handle_character_call(peer_id: int, data: Dictionary) -> void:
+	if (
+		typeof(data.get("request_id")) != TYPE_STRING
+		or str(data["request_id"]).is_empty()
+		or str(data["request_id"]).length() > 64
+		or typeof(data.get("session_id")) != TYPE_STRING
+		or str(data["session_id"]) != _session.get_session_id()
+		or typeof(data.get("call_id")) != TYPE_STRING
+		or not VoiceProfilesType.is_valid_call(str(data["call_id"]))
+		or typeof(data.get("sender_fingerprint")) != TYPE_STRING
+		or typeof(data.get("sender_signature")) != TYPE_PACKED_BYTE_ARRAY
+	):
+		return
+	var record := _session.get_peer_record(peer_id)
+	if (
+		record == null
+		or record.identity_fingerprint != str(data["sender_fingerprint"])
+		or not _session.verify_peer_action(
+			peer_id,
+			"character_call",
+			_character_call_signature_fields(data),
+			data["sender_signature"],
+		)
+		or not _consume_character_call_rate(peer_id)
+	):
+		return
+	var pitch_scale: float = _next_character_call_pitch(peer_id)
+	_apply_character_call(peer_id, str(data["call_id"]), pitch_scale)
+	receive_character_call.rpc(
+		peer_id,
+		str(data["call_id"]),
+		pitch_scale,
+	)
+
+
+@rpc("authority", "call_remote", "reliable", NetworkChatProtocol.RELIABLE_CHANNEL)
+func receive_character_call(
+	peer_id: int,
+	call_id: String,
+	pitch_scale: float,
+) -> void:
+	_apply_character_call(peer_id, call_id, pitch_scale)
+
+
+func _apply_character_call(
+	peer_id: int,
+	call_id: String,
+	pitch_scale: float,
+) -> void:
+	if (
+		not VoiceProfilesType.is_valid_call(call_id)
+		or pitch_scale < 0.9
+		or pitch_scale > 1.1
+		or _session == null
+		or not _session.is_gameplay_session_active()
+	):
+		return
+	var record := _session.get_peer_record(peer_id)
+	if record == null or is_sender_filtered(record.identity_fingerprint):
+		return
+	character_call_received.emit(peer_id, call_id, pitch_scale)
+
+
+func _next_character_call_pitch(peer_id: int) -> float:
+	var variant_index: int = _call_variant_indices.get(peer_id, 0)
+	var pitch_scale: float = CALL_PITCH_VARIANTS[
+		variant_index % CALL_PITCH_VARIANTS.size()
+	]
+	_call_variant_indices[peer_id] = variant_index + 1
+	return pitch_scale
+
+
+func _consume_character_call_rate(peer_id: int) -> bool:
+	var now_msec: int = Time.get_ticks_msec()
+	var last_msec: int = _last_call_msec.get(
+		peer_id, now_msec - CALL_COOLDOWN_MILLISECONDS
+	)
+	if now_msec - last_msec < CALL_COOLDOWN_MILLISECONDS:
+		return false
+	_last_call_msec[peer_id] = now_msec
+	return true
+
+
+func _character_call_signature_fields(data: Dictionary) -> Array:
+	return [
+		str(data.get("session_id", "")),
+		str(data.get("request_id", "")),
+		str(data.get("sender_fingerprint", "")),
+		str(data.get("call_id", "")),
+	]
 
 
 func broadcast_system_message(body: String) -> bool:
@@ -272,6 +420,8 @@ func _on_peer_authenticated(peer_id: int, display_name: String) -> void:
 func _on_peer_removed(peer_id: int) -> void:
 	_request_ledgers.erase(peer_id)
 	_rate_times.erase(peer_id)
+	_last_call_msec.erase(peer_id)
+	_call_variant_indices.erase(peer_id)
 	if not _session.is_host():
 		return
 	var display_name: String = _peer_names.get(peer_id, "Player")
@@ -329,6 +479,8 @@ func _on_session_state_changed(state: NetworkSession.State) -> void:
 		_seen_messages.clear()
 		_request_ledgers.clear()
 		_rate_times.clear()
+		_last_call_msec.clear()
+		_call_variant_indices.clear()
 		_peer_names.clear()
 		_sequence = 0
 		history_replaced.emit([])

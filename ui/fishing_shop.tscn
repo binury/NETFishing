@@ -64,6 +64,7 @@ offset_bottom = 104.0
 text = "back to shop"
 
 [node name="ShopPanel" type="PanelContainer" parent="."]
+z_index = 2
 unique_name_in_owner = true
 layout_mode = 1
 anchors_preset = 8
@@ -143,9 +144,13 @@ text = ""
 horizontal_alignment = 1
 theme_override_colors/font_color = Color(1, 0.82, 0.4, 1)
 
-[node name="ShopTabBar" type="HBoxContainer" parent="ShopPanel/Margin/Layout"]
+[node name="ShopTabBar" type="HBoxContainer" parent="."]
 unique_name_in_owner = true
-layout_mode = 2
+z_index = 1
+offset_left = 298.0
+offset_top = 26.0
+offset_right = 982.0
+offset_bottom = 70.0
 alignment = 1
 theme_override_constants/separation = 6
 

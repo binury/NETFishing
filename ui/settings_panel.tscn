@@ -41,8 +41,8 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("3_page")
 page_id = &"root"
-bubble_paths = Array[NodePath]([NodePath("BubbleCluster/DisplayCategory"), NodePath("BubbleCluster/ControlsCategory"), NodePath("BubbleCluster/AccessibilityCategory"), NodePath("BubbleCluster/DataCategory"), NodePath("BubbleCluster/ApplySettingsButton"), NodePath("BubbleCluster/RootBackButton")])
-focus_paths = Array[NodePath]([NodePath("BubbleCluster/DisplayCategory"), NodePath("BubbleCluster/ControlsCategory"), NodePath("BubbleCluster/AccessibilityCategory"), NodePath("BubbleCluster/DataCategory"), NodePath("BubbleCluster/ApplySettingsButton"), NodePath("BubbleCluster/RootBackButton")])
+bubble_paths = Array[NodePath]([NodePath("BubbleCluster/DisplayCategory"), NodePath("BubbleCluster/SoundCategory"), NodePath("BubbleCluster/ControlsCategory"), NodePath("BubbleCluster/AccessibilityCategory"), NodePath("BubbleCluster/DataCategory"), NodePath("BubbleCluster/ApplySettingsButton"), NodePath("BubbleCluster/RootBackButton")])
+focus_paths = Array[NodePath]([NodePath("BubbleCluster/DisplayCategory"), NodePath("BubbleCluster/SoundCategory"), NodePath("BubbleCluster/ControlsCategory"), NodePath("BubbleCluster/AccessibilityCategory"), NodePath("BubbleCluster/DataCategory"), NodePath("BubbleCluster/ApplySettingsButton"), NodePath("BubbleCluster/RootBackButton")])
 initial_focus_path = NodePath("BubbleCluster/DisplayCategory")
 back_focus_path = NodePath("BubbleCluster/RootBackButton")
 compact_maximum_layout_size = Vector2(544, 400)
@@ -87,6 +87,18 @@ compact_minimum_size = Vector2(124, 118)
 minimum_font_size = 17
 maximum_font_size = 25
 motion_phase = 1.45
+
+[node name="SoundCategory" parent="RootPage/BubbleCluster" instance=ExtResource("4_bubble")]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 0)
+text = "sound"
+neutral_size = Vector2(144, 136)
+desktop_anchor = Vector2(100, 180)
+compact_anchor = Vector2(90, 150)
+compact_minimum_size = Vector2(118, 112)
+minimum_font_size = 17
+maximum_font_size = 25
+motion_phase = 2.0
 
 [node name="AccessibilityCategory" parent="RootPage/BubbleCluster" instance=ExtResource("4_bubble")]
 unique_name_in_owner = true
@@ -163,8 +175,8 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("3_page")
 page_id = &"display"
-bubble_paths = Array[NodePath]([NodePath("BubbleCluster/WorldValue"), NodePath("BubbleCluster/WorldLegible"), NodePath("BubbleCluster/WorldCute"), NodePath("BubbleCluster/WorldRetro"), NodePath("BubbleCluster/WorldHardcore"), NodePath("BubbleCluster/WorldWtf"), NodePath("BubbleCluster/UIValue"), NodePath("BubbleCluster/UILegible"), NodePath("BubbleCluster/UICute"), NodePath("BubbleCluster/UIRetro"), NodePath("BubbleCluster/UIHardcore"), NodePath("BubbleCluster/UIWtf"), NodePath("BubbleCluster/ChatDock"), NodePath("BubbleCluster/ChatMode"), NodePath("BubbleCluster/PaintDock"), NodePath("BubbleCluster/DisplayBackButton")])
-focus_paths = Array[NodePath]([NodePath("BubbleCluster/WorldLegible"), NodePath("BubbleCluster/WorldCute"), NodePath("BubbleCluster/WorldRetro"), NodePath("BubbleCluster/WorldHardcore"), NodePath("BubbleCluster/WorldWtf"), NodePath("BubbleCluster/UILegible"), NodePath("BubbleCluster/UICute"), NodePath("BubbleCluster/UIRetro"), NodePath("BubbleCluster/UIHardcore"), NodePath("BubbleCluster/UIWtf"), NodePath("BubbleCluster/ChatDock"), NodePath("BubbleCluster/ChatMode"), NodePath("BubbleCluster/PaintDock"), NodePath("BubbleCluster/DisplayBackButton")])
+bubble_paths = Array[NodePath]([NodePath("BubbleCluster/WorldValue"), NodePath("BubbleCluster/WorldLegible"), NodePath("BubbleCluster/WorldCute"), NodePath("BubbleCluster/WorldRetro"), NodePath("BubbleCluster/WorldHardcore"), NodePath("BubbleCluster/WorldWtf"), NodePath("BubbleCluster/UIValue"), NodePath("BubbleCluster/UILegible"), NodePath("BubbleCluster/UICute"), NodePath("BubbleCluster/UIRetro"), NodePath("BubbleCluster/UIHardcore"), NodePath("BubbleCluster/UIWtf"), NodePath("BubbleCluster/ChatDock"), NodePath("BubbleCluster/ChatMode"), NodePath("BubbleCluster/PaintDock"), NodePath("BubbleCluster/FullscreenToggle"), NodePath("BubbleCluster/DisplayBackButton")])
+focus_paths = Array[NodePath]([NodePath("BubbleCluster/WorldLegible"), NodePath("BubbleCluster/WorldCute"), NodePath("BubbleCluster/WorldRetro"), NodePath("BubbleCluster/WorldHardcore"), NodePath("BubbleCluster/WorldWtf"), NodePath("BubbleCluster/UILegible"), NodePath("BubbleCluster/UICute"), NodePath("BubbleCluster/UIRetro"), NodePath("BubbleCluster/UIHardcore"), NodePath("BubbleCluster/UIWtf"), NodePath("BubbleCluster/ChatDock"), NodePath("BubbleCluster/ChatMode"), NodePath("BubbleCluster/PaintDock"), NodePath("BubbleCluster/FullscreenToggle"), NodePath("BubbleCluster/DisplayBackButton")])
 initial_focus_path = NodePath("BubbleCluster/WorldRetro")
 back_focus_path = NodePath("BubbleCluster/DisplayBackButton")
 compact_maximum_layout_size = Vector2(544, 400)
@@ -343,8 +355,8 @@ unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 0)
 text = "chat dock\nleft"
 neutral_size = Vector2(96, 96)
-desktop_anchor = Vector2(105, 435)
-compact_anchor = Vector2(76, 378)
+desktop_anchor = Vector2(70, 435)
+compact_anchor = Vector2(55, 378)
 compact_minimum_size = Vector2(82, 82)
 minimum_font_size = 12
 maximum_font_size = 16
@@ -355,8 +367,8 @@ unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 0)
 text = "chat mode\ndesktop"
 neutral_size = Vector2(96, 96)
-desktop_anchor = Vector2(275, 435)
-compact_anchor = Vector2(225, 378)
+desktop_anchor = Vector2(215, 435)
+compact_anchor = Vector2(180, 378)
 compact_minimum_size = Vector2(82, 82)
 minimum_font_size = 12
 maximum_font_size = 16
@@ -367,24 +379,215 @@ unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 0)
 text = "paint dock\nright"
 neutral_size = Vector2(96, 96)
-desktop_anchor = Vector2(445, 435)
-compact_anchor = Vector2(380, 378)
+desktop_anchor = Vector2(360, 435)
+compact_anchor = Vector2(305, 378)
 compact_minimum_size = Vector2(82, 82)
 minimum_font_size = 12
 maximum_font_size = 16
 motion_phase = 1.7
+
+[node name="FullscreenToggle" parent="DisplayPage/BubbleCluster" instance=ExtResource("4_bubble")]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 0)
+text = "fullscreen\noff"
+neutral_size = Vector2(104, 96)
+desktop_anchor = Vector2(505, 435)
+compact_anchor = Vector2(430, 378)
+compact_minimum_size = Vector2(88, 82)
+minimum_font_size = 11
+maximum_font_size = 15
+motion_phase = 1.85
 
 [node name="DisplayBackButton" parent="DisplayPage/BubbleCluster" instance=ExtResource("4_bubble")]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 0)
 text = "back"
 neutral_size = Vector2(96, 90)
-desktop_anchor = Vector2(615, 435)
-compact_anchor = Vector2(530, 378)
+desktop_anchor = Vector2(650, 435)
+compact_anchor = Vector2(555, 378)
 compact_minimum_size = Vector2(82, 78)
 minimum_font_size = 13
 maximum_font_size = 16
-motion_phase = 2.0
+motion_phase = 2.15
+
+[node name="SoundPage" type="Control" parent="."]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("3_page")
+page_id = &"sound"
+bubble_paths = Array[NodePath]([NodePath("BubbleCluster/SoundBackButton")])
+focus_paths = Array[NodePath]([NodePath("Paper/Content/VolumeGrid/MasterVolumeSlider"), NodePath("Paper/Content/VolumeGrid/MusicVolumeSlider"), NodePath("Paper/Content/VolumeGrid/EffectsVolumeSlider"), NodePath("Paper/Content/VolumeGrid/EnvironmentVolumeSlider"), NodePath("BubbleCluster/SoundBackButton")])
+initial_focus_path = NodePath("Paper/Content/VolumeGrid/MasterVolumeSlider")
+back_focus_path = NodePath("BubbleCluster/SoundBackButton")
+compact_maximum_layout_size = Vector2(544, 400)
+
+[node name="BubbleCluster" type="Control" parent="SoundPage"]
+layout_mode = 0
+offset_right = 720.0
+offset_bottom = 520.0
+script = ExtResource("5_cluster")
+profile = ExtResource("6_profile")
+desktop_reference_size = Vector2(720, 520)
+compact_reference_size = Vector2(608, 448)
+
+[node name="Paper" type="PanelContainer" parent="SoundPage"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -310.0
+offset_top = -230.0
+offset_right = 310.0
+offset_bottom = 205.0
+grow_horizontal = 2
+grow_vertical = 2
+z_index = 1
+
+[node name="Content" type="VBoxContainer" parent="SoundPage/Paper"]
+layout_mode = 2
+theme_override_constants/separation = 18
+
+[node name="Heading" type="Label" parent="SoundPage/Paper/Content"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 28
+text = "sound"
+horizontal_alignment = 1
+
+[node name="Helper" type="Label" parent="SoundPage/Paper/Content"]
+layout_mode = 2
+text = "Adjust the mix. Changes are saved when you apply settings."
+horizontal_alignment = 1
+
+[node name="VolumeGrid" type="GridContainer" parent="SoundPage/Paper/Content"]
+layout_mode = 2
+theme_override_constants/h_separation = 16
+theme_override_constants/v_separation = 18
+columns = 3
+
+[node name="MasterLabel" type="Label" parent="SoundPage/Paper/Content/VolumeGrid"]
+custom_minimum_size = Vector2(118, 42)
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "master"
+vertical_alignment = 1
+
+[node name="MasterVolumeSlider" type="HSlider" parent="SoundPage/Paper/Content/VolumeGrid"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(350, 42)
+layout_mode = 2
+focus_mode = 2
+tooltip_text = "master volume"
+max_value = 100.0
+step = 1.0
+value = 100.0
+
+[node name="MasterVolumeValue" type="Label" parent="SoundPage/Paper/Content/VolumeGrid"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(70, 42)
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "100%"
+horizontal_alignment = 2
+vertical_alignment = 1
+
+[node name="MusicLabel" type="Label" parent="SoundPage/Paper/Content/VolumeGrid"]
+custom_minimum_size = Vector2(118, 42)
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "music"
+vertical_alignment = 1
+
+[node name="MusicVolumeSlider" type="HSlider" parent="SoundPage/Paper/Content/VolumeGrid"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(350, 42)
+layout_mode = 2
+focus_mode = 2
+tooltip_text = "music volume"
+max_value = 100.0
+step = 1.0
+value = 100.0
+
+[node name="MusicVolumeValue" type="Label" parent="SoundPage/Paper/Content/VolumeGrid"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(70, 42)
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "100%"
+horizontal_alignment = 2
+vertical_alignment = 1
+
+[node name="EffectsLabel" type="Label" parent="SoundPage/Paper/Content/VolumeGrid"]
+custom_minimum_size = Vector2(118, 42)
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "effects"
+vertical_alignment = 1
+
+[node name="EffectsVolumeSlider" type="HSlider" parent="SoundPage/Paper/Content/VolumeGrid"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(350, 42)
+layout_mode = 2
+focus_mode = 2
+tooltip_text = "effects volume"
+max_value = 100.0
+step = 1.0
+value = 100.0
+
+[node name="EffectsVolumeValue" type="Label" parent="SoundPage/Paper/Content/VolumeGrid"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(70, 42)
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "100%"
+horizontal_alignment = 2
+vertical_alignment = 1
+
+[node name="EnvironmentLabel" type="Label" parent="SoundPage/Paper/Content/VolumeGrid"]
+custom_minimum_size = Vector2(118, 42)
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "environment"
+vertical_alignment = 1
+
+[node name="EnvironmentVolumeSlider" type="HSlider" parent="SoundPage/Paper/Content/VolumeGrid"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(350, 42)
+layout_mode = 2
+focus_mode = 2
+tooltip_text = "environment volume"
+max_value = 100.0
+step = 1.0
+value = 100.0
+
+[node name="EnvironmentVolumeValue" type="Label" parent="SoundPage/Paper/Content/VolumeGrid"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(70, 42)
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "100%"
+horizontal_alignment = 2
+vertical_alignment = 1
+
+[node name="SoundBackButton" parent="SoundPage/BubbleCluster" instance=ExtResource("4_bubble")]
+unique_name_in_owner = true
+z_index = 4
+layout_mode = 0
+text = "back"
+neutral_size = Vector2(96, 90)
+desktop_anchor = Vector2(60, 460)
+compact_anchor = Vector2(55, 410)
+compact_minimum_size = Vector2(82, 78)
+minimum_font_size = 13
+maximum_font_size = 16
+motion_phase = 5.0
 
 [node name="ControlsPage" type="Control" parent="."]
 unique_name_in_owner = true

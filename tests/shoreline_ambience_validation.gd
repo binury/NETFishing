@@ -34,7 +34,7 @@ func _run() -> void:
 	runtime_audio.owner = controller
 	root.add_child(controller)
 	await process_frame
-	assert(runtime_audio.bus == &"SFX")
+	assert(runtime_audio.bus == &"Environment")
 	assert(controller.near_distance < controller.far_distance)
 	assert(controller.near_volume_db > controller.far_volume_db)
 	var runtime_waves := runtime_audio.stream as AudioStreamWAV

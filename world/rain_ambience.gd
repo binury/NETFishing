@@ -15,7 +15,7 @@ var _is_active: bool = false
 
 
 func _ready() -> void:
-	bus = &"SFX"
+	bus = &"Environment"
 	var rain_stream := load(RAIN_STREAM_PATH) as AudioStreamOggVorbis
 	var runtime_stream := (
 		rain_stream.duplicate() as AudioStreamOggVorbis

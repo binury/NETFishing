@@ -101,6 +101,40 @@ func find_first_cast_collision(
 	return {}
 
 
+func resolve_cast_arc(
+	space_state: PhysicsDirectSpaceState3D,
+	origin: Vector3,
+	target: Vector3,
+	preferred_arc_height: float,
+) -> Dictionary:
+	var raised_arc_height: float = maxf(preferred_arc_height, 0.0)
+	var raised_collision := find_first_cast_collision(
+		space_state,
+		origin,
+		target,
+		raised_arc_height,
+	)
+	if raised_collision.is_empty() or is_zero_approx(raised_arc_height):
+		return {
+			"arc_height": raised_arc_height,
+			"collision": raised_collision,
+		}
+
+	# A canopy or pier roof can intersect the decorative raised arc even when
+	# the direct path out toward the water is unobstructed. Prefer that low cast
+	# instead of visibly sending the bobber and line upward into the ceiling.
+	var direct_collision := find_first_cast_collision(
+		space_state,
+		origin,
+		target,
+		0.0,
+	)
+	return {
+		"arc_height": 0.0,
+		"collision": direct_collision,
+	}
+
+
 func resolve_withdrawal_surface(
 	space_state: PhysicsDirectSpaceState3D,
 	current_position: Vector3,

@@ -405,7 +405,7 @@ script = ExtResource("54_shoreline_ambience")
 [node name="WavesAudio" type="AudioStreamPlayer" parent="ShorelineAmbience" unique_id=193530658]
 unique_name_in_owner = true
 stream = ExtResource("55_waves")
-bus = &"SFX"
+bus = &"Environment"
 
 [node name="WorldPixelationPostprocess" parent="." unique_id=344378000 instance=ExtResource("16_world_pixelation")]
 unique_name_in_owner = true

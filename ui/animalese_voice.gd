@@ -24,6 +24,7 @@ func _ready() -> void:
 	polyphonic_stream.polyphony = POLYPHONY
 	_player = AudioStreamPlayer.new()
 	_player.name = "AnimaleseAudio"
+	_player.bus = &"SFX"
 	_player.stream = polyphonic_stream
 	add_child(_player)
 	_player.play()

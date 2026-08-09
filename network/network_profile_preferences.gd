@@ -9,6 +9,7 @@ var profile_id: String = ""
 var display_name: String = "Player"
 var voice_id: String = VoiceProfilesType.DEFAULT_ID
 var speech_speed_id: String = VoiceProfilesType.DEFAULT_SPEED_ID
+var call_id: String = VoiceProfilesType.DEFAULT_CALL_ID
 var created_at_unix: int = 0
 var _profile_path := ""
 var _expected_hash := ""
@@ -55,37 +56,43 @@ func load_or_create() -> bool:
 	display_name = "Player"
 	voice_id = VoiceProfilesType.DEFAULT_ID
 	speech_speed_id = VoiceProfilesType.DEFAULT_SPEED_ID
+	call_id = VoiceProfilesType.DEFAULT_CALL_ID
 	created_at_unix = int(Time.get_unix_time_from_system())
 	return _save_atomic()
 
 
 func set_display_name(value: String) -> bool:
-	return set_profile_identity(value, voice_id, speech_speed_id)
+	return set_profile_identity(value, voice_id, speech_speed_id, call_id)
 
 
 func set_profile_identity(
 	value: String,
 	selected_voice_id: String,
 	selected_speech_speed_id: String,
+	selected_call_id: String,
 ) -> bool:
 	var clean_name: String = value.strip_edges()
 	if (
 		not is_valid_display_name(clean_name)
 		or not VoiceProfilesType.is_valid(selected_voice_id)
 		or not VoiceProfilesType.is_valid_speed(selected_speech_speed_id)
+		or not VoiceProfilesType.is_valid_call(selected_call_id)
 	):
 		return false
 	var previous_name: String = display_name
 	var previous_voice_id: String = voice_id
 	var previous_speech_speed_id: String = speech_speed_id
+	var previous_call_id: String = call_id
 	display_name = clean_name
 	voice_id = selected_voice_id
 	speech_speed_id = selected_speech_speed_id
+	call_id = selected_call_id
 	if _save_atomic():
 		return true
 	display_name = previous_name
 	voice_id = previous_voice_id
 	speech_speed_id = previous_speech_speed_id
+	call_id = previous_call_id
 	return false
 
 
@@ -140,6 +147,9 @@ func _load_existing() -> bool:
 	speech_speed_id = VoiceProfilesType.sanitized_speed_id(
 		str(data.get("speech_speed_id", VoiceProfilesType.DEFAULT_SPEED_ID))
 	)
+	call_id = VoiceProfilesType.sanitized_call_id(
+		str(data.get("call_id", VoiceProfilesType.DEFAULT_CALL_ID))
+	)
 	created_at_unix = int(data["created_at_unix"])
 	return true
 
@@ -151,6 +161,7 @@ func _save_atomic() -> bool:
 		"display_name": display_name,
 		"voice_id": voice_id,
 		"speech_speed_id": speech_speed_id,
+		"call_id": call_id,
 		"created_at_unix": created_at_unix,
 	}
 	var result := PortableFileGuard.write_guarded(

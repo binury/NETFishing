@@ -18,6 +18,7 @@ var _is_active := false
 
 
 func _ready() -> void:
+	_waves_audio.bus = &"Environment"
 	_configure_audio_loop(_waves_audio.stream)
 	_waves_audio.volume_db = -80.0
 	set_process(false)

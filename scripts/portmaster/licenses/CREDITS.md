@@ -37,6 +37,10 @@ written with or without assistance.
 - “Gentle Ocean Waves Loop” by kkenny101, used for the saltwater shoreline
   ambience. Freesound sound 852826, Creative Commons Zero (CC0):
   https://freesound.org/s/852826/
+- Dog_Bark.wav by ivolipa -- https://freesound.org/s/328729/ -- License:
+  Creative Commons 0
+- Cat meow.m4a by Christyboy100 -- https://freesound.org/s/495694/ -- License:
+  Attribution 3.0
 - “Quick Water Droplet” by qubodup, used for the bobber water-impact sound.
   Freesound sound 792931, Creative Commons Zero (CC0):
   https://freesound.org/s/792931/

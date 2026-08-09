@@ -36,6 +36,8 @@ locations only and must never appear in scenes or resources.
 | Manual-reeling loop | `audio/sfx/fishing/reeling.wav` | Edited from the same CC0 “Spinning reel.wav” source. |
 | Saltwater wave ambience | `audio/ambience/waves.wav` | “Gentle Ocean Waves Loop” by Freesound user kkenny101, sound 852826, CC0. |
 | Bobber water impact | `audio/sfx/fishing/bobber.wav` | “Quick Water Droplet” by Freesound user qubodup, sound 792931, CC0. |
+| Character bark call | `sound/dialogue/calls/bark.wav` | Edited from `Dog_Bark.wav` by Freesound user ivolipa, sound 328729, CC0. |
+| Character meow call | `sound/dialogue/calls/meow.wav` | Edited from `Cat meow.m4a` by Freesound user Christyboy100, sound 495694, Attribution 3.0. |
 
 ### Fishing fight loop source record
 
@@ -90,6 +92,40 @@ locations only and must never appear in scenes or resources.
 - Runtime format: 48 kHz, 16-bit, mono PCM WAV; 0.197146 seconds; one-shot.
 - The downloaded source remains in the project owner's source-work archive;
   only the finished runtime sound ships in the game.
+
+### Character-call source records
+
+#### Bark
+
+- Source page: https://freesound.org/s/328729/
+- Creator: ivolipa
+- Source title: `Dog_Bark.wav`
+- License: Creative Commons Zero (CC0)
+- Downloaded source filename: `328729__ivolipa__dog_bark.wav`
+- Downloaded source SHA-256:
+  `c3d542dee7bfcc1901428e0c1408c0bd522d778d8e5e1dbca156cab008f3d712`
+- Runtime edit source/destination SHA-256:
+  `5ac2f32f33724a2fc232d725c5c37d4cfe3e93b3c1f19aa4177d2c8e3009ec78`
+- Runtime format: 44.1 kHz, 16-bit, stereo PCM WAV; 0.446780 seconds;
+  one-shot.
+
+#### Meow
+
+- Source page: https://freesound.org/s/495694/
+- Creator: Christyboy100
+- Source title: `Cat meow.m4a`
+- License: Attribution 3.0
+- Downloaded source filename: `495694__christyboy100__cat-meow.m4a`
+- Downloaded source SHA-256:
+  `afa3f6ef7afa2f7fee1e634d5505d2101cbba4421f8d8ff9adf562939c7a18f8`
+- Converted working WAV SHA-256:
+  `a505e6e230e7d9d76b65c46270d97a35a1acc510b43aa5e7343d7b04f424cade`
+- Runtime edit source/destination SHA-256:
+  `cce22ce1fbbc9325126a153aedc4526fde1aacf78780574fb432197dd44eb6b3`
+- Runtime format: 44.1 kHz, 16-bit, stereo PCM WAV; 0.605420 seconds;
+  one-shot.
+- The downloaded sources and working edits remain in the project owner's
+  source-work archive; only the finished runtime sounds ship in the game.
 
 ## Generated resources
 

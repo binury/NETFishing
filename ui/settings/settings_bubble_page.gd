@@ -19,7 +19,7 @@ const ControllerFocusNavigationType = preload(
 
 var _cluster: BubbleCluster
 var _bubbles: Array[BubbleButton] = []
-var _focus_bubbles: Array[BubbleButton] = []
+var _focus_controls: Array[Control] = []
 var _transition: Tween
 var _transition_generation: int = 0
 var _resting_cluster_position: Vector2 = Vector2.ZERO
@@ -33,9 +33,9 @@ func _ready() -> void:
 		if bubble != null:
 			_bubbles.append(bubble)
 	for path: NodePath in focus_paths:
-		var bubble := get_node(path) as BubbleButton
-		if bubble != null:
-			_focus_bubbles.append(bubble)
+		var focus_control := get_node(path) as Control
+		if focus_control != null:
+			_focus_controls.append(focus_control)
 	_cluster.configure(_bubbles)
 	_configure_focus_order()
 	resized.connect(_update_layout)
@@ -173,13 +173,13 @@ func _update_layout() -> void:
 		_cluster.position = _resting_cluster_position
 	_cluster.size = field_size
 	_cluster.apply_layout(field_size, compact)
-	ControllerFocusNavigationType.configure_spatial_neighbors(_focus_bubbles)
+	ControllerFocusNavigationType.configure_spatial_neighbors(_focus_controls)
 
 
 func _configure_focus_order() -> void:
 	for bubble: BubbleButton in _bubbles:
 		bubble.focus_mode = Control.FOCUS_NONE
-	ControllerFocusNavigationType.configure_spatial_neighbors(_focus_bubbles)
+	ControllerFocusNavigationType.configure_spatial_neighbors(_focus_controls)
 
 
 func _set_interactive(interactive: bool) -> void:
@@ -188,11 +188,11 @@ func _set_interactive(interactive: bool) -> void:
 		if interactive
 		else Control.MOUSE_FILTER_IGNORE
 	)
-	for bubble: BubbleButton in _focus_bubbles:
-		bubble.focus_mode = (
+	for focus_control: Control in _focus_controls:
+		focus_control.focus_mode = (
 			Control.FOCUS_ALL if interactive else Control.FOCUS_NONE
 		)
-		bubble.mouse_filter = (
+		focus_control.mouse_filter = (
 			Control.MOUSE_FILTER_STOP
 			if interactive
 			else Control.MOUSE_FILTER_IGNORE

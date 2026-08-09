@@ -215,9 +215,9 @@ func open_chat() -> void:
 	_session.submit_neutral_local_movement()
 	_entry.show()
 	_entry.virtual_keyboard_enabled = false
-	_entry.grab_focus()
 	_hint.hide()
 	_refresh_input_ownership()
+	call_deferred("_focus_entry_after_open")
 	_update_panel_opacity(true)
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
@@ -304,6 +304,13 @@ func request_virtual_keyboard() -> bool:
 	return true
 
 
+func _focus_entry_after_open() -> void:
+	if not _opened or not _entry.visible:
+		return
+	_entry.grab_focus()
+	_refresh_input_ownership()
+
+
 func is_open() -> bool:
 	return _opened
 
@@ -314,7 +321,13 @@ func is_collapsed() -> bool:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("open_chat"):
-		toggle_chat()
+		if event is InputEventKey:
+			if _opened:
+				_focus_entry_after_open()
+			else:
+				open_chat()
+		else:
+			toggle_chat()
 		get_viewport().set_input_as_handled()
 		return
 	if event is InputEventKey and event.pressed and not event.echo:
@@ -796,7 +809,7 @@ func _handle_time_command(parts: PackedStringArray) -> void:
 		"World time set to %s (%s)."
 		% [phase_name, _world_time.get_clock_text()]
 	)
-	close_chat()
+	call_deferred("close_chat")
 
 
 func _on_local_message_confirmed(message: Dictionary) -> void:
@@ -811,7 +824,7 @@ func _on_local_message_confirmed(message: Dictionary) -> void:
 	_entry.clear()
 	_set_status("")
 	_flush_draft()
-	close_chat()
+	call_deferred("close_chat")
 
 
 func _on_message(message: Dictionary) -> void:

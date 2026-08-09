@@ -1123,6 +1123,13 @@ func _process(_delta: float) -> void:
 func _apply_runtime_settings(settings: PlayerSettingsType) -> void:
 	if settings == null:
 		return
+	var requested_window_mode: DisplayServer.WindowMode = (
+		DisplayServer.WINDOW_MODE_FULLSCREEN
+		if settings.fullscreen_enabled
+		else DisplayServer.WINDOW_MODE_WINDOWED
+	)
+	if DisplayServer.window_get_mode() != requested_window_mode:
+		DisplayServer.window_set_mode(requested_window_mode)
 	_apply_world_pixelation(settings.world_pixel_size)
 	_ui_pixelation.set_pixel_size(settings.ui_pixel_size)
 	_ui_pixelation.set_on_screen_keyboard_enabled(

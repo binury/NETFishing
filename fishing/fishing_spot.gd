@@ -153,6 +153,7 @@ var _cast_charge: float = 0.0
 var _cast_direction: Vector3 = Vector3.FORWARD
 var _cast_origin_position: Vector3
 var _cast_target: Vector3
+var _preferred_cast_arc_height: float = -1.0
 var _withdrawal_endpoint: Vector3
 var _withdrawal_progress: float = 0.0
 var _withdrawal_input_held: bool = false
@@ -402,6 +403,11 @@ func begin_water_recovery() -> void:
 		FishingState.FIGHTING,
 	]:
 		_cancel_attempt()
+		# Recovery replaces the normal rod-return presentation. Finish the local
+		# cleanup now so its temporary movement lock is not captured and restored
+		# after the player respawns.
+		if state != FishingState.READY:
+			_finalize_attempt_cleanup("")
 	elif state == FishingState.SHOWING_CATCH:
 		_secure_showcase_catch_for_recovery()
 
@@ -622,7 +628,10 @@ func _begin_aiming(player: PlayerType) -> void:
 	_cast_target = _calculate_cast_target(minimum_cast_distance)
 	state = FishingState.AIMING_CAST
 	status_changed.emit("")
-	_cast_path_is_clear = is_cast_path_clear(_cast_origin_position, _cast_target)
+	_cast_path_is_clear = is_cast_path_clear(
+		_get_cast_launch_position(),
+		_cast_target,
+	)
 	var target_is_fishable: bool = (
 		_aim_surface_sample.is_fishable() and _cast_path_is_clear
 	)
@@ -750,7 +759,10 @@ func _update_cast_charge(delta: float) -> void:
 	var maximum_distance: float = maxf(minimum_cast_distance, maximum_cast_distance)
 	var distance: float = lerpf(minimum_cast_distance, maximum_distance, _cast_charge)
 	_cast_target = _calculate_cast_target(distance)
-	_cast_path_is_clear = is_cast_path_clear(_cast_origin_position, _cast_target)
+	_cast_path_is_clear = is_cast_path_clear(
+		_get_cast_launch_position(),
+		_cast_target,
+	)
 	var target_is_fishable: bool = (
 		_aim_surface_sample.is_fishable() and _cast_path_is_clear
 	)
@@ -770,8 +782,9 @@ func _confirm_cast() -> void:
 	if state != FishingState.AIMING_CAST:
 		return
 
+	var cast_launch_position := _get_cast_launch_position()
 	_cast_path_is_clear = is_cast_path_clear(
-		_cast_origin_position,
+		cast_launch_position,
 		_cast_target,
 	)
 	var cast_is_invalid: bool = (
@@ -780,7 +793,7 @@ func _confirm_cast() -> void:
 	var arrival_position: Vector3 = _cast_target
 	if not _cast_path_is_clear:
 		arrival_position = _resolve_cast_impact_position(
-			_cast_origin_position,
+			cast_launch_position,
 			_cast_target,
 		)
 	if _active_player != null:
@@ -1344,6 +1357,14 @@ func _capture_cast_direction(player: PlayerType) -> Vector3:
 	return direction.normalized()
 
 
+func _get_cast_launch_position() -> Vector3:
+	if _active_player != null:
+		var rod_tip: Marker3D = _active_player.get_fishing_rod_tip()
+		if rod_tip != null and is_instance_valid(rod_tip):
+			return rod_tip.global_position
+	return _cast_origin_position
+
+
 func _calculate_cast_target(distance: float) -> Vector3:
 	var query_position := Vector3(
 		_cast_origin_position.x + _cast_direction.x * distance,
@@ -1399,17 +1420,25 @@ func is_target_fishable(target: Vector3) -> bool:
 func _is_cast_target_valid(target: Vector3) -> bool:
 	return (
 		is_target_fishable(target)
-		and is_cast_path_clear(_cast_origin_position, target)
+		and is_cast_path_clear(_get_cast_launch_position(), target)
 	)
 
 
 func is_cast_path_clear(origin: Vector3, target: Vector3) -> bool:
-	return _surface_resolver.find_first_cast_collision(
+	if _preferred_cast_arc_height < 0.0:
+		_preferred_cast_arc_height = maxf(
+			_presentation.cast_arc_height,
+			0.0,
+		)
+	var resolved_arc: Dictionary = _surface_resolver.resolve_cast_arc(
 		get_world_3d().direct_space_state,
 		origin,
 		target,
-		_presentation.cast_arc_height,
-	).is_empty()
+		_preferred_cast_arc_height,
+	)
+	_presentation.cast_arc_height = float(resolved_arc["arc_height"])
+	var collision: Dictionary = resolved_arc["collision"]
+	return collision.is_empty()
 
 
 func _resolve_cast_impact_position(origin: Vector3, target: Vector3) -> Vector3:
@@ -1540,6 +1569,11 @@ func _on_network_cast_accepted(
 	target: Vector3,
 ) -> void:
 	if state != FishingState.CASTING:
+		# A cast response can arrive after water recovery has already cancelled
+		# its local presentation. Do not leave that late authoritative attempt
+		# alive with its movement lock still applied.
+		if _network_fishing != null and _network_fishing.has_local_attempt():
+			_network_fishing.cancel_local_attempt("")
 		return
 	_cast_target = target
 	_bobber_water_position = target

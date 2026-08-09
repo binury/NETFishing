@@ -3,6 +3,8 @@ extends RefCounted
 
 const DEFAULT_ID: String = "natural"
 const DEFAULT_SPEED_ID: String = "normal"
+const DEFAULT_CALL_ID: String = "meow"
+const CALL_AUDIO_DIRECTORY: String = "res://sound/dialogue/calls"
 const OPTIONS: Array[Dictionary] = [
 	{"id": "tiny", "label": "tiny", "pitch": 1.24},
 	{"id": "bright", "label": "bright", "pitch": 1.10},
@@ -16,6 +18,10 @@ const SPEED_OPTIONS: Array[Dictionary] = [
 	{"id": "normal", "label": "normal", "characters_per_second": 28.0},
 	{"id": "quick", "label": "quick", "characters_per_second": 34.0},
 	{"id": "rapid", "label": "rapid", "characters_per_second": 40.0},
+]
+const CALL_OPTIONS: Array[Dictionary] = [
+	{"id": "meow", "label": "meow"},
+	{"id": "bark", "label": "bark"},
 ]
 
 
@@ -55,3 +61,21 @@ static func speed_for(speed_id: String) -> float:
 		if str(option.get("id", "")) == resolved_id:
 			return float(option.get("characters_per_second", 28.0))
 	return 28.0
+
+
+static func is_valid_call(call_id: String) -> bool:
+	for option: Dictionary in CALL_OPTIONS:
+		if str(option.get("id", "")) == call_id:
+			return true
+	return false
+
+
+static func sanitized_call_id(call_id: String) -> String:
+	return call_id if is_valid_call(call_id) else DEFAULT_CALL_ID
+
+
+static func call_audio_path(call_id: String) -> String:
+	return "%s/%s.wav" % [
+		CALL_AUDIO_DIRECTORY,
+		sanitized_call_id(call_id),
+	]

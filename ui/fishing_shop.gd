@@ -50,7 +50,7 @@ enum ShopSection {
 
 const SHOP_SECTION_LABELS: Array[String] = [
 	"Upgrades",
-	"Bait",
+	"Bait and Lures",
 	"Snacks",
 	"Equipment",
 	"Art Supplies",
@@ -143,13 +143,19 @@ func _focus_buy_page() -> void:
 
 
 func _build_shop_tabs() -> void:
+	_shop_tab_bar.custom_minimum_size.y = 44.0
+	_shop_tab_bar.show()
 	for section_index: int in range(ShopSection.size()):
 		var tab: OrganizerTab = OrganizerTabType.new()
 		tab.text = SHOP_SECTION_LABELS[section_index]
 		tab.palette_index = section_index
+		tab.custom_minimum_size = Vector2(132.0, 42.0)
 		tab.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		tab.focus_mode = Control.FOCUS_ALL
+		tab.mouse_filter = Control.MOUSE_FILTER_STOP
 		tab.pressed.connect(_select_shop_section.bind(section_index, true))
 		_shop_tab_bar.add_child(tab)
+		tab.show()
 		_shop_tabs.append(tab)
 	_select_shop_section(ShopSection.UPGRADES, false)
 
@@ -287,6 +293,7 @@ func open_shop() -> bool:
 	_feedback.text = ""
 	deactivate_shop_cooler_page()
 	show()
+	_shop_tab_bar.show()
 	_select_shop_section(ShopSection.UPGRADES, false)
 	_refresh_all()
 	_buy_mode_button.grab_focus()
@@ -312,6 +319,7 @@ func get_shop_cooler_mount() -> Control:
 
 
 func activate_shop_cooler_page() -> void:
+	_shop_tab_bar.hide()
 	_cooler_page_active = true
 	_shop_panel.hide()
 	_shop_cooler_page.show()
@@ -319,6 +327,8 @@ func activate_shop_cooler_page() -> void:
 
 
 func deactivate_shop_cooler_page() -> void:
+	if visible:
+		_shop_tab_bar.show()
 	_cooler_page_active = false
 	_cooler_modal_open = false
 	_back_to_shop_button.disabled = false
@@ -468,10 +478,32 @@ func _refresh_supplies() -> void:
 	if _shop_section == ShopSection.UPGRADES:
 		return
 	_stock_title.text = SHOP_SECTION_LABELS[int(_shop_section)]
-	for item_id: StringName in FishingShopStockType.get_stock_item_ids():
+	var stock_item_ids: Array[StringName] = (
+		FishingShopStockType.get_stock_item_ids()
+	)
+	if _shop_section == ShopSection.BAIT:
+		var grouped_item_ids: Array[StringName] = []
+		for item_id: StringName in stock_item_ids:
+			var bait_item: ItemDataType = _item_catalog.get_item_by_id(item_id)
+			if bait_item != null and bait_item.is_bait():
+				grouped_item_ids.append(item_id)
+		for item_id: StringName in stock_item_ids:
+			var lure_item: ItemDataType = _item_catalog.get_item_by_id(item_id)
+			if lure_item != null and lure_item.is_lure():
+				grouped_item_ids.append(item_id)
+		stock_item_ids = grouped_item_ids
+	var current_stock_group: StringName = StringName()
+	for item_id: StringName in stock_item_ids:
 		var item: ItemDataType = _item_catalog.get_item_by_id(item_id)
 		if item == null or not _item_belongs_in_current_section(item):
 			continue
+		if _shop_section == ShopSection.BAIT:
+			var stock_group: StringName = (
+				&"bait" if item.is_bait() else &"lures"
+			)
+			if stock_group != current_stock_group:
+				_add_stock_section(str(stock_group))
+				current_stock_group = stock_group
 		var button := Button.new()
 		button.custom_minimum_size = Vector2(195, 54)
 		button.icon = item.icon
@@ -563,14 +595,11 @@ func _refresh_supplies() -> void:
 func _item_belongs_in_current_section(item: ItemDataType) -> bool:
 	match _shop_section:
 		ShopSection.BAIT:
-			return item.is_bait()
+			return item.is_bait() or item.is_lure()
 		ShopSection.SNACKS:
 			return item.category == ItemDataType.Category.CONSUMABLE
 		ShopSection.EQUIPMENT:
-			return item.category in [
-				ItemDataType.Category.TOOL,
-				ItemDataType.Category.LURE,
-			]
+			return item.category == ItemDataType.Category.TOOL
 	return false
 
 

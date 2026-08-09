@@ -5,6 +5,7 @@ const SETTINGS_VERSION: int = 1
 const SETTINGS_PATH: String = "user://player_settings.json"
 const TEMP_PATH: String = "user://player_settings.json.tmp"
 const BACKUP_PATH: String = "user://player_settings.json.backup"
+const SILENT_VOLUME_DB: float = -80.0
 
 signal settings_changed(settings: PlayerSettings)
 
@@ -16,12 +17,14 @@ func load_settings() -> bool:
 	_recover_interrupted_write()
 	if not FileAccess.file_exists(SETTINGS_PATH):
 		current_settings = PlayerSettings.new()
+		_apply_audio_settings(current_settings)
 		emit_signal("settings_changed", current_settings)
 		return true
 	var file := FileAccess.open(SETTINGS_PATH, FileAccess.READ)
 	if file == null:
 		push_warning("Unable to open player settings; using defaults.")
 		current_settings = PlayerSettings.new()
+		_apply_audio_settings(current_settings)
 		emit_signal("settings_changed", current_settings)
 		return false
 	var json := JSON.new()
@@ -42,6 +45,9 @@ func load_settings() -> bool:
 	var presentation: Dictionary = {}
 	if typeof(data.get("presentation")) == TYPE_DICTIONARY:
 		presentation = data["presentation"]
+	var audio: Dictionary = {}
+	if typeof(data.get("audio")) == TYPE_DICTIONARY:
+		audio = data["audio"]
 	if (
 		typeof(accessibility.get("auto_click_enabled")) != TYPE_BOOL
 		or typeof(camera.get("invert_vertical")) != TYPE_BOOL
@@ -72,6 +78,10 @@ func load_settings() -> bool:
 		or (
 			presentation.has("paint_dock_right")
 			and typeof(presentation["paint_dock_right"]) != TYPE_BOOL
+		)
+		or (
+			presentation.has("fullscreen_enabled")
+			and typeof(presentation["fullscreen_enabled"]) != TYPE_BOOL
 		)
 	):
 		return _use_defaults_after_corruption("Player settings values are invalid.")
@@ -122,10 +132,20 @@ func load_settings() -> bool:
 		presentation.get("chat_mobile_mode", false)
 	)
 	loaded.paint_dock_right = bool(presentation.get("paint_dock_right", true))
+	loaded.fullscreen_enabled = bool(
+		presentation.get("fullscreen_enabled", false)
+	)
+	loaded.master_volume = _read_float(audio.get("master", 1.0), 1.0)
+	loaded.music_volume = _read_float(audio.get("music", 1.0), 1.0)
+	loaded.effects_volume = _read_float(audio.get("effects", 1.0), 1.0)
+	loaded.environment_volume = _read_float(
+		audio.get("environment", 1.0), 1.0
+	)
 	if not loaded.is_valid():
 		return _use_defaults_after_corruption("Player settings values are invalid.")
 	current_settings = loaded
 	_is_dirty = false
+	_apply_audio_settings(current_settings)
 	emit_signal("settings_changed", current_settings)
 	return true
 
@@ -138,7 +158,9 @@ func apply_settings(settings: PlayerSettings) -> bool:
 	_is_dirty = true
 	if not save_now():
 		current_settings = previous
+		_apply_audio_settings(current_settings)
 		return false
+	_apply_audio_settings(current_settings)
 	emit_signal("settings_changed", current_settings)
 	return true
 
@@ -192,6 +214,12 @@ func save_now() -> bool:
 			"controller_sensitivity": current_settings.controller_camera_sensitivity,
 			"invert_vertical": current_settings.invert_camera_y,
 		},
+		"audio": {
+			"master": current_settings.master_volume,
+			"music": current_settings.music_volume,
+			"effects": current_settings.effects_volume,
+			"environment": current_settings.environment_volume,
+		},
 		"presentation": {
 			"world_pixel_size": current_settings.world_pixel_size,
 			"ui_pixel_size": current_settings.ui_pixel_size,
@@ -200,6 +228,7 @@ func save_now() -> bool:
 			"chat_dock_right": current_settings.chat_dock_right,
 			"chat_mobile_mode": current_settings.chat_mobile_mode,
 			"paint_dock_right": current_settings.paint_dock_right,
+			"fullscreen_enabled": current_settings.fullscreen_enabled,
 		},
 	}
 	if current_settings.chat_draft.is_empty():
@@ -232,6 +261,22 @@ func save_if_dirty() -> bool:
 	return not _is_dirty or save_now()
 
 
+func preview_audio_levels(
+	master: float,
+	music: float,
+	effects: float,
+	environment: float,
+) -> void:
+	_set_bus_volume(&"Master", master)
+	_set_bus_volume(&"Music", music)
+	_set_bus_volume(&"SFX", effects)
+	_set_bus_volume(&"Environment", environment)
+
+
+func restore_audio_levels() -> void:
+	_apply_audio_settings(current_settings)
+
+
 func _exit_tree() -> void:
 	save_if_dirty()
 
@@ -240,8 +285,36 @@ func _use_defaults_after_corruption(message: String) -> bool:
 	push_warning(message)
 	current_settings = PlayerSettings.new()
 	_is_dirty = false
+	_apply_audio_settings(current_settings)
 	emit_signal("settings_changed", current_settings)
 	return false
+
+
+func _apply_audio_settings(settings: PlayerSettings) -> void:
+	preview_audio_levels(
+		settings.master_volume,
+		settings.music_volume,
+		settings.effects_volume,
+		settings.environment_volume,
+	)
+
+
+func _set_bus_volume(bus_name: StringName, linear_volume: float) -> void:
+	var bus_index: int = AudioServer.get_bus_index(bus_name)
+	if bus_index < 0:
+		return
+	var resolved_volume: float = clampf(
+		linear_volume,
+		PlayerSettings.MIN_AUDIO_VOLUME,
+		PlayerSettings.MAX_AUDIO_VOLUME,
+	)
+	AudioServer.set_bus_mute(bus_index, resolved_volume <= 0.0)
+	AudioServer.set_bus_volume_db(
+		bus_index,
+		SILENT_VOLUME_DB
+		if resolved_volume <= 0.0
+		else linear_to_db(resolved_volume),
+	)
 
 
 func _recover_interrupted_write() -> void:

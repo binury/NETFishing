@@ -8,7 +8,7 @@ const DEFAULT_TRANSPORT_MAX_CLIENTS: int = 31
 const CONNECTION_TIMEOUT_SECONDS: float = 10.0
 const AUTHENTICATION_TIMEOUT_SECONDS: float = 60.0
 const INPUT_INTERVAL: float = 1.0 / 30.0
-const SNAPSHOT_INTERVAL: float = 1.0 / 20.0
+const SNAPSHOT_INTERVAL: float = 1.0 / 30.0
 
 signal state_changed(state: State)
 signal status_message_changed(message: String)
@@ -574,9 +574,13 @@ func apply_canonical_profile(
 	var appearance_changed := _registry.update_appearance(peer_id, appearance)
 	if name_changed:
 		peer_display_name_changed.emit(peer_id, display_name)
-	if name_changed and appearance_changed:
+	if appearance_changed:
+		var avatar: Player = _spawn_service.get_avatar(peer_id)
+		if avatar != null:
+			avatar.apply_appearance_snapshot(appearance)
+	if name_changed or appearance_changed:
 		peer_profile_changed.emit(peer_id, display_name, appearance.duplicate(true))
-	return name_changed and appearance_changed
+	return name_changed or appearance_changed
 
 
 @rpc("any_peer", "call_remote", "reliable", 0)
@@ -1018,6 +1022,14 @@ func submit_client_hello(data: Dictionary) -> void:
 		_spawn_service.get_spawn_transform_for_index(spawn_index)
 	)
 	_spawn_service.spawn_remote_player(sender_id, spawn_transform, true)
+	var spawned_avatar: Player = _spawn_service.get_avatar(sender_id)
+	if spawned_avatar != null:
+		spawned_avatar.apply_appearance_snapshot(submitted_appearance)
+	peer_profile_changed.emit(
+		sender_id,
+		display_name,
+		submitted_appearance.duplicate(true),
+	)
 	receive_server_hello.rpc_id(
 		sender_id,
 		NetworkProtocol.make_server_hello(

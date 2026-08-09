@@ -237,6 +237,7 @@ var _catch_attachment_offset: Vector3 = Vector3(0.0, 0.08, 0.04)
 var _gravity: float = float(ProjectSettings.get_setting("physics/3d/default_gravity"))
 var _camera_dragging: bool = false
 var _camera_input_enabled: bool = true
+var _camera_drag_prior_mouse_mode: Input.MouseMode = Input.MOUSE_MODE_VISIBLE
 var _free_camera_active: bool = false
 var _free_camera_body: CharacterBody3D
 var _free_camera: Camera3D
@@ -272,8 +273,10 @@ var _network_target_position: Vector3
 var _network_target_velocity: Vector3
 var _network_target_visual_yaw: float = 0.0
 var _network_snapshot_ready: bool = false
+var _network_snapshot_age: float = 0.0
 var _character_animation_name: StringName = &""
 var _sitting: bool = false
+var _sit_after_landing: bool = false
 var _sitting_intent_pending: bool = false
 var _sitting_intent_sequence: int = -1
 var _held_fish_visible: bool = false
@@ -380,6 +383,9 @@ func _physics_process(delta: float) -> void:
 			or (_network_authoritative_simulation and _network_jump_pending)
 		)
 	)
+	if _sit_after_landing and is_on_floor():
+		_sit_after_landing = false
+		_set_sitting(true, local_control_enabled)
 	if _sitting:
 		if jump_requested:
 			_set_sitting(false, local_control_enabled)
@@ -479,12 +485,8 @@ func _process(delta: float) -> void:
 	if _free_camera_active:
 		return
 
-	if (
-		_camera_input_enabled
-		and _camera_dragging
-		and not Input.is_action_pressed("camera_drag")
-	):
-		_camera_dragging = false
+	if _camera_dragging and not Input.is_action_pressed("camera_drag"):
+		_set_camera_dragging(false)
 
 	if _camera_input_enabled:
 		var stick: Vector2 = _get_controller_camera_stick()
@@ -639,6 +641,9 @@ func _update_character_animation() -> void:
 
 
 func toggle_sitting() -> void:
+	if _sit_after_landing:
+		_sit_after_landing = false
+		return
 	var should_sit: bool = not _sitting
 	if should_sit:
 		if (
@@ -650,6 +655,9 @@ func toggle_sitting() -> void:
 				&"idle_loop_sit",
 			])
 		):
+			return
+		if not is_on_floor():
+			_sit_after_landing = true
 			return
 	_set_sitting(should_sit, local_control_enabled)
 
@@ -692,7 +700,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 
 	if event.is_action("camera_drag"):
-		_camera_dragging = event.is_pressed()
+		_set_camera_dragging(event.is_pressed())
 		get_viewport().set_input_as_handled()
 		return
 
@@ -740,6 +748,17 @@ func _get_current_speed() -> float:
 	if Input.is_action_pressed("sprint"):
 		return sprint_speed
 	return walk_speed
+
+
+func _set_camera_dragging(active: bool) -> void:
+	if _camera_dragging == active:
+		return
+	_camera_dragging = active
+	if active:
+		_camera_drag_prior_mouse_mode = Input.mouse_mode
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	elif Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
+		Input.mouse_mode = _camera_drag_prior_mouse_mode
 
 
 func _get_network_aware_speed() -> float:
@@ -801,7 +820,7 @@ func _set_free_camera_active(active: bool) -> void:
 		_free_camera_active = true
 		return
 	_free_camera_active = false
-	_camera_dragging = false
+	_set_camera_dragging(false)
 	if _free_camera != null:
 		_free_camera.current = false
 		_free_camera = null
@@ -878,7 +897,7 @@ func set_local_control(enabled: bool) -> void:
 	if is_node_ready():
 		_camera.current = enabled
 	if not enabled:
-		_camera_dragging = false
+		_set_camera_dragging(false)
 
 
 func set_network_peer_id(peer_id: int) -> void:
@@ -894,6 +913,7 @@ func configure_network_remote(authoritative_simulation: bool) -> void:
 	_network_authoritative_simulation = authoritative_simulation
 	_network_interpolation_enabled = not authoritative_simulation
 	_network_snapshot_ready = false
+	_network_snapshot_age = 0.0
 	_camera.current = false
 
 
@@ -943,7 +963,13 @@ func apply_authoritative_network_input(data: Dictionary) -> void:
 	_network_sprint = bool(data.get("sprint", false))
 	_network_sneak = bool(data.get("sneak", false))
 	_network_slow_walk = bool(data.get("slow_walk", false))
-	_set_sitting(bool(data.get("sitting", false)))
+	var sitting_requested: bool = bool(data.get("sitting", false))
+	if sitting_requested and not is_on_floor():
+		_sit_after_landing = true
+		_set_sitting(false)
+	else:
+		_sit_after_landing = false
+		_set_sitting(sitting_requested)
 
 
 func make_network_snapshot(peer_id: int) -> Dictionary:
@@ -965,6 +991,7 @@ func push_network_snapshot(snapshot: Dictionary) -> void:
 	_network_target_position = parsed["position"]
 	_network_target_velocity = parsed["velocity"]
 	_network_target_visual_yaw = parsed["visual_yaw"]
+	_network_snapshot_age = 0.0
 	_set_sitting(bool(parsed["sitting"]))
 	if not _network_snapshot_ready:
 		global_position = _network_target_position
@@ -1009,6 +1036,7 @@ func apply_network_teleport(snapshot: Dictionary) -> void:
 	_network_target_position = global_position
 	_network_target_velocity = velocity
 	_network_target_visual_yaw = _visuals.rotation.y
+	_network_snapshot_age = 0.0
 	_network_snapshot_ready = true
 
 
@@ -1065,11 +1093,21 @@ func _parse_network_snapshot(snapshot: Dictionary) -> Dictionary:
 func _update_network_interpolation(delta: float) -> void:
 	if not _network_snapshot_ready:
 		return
-	var position_weight: float = 1.0 - exp(-12.0 * delta)
-	global_position = global_position.lerp(
-		_network_target_position,
-		position_weight
+	_network_snapshot_age = minf(_network_snapshot_age + delta, 0.1)
+	var predicted_position: Vector3 = (
+		_network_target_position
+		+ _network_target_velocity * _network_snapshot_age
 	)
+	var projected_position: Vector3 = (
+		global_position + _network_target_velocity * delta
+	)
+	if projected_position.distance_to(predicted_position) > 2.0:
+		global_position = predicted_position
+	else:
+		global_position = projected_position.lerp(
+			predicted_position,
+			1.0 - exp(-10.0 * delta)
+		)
 	velocity = _network_target_velocity
 	_visuals.rotation.y = lerp_angle(
 		_visuals.rotation.y,
@@ -1096,7 +1134,7 @@ func is_movement_enabled() -> bool:
 func set_camera_input_enabled(enabled: bool) -> void:
 	_camera_input_enabled = enabled
 	if not enabled:
-		_camera_dragging = false
+		_set_camera_dragging(false)
 
 
 func set_camera_active(active: bool) -> void:
@@ -1469,7 +1507,10 @@ func _complete_showcase_restore(
 		_camera_input_enabled = (
 			_showcase_camera_snapshot.camera_input_enabled
 		)
-		_camera_dragging = _showcase_camera_snapshot.camera_dragging
+		_set_camera_dragging(
+			_showcase_camera_snapshot.camera_dragging
+			and Input.is_action_pressed("camera_drag")
+		)
 	_showcase_camera_snapshot = null
 	if restored_callback.is_valid():
 		restored_callback.call()
@@ -1487,7 +1528,7 @@ func _capture_showcase_camera_snapshot() -> void:
 	_showcase_camera_snapshot.camera_input_enabled = _camera_input_enabled
 	_showcase_camera_snapshot.camera_dragging = _camera_dragging
 	_camera_input_enabled = false
-	_camera_dragging = false
+	_set_camera_dragging(false)
 
 
 func _begin_showcase_camera_transition() -> Vector3:

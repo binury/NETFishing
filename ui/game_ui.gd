@@ -93,6 +93,7 @@ const FISHING_PANEL_SHOWCASE_BOTTOM_OFFSET: float = -104.0
 @onready var _status_label: Label = %StatusLabel
 @onready var _bite_prompt_button: Button = %BitePromptButton
 @onready var _gameplay_transient_hud: Control = %GameplayTransientHUD
+@onready var _active_bait_indicator: Control = %ActiveBaitIndicator
 @onready var _active_bait_button: Button = %ActiveBaitButton
 @onready var _active_bait_quantity_badge: Panel = %ActiveBaitQuantityBadge
 @onready var _active_bait_quantity: Label = %ActiveBaitQuantity
@@ -114,9 +115,13 @@ const FISHING_PANEL_SHOWCASE_BOTTOM_OFFSET: float = -104.0
 @onready var _experience_bubble_label: Label = %ExperienceBubbleLabel
 const TypewriterRevealType = preload("res://ui/typewriter_reveal.gd")
 const AnimaleseVoiceType = preload("res://ui/animalese_voice.gd")
+const VoiceProfilesType = preload(
+	"res://player/animalese_voice_profiles.gd"
+)
 const SHOP_ANIMALESE_VOICE_ID: String = "natural"
 const SHOP_ANIMALESE_BASE_PITCH: float = 1.08
 const SHOP_SPEECH_CHARACTERS_PER_SECOND: float = 28.0
+const SHOP_NPC_SPEECH_COOLDOWN_MILLISECONDS: int = 5000
 
 
 @onready var _canonical_stage: Control = %CanonicalStage
@@ -136,6 +141,7 @@ const SHOP_SPEECH_CHARACTERS_PER_SECOND: float = 28.0
 var _shop_animalese_voice: AnimaleseVoiceType
 var _shop_npc_player_in_range: bool = false
 var _shop_npc_spoken_for_current_visit: bool = false
+var _shop_npc_next_speech_msec: int = 0
 @onready var _effect_status: Label = %EffectStatus
 @onready var _chat_ui: ChatUIType = %ChatUI
 @onready var _emote_radial_menu: EmoteRadialMenuType = %EmoteRadialMenu
@@ -155,6 +161,9 @@ var _shop_npc_spoken_for_current_visit: bool = false
 
 var _showcase_active: bool = false
 var _player: PlayerType
+var _network_chat_service: NetworkChatService
+var _network_profile: NetworkProfilePreferences
+var _spawn_service: PlayerSpawnService
 var _bag: PlayerBagType
 var _item_catalog: ItemCatalogType
 var _player_menu_open: bool = false
@@ -279,6 +288,9 @@ func setup(
 	world_sun: DirectionalLight3D,
 ) -> void:
 	_player = player
+	_network_chat_service = network_chat_service
+	_network_profile = network_profile
+	_spawn_service = spawn_service
 	_bag = bag
 	_item_catalog = item_catalog
 	_settings_manager = settings_manager
@@ -300,6 +312,15 @@ func setup(
 	):
 		_bag.contents_changed.connect(_on_hud_bait_inventory_changed)
 	_refresh_active_bait_indicator()
+	if (
+		_network_chat_service != null
+		and not _network_chat_service.character_call_received.is_connected(
+			_on_character_call_received
+		)
+	):
+		_network_chat_service.character_call_received.connect(
+			_on_character_call_received
+		)
 	if (
 		_experience != null
 		and not _experience.experience_awarded.is_connected(
@@ -411,6 +432,12 @@ func _input(event: InputEvent) -> void:
 		and _surface_drawing_toolbar.owns_pointer_event(event)
 	):
 		return
+	if event.is_action_pressed("character_call") and _can_use_character_call():
+		_network_chat_service.send_local_character_call(
+			_network_profile.call_id
+		)
+		get_viewport().set_input_as_handled()
+		return
 	var drawing_can_open: bool = (
 		_gameplay_ui_enabled
 		and not _system_menu_open
@@ -477,6 +504,49 @@ func _input(event: InputEvent) -> void:
 					_quick_prior_camera_input_enabled
 				)
 		get_viewport().set_input_as_handled()
+
+
+func _can_use_character_call() -> bool:
+	return (
+		_gameplay_ui_enabled
+		and not _system_menu_open
+		and not _player_menu_open
+		and not _shop_open
+		and not _chat_input_open
+		and not _showcase_active
+		and not _virtual_mouse_active
+		and _network_chat_service != null
+		and _network_profile != null
+	)
+
+
+func _on_character_call_received(
+	peer_id: int,
+	call_id: String,
+	pitch_scale: float,
+) -> void:
+	if _spawn_service == null:
+		return
+	var avatar: PlayerType = _spawn_service.get_avatar(peer_id)
+	var audio_path: String = VoiceProfilesType.call_audio_path(call_id)
+	if avatar == null or not ResourceLoader.exists(audio_path, "AudioStream"):
+		return
+	var stream: AudioStream = load(audio_path) as AudioStream
+	if stream == null:
+		return
+	var call_player := AudioStreamPlayer3D.new()
+	call_player.name = "CharacterCall"
+	call_player.bus = &"SFX"
+	call_player.stream = stream
+	call_player.pitch_scale = pitch_scale
+	call_player.max_distance = 28.0
+	call_player.unit_size = 4.0
+	call_player.position = (
+		Vector3.UP * 1.25 * avatar.get_character_visual_scale()
+	)
+	avatar.add_child(call_player)
+	call_player.finished.connect(call_player.queue_free)
+	call_player.play()
 
 
 func _handle_controller_chat_controls(event: InputEvent) -> bool:
@@ -1274,6 +1344,7 @@ func _apply_active_bait_indicator_style() -> void:
 
 
 func _refresh_active_bait_indicator() -> void:
+	_refresh_active_bait_indicator_visibility()
 	if not is_node_ready():
 		return
 	var item: ItemDataType
@@ -1313,12 +1384,22 @@ func _on_hud_active_bait_changed(_item_id: StringName) -> void:
 	_refresh_active_bait_indicator()
 
 
+func _refresh_active_bait_indicator_visibility() -> void:
+	_active_bait_indicator.visible = (
+		_gameplay_ui_enabled
+		and not _system_menu_open
+		and not _player_menu_open
+		and not _shop_open
+	)
+
+
 func _on_hud_bait_inventory_changed() -> void:
 	_refresh_active_bait_indicator()
 
 
 func set_gameplay_ui_enabled(enabled: bool) -> void:
 	_gameplay_ui_enabled = enabled
+	_refresh_active_bait_indicator_visibility()
 	if enabled:
 		_try_start_shop_npc_speech()
 	_gameplay_transient_hud.visible = enabled and not _player_menu_open
@@ -1411,6 +1492,12 @@ func _try_start_shop_npc_speech() -> void:
 	):
 		return
 	_shop_npc_spoken_for_current_visit = true
+	var now_msec: int = Time.get_ticks_msec()
+	if now_msec < _shop_npc_next_speech_msec:
+		return
+	_shop_npc_next_speech_msec = (
+		now_msec + SHOP_NPC_SPEECH_COOLDOWN_MILLISECONDS
+	)
 	_ensure_shop_animalese_voice()
 	TypewriterRevealType.start(
 		_shop_prompt_message,
@@ -2132,6 +2219,7 @@ func _refresh_hotbar_visibility() -> void:
 
 
 func _emit_interactive_pointer_ui_changed() -> void:
+	_refresh_active_bait_indicator_visibility()
 	interactive_pointer_ui_changed.emit(
 		_system_menu_open or _player_menu_open or _shop_open or _chat_input_open
 	)

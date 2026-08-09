@@ -5,6 +5,7 @@ const MAX_PANEL_SIZE: Vector2 = Vector2(960.0, 700.0)
 const PANEL_EDGE_MARGIN: float = 16.0
 const PAGE_ROOT: StringName = &"root"
 const PAGE_DISPLAY: StringName = &"display"
+const PAGE_SOUND: StringName = &"sound"
 const PAGE_CONTROLS: StringName = &"controls"
 const PAGE_ACCESSIBILITY: StringName = &"accessibility"
 const PAGE_DATA: StringName = &"data"
@@ -40,6 +41,7 @@ enum PresentationMode {
 
 @onready var _root_page: SettingsBubblePage = %RootPage
 @onready var _display_page: SettingsBubblePage = %DisplayPage
+@onready var _sound_page: SettingsBubblePage = %SoundPage
 @onready var _controls_page: SettingsBubblePage = %ControlsPage
 @onready var _accessibility_page: SettingsBubblePage = %AccessibilityPage
 @onready var _data_page: SettingsBubblePage = %DataPage
@@ -50,12 +52,21 @@ enum PresentationMode {
 @onready var _chat_dock: BubbleButton = %ChatDock
 @onready var _chat_mode: BubbleButton = %ChatMode
 @onready var _paint_dock: BubbleButton = %PaintDock
+@onready var _fullscreen_toggle: BubbleButton = %FullscreenToggle
 @onready var _mouse_value: BubbleButton = %MouseValue
 @onready var _controller_value: BubbleButton = %ControllerValue
 @onready var _invert_y_toggle: BubbleButton = %InvertYToggle
 @onready var _on_screen_keyboard_toggle: BubbleButton = %OnScreenKeyboardToggle
 @onready var _auto_click_toggle: BubbleButton = %AutoClickToggle
 @onready var _auto_click_interval: BubbleButton = %AutoClickIntervalValue
+@onready var _master_volume_slider: HSlider = %MasterVolumeSlider
+@onready var _music_volume_slider: HSlider = %MusicVolumeSlider
+@onready var _effects_volume_slider: HSlider = %EffectsVolumeSlider
+@onready var _environment_volume_slider: HSlider = %EnvironmentVolumeSlider
+@onready var _master_volume_value: Label = %MasterVolumeValue
+@onready var _music_volume_value: Label = %MusicVolumeValue
+@onready var _effects_volume_value: Label = %EffectsVolumeValue
+@onready var _environment_volume_value: Label = %EnvironmentVolumeValue
 
 @onready var _world_options: Array[BubbleButton] = [
 	%WorldLegible,
@@ -86,6 +97,10 @@ var _mouse_sensitivity: float = 0.005
 var _controller_sensitivity: float = 2.5
 var _invert_camera_y: bool = false
 var _on_screen_keyboard_enabled: bool = false
+var _master_volume: float = 1.0
+var _music_volume: float = 1.0
+var _effects_volume: float = 1.0
+var _environment_volume: float = 1.0
 var _network_profile: NetworkProfilePreferences
 var _network_session: NetworkSession
 var _data_root: PlayerDataRoot
@@ -111,11 +126,13 @@ func _ready() -> void:
 	_pages = {
 		PAGE_ROOT: _root_page,
 		PAGE_DISPLAY: _display_page,
+		PAGE_SOUND: _sound_page,
 		PAGE_CONTROLS: _controls_page,
 		PAGE_ACCESSIBILITY: _accessibility_page,
 		PAGE_DATA: _data_page,
 	}
 	%DisplayCategory.pressed.connect(_push_page.bind(PAGE_DISPLAY))
+	%SoundCategory.pressed.connect(_push_page.bind(PAGE_SOUND))
 	%ControlsCategory.pressed.connect(_push_page.bind(PAGE_CONTROLS))
 	%AccessibilityCategory.pressed.connect(
 		_push_page.bind(PAGE_ACCESSIBILITY)
@@ -124,12 +141,14 @@ func _ready() -> void:
 	%ApplySettingsButton.pressed.connect(_apply_settings)
 	%RootBackButton.pressed.connect(close_panel)
 	%DisplayBackButton.pressed.connect(handle_back)
+	%SoundBackButton.pressed.connect(handle_back)
 	%ControlsBackButton.pressed.connect(handle_back)
 	%ControllerMapping.pressed.connect(_open_controller_mapping)
 	%AccessibilityBackButton.pressed.connect(handle_back)
 	%DataBackButton.pressed.connect(handle_back)
 	%RootBackButton.gui_input.connect(_on_back_bubble_gui_input)
 	%DisplayBackButton.gui_input.connect(_on_back_bubble_gui_input)
+	%SoundBackButton.gui_input.connect(_on_back_bubble_gui_input)
 	%ControlsBackButton.gui_input.connect(_on_back_bubble_gui_input)
 	%AccessibilityBackButton.gui_input.connect(_on_back_bubble_gui_input)
 	%DataBackButton.gui_input.connect(_on_back_bubble_gui_input)
@@ -150,6 +169,7 @@ func _ready() -> void:
 	_chat_dock.pressed.connect(_toggle_chat_dock)
 	_chat_mode.pressed.connect(_toggle_chat_mode)
 	_paint_dock.pressed.connect(_toggle_paint_dock)
+	_fullscreen_toggle.pressed.connect(_toggle_fullscreen)
 	%MouseDecrease.pressed.connect(_adjust_mouse_sensitivity.bind(-1))
 	%MouseIncrease.pressed.connect(_adjust_mouse_sensitivity.bind(1))
 	_mouse_value.pressed.connect(_adjust_mouse_sensitivity.bind(1))
@@ -177,6 +197,18 @@ func _ready() -> void:
 	_auto_click_interval.pressed.connect(
 		_adjust_auto_click_interval.bind(1)
 	)
+	_master_volume_slider.value_changed.connect(
+		_on_audio_volume_changed.bind(&"master")
+	)
+	_music_volume_slider.value_changed.connect(
+		_on_audio_volume_changed.bind(&"music")
+	)
+	_effects_volume_slider.value_changed.connect(
+		_on_audio_volume_changed.bind(&"effects")
+	)
+	_environment_volume_slider.value_changed.connect(
+		_on_audio_volume_changed.bind(&"environment")
+	)
 	_mouse_value.gui_input.connect(
 		_on_continuous_value_input.bind(&"mouse")
 	)
@@ -198,6 +230,7 @@ func _ready() -> void:
 		_on_controller_mapping_panel_closed
 	)
 	_style_data_page()
+	_style_sound_page()
 	call_deferred("_refresh_panel_size")
 
 
@@ -708,6 +741,10 @@ func _apply_settings() -> void:
 	edited.controller_camera_sensitivity = _controller_sensitivity
 	edited.invert_camera_y = _invert_camera_y
 	edited.on_screen_keyboard_enabled = _on_screen_keyboard_enabled
+	edited.master_volume = _master_volume
+	edited.music_volume = _music_volume
+	edited.effects_volume = _effects_volume
+	edited.environment_volume = _environment_volume
 	if _settings_manager.apply_settings(edited):
 		if (
 			_presentation_mode == PresentationMode.TITLE_EMBEDDED
@@ -730,6 +767,17 @@ func _load_controls() -> void:
 	_controller_sensitivity = settings.controller_camera_sensitivity
 	_invert_camera_y = settings.invert_camera_y
 	_on_screen_keyboard_enabled = settings.on_screen_keyboard_enabled
+	_master_volume = settings.master_volume
+	_music_volume = settings.music_volume
+	_effects_volume = settings.effects_volume
+	_environment_volume = settings.environment_volume
+	_master_volume_slider.set_value_no_signal(_master_volume * 100.0)
+	_music_volume_slider.set_value_no_signal(_music_volume * 100.0)
+	_effects_volume_slider.set_value_no_signal(_effects_volume * 100.0)
+	_environment_volume_slider.set_value_no_signal(
+		_environment_volume * 100.0
+	)
+	_settings_manager.restore_audio_levels()
 	_refresh_value_labels()
 
 
@@ -752,6 +800,9 @@ func _refresh_value_labels() -> void:
 	_paint_dock.text = (
 		"paint dock\n" + ("right" if settings.paint_dock_right else "left")
 	)
+	_fullscreen_toggle.text = (
+		"fullscreen\n" + ("on" if settings.fullscreen_enabled else "off")
+	)
 	_mouse_value.text = "mouse\nsensitivity\n%.4f" % _mouse_sensitivity
 	_controller_value.text = (
 		"controller\nsensitivity\n%.1f" % _controller_sensitivity
@@ -771,6 +822,7 @@ func _refresh_value_labels() -> void:
 	_auto_click_interval.text = (
 		"auto-click\ninterval\n%.2f s" % _auto_click_interval_value
 	)
+	_refresh_audio_value_labels()
 	for index: int in _world_options.size():
 		_world_options[index].button_pressed = (
 			index + 1 == settings.world_pixel_size
@@ -801,6 +853,49 @@ func _style_data_page() -> void:
 			node.add_theme_color_override(
 				"font_color", UtilityPageStyle.OCEAN_TEXT_PRIMARY
 			)
+
+
+func _style_sound_page() -> void:
+	UtilityPageStyle.apply_page(_sound_page)
+	var paper := _sound_page.get_node("Paper") as PanelContainer
+	paper.add_theme_stylebox_override(
+		"panel", UtilityPageStyle.panel_style()
+	)
+	var content := _sound_page.get_node("Paper/Content") as VBoxContainer
+	for node: Node in content.find_children("*", "Label", true, false):
+		(node as Label).add_theme_color_override(
+			"font_color", UtilityPageStyle.OCEAN_TEXT_PRIMARY
+		)
+
+
+func _on_audio_volume_changed(value: float, channel: StringName) -> void:
+	var linear_volume: float = clampf(value / 100.0, 0.0, 1.0)
+	match channel:
+		&"master":
+			_master_volume = linear_volume
+		&"music":
+			_music_volume = linear_volume
+		&"effects":
+			_effects_volume = linear_volume
+		&"environment":
+			_environment_volume = linear_volume
+	_refresh_audio_value_labels()
+	if _settings_manager != null:
+		_settings_manager.preview_audio_levels(
+			_master_volume,
+			_music_volume,
+			_effects_volume,
+			_environment_volume,
+		)
+
+
+func _refresh_audio_value_labels() -> void:
+	_master_volume_value.text = "%d%%" % roundi(_master_volume * 100.0)
+	_music_volume_value.text = "%d%%" % roundi(_music_volume * 100.0)
+	_effects_volume_value.text = "%d%%" % roundi(_effects_volume * 100.0)
+	_environment_volume_value.text = (
+		"%d%%" % roundi(_environment_volume * 100.0)
+	)
 
 
 func _set_world_pixelation(pixel_size: int) -> void:
@@ -845,6 +940,17 @@ func _toggle_chat_mode() -> void:
 	edited.chat_mobile_mode = not edited.chat_mobile_mode
 	if not _settings_manager.apply_settings(edited):
 		_feedback.text = "failed to save chat mode setting."
+		return
+	_refresh_value_labels()
+
+
+func _toggle_fullscreen() -> void:
+	if _settings_manager == null:
+		return
+	var edited: PlayerSettings = _settings_manager.current_settings.copy()
+	edited.fullscreen_enabled = not edited.fullscreen_enabled
+	if not _settings_manager.apply_settings(edited):
+		_feedback.text = "failed to save fullscreen setting."
 		return
 	_refresh_value_labels()
 
