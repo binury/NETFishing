@@ -56,6 +56,7 @@ var _rod: Node3D
 var _rod_tip: Marker3D
 var _rod_neutral_rotation: Vector3
 var _cast_arrival_position: Vector3
+var _active_cast_arc_height: float = 0.0
 var _cast_tracks_water_surface: bool = false
 var _bobber_surface_position: Vector3
 var _bobber_idle_elapsed: float = 0.0
@@ -153,6 +154,7 @@ func begin_cast(
 	target: Vector3,
 	blocked_landing_position: Vector3 = Vector3.ZERO,
 	cast_is_blocked: bool = false,
+	resolved_arc_height: float = -1.0,
 ) -> void:
 	if _mode != VisualMode.AIMING or _rod_tip == null:
 		return
@@ -164,6 +166,11 @@ func begin_cast(
 	_bobber.scale = _bobber_base_scale
 	_cast_arrival_position = (
 		blocked_landing_position if cast_is_blocked else target
+	)
+	_active_cast_arc_height = (
+		maxf(resolved_arc_height, 0.0)
+		if resolved_arc_height >= 0.0
+		else cast_arc_height
 	)
 	_cast_tracks_water_surface = not cast_is_blocked
 
@@ -302,6 +309,7 @@ func cleanup() -> void:
 	_bobber_base_scale = Vector3.ONE
 	_bobber.rotation = Vector3.ZERO
 	_cast_arrival_position = Vector3.ZERO
+	_active_cast_arc_height = 0.0
 	_cast_tracks_water_surface = false
 	_bobber_surface_position = Vector3.ZERO
 	_bobber_idle_elapsed = 0.0
@@ -319,7 +327,7 @@ func _set_cast_sample(
 	target: Vector3,
 ) -> void:
 	var sample: Vector3 = start.lerp(target, progress)
-	sample.y += sin(progress * PI) * cast_arc_height
+	sample.y += sin(progress * PI) * _active_cast_arc_height
 	if _cast_tracks_water_surface:
 		sample.y += (
 			WaterSurfaceMotionType.get_default_height_offset()

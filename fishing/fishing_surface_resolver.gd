@@ -23,6 +23,7 @@ func resolve_surface(
 	space_state: PhysicsDirectSpaceState3D,
 	query_position: Vector3,
 	reference_y: float,
+	maximum_solid_rise: float = INF,
 ) -> FishingSurfaceSampleType:
 	var sample := FishingSurfaceSampleType.new()
 	var ray_top: float = maxf(query_position.y, reference_y) + ray_start_height
@@ -33,12 +34,18 @@ func resolve_surface(
 		ray_top,
 		ray_bottom,
 	)
-	var solid_hit: Dictionary = _find_top_solid_surface(
-		space_state,
-		query_position,
+	var solid_ray_top: float = minf(
 		ray_top,
-		ray_bottom,
+		reference_y + maximum_solid_rise,
 	)
+	var solid_hit: Dictionary = {}
+	if solid_ray_top > ray_bottom:
+		solid_hit = _find_top_solid_surface(
+			space_state,
+			query_position,
+			solid_ray_top,
+			ray_bottom,
+		)
 
 	if water_region != null:
 		var water_height: float = water_region.get_surface_height()

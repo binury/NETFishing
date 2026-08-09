@@ -783,19 +783,31 @@ func _confirm_cast() -> void:
 		return
 
 	var cast_launch_position := _get_cast_launch_position()
-	_cast_path_is_clear = is_cast_path_clear(
+	var resolved_cast_arc: Dictionary = _surface_resolver.resolve_cast_arc(
+		get_world_3d().direct_space_state,
 		cast_launch_position,
 		_cast_target,
+		_presentation.cast_arc_height,
 	)
+	var resolved_arc_height: float = float(
+		resolved_cast_arc.get("arc_height", _presentation.cast_arc_height)
+	)
+	var resolved_cast_collision: Dictionary = resolved_cast_arc.get(
+		"collision",
+		{},
+	)
+	_cast_path_is_clear = resolved_cast_collision.is_empty()
 	var cast_is_invalid: bool = (
 		not _aim_surface_sample.is_fishable() or not _cast_path_is_clear
 	)
 	var arrival_position: Vector3 = _cast_target
 	if not _cast_path_is_clear:
-		arrival_position = _resolve_cast_impact_position(
-			cast_launch_position,
+		var collision_position: Variant = resolved_cast_collision.get(
+			"position",
 			_cast_target,
 		)
+		if typeof(collision_position) == TYPE_VECTOR3:
+			arrival_position = collision_position
 	if _active_player != null:
 		# Movement is available while aiming, then locks once the cast is
 		# released so the active bobber/fishing event remains anchored.
@@ -806,6 +818,7 @@ func _confirm_cast() -> void:
 		_cast_target,
 		arrival_position,
 		cast_is_invalid,
+		resolved_arc_height,
 	)
 	_presentation.set_line_mode(FishingPresentationType.LineMode.TAUT)
 
@@ -1410,6 +1423,7 @@ func resolve_fishing_surface(
 		get_world_3d().direct_space_state,
 		target,
 		resolved_reference_y,
+		water_occlusion_tolerance,
 	)
 
 

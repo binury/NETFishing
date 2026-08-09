@@ -50,6 +50,7 @@ func _validate_resolver_layers() -> void:
 	_add_solid_box(world, Vector3(40.0, 2.0, 12.0), Vector3(10.0, -1.0, 0.0))
 	_add_water_region(world, Vector3(0.0, 2.0, 0.0), Vector2(8.0, 8.0), PondPool)
 	_add_solid_box(world, Vector3(1.0, 1.0, 1.0), Vector3(2.0, 2.25, 0.0))
+	_add_solid_box(world, Vector3(1.0, 1.0, 1.0), Vector3(-2.0, 6.0, 0.0))
 	_add_water_region(world, Vector3(10.0, 5.0, 0.0), Vector2(6.0, 6.0), PondPool)
 	_add_water_region(world, Vector3(20.0, 3.0, 0.0), Vector2(6.0, 6.0), null)
 	await physics_frame
@@ -64,6 +65,14 @@ func _validate_resolver_layers() -> void:
 	)
 	assert(water.is_fishable())
 	assert(is_equal_approx(water.position.y, 2.0))
+	var water_under_overhang: FishingSurfaceSampleType = resolver.resolve_surface(
+		space_state,
+		Vector3(-2.0, 4.0, 0.0),
+		4.0,
+		0.08,
+	)
+	assert(water_under_overhang.is_fishable())
+	assert(is_equal_approx(water_under_overhang.position.y, 2.0))
 
 	var covered_water: FishingSurfaceSampleType = resolver.resolve_surface(
 		space_state,
