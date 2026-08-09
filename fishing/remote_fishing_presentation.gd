@@ -62,6 +62,7 @@ func show_cast(origin: Vector3, target: Vector3) -> void:
 	_bobber.visible = true
 	_line.visible = true
 	_owner.set_active_item_is_rod(true)
+	_owner.set_release_visual()
 	_redraw_line()
 	_cast_tween = create_tween()
 	_cast_tween.set_trans(Tween.TRANS_SINE)
@@ -99,6 +100,7 @@ func show_bite() -> void:
 func play_return(showcase_catch: FishCatch = null) -> void:
 	if _owner != null and is_instance_valid(_owner):
 		_owner.set_fighting_visual(false)
+		_owner.set_fishing_visual(false)
 	if not _active or _bobber == null:
 		cleanup()
 		return_completed.emit()
@@ -135,6 +137,7 @@ func cleanup() -> void:
 	_bobber_idle_elapsed = 0.0
 	if _owner != null and is_instance_valid(_owner):
 		_owner.set_fighting_visual(false)
+		_owner.set_fishing_visual(false)
 		_owner.end_catch_showcase(Callable(), true)
 	if _bobber != null:
 		_bobber.visible = false
@@ -162,6 +165,8 @@ func _set_cast_sample(
 func _on_cast_finished() -> void:
 	_cast_tween = null
 	_bobber_idle_elapsed = 0.0
+	if _owner != null and is_instance_valid(_owner):
+		_owner.set_fishing_visual(true)
 	_apply_bobber_idle_motion()
 	_redraw_line()
 

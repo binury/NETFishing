@@ -363,15 +363,15 @@ func handle_escape_action() -> bool:
 
 
 func set_local_menu_input_suppressed(
-	owner: StringName,
+	input_owner: StringName,
 	suppressed: bool,
 ) -> void:
-	if owner.is_empty():
+	if input_owner.is_empty():
 		return
 	if suppressed:
-		_local_menu_input_owners[owner] = true
+		_local_menu_input_owners[input_owner] = true
 	else:
-		_local_menu_input_owners.erase(owner)
+		_local_menu_input_owners.erase(input_owner)
 	if suppressed and state == FishingState.WAITING_FOR_BITE:
 		_withdrawal_input_held = false
 		_stop_reeling_audio()
@@ -627,6 +627,7 @@ func _begin_aiming(player: PlayerType) -> void:
 	_cast_charge = 0.0
 	_cast_target = _calculate_cast_target(minimum_cast_distance)
 	state = FishingState.AIMING_CAST
+	_active_player.set_casting_visual()
 	status_changed.emit("")
 	_cast_path_is_clear = is_cast_path_clear(
 		_get_cast_launch_position(),
@@ -813,6 +814,8 @@ func _confirm_cast() -> void:
 		# released so the active bobber/fishing event remains anchored.
 		_active_player.set_movement_enabled(false)
 	state = FishingState.CASTING
+	if _active_player != null:
+		_active_player.set_release_visual()
 	status_changed.emit("")
 	_presentation.begin_cast(
 		_cast_target,
@@ -1102,7 +1105,7 @@ func _on_catch_encounter_updated(
 	barrier_health: PackedInt32Array,
 	barrier_max_health: PackedInt32Array,
 	active_barrier_index: int,
-	visible: bool,
+	encounter_visible: bool,
 ) -> void:
 	catch_display_changed.emit(
 		progress,
@@ -1111,9 +1114,9 @@ func _on_catch_encounter_updated(
 		barrier_health,
 		barrier_max_health,
 		active_barrier_index,
-		visible
+		encounter_visible
 	)
-	if state != FishingState.FIGHTING or not visible:
+	if state != FishingState.FIGHTING or not encounter_visible:
 		return
 
 

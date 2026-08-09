@@ -41,10 +41,19 @@ const CHARACTER_IDLE_SIT_ANIMATION: StringName = &"idle_sit"
 const CHARACTER_IDLE_SIT_SHOW_ANIMATION: StringName = &"idle_sit_show"
 const CHARACTER_WALKING_ANIMATION: StringName = &"walking"
 const CHARACTER_WALKING_SHOW_ANIMATION: StringName = &"walking_show"
+const CHARACTER_CASTING_ANIMATION: StringName = &"casting"
+const CHARACTER_RELEASE_ANIMATION: StringName = &"release"
 const CHARACTER_FISHING_ANIMATION: StringName = &"fishing"
 const CHARACTER_FISHING_SIT_ANIMATION: StringName = &"fishing_sit"
 const CHARACTER_FIGHTING_ANIMATION: StringName = &"fighting"
 const CHARACTER_FIGHTING_SIT_ANIMATION: StringName = &"fighting_sit"
+
+enum FishingVisualPhase {
+	NONE,
+	CASTING,
+	RELEASE,
+	FISHING,
+}
 const FIGHTING_EYES_ID: String = "alligator_eyes"
 const BASE_REEL_SPEED: float = 0.16
 # The target Android handheld exposes its physical right trigger through
@@ -121,9 +130,24 @@ func set_fighting_visual(active: bool) -> void:
 
 
 func set_fishing_visual(active: bool) -> void:
-	if _fishing_visual_active == active:
+	_set_fishing_visual_phase(
+		FishingVisualPhase.FISHING if active else FishingVisualPhase.NONE
+	)
+
+
+func set_casting_visual() -> void:
+	_set_fishing_visual_phase(FishingVisualPhase.CASTING)
+
+
+func set_release_visual() -> void:
+	_set_fishing_visual_phase(FishingVisualPhase.RELEASE)
+
+
+func _set_fishing_visual_phase(phase: FishingVisualPhase) -> void:
+	if _fishing_visual_phase == phase:
 		return
-	_fishing_visual_active = active
+	_fishing_visual_phase = phase
+	_fishing_visual_active = phase != FishingVisualPhase.NONE
 	_character_animation_name = &""
 	_update_character_animation()
 
@@ -283,8 +307,12 @@ var _held_fish_visible: bool = false
 var _showcase_animation_active: bool = false
 var _fighting_visual_active: bool = false
 var _fishing_visual_active: bool = false
+var _fishing_visual_phase: FishingVisualPhase = FishingVisualPhase.NONE
 var _fishing_rod: Node3D
 var _fishing_rod_tip: Marker3D
+var _fishing_rod_skeleton: Skeleton3D
+var _fishing_rod_hand_bone: int = -1
+var _fishing_rod_relative_basis: Basis = Basis.IDENTITY
 var _controller_mapping_manager: ControllerMappingManagerType
 
 
@@ -334,6 +362,38 @@ func _initialize_fishing_rod() -> void:
 	_fishing_rod_tip = attachment.get_node(
 		"FishingRod/FishingRodTip"
 	) as Marker3D
+	_fishing_rod_skeleton = skeleton
+	_fishing_rod_hand_bone = skeleton.find_bone(&"hand.R")
+	if _fishing_rod_hand_bone < 0:
+		push_error("Player character right-hand bone is unavailable.")
+		return
+	_fishing_rod_relative_basis = (
+		skeleton.global_basis.orthonormalized().inverse()
+		* _fishing_rod.global_basis.orthonormalized()
+	)
+	_fishing_rod.top_level = true
+	_sync_fishing_rod_transform()
+
+
+func _sync_fishing_rod_transform() -> void:
+	if (
+		_fishing_rod == null
+		or _fishing_rod_skeleton == null
+		or _fishing_rod_hand_bone < 0
+	):
+		return
+	var skeleton_transform := _fishing_rod_skeleton.global_transform
+	var hand_pose := _fishing_rod_skeleton.get_bone_global_pose(
+		_fishing_rod_hand_bone
+	)
+	var fixed_basis := (
+		skeleton_transform.basis.orthonormalized()
+		* _fishing_rod_relative_basis
+	)
+	_fishing_rod.global_transform = Transform3D(
+		fixed_basis.scaled(skeleton_transform.basis.get_scale().abs()),
+		(skeleton_transform * hand_pose).origin,
+	)
 
 
 func _initialize_held_item_attachment() -> void:
@@ -363,6 +423,7 @@ func _initialize_held_item_attachment() -> void:
 
 
 func _physics_process(delta: float) -> void:
+	_sync_fishing_rod_transform()
 	if _network_interpolation_enabled:
 		_update_network_interpolation(delta)
 		return
@@ -455,6 +516,7 @@ func _physics_process(delta: float) -> void:
 
 
 func _process(delta: float) -> void:
+	_sync_fishing_rod_transform()
 	_update_character_animation()
 	# The hand bone supplies the attachment position, but its animated wrist
 	# rotation should not turn the flat fish/catch artwork edge-on. Keep each
@@ -588,10 +650,24 @@ func _update_character_animation() -> void:
 				&"idle_sit_loop",
 			]
 		else:
-			requested_animation = [
-				CHARACTER_FISHING_ANIMATION,
-				CHARACTER_IDLE_ANIMATION,
-			]
+			match _fishing_visual_phase:
+				FishingVisualPhase.CASTING:
+					requested_animation = [
+						CHARACTER_CASTING_ANIMATION,
+						CHARACTER_FISHING_ANIMATION,
+						CHARACTER_IDLE_ANIMATION,
+					]
+				FishingVisualPhase.RELEASE:
+					requested_animation = [
+						CHARACTER_RELEASE_ANIMATION,
+						CHARACTER_FISHING_ANIMATION,
+						CHARACTER_IDLE_ANIMATION,
+					]
+				_:
+					requested_animation = [
+						CHARACTER_FISHING_ANIMATION,
+						CHARACTER_IDLE_ANIMATION,
+					]
 	elif _sitting:
 		if _held_fish_visible:
 			requested_animation = [
