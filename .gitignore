@@ -2,3 +2,6 @@
 .godot/
 /android/
 /builds/
+
+# Blender backup files
+*.blend1
