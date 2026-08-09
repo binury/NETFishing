@@ -39,6 +39,19 @@ func setup(
 	_local_hotbar.selected_assignment_changed.connect(
 		_on_selected_assignment_changed
 	)
+	var selected_kind: int = (
+		_local_hotbar.get_selected_assignment_kind()
+	)
+	var selected_identity: StringName = StringName()
+	if selected_kind == PlayerHotbarType.AssignmentKind.ITEM:
+		selected_identity = _local_hotbar.get_selected_item_id()
+	elif selected_kind == PlayerHotbarType.AssignmentKind.FISH:
+		selected_identity = _local_hotbar.get_selected_fish_catch_id()
+	_on_selected_assignment_changed(
+		_local_hotbar.get_selected_slot(),
+		selected_kind,
+		selected_identity,
+	)
 
 
 func toggle_selected_fish() -> bool:
@@ -180,7 +193,7 @@ func _apply_state(data: Dictionary) -> void:
 	if avatar == null:
 		return
 	if not bool(data["visible"]):
-		avatar.set_held_fish(null, 1.0, false)
+		avatar.set_held_fish(null, 1.0, false, true)
 		return
 	var fish: FishDataType = _fish_catalog.get_fish_by_id(
 		StringName(str(data["fish_id"]))
@@ -197,13 +210,16 @@ func _on_selected_assignment_changed(
 	kind: int,
 	identity: StringName,
 ) -> void:
-	if (
-		_local_visible
-		and (
-			kind != PlayerHotbarType.AssignmentKind.FISH
-			or identity != _local_catch_id
-		)
-	):
+	if kind == PlayerHotbarType.AssignmentKind.FISH:
+		if _local_visible and identity == _local_catch_id:
+			return
+		var fish_catch: FishCatchType = _local_inventory.get_catch_by_id(identity)
+		if fish_catch != null and fish_catch.is_valid():
+			_submit_local_state(fish_catch, true)
+		elif _local_visible:
+			_submit_local_state(null, false)
+		return
+	if _local_visible:
 		_submit_local_state(null, false)
 
 

@@ -50,6 +50,7 @@ const PlayerSpawnServiceType = preload(
 const NetworkFishingServiceType = preload(
 	"res://network/network_fishing_service.gd"
 )
+const PlayerHotbarType = preload("res://inventory/player_hotbar.gd")
 const NetworkSaleServiceType = preload(
 	"res://network/network_sale_service.gd"
 )
@@ -645,15 +646,12 @@ func _initialize_after_data_root() -> void:
 	pause_menu.menu_visibility_changed.connect(
 		_game_ui.set_system_menu_open
 	)
-	_player.hotbar.selected_slot_changed.connect(
+	_player.hotbar.selected_assignment_changed.connect(
 		_on_active_hotbar_item_changed
 	)
 	_player.bag.contents_changed.connect(_refresh_active_hotbar_item)
 	_fishing_spot.ready_for_equipment_refresh.connect(
 		_refresh_active_hotbar_item
-	)
-	_fishing_spot.fish_showcase_toggle_requested.connect(
-		_network_fish_showcase.toggle_selected_fish
 	)
 	_water_recovery.recovery_starting.connect(
 		_on_water_recovery_starting
@@ -664,10 +662,7 @@ func _initialize_after_data_root() -> void:
 	_water_recovery.local_respawn_completed.connect(
 		_on_local_respawn_completed
 	)
-	_on_active_hotbar_item_changed(
-		_player.hotbar.get_selected_slot(),
-		_player.hotbar.get_selected_item_id()
-	)
+	_refresh_active_hotbar_item()
 	_show_title_music(true)
 
 
@@ -1633,17 +1628,23 @@ func _on_remote_recovery_presentation_changed(
 
 func _on_active_hotbar_item_changed(
 	_slot_index: int,
-	item_id: StringName,
+	kind: int,
+	identity: StringName,
 ) -> void:
 	if _fishing_spot.state != FishingSpotType.FishingState.READY:
 		return
+	var item_id: StringName = (
+		identity
+		if kind == PlayerHotbarType.AssignmentKind.ITEM
+		else StringName()
+	)
 	var item = item_catalog.get_item_by_id(item_id)
 	var active_is_rod: bool = (
 		item != null
 		and item.category == ItemDataType.Category.ROD
 		and _player.bag.owns_item(item_id)
 	)
-	_player.set_active_item_is_rod(active_is_rod)
+	_player.set_active_item_is_rod(active_is_rod, true)
 	_player.set_active_art_kit(
 		item.icon if item != null else null,
 		item_id == ArtShopStockType.ART_KIT_ITEM_ID
@@ -1657,9 +1658,18 @@ func _on_active_hotbar_item_changed(
 
 
 func _refresh_active_hotbar_item() -> void:
+	var kind: int = (
+		_player.hotbar.get_selected_assignment_kind()
+	)
+	var identity: StringName = StringName()
+	if kind == PlayerHotbarType.AssignmentKind.ITEM:
+		identity = _player.hotbar.get_selected_item_id()
+	elif kind == PlayerHotbarType.AssignmentKind.FISH:
+		identity = _player.hotbar.get_selected_fish_catch_id()
 	_on_active_hotbar_item_changed(
 		_player.hotbar.get_selected_slot(),
-		_player.hotbar.get_selected_item_id()
+		kind,
+		identity,
 	)
 
 

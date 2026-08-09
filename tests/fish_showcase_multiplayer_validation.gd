@@ -53,7 +53,7 @@ func _run_host() -> void:
 	) as PlayerSpawnService
 	var remote_avatar: Player = spawn_service.get_avatar(remote_peer_id)
 	assert(remote_avatar != null)
-	var remote_display := remote_avatar.get_node("%HeldFishDisplay") as Node3D
+	var remote_display := remote_avatar.get("_held_fish_display") as Node3D
 	var visible_deadline: int = Time.get_ticks_msec() + 10000
 	while Time.get_ticks_msec() < visible_deadline and not remote_display.visible:
 		await process_frame
@@ -95,13 +95,23 @@ func _run_client() -> void:
 	) as PlayerSpawnService
 	var host_avatar: Player = spawn_service.get_avatar(1)
 	assert(host_avatar != null)
-	var host_display := host_avatar.get_node("%HeldFishDisplay") as Node3D
+	var host_display := host_avatar.get("_held_fish_display") as Node3D
 	var snapshot_deadline: int = Time.get_ticks_msec() + 10000
 	while Time.get_ticks_msec() < snapshot_deadline and not host_display.visible:
 		await process_frame
 	assert(host_display.visible)
 
 	var player := main.get("_player") as Player
+	var animation_player := player.get_node(
+		"Visuals/CharacterRig/AnimationPlayer"
+	) as AnimationPlayer
+	for animation_name: StringName in [
+		&"pocket_idle_idle",
+		&"pocket_idle_show",
+		&"pocket_show_show",
+		&"pocket_show_idle",
+	]:
+		assert(animation_player.has_animation(animation_name))
 	var service := main.get_node(
 		"%NetworkFishShowcaseService"
 	) as NetworkFishShowcaseService
@@ -109,11 +119,16 @@ func _run_client() -> void:
 	assert(player.hotbar.assign_fish(1, fish_catch.catch_id))
 	assert(player.hotbar.select_slot(1))
 	assert(service.toggle_selected_fish())
-	assert((player.get_node("%HeldFishDisplay") as Node3D).visible)
+	assert((player.get("_held_fish_display") as Node3D).visible)
 	await create_timer(2.0).timeout
 	assert(service.toggle_selected_fish())
-	assert(not (player.get_node("%HeldFishDisplay") as Node3D).visible)
-	await create_timer(1.0).timeout
+	var held_display := player.get("_held_fish_display") as Node3D
+	assert(held_display.visible)
+	assert(animation_player.current_animation == &"pocket_show_idle")
+	var pocket_deadline: int = Time.get_ticks_msec() + 5000
+	while Time.get_ticks_msec() < pocket_deadline and held_display.visible:
+		await process_frame
+	assert(not held_display.visible)
 	print("Fish showcase multiplayer client validation: PASS")
 	session.disconnect_session("")
 	main.queue_free()

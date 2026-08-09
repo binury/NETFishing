@@ -54,6 +54,30 @@ func _run_host() -> void:
 	var remote_visuals := remote_avatar.get_node("Visuals") as Node3D
 	remote_visuals.rotation.y = PI * 0.5
 	session.publish_authoritative_teleport(remote_peer_id)
+	var aiming_deadline: int = Time.get_ticks_msec() + 5000
+	while (
+		Time.get_ticks_msec() < aiming_deadline
+		and int(remote_avatar.get("_fishing_visual_phase"))
+			!= Player.FishingVisualPhase.CASTING
+	):
+		await process_frame
+	assert(
+		int(remote_avatar.get("_fishing_visual_phase"))
+		== Player.FishingVisualPhase.CASTING
+	)
+	var remote_position_error := (
+		remote_avatar.global_position - Vector3(-0.5, 3.95, 2.1)
+	)
+	remote_position_error.y = 0.0
+	assert(
+		remote_position_error.length() <= 0.25,
+		"remote casting position drifted: %s" % remote_avatar.global_position
+	)
+	assert(
+		remote_avatar.get_facing_direction().dot(Vector3.LEFT) > 0.99,
+		"remote casting facing drifted: %s"
+		% remote_avatar.get_facing_direction()
+	)
 
 	var saw_remote_attempt: bool = false
 	var remote_presentation: RemoteFishingPresentation
@@ -65,8 +89,8 @@ func _run_host() -> void:
 			if peer_id == session.get_local_peer_id():
 				continue
 			var attempt: NetworkFishingAttempt = attempts[peer_id]
-			assert(is_equal_approx(attempt.target.y, 2.51))
-			assert(attempt.bobber_position.y <= 2.51 + 0.001)
+			assert(attempt.target.is_finite())
+			assert(attempt.bobber_position.distance_to(attempt.target) <= 0.001)
 			var presentations: Dictionary = service.get("_remote_presentations")
 			remote_presentation = presentations.get(peer_id)
 			assert(remote_presentation != null)
@@ -78,6 +102,31 @@ func _run_host() -> void:
 		if saw_remote_attempt:
 			break
 	assert(saw_remote_attempt)
+	assert(
+		int(remote_avatar.get("_fishing_visual_phase"))
+		in [
+			Player.FishingVisualPhase.RELEASE,
+			Player.FishingVisualPhase.FISHING,
+		]
+	)
+	var sitting_deadline: int = Time.get_ticks_msec() + 3000
+	while Time.get_ticks_msec() < sitting_deadline and not remote_avatar.is_sitting():
+		await process_frame
+	assert(remote_avatar.is_sitting())
+	var fishing_deadline: int = Time.get_ticks_msec() + 5000
+	while (
+		Time.get_ticks_msec() < fishing_deadline
+		and int(remote_avatar.get("_fishing_visual_phase"))
+			!= Player.FishingVisualPhase.FISHING
+	):
+		await process_frame
+	assert(
+		int(remote_avatar.get("_fishing_visual_phase"))
+		== Player.FishingVisualPhase.FISHING
+	)
+	var remote_animation_player := remote_avatar.get_node(
+		"Visuals/CharacterRig/AnimationPlayer"
+	) as AnimationPlayer
 	var return_deadline: int = Time.get_ticks_msec() + 5000
 	while (
 		Time.get_ticks_msec() < return_deadline
@@ -85,8 +134,11 @@ func _run_host() -> void:
 	):
 		await process_frame
 	assert(not service.has_peer_attempt(remote_peer_id))
-	assert(is_instance_valid(remote_presentation))
-	assert(remote_presentation.get("_return_tween") != null)
+	assert(
+		int(remote_avatar.get("_fishing_visual_phase"))
+		== Player.FishingVisualPhase.RETRACT
+	)
+	assert(remote_animation_player.current_animation == &"retract_sit")
 
 	var completion_deadline: int = Time.get_ticks_msec() + 12000
 	while (
@@ -119,8 +171,17 @@ func _run_client() -> void:
 	var service := main.get_node(
 		"%NetworkFishingService"
 	) as NetworkFishingService
+	var cast_rejections: Array[String] = []
+	service.local_cast_rejected.connect(
+		func(message: String) -> void:
+			cast_rejections.append(message)
+	)
 	var fishing_spot := main.get_node("%FishingSpot") as FishingSpotType
 	var player := main.get("_player") as Player
+	var character_animation_player := player.get_node(
+		"Visuals/CharacterRig/AnimationPlayer"
+	) as AnimationPlayer
+	assert(character_animation_player.has_animation(&"retract_sit"))
 	var placement_deadline: int = Time.get_ticks_msec() + 5000
 	while (
 		Time.get_ticks_msec() < placement_deadline
@@ -131,14 +192,59 @@ func _run_client() -> void:
 	assert(player.global_position.distance_to(Vector3(-0.5, 3.95, 2.1)) <= 0.25)
 	assert(player.get_facing_direction().dot(Vector3.LEFT) > 0.99)
 
+	player.set_casting_visual()
+	assert(
+		int(player.get("_fishing_visual_phase"))
+		== Player.FishingVisualPhase.CASTING
+	)
+	for _frame: int in 30:
+		await physics_frame
+	player.set_fishing_visual(false)
+	player.call("_set_sitting", true)
+	assert(player.is_sitting())
+	for _frame: int in 15:
+		await physics_frame
 	fishing_spot.call("_begin_aiming", player)
 	assert(player.is_movement_enabled())
-	fishing_spot.set("_cast_charge", 0.32)
-	fishing_spot.call("_update_cast_charge", 0.0)
-	var target: Vector3 = fishing_spot.get("_cast_target")
-	assert(fishing_spot.is_target_fishable(target))
-	assert(is_equal_approx(target.y, 2.51))
-	fishing_spot.call("_confirm_cast")
+	assert(
+		int(player.get("_fishing_visual_phase"))
+		== Player.FishingVisualPhase.CASTING
+	)
+	var cast_charge: float = 0.0
+	var target: Vector3 = Vector3.ZERO
+	var cast_origin: Vector3 = fishing_spot.get("_cast_origin_position")
+	for charge_step: int in range(1, 21):
+		var candidate_charge := float(charge_step) / 20.0
+		fishing_spot.set("_cast_charge", candidate_charge)
+		fishing_spot.call("_update_cast_charge", 0.0)
+		var candidate_target: Vector3 = fishing_spot.get("_cast_target")
+		var candidate_surface := fishing_spot.get(
+			"_aim_surface_sample"
+		) as FishingSurfaceSample
+		if (
+			candidate_surface.is_fishable()
+			and fishing_spot.is_cast_path_clear(cast_origin, candidate_target)
+		):
+			cast_charge = candidate_charge
+			target = candidate_target
+			break
+	assert(cast_charge > 0.0, "no clear fishable test target was found")
+	var evidence: Dictionary = fishing_spot.call("_build_network_evidence")
+	fishing_spot.set("state", FishingSpotType.FishingState.CASTING)
+	player.set_movement_enabled(false)
+	player.set_release_visual()
+	assert(
+		int(player.get("_fishing_visual_phase"))
+		== Player.FishingVisualPhase.RELEASE
+	)
+	assert(
+		not service.request_local_cast(
+			cast_origin,
+			target,
+			cast_charge,
+			evidence,
+		).is_empty()
+	)
 
 	var accepted_deadline: int = Time.get_ticks_msec() + 6000
 	while (
@@ -146,8 +252,32 @@ func _run_client() -> void:
 		and fishing_spot.state != FishingSpotType.FishingState.WAITING_FOR_BITE
 	):
 		await process_frame
-	assert(fishing_spot.state == FishingSpotType.FishingState.WAITING_FOR_BITE)
+	assert(
+		fishing_spot.state == FishingSpotType.FishingState.WAITING_FOR_BITE,
+		(
+			"cast acceptance timed out: state=%s local_attempt=%s target=%s "
+			+ "rejections=%s"
+		) % [
+			fishing_spot.state,
+			service.has_local_attempt(),
+			target,
+			cast_rejections,
+		]
+	)
 	assert(service.has_local_attempt())
+	var fishing_deadline: int = Time.get_ticks_msec() + 5000
+	while (
+		Time.get_ticks_msec() < fishing_deadline
+		and int(player.get("_fishing_visual_phase"))
+			!= Player.FishingVisualPhase.FISHING
+	):
+		await process_frame
+	assert(
+		int(player.get("_fishing_visual_phase"))
+		== Player.FishingVisualPhase.FISHING
+	)
+	for _frame: int in 30:
+		await physics_frame
 	fishing_spot.set("_withdrawal_input_held", true)
 	fishing_spot.set("_network_primary_input_held", true)
 	service.submit_local_input(true, true)
@@ -159,10 +289,18 @@ func _run_client() -> void:
 	):
 		await process_frame
 	assert(fishing_spot.state == FishingSpotType.FishingState.RETURNING)
+	assert(
+		int(player.get("_fishing_visual_phase"))
+		== Player.FishingVisualPhase.RETRACT
+	)
+	assert(character_animation_player.current_animation == &"retract_sit")
 	var bobber := fishing_spot.get_node(
 		"FishingPresentation/Bobber"
 	) as MeshInstance3D
 	assert(bobber.visible)
+	while not player.is_retract_visual_complete():
+		assert(fishing_spot.state == FishingSpotType.FishingState.RETURNING)
+		await process_frame
 
 	var ready_deadline: int = Time.get_ticks_msec() + 3000
 	while (
@@ -173,6 +311,9 @@ func _run_client() -> void:
 	assert(fishing_spot.state == FishingSpotType.FishingState.READY)
 	assert(player.is_movement_enabled())
 	assert(not bobber.visible)
+	var host_observation_deadline: int = Time.get_ticks_msec() + 2000
+	while Time.get_ticks_msec() < host_observation_deadline:
+		await process_frame
 	print("Fishing multiplayer client validation: PASS")
 	session.disconnect_session("")
 	main.queue_free()

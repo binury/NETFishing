@@ -35,14 +35,26 @@ const HeldItemAttachmentScene = preload(
 	"res://player/held_item_attachment.tscn"
 )
 
+signal retract_visual_finished
+
 const CHARACTER_IDLE_ANIMATION: StringName = &"idle"
 const CHARACTER_IDLE_SHOW_ANIMATION: StringName = &"idle_show"
 const CHARACTER_IDLE_SIT_ANIMATION: StringName = &"idle_sit"
 const CHARACTER_IDLE_SIT_SHOW_ANIMATION: StringName = &"idle_sit_show"
 const CHARACTER_WALKING_ANIMATION: StringName = &"walking"
 const CHARACTER_WALKING_SHOW_ANIMATION: StringName = &"walking_show"
+const CHARACTER_RUNNING_ANIMATION: StringName = &"running"
+const CHARACTER_RUNNING_SHOW_ANIMATION: StringName = &"running_show"
 const CHARACTER_CASTING_ANIMATION: StringName = &"casting"
+const CHARACTER_CASTING_SIT_ANIMATION: StringName = &"casting_sit"
 const CHARACTER_RELEASE_ANIMATION: StringName = &"release"
+const CHARACTER_RELEASE_SIT_ANIMATION: StringName = &"release_sit"
+const CHARACTER_RETRACT_ANIMATION: StringName = &"retract"
+const CHARACTER_RETRACT_SIT_ANIMATION: StringName = &"retract_sit"
+const CHARACTER_POCKET_IDLE_IDLE_ANIMATION: StringName = &"pocket_idle_idle"
+const CHARACTER_POCKET_IDLE_SHOW_ANIMATION: StringName = &"pocket_idle_show"
+const CHARACTER_POCKET_SHOW_SHOW_ANIMATION: StringName = &"pocket_show_show"
+const CHARACTER_POCKET_SHOW_IDLE_ANIMATION: StringName = &"pocket_show_idle"
 const CHARACTER_FISHING_ANIMATION: StringName = &"fishing"
 const CHARACTER_FISHING_SIT_ANIMATION: StringName = &"fishing_sit"
 const CHARACTER_FIGHTING_ANIMATION: StringName = &"fighting"
@@ -52,7 +64,16 @@ enum FishingVisualPhase {
 	NONE,
 	CASTING,
 	RELEASE,
+	RETRACT,
 	FISHING,
+}
+
+enum PocketVisualTarget {
+	NONE,
+	IDLE_ITEM,
+	HELD_FISH,
+	ART_KIT,
+	CATCH_SHOWCASE,
 }
 const FIGHTING_EYES_ID: String = "alligator_eyes"
 const BASE_REEL_SPEED: float = 0.16
@@ -130,6 +151,18 @@ func set_fighting_visual(active: bool) -> void:
 
 
 func set_fishing_visual(active: bool) -> void:
+	if (
+		active
+		and _fishing_visual_phase == FishingVisualPhase.RELEASE
+		and _character_animation_name in [
+			CHARACTER_RELEASE_ANIMATION,
+			CHARACTER_RELEASE_SIT_ANIMATION,
+		]
+		and _character_animation_player != null
+		and _character_animation_player.is_playing()
+	):
+		_fishing_after_release_pending = true
+		return
 	_set_fishing_visual_phase(
 		FishingVisualPhase.FISHING if active else FishingVisualPhase.NONE
 	)
@@ -143,9 +176,32 @@ func set_release_visual() -> void:
 	_set_fishing_visual_phase(FishingVisualPhase.RELEASE)
 
 
+func set_retract_visual() -> void:
+	_retract_animation_completed = false
+	_set_fishing_visual_phase(FishingVisualPhase.RETRACT)
+	if (
+		_character_animation_player == null
+		or _character_animation_name not in [
+			CHARACTER_RETRACT_ANIMATION,
+			CHARACTER_RETRACT_SIT_ANIMATION,
+		]
+		or not _character_animation_player.is_playing()
+	):
+		_complete_retract_animation()
+
+
 func _set_fishing_visual_phase(phase: FishingVisualPhase) -> void:
+	if phase != FishingVisualPhase.NONE and _pocket_visual_active:
+		_complete_pocket_visual()
 	if _fishing_visual_phase == phase:
 		return
+	if (
+		_fishing_visual_phase == FishingVisualPhase.RETRACT
+		and phase != FishingVisualPhase.RETRACT
+	):
+		_complete_retract_animation()
+	if phase != FishingVisualPhase.RELEASE:
+		_fishing_after_release_pending = false
 	_fishing_visual_phase = phase
 	_fishing_visual_active = phase != FishingVisualPhase.NONE
 	_character_animation_name = &""
@@ -304,19 +360,39 @@ var _sit_after_landing: bool = false
 var _sitting_intent_pending: bool = false
 var _sitting_intent_sequence: int = -1
 var _held_fish_visible: bool = false
+var _pending_held_fish_texture: Texture2D
+var _pending_held_fish_scale: Vector3 = Vector3.ONE
+var _held_art_kit_visible: bool = false
 var _showcase_animation_active: bool = false
+var _pocket_visual_active: bool = false
+var _pocket_visual_target: PocketVisualTarget = PocketVisualTarget.NONE
+var _pocket_visual_animation: StringName = &""
+var _pocket_visual_finished_callback: Callable
+var _pocket_visual_callback_runs_on_interrupt: bool = true
+var _pocket_visual_midpoint_callback: Callable
+var _pocket_visual_midpoint_called: bool = false
+var _pocket_visual_generation: int = 0
 var _fighting_visual_active: bool = false
 var _fishing_visual_active: bool = false
 var _fishing_visual_phase: FishingVisualPhase = FishingVisualPhase.NONE
+var _fishing_after_release_pending: bool = false
+var _retract_animation_completed: bool = true
 var _fishing_rod: Node3D
 var _fishing_rod_tip: Marker3D
-var _fishing_rod_skeleton: Skeleton3D
-var _fishing_rod_hand_bone: int = -1
-var _fishing_rod_relative_basis: Basis = Basis.IDENTITY
+var _active_item_is_rod: bool = false
 var _controller_mapping_manager: ControllerMappingManagerType
 
 
 func _ready() -> void:
+	if (
+		_character_animation_player != null
+		and not _character_animation_player.animation_finished.is_connected(
+			_on_character_animation_finished
+		)
+	):
+		_character_animation_player.animation_finished.connect(
+			_on_character_animation_finished
+		)
 	if not bag.contents_changed.is_connected(_on_bag_contents_changed):
 		bag.contents_changed.connect(_on_bag_contents_changed)
 	_apply_presented_appearance()
@@ -362,38 +438,6 @@ func _initialize_fishing_rod() -> void:
 	_fishing_rod_tip = attachment.get_node(
 		"FishingRod/FishingRodTip"
 	) as Marker3D
-	_fishing_rod_skeleton = skeleton
-	_fishing_rod_hand_bone = skeleton.find_bone(&"hand.R")
-	if _fishing_rod_hand_bone < 0:
-		push_error("Player character right-hand bone is unavailable.")
-		return
-	_fishing_rod_relative_basis = (
-		skeleton.global_basis.orthonormalized().inverse()
-		* _fishing_rod.global_basis.orthonormalized()
-	)
-	_fishing_rod.top_level = true
-	_sync_fishing_rod_transform()
-
-
-func _sync_fishing_rod_transform() -> void:
-	if (
-		_fishing_rod == null
-		or _fishing_rod_skeleton == null
-		or _fishing_rod_hand_bone < 0
-	):
-		return
-	var skeleton_transform := _fishing_rod_skeleton.global_transform
-	var hand_pose := _fishing_rod_skeleton.get_bone_global_pose(
-		_fishing_rod_hand_bone
-	)
-	var fixed_basis := (
-		skeleton_transform.basis.orthonormalized()
-		* _fishing_rod_relative_basis
-	)
-	_fishing_rod.global_transform = Transform3D(
-		fixed_basis.scaled(skeleton_transform.basis.get_scale().abs()),
-		(skeleton_transform * hand_pose).origin,
-	)
 
 
 func _initialize_held_item_attachment() -> void:
@@ -423,7 +467,6 @@ func _initialize_held_item_attachment() -> void:
 
 
 func _physics_process(delta: float) -> void:
-	_sync_fishing_rod_transform()
 	if _network_interpolation_enabled:
 		_update_network_interpolation(delta)
 		return
@@ -516,7 +559,6 @@ func _physics_process(delta: float) -> void:
 
 
 func _process(delta: float) -> void:
-	_sync_fishing_rod_transform()
 	_update_character_animation()
 	# The hand bone supplies the attachment position, but its animated wrist
 	# rotation should not turn the flat fish/catch artwork edge-on. Keep each
@@ -613,8 +655,22 @@ func _update_character_animation() -> void:
 		velocity.x * velocity.x + velocity.z * velocity.z
 	)
 	var is_walking: bool = horizontal_speed_squared > 0.0025
+	var fastest_non_sprint_speed := maxf(
+		walk_speed,
+		maxf(sneak_speed, slow_walk_speed)
+	)
+	var running_threshold := fastest_non_sprint_speed + 0.5
+	var is_running := (
+		is_walking
+		and horizontal_speed_squared > running_threshold * running_threshold
+	)
+	var held_show_item_visible: bool = (
+		_held_fish_visible or _held_art_kit_visible
+	)
 	var requested_animation: Array[StringName] = []
-	if _showcase_animation_active:
+	if _pocket_visual_active:
+		requested_animation = [_pocket_visual_animation]
+	elif _showcase_animation_active:
 		if _sitting:
 			requested_animation = [
 				CHARACTER_IDLE_SIT_SHOW_ANIMATION,
@@ -644,11 +700,32 @@ func _update_character_animation() -> void:
 			]
 	elif _fishing_visual_active:
 		if _sitting:
-			requested_animation = [
-				CHARACTER_FISHING_SIT_ANIMATION,
-				CHARACTER_IDLE_SIT_ANIMATION,
-				&"idle_sit_loop",
-			]
+			match _fishing_visual_phase:
+				FishingVisualPhase.CASTING:
+					requested_animation = [
+						CHARACTER_CASTING_SIT_ANIMATION,
+						CHARACTER_FISHING_SIT_ANIMATION,
+						CHARACTER_IDLE_SIT_ANIMATION,
+					]
+				FishingVisualPhase.RELEASE:
+					requested_animation = [
+						CHARACTER_RELEASE_SIT_ANIMATION,
+						CHARACTER_FISHING_SIT_ANIMATION,
+						CHARACTER_IDLE_SIT_ANIMATION,
+					]
+				FishingVisualPhase.RETRACT:
+					requested_animation = [
+						CHARACTER_RETRACT_SIT_ANIMATION,
+						CHARACTER_RETRACT_ANIMATION,
+						CHARACTER_FISHING_SIT_ANIMATION,
+						CHARACTER_IDLE_SIT_ANIMATION,
+					]
+				_:
+					requested_animation = [
+						CHARACTER_FISHING_SIT_ANIMATION,
+						CHARACTER_IDLE_SIT_ANIMATION,
+						&"idle_sit_loop",
+					]
 		else:
 			match _fishing_visual_phase:
 				FishingVisualPhase.CASTING:
@@ -663,13 +740,19 @@ func _update_character_animation() -> void:
 						CHARACTER_FISHING_ANIMATION,
 						CHARACTER_IDLE_ANIMATION,
 					]
+				FishingVisualPhase.RETRACT:
+					requested_animation = [
+						CHARACTER_RETRACT_ANIMATION,
+						CHARACTER_FISHING_ANIMATION,
+						CHARACTER_IDLE_ANIMATION,
+					]
 				_:
 					requested_animation = [
 						CHARACTER_FISHING_ANIMATION,
 						CHARACTER_IDLE_ANIMATION,
 					]
 	elif _sitting:
-		if _held_fish_visible:
+		if held_show_item_visible:
 			requested_animation = [
 				CHARACTER_IDLE_SIT_SHOW_ANIMATION,
 				&"idle_sit_show_loop",
@@ -684,12 +767,26 @@ func _update_character_animation() -> void:
 				&"sitting",
 				&"idle_loop_sit",
 			]
-	elif is_walking and _held_fish_visible:
+	elif is_running and held_show_item_visible:
+		requested_animation = [
+			CHARACTER_RUNNING_SHOW_ANIMATION,
+			&"running_show_loop",
+			CHARACTER_WALKING_SHOW_ANIMATION,
+			&"walking_show_loop",
+		]
+	elif is_running:
+		requested_animation = [
+			CHARACTER_RUNNING_ANIMATION,
+			&"running_loop",
+			CHARACTER_WALKING_ANIMATION,
+			&"walking_loop",
+		]
+	elif is_walking and held_show_item_visible:
 		requested_animation = [
 			CHARACTER_WALKING_SHOW_ANIMATION,
 			&"walking_show_loop",
 		]
-	elif _held_fish_visible:
+	elif held_show_item_visible:
 		requested_animation = [
 			CHARACTER_IDLE_SHOW_ANIMATION,
 			&"idle_show_loop",
@@ -714,6 +811,45 @@ func _update_character_animation() -> void:
 		return
 	_character_animation_player.play(next_animation)
 	_character_animation_name = next_animation
+
+
+func _on_character_animation_finished(animation_name: StringName) -> void:
+	if animation_name in [
+		CHARACTER_POCKET_IDLE_IDLE_ANIMATION,
+		CHARACTER_POCKET_IDLE_SHOW_ANIMATION,
+		CHARACTER_POCKET_SHOW_SHOW_ANIMATION,
+		CHARACTER_POCKET_SHOW_IDLE_ANIMATION,
+	]:
+		if _pocket_visual_active:
+			_complete_pocket_visual()
+		return
+	if animation_name in [
+		CHARACTER_RETRACT_ANIMATION,
+		CHARACTER_RETRACT_SIT_ANIMATION,
+	]:
+		_complete_retract_animation()
+		return
+	if (
+		not _fishing_after_release_pending
+		or animation_name not in [
+			CHARACTER_RELEASE_ANIMATION,
+			CHARACTER_RELEASE_SIT_ANIMATION,
+		]
+	):
+		return
+	_fishing_after_release_pending = false
+	_set_fishing_visual_phase(FishingVisualPhase.FISHING)
+
+
+func is_retract_visual_complete() -> bool:
+	return _retract_animation_completed
+
+
+func _complete_retract_animation() -> void:
+	if _retract_animation_completed:
+		return
+	_retract_animation_completed = true
+	retract_visual_finished.emit()
 
 
 func toggle_sitting() -> void:
@@ -1006,6 +1142,9 @@ func capture_network_input(sequence: int) -> Dictionary:
 			"sneak": false,
 			"slow_walk": false,
 			"sitting": _sitting,
+			"casting": (
+				_fishing_visual_phase == FishingVisualPhase.CASTING
+			),
 		}
 	var axis: Vector2 = Input.get_vector(
 		"move_left",
@@ -1022,6 +1161,7 @@ func capture_network_input(sequence: int) -> Dictionary:
 		"sneak": Input.is_action_pressed("sneak"),
 		"slow_walk": Input.is_action_pressed("slow_walk"),
 		"sitting": _sitting,
+		"casting": _fishing_visual_phase == FishingVisualPhase.CASTING,
 	}
 
 
@@ -1039,6 +1179,7 @@ func apply_authoritative_network_input(data: Dictionary) -> void:
 	_network_sprint = bool(data.get("sprint", false))
 	_network_sneak = bool(data.get("sneak", false))
 	_network_slow_walk = bool(data.get("slow_walk", false))
+	_apply_network_casting(bool(data.get("casting", false)))
 	var sitting_requested: bool = bool(data.get("sitting", false))
 	if sitting_requested and not is_on_floor():
 		_sit_after_landing = true
@@ -1057,6 +1198,7 @@ func make_network_snapshot(peer_id: int) -> Dictionary:
 		"visual_yaw": _visuals.rotation.y,
 		"grounded": is_on_floor(),
 		"sitting": _sitting,
+		"casting": _fishing_visual_phase == FishingVisualPhase.CASTING,
 	}
 
 
@@ -1068,6 +1210,7 @@ func push_network_snapshot(snapshot: Dictionary) -> void:
 	_network_target_velocity = parsed["velocity"]
 	_network_target_visual_yaw = parsed["visual_yaw"]
 	_network_snapshot_age = 0.0
+	_apply_network_casting(bool(parsed["casting"]))
 	_set_sitting(bool(parsed["sitting"]))
 	if not _network_snapshot_ready:
 		global_position = _network_target_position
@@ -1108,6 +1251,7 @@ func apply_network_teleport(snapshot: Dictionary) -> void:
 	global_position = parsed["position"]
 	velocity = parsed["velocity"]
 	_visuals.rotation.y = parsed["visual_yaw"]
+	_apply_network_casting(bool(parsed["casting"]))
 	_set_sitting(bool(parsed["sitting"]))
 	_network_target_position = global_position
 	_network_target_velocity = velocity
@@ -1151,6 +1295,9 @@ func _parse_network_snapshot(snapshot: Dictionary) -> Dictionary:
 	if snapshot.has("sitting") and typeof(snapshot.get("sitting")) != TYPE_BOOL:
 		return {}
 	var sitting: bool = bool(snapshot.get("sitting", false))
+	if snapshot.has("casting") and typeof(snapshot.get("casting")) != TYPE_BOOL:
+		return {}
+	var casting: bool = bool(snapshot.get("casting", false))
 	if (
 		not parsed_position.is_finite()
 		or not parsed_velocity.is_finite()
@@ -1163,7 +1310,16 @@ func _parse_network_snapshot(snapshot: Dictionary) -> Dictionary:
 		"visual_yaw": visual_yaw,
 		"acknowledged_input": acknowledged_input,
 		"sitting": sitting,
+		"casting": casting,
 	}
+
+
+func _apply_network_casting(casting: bool) -> void:
+	if casting:
+		if _fishing_visual_phase == FishingVisualPhase.NONE:
+			set_casting_visual()
+	elif _fishing_visual_phase == FishingVisualPhase.CASTING:
+		set_fishing_visual(false)
 
 
 func _update_network_interpolation(delta: float) -> void:
@@ -1324,39 +1480,272 @@ func get_fishing_rod() -> Node3D:
 	return _fishing_rod
 
 
-func set_active_item_is_rod(active_is_rod: bool) -> void:
+func set_active_item_is_rod(
+	active_is_rod: bool,
+	animate_transition: bool = false,
+) -> void:
+	_active_item_is_rod = active_is_rod
 	if _showcase_rod_state_stored:
 		_showcase_rod_visibility = active_is_rod
-	else:
+		return
+	var visibility_changed: bool = _fishing_rod.visible != active_is_rod
+	if not animate_transition or not visibility_changed:
 		_fishing_rod.visible = active_is_rod
+		return
+	if _has_held_show_item() or _showcase_animation_active:
+		if not active_is_rod:
+			_fishing_rod.visible = false
+		return
+	if active_is_rod:
+		_fishing_rod.visible = false
+	_begin_pocket_visual(
+		PocketVisualTarget.IDLE_ITEM,
+		false,
+		false,
+		_apply_active_rod_visibility,
+	)
+
+
+func _apply_active_rod_visibility() -> void:
+	if _showcase_rod_state_stored:
+		_showcase_rod_visibility = _active_item_is_rod
+		return
+	_fishing_rod.visible = _active_item_is_rod
 
 
 func set_active_art_kit(icon: Texture2D, should_show: bool) -> void:
-	_held_art_kit_sprite.texture = icon if should_show else null
-	_held_art_kit_sprite.visible = should_show and icon != null
+	var new_visible: bool = should_show and icon != null
+	if not new_visible:
+		if _held_art_kit_visible:
+			_begin_pocket_visual(
+				PocketVisualTarget.ART_KIT,
+				true,
+				_held_fish_visible,
+				_clear_active_art_kit,
+				true,
+				_apply_pending_held_fish,
+			)
+		else:
+			_clear_active_art_kit()
+		return
+	var previous_show_pose: bool = _has_held_show_item()
+	var item_changed: bool = (
+		not _held_art_kit_visible
+		or _held_art_kit_sprite.texture != icon
+	)
+	_held_art_kit_visible = true
+	_held_art_kit_sprite.texture = icon
+	_held_art_kit_sprite.visible = true
+	_fishing_rod.visible = false
+	if item_changed:
+		_begin_pocket_visual(
+			PocketVisualTarget.ART_KIT,
+			previous_show_pose,
+			true,
+			Callable(),
+		)
+	else:
+		_update_character_animation()
 
 
 func set_held_fish(
 	fish: FishDataType,
 	display_scale: float,
 	should_show: bool,
+	animate_put_away: bool = false,
 ) -> void:
 	if not should_show or fish == null or fish.display_texture == null:
-		_held_fish_visible = false
-		_held_fish_display.visible = false
-		_held_fish_display.scale = Vector3.ONE
-		_held_fish_sprite.texture = null
-		_update_character_animation()
+		if animate_put_away and _held_fish_visible:
+			_begin_pocket_visual(
+				PocketVisualTarget.HELD_FISH,
+				true,
+				_held_art_kit_visible,
+				_clear_held_fish,
+			)
+		else:
+			if _pocket_visual_target == PocketVisualTarget.HELD_FISH:
+				_cancel_pocket_visual()
+			_clear_held_fish()
 		return
+	var previous_show_pose: bool = _has_held_show_item()
+	var item_changed: bool = (
+		not _held_fish_visible
+		or _held_fish_sprite.texture != fish.display_texture
+	)
 	_held_fish_visible = true
-	_held_fish_sprite.texture = fish.display_texture
-	_held_fish_display.scale = (
+	_pending_held_fish_texture = fish.display_texture
+	_pending_held_fish_scale = (
 		Vector3.ONE
 		* maxf(display_scale, 0.01)
 		* catch_presentation_base_scale
 	)
-	_held_fish_display.visible = true
+	if not previous_show_pose:
+		_held_fish_display.visible = false
+	_fishing_rod.visible = false
+	if item_changed:
+		_begin_pocket_visual(
+			PocketVisualTarget.HELD_FISH,
+			previous_show_pose,
+			true,
+			Callable(),
+			false,
+			_apply_pending_held_fish,
+		)
+	else:
+		_apply_pending_held_fish()
+		_update_character_animation()
+
+
+func _has_held_show_item() -> bool:
+	return _held_fish_visible or _held_art_kit_visible
+
+
+func _clear_held_fish() -> void:
+	var was_visible: bool = _held_fish_visible
+	_held_fish_visible = false
+	_pending_held_fish_texture = null
+	_pending_held_fish_scale = Vector3.ONE
+	_held_fish_display.visible = false
+	_held_fish_display.scale = Vector3.ONE
+	_held_fish_sprite.texture = null
+	if was_visible:
+		_apply_active_rod_visibility()
 	_update_character_animation()
+
+
+func _apply_pending_held_fish() -> void:
+	if not _held_fish_visible or _pending_held_fish_texture == null:
+		return
+	_held_fish_sprite.texture = _pending_held_fish_texture
+	_held_fish_display.scale = _pending_held_fish_scale
+	_held_fish_display.visible = true
+
+
+func _clear_active_art_kit() -> void:
+	var was_visible: bool = _held_art_kit_visible
+	_held_art_kit_visible = false
+	_held_art_kit_sprite.texture = null
+	_held_art_kit_sprite.visible = false
+	if was_visible:
+		_apply_active_rod_visibility()
+		if _held_fish_visible:
+			_apply_pending_held_fish()
+	_update_character_animation()
+
+
+func _begin_pocket_visual(
+	target: PocketVisualTarget,
+	starts_in_show_pose: bool,
+	ends_in_show_pose: bool,
+	finished_callback: Callable,
+	callback_runs_on_interrupt: bool = true,
+	midpoint_callback: Callable = Callable(),
+) -> void:
+	var animation_name: StringName
+	if starts_in_show_pose:
+		animation_name = (
+			CHARACTER_POCKET_SHOW_SHOW_ANIMATION
+			if ends_in_show_pose
+			else CHARACTER_POCKET_SHOW_IDLE_ANIMATION
+		)
+	else:
+		animation_name = (
+			CHARACTER_POCKET_IDLE_SHOW_ANIMATION
+			if ends_in_show_pose
+			else CHARACTER_POCKET_IDLE_IDLE_ANIMATION
+		)
+	if _pocket_visual_active:
+		if (
+			_pocket_visual_target == target
+			and _pocket_visual_animation == animation_name
+		):
+			return
+		if _pocket_visual_callback_runs_on_interrupt:
+			_complete_pocket_visual()
+		else:
+			_cancel_pocket_visual()
+	if (
+		_sitting
+		or animation_name.is_empty()
+		or _character_animation_player == null
+		or not _character_animation_player.has_animation(animation_name)
+	):
+		if midpoint_callback.is_valid():
+			midpoint_callback.call()
+		if finished_callback.is_valid():
+			finished_callback.call()
+		_update_character_animation()
+		return
+	_pocket_visual_active = true
+	_pocket_visual_target = target
+	_pocket_visual_animation = animation_name
+	_pocket_visual_finished_callback = finished_callback
+	_pocket_visual_callback_runs_on_interrupt = callback_runs_on_interrupt
+	_pocket_visual_midpoint_callback = midpoint_callback
+	_pocket_visual_midpoint_called = false
+	_pocket_visual_generation += 1
+	var midpoint_generation: int = _pocket_visual_generation
+	_update_character_animation()
+	_schedule_pocket_visual_midpoint(midpoint_generation, animation_name)
+
+
+func _schedule_pocket_visual_midpoint(
+	generation: int,
+	animation_name: StringName,
+) -> void:
+	if not _pocket_visual_midpoint_callback.is_valid():
+		return
+	var animation: Animation = _character_animation_player.get_animation(
+		animation_name
+	)
+	var midpoint_seconds: float = maxf(animation.length * 0.5, 0.0)
+	if midpoint_seconds > 0.0:
+		await get_tree().create_timer(midpoint_seconds, false).timeout
+	if (
+		generation != _pocket_visual_generation
+		or not _pocket_visual_active
+		or _pocket_visual_animation != animation_name
+	):
+		return
+	_apply_pocket_visual_midpoint()
+
+
+func _apply_pocket_visual_midpoint() -> void:
+	if _pocket_visual_midpoint_called:
+		return
+	_pocket_visual_midpoint_called = true
+	var midpoint_callback: Callable = _pocket_visual_midpoint_callback
+	_pocket_visual_midpoint_callback = Callable()
+	if midpoint_callback.is_valid():
+		midpoint_callback.call()
+
+
+func _complete_pocket_visual() -> void:
+	if not _pocket_visual_active:
+		return
+	var finished_callback: Callable = _pocket_visual_finished_callback
+	_pocket_visual_active = false
+	_pocket_visual_target = PocketVisualTarget.NONE
+	_pocket_visual_animation = &""
+	_pocket_visual_finished_callback = Callable()
+	_pocket_visual_callback_runs_on_interrupt = true
+	_pocket_visual_midpoint_callback = Callable()
+	_pocket_visual_midpoint_called = false
+	_pocket_visual_generation += 1
+	if finished_callback.is_valid():
+		finished_callback.call()
+	_update_character_animation()
+
+
+func _cancel_pocket_visual() -> void:
+	_pocket_visual_active = false
+	_pocket_visual_target = PocketVisualTarget.NONE
+	_pocket_visual_animation = &""
+	_pocket_visual_finished_callback = Callable()
+	_pocket_visual_callback_runs_on_interrupt = true
+	_pocket_visual_midpoint_callback = Callable()
+	_pocket_visual_midpoint_called = false
+	_pocket_visual_generation += 1
 
 
 func get_cast_origin_position() -> Vector3:
@@ -1366,8 +1755,9 @@ func get_cast_origin_position() -> Vector3:
 func begin_catch_showcase(fish_catch: FishCatchType) -> void:
 	if fish_catch == null or not fish_catch.is_valid():
 		return
+	if _pocket_visual_target == PocketVisualTarget.CATCH_SHOWCASE:
+		_cancel_pocket_visual()
 	_showcase_animation_active = true
-	_update_character_animation()
 	_kill_showcase_camera_tween()
 	_kill_showcase_restore_tween()
 	_capture_showcase_camera_snapshot()
@@ -1387,6 +1777,7 @@ func begin_catch_showcase(fish_catch: FishCatchType) -> void:
 		* catch_presentation_base_scale
 	)
 	_catch_display.visible = _catch_sprite.texture != null
+	_update_character_animation()
 
 
 func begin_remote_catch_showcase(fish_catch: FishCatchType) -> void:
@@ -1394,7 +1785,6 @@ func begin_remote_catch_showcase(fish_catch: FishCatchType) -> void:
 		return
 	end_catch_showcase(Callable(), true)
 	_showcase_animation_active = true
-	_update_character_animation()
 	_showcase_rod_visibility = _fishing_rod.visible
 	_showcase_rod_state_stored = true
 	_fishing_rod.visible = false
@@ -1405,12 +1795,28 @@ func begin_remote_catch_showcase(fish_catch: FishCatchType) -> void:
 		* catch_presentation_base_scale
 	)
 	_catch_display.visible = _catch_sprite.texture != null
+	_update_character_animation()
 
 
 func end_catch_showcase(
 	restored_callback: Callable = Callable(),
 	immediate: bool = false,
+	pocket_completed: bool = false,
 ) -> void:
+	if immediate and _pocket_visual_target == PocketVisualTarget.CATCH_SHOWCASE:
+		_cancel_pocket_visual()
+	elif (
+		not pocket_completed
+		and _showcase_animation_active
+		and _catch_display.visible
+	):
+		_begin_pocket_visual(
+			PocketVisualTarget.CATCH_SHOWCASE,
+			true,
+			false,
+			end_catch_showcase.bind(restored_callback, false, true),
+		)
+		return
 	_showcase_animation_active = false
 	_update_character_animation()
 	_kill_showcase_turn_tween()

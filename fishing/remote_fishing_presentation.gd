@@ -100,7 +100,7 @@ func show_bite() -> void:
 func play_return(showcase_catch: FishCatch = null) -> void:
 	if _owner != null and is_instance_valid(_owner):
 		_owner.set_fighting_visual(false)
-		_owner.set_fishing_visual(false)
+		_owner.set_retract_visual()
 	if not _active or _bobber == null:
 		cleanup()
 		return_completed.emit()
@@ -200,6 +200,12 @@ func _on_return_finished() -> void:
 	_line.visible = false
 	_line_mesh.clear_surfaces()
 	if (
+		_owner != null
+		and is_instance_valid(_owner)
+		and not _owner.is_retract_visual_complete()
+	):
+		await _owner.retract_visual_finished
+	if (
 		_return_showcase_catch != null
 		and _owner != null
 		and is_instance_valid(_owner)
@@ -216,7 +222,12 @@ func _on_return_finished() -> void:
 func _on_showcase_finished() -> void:
 	_showcase_tween = null
 	if _owner != null and is_instance_valid(_owner):
-		_owner.end_catch_showcase()
+		_owner.end_catch_showcase(_on_showcase_put_away_finished)
+		return
+	_on_showcase_put_away_finished()
+
+
+func _on_showcase_put_away_finished() -> void:
 	return_completed.emit()
 
 

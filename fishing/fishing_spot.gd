@@ -67,7 +67,6 @@ signal showcase_changed(
 signal bite_activated
 signal bite_prompt_changed(is_visible: bool)
 signal ready_for_equipment_refresh
-signal fish_showcase_toggle_requested
 signal art_ui_toggle_requested
 
 enum FishingState {
@@ -509,13 +508,6 @@ func _unhandled_input(event: InputEvent) -> void:
 		match state:
 			FishingState.READY:
 				if not _new_cast_press_armed:
-					return
-				if (
-					_local_hotbar != null
-					and not _local_hotbar.get_selected_fish_catch_id().is_empty()
-				):
-					fish_showcase_toggle_requested.emit()
-					get_viewport().set_input_as_handled()
 					return
 				var active_item: ItemDataType = _get_active_item()
 				if (
@@ -1134,7 +1126,7 @@ func _on_catch_completed() -> void:
 		return
 	_stop_fight_audio()
 	_active_player.set_fighting_visual(false)
-	_active_player.set_fishing_visual(false)
+	_active_player.set_retract_visual()
 	state = FishingState.SHOWING_CATCH
 	_showcase_ready = false
 	_showcase_outcome_completed = false
@@ -1156,6 +1148,12 @@ func _on_catch_escaped() -> void:
 
 
 func _on_outcome_completed(outcome: StringName) -> void:
+	var retracting_player := _active_player
+	if (
+		retracting_player != null
+		and not retracting_player.is_retract_visual_complete()
+	):
+		await retracting_player.retract_visual_finished
 	if state == FishingState.RETURNING:
 		var cleanup_message: String = _pending_cleanup_message
 		_pending_cleanup_message = ""
@@ -1260,7 +1258,15 @@ func _cleanup_attempt(
 	_stop_reeling_audio()
 	if _active_player != null:
 		_active_player.set_fighting_visual(false)
-		_active_player.set_fishing_visual(false)
+		if visual_outcome.is_empty():
+			_active_player.set_fishing_visual(false)
+		elif visual_outcome == &"catch":
+			# A successful catch already retracted the line before the fish
+			# showcase. Returning from the pocket transition should settle back
+			# to idle instead of replaying the retract animation.
+			_active_player.set_fishing_visual(false)
+		else:
+			_active_player.set_retract_visual()
 	if not visual_outcome.is_empty():
 		if state == FishingState.RETURNING:
 			return
@@ -1746,6 +1752,8 @@ func _on_network_catch_received(fish_catch: FishCatchType) -> void:
 		PackedInt32Array(), -1, false
 	)
 	_presentation.set_line_mode(FishingPresentationType.LineMode.TAUT)
+	if _active_player != null:
+		_active_player.set_retract_visual()
 	_presentation.play_outcome(&"catch")
 
 
