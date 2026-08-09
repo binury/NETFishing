@@ -54,7 +54,7 @@ FISHING
 - Coffee improves movement; other supplies temporarily improve fishing.
 - The Cooler starts at 12 fish; buy permanent capacity expansions at the shop.
 - Reel Speed upgrades increase authoritative green reeling progress.
-- Barrier Power upgrades increase damage per valid barrier action.
+- Rod Power upgrades increase damage per valid barrier action.
 - Shop upgrades persist in the local progression save.
 - Escape closes shop confirmations before closing the shop itself.
 
