@@ -9,11 +9,17 @@ var error_message: String = ""
 var _private_key: CryptoKey
 var _prefix: String = ""
 var _allow_generation: bool = true
+var _storage_directory: String = ""
 
 
-func configure(prefix: String, allow_generation: bool = true) -> void:
+func configure(
+	prefix: String,
+	allow_generation: bool = true,
+	storage_directory: String = "",
+) -> void:
 	_prefix = prefix
 	_allow_generation = allow_generation
+	_storage_directory = storage_directory.strip_edges()
 
 
 func load_or_create() -> bool:
@@ -225,7 +231,12 @@ func _write_atomic(path: String, content: String) -> bool:
 
 
 func _path(extension: String) -> String:
-	return "user://%s%s" % [_prefix, extension]
+	var filename: String = "%s%s" % [_prefix, extension]
+	return (
+		_storage_directory.path_join(filename)
+		if not _storage_directory.is_empty()
+		else "user://%s" % filename
+	)
 
 
 func identity_type() -> String:

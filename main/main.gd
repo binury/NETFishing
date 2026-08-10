@@ -39,6 +39,9 @@ const WorldPixelationPostprocessType = preload(
 )
 const NetworkSessionType = preload("res://network/network_session.gd")
 const DiscoveryClientType = preload("res://network/discovery_client.gd")
+const DedicatedServerConfigType = preload(
+	"res://server/dedicated_server_config.gd"
+)
 const NetworkProfilePreferencesType = preload(
 	"res://network/network_profile_preferences.gd"
 )
@@ -215,12 +218,17 @@ var _restore_data_setup_after_picker: bool = false
 var _application_initialized := false
 var _pending_existing_root_path := ""
 var _local_recovery_attempt_id: String = ""
+var _dedicated_runtime: bool = false
 
 @onready var _shoreline_ambience: ShorelineAmbience = %ShorelineAmbience
 var _rain_ambience: RainAmbienceType
 
 
 func _ready() -> void:
+	_dedicated_runtime = _is_dedicated_server_runtime()
+	if _dedicated_runtime:
+		call_deferred("_start_dedicated_server")
+		return
 	DisplayServer.window_set_title("NETfishing")
 	_rain_ambience = RainAmbienceType.new()
 	_rain_ambience.name = "RainAmbience"
@@ -267,6 +275,83 @@ func _ready() -> void:
 	_show_data_root_setup()
 
 
+func _is_dedicated_server_runtime() -> bool:
+	if OS.has_feature("dedicated_server"):
+		return true
+	return "--dedicated-server" in OS.get_cmdline_user_args()
+
+
+func _start_dedicated_server() -> void:
+	var config: DedicatedServerConfigType = DedicatedServerConfigType.from_runtime()
+	if not config.is_valid():
+		_fail_dedicated_server(config.error_message)
+		return
+	var data_path: String = config.data_directory
+	var manifest_path: String = data_path.path_join(
+		PlayerDataRoot.MANIFEST_FILENAME
+	)
+	if not FileAccess.file_exists(manifest_path):
+		var created: Dictionary = _data_root.create_unbound_root(data_path)
+		if not bool(created.get("ok", false)):
+			_fail_dedicated_server(str(created.get(
+				"message", "Could not create the server data directory."
+			)))
+			return
+	if not _data_root.activate_process_root(data_path):
+		_fail_dedicated_server(_data_root.error_message)
+		return
+	var identity_directory: String = data_path.path_join("server")
+	if DirAccess.make_dir_recursive_absolute(identity_directory) != OK:
+		_fail_dedicated_server("Could not create the server identity directory.")
+		return
+	_host_identity.configure("host_identity", true, identity_directory)
+	if not _discovery.set_base_url_override(config.discovery_url):
+		_fail_dedicated_server("The discovery URL is invalid.")
+		return
+	_configure_portable_stores()
+	_initialize_application(true)
+	_player.set_local_control(false)
+	_player.visible = false
+	_player.collision_layer = 0
+	_player.collision_mask = 0
+	_player.set_physics_process(false)
+	if not _network_session.start_dedicated_host(
+		config.port,
+		config.max_players,
+		config.bind_address,
+	):
+		_fail_dedicated_server("Could not start the dedicated server.")
+		return
+	_network_session.set_session_display_name(config.server_name)
+	_discovery.set_room_name(config.server_name)
+	if not _network_session.set_host_open(true):
+		_fail_dedicated_server("Could not open the dedicated server.")
+		return
+	if config.public_listing and not _discovery.set_discoverable(true):
+		_network_session.disconnect_session("Discovery setup failed.")
+		_fail_dedicated_server(_discovery.get_host_status_message())
+		return
+	print(
+		"NETfishing dedicated server ready: %s on %s:%d (%d players, %s)"
+		% [
+			config.server_name,
+			config.bind_address,
+			config.port,
+			config.max_players,
+			"public" if config.public_listing else "unlisted",
+		]
+	)
+	print(
+		"Server identity: %s"
+		% _network_session.get_host_identity_fingerprint()
+	)
+
+
+func _fail_dedicated_server(message: String) -> void:
+	push_error("Dedicated server startup failed: %s" % message)
+	get_tree().quit(1)
+
+
 func _configure_portable_stores() -> void:
 	_save_manager.configure_storage(
 		_data_root.path_for(&"player_save"), _data_root
@@ -295,6 +380,10 @@ func _configure_portable_stores() -> void:
 
 
 func _initialize_after_data_root() -> void:
+	_initialize_application(false)
+
+
+func _initialize_application(dedicated: bool) -> void:
 	if _application_initialized:
 		return
 	_application_initialized = true
@@ -314,21 +403,23 @@ func _initialize_after_data_root() -> void:
 		_known_players,
 		_server_trust,
 		_host_bans,
+		dedicated,
 	)
 	_discovery.setup(_network_session)
-	_world_time_visuals.setup(
-		_world_time,
-		_test_world.get_world_environment(),
-		_test_world.get_sun(),
-		_world_weather,
-		_player,
-	)
-	if not _world_time.natural_time_advanced.is_connected(
-		_on_natural_time_advanced
-	):
-		_world_time.natural_time_advanced.connect(
-			_on_natural_time_advanced
+	if not dedicated:
+		_world_time_visuals.setup(
+			_world_time,
+			_test_world.get_world_environment(),
+			_test_world.get_sun(),
+			_world_weather,
+			_player,
 		)
+		if not _world_time.natural_time_advanced.is_connected(
+			_on_natural_time_advanced
+		):
+			_world_time.natural_time_advanced.connect(
+				_on_natural_time_advanced
+			)
 	_network_world_time.setup(_network_session, _world_time)
 	_network_world_weather.setup(_network_session, _world_weather)
 	_player_jobs.setup(
@@ -357,22 +448,23 @@ func _initialize_after_data_root() -> void:
 		_network_chat,
 		_network_mail,
 	)
-	_network_session.set_local_appearance_snapshot(
-		_appearance_store.get_snapshot()
-	)
-	_network_session.join_authenticated.connect(
-		_on_network_join_authenticated
-	)
-	_network_session.connection_error.connect(
-		_on_network_connection_error
-	)
-	_network_session.server_trust_required.connect(
-		_on_server_trust_required
-	)
+	if not dedicated:
+		_network_session.set_local_appearance_snapshot(
+			_appearance_store.get_snapshot()
+		)
+		_network_session.join_authenticated.connect(
+			_on_network_join_authenticated
+		)
+		_network_session.connection_error.connect(
+			_on_network_connection_error
+		)
+		_network_session.server_trust_required.connect(
+			_on_server_trust_required
+		)
+		_network_session.server_lost.connect(_on_network_server_lost)
 	_network_session.peer_identity_observed.connect(
 		_on_peer_identity_observed
 	)
-	_network_session.server_lost.connect(_on_network_server_lost)
 	_network_session.remote_recovery_requested.connect(
 		_on_remote_recovery_requested
 	)
@@ -389,13 +481,14 @@ func _initialize_after_data_root() -> void:
 	_player.bag.setup(item_catalog)
 	_player.hotbar.setup(_player.bag, item_catalog, _player.inventory)
 	_shop_interaction = _test_world.get_fishing_shop()
-	_shop_interaction.setup_local_player(_player)
-	_shop_interaction.local_player_range_changed.connect(
-		_on_shop_range_changed
-	)
-	_game_ui.set_shop_npc_player_in_range(
-		_shop_interaction.is_local_player_in_range()
-	)
+	if not dedicated:
+		_shop_interaction.setup_local_player(_player)
+		_shop_interaction.local_player_range_changed.connect(
+			_on_shop_range_changed
+		)
+		_game_ui.set_shop_npc_player_in_range(
+			_shop_interaction.is_local_player_in_range()
+		)
 	_save_manager.setup(
 		_player.inventory,
 		_player.collection_log,
@@ -521,6 +614,8 @@ func _initialize_after_data_root() -> void:
 		_world_time,
 		_world_weather,
 	)
+	if dedicated:
+		return
 	_game_ui.setup(
 		_player,
 		_player.inventory,
@@ -1118,6 +1213,8 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _process(_delta: float) -> void:
+	if _dedicated_runtime:
+		return
 	var show_shop_prompt := _can_show_shop_prompt()
 	var shop_prompt_anchor := (
 		_shop_interaction.get_prompt_anchor_position()
@@ -1759,6 +1856,8 @@ func _finish_quit() -> void:
 
 
 func _exit_tree() -> void:
+	if _dedicated_runtime and _network_session != null:
+		_network_session.disconnect_session("Dedicated server stopping.")
 	if _title_music_tween != null:
 		_title_music_tween.kill()
 		_title_music_tween = null

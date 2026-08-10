@@ -87,6 +87,19 @@ func get_base_url() -> String:
 	return _base_url
 
 
+func set_base_url_override(value: String) -> bool:
+	var normalized: String = value.strip_edges()
+	while normalized.ends_with("/"):
+		normalized = normalized.left(normalized.length() - 1)
+	if not normalized.is_empty() and not (
+		normalized.begins_with("https://")
+		or normalized.begins_with("http://")
+	):
+		return false
+	_base_url = normalized
+	return true
+
+
 func get_room_name() -> String:
 	return _room_name
 
@@ -366,7 +379,7 @@ func _valid_public_room(room: Dictionary) -> bool:
 		and typeof(room.get("game_version")) == TYPE_STRING
 		and str(room.get("game_version")) == expected_version
 		and _valid_json_integer(room.get("port"), 1, 65535)
-		and _valid_json_integer(room.get("current_players"), 1, 128)
+		and _valid_json_integer(room.get("current_players"), 0, 128)
 		and _valid_json_integer(room.get("max_players"), 1, 128)
 		and int(room["current_players"]) <= int(room["max_players"])
 		and _valid_json_integer(

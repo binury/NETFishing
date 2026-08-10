@@ -169,6 +169,13 @@ func use_existing_root(path: String) -> bool:
 	return true
 
 
+func activate_process_root(path: String) -> bool:
+	_load_bootstrap_identity()
+	override_active = true
+	mode = Mode.COMMAND_LINE_OVERRIDE
+	return _activate_existing(path, "", false)
+
+
 func path_for(store_owner: StringName) -> String:
 	var relative: String = {
 		&"player_save": "player/player_save.json",

@@ -101,6 +101,7 @@ var _local_appearance_snapshot: Dictionary = (
 var _moderation_disconnect_message := ""
 var _host_port: int = 0
 var _session_display_name: String = "NETfishing Room"
+var _dedicated_host: bool = false
 
 
 func _ready() -> void:
@@ -120,6 +121,7 @@ func setup(
 	known_players: KnownPlayerStore,
 	server_trust: ServerTrustStore,
 	host_bans: HostBanStore,
+	dedicated: bool = false,
 ) -> void:
 	_profile = profile
 	_saved_servers = saved_servers
@@ -129,9 +131,9 @@ func setup(
 	_known_players = known_players
 	_server_trust = server_trust
 	_host_bans = host_bans
-	if _profile != null:
+	if not dedicated and _profile != null:
 		_profile_ready = _profile.load_or_create()
-	if _player_identity != null:
+	if not dedicated and _player_identity != null:
 		_profile_ready = _profile_ready and _player_identity.load_or_create()
 
 
@@ -147,6 +149,34 @@ func start_private_host(
 		or _host_identity == null
 	):
 		return false
+	return _start_host(port, port_attempts, false)
+
+
+func start_dedicated_host(
+	port: int = DEFAULT_PORT,
+	max_players: int = DEFAULT_SESSION_MAX_PLAYERS,
+	bind_address: String = "*",
+) -> bool:
+	if (
+		state != State.INACTIVE
+		or _spawn_service == null
+		or _host_identity == null
+		or max_players < 1
+		or max_players > 128
+		or bind_address.is_empty()
+	):
+		return false
+	session_max_players = max_players
+	transport_max_clients = maxi(transport_max_clients, max_players)
+	return _start_host(port, 1, true, bind_address)
+
+
+func _start_host(
+	port: int,
+	port_attempts: int,
+	dedicated: bool,
+	bind_address: String = "*",
+) -> bool:
 	if not _host_identity.load_or_create():
 		_fail(_host_identity.error_message)
 		return false
@@ -154,16 +184,20 @@ func start_private_host(
 		_fail("The hosting port must be from 1 to 65535.")
 		return false
 	_operation_generation += 1
-	_set_state(State.STARTING_PRIVATE_HOST, "Starting private game...")
+	_set_state(
+		State.STARTING_PRIVATE_HOST,
+		"Starting dedicated server..." if dedicated else "Starting private game...",
+	)
 	var selected_port: int = 0
 	var final_port: int = mini(port + port_attempts - 1, 65535)
 	for candidate_port: int in range(port, final_port + 1):
-		if not _can_bind_udp_port(candidate_port):
+		if not _can_bind_udp_port(candidate_port, bind_address):
 			continue
 		_replace_transport()
 		var error: Error = _transport.start_host(
 			candidate_port,
 			transport_max_clients,
+			bind_address,
 		)
 		if error == OK:
 			selected_port = candidate_port
@@ -175,11 +209,28 @@ func start_private_host(
 		)
 		return false
 	_host_port = selected_port
+	_dedicated_host = dedicated
 	var peer: MultiplayerPeer = _transport.get_multiplayer_peer()
 	peer.refuse_new_connections = true
 	multiplayer.multiplayer_peer = peer
 	_session_id = Crypto.new().generate_random_bytes(16).hex_encode()
 	_registry.clear()
+	_spawn_service.clear_remote_players()
+	if not dedicated:
+		_register_player_host()
+	_set_state(
+		State.PRIVATE_HOST,
+		(
+			"Dedicated server • UDP %d"
+			if dedicated else "Private game • UDP %d"
+		) % selected_port,
+	)
+	host_openness_changed.emit(false)
+	_emit_peer_count()
+	return true
+
+
+func _register_player_host() -> void:
 	_registry.add_peer(
 		1,
 		_profile.profile_id,
@@ -215,19 +266,18 @@ func start_private_host(
 			"client_nonce": host_profile_hello["client_nonce"],
 		}
 		_archive_authenticated_identity(host_record)
-	_spawn_service.clear_remote_players()
 	_spawn_service.register_local_player(1)
 	var host_avatar := _spawn_service.get_avatar(1)
 	if host_avatar != null:
 		host_avatar.apply_appearance_snapshot(_local_appearance_snapshot)
-	_set_state(State.PRIVATE_HOST, "Private game • UDP %d" % selected_port)
-	host_openness_changed.emit(false)
-	_emit_peer_count()
-	return true
 
 
 func get_host_port() -> int:
 	return _host_port if is_host() else 0
+
+
+func is_dedicated_host() -> bool:
+	return is_host() and _dedicated_host
 
 
 func set_session_display_name(value: String) -> void:
@@ -244,9 +294,9 @@ func get_session_display_name() -> String:
 	return _session_display_name
 
 
-static func _can_bind_udp_port(port: int) -> bool:
+static func _can_bind_udp_port(port: int, bind_address: String = "*") -> bool:
 	var probe := PacketPeerUDP.new()
-	var error: Error = probe.bind(port)
+	var error: Error = probe.bind(port, bind_address)
 	probe.close()
 	return error == OK
 
@@ -328,7 +378,9 @@ func set_host_open(is_open: bool) -> bool:
 	_set_state(
 		State.OPEN_HOST if is_open else State.PRIVATE_HOST,
 		(
-			"Open game • UDP %d • %d / %d players"
+			"Dedicated server • UDP %d • %d / %d players"
+			if _dedicated_host
+			else "Open game • UDP %d • %d / %d players"
 			if is_open
 			else "Private game • UDP %d • %d / %d players"
 		) % [_host_port, _registry.size(), session_max_players]
@@ -623,6 +675,8 @@ func _apply_display_name(peer_id: int, value: String) -> void:
 
 
 func get_local_peer_id() -> int:
+	if is_dedicated_host():
+		return 0
 	return multiplayer.get_unique_id() if is_gameplay_session_active() else 0
 
 
@@ -1792,3 +1846,4 @@ func _teardown_peer() -> void:
 	_server_identity_public_key = ""
 	_session_identity_keys.clear()
 	_host_port = 0
+	_dedicated_host = false
