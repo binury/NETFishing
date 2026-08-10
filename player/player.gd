@@ -55,6 +55,14 @@ const CHARACTER_POCKET_IDLE_IDLE_ANIMATION: StringName = &"pocket_idle_idle"
 const CHARACTER_POCKET_IDLE_SHOW_ANIMATION: StringName = &"pocket_idle_show"
 const CHARACTER_POCKET_SHOW_SHOW_ANIMATION: StringName = &"pocket_show_show"
 const CHARACTER_POCKET_SHOW_IDLE_ANIMATION: StringName = &"pocket_show_idle"
+const CHARACTER_POCKET_SIT_IDLE_IDLE_ANIMATION: StringName = &"pocket_sit_idle_idle"
+const CHARACTER_POCKET_SIT_IDLE_SHOW_ANIMATION: StringName = &"pocket_sit_idle_show"
+const CHARACTER_POCKET_SIT_SHOW_SHOW_ANIMATION: StringName = &"pocket_sit_show_show"
+const CHARACTER_POCKET_SIT_SHOW_IDLE_ANIMATION: StringName = &"pocket_sit_show_idle"
+const CHARACTER_POCKET_WALKING_IDLE_IDLE_ANIMATION: StringName = &"pocket_walking_idle_idle"
+const CHARACTER_POCKET_WALKING_IDLE_SHOW_ANIMATION: StringName = &"pocket_walking_idle_show"
+const CHARACTER_POCKET_WALKING_SHOW_SHOW_ANIMATION: StringName = &"pocket_walking_show_show"
+const CHARACTER_POCKET_WALKING_SHOW_IDLE_ANIMATION: StringName = &"pocket_walking_show_idle"
 const CHARACTER_FISHING_ANIMATION: StringName = &"fishing"
 const CHARACTER_FISHING_SIT_ANIMATION: StringName = &"fishing_sit"
 const CHARACTER_FIGHTING_ANIMATION: StringName = &"fighting"
@@ -239,8 +247,8 @@ class ShowcaseCameraSnapshot:
 
 @export_category("Movement")
 @export var walk_speed: float = 2.25
-@export var sprint_speed: float = 7.2
-@export var sneak_speed: float = 1.8
+@export var sprint_speed: float = 4.5
+@export var sneak_speed: float = 1.125
 @export var slow_walk_speed: float = 2.9
 @export_range(0.1, 20.0, 0.1) var jump_velocity: float = 4.6
 @export_range(0.1, 5.0, 0.05) var upward_gravity_multiplier: float = 1.35
@@ -324,6 +332,7 @@ var _free_camera: Camera3D
 var _free_camera_yaw: float = 0.0
 var _free_camera_pitch: float = 0.0
 var _movement_enabled: bool = true
+var _local_input_suppressors: Dictionary[StringName, bool] = {}
 var _water_recovery_active: bool = false
 var _remote_recovery_presentation_active: bool = false
 var _remote_recovery_visual_origin: Vector3
@@ -381,6 +390,8 @@ var _fishing_rod: Node3D
 var _fishing_rod_tip: Marker3D
 var _active_item_is_rod: bool = false
 var _controller_mapping_manager: ControllerMappingManagerType
+
+@onready var _sprint_dust: CPUParticles3D = %SprintDust
 
 
 func _ready() -> void:
@@ -480,7 +491,7 @@ func _physics_process(delta: float) -> void:
 		_network_jump_pending = false
 		return
 	var jump_requested: bool = (
-		_movement_enabled
+		_is_movement_input_enabled()
 		and not _free_camera_active
 		and (
 			(local_control_enabled and Input.is_action_just_pressed("jump"))
@@ -513,7 +524,7 @@ func _physics_process(delta: float) -> void:
 		velocity.y = jump_velocity
 	_network_jump_pending = false
 
-	if not _movement_enabled:
+	if not _is_movement_input_enabled():
 		velocity.x = 0.0
 		velocity.z = 0.0
 		move_and_slide()
@@ -560,6 +571,7 @@ func _physics_process(delta: float) -> void:
 
 func _process(delta: float) -> void:
 	_update_character_animation()
+	_update_sprint_dust()
 	# The hand bone supplies the attachment position, but its animated wrist
 	# rotation should not turn the flat fish/catch artwork edge-on. Keep each
 	# display aligned with the character's facing while it follows the hand.
@@ -592,7 +604,7 @@ func _process(delta: float) -> void:
 	if _camera_dragging and not Input.is_action_pressed("camera_drag"):
 		_set_camera_dragging(false)
 
-	if _camera_input_enabled:
+	if _is_camera_input_enabled():
 		var stick: Vector2 = _get_controller_camera_stick()
 		if stick.length() > controller_camera_deadzone:
 			if (
@@ -622,6 +634,26 @@ func _process(delta: float) -> void:
 			_target_zoom,
 			zoom_weight
 		)
+
+
+func _update_sprint_dust() -> void:
+	if _sprint_dust == null:
+		return
+	var horizontal_speed_squared: float = (
+		velocity.x * velocity.x + velocity.z * velocity.z
+	)
+	var fastest_non_sprint_speed := maxf(
+		walk_speed,
+		maxf(sneak_speed, slow_walk_speed)
+	)
+	var running_threshold := fastest_non_sprint_speed + 0.5
+	_sprint_dust.emitting = (
+		is_on_floor()
+		and not _sitting
+		and not _water_recovery_active
+		and horizontal_speed_squared
+		> running_threshold * running_threshold
+	)
 
 
 func _get_controller_camera_stick() -> Vector2:
@@ -819,6 +851,14 @@ func _on_character_animation_finished(animation_name: StringName) -> void:
 		CHARACTER_POCKET_IDLE_SHOW_ANIMATION,
 		CHARACTER_POCKET_SHOW_SHOW_ANIMATION,
 		CHARACTER_POCKET_SHOW_IDLE_ANIMATION,
+		CHARACTER_POCKET_SIT_IDLE_IDLE_ANIMATION,
+		CHARACTER_POCKET_SIT_IDLE_SHOW_ANIMATION,
+		CHARACTER_POCKET_SIT_SHOW_SHOW_ANIMATION,
+		CHARACTER_POCKET_SIT_SHOW_IDLE_ANIMATION,
+		CHARACTER_POCKET_WALKING_IDLE_IDLE_ANIMATION,
+		CHARACTER_POCKET_WALKING_IDLE_SHOW_ANIMATION,
+		CHARACTER_POCKET_WALKING_SHOW_SHOW_ANIMATION,
+		CHARACTER_POCKET_WALKING_SHOW_IDLE_ANIMATION,
 	]:
 		if _pocket_visual_active:
 			_complete_pocket_visual()
@@ -904,7 +944,7 @@ func is_sitting() -> bool:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if not local_control_enabled or not _camera_input_enabled:
+	if not local_control_enabled or not _is_camera_input_enabled():
 		return
 	if event.is_action_pressed("toggle_free_camera"):
 		_set_free_camera_active(not _free_camera_active)
@@ -1056,9 +1096,10 @@ func _update_free_camera_physics() -> void:
 		Input.get_action_strength("jump")
 		- Input.get_action_strength("sneak")
 	)
+	var yaw_basis := Basis(Vector3.UP, _free_camera_yaw)
 	var movement: Vector3 = (
-		_free_camera.global_basis.x * input_vector.x
-		+ _free_camera.global_basis.z * input_vector.y
+		yaw_basis.x * input_vector.x
+		+ yaw_basis.z * input_vector.y
 		+ Vector3.UP * vertical_input
 	)
 	if movement.length_squared() > 1.0:
@@ -1077,14 +1118,20 @@ func _rotate_free_camera(delta_rotation: Vector2) -> void:
 	var vertical_direction: float = -1.0 if invert_camera_y else 1.0
 	_free_camera_pitch = clampf(
 		_free_camera_pitch - delta_rotation.y * vertical_direction,
-		deg_to_rad(minimum_pitch_degrees),
-		deg_to_rad(maximum_pitch_degrees),
+		deg_to_rad(-90.0),
+		deg_to_rad(90.0),
 	)
 	_free_camera.global_rotation = Vector3(
 		_free_camera_pitch,
 		_free_camera_yaw,
 		0.0,
 	)
+
+
+func get_active_gameplay_camera() -> Camera3D:
+	if _free_camera_active and _free_camera != null:
+		return _free_camera
+	return _camera
 
 
 func _set_target_zoom(value: float) -> void:
@@ -1132,7 +1179,11 @@ func configure_network_remote(authoritative_simulation: bool) -> void:
 func capture_network_input(sequence: int) -> Dictionary:
 	if _sitting_intent_pending and _sitting_intent_sequence < 0:
 		_sitting_intent_sequence = sequence
-	if not _movement_enabled or _water_recovery_active or _free_camera_active:
+	if (
+		not _is_movement_input_enabled()
+		or _water_recovery_active
+		or _free_camera_active
+	):
 		return {
 			"sequence": sequence,
 			"axis": [0.0, 0.0],
@@ -1361,6 +1412,26 @@ func set_movement_enabled(enabled: bool) -> void:
 
 func is_movement_enabled() -> bool:
 	return _movement_enabled
+
+
+func set_local_input_suppressed(owner: StringName, suppressed: bool) -> void:
+	if owner.is_empty():
+		return
+	if suppressed:
+		_local_input_suppressors[owner] = true
+		velocity.x = 0.0
+		velocity.z = 0.0
+		_set_camera_dragging(false)
+	else:
+		_local_input_suppressors.erase(owner)
+
+
+func _is_movement_input_enabled() -> bool:
+	return _movement_enabled and _local_input_suppressors.is_empty()
+
+
+func _is_camera_input_enabled() -> bool:
+	return _camera_input_enabled and _local_input_suppressors.is_empty()
 
 
 func set_camera_input_enabled(enabled: bool) -> void:
@@ -1642,7 +1713,33 @@ func _begin_pocket_visual(
 	midpoint_callback: Callable = Callable(),
 ) -> void:
 	var animation_name: StringName
-	if starts_in_show_pose:
+	if _sitting:
+		if starts_in_show_pose:
+			animation_name = (
+				CHARACTER_POCKET_SIT_SHOW_SHOW_ANIMATION
+				if ends_in_show_pose
+				else CHARACTER_POCKET_SIT_SHOW_IDLE_ANIMATION
+			)
+		else:
+			animation_name = (
+				CHARACTER_POCKET_SIT_IDLE_SHOW_ANIMATION
+				if ends_in_show_pose
+				else CHARACTER_POCKET_SIT_IDLE_IDLE_ANIMATION
+			)
+	elif _is_moving_for_pocket_visual():
+		if starts_in_show_pose:
+			animation_name = (
+				CHARACTER_POCKET_WALKING_SHOW_SHOW_ANIMATION
+				if ends_in_show_pose
+				else CHARACTER_POCKET_WALKING_SHOW_IDLE_ANIMATION
+			)
+		else:
+			animation_name = (
+				CHARACTER_POCKET_WALKING_IDLE_SHOW_ANIMATION
+				if ends_in_show_pose
+				else CHARACTER_POCKET_WALKING_IDLE_IDLE_ANIMATION
+			)
+	elif starts_in_show_pose:
 		animation_name = (
 			CHARACTER_POCKET_SHOW_SHOW_ANIMATION
 			if ends_in_show_pose
@@ -1665,8 +1762,7 @@ func _begin_pocket_visual(
 		else:
 			_cancel_pocket_visual()
 	if (
-		_sitting
-		or animation_name.is_empty()
+		animation_name.is_empty()
 		or _character_animation_player == null
 		or not _character_animation_player.has_animation(animation_name)
 	):
@@ -1687,6 +1783,11 @@ func _begin_pocket_visual(
 	var midpoint_generation: int = _pocket_visual_generation
 	_update_character_animation()
 	_schedule_pocket_visual_midpoint(midpoint_generation, animation_name)
+
+
+func _is_moving_for_pocket_visual() -> bool:
+	var horizontal_velocity := Vector2(velocity.x, velocity.z)
+	return horizontal_velocity.length_squared() > 0.0025
 
 
 func _schedule_pocket_visual_midpoint(
@@ -1758,6 +1859,7 @@ func begin_catch_showcase(fish_catch: FishCatchType) -> void:
 	if _pocket_visual_target == PocketVisualTarget.CATCH_SHOWCASE:
 		_cancel_pocket_visual()
 	_showcase_animation_active = true
+	set_fishing_visual(false)
 	_kill_showcase_camera_tween()
 	_kill_showcase_restore_tween()
 	_capture_showcase_camera_snapshot()
@@ -1785,6 +1887,7 @@ func begin_remote_catch_showcase(fish_catch: FishCatchType) -> void:
 		return
 	end_catch_showcase(Callable(), true)
 	_showcase_animation_active = true
+	set_fishing_visual(false)
 	_showcase_rod_visibility = _fishing_rod.visible
 	_showcase_rod_state_stored = true
 	_fishing_rod.visible = false

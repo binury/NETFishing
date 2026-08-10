@@ -17,9 +17,9 @@ const FishingSpotType = preload("res://fishing/fishing_spot.gd")
 
 const DESKTOP_REFERENCE_SIZE := Vector2(1280.0, 720.0)
 const COMPACT_REFERENCE_SIZE := Vector2(640.0, 480.0)
-const HOTBAR_PRESENTATION_SCALE: float = 0.60
-const HOTBAR_CANONICAL_POSITION := Vector2(256.0, 288.0)
-const HOTBAR_MENU_POSITION := Vector2(80.0, 198.0)
+const HOTBAR_PRESENTATION_SCALE: float = 1.00
+const HOTBAR_CANONICAL_POSITION := Vector2.ZERO
+const HOTBAR_MENU_POSITION := Vector2(-136.0, -90.0)
 const HOTBAR_GAMEPLAY_Z_INDEX: int = 35
 # PlayerMenu is z=30 and its authored inventory panels are relative z=50.
 const HOTBAR_MENU_Z_INDEX: int = 90

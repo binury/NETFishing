@@ -3059,7 +3059,7 @@ func _on_sort_selected(index: int, source: OptionButton) -> void:
 
 
 func _on_cooler_sort_selected(sort_id: int) -> void:
-	_sort_mode = sort_id
+	_sort_mode = sort_id as SortMode
 	_sort_option.select(_sort_mode)
 	_cooler_sort_option.select(_sort_mode)
 	_refresh_inventory()
@@ -3607,11 +3607,11 @@ func _configure_cooler_fish_focus() -> void:
 		if not _shop_cooler_context_active:
 			_cooler_sub_tab.focus_neighbor_bottom = NodePath()
 		return
-	var top_control: Control = (
-		_cooler_sort_option
-		if _shop_cooler_context_active
-		else _cooler_sub_tab
-	)
+	var top_control: Control
+	if _shop_cooler_context_active:
+		top_control = _cooler_sort_option
+	else:
+		top_control = _cooler_sub_tab
 	if not _shop_cooler_context_active:
 		_cooler_sub_tab.focus_neighbor_bottom = _cooler_sub_tab.get_path_to(
 			controls.front()

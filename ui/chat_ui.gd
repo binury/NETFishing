@@ -7,18 +7,19 @@ const SPEECH_SECONDS: float = 6.0
 const DRAFT_SAVE_DELAY: float = 0.4
 const IDLE_ALPHA: float = 0.58
 const CHAT_SURFACE_COLOR := Color(0.025, 0.13, 0.19, 0.94)
-const ORIGINAL_PANEL_WIDTH: float = 390.0
-const PANEL_WIDTH: float = ORIGINAL_PANEL_WIDTH * 0.85
+const PANEL_WIDTH: float = 270.0
 const COMPACT_HEIGHT: float = 250.0
-const BOTTOM_MARGIN: float = 94.0
+const BOTTOM_MARGIN: float = 12.0
+const EXPANDED_TOP_MARGIN: float = 94.0
 const MIN_TOP_MARGIN: float = 24.0
 const MIN_HISTORY_HEIGHT: float = 92.0
-const HISTORY_FONT_SIZE: int = 17
+const HISTORY_FONT_SIZE: int = 20
 const INPUT_FONT_SIZE: int = 23
 const HINT_FONT_SIZE: int = 12
 const HISTORY_INPUT_GAP: int = 8
 const HANDLE_SIZE := Vector2(34, 42)
 const HANDLE_GAP: float = 6.0
+const HANDLE_TOP_INSET: float = 18.0
 const COLLAPSED_REVEAL_WIDTH: float = 8.0
 const HINT_EDGE_MARGIN: float = 4.0
 const SPEECH_BUBBLE_WIDTH: float = 320.0
@@ -105,8 +106,6 @@ var _last_message_time: float = -INF
 var _target_alpha: float = -1.0
 var _send_pending: bool = false
 var _pending_send_body: String = ""
-var _prior_movement: bool = true
-var _prior_camera: bool = true
 var _controller_refocused: bool = false
 var _input_lock_applied: bool = false
 var _last_submit_frame: int = -1
@@ -202,13 +201,10 @@ func open_chat() -> void:
 	if _presentation_state == PresentationState.COLLAPSED:
 		_set_presentation_state(_visible_state_before_collapse, true, true)
 	_controller_refocused = false
-	_prior_movement = _player.is_movement_enabled()
-	_prior_camera = _player.is_camera_input_enabled()
 	_opened = true
 	text_entry_ownership_changed.emit(true)
 	_input_lock_applied = true
-	_player.set_movement_enabled(false)
-	_player.set_camera_input_enabled(false)
+	_player.set_local_input_suppressed(INPUT_OWNER, true)
 	_fishing_spot.set_local_menu_input_suppressed(INPUT_OWNER, true)
 	# Clear the last authoritative input immediately. Merely disabling local
 	# prediction would let a remote host continue the last held movement.
@@ -249,8 +245,7 @@ func close_chat() -> void:
 	_entry.release_focus()
 	_entry.hide()
 	if _input_lock_applied:
-		_player.set_movement_enabled(_prior_movement)
-		_player.set_camera_input_enabled(_prior_camera)
+		_player.set_local_input_suppressed(INPUT_OWNER, false)
 		_fishing_spot.set_local_menu_input_suppressed(INPUT_OWNER, false)
 		_input_lock_applied = false
 	if ownership_was_active:
@@ -365,6 +360,9 @@ func _process(_delta: float) -> void:
 
 
 func _exit_tree() -> void:
+	if _input_lock_applied and is_instance_valid(_player):
+		_player.set_local_input_suppressed(INPUT_OWNER, false)
+		_input_lock_applied = false
 	_flush_draft()
 
 
@@ -541,7 +539,6 @@ func _build_ui() -> void:
 	add_child(_unread_indicator)
 	_hint = Label.new()
 	_hint.name = "ChatHint"
-	_hint.text = "Press Enter to chat"
 	_hint.size = Vector2(180, 18)
 	_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_hint.add_theme_font_override("font", UtilityPageStyle.TuffyFont)
@@ -809,7 +806,7 @@ func _handle_time_command(parts: PackedStringArray) -> void:
 		"World time set to %s (%s)."
 		% [phase_name, _world_time.get_clock_text()]
 	)
-	call_deferred("close_chat")
+	close_chat()
 
 
 func _on_local_message_confirmed(message: Dictionary) -> void:
@@ -824,7 +821,7 @@ func _on_local_message_confirmed(message: Dictionary) -> void:
 	_entry.clear()
 	_set_status("")
 	_flush_draft()
-	call_deferred("close_chat")
+	close_chat()
 
 
 func _on_message(message: Dictionary) -> void:
@@ -923,6 +920,8 @@ func _on_rejected(message: String) -> void:
 	_set_status(message)
 	if not _opened:
 		open_chat()
+	else:
+		call_deferred("_focus_entry_after_open")
 
 
 func _refresh_history() -> void:
@@ -1244,7 +1243,7 @@ func _layout_presentation(animate: bool) -> void:
 		if layout_state == PresentationState.EXPANDED:
 			height = maxf(
 				MIN_HISTORY_HEIGHT,
-				viewport_height - 2.0 * bottom_margin,
+				viewport_height - bottom_margin - EXPANDED_TOP_MARGIN,
 			)
 		height = minf(
 			height,
@@ -1263,10 +1262,7 @@ func _layout_presentation(animate: bool) -> void:
 				else 0.0
 			)
 		panel_y = bottom - height
-		var handle_stack_height := HANDLE_SIZE.y * 2.0 + HANDLE_GAP
-		var handle_stack_top := (
-			bottom - COMPACT_HEIGHT * 0.5 - handle_stack_height * 0.5
-		)
+		var handle_stack_top := panel_y + HANDLE_TOP_INSET
 		var handle_x: float = (
 			panel_x - HANDLE_SIZE.x
 			if _dock_right

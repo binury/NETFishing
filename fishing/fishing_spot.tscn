@@ -17,6 +17,7 @@ roughness = 0.45
 
 [sub_resource type="StandardMaterial3D" id="LineMaterial"]
 shading_mode = 0
+cull_mode = 2
 albedo_color = Color(0.9, 0.9, 0.82, 1)
 
 [sub_resource type="CylinderMesh" id="CastTargetMesh"]

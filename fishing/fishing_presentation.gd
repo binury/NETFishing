@@ -29,6 +29,7 @@ enum LineMode {
 @export_range(0.0, 3.0, 0.01) var maximum_slack: float = 0.65
 @export_range(2, 20, 1) var sag_interpolation_count: int = 8
 @export_range(0.1, 30.0, 0.1) var line_transition_speed: float = 7.0
+@export_range(0.002, 0.05, 0.001) var line_thickness: float = 0.016
 
 @export_category("Cast")
 @export_range(0.1, 3.0, 0.05) var cast_travel_duration: float = 0.65
@@ -417,10 +418,46 @@ func _update_line(delta: float) -> void:
 	_line_mesh.clear_surfaces()
 	if rendered_points.size() < 2:
 		return
-	_line_mesh.surface_begin(Mesh.PRIMITIVE_LINES)
-	for point_index: int in range(1, rendered_points.size()):
-		_line_mesh.surface_add_vertex(to_local(rendered_points[point_index - 1]))
-		_line_mesh.surface_add_vertex(to_local(rendered_points[point_index]))
+	_draw_line_ribbon(rendered_points)
+
+
+func _draw_line_ribbon(points: PackedVector3Array) -> void:
+	var camera: Camera3D = get_viewport().get_camera_3d()
+	if camera == null:
+		_line_mesh.surface_begin(Mesh.PRIMITIVE_LINE_STRIP)
+		for point: Vector3 in points:
+			_line_mesh.surface_add_vertex(to_local(point))
+		_line_mesh.surface_end()
+		return
+
+	var half_thickness: float = line_thickness * 0.5
+	_line_mesh.surface_begin(Mesh.PRIMITIVE_TRIANGLES)
+	for point_index: int in range(1, points.size()):
+		var start: Vector3 = points[point_index - 1]
+		var end: Vector3 = points[point_index]
+		var segment: Vector3 = end - start
+		if segment.length_squared() <= 0.000001:
+			continue
+		var to_camera: Vector3 = (
+			camera.global_position - start.lerp(end, 0.5)
+		)
+		var side: Vector3 = segment.normalized().cross(to_camera.normalized())
+		if side.length_squared() <= 0.000001:
+			side = segment.normalized().cross(Vector3.UP)
+		if side.length_squared() <= 0.000001:
+			side = segment.normalized().cross(Vector3.RIGHT)
+		side = side.normalized() * half_thickness
+
+		var start_left: Vector3 = to_local(start - side)
+		var start_right: Vector3 = to_local(start + side)
+		var end_right: Vector3 = to_local(end + side)
+		var end_left: Vector3 = to_local(end - side)
+		_line_mesh.surface_add_vertex(start_left)
+		_line_mesh.surface_add_vertex(start_right)
+		_line_mesh.surface_add_vertex(end_right)
+		_line_mesh.surface_add_vertex(start_left)
+		_line_mesh.surface_add_vertex(end_right)
+		_line_mesh.surface_add_vertex(end_left)
 	_line_mesh.surface_end()
 
 

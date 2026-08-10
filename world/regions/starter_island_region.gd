@@ -34,7 +34,7 @@ var fishing_shop_path: NodePath = (
 @export_group("Terrain Collision")
 @export var rebuild_terrain_collision_on_ready: bool = false
 @export_group("Foliage Wind")
-@export_range(0.0, 0.4, 0.005) var foliage_wind_strength: float = 0.12
+@export_range(0.0, 0.4, 0.005) var foliage_wind_strength: float = 0.36
 @export_range(0.0, 4.0, 0.05) var foliage_wind_speed: float = 0.9
 
 func _ready() -> void:

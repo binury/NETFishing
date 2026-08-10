@@ -4,6 +4,7 @@ extends Node3D
 const WaterSurfaceMotionType = preload(
 	"res://world/water_surface_motion.gd"
 )
+const LINE_THICKNESS: float = 0.016
 
 signal return_completed
 
@@ -38,6 +39,7 @@ func setup(owning_player: Player) -> void:
 	_line.mesh = _line_mesh
 	var line_material := StandardMaterial3D.new()
 	line_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	line_material.cull_mode = BaseMaterial3D.CULL_DISABLED
 	line_material.albedo_color = Color(0.9, 0.9, 0.82, 1.0)
 	_line.material_override = line_material
 	add_child(_line)
@@ -269,10 +271,50 @@ func _redraw_line() -> void:
 	if tip == null:
 		return
 	_line_mesh.clear_surfaces()
-	_line_mesh.surface_begin(Mesh.PRIMITIVE_LINE_STRIP)
-	_line_mesh.surface_add_vertex(to_local(tip.global_position))
 	var midpoint: Vector3 = tip.global_position.lerp(_target, 0.5)
 	midpoint.y -= 0.12
-	_line_mesh.surface_add_vertex(to_local(midpoint))
-	_line_mesh.surface_add_vertex(to_local(_target))
+	_draw_line_ribbon(PackedVector3Array([
+		tip.global_position,
+		midpoint,
+		_target,
+	]))
+
+
+func _draw_line_ribbon(points: PackedVector3Array) -> void:
+	var camera: Camera3D = get_viewport().get_camera_3d()
+	if camera == null:
+		_line_mesh.surface_begin(Mesh.PRIMITIVE_LINE_STRIP)
+		for point: Vector3 in points:
+			_line_mesh.surface_add_vertex(to_local(point))
+		_line_mesh.surface_end()
+		return
+
+	var half_thickness: float = LINE_THICKNESS * 0.5
+	_line_mesh.surface_begin(Mesh.PRIMITIVE_TRIANGLES)
+	for point_index: int in range(1, points.size()):
+		var start: Vector3 = points[point_index - 1]
+		var end: Vector3 = points[point_index]
+		var segment: Vector3 = end - start
+		if segment.length_squared() <= 0.000001:
+			continue
+		var to_camera: Vector3 = (
+			camera.global_position - start.lerp(end, 0.5)
+		)
+		var side: Vector3 = segment.normalized().cross(to_camera.normalized())
+		if side.length_squared() <= 0.000001:
+			side = segment.normalized().cross(Vector3.UP)
+		if side.length_squared() <= 0.000001:
+			side = segment.normalized().cross(Vector3.RIGHT)
+		side = side.normalized() * half_thickness
+
+		var start_left: Vector3 = to_local(start - side)
+		var start_right: Vector3 = to_local(start + side)
+		var end_right: Vector3 = to_local(end + side)
+		var end_left: Vector3 = to_local(end - side)
+		_line_mesh.surface_add_vertex(start_left)
+		_line_mesh.surface_add_vertex(start_right)
+		_line_mesh.surface_add_vertex(end_right)
+		_line_mesh.surface_add_vertex(start_left)
+		_line_mesh.surface_add_vertex(end_right)
+		_line_mesh.surface_add_vertex(end_left)
 	_line_mesh.surface_end()

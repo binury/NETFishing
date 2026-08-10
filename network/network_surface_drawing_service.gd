@@ -752,7 +752,7 @@ func _update_aim() -> void:
 func _raycast_from_pointer() -> Dictionary:
 	if _local_player == null or not is_instance_valid(_local_player):
 		return {}
-	var camera: Camera3D = _local_player.get_gameplay_camera()
+	var camera: Camera3D = _local_player.get_active_gameplay_camera()
 	if camera == null or not camera.current:
 		return {}
 	var from: Vector3 = camera.project_ray_origin(_pointer_screen_position)
@@ -1684,7 +1684,9 @@ func _is_static_surface(value: Variant) -> bool:
 
 func _surface_tangent(normal: Vector3) -> Vector3:
 	var camera: Camera3D = (
-		_local_player.get_gameplay_camera() if _local_player != null else null
+		_local_player.get_active_gameplay_camera()
+		if _local_player != null
+		else null
 	)
 	var candidate: Vector3 = (
 		camera.global_basis.x if camera != null else Vector3.RIGHT
