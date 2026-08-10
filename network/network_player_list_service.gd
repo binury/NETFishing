@@ -89,6 +89,10 @@ func is_local_host() -> bool:
 	return _session.is_host()
 
 
+func is_open_host() -> bool:
+	return _session.is_open_host()
+
+
 func get_relationships() -> Array[Dictionary]:
 	return _relationships.get_records()
 

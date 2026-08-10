@@ -33,6 +33,14 @@ node names, connect persistent and networked state to that data.
 network services validate and replicate bounded domains such as fishing,
 sales, shops, item use, profiles, jobs, mail, chat, drawings, time, and weather.
 
+`DiscoveryClient` is an optional directory layer beside `NetworkSession`. An
+open host may publish a short-lived room lease, and the shared Join Game page
+may browse compatible leases before handing the selected address back to the
+existing direct ENet connection flow. The directory does not carry gameplay
+traffic or become a gameplay authority. Its base URL comes from
+`network/discovery/base_url`, with `NETFISHING_DISCOVERY_URL` available as a
+development/deployment override.
+
 The host is authoritative. Clients submit requests or evidence; the host
 derives trusted context from registered peers, authoritative regions, and
 server-owned state before mutating inventory, wallet, progression, or shared

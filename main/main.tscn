@@ -56,6 +56,7 @@
 [ext_resource type="Script" uid="uid://b0c3o2vy76fg3" path="res://world/shoreline_ambience.gd" id="54_shoreline_ambience"]
 [ext_resource type="AudioStream" uid="uid://dck3tf8qkadea" path="res://audio/ambience/waves.wav" id="55_waves"]
 [ext_resource type="Script" uid="uid://c80x8jkdnx0xy" path="res://settings/controller_mapping_manager.gd" id="56_controller_mapping"]
+[ext_resource type="Script" uid="uid://d0jv8n2nfqia0" path="res://network/discovery_client.gd" id="57_discovery"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_title_water_native"]
 shader = ExtResource("40_title_water")
@@ -213,6 +214,10 @@ script = ExtResource("38_identity_backup")
 [node name="NetworkSession" type="Node" parent="." unique_id=88578570]
 unique_name_in_owner = true
 script = ExtResource("17_network_session")
+
+[node name="DiscoveryClient" type="Node" parent="."]
+unique_name_in_owner = true
+script = ExtResource("57_discovery")
 
 [node name="NetworkProfilePreferences" type="Node" parent="." unique_id=2119445545]
 unique_name_in_owner = true

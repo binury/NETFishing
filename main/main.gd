@@ -38,6 +38,7 @@ const WorldPixelationPostprocessType = preload(
 	"res://main/world_pixelation_postprocess.gd"
 )
 const NetworkSessionType = preload("res://network/network_session.gd")
+const DiscoveryClientType = preload("res://network/discovery_client.gd")
 const NetworkProfilePreferencesType = preload(
 	"res://network/network_profile_preferences.gd"
 )
@@ -131,6 +132,7 @@ const SHOP_PATTERN_SCALE: float = 1.75
 	%WorldPixelationPostprocess
 )
 @onready var _network_session: NetworkSessionType = %NetworkSession
+@onready var _discovery: DiscoveryClientType = %DiscoveryClient
 @onready var _world_time: WorldTimeServiceType = %WorldTimeService
 @onready var _world_time_visuals: WorldTimeVisualControllerType = (
 	%WorldTimeVisualController
@@ -313,6 +315,7 @@ func _initialize_after_data_root() -> void:
 		_server_trust,
 		_host_bans,
 	)
+	_discovery.setup(_network_session)
 	_world_time_visuals.setup(
 		_world_time,
 		_test_world.get_world_environment(),
@@ -546,6 +549,7 @@ func _initialize_after_data_root() -> void:
 		_asset_reservations,
 		_network_profile_service,
 		_network_player_list,
+		_discovery,
 		_settings_manager,
 		_network_surface_drawing,
 		_player.art_unlocks,
@@ -623,6 +627,7 @@ func _initialize_after_data_root() -> void:
 		_network_session,
 		_saved_servers,
 		_server_trust,
+		_discovery,
 	)
 	var pause_menu: PauseMenuType = _game_ui.get_pause_menu()
 	pause_menu.setup(
@@ -633,6 +638,7 @@ func _initialize_after_data_root() -> void:
 		_network_session,
 		_saved_servers,
 		_server_trust,
+		_discovery,
 	)
 	title_screen.join_game_requested.connect(_on_title_join_game_requested)
 	pause_menu.join_game_requested.connect(_on_pause_join_game_requested)

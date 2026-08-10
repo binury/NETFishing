@@ -16,6 +16,7 @@ signal connection_error(message: String)
 signal peer_authenticated(peer_id: int, display_name: String)
 signal peer_removed(peer_id: int)
 signal host_openness_changed(is_open: bool)
+signal session_display_name_changed(display_name: String)
 signal peer_count_changed(player_count: int, max_players: int)
 signal peer_display_name_changed(peer_id: int, display_name: String)
 signal peer_profile_changed(
@@ -99,6 +100,7 @@ var _local_appearance_snapshot: Dictionary = (
 )
 var _moderation_disconnect_message := ""
 var _host_port: int = 0
+var _session_display_name: String = "NETfishing Room"
 
 
 func _ready() -> void:
@@ -226,6 +228,20 @@ func start_private_host(
 
 func get_host_port() -> int:
 	return _host_port if is_host() else 0
+
+
+func set_session_display_name(value: String) -> void:
+	var cleaned: String = value.strip_edges().left(48)
+	if cleaned.is_empty():
+		cleaned = "NETfishing Room"
+	if cleaned == _session_display_name:
+		return
+	_session_display_name = cleaned
+	session_display_name_changed.emit(_session_display_name)
+
+
+func get_session_display_name() -> String:
+	return _session_display_name
 
 
 static func _can_bind_udp_port(port: int) -> bool:
@@ -1038,7 +1054,8 @@ func submit_client_hello(data: Dictionary) -> void:
 			_session_id,
 			sender_id,
 			_registry.size(),
-			session_max_players
+			session_max_players,
+			_session_display_name,
 		)
 	)
 	receive_spawn_list.rpc_id(sender_id, _build_spawn_list())

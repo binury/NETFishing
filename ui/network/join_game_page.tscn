@@ -114,22 +114,32 @@ layout_mode = 2
 theme_override_constants/separation = 14
 alignment = 1
 
+[node name="DiscoverButton" type="Button" parent="Paper/Margin/Layout/Modes"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(100, 72)
+layout_mode = 2
+toggle_mode = true
+text = "discover"
+
 [node name="DirectButton" type="Button" parent="Paper/Margin/Layout/Modes"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(100, 72)
 layout_mode = 2
+toggle_mode = true
 text = "direct"
 
 [node name="SavedButton" type="Button" parent="Paper/Margin/Layout/Modes"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(100, 72)
 layout_mode = 2
+toggle_mode = true
 text = "saved"
 
 [node name="RecentButton" type="Button" parent="Paper/Margin/Layout/Modes"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(100, 72)
 layout_mode = 2
+toggle_mode = true
 text = "recent"
 
 [node name="AddressLabel" type="Label" parent="Paper/Margin/Layout"]
@@ -257,6 +267,13 @@ horizontal_alignment = 1
 layout_mode = 2
 theme_override_constants/separation = 7
 alignment = 1
+
+[node name="RefreshButton" type="Button" parent="Paper/Margin/Layout/Actions"]
+unique_name_in_owner = true
+visible = false
+custom_minimum_size = Vector2(82, 72)
+layout_mode = 2
+text = "refresh"
 
 [node name="JoinButton" type="Button" parent="Paper/Margin/Layout/Actions"]
 unique_name_in_owner = true

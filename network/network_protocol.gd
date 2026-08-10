@@ -198,6 +198,7 @@ static func make_server_hello(
 	assigned_peer_id: int,
 	player_count: int,
 	max_players: int,
+	server_display_name: String = "NETfishing",
 ) -> Dictionary:
 	return {
 		"accepted": accepted,
@@ -205,7 +206,7 @@ static func make_server_hello(
 		"protocol_version": PROTOCOL_VERSION,
 		"session_id": session_id,
 		"assigned_peer_id": assigned_peer_id,
-		"server_display_name": "NETfishing",
+		"server_display_name": server_display_name,
 		"player_count": player_count,
 		"max_players": max_players,
 		"capability_flags": PackedStringArray([

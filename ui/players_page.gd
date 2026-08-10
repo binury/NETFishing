@@ -2,10 +2,15 @@ class_name PlayersPage
 extends Control
 
 var _service: NetworkPlayerListService
+var _discovery: DiscoveryClient
 var _count_label: Label
 var _tabs: HBoxContainer
 var _list: VBoxContainer
 var _status: Label
+var _host_settings_panel: PanelContainer
+var _room_name_edit: LineEdit
+var _discoverable_toggle: CheckButton
+var _host_discovery_status: Label
 var _current_tab := 0
 
 
@@ -15,13 +20,22 @@ func _ready() -> void:
 	_build()
 
 
-func setup(service: NetworkPlayerListService) -> void:
+func setup(
+	service: NetworkPlayerListService,
+	discovery: DiscoveryClient,
+) -> void:
 	_service = service
+	_discovery = discovery
 	_service.entries_changed.connect(_refresh)
 	_service.moderation_finished.connect(func(_ok: bool, message: String) -> void:
 		_status.text = message
 		_refresh()
 	)
+	if _discovery != null:
+		_discovery.host_settings_changed.connect(
+			_on_host_settings_changed
+		)
+		_discovery.host_status_changed.connect(_on_host_status_changed)
 	_refresh()
 
 
@@ -61,6 +75,7 @@ func _build() -> void:
 	)
 	_count_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	tab_row.add_child(_count_label)
+	_build_host_settings(root)
 	var scroll := ScrollContainer.new()
 	scroll.custom_minimum_size = Vector2(0, 310)
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -75,6 +90,47 @@ func _build() -> void:
 		"font_color", UtilityPageStyle.OCEAN_TEXT_SECONDARY
 	)
 	root.add_child(_status)
+
+
+func _build_host_settings(root: VBoxContainer) -> void:
+	_host_settings_panel = PanelContainer.new()
+	_host_settings_panel.add_theme_stylebox_override(
+		"panel", UtilityPageStyle.row_style(false)
+	)
+	root.add_child(_host_settings_panel)
+	var row := HBoxContainer.new()
+	row.custom_minimum_size.y = 58.0
+	row.add_theme_constant_override("separation", 10)
+	_host_settings_panel.add_child(row)
+	var label := Label.new()
+	label.text = "room name"
+	label.add_theme_color_override(
+		"font_color", UtilityPageStyle.OCEAN_TEXT_SECONDARY
+	)
+	row.add_child(label)
+	_room_name_edit = LineEdit.new()
+	_room_name_edit.custom_minimum_size = Vector2(300.0, 42.0)
+	_room_name_edit.max_length = DiscoveryClient.MAX_ROOM_NAME_LENGTH
+	_room_name_edit.placeholder_text = DiscoveryClient.DEFAULT_ROOM_NAME
+	UtilityPageStyle.apply_ocean_line_edit(_room_name_edit)
+	_room_name_edit.text_submitted.connect(
+		func(_value: String) -> void: _commit_room_name()
+	)
+	_room_name_edit.focus_exited.connect(_commit_room_name)
+	row.add_child(_room_name_edit)
+	_discoverable_toggle = CheckButton.new()
+	_discoverable_toggle.text = "list publicly"
+	_discoverable_toggle.toggled.connect(_on_discoverable_toggled)
+	UtilityPageStyle.apply_ocean_button(_discoverable_toggle)
+	row.add_child(_discoverable_toggle)
+	_host_discovery_status = Label.new()
+	_host_discovery_status.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_host_discovery_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_host_discovery_status.add_theme_font_size_override("font_size", 14)
+	_host_discovery_status.add_theme_color_override(
+		"font_color", UtilityPageStyle.OCEAN_TEXT_SECONDARY
+	)
+	row.add_child(_host_discovery_status)
 
 
 func _select_tab(index: int) -> void:
@@ -95,6 +151,7 @@ func _refresh() -> void:
 		var button := _tabs.get_child(index) as Button
 		button.button_pressed = index == _current_tab
 		button.visible = index != 2 or _service.is_local_host()
+	_refresh_host_settings()
 	for child: Node in _list.get_children():
 		child.queue_free()
 	match _current_tab:
@@ -104,6 +161,76 @@ func _refresh() -> void:
 			_build_relationship_rows()
 		2:
 			_build_ban_rows()
+
+
+func _refresh_host_settings() -> void:
+	if _host_settings_panel == null:
+		return
+	var host_visible: bool = _service.is_local_host() and _current_tab == 0
+	_host_settings_panel.visible = host_visible
+	if not host_visible or _discovery == null:
+		return
+	if not _room_name_edit.has_focus():
+		_room_name_edit.text = _discovery.get_room_name()
+	_discoverable_toggle.set_pressed_no_signal(_discovery.is_discoverable())
+	var can_publish: bool = (
+		_service.is_local_host()
+		and _discovery.is_configured()
+		and _service.is_open_host()
+	)
+	_discoverable_toggle.disabled = not can_publish
+	_discoverable_toggle.tooltip_text = (
+		"Advertise this open game in the public room browser."
+		if can_publish
+		else "Open the game before listing it publicly."
+		if _discovery.is_configured()
+		else "Room discovery is not configured in this build."
+	)
+	_on_host_status_changed(
+		_discovery.get_host_status_message(),
+		_discovery.host_status_is_error(),
+	)
+
+
+func _commit_room_name() -> void:
+	if _discovery == null:
+		return
+	if not _discovery.set_room_name(_room_name_edit.text):
+		_room_name_edit.text = _discovery.get_room_name()
+	else:
+		_room_name_edit.text = _discovery.get_room_name()
+
+
+func _on_discoverable_toggled(enabled: bool) -> void:
+	if _discovery == null:
+		return
+	if not _discovery.set_discoverable(enabled):
+		_discoverable_toggle.set_pressed_no_signal(
+			_discovery.is_discoverable()
+		)
+
+
+func _on_host_settings_changed(
+	room_name: String,
+	discoverable: bool,
+) -> void:
+	if _room_name_edit != null and not _room_name_edit.has_focus():
+		_room_name_edit.text = room_name
+	if _discoverable_toggle != null:
+		_discoverable_toggle.set_pressed_no_signal(discoverable)
+	_refresh_host_settings()
+
+
+func _on_host_status_changed(message: String, is_error: bool) -> void:
+	if _host_discovery_status == null:
+		return
+	_host_discovery_status.text = message
+	_host_discovery_status.add_theme_color_override(
+		"font_color",
+		UtilityPageStyle.OCEAN_DANGER
+		if is_error
+		else UtilityPageStyle.OCEAN_TEXT_SECONDARY,
+	)
 
 
 func _build_active_rows() -> void:

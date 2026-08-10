@@ -5,10 +5,13 @@ signal join_requested(endpoint: String)
 signal back_requested
 
 enum Mode {
+	DISCOVER,
 	DIRECT,
 	SAVED,
 	RECENT,
 }
+
+const DISCOVERY_REFRESH_SECONDS: float = 8.0
 
 const ADDRESS_FORMAT_HELP: String = (
 	"Hostname, IPv4, or [IPv6]. Port 7777 is used when omitted; "
@@ -27,10 +30,12 @@ const DIRECT_WORKFLOW_HELP: String = (
 @onready var _name_helper: Label = %NameHelper
 @onready var _server_list: ItemList = %ServerList
 @onready var _details: Label = %Details
+@onready var _discover_button: Button = %DiscoverButton
 @onready var _direct_button: Button = %DirectButton
 @onready var _saved_button: Button = %SavedButton
 @onready var _recent_button: Button = %RecentButton
 @onready var _join_button: Button = %JoinButton
+@onready var _refresh_button: Button = %RefreshButton
 @onready var _save_button: Button = %SaveButton
 @onready var _edit_button: Button = %EditButton
 @onready var _favorite_button: Button = %FavoriteButton
@@ -47,10 +52,14 @@ const DIRECT_WORKFLOW_HELP: String = (
 var _network_session: NetworkSession
 var _saved_servers: SavedServerStore
 var _server_trust: ServerTrustStore
+var _discovery: DiscoveryClient
 var _gameplay_context: bool = false
-var _mode: Mode = Mode.DIRECT
+var _mode: Mode = Mode.DISCOVER
 var _visible_entries: Array[SavedServerEntry] = []
 var _selected_entry: SavedServerEntry
+var _discovery_rooms: Array[Dictionary] = []
+var _selected_discovery_index: int = -1
+var _discovery_refresh_timer: Timer
 var _editing_entry_id: String = ""
 var _name_entry_active: bool = false
 var _delete_armed: bool = false
@@ -63,16 +72,19 @@ func _ready() -> void:
 		"panel", UtilityPageStyle.panel_style()
 	)
 	for button: BaseButton in [
-		_direct_button, _saved_button, _recent_button, _join_button,
+		_discover_button, _direct_button, _saved_button, _recent_button,
+		_refresh_button, _join_button,
 		_save_button, _edit_button, _favorite_button, _delete_button,
 		_cancel_button, _back_button, _open_close_button,
 	]:
 		UtilityPageStyle.apply_ocean_button(button)
 	UtilityPageStyle.apply_ocean_line_edit(_address)
 	UtilityPageStyle.apply_ocean_line_edit(_name_edit)
+	_discover_button.pressed.connect(_set_mode.bind(Mode.DISCOVER))
 	_direct_button.pressed.connect(_set_mode.bind(Mode.DIRECT))
 	_saved_button.pressed.connect(_set_mode.bind(Mode.SAVED))
 	_recent_button.pressed.connect(_set_mode.bind(Mode.RECENT))
+	_refresh_button.pressed.connect(_request_discovery_refresh)
 	_join_button.pressed.connect(_request_join)
 	_save_button.pressed.connect(_on_save_pressed)
 	_edit_button.pressed.connect(_on_edit_pressed)
@@ -97,6 +109,11 @@ func _ready() -> void:
 	)
 	_delete_confirmation.confirmed.connect(_confirm_delete)
 	_delete_confirmation.cancelled.connect(_cancel_delete)
+	_discovery_refresh_timer = Timer.new()
+	_discovery_refresh_timer.wait_time = DISCOVERY_REFRESH_SECONDS
+	_discovery_refresh_timer.one_shot = false
+	_discovery_refresh_timer.timeout.connect(_request_discovery_refresh)
+	add_child(_discovery_refresh_timer)
 	hide()
 
 
@@ -105,11 +122,13 @@ func setup(
 	saved_servers: SavedServerStore,
 	gameplay_context: bool,
 	server_trust: ServerTrustStore = null,
+	discovery: DiscoveryClient = null,
 ) -> void:
 	_network_session = network_session
 	_saved_servers = saved_servers
 	_gameplay_context = gameplay_context
 	_server_trust = server_trust
+	_discovery = discovery
 	if not _network_session.state_changed.is_connected(_on_state_changed):
 		_network_session.state_changed.connect(_on_state_changed)
 	if not _network_session.status_message_changed.is_connected(
@@ -131,6 +150,17 @@ func setup(
 		and not _saved_servers.data_changed.is_connected(_on_store_changed)
 	):
 		_saved_servers.data_changed.connect(_on_store_changed)
+	if _discovery != null:
+		if not _discovery.rooms_updated.is_connected(
+			_on_discovery_rooms_updated
+		):
+			_discovery.rooms_updated.connect(_on_discovery_rooms_updated)
+		if not _discovery.browse_status_changed.is_connected(
+			_on_discovery_status_changed
+		):
+			_discovery.browse_status_changed.connect(
+				_on_discovery_status_changed
+			)
 	_refresh()
 
 
@@ -149,6 +179,7 @@ func open_page(preserved_endpoint: String = "") -> void:
 
 func close_page() -> void:
 	_clear_edit_state()
+	_discovery_refresh_timer.stop()
 	hide()
 	var current_viewport: Viewport = get_viewport()
 	if current_viewport != null:
@@ -166,9 +197,15 @@ func set_status(message: String) -> void:
 func _set_mode(mode: Mode) -> void:
 	_mode = mode
 	_selected_entry = null
+	_selected_discovery_index = -1
 	_clear_edit_state()
 	_refresh_entries()
 	_refresh()
+	if mode == Mode.DISCOVER:
+		_discovery_refresh_timer.start()
+		_request_discovery_refresh()
+	else:
+		_discovery_refresh_timer.stop()
 	if not is_visible_in_tree():
 		return
 	if mode == Mode.DIRECT:
@@ -183,11 +220,15 @@ func _request_join() -> void:
 		NetworkSession.State.SERVER_LOST,
 	]:
 		_network_session.reset_failure()
-	var endpoint_text: String = (
-		_selected_entry.normalized_endpoint
-		if _mode != Mode.DIRECT and _selected_entry != null
-		else _address.text
-	)
+	var endpoint_text: String = _address.text
+	if _mode == Mode.DISCOVER:
+		var room: Dictionary = _selected_discovery_room()
+		if _discovery_room_is_full(room):
+			_set_status("That room is full.", true)
+			return
+		endpoint_text = _discovery.room_endpoint(room) if _discovery != null else ""
+	elif _mode != Mode.DIRECT and _selected_entry != null:
+		endpoint_text = _selected_entry.normalized_endpoint
 	var endpoint: ConnectionEndpoint = EndpointParser.parse(endpoint_text)
 	if not endpoint.is_valid():
 		_set_status(endpoint.error_message, true)
@@ -339,6 +380,13 @@ func _cancel_delete() -> void:
 
 
 func _on_list_item_selected(index: int) -> void:
+	if _mode == Mode.DISCOVER:
+		if index < 0 or index >= _discovery_rooms.size():
+			return
+		_selected_discovery_index = index
+		_selected_entry = null
+		_refresh()
+		return
 	if index < 0 or index >= _visible_entries.size():
 		return
 	_selected_entry = _visible_entries[index]
@@ -357,6 +405,19 @@ func _select_entry_id(entry_id: String) -> void:
 func _refresh_entries() -> void:
 	_visible_entries.clear()
 	_server_list.clear()
+	if _mode == Mode.DISCOVER:
+		for room: Dictionary in _discovery_rooms:
+			var player_count: int = int(room.get("current_players", 0))
+			var maximum: int = int(room.get("max_players", 0))
+			_server_list.add_item(
+				"%s  —  %d / %d players%s" % [
+					str(room.get("room_name", "Public room")),
+					player_count,
+					maximum,
+					"  —  full" if player_count >= maximum else "",
+				]
+			)
+		return
 	if _saved_servers == null or _mode == Mode.DIRECT:
 		return
 	_visible_entries = (
@@ -394,7 +455,16 @@ func _refresh() -> void:
 		NetworkSession.State.AUTHENTICATING,
 	]
 	var direct: bool = _mode == Mode.DIRECT
-	var selected: bool = _selected_entry != null
+	var discovery_mode: bool = _mode == Mode.DISCOVER
+	var selected: bool = (
+		_selected_discovery_index >= 0
+		if discovery_mode
+		else _selected_entry != null
+	)
+	_discover_button.button_pressed = discovery_mode
+	_direct_button.button_pressed = direct
+	_saved_button.button_pressed = _mode == Mode.SAVED
+	_recent_button.button_pressed = _mode == Mode.RECENT
 	_address.visible = direct or _name_entry_active
 	_address_label.visible = _address.visible
 	_address_helper.visible = _address.visible
@@ -407,9 +477,20 @@ func _refresh() -> void:
 	_name_helper.visible = _name_entry_active
 	_server_list.visible = not direct and not _name_entry_active
 	_details.visible = not direct and not _name_entry_active
-	_join_button.disabled = connecting or (not direct and not selected)
+	_join_button.disabled = (
+		connecting
+		or (not direct and not selected)
+		or (
+			discovery_mode
+			and selected
+			and _discovery_room_is_full(_selected_discovery_room())
+		)
+	)
 	_join_button.text = "join\nnow" if direct else "join"
-	_save_button.visible = direct or _mode == Mode.RECENT or _name_entry_active
+	_refresh_button.visible = discovery_mode and not _name_entry_active
+	_save_button.visible = (
+		direct or _mode == Mode.RECENT or _name_entry_active
+	)
 	_save_button.disabled = connecting or (
 		_mode == Mode.RECENT and not selected and not _name_entry_active
 	)
@@ -418,10 +499,14 @@ func _refresh() -> void:
 	_favorite_button.visible = _mode == Mode.SAVED and selected
 	_favorite_button.text = (
 		"unfavorite"
-		if selected and _selected_entry.favorite
+		if _mode == Mode.SAVED
+		and _selected_entry != null
+		and _selected_entry.favorite
 		else "favorite"
 	)
-	_delete_button.visible = not direct and selected
+	_delete_button.visible = (
+		_mode in [Mode.SAVED, Mode.RECENT] and selected
+	)
 	_delete_button.text = "remove" if _mode == Mode.RECENT else "delete"
 	_cancel_button.visible = connecting
 	_open_close_button.visible = (
@@ -453,10 +538,20 @@ func _refresh() -> void:
 		)
 	if not direct:
 		if selected:
-			_details.text = _format_entry_details(_selected_entry)
-		elif _visible_entries.is_empty():
 			_details.text = (
-				"No saved servers yet."
+				_format_discovery_details(_selected_discovery_room())
+				if discovery_mode
+				else _format_entry_details(_selected_entry)
+			)
+		elif (
+			_discovery_rooms.is_empty()
+			if discovery_mode
+			else _visible_entries.is_empty()
+		):
+			_details.text = (
+				"No public rooms are available."
+				if discovery_mode
+				else "No saved servers yet."
 				if _mode == Mode.SAVED
 				else "No recent connections yet."
 			)
@@ -464,7 +559,7 @@ func _refresh() -> void:
 			_details.text = "Select a server."
 	var warning: String = (
 		_saved_servers.get_recovery_warning()
-		if _saved_servers != null
+		if _saved_servers != null and not discovery_mode
 		else ""
 	)
 	if not warning.is_empty() and _status.text.is_empty():
@@ -515,6 +610,69 @@ func _format_entry_details(entry: SavedServerEntry) -> String:
 			"Last result: %s" % _format_result_code(entry.last_result_code)
 		)
 	return "\n".join(parts)
+
+
+func _format_discovery_details(room: Dictionary) -> String:
+	if room.is_empty():
+		return "Select a public room."
+	return "\n".join([
+		"Room: %s" % str(room.get("room_name", "Public room")),
+		"Players: %d / %d" % [
+			int(room.get("current_players", 0)),
+			int(room.get("max_players", 0)),
+		],
+		"Connection: %s" % (
+			_discovery.room_endpoint(room) if _discovery != null else "—"
+		),
+		"Direct UDP connection • ping is measured after joining",
+	])
+
+
+func _selected_discovery_room() -> Dictionary:
+	if (
+		_selected_discovery_index < 0
+		or _selected_discovery_index >= _discovery_rooms.size()
+	):
+		return {}
+	return _discovery_rooms[_selected_discovery_index]
+
+
+func _discovery_room_is_full(room: Dictionary) -> bool:
+	if room.is_empty():
+		return false
+	return int(room.get("current_players", 0)) >= int(room.get("max_players", 0))
+
+
+func _request_discovery_refresh() -> void:
+	if (
+		_discovery == null
+		or _mode != Mode.DISCOVER
+		or not is_visible_in_tree()
+	):
+		return
+	_discovery.request_rooms()
+
+
+func _on_discovery_rooms_updated(rooms: Array[Dictionary]) -> void:
+	var selected_id: String = str(
+		_selected_discovery_room().get("room_id", "")
+	)
+	_discovery_rooms = rooms.duplicate(true)
+	_selected_discovery_index = -1
+	if _mode == Mode.DISCOVER:
+		_refresh_entries()
+		if not selected_id.is_empty():
+			for index: int in _discovery_rooms.size():
+				if str(_discovery_rooms[index].get("room_id", "")) == selected_id:
+					_selected_discovery_index = index
+					_server_list.select(index)
+					break
+		_refresh()
+
+
+func _on_discovery_status_changed(message: String, is_error: bool) -> void:
+	if _mode == Mode.DISCOVER and is_visible_in_tree():
+		_set_status(message, is_error)
 
 
 func _format_result_code(result_code: String) -> String:

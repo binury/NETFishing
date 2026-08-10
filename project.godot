@@ -241,6 +241,10 @@ alternate_fishing={
 ]
 }
 
+[network]
+
+discovery/base_url="https://discovery.netfishing.org"
+
 [physics]
 
 3d/physics_engine="Jolt Physics"

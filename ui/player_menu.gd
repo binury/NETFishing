@@ -526,6 +526,7 @@ func setup(
 	reservations: PlayerAssetReservationService,
 	network_profile_service: NetworkProfileService,
 	network_player_list: NetworkPlayerListService,
+	discovery: DiscoveryClient,
 	player_jobs: PlayerJobService,
 	world_time: WorldTimeService,
 	world_environment: WorldEnvironment,
@@ -558,7 +559,7 @@ func setup(
 		world_environment,
 		world_sun,
 	)
-	_players_page.setup(network_player_list)
+	_players_page.setup(network_player_list, discovery)
 	_catalog_logbook.setup(collection_log, inventory, catalog)
 	_the_net_page.setup(player_jobs, world_time)
 	_network_mail_service.unread_count_changed.connect(
