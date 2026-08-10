@@ -161,6 +161,18 @@ func setup(
 			_discovery.browse_status_changed.connect(
 				_on_discovery_status_changed
 			)
+		if not _discovery.public_join_prepared.is_connected(
+			_on_public_join_prepared
+		):
+			_discovery.public_join_prepared.connect(
+				_on_public_join_prepared
+			)
+		if not _discovery.public_join_status_changed.is_connected(
+			_on_public_join_status_changed
+		):
+			_discovery.public_join_status_changed.connect(
+				_on_public_join_status_changed
+			)
 	_refresh()
 
 
@@ -226,7 +238,9 @@ func _request_join() -> void:
 		if _discovery_room_is_full(room):
 			_set_status("That room is full.", true)
 			return
-		endpoint_text = _discovery.room_endpoint(room) if _discovery != null else ""
+		if _discovery == null or not _discovery.prepare_public_join(room):
+			_set_status("Could not prepare the public connection.", true)
+		return
 	elif _mode != Mode.DIRECT and _selected_entry != null:
 		endpoint_text = _selected_entry.normalized_endpoint
 	var endpoint: ConnectionEndpoint = EndpointParser.parse(endpoint_text)
@@ -236,6 +250,24 @@ func _request_join() -> void:
 	_set_status("Connecting…")
 	_address.text = endpoint.normalized_display
 	join_requested.emit(endpoint.normalized_display)
+
+
+func _on_public_join_prepared(endpoint_text: String) -> void:
+	if _mode != Mode.DISCOVER or not is_visible_in_tree():
+		return
+	var endpoint: ConnectionEndpoint = EndpointParser.parse(endpoint_text)
+	if not endpoint.is_valid():
+		_set_status("Discovery returned an invalid room address.", true)
+		return
+	_address.text = endpoint.normalized_display
+	_set_status("Connecting…")
+	join_requested.emit(endpoint.normalized_display)
+
+
+func _on_public_join_status_changed(message: String, is_error: bool) -> void:
+	if _mode == Mode.DISCOVER and is_visible_in_tree():
+		_set_status(message, is_error)
+		_refresh()
 
 
 func _on_save_pressed() -> void:
@@ -453,7 +485,7 @@ func _refresh() -> void:
 	var connecting: bool = _network_session.state in [
 		NetworkSession.State.CONNECTING,
 		NetworkSession.State.AUTHENTICATING,
-	]
+	] or (_discovery != null and _discovery.is_public_join_preparing())
 	var direct: bool = _mode == Mode.DIRECT
 	var discovery_mode: bool = _mode == Mode.DISCOVER
 	var selected: bool = (

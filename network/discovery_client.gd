@@ -5,6 +5,8 @@ signal rooms_updated(rooms: Array[Dictionary])
 signal browse_status_changed(message: String, is_error: bool)
 signal host_settings_changed(room_name: String, discoverable: bool)
 signal host_status_changed(message: String, is_error: bool)
+signal public_join_prepared(endpoint: String)
+signal public_join_status_changed(message: String, is_error: bool)
 
 const BASE_URL_SETTING: String = "network/discovery/base_url"
 const BASE_URL_ENVIRONMENT: String = "NETFISHING_DISCOVERY_URL"
@@ -13,6 +15,10 @@ const DEFAULT_ROOM_NAME: String = "NETfishing Room"
 const MAX_ROOM_NAME_LENGTH: int = 48
 const HEARTBEAT_INTERVAL_SECONDS: float = 15.0
 const REQUEST_TIMEOUT_SECONDS: float = 8.0
+const TRAVERSAL_POLL_INTERVAL_SECONDS: float = 1.0
+const JOIN_PROBE_INTERVAL_SECONDS: float = 0.35
+const TRAVERSAL_PACKET_PREFIX: String = "NETFISHING_TRAVERSAL_V1 "
+const UPNP_MAPPING_DURATION_SECONDS: int = 3600
 
 enum HostRequestKind {
 	NONE,
@@ -36,6 +42,22 @@ var _browse_request_in_flight: bool = false
 var _host_request: HTTPRequest
 var _browse_request: HTTPRequest
 var _heartbeat: Timer
+var _traversal_request: HTTPRequest
+var _join_request: HTTPRequest
+var _traversal_timer: Timer
+var _join_probe_timer: Timer
+var _host_verified: bool = false
+var _traversal_host: String = ""
+var _traversal_port: int = 0
+var _host_verification_token: String = ""
+var _join_request_in_flight: bool = false
+var _pending_join_endpoint: String = ""
+var _pending_join_token: String = ""
+var _pending_join_room_id: String = ""
+var _upnp_thread: Thread
+var _upnp_mapping_in_progress: bool = false
+var _upnp: UPNP
+var _upnp_mapped_port: int = 0
 
 
 func _ready() -> void:
@@ -51,12 +73,39 @@ func _ready() -> void:
 	add_child(_browse_request)
 	_browse_request.request_completed.connect(_on_browse_request_completed)
 
+	_traversal_request = HTTPRequest.new()
+	_traversal_request.name = "HostTraversalRequest"
+	_traversal_request.timeout = REQUEST_TIMEOUT_SECONDS
+	add_child(_traversal_request)
+	_traversal_request.request_completed.connect(
+		_on_traversal_request_completed
+	)
+
+	_join_request = HTTPRequest.new()
+	_join_request.name = "PublicJoinPreparationRequest"
+	_join_request.timeout = REQUEST_TIMEOUT_SECONDS
+	add_child(_join_request)
+	_join_request.request_completed.connect(_on_join_request_completed)
+
 	_heartbeat = Timer.new()
 	_heartbeat.name = "HostLeaseHeartbeat"
 	_heartbeat.wait_time = HEARTBEAT_INTERVAL_SECONDS
 	_heartbeat.one_shot = false
 	add_child(_heartbeat)
 	_heartbeat.timeout.connect(_synchronize_host_lease)
+	_traversal_timer = Timer.new()
+	_traversal_timer.name = "HostTraversalPoll"
+	_traversal_timer.wait_time = TRAVERSAL_POLL_INTERVAL_SECONDS
+	_traversal_timer.one_shot = false
+	add_child(_traversal_timer)
+	_traversal_timer.timeout.connect(_on_traversal_timer_timeout)
+
+	_join_probe_timer = Timer.new()
+	_join_probe_timer.name = "PublicJoinTraversalProbe"
+	_join_probe_timer.wait_time = JOIN_PROBE_INTERVAL_SECONDS
+	_join_probe_timer.one_shot = false
+	add_child(_join_probe_timer)
+	_join_probe_timer.timeout.connect(_send_pending_join_probe)
 	_load_settings()
 	_base_url = _configured_base_url()
 
@@ -152,12 +201,49 @@ func set_discoverable(enabled: bool) -> bool:
 	host_settings_changed.emit(_room_name, _discoverable)
 	if enabled:
 		_heartbeat.start()
-		_set_host_status("Publishing room…", false)
-		_synchronize_host_lease()
+		_set_host_status("Opening public room…", false)
+		if _session.is_dedicated_host():
+			_synchronize_host_lease()
+		else:
+			_begin_upnp_mapping(_session.get_host_port())
 	else:
 		_heartbeat.stop()
+		_traversal_timer.stop()
 		_remove_host_lease()
+		_begin_upnp_cleanup()
 		_set_host_status("Room is open but unlisted.", false)
+	return true
+
+
+func is_public_join_preparing() -> bool:
+	return _join_request_in_flight
+
+
+func prepare_public_join(room: Dictionary) -> bool:
+	if _join_request_in_flight or _session == null or not is_configured():
+		return false
+	var endpoint: String = room_endpoint(room)
+	var room_id: String = str(room.get("room_id", "")).strip_edges()
+	if endpoint.is_empty() or room_id.is_empty():
+		return false
+	_pending_join_endpoint = endpoint
+	_pending_join_room_id = room_id
+	_pending_join_token = ""
+	var url: String = "%s/v1/rooms/%s/join-attempts" % [
+		_base_url,
+		room_id.uri_encode(),
+	]
+	var error: Error = _join_request.request(
+		url,
+		PackedStringArray(),
+		HTTPClient.METHOD_POST,
+		"",
+	)
+	if error != OK:
+		_clear_pending_join()
+		return false
+	_join_request_in_flight = true
+	public_join_status_changed.emit("Opening a route to the room…", false)
 	return true
 
 
@@ -281,6 +367,7 @@ func _should_advertise() -> bool:
 		and is_configured()
 		and _session != null
 		and _session.is_open_host()
+		and not _upnp_mapping_in_progress
 	)
 
 
@@ -305,12 +392,23 @@ func _on_host_request_completed(
 					_clear_lease()
 					_set_host_status("Discovery returned an invalid lease.", true)
 				else:
-					_set_host_status("Room is listed publicly.", false)
+					_apply_traversal_response(response)
+					_host_verified = bool(room.get("verified", false))
+					_traversal_timer.start()
+					_send_host_verification_probe()
+					_set_host_status("Checking the public route…", false)
 			else:
 				_set_host_status(_request_failure(response), true)
 		HostRequestKind.UPDATE:
 			if transport_ok and response_code == HTTPClient.RESPONSE_OK:
-				_set_host_status("Room is listed publicly.", false)
+				var room: Dictionary = response.get("room", {})
+				_host_verified = bool(room.get("verified", false))
+				_set_host_status(
+					"Room is listed publicly."
+					if _host_verified
+					else "Checking the public route…",
+					false,
+				)
 			elif response_code in [
 				HTTPClient.RESPONSE_UNAUTHORIZED,
 				HTTPClient.RESPONSE_NOT_FOUND,
@@ -333,6 +431,200 @@ func _on_host_request_completed(
 	if _host_sync_queued:
 		_host_sync_queued = false
 		call_deferred("_synchronize_host_lease")
+
+
+func _on_join_request_completed(
+	result: int,
+	response_code: int,
+	_headers: PackedStringArray,
+	body: PackedByteArray,
+) -> void:
+	_join_request_in_flight = false
+	var response: Dictionary = _parse_response_dictionary(body)
+	if (
+		result != HTTPRequest.RESULT_SUCCESS
+		or response_code != HTTPClient.RESPONSE_CREATED
+	):
+		public_join_status_changed.emit(_request_failure(response), true)
+		_clear_pending_join()
+		return
+	_pending_join_token = str(response.get("join_token", ""))
+	_apply_traversal_response(response)
+	if (
+		_pending_join_token.is_empty()
+		or _traversal_host.is_empty()
+		or _traversal_port < 1
+	):
+		public_join_status_changed.emit(
+			"Discovery returned an invalid traversal route.", true
+		)
+		_clear_pending_join()
+		return
+	public_join_status_changed.emit("Connecting…", false)
+	public_join_prepared.emit(_pending_join_endpoint)
+
+
+func _on_traversal_timer_timeout() -> void:
+	if not _should_advertise() or _lease_room_id.is_empty():
+		_traversal_timer.stop()
+		return
+	if not _host_verified:
+		_send_host_verification_probe()
+		_synchronize_host_lease()
+		return
+	if _traversal_request.get_http_client_status() != HTTPClient.STATUS_DISCONNECTED:
+		return
+	var url: String = "%s/v1/rooms/%s/join-attempts" % [
+		_base_url,
+		_lease_room_id.uri_encode(),
+	]
+	var headers := PackedStringArray([
+		"Authorization: Bearer %s" % _lease_token,
+	])
+	var error: Error = _traversal_request.request(url, headers)
+	if error != OK:
+		_set_host_status("Could not check incoming public connections.", true)
+
+
+func _on_traversal_request_completed(
+	result: int,
+	response_code: int,
+	_headers: PackedStringArray,
+	body: PackedByteArray,
+) -> void:
+	if result != HTTPRequest.RESULT_SUCCESS or response_code != HTTPClient.RESPONSE_OK:
+		return
+	var response: Dictionary = _parse_response_dictionary(body)
+	var endpoints: Variant = response.get("endpoints", [])
+	if typeof(endpoints) != TYPE_ARRAY:
+		return
+	for value: Variant in endpoints:
+		if typeof(value) != TYPE_DICTIONARY:
+			continue
+		var endpoint: Dictionary = value
+		var address: String = str(endpoint.get("address", ""))
+		var port: int = int(endpoint.get("port", 0))
+		if address.is_empty() or port < 1 or port > 65535:
+			continue
+		var punch: PackedByteArray = "NETFISHING_PUNCH_V1".to_utf8_buffer()
+		for _attempt: int in 3:
+			_session.send_traversal_packet(address, port, punch)
+
+
+func _apply_traversal_response(response: Dictionary) -> void:
+	var traversal: Variant = response.get("traversal", {})
+	if typeof(traversal) != TYPE_DICTIONARY:
+		return
+	var details: Dictionary = traversal
+	_traversal_host = str(details.get("host", "")).strip_edges()
+	_traversal_port = int(details.get("port", 0))
+	_host_verification_token = str(
+		details.get("verification_token", "")
+	)
+
+
+func _send_host_verification_probe() -> void:
+	if (
+		_session == null
+		or _lease_room_id.is_empty()
+		or _host_verification_token.is_empty()
+	):
+		return
+	_send_traversal_probe({
+		"kind": "host",
+		"room_id": _lease_room_id,
+		"token": _host_verification_token,
+	})
+
+
+func _send_pending_join_probe() -> void:
+	if (
+		_session == null
+		or _pending_join_token.is_empty()
+		or _session.state not in [
+			NetworkSession.State.CONNECTING,
+			NetworkSession.State.AUTHENTICATING,
+		]
+	):
+		_join_probe_timer.stop()
+		return
+	_send_traversal_probe({
+		"kind": "join",
+		"room_id": _pending_join_room_id,
+		"token": _pending_join_token,
+	})
+
+
+func _send_traversal_probe(payload: Dictionary) -> void:
+	if _traversal_host.is_empty() or _traversal_port < 1:
+		return
+	var packet: PackedByteArray = (
+		TRAVERSAL_PACKET_PREFIX + JSON.stringify(payload)
+	).to_utf8_buffer()
+	_session.send_traversal_packet(_traversal_host, _traversal_port, packet)
+
+
+func _begin_upnp_mapping(port: int) -> void:
+	if _upnp_mapping_in_progress or port < 1:
+		_synchronize_host_lease()
+		return
+	_upnp_mapping_in_progress = true
+	_upnp_thread = Thread.new()
+	var error: Error = _upnp_thread.start(
+		_configure_upnp_mapping.bind(port)
+	)
+	if error != OK:
+		_upnp_thread = null
+		_upnp_mapping_in_progress = false
+		_synchronize_host_lease()
+
+
+func _configure_upnp_mapping(port: int) -> Dictionary:
+	var upnp := UPNP.new()
+	var discovery_result: int = upnp.discover()
+	if discovery_result != UPNP.UPNP_RESULT_SUCCESS:
+		return {"success": false, "upnp": upnp, "port": port}
+	var mapping_result: int = upnp.add_port_mapping(
+		port,
+		port,
+		"NETfishing",
+		"UDP",
+		UPNP_MAPPING_DURATION_SECONDS,
+	)
+	if mapping_result == UPNP.UPNP_RESULT_ONLY_PERMANENT_LEASE_SUPPORTED:
+		mapping_result = upnp.add_port_mapping(
+			port, port, "NETfishing", "UDP", 0
+		)
+	return {
+		"success": mapping_result == UPNP.UPNP_RESULT_SUCCESS,
+		"upnp": upnp,
+		"port": port,
+	}
+
+
+func _process(_delta: float) -> void:
+	if _upnp_thread == null or _upnp_thread.is_alive():
+		return
+	var result: Variant = _upnp_thread.wait_to_finish()
+	_upnp_thread = null
+	_upnp_mapping_in_progress = false
+	if typeof(result) == TYPE_DICTIONARY:
+		var details: Dictionary = result
+		if bool(details.get("success", false)):
+			_upnp = details.get("upnp") as UPNP
+			_upnp_mapped_port = int(details.get("port", 0))
+	if not _discoverable:
+		_begin_upnp_cleanup()
+		return
+	_synchronize_host_lease()
+
+
+func _begin_upnp_cleanup() -> void:
+	if _upnp == null or _upnp_mapped_port < 1:
+		return
+	_upnp.delete_port_mapping(_upnp_mapped_port, "UDP")
+	_upnp = null
+	_upnp_mapped_port = 0
 
 
 func _on_browse_request_completed(
@@ -421,6 +713,17 @@ func _request_failure(response: Dictionary) -> String:
 
 
 func _on_session_state_changed(state: NetworkSession.State) -> void:
+	if state == NetworkSession.State.CONNECTING and not _pending_join_token.is_empty():
+		_join_probe_timer.start()
+		call_deferred("_send_pending_join_probe")
+	elif state in [
+		NetworkSession.State.JOINED_CLIENT,
+		NetworkSession.State.CONNECTION_FAILED,
+		NetworkSession.State.SERVER_LOST,
+		NetworkSession.State.INACTIVE,
+	]:
+		_join_probe_timer.stop()
+		_clear_pending_join()
 	if state == NetworkSession.State.OPEN_HOST:
 		if _discoverable:
 			_heartbeat.start()
@@ -457,6 +760,28 @@ func _on_peer_count_changed(_player_count: int, _max_players: int) -> void:
 func _clear_lease() -> void:
 	_lease_room_id = ""
 	_lease_token = ""
+	_host_verified = false
+	_host_verification_token = ""
+	_traversal_timer.stop()
+
+
+func _clear_pending_join() -> void:
+	_pending_join_endpoint = ""
+	_pending_join_token = ""
+	_pending_join_room_id = ""
+	_join_probe_timer.stop()
+
+
+func _exit_tree() -> void:
+	if _upnp_thread != null:
+		var result: Variant = _upnp_thread.wait_to_finish()
+		_upnp_thread = null
+		if typeof(result) == TYPE_DICTIONARY:
+			var details: Dictionary = result
+			if bool(details.get("success", false)):
+				_upnp = details.get("upnp") as UPNP
+				_upnp_mapped_port = int(details.get("port", 0))
+	_begin_upnp_cleanup()
 
 
 func _set_host_status(message: String, is_error: bool) -> void:

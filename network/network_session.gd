@@ -276,6 +276,27 @@ func get_host_port() -> int:
 	return _host_port if is_host() else 0
 
 
+func send_traversal_packet(
+	destination_address: String,
+	destination_port: int,
+	packet: PackedByteArray,
+) -> bool:
+	return (
+		_transport != null
+		and state in [
+			State.PRIVATE_HOST,
+			State.OPEN_HOST,
+			State.CONNECTING,
+			State.AUTHENTICATING,
+		]
+		and _transport.send_raw_packet(
+			destination_address,
+			destination_port,
+			packet,
+		)
+	)
+
+
 func is_dedicated_host() -> bool:
 	return is_host() and _dedicated_host
 

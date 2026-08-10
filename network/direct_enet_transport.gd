@@ -40,3 +40,22 @@ func connect_to_route(route: ConnectionRoute) -> Error:
 	_peer = enet_peer
 	_route_description = endpoint.normalized_display
 	return OK
+
+
+func send_raw_packet(
+	destination_address: String,
+	destination_port: int,
+	packet: PackedByteArray,
+) -> bool:
+	var enet_peer := _peer as ENetMultiplayerPeer
+	if (
+		enet_peer == null
+		or enet_peer.host == null
+		or destination_address.is_empty()
+		or destination_port < 1
+		or destination_port > 65535
+		or packet.is_empty()
+	):
+		return false
+	enet_peer.host.socket_send(destination_address, destination_port, packet)
+	return true
