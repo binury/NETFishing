@@ -84,6 +84,9 @@ enum PocketVisualTarget {
 	CATCH_SHOWCASE,
 }
 const FIGHTING_EYES_ID: String = "alligator_eyes"
+const BLINK_EYES_ID: String = "closed"
+const BLINK_INTERVAL_SECONDS := Vector2(2.8, 7.5)
+const BLINK_DURATION_SECONDS: float = 0.11
 const CHARACTER_CALL_MOUTH_ID: String = "open_ah"
 const CHARACTER_CALL_MOUTH_DURATION_SECONDS: float = 0.16
 const BASE_REEL_SPEED: float = 0.16
@@ -155,6 +158,9 @@ func set_fighting_visual(active: bool) -> void:
 	if _fighting_visual_active == active:
 		return
 	_fighting_visual_active = active
+	if active:
+		_blink_visual_active = false
+		_schedule_next_blink()
 	_apply_presented_appearance()
 	_character_animation_name = &""
 	_update_character_animation()
@@ -236,6 +242,9 @@ func _apply_presented_appearance() -> void:
 	if not is_node_ready() or _visuals == null:
 		return
 	var presented_appearance := appearance_snapshot
+	if _blink_visual_active and not _fighting_visual_active:
+		presented_appearance = appearance_snapshot.duplicate(true)
+		presented_appearance["eyes"] = BLINK_EYES_ID
 	if _fighting_visual_active:
 		presented_appearance = appearance_snapshot.duplicate(true)
 		presented_appearance["eyes"] = FIGHTING_EYES_ID
@@ -402,6 +411,9 @@ var _pocket_visual_midpoint_callback: Callable
 var _pocket_visual_midpoint_called: bool = false
 var _pocket_visual_generation: int = 0
 var _fighting_visual_active: bool = false
+var _blink_visual_active: bool = false
+var _blink_seconds_remaining: float = 0.0
+var _blink_rng := RandomNumberGenerator.new()
 var _character_call_mouth_active: bool = false
 var _character_call_visual_generation: int = 0
 var _fishing_visual_active: bool = false
@@ -417,6 +429,8 @@ var _controller_mapping_manager: ControllerMappingManagerType
 
 
 func _ready() -> void:
+	_blink_rng.randomize()
+	_schedule_next_blink()
 	if (
 		_character_animation_player != null
 		and not _character_animation_player.animation_finished.is_connected(
@@ -592,6 +606,7 @@ func _physics_process(delta: float) -> void:
 
 
 func _process(delta: float) -> void:
+	_update_blink(delta)
 	_update_character_animation()
 	_update_sprint_dust()
 	# The hand bone supplies the attachment position, but its animated wrist
@@ -656,6 +671,27 @@ func _process(delta: float) -> void:
 			_target_zoom,
 			zoom_weight
 		)
+
+
+func _update_blink(delta: float) -> void:
+	if _fighting_visual_active:
+		return
+	_blink_seconds_remaining -= delta
+	if _blink_seconds_remaining > 0.0:
+		return
+	_blink_visual_active = not _blink_visual_active
+	if _blink_visual_active:
+		_blink_seconds_remaining = BLINK_DURATION_SECONDS
+	else:
+		_schedule_next_blink()
+	_apply_presented_appearance()
+
+
+func _schedule_next_blink() -> void:
+	_blink_seconds_remaining = _blink_rng.randf_range(
+		BLINK_INTERVAL_SECONDS.x,
+		BLINK_INTERVAL_SECONDS.y,
+	)
 
 
 func _update_sprint_dust() -> void:
