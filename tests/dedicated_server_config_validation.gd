@@ -46,6 +46,22 @@ func _run() -> void:
 	assert(not invalid.is_valid())
 
 	var discovery := DiscoveryClient.new()
+	assert(
+		DiscoveryClient.UPNP_RENEW_INTERVAL_SECONDS
+		< float(DiscoveryClient.UPNP_MAPPING_DURATION_SECONDS)
+	)
+	assert(
+		DiscoveryClient.UPNP_RETRY_INTERVAL_SECONDS
+		< DiscoveryClient.UPNP_RENEW_INTERVAL_SECONDS
+	)
+	assert(
+		discovery.get_host_state()
+		== DiscoveryClient.HostState.CLOSED
+	)
+	assert(
+		discovery.get_public_join_state()
+		== DiscoveryClient.PublicJoinState.IDLE
+	)
 	assert(bool(discovery.call("_valid_public_room", {
 		"room_id": "empty-dedicated-room",
 		"room_name": "Empty Dedicated Room",

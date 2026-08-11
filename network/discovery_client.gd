@@ -5,8 +5,10 @@ signal rooms_updated(rooms: Array[Dictionary])
 signal browse_status_changed(message: String, is_error: bool)
 signal host_settings_changed(room_name: String, discoverable: bool)
 signal host_status_changed(message: String, is_error: bool)
+signal host_state_changed(state: int)
 signal public_join_prepared(endpoint: String)
 signal public_join_status_changed(message: String, is_error: bool)
+signal public_join_state_changed(state: int)
 
 const BASE_URL_SETTING: String = "network/discovery/base_url"
 const BASE_URL_ENVIRONMENT: String = "NETFISHING_DISCOVERY_URL"
@@ -19,6 +21,26 @@ const TRAVERSAL_POLL_INTERVAL_SECONDS: float = 1.0
 const JOIN_PROBE_INTERVAL_SECONDS: float = 0.35
 const TRAVERSAL_PACKET_PREFIX: String = "NETFISHING_TRAVERSAL_V1 "
 const UPNP_MAPPING_DURATION_SECONDS: int = 3600
+const UPNP_RENEW_INTERVAL_SECONDS: float = 2700.0
+const UPNP_RETRY_INTERVAL_SECONDS: float = 300.0
+
+enum HostState {
+	UNAVAILABLE,
+	CLOSED,
+	PRIVATE,
+	OPENING_PORT,
+	REGISTERING,
+	VERIFYING,
+	PUBLIC,
+	ERROR,
+}
+
+enum PublicJoinState {
+	IDLE,
+	REQUESTING_ROUTE,
+	CONNECTING,
+	ERROR,
+}
 
 enum HostRequestKind {
 	NONE,
@@ -33,6 +55,8 @@ var _room_name: String = DEFAULT_ROOM_NAME
 var _discoverable: bool = false
 var _host_status_message: String = ""
 var _host_status_is_error: bool = false
+var _host_state: HostState = HostState.CLOSED
+var _public_join_state: PublicJoinState = PublicJoinState.IDLE
 var _lease_room_id: String = ""
 var _lease_token: String = ""
 var _host_request_kind: HostRequestKind = HostRequestKind.NONE
@@ -56,6 +80,8 @@ var _pending_join_token: String = ""
 var _pending_join_room_id: String = ""
 var _upnp_thread: Thread
 var _upnp_mapping_in_progress: bool = false
+var _upnp_operation_is_renewal: bool = false
+var _upnp_renew_timer: Timer
 var _upnp: UPNP
 var _upnp_mapped_port: int = 0
 
@@ -92,7 +118,14 @@ func _ready() -> void:
 	_heartbeat.wait_time = HEARTBEAT_INTERVAL_SECONDS
 	_heartbeat.one_shot = false
 	add_child(_heartbeat)
-	_heartbeat.timeout.connect(_synchronize_host_lease)
+	_heartbeat.timeout.connect(_on_heartbeat_timeout)
+
+	_upnp_renew_timer = Timer.new()
+	_upnp_renew_timer.name = "HostUPnPRenewal"
+	_upnp_renew_timer.one_shot = true
+	add_child(_upnp_renew_timer)
+	_upnp_renew_timer.timeout.connect(_on_upnp_renew_timer_timeout)
+
 	_traversal_timer = Timer.new()
 	_traversal_timer.name = "HostTraversalPoll"
 	_traversal_timer.wait_time = TRAVERSAL_POLL_INTERVAL_SECONDS
@@ -121,10 +154,13 @@ func setup(session: NetworkSession) -> void:
 		_session.host_openness_changed.connect(_on_host_openness_changed)
 	host_settings_changed.emit(_room_name, _discoverable)
 	if not is_configured():
+		_set_host_state(HostState.UNAVAILABLE)
 		_set_host_status("Room discovery is not configured in this build.", true)
 	elif _session.is_open_host():
+		_set_host_state(HostState.PRIVATE)
 		_set_host_status("Room is open but unlisted.", false)
 	else:
+		_set_host_state(HostState.CLOSED)
 		_set_host_status("Open the game before listing it publicly.", false)
 
 
@@ -165,9 +201,18 @@ func host_status_is_error() -> bool:
 	return _host_status_is_error
 
 
+func get_host_state() -> HostState:
+	return _host_state
+
+
+func get_public_join_state() -> PublicJoinState:
+	return _public_join_state
+
+
 func set_room_name(value: String) -> bool:
 	var cleaned: String = _sanitize_room_name(value)
 	if cleaned.is_empty():
+		_set_host_state(HostState.ERROR)
 		_set_host_status("Room name cannot be empty.", true)
 		return false
 	if cleaned == _room_name:
@@ -188,6 +233,7 @@ func set_discoverable(enabled: bool) -> bool:
 		or not _session.is_open_host()
 		or not is_configured()
 	):
+		_set_host_state(HostState.ERROR)
 		_set_host_status(
 			"Open the game before enabling discovery."
 			if is_configured()
@@ -201,6 +247,11 @@ func set_discoverable(enabled: bool) -> bool:
 	host_settings_changed.emit(_room_name, _discoverable)
 	if enabled:
 		_heartbeat.start()
+		_set_host_state(
+			HostState.REGISTERING
+			if _session.is_dedicated_host()
+			else HostState.OPENING_PORT
+		)
 		_set_host_status("Opening public room…", false)
 		if _session.is_dedicated_host():
 			_synchronize_host_lease()
@@ -208,9 +259,11 @@ func set_discoverable(enabled: bool) -> bool:
 			_begin_upnp_mapping(_session.get_host_port())
 	else:
 		_heartbeat.stop()
+		_upnp_renew_timer.stop()
 		_traversal_timer.stop()
 		_remove_host_lease()
 		_begin_upnp_cleanup()
+		_set_host_state(HostState.PRIVATE)
 		_set_host_status("Room is open but unlisted.", false)
 	return true
 
@@ -220,11 +273,15 @@ func is_public_join_preparing() -> bool:
 
 
 func prepare_public_join(room: Dictionary) -> bool:
-	if _join_request_in_flight or _session == null or not is_configured():
+	if _join_request_in_flight:
+		return false
+	if _session == null or not is_configured():
+		_set_public_join_state(PublicJoinState.ERROR)
 		return false
 	var endpoint: String = room_endpoint(room)
 	var room_id: String = str(room.get("room_id", "")).strip_edges()
 	if endpoint.is_empty() or room_id.is_empty():
+		_set_public_join_state(PublicJoinState.ERROR)
 		return false
 	_pending_join_endpoint = endpoint
 	_pending_join_room_id = room_id
@@ -240,9 +297,11 @@ func prepare_public_join(room: Dictionary) -> bool:
 		"",
 	)
 	if error != OK:
+		_set_public_join_state(PublicJoinState.ERROR)
 		_clear_pending_join()
 		return false
 	_join_request_in_flight = true
+	_set_public_join_state(PublicJoinState.REQUESTING_ROUTE)
 	public_join_status_changed.emit("Opening a route to the room…", false)
 	return true
 
@@ -298,6 +357,13 @@ func _configured_base_url() -> String:
 	return value
 
 
+func _on_heartbeat_timeout() -> void:
+	_synchronize_host_lease()
+	# NAT bindings can change during a long host session. Re-sending the signed
+	# probe lets discovery refresh the authoritative public endpoint in place.
+	_send_host_verification_probe()
+
+
 func _synchronize_host_lease() -> void:
 	if not _should_advertise():
 		if not _lease_room_id.is_empty():
@@ -315,6 +381,8 @@ func _synchronize_host_lease() -> void:
 		url = "%s/v1/rooms/%s" % [_base_url, _lease_room_id.uri_encode()]
 		headers.append("Authorization: Bearer %s" % _lease_token)
 		_host_request_kind = HostRequestKind.UPDATE
+	elif _host_state != HostState.REGISTERING:
+		_set_host_state(HostState.REGISTERING)
 	_start_host_request(url, headers, method, JSON.stringify(_host_payload()))
 
 
@@ -343,6 +411,7 @@ func _start_host_request(
 	var error: Error = _host_request.request(url, headers, method, body)
 	if error != OK:
 		_host_request_kind = HostRequestKind.NONE
+		_set_host_state(HostState.ERROR)
 		_set_host_status("Could not contact room discovery.", true)
 		return
 	_host_request_in_flight = true
@@ -367,7 +436,10 @@ func _should_advertise() -> bool:
 		and is_configured()
 		and _session != null
 		and _session.is_open_host()
-		and not _upnp_mapping_in_progress
+		and (
+			not _upnp_mapping_in_progress
+			or _upnp_operation_is_renewal
+		)
 	)
 
 
@@ -390,19 +462,36 @@ func _on_host_request_completed(
 				_lease_token = str(response.get("lease_token", ""))
 				if _lease_room_id.is_empty() or _lease_token.is_empty():
 					_clear_lease()
+					_set_host_state(HostState.ERROR)
 					_set_host_status("Discovery returned an invalid lease.", true)
 				else:
 					_apply_traversal_response(response)
 					_host_verified = bool(room.get("verified", false))
 					_traversal_timer.start()
 					_send_host_verification_probe()
-					_set_host_status("Checking the public route…", false)
+					_set_host_state(
+						HostState.PUBLIC
+						if _host_verified
+						else HostState.VERIFYING
+					)
+					_set_host_status(
+						"Room is listed publicly."
+						if _host_verified
+						else "Checking the public route…",
+						false,
+					)
 			else:
+				_set_host_state(HostState.ERROR)
 				_set_host_status(_request_failure(response), true)
 		HostRequestKind.UPDATE:
 			if transport_ok and response_code == HTTPClient.RESPONSE_OK:
 				var room: Dictionary = response.get("room", {})
 				_host_verified = bool(room.get("verified", false))
+				_set_host_state(
+					HostState.PUBLIC
+					if _host_verified
+					else HostState.VERIFYING
+				)
 				_set_host_status(
 					"Room is listed publicly."
 					if _host_verified
@@ -416,13 +505,15 @@ func _on_host_request_completed(
 				_clear_lease()
 				_host_sync_queued = true
 			else:
+				_set_host_state(HostState.ERROR)
 				_set_host_status(_request_failure(response), true)
 		HostRequestKind.DELETE:
 			_clear_lease()
-			if response_code not in [
+			if not transport_ok or response_code not in [
 				HTTPClient.RESPONSE_NO_CONTENT,
 				HTTPClient.RESPONSE_NOT_FOUND,
-			] and transport_ok:
+			]:
+				_set_host_state(HostState.ERROR)
 				_set_host_status(_request_failure(response), true)
 		_:
 			pass
@@ -445,6 +536,7 @@ func _on_join_request_completed(
 		result != HTTPRequest.RESULT_SUCCESS
 		or response_code != HTTPClient.RESPONSE_CREATED
 	):
+		_set_public_join_state(PublicJoinState.ERROR)
 		public_join_status_changed.emit(_request_failure(response), true)
 		_clear_pending_join()
 		return
@@ -455,11 +547,13 @@ func _on_join_request_completed(
 		or _traversal_host.is_empty()
 		or _traversal_port < 1
 	):
+		_set_public_join_state(PublicJoinState.ERROR)
 		public_join_status_changed.emit(
 			"Discovery returned an invalid traversal route.", true
 		)
 		_clear_pending_join()
 		return
+	_set_public_join_state(PublicJoinState.CONNECTING)
 	public_join_status_changed.emit("Connecting…", false)
 	public_join_prepared.emit(_pending_join_endpoint)
 
@@ -483,6 +577,7 @@ func _on_traversal_timer_timeout() -> void:
 	])
 	var error: Error = _traversal_request.request(url, headers)
 	if error != OK:
+		_set_host_state(HostState.ERROR)
 		_set_host_status("Could not check incoming public connections.", true)
 
 
@@ -564,11 +659,13 @@ func _send_traversal_probe(payload: Dictionary) -> void:
 	_session.send_traversal_packet(_traversal_host, _traversal_port, packet)
 
 
-func _begin_upnp_mapping(port: int) -> void:
+func _begin_upnp_mapping(port: int, is_renewal: bool = false) -> void:
 	if _upnp_mapping_in_progress or port < 1:
-		_synchronize_host_lease()
+		if not is_renewal:
+			_synchronize_host_lease()
 		return
 	_upnp_mapping_in_progress = true
+	_upnp_operation_is_renewal = is_renewal
 	_upnp_thread = Thread.new()
 	var error: Error = _upnp_thread.start(
 		_configure_upnp_mapping.bind(port)
@@ -576,6 +673,9 @@ func _begin_upnp_mapping(port: int) -> void:
 	if error != OK:
 		_upnp_thread = null
 		_upnp_mapping_in_progress = false
+		_upnp_operation_is_renewal = false
+		if is_renewal:
+			_schedule_upnp_renewal(UPNP_RETRY_INTERVAL_SECONDS)
 		_synchronize_host_lease()
 
 
@@ -605,21 +705,54 @@ func _configure_upnp_mapping(port: int) -> Dictionary:
 func _process(_delta: float) -> void:
 	if _upnp_thread == null or _upnp_thread.is_alive():
 		return
+	var was_renewal: bool = _upnp_operation_is_renewal
 	var result: Variant = _upnp_thread.wait_to_finish()
 	_upnp_thread = null
 	_upnp_mapping_in_progress = false
+	_upnp_operation_is_renewal = false
+	var mapping_succeeded: bool = false
 	if typeof(result) == TYPE_DICTIONARY:
 		var details: Dictionary = result
 		if bool(details.get("success", false)):
 			_upnp = details.get("upnp") as UPNP
 			_upnp_mapped_port = int(details.get("port", 0))
+			mapping_succeeded = true
 	if not _discoverable:
 		_begin_upnp_cleanup()
 		return
+	if mapping_succeeded:
+		_schedule_upnp_renewal(UPNP_RENEW_INTERVAL_SECONDS)
+	elif was_renewal:
+		_schedule_upnp_renewal(UPNP_RETRY_INTERVAL_SECONDS)
 	_synchronize_host_lease()
 
 
+func _schedule_upnp_renewal(delay_seconds: float) -> void:
+	if (
+		_upnp_mapped_port < 1
+		or not _discoverable
+		or _session == null
+		or _session.is_dedicated_host()
+	):
+		_upnp_renew_timer.stop()
+		return
+	_upnp_renew_timer.start(delay_seconds)
+
+
+func _on_upnp_renew_timer_timeout() -> void:
+	if (
+		not _discoverable
+		or _session == null
+		or not _session.is_open_host()
+		or _session.is_dedicated_host()
+		or _upnp_mapped_port < 1
+	):
+		return
+	_begin_upnp_mapping(_upnp_mapped_port, true)
+
+
 func _begin_upnp_cleanup() -> void:
+	_upnp_renew_timer.stop()
 	if _upnp == null or _upnp_mapped_port < 1:
 		return
 	_upnp.delete_port_mapping(_upnp_mapped_port, "UDP")
@@ -714,14 +847,19 @@ func _request_failure(response: Dictionary) -> String:
 
 func _on_session_state_changed(state: NetworkSession.State) -> void:
 	if state == NetworkSession.State.CONNECTING and not _pending_join_token.is_empty():
+		_set_public_join_state(PublicJoinState.CONNECTING)
 		_join_probe_timer.start()
 		call_deferred("_send_pending_join_probe")
 	elif state in [
 		NetworkSession.State.JOINED_CLIENT,
-		NetworkSession.State.CONNECTION_FAILED,
 		NetworkSession.State.SERVER_LOST,
 		NetworkSession.State.INACTIVE,
 	]:
+		_set_public_join_state(PublicJoinState.IDLE)
+		_join_probe_timer.stop()
+		_clear_pending_join()
+	elif state == NetworkSession.State.CONNECTION_FAILED:
+		_set_public_join_state(PublicJoinState.ERROR)
 		_join_probe_timer.stop()
 		_clear_pending_join()
 	if state == NetworkSession.State.OPEN_HOST:
@@ -729,6 +867,7 @@ func _on_session_state_changed(state: NetworkSession.State) -> void:
 			_heartbeat.start()
 			_synchronize_host_lease()
 		else:
+			_set_host_state(HostState.PRIVATE)
 			_set_host_status("Room is open but unlisted.", false)
 		return
 	if state in [
@@ -742,9 +881,14 @@ func _on_session_state_changed(state: NetworkSession.State) -> void:
 			_discoverable = false
 			host_settings_changed.emit(_room_name, false)
 			_heartbeat.stop()
+			_upnp_renew_timer.stop()
 			_remove_host_lease()
+			_begin_upnp_cleanup()
 		if state == NetworkSession.State.PRIVATE_HOST:
+			_set_host_state(HostState.CLOSED)
 			_set_host_status("Open the game before listing it publicly.", false)
+		else:
+			_set_host_state(HostState.CLOSED)
 
 
 func _on_host_openness_changed(is_open: bool) -> void:
@@ -773,6 +917,7 @@ func _clear_pending_join() -> void:
 
 
 func _exit_tree() -> void:
+	_upnp_renew_timer.stop()
 	if _upnp_thread != null:
 		var result: Variant = _upnp_thread.wait_to_finish()
 		_upnp_thread = null
@@ -788,6 +933,20 @@ func _set_host_status(message: String, is_error: bool) -> void:
 	_host_status_message = message
 	_host_status_is_error = is_error
 	host_status_changed.emit(message, is_error)
+
+
+func _set_host_state(state: HostState) -> void:
+	if _host_state == state:
+		return
+	_host_state = state
+	host_state_changed.emit(int(state))
+
+
+func _set_public_join_state(state: PublicJoinState) -> void:
+	if _public_join_state == state:
+		return
+	_public_join_state = state
+	public_join_state_changed.emit(int(state))
 
 
 func _sanitize_room_name(value: String) -> String:
