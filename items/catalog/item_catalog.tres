@@ -20,4 +20,4 @@
 
 [resource]
 script = ExtResource("1_script")
-items = [ExtResource("2_rod"), ExtResource("3_coffee"), ExtResource("4_energy"), ExtResource("5_snack"), ExtResource("6_finder"), ExtResource("7_cooler"), ExtResource("8_art_kit"), ExtResource("9_worms"), ExtResource("10_snails"), ExtResource("11_shrimp"), ExtResource("12_squid"), ExtResource("13_anchovy"), ExtResource("14_sardine"), ExtResource("15_roe"), ExtResource("16_standby"), ExtResource("17_batteries")]
+items = [ExtResource("2_rod"), ExtResource("3_coffee"), ExtResource("4_energy"), ExtResource("5_snack"), ExtResource("6_finder"), ExtResource("7_cooler"), ExtResource("8_art_kit"), ExtResource("9_worms"), ExtResource("10_snails"), ExtResource("11_shrimp"), ExtResource("12_squid"), ExtResource("14_sardine"), ExtResource("13_anchovy"), ExtResource("15_roe"), ExtResource("16_standby"), ExtResource("17_batteries")]

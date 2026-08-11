@@ -1,4 +1,4 @@
-[gd_scene load_steps=7 format=3]
+[gd_scene load_steps=8 format=3]
 
 [ext_resource type="Script" path="res://ui/fishing_shop.gd" id="1_script"]
 [ext_resource type="Theme" path="res://ui/game_theme.tres" id="2_theme"]
@@ -6,6 +6,7 @@
 [ext_resource type="Texture2D" path="res://items/icons/shop/64_power_plus.png" id="4_barrier"]
 [ext_resource type="Texture2D" path="res://items/icons/placeholder/fish_coin.svg" id="5_coin"]
 [ext_resource type="Texture2D" path="res://items/icons/equipment/64_cooler_plus.png" id="6_cooler"]
+[ext_resource type="Texture2D" path="res://ui/icons/pictograms/x_light.png" id="7_close"]
 
 [node name="FishingShop" type="Control"]
 unique_name_in_owner = true
@@ -34,7 +35,7 @@ mouse_filter = 0
 [node name="ShopCoolerPage" type="Control" parent="."]
 unique_name_in_owner = true
 visible = false
-z_index = 90
+z_index = 102
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -53,18 +54,8 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 1
 
-[node name="BackToShopButton" type="Button" parent="ShopCoolerPage"]
-unique_name_in_owner = true
-z_index = 110
-layout_mode = 0
-offset_left = 1052.0
-offset_top = 54.0
-offset_right = 1218.0
-offset_bottom = 104.0
-text = "back to shop"
-
 [node name="ShopPanel" type="PanelContainer" parent="."]
-z_index = 2
+z_index = 101
 unique_name_in_owner = true
 layout_mode = 1
 anchors_preset = 8
@@ -101,41 +92,39 @@ text = "fishing shop"
 theme_override_font_sizes/font_size = 32
 theme_override_colors/font_color = Color(0.208, 0.725, 0.78, 1)
 
-[node name="CoinIcon" type="TextureRect" parent="ShopPanel/Margin/Layout/Header"]
-custom_minimum_size = Vector2(24, 24)
+[node name="BalanceDisplay" type="HBoxContainer" parent="ShopPanel/Margin/Layout/Header"]
+custom_minimum_size = Vector2(0, 48)
 layout_mode = 2
+size_flags_vertical = 4
+theme_override_constants/separation = 6
+alignment = 1
+
+[node name="CoinIcon" type="TextureRect" parent="ShopPanel/Margin/Layout/Header/BalanceDisplay"]
+custom_minimum_size = Vector2(26, 26)
+layout_mode = 2
+size_flags_vertical = 4
 texture = ExtResource("5_coin")
 expand_mode = 1
 stretch_mode = 5
 texture_filter = 1
 
-[node name="WalletLabel" type="Label" parent="ShopPanel/Margin/Layout/Header"]
+[node name="WalletLabel" type="Label" parent="ShopPanel/Margin/Layout/Header/BalanceDisplay"]
 unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 32)
 layout_mode = 2
-text = "wallet: $0"
+size_flags_vertical = 4
+text = "0"
+vertical_alignment = 1
 
 [node name="CloseButton" type="Button" parent="ShopPanel/Margin/Layout/Header"]
 unique_name_in_owner = true
+custom_minimum_size = Vector2(48, 48)
 layout_mode = 2
-text = "close"
-custom_minimum_size = Vector2(104, 48)
-
-[node name="ModeTabs" type="HBoxContainer" parent="ShopPanel/Margin/Layout"]
-layout_mode = 2
-alignment = 1
-theme_override_constants/separation = 10
-
-[node name="BuyModeButton" type="Button" parent="ShopPanel/Margin/Layout/ModeTabs"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(180, 42)
-layout_mode = 2
-text = "buy gear & supplies"
-
-[node name="SellModeButton" type="Button" parent="ShopPanel/Margin/Layout/ModeTabs"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(180, 42)
-layout_mode = 2
-text = "sell fish"
+tooltip_text = "Close shop"
+flat = true
+icon = ExtResource("7_close")
+expand_icon = true
+icon_max_width = 40
 
 [node name="Feedback" type="Label" parent="ShopPanel/Margin/Layout"]
 unique_name_in_owner = true
@@ -146,10 +135,10 @@ theme_override_colors/font_color = Color(1, 0.82, 0.4, 1)
 
 [node name="ShopTabBar" type="HBoxContainer" parent="."]
 unique_name_in_owner = true
-z_index = 1
-offset_left = 298.0
+z_index = 100
+offset_left = 180.0
 offset_top = 26.0
-offset_right = 982.0
+offset_right = 1100.0
 offset_bottom = 70.0
 alignment = 1
 theme_override_constants/separation = 6

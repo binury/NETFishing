@@ -1,12 +1,14 @@
-[gd_resource type="Resource" script_class="ItemData" load_steps=2 format=3]
+[gd_resource type="Resource" script_class="ItemData" load_steps=3 format=3]
 
 [ext_resource type="Script" path="res://items/item_data.gd" id="1"]
+[ext_resource type="Texture2D" path="res://items/icons/bait/64_bait_roe_luminous.png" id="2_icon"]
 
 [resource]
 script = ExtResource("1")
 item_id = &"luminous_roe"
 display_name = "luminous roe"
 description = "rare glowing roe with the strongest rare catch odds."
+icon = ExtResource("2_icon")
 category = 2
 bait_tags = Array[StringName]([&"bait_rarity_6"])
 stackable = true

@@ -3,6 +3,7 @@ extends RefCounted
 
 const PROTOCOL_VERSION: int = 3
 const GAME_BUILD: String = "prealpha"
+const MAX_GAME_VERSION_LENGTH: int = 64
 const MAX_DISPLAY_NAME_LENGTH: int = 24
 const MAX_PROFILE_ID_LENGTH: int = 96
 const MAX_NONCE_LENGTH: int = 96
@@ -37,7 +38,78 @@ enum RejectionCode {
 	SERVER_SHUTTING_DOWN,
 	UNSUPPORTED_CLIENT,
 	BANNED,
+	CLIENT_OUTDATED,
+	SERVER_OUTDATED,
+	VERSION_MISMATCH,
 }
+
+
+static func game_version() -> String:
+	return str(ProjectSettings.get_setting(
+		"application/config/version", "unknown"
+	)).strip_edges()
+
+
+static func game_version_rejection(
+	client_version: String,
+	server_version: String,
+) -> RejectionCode:
+	if client_version == server_version:
+		return RejectionCode.NONE
+	var comparison: int = _compare_game_versions(
+		client_version, server_version
+	)
+	if comparison < 0:
+		return RejectionCode.CLIENT_OUTDATED
+	if comparison > 0:
+		return RejectionCode.SERVER_OUTDATED
+	return RejectionCode.VERSION_MISMATCH
+
+
+static func _compare_game_versions(first: String, second: String) -> int:
+	var first_parts: PackedStringArray = first.split("-", true, 1)
+	var second_parts: PackedStringArray = second.split("-", true, 1)
+	var first_core: PackedStringArray = first_parts[0].split(".")
+	var second_core: PackedStringArray = second_parts[0].split(".")
+	for index: int in maxi(first_core.size(), second_core.size()):
+		var first_number: int = (
+			int(first_core[index])
+			if index < first_core.size() and first_core[index].is_valid_int()
+			else 0
+		)
+		var second_number: int = (
+			int(second_core[index])
+			if index < second_core.size() and second_core[index].is_valid_int()
+			else 0
+		)
+		if first_number != second_number:
+			return -1 if first_number < second_number else 1
+	var first_rank: int = _prerelease_rank(
+		first_parts[1] if first_parts.size() > 1 else ""
+	)
+	var second_rank: int = _prerelease_rank(
+		second_parts[1] if second_parts.size() > 1 else ""
+	)
+	if first_rank != second_rank:
+		return -1 if first_rank < second_rank else 1
+	return 0
+
+
+static func _prerelease_rank(label: String) -> int:
+	var normalized: String = label.to_lower()
+	if normalized.is_empty():
+		return 5
+	if normalized.begins_with("dev"):
+		return 0
+	if normalized.begins_with("prealpha"):
+		return 1
+	if normalized.begins_with("alpha"):
+		return 2
+	if normalized.begins_with("beta"):
+		return 3
+	if normalized.begins_with("rc"):
+		return 4
+	return 2
 
 
 static func make_identity_hello(
@@ -48,6 +120,7 @@ static func make_identity_hello(
 ) -> Dictionary:
 	return {
 		"protocol_version": PROTOCOL_VERSION,
+		"game_version": game_version(),
 		"public_key": public_key,
 		"fingerprint": fingerprint,
 		"client_nonce": client_nonce,
@@ -62,6 +135,9 @@ static func validate_identity_hello(data: Variant) -> bool:
 	var value: Dictionary = data
 	return (
 		typeof(value.get("protocol_version")) == TYPE_INT
+		and typeof(value.get("game_version")) == TYPE_STRING
+		and not str(value["game_version"]).is_empty()
+		and str(value["game_version"]).length() <= MAX_GAME_VERSION_LENGTH
 		and typeof(value.get("public_key")) == TYPE_STRING
 		and str(value["public_key"]).to_utf8_buffer().size() <= MAX_PUBLIC_KEY_LENGTH
 		and NetworkIdentityCrypto.valid_fingerprint(value.get("fingerprint"))
@@ -85,6 +161,7 @@ static func make_client_hello(
 ) -> Dictionary:
 	return {
 		"protocol_version": PROTOCOL_VERSION,
+		"game_version": game_version(),
 		"game_build": GAME_BUILD,
 		"local_profile_id": profile_id,
 		"display_name": display_name,
@@ -108,6 +185,7 @@ static func validate_client_hello(data: Variant) -> String:
 	var payload: Dictionary = data
 	for key: String in [
 		"protocol_version",
+		"game_version",
 		"game_build",
 		"local_profile_id",
 		"display_name",
@@ -121,6 +199,12 @@ static func validate_client_hello(data: Variant) -> String:
 			return "Handshake is missing %s." % key
 	if typeof(payload["protocol_version"]) != TYPE_INT:
 		return "Protocol version is invalid."
+	if (
+		typeof(payload["game_version"]) != TYPE_STRING
+		or str(payload["game_version"]).is_empty()
+		or str(payload["game_version"]).length() > MAX_GAME_VERSION_LENGTH
+	):
+		return "Game version is invalid."
 	if typeof(payload["game_build"]) != TYPE_STRING:
 		return "Game build is invalid."
 	if typeof(payload["local_profile_id"]) != TYPE_STRING:
@@ -171,6 +255,7 @@ static func validate_client_hello(data: Variant) -> String:
 static func client_profile_fields(data: Dictionary) -> Array:
 	var appearance: Dictionary = data.get("cosmetic_snapshot", {})
 	return [
+		str(data.get("game_version", "")),
 		str(data.get("client_nonce", "")),
 		str(data.get("identity_fingerprint", "")),
 		str(data.get("local_profile_id", "")),
@@ -204,6 +289,7 @@ static func make_server_hello(
 		"accepted": accepted,
 		"rejection_code": int(rejection_code),
 		"protocol_version": PROTOCOL_VERSION,
+		"game_version": game_version(),
 		"session_id": session_id,
 		"assigned_peer_id": assigned_peer_id,
 		"server_display_name": server_display_name,
@@ -251,5 +337,20 @@ static func rejection_text(code: int) -> String:
 			return "This game build is not supported by the server."
 		RejectionCode.BANNED:
 			return "You are not permitted to join this server."
+		RejectionCode.CLIENT_OUTDATED:
+			return (
+				"Your NETfishing version is out of date. "
+				+ "Update the game to join this server."
+			)
+		RejectionCode.SERVER_OUTDATED:
+			return (
+				"This server is out of date. "
+				+ "The host needs to update NETfishing."
+			)
+		RejectionCode.VERSION_MISMATCH:
+			return (
+				"This game and server use different NETfishing versions. "
+				+ "Update both to the latest release."
+			)
 		_:
 			return "The server rejected the connection."

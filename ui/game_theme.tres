@@ -144,6 +144,17 @@ corner_radius_top_right = 10
 corner_radius_bottom_right = 10
 corner_radius_bottom_left = 10
 
+[sub_resource type="StyleBoxFlat" id="TooltipPanel"]
+content_margin_left = 12.0
+content_margin_top = 8.0
+content_margin_right = 12.0
+content_margin_bottom = 8.0
+bg_color = Color(0.031, 0.122, 0.169, 1)
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_right = 10
+corner_radius_bottom_left = 10
+
 [resource]
 default_font = ExtResource("1_font")
 default_font_size = 23
@@ -175,3 +186,6 @@ OptionButton/styles/hover = SubResource("ButtonHover")
 OptionButton/styles/normal = SubResource("ButtonNormal")
 OptionButton/styles/pressed = SubResource("ButtonPressed")
 PanelContainer/styles/panel = SubResource("Panel")
+TooltipLabel/colors/font_color = Color(0.765, 0.875, 0.902, 1)
+TooltipLabel/font_sizes/font_size = 18
+TooltipPanel/styles/panel = SubResource("TooltipPanel")

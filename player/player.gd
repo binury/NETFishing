@@ -84,6 +84,8 @@ enum PocketVisualTarget {
 	CATCH_SHOWCASE,
 }
 const FIGHTING_EYES_ID: String = "alligator_eyes"
+const CHARACTER_CALL_MOUTH_ID: String = "open_ah"
+const CHARACTER_CALL_MOUTH_DURATION_SECONDS: float = 0.16
 const BASE_REEL_SPEED: float = 0.16
 # The target Android handheld exposes its physical right trigger through
 # Godot's left-trigger axis. Keep the role named here so the platform mapping
@@ -158,6 +160,20 @@ func set_fighting_visual(active: bool) -> void:
 	_update_character_animation()
 
 
+func play_character_call_visual() -> void:
+	_character_call_visual_generation += 1
+	var generation: int = _character_call_visual_generation
+	_character_call_mouth_active = true
+	_apply_presented_appearance()
+	await get_tree().create_timer(
+		CHARACTER_CALL_MOUTH_DURATION_SECONDS
+	).timeout
+	if generation != _character_call_visual_generation:
+		return
+	_character_call_mouth_active = false
+	_apply_presented_appearance()
+
+
 func set_fishing_visual(active: bool) -> void:
 	if (
 		active
@@ -223,6 +239,10 @@ func _apply_presented_appearance() -> void:
 	if _fighting_visual_active:
 		presented_appearance = appearance_snapshot.duplicate(true)
 		presented_appearance["eyes"] = FIGHTING_EYES_ID
+	if _character_call_mouth_active:
+		if presented_appearance == appearance_snapshot:
+			presented_appearance = appearance_snapshot.duplicate(true)
+		presented_appearance["mouth"] = CHARACTER_CALL_MOUTH_ID
 	PlayerVisualPresenter.apply_appearance(_visuals, presented_appearance)
 
 
@@ -382,6 +402,8 @@ var _pocket_visual_midpoint_callback: Callable
 var _pocket_visual_midpoint_called: bool = false
 var _pocket_visual_generation: int = 0
 var _fighting_visual_active: bool = false
+var _character_call_mouth_active: bool = false
+var _character_call_visual_generation: int = 0
 var _fishing_visual_active: bool = false
 var _fishing_visual_phase: FishingVisualPhase = FishingVisualPhase.NONE
 var _fishing_after_release_pending: bool = false

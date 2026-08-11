@@ -7,7 +7,7 @@ const SPEECH_SECONDS: float = 6.0
 const DRAFT_SAVE_DELAY: float = 0.4
 const IDLE_ALPHA: float = 0.58
 const CHAT_SURFACE_COLOR := Color(0.025, 0.13, 0.19, 0.94)
-const PANEL_WIDTH: float = 270.0
+const PANEL_WIDTH: float = 290.0
 const COMPACT_HEIGHT: float = 250.0
 const BOTTOM_MARGIN: float = 12.0
 const EXPANDED_TOP_MARGIN: float = 94.0
@@ -31,9 +31,10 @@ const MOBILE_EXPANDED_WIDTH: float = 820.0
 const MOBILE_COMPACT_HEIGHT: float = 220.0
 const MOBILE_EXPANDED_HEIGHT: float = 390.0
 const MOBILE_EDGE_MARGIN: float = 12.0
-const CLOCK_SIZE := Vector2(116.0, 34.0)
+const CLOCK_SIZE := Vector2(174.0, 51.0)
+const CLOCK_FONT_SIZE: int = 27
 const CLOCK_EDGE_MARGIN: float = 10.0
-const WEATHER_ICON_SIZE := Vector2(34.0, 34.0)
+const WEATHER_ICON_SIZE := Vector2(51.0, 51.0)
 const WEATHER_ICON_GAP: float = 6.0
 const FISH_FINDER_EFFECT_ICON_SIZE := Vector2(18.0, 18.0)
 const FISH_FINDER_EFFECT_ICON: Texture2D = preload(
@@ -383,7 +384,7 @@ func _build_ui() -> void:
 	_clock_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_clock_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_clock_label.add_theme_font_override("font", UtilityPageStyle.TuffyFont)
-	_clock_label.add_theme_font_size_override("font_size", 18)
+	_clock_label.add_theme_font_size_override("font_size", CLOCK_FONT_SIZE)
 	_clock_label.add_theme_color_override(
 		"font_color", UtilityPageStyle.OCEAN_TEXT_PRIMARY
 	)

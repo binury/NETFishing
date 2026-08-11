@@ -13,7 +13,12 @@ signal public_join_state_changed(state: int)
 const BASE_URL_SETTING: String = "network/discovery/base_url"
 const BASE_URL_ENVIRONMENT: String = "NETFISHING_DISCOVERY_URL"
 const SETTINGS_PATH: String = "user://network_discovery.cfg"
-const DEFAULT_ROOM_NAME: String = "NETfishing Room"
+const DEFAULT_ROOM_NAME: String = "Player's Server"
+const LEGACY_DEFAULT_ROOM_NAME: String = "NETfishing Room"
+const LEGACY_DEDICATED_DEFAULT_ROOM_NAME: String = (
+	"NETfishing Dedicated Server"
+)
+const ROOM_NAME_SUFFIX: String = "'s Server"
 const MAX_ROOM_NAME_LENGTH: int = 48
 const HEARTBEAT_INTERVAL_SECONDS: float = 15.0
 const REQUEST_TIMEOUT_SECONDS: float = 8.0
@@ -52,6 +57,7 @@ enum HostRequestKind {
 var _session: NetworkSession
 var _base_url: String = ""
 var _room_name: String = DEFAULT_ROOM_NAME
+var _room_name_uses_default: bool = true
 var _discoverable: bool = false
 var _host_status_message: String = ""
 var _host_status_is_error: bool = false
@@ -145,6 +151,9 @@ func _ready() -> void:
 
 func setup(session: NetworkSession) -> void:
 	_session = session
+	if _room_name_uses_default:
+		_room_name = _default_room_name(_session.get_local_display_name())
+		_save_settings()
 	_session.set_session_display_name(_room_name)
 	if not _session.state_changed.is_connected(_on_session_state_changed):
 		_session.state_changed.connect(_on_session_state_changed)
@@ -216,8 +225,12 @@ func set_room_name(value: String) -> bool:
 		_set_host_status("Room name cannot be empty.", true)
 		return false
 	if cleaned == _room_name:
+		if _room_name_uses_default:
+			_room_name_uses_default = false
+			_save_settings()
 		return true
 	_room_name = cleaned
+	_room_name_uses_default = false
 	_save_settings()
 	if _session != null:
 		_session.set_session_display_name(_room_name)
@@ -277,6 +290,12 @@ func prepare_public_join(room: Dictionary) -> bool:
 		return false
 	if _session == null or not is_configured():
 		_set_public_join_state(PublicJoinState.ERROR)
+		return false
+	if is_own_room(room):
+		_set_public_join_state(PublicJoinState.ERROR)
+		public_join_status_changed.emit(
+			"You are already hosting this room.", true
+		)
 		return false
 	var endpoint: String = room_endpoint(room)
 	var room_id: String = str(room.get("room_id", "")).strip_edges()
@@ -341,6 +360,13 @@ func room_endpoint(room: Dictionary) -> String:
 	if ":" in address and not address.begins_with("["):
 		address = "[%s]" % address
 	return "%s:%d" % [address, port]
+
+
+func is_own_room(room: Dictionary) -> bool:
+	return (
+		not _lease_room_id.is_empty()
+		and str(room.get("room_id", "")) == _lease_room_id
+	)
 
 
 func _configured_base_url() -> String:
@@ -957,6 +983,16 @@ func _sanitize_room_name(value: String) -> String:
 	return cleaned.left(MAX_ROOM_NAME_LENGTH)
 
 
+func _default_room_name(player_name: String) -> String:
+	var cleaned_name: String = player_name.strip_edges()
+	if cleaned_name.is_empty():
+		return DEFAULT_ROOM_NAME
+	return "%s%s" % [
+		cleaned_name.left(MAX_ROOM_NAME_LENGTH - ROOM_NAME_SUFFIX.length()),
+		ROOM_NAME_SUFFIX,
+	]
+
+
 func _load_settings() -> void:
 	var config := ConfigFile.new()
 	if config.load(SETTINGS_PATH) == OK:
@@ -965,11 +1001,23 @@ func _load_settings() -> void:
 		)
 		if not saved_name.is_empty():
 			_room_name = saved_name
+		_room_name_uses_default = bool(config.get_value(
+			"host",
+			"room_name_uses_default",
+			saved_name in [
+				DEFAULT_ROOM_NAME,
+				LEGACY_DEFAULT_ROOM_NAME,
+				LEGACY_DEDICATED_DEFAULT_ROOM_NAME,
+			],
+		))
 
 
 func _save_settings() -> void:
 	var config := ConfigFile.new()
 	config.set_value("host", "room_name", _room_name)
+	config.set_value(
+		"host", "room_name_uses_default", _room_name_uses_default
+	)
 	var error: Error = config.save(SETTINGS_PATH)
 	if error != OK:
 		push_warning("Could not save the local NETfishing room name.")

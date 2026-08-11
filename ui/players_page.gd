@@ -1,6 +1,8 @@
 class_name PlayersPage
 extends Control
 
+const TOGGLE_STATE_COLOR := Color("c3dfe6")
+
 var _service: NetworkPlayerListService
 var _discovery: DiscoveryClient
 var _count_label: Label
@@ -9,7 +11,10 @@ var _list: VBoxContainer
 var _status: Label
 var _host_settings_panel: PanelContainer
 var _room_name_edit: LineEdit
-var _discoverable_toggle: CheckButton
+var _online_toggle: Button
+var _online_state_label: Label
+var _discoverable_toggle: Button
+var _discoverable_state_label: Label
 var _host_discovery_status: Label
 var _current_tab := 0
 
@@ -111,26 +116,81 @@ func _build_host_settings(root: VBoxContainer) -> void:
 	_room_name_edit = LineEdit.new()
 	_room_name_edit.custom_minimum_size = Vector2(300.0, 42.0)
 	_room_name_edit.max_length = DiscoveryClient.MAX_ROOM_NAME_LENGTH
-	_room_name_edit.placeholder_text = DiscoveryClient.DEFAULT_ROOM_NAME
+	_room_name_edit.placeholder_text = "Player Name's Server"
 	UtilityPageStyle.apply_ocean_line_edit(_room_name_edit)
 	_room_name_edit.text_submitted.connect(
 		func(_value: String) -> void: _commit_room_name()
 	)
 	_room_name_edit.focus_exited.connect(_commit_room_name)
 	row.add_child(_room_name_edit)
-	_discoverable_toggle = CheckButton.new()
-	_discoverable_toggle.text = "list publicly"
-	_discoverable_toggle.toggled.connect(_on_discoverable_toggled)
-	UtilityPageStyle.apply_ocean_button(_discoverable_toggle)
-	row.add_child(_discoverable_toggle)
+	_online_toggle = _build_host_toggle("online", row)
+	_online_state_label = _online_toggle.get_node("StateBadge/State") as Label
+	_online_toggle.pressed.connect(_on_online_pressed)
+	_discoverable_toggle = _build_host_toggle("discovery", row)
+	_discoverable_state_label = (
+		_discoverable_toggle.get_node("StateBadge/State") as Label
+	)
+	_discoverable_toggle.pressed.connect(_on_discoverable_pressed)
 	_host_discovery_status = Label.new()
 	_host_discovery_status.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_host_discovery_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_host_discovery_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_host_discovery_status.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_host_discovery_status.add_theme_font_size_override("font_size", 14)
 	_host_discovery_status.add_theme_color_override(
 		"font_color", UtilityPageStyle.OCEAN_TEXT_SECONDARY
 	)
 	row.add_child(_host_discovery_status)
+
+
+func _build_host_toggle(label_text: String, row: HBoxContainer) -> Button:
+	var button := Button.new()
+	button.custom_minimum_size = Vector2(150.0, 46.0)
+	button.text = label_text
+	button.alignment = HORIZONTAL_ALIGNMENT_CENTER
+	button.clip_contents = false
+	UtilityPageStyle.apply_ocean_button(button)
+	row.add_child(button)
+	var badge := PanelContainer.new()
+	badge.name = "StateBadge"
+	badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	badge.z_index = 2
+	button.add_child(badge)
+	badge.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+	badge.offset_left = -39.0
+	badge.offset_top = -12.0
+	badge.offset_right = 39.0
+	badge.offset_bottom = 12.0
+	var state_label := Label.new()
+	state_label.name = "State"
+	state_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	state_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	state_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	state_label.add_theme_font_override("font", UtilityPageStyle.TuffyFont)
+	state_label.add_theme_font_size_override("font_size", 15)
+	state_label.add_theme_color_override("font_color", TOGGLE_STATE_COLOR)
+	badge.add_child(state_label)
+	return button
+
+
+func _set_host_toggle_state(
+	button: Button,
+	state_label: Label,
+	state_text: String,
+	enabled: bool,
+) -> void:
+	state_label.text = state_text
+	var badge := state_label.get_parent() as PanelContainer
+	badge.add_theme_stylebox_override(
+		"panel",
+		UtilityPageStyle.rounded_style(
+			UtilityPageStyle.OCEAN_SELECTED
+			if enabled
+			else UtilityPageStyle.OCEAN_FIELD,
+			12,
+		),
+	)
+	button.queue_redraw()
 
 
 func _select_tab(index: int) -> void:
@@ -172,17 +232,38 @@ func _refresh_host_settings() -> void:
 		return
 	if not _room_name_edit.has_focus():
 		_room_name_edit.text = _discovery.get_room_name()
-	_discoverable_toggle.set_pressed_no_signal(_discovery.is_discoverable())
+	var is_open: bool = _service.is_open_host()
+	var is_discoverable: bool = _discovery.is_discoverable()
+	_set_host_toggle_state(
+		_online_toggle,
+		_online_state_label,
+		"OPEN" if is_open else "CLOSED",
+		is_open,
+	)
+	_set_host_toggle_state(
+		_discoverable_toggle,
+		_discoverable_state_label,
+		"ON" if is_discoverable else "OFF",
+		is_discoverable,
+	)
+	_online_toggle.disabled = not _service.is_local_host()
+	_online_toggle.tooltip_text = (
+		"Close this game to new connections."
+		if is_open
+		else "Open this game so other players can connect."
+	)
 	var can_publish: bool = (
 		_service.is_local_host()
 		and _discovery.is_configured()
-		and _service.is_open_host()
+		and is_open
 	)
 	_discoverable_toggle.disabled = not can_publish
 	_discoverable_toggle.tooltip_text = (
-		"Advertise this open game in the public room browser."
+		"Stop advertising this game in the public room browser."
+		if is_discoverable
+		else "Advertise this open game in the public room browser."
 		if can_publish
-		else "Open the game before listing it publicly."
+		else "Open the game before enabling discovery."
 		if _discovery.is_configured()
 		else "Room discovery is not configured in this build."
 	)
@@ -201,13 +282,18 @@ func _commit_room_name() -> void:
 		_room_name_edit.text = _discovery.get_room_name()
 
 
-func _on_discoverable_toggled(enabled: bool) -> void:
+func _on_online_pressed() -> void:
+	if _service == null or not _service.is_local_host():
+		return
+	_service.set_host_open(not _service.is_open_host())
+	_refresh_host_settings()
+
+
+func _on_discoverable_pressed() -> void:
 	if _discovery == null:
 		return
-	if not _discovery.set_discoverable(enabled):
-		_discoverable_toggle.set_pressed_no_signal(
-			_discovery.is_discoverable()
-		)
+	_discovery.set_discoverable(not _discovery.is_discoverable())
+	_refresh_host_settings()
 
 
 func _on_host_settings_changed(
@@ -216,15 +302,25 @@ func _on_host_settings_changed(
 ) -> void:
 	if _room_name_edit != null and not _room_name_edit.has_focus():
 		_room_name_edit.text = room_name
-	if _discoverable_toggle != null:
-		_discoverable_toggle.set_pressed_no_signal(discoverable)
+	if _discoverable_state_label != null:
+		_set_host_toggle_state(
+			_discoverable_toggle,
+			_discoverable_state_label,
+			"ON" if discoverable else "OFF",
+			discoverable,
+		)
 	_refresh_host_settings()
 
 
 func _on_host_status_changed(message: String, is_error: bool) -> void:
 	if _host_discovery_status == null:
 		return
-	_host_discovery_status.text = message
+	var tooltip_only: bool = message in [
+		"Open the game before listing it publicly.",
+		"Open the game before enabling discovery.",
+	]
+	_host_discovery_status.text = "" if tooltip_only else message
+	_host_discovery_status.visible = not _host_discovery_status.text.is_empty()
 	_host_discovery_status.add_theme_color_override(
 		"font_color",
 		UtilityPageStyle.OCEAN_DANGER

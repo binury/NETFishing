@@ -315,6 +315,10 @@ func get_session_display_name() -> String:
 	return _session_display_name
 
 
+func get_local_display_name() -> String:
+	return _profile.display_name if _profile != null else ""
+
+
 static func _can_bind_udp_port(port: int, bind_address: String = "*") -> bool:
 	var probe := PacketPeerUDP.new()
 	var error: Error = probe.bind(port, bind_address)
@@ -838,6 +842,16 @@ func submit_identity_hello(data: Dictionary) -> void:
 	var sender_id: int = multiplayer.get_remote_sender_id()
 	if not is_host() or sender_id <= 1 or not _pending_authentication.has(sender_id):
 		return
+	var client_game_version: String = str(data.get("game_version", ""))
+	var version_rejection: NetworkProtocol.RejectionCode = (
+		NetworkProtocol.game_version_rejection(
+			client_game_version,
+			NetworkProtocol.game_version(),
+		)
+	)
+	if version_rejection != NetworkProtocol.RejectionCode.NONE:
+		_reject_peer(sender_id, version_rejection)
+		return
 	if (
 		not NetworkProtocol.validate_identity_hello(data)
 		or int(data["protocol_version"]) != NetworkProtocol.PROTOCOL_VERSION
@@ -868,8 +882,10 @@ func submit_identity_hello(data: Dictionary) -> void:
 		"client_nonce": str(data["client_nonce"]),
 		"client_fingerprint": fingerprint,
 		"client_public_key": public_pem,
+		"client_game_version": client_game_version,
 		"server_nonce": server_nonce,
 		"server_fingerprint": _host_identity.fingerprint,
+		"server_game_version": NetworkProtocol.game_version(),
 		"session_id": _session_id,
 		"generation": _operation_generation,
 		"expires_at_msec": Time.get_ticks_msec() + 60000,
@@ -886,7 +902,25 @@ func submit_identity_hello(data: Dictionary) -> void:
 
 @rpc("authority", "call_remote", "reliable", 0)
 func receive_server_identity_proof(data: Dictionary) -> void:
-	if state != State.AUTHENTICATING or not _valid_server_proof_shape(data):
+	if state != State.AUTHENTICATING:
+		return
+	var server_game_version: String = str(data.get("server_game_version", ""))
+	if server_game_version.is_empty():
+		_fail_identity(NetworkProtocol.rejection_text(
+			NetworkProtocol.RejectionCode.SERVER_OUTDATED
+		))
+		return
+	var version_rejection: NetworkProtocol.RejectionCode = (
+		NetworkProtocol.game_version_rejection(
+			NetworkProtocol.game_version(),
+			server_game_version,
+		)
+	)
+	if version_rejection != NetworkProtocol.RejectionCode.NONE:
+		_fail_identity(NetworkProtocol.rejection_text(version_rejection))
+		return
+	if not _valid_server_proof_shape(data):
+		_fail_identity("The server sent an invalid identity proof.")
 		return
 	if (
 		str(data["attempt_id"]) != str(_client_identity_attempt.get("attempt_id", ""))
@@ -995,6 +1029,7 @@ func submit_client_identity_proof(data: Dictionary) -> void:
 	_authenticated_identity_cache[sender_id] = {
 		"fingerprint": challenge["client_fingerprint"],
 		"public_key": challenge["client_public_key"],
+		"game_version": challenge["client_game_version"],
 	}
 	if (
 		_host_bans != null
@@ -1041,6 +1076,16 @@ func submit_client_hello(data: Dictionary) -> void:
 	if not validation_error.is_empty():
 		_reject_peer(sender_id, NetworkProtocol.RejectionCode.MALFORMED_HANDSHAKE)
 		return
+	var client_game_version: String = str(data.get("game_version", ""))
+	var version_rejection: NetworkProtocol.RejectionCode = (
+		NetworkProtocol.game_version_rejection(
+			client_game_version,
+			NetworkProtocol.game_version(),
+		)
+	)
+	if version_rejection != NetworkProtocol.RejectionCode.NONE:
+		_reject_peer(sender_id, version_rejection)
+		return
 	var client_capabilities: PackedStringArray = _sanitized_capabilities(
 		data.get("capability_flags", [])
 	)
@@ -1056,6 +1101,7 @@ func submit_client_hello(data: Dictionary) -> void:
 		return
 	if (
 		data["identity_fingerprint"] != identity["fingerprint"]
+		or client_game_version != str(identity.get("game_version", ""))
 		or not NetworkIdentityCrypto.verify_fields(
 			NetworkIdentityCrypto.load_public_key(identity["public_key"]),
 			"handshake_client_profile",
@@ -1179,6 +1225,7 @@ func receive_server_hello(data: Dictionary) -> void:
 	if (
 		typeof(data.get("accepted")) != TYPE_BOOL
 		or typeof(data.get("protocol_version")) != TYPE_INT
+		or typeof(data.get("game_version")) != TYPE_STRING
 		or typeof(data.get("rejection_code")) != TYPE_INT
 	):
 		_teardown_peer()
@@ -1190,6 +1237,16 @@ func receive_server_hello(data: Dictionary) -> void:
 		)
 		_teardown_peer()
 		_fail(message)
+		return
+	var version_rejection: NetworkProtocol.RejectionCode = (
+		NetworkProtocol.game_version_rejection(
+			NetworkProtocol.game_version(),
+			str(data["game_version"]),
+		)
+	)
+	if version_rejection != NetworkProtocol.RejectionCode.NONE:
+		_teardown_peer()
+		_fail(NetworkProtocol.rejection_text(version_rejection))
 		return
 	if int(data["protocol_version"]) != NetworkProtocol.PROTOCOL_VERSION:
 		_teardown_peer()
@@ -1457,6 +1514,8 @@ func _verify_spawn_identity(entry: Dictionary) -> bool:
 func _identity_proof_fields(data: Dictionary) -> Array:
 	return [
 		NetworkProtocol.PROTOCOL_VERSION,
+		str(data.get("client_game_version", "")),
+		str(data.get("server_game_version", "")),
 		str(data.get("attempt_id", "")),
 		str(data.get("client_fingerprint", "")),
 		str(data.get("client_nonce", "")),
@@ -1497,6 +1556,10 @@ func _valid_server_proof_shape(data: Variant) -> bool:
 		and str(value["server_nonce"]).length() == 64
 		and NetworkIdentityCrypto.valid_fingerprint(value.get("client_fingerprint"))
 		and NetworkIdentityCrypto.valid_fingerprint(value.get("server_fingerprint"))
+		and typeof(value.get("client_game_version")) == TYPE_STRING
+		and str(value["client_game_version"]) == NetworkProtocol.game_version()
+		and typeof(value.get("server_game_version")) == TYPE_STRING
+		and str(value["server_game_version"]) == NetworkProtocol.game_version()
 		and typeof(value.get("server_public_key")) == TYPE_STRING
 		and str(value["server_public_key"]).to_utf8_buffer().size()
 			<= NetworkProtocol.MAX_PUBLIC_KEY_LENGTH

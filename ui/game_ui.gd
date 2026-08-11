@@ -402,6 +402,7 @@ func setup(
 		network_shop_service,
 	)
 	_fishing_shop.menu_visibility_changed.connect(_on_shop_visibility_changed)
+	_fishing_shop.menu_exit_started.connect(_on_shop_exit_started)
 	_fishing_shop.sell_fish_requested.connect(_on_shop_sell_fish_requested)
 	_fishing_shop.shop_cooler_return_requested.connect(
 		_on_shop_cooler_return_requested
@@ -528,8 +529,11 @@ func _on_character_call_received(
 	if _spawn_service == null:
 		return
 	var avatar: PlayerType = _spawn_service.get_avatar(peer_id)
+	if avatar == null:
+		return
+	avatar.play_character_call_visual()
 	var audio_path: String = VoiceProfilesType.call_audio_path(call_id)
-	if avatar == null or not ResourceLoader.exists(audio_path, "AudioStream"):
+	if not ResourceLoader.exists(audio_path, "AudioStream"):
 		return
 	var stream: AudioStream = load(audio_path) as AudioStream
 	if stream == null:
@@ -2088,11 +2092,18 @@ func _on_player_menu_exit_started() -> void:
 	player_menu_backdrop_visibility_changed.emit(false)
 
 
+func _on_shop_exit_started() -> void:
+	if not _shop_open:
+		return
+	shop_backdrop_visibility_changed.emit(false)
+
+
 func _on_shop_visibility_changed(is_open: bool) -> void:
 	_shop_open = is_open
 	if is_open and _surface_drawing != null:
 		_surface_drawing.deactivate()
-	shop_backdrop_visibility_changed.emit(is_open)
+	if is_open:
+		shop_backdrop_visibility_changed.emit(true)
 	if not is_open and _player_menu.is_shop_cooler_mounted():
 		_player_menu.unmount_shop_cooler()
 	_refresh_chat_availability()

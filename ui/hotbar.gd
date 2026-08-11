@@ -17,7 +17,7 @@ const FishingSpotType = preload("res://fishing/fishing_spot.gd")
 
 const DESKTOP_REFERENCE_SIZE := Vector2(1280.0, 720.0)
 const COMPACT_REFERENCE_SIZE := Vector2(640.0, 480.0)
-const HOTBAR_PRESENTATION_SCALE: float = 1.00
+const HOTBAR_PRESENTATION_SCALE: float = 0.80
 const HOTBAR_CANONICAL_POSITION := Vector2.ZERO
 const HOTBAR_MENU_POSITION := Vector2(-136.0, -90.0)
 const HOTBAR_GAMEPLAY_Z_INDEX: int = 35
@@ -215,9 +215,7 @@ func set_player_menu_context(enabled: bool) -> void:
 		return
 	_player_menu_context = enabled
 	z_index = HOTBAR_MENU_Z_INDEX if enabled else HOTBAR_GAMEPLAY_Z_INDEX
-	_presentation_scale_root.position = (
-		HOTBAR_MENU_POSITION if enabled else HOTBAR_CANONICAL_POSITION
-	)
+	_presentation_scale_root.position = _presentation_position()
 
 
 func set_presentation_visible(
@@ -363,11 +361,7 @@ func _apply_layout() -> void:
 	_presentation_scale_root.scale = (
 		Vector2.ONE * HOTBAR_PRESENTATION_SCALE
 	)
-	_presentation_scale_root.position = (
-		HOTBAR_MENU_POSITION
-		if _player_menu_context
-		else HOTBAR_CANONICAL_POSITION
-	)
+	_presentation_scale_root.position = _presentation_position()
 	var field_size := (
 		Vector2(580.0, 82.0)
 		if _compact_layout
@@ -380,6 +374,21 @@ func _apply_layout() -> void:
 	)
 	for slot: BubbleHotbarSlotType in _slots:
 		slot.apply_layout(_compact_layout)
+
+
+func _presentation_position() -> Vector2:
+	var scaled_size: Vector2 = (
+		DESKTOP_REFERENCE_SIZE * HOTBAR_PRESENTATION_SCALE
+	)
+	var bottom_centered_offset := Vector2(
+		(DESKTOP_REFERENCE_SIZE.x - scaled_size.x) * 0.5,
+		DESKTOP_REFERENCE_SIZE.y - scaled_size.y,
+	)
+	return bottom_centered_offset + (
+		HOTBAR_MENU_POSITION
+		if _player_menu_context
+		else HOTBAR_CANONICAL_POSITION
+	)
 
 
 func _refresh() -> void:

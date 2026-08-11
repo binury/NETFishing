@@ -552,9 +552,11 @@ func _test_fishing_shop_sale_ui(
 	var shop_panel_style := shop_panel.get_theme_stylebox("panel") as StyleBoxFlat
 	assert(shop_panel_style != null)
 	assert(shop_panel_style.corner_radius_top_left == 24)
-	var buy_mode := shop.get_node("%BuyModeButton") as Button
-	var sell_mode := shop.get_node("%SellModeButton") as Button
-	assert(buy_mode.visible and sell_mode.visible)
+	assert(not shop.has_node("ShopPanel/Margin/Layout/ModeTabs"))
+	var shop_tabs: Array = shop.get("_shop_tabs") as Array
+	assert(shop_tabs.size() == 6)
+	var sell_mode := shop_tabs[5] as Button
+	assert(sell_mode != null and sell_mode.text == "Sell Fish")
 	var stock_sections: Array[String] = []
 	for child: Node in shop.get_node("%SuppliesList").get_children():
 		if child is Label:
@@ -605,8 +607,7 @@ func _test_fishing_shop_sale_ui(
 	assert(player.wallet.get_balance() == balance_before + fish_catch.sale_value)
 	assert(not sale_service.is_local_sale_pending())
 	assert(reservations.release(reservation_id))
-	var back_button := shop.get_node("%BackToShopButton") as Button
-	await _activate_focused_button(back_button, ui_viewport)
+	await _activate_focused_button(shop_tabs[0] as Button, ui_viewport)
 	await process_frame
 	assert(shop.visible and (shop.get_node("%ShopPanel") as Control).visible)
 	assert(not (shop.get_node("%ShopCoolerPage") as Control).visible)

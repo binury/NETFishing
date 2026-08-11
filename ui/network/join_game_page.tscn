@@ -308,13 +308,6 @@ custom_minimum_size = Vector2(82, 68)
 layout_mode = 2
 text = "delete"
 
-[node name="OpenCloseButton" type="Button" parent="Paper/Margin/Layout/Actions"]
-unique_name_in_owner = true
-visible = false
-custom_minimum_size = Vector2(88, 72)
-layout_mode = 2
-text = "open\ngame"
-
 [node name="CancelButton" type="Button" parent="Paper/Margin/Layout/Actions"]
 unique_name_in_owner = true
 visible = false

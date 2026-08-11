@@ -1,14 +1,16 @@
-[gd_resource type="Resource" script_class="ItemData" load_steps=2 format=3]
+[gd_resource type="Resource" script_class="ItemData" load_steps=3 format=3]
 
 [ext_resource type="Script" path="res://items/item_data.gd" id="1"]
+[ext_resource type="Texture2D" path="res://items/icons/bait/64_bait_minnow.png" id="2_icon"]
 
 [resource]
 script = ExtResource("1")
 item_id = &"whole_sardine"
 display_name = "minnow"
-description = "valuable live bait tuned for exceptional catches."
+description = "small live bait with high rare catch potential."
+icon = ExtResource("2_icon")
 category = 2
-bait_tags = Array[StringName]([&"bait_rarity_5"])
+bait_tags = Array[StringName]([&"bait_rarity_4"])
 stackable = true
 max_stack = 10
 hotbar_allowed = false

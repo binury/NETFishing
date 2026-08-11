@@ -42,7 +42,6 @@ const DIRECT_WORKFLOW_HELP: String = (
 @onready var _delete_button: Button = %DeleteButton
 @onready var _cancel_button: Button = %CancelButton
 @onready var _back_button: Button = %BackButton
-@onready var _open_close_button: Button = %OpenCloseButton
 @onready var _status: Label = %Status
 @onready var _session_summary: Label = %SessionSummary
 @onready var _delete_confirmation: BubbleConfirmationPage = (
@@ -75,7 +74,7 @@ func _ready() -> void:
 		_discover_button, _direct_button, _saved_button, _recent_button,
 		_refresh_button, _join_button,
 		_save_button, _edit_button, _favorite_button, _delete_button,
-		_cancel_button, _back_button, _open_close_button,
+		_cancel_button, _back_button,
 	]:
 		UtilityPageStyle.apply_ocean_button(button)
 	UtilityPageStyle.apply_ocean_line_edit(_address)
@@ -92,7 +91,6 @@ func _ready() -> void:
 	_delete_button.pressed.connect(_on_delete_pressed)
 	_cancel_button.pressed.connect(_on_cancel_pressed)
 	_back_button.pressed.connect(_on_back_pressed)
-	_open_close_button.pressed.connect(_on_open_close_pressed)
 	_address.text_submitted.connect(func(_value: String) -> void:
 		if _name_entry_active:
 			_name_edit.grab_focus()
@@ -235,6 +233,9 @@ func _request_join() -> void:
 	var endpoint_text: String = _address.text
 	if _mode == Mode.DISCOVER:
 		var room: Dictionary = _selected_discovery_room()
+		if _discovery != null and _discovery.is_own_room(room):
+			_set_status("You are already hosting this room.", true)
+			return
 		if _discovery_room_is_full(room):
 			_set_status("That room is full.", true)
 			return
@@ -441,12 +442,16 @@ func _refresh_entries() -> void:
 		for room: Dictionary in _discovery_rooms:
 			var player_count: int = int(room.get("current_players", 0))
 			var maximum: int = int(room.get("max_players", 0))
+			var own_room: bool = (
+				_discovery != null and _discovery.is_own_room(room)
+			)
 			_server_list.add_item(
-				"%s  —  %d / %d players%s" % [
+				"%s  —  %d / %d players%s%s" % [
 					str(room.get("room_name", "Public room")),
 					player_count,
 					maximum,
 					"  —  full" if player_count >= maximum else "",
+					"  —  your room" if own_room else "",
 				]
 			)
 		return
@@ -517,6 +522,12 @@ func _refresh() -> void:
 			and selected
 			and _discovery_room_is_full(_selected_discovery_room())
 		)
+		or (
+			discovery_mode
+			and selected
+			and _discovery != null
+			and _discovery.is_own_room(_selected_discovery_room())
+		)
 	)
 	_join_button.text = "join\nnow" if direct else "join"
 	_refresh_button.visible = discovery_mode and not _name_entry_active
@@ -541,15 +552,6 @@ func _refresh() -> void:
 	)
 	_delete_button.text = "remove" if _mode == Mode.RECENT else "delete"
 	_cancel_button.visible = connecting
-	_open_close_button.visible = (
-		_gameplay_context and _network_session.is_host()
-	)
-	if _open_close_button.visible:
-		_open_close_button.text = (
-			"close\ngame"
-			if _network_session.is_open_host()
-			else "open\ngame"
-		)
 	_session_summary.visible = (
 		_gameplay_context
 		and _network_session.state != NetworkSession.State.INACTIVE
@@ -647,7 +649,7 @@ func _format_entry_details(entry: SavedServerEntry) -> String:
 func _format_discovery_details(room: Dictionary) -> String:
 	if room.is_empty():
 		return "Select a public room."
-	return "\n".join([
+	var lines: Array[String] = [
 		"Room: %s" % str(room.get("room_name", "Public room")),
 		"Players: %d / %d" % [
 			int(room.get("current_players", 0)),
@@ -657,7 +659,10 @@ func _format_discovery_details(room: Dictionary) -> String:
 			_discovery.room_endpoint(room) if _discovery != null else "—"
 		),
 		"Direct UDP connection • ping is measured after joining",
-	])
+	]
+	if _discovery != null and _discovery.is_own_room(room):
+		lines.append("This is the room you are currently hosting.")
+	return "\n".join(lines)
 
 
 func _selected_discovery_room() -> Dictionary:
@@ -783,13 +788,6 @@ func _on_back_pressed() -> void:
 	):
 		_network_session.cancel_connection()
 	back_requested.emit()
-
-
-func _on_open_close_pressed() -> void:
-	if _network_session == null or not _network_session.is_host():
-		return
-	_network_session.set_host_open(not _network_session.is_open_host())
-	_refresh()
 
 
 func _on_state_changed(_state: NetworkSession.State) -> void:

@@ -47,6 +47,10 @@ func _run() -> void:
 
 	var discovery := DiscoveryClient.new()
 	assert(
+		str(discovery.call("_default_room_name", "River"))
+		== "River's Server"
+	)
+	assert(
 		DiscoveryClient.UPNP_RENEW_INTERVAL_SECONDS
 		< float(DiscoveryClient.UPNP_MAPPING_DURATION_SECONDS)
 	)
@@ -62,7 +66,12 @@ func _run() -> void:
 		discovery.get_public_join_state()
 		== DiscoveryClient.PublicJoinState.IDLE
 	)
-	assert(bool(discovery.call("_valid_public_room", {
+	discovery.set("_lease_room_id", "local-room")
+	assert(discovery.is_own_room({"room_id": "local-room"}))
+	assert(not discovery.is_own_room({"room_id": "another-room"}))
+	discovery.set("_lease_room_id", "")
+	assert(not discovery.is_own_room({"room_id": "local-room"}))
+	var listed_room := {
 		"room_id": "empty-dedicated-room",
 		"room_name": "Empty Dedicated Room",
 		"address": "203.0.113.10",
@@ -73,7 +82,31 @@ func _run() -> void:
 			"application/config/version", "unknown"
 		)),
 		"protocol_version": NetworkProtocol.PROTOCOL_VERSION,
-	})))
+	}
+	assert(bool(discovery.call("_valid_public_room", listed_room)))
+	var incompatible_room: Dictionary = listed_room.duplicate(true)
+	incompatible_room["game_version"] = "0.0.0-alpha"
+	assert(not bool(discovery.call("_valid_public_room", incompatible_room)))
+	assert(
+		NetworkProtocol.game_version_rejection(
+			"0.6.4-alpha", "0.6.5-alpha"
+		) == NetworkProtocol.RejectionCode.CLIENT_OUTDATED
+	)
+	assert(
+		NetworkProtocol.game_version_rejection(
+			"0.6.6-alpha", "0.6.5-alpha"
+		) == NetworkProtocol.RejectionCode.SERVER_OUTDATED
+	)
+	assert(
+		NetworkProtocol.game_version_rejection(
+			"0.6.5-alpha", "0.6.5-alpha"
+		) == NetworkProtocol.RejectionCode.NONE
+	)
+	assert(
+		NetworkProtocol.game_version_rejection(
+			"0.6.5-beta", "0.6.5-alpha"
+		) == NetworkProtocol.RejectionCode.SERVER_OUTDATED
+	)
 	discovery.free()
 	print("DEDICATED_SERVER_CONFIG_VALIDATION_OK")
 	quit()

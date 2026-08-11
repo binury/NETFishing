@@ -166,6 +166,9 @@ func _run() -> void:
 	var session_summary := (
 		join_page.get_node("%SessionSummary") as Label
 	)
+	assert(not join_page.has_node(
+		"Paper/Margin/Layout/Actions/OpenCloseButton"
+	))
 	assert("UDP 18138" in session_summary.text)
 	assert(session.set_host_open(true))
 	await process_frame

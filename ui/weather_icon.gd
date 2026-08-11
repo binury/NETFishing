@@ -25,7 +25,7 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_PASS
 	focus_mode = Control.FOCUS_NONE
 	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	custom_minimum_size = Vector2(34.0, 34.0)
+	custom_minimum_size = Vector2(51.0, 51.0)
 	_update_tooltip()
 	queue_redraw()
 

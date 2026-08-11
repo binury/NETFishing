@@ -1,5 +1,11 @@
 extends SceneTree
 
+const FEATURE_ASSET_ROOTS: Dictionary = {
+	"eyes": "res://art/exported/characters/faces/eyes",
+	"mouth": "res://art/exported/characters/faces/mouth",
+	"nose": "res://art/exported/characters/faces/noses",
+}
+
 
 func _initialize() -> void:
 	call_deferred("_run")
@@ -27,10 +33,10 @@ func _run() -> void:
 		).is_empty()
 	)
 
-	var expected_counts := {"eyes": 22, "mouth": 17, "nose": 17}
-	for category_id: String in expected_counts:
+	for category_id: String in FEATURE_ASSET_ROOTS:
 		var options := CharacterCustomizationCatalog.options_for(category_id)
-		assert(options.size() == int(expected_counts[category_id]) + 1)
+		var expected_ids: Dictionary = _feature_ids_on_disk(category_id)
+		assert(options.size() == expected_ids.size() + 1)
 		var seen_ids: Dictionary = {}
 		for option: Dictionary in options:
 			var option_id := str(option.get("id", ""))
@@ -42,6 +48,30 @@ func _run() -> void:
 						category_id, option_id
 					) != null
 				)
+		for expected_id: String in expected_ids:
+			assert(seen_ids.has(expected_id))
+	for mouth_id: String in ["open_ah", "open_oh", "open_smile"]:
+		assert(CharacterCustomizationCatalog.texture_for(
+			"mouth", mouth_id
+		) != null)
 
 	print("Exported decal hotfix validation: PASS")
 	quit()
+
+
+func _feature_ids_on_disk(category_id: String) -> Dictionary:
+	var result: Dictionary = {}
+	var root_path: String = str(FEATURE_ASSET_ROOTS[category_id])
+	var directory := DirAccess.open(root_path)
+	assert(directory != null)
+	for file_name: String in directory.get_files():
+		if not file_name.to_lower().ends_with(".png"):
+			continue
+		var option_id: String = (
+			CharacterCustomizationCatalog._feature_id_from_filename(
+				category_id, file_name
+			)
+		)
+		if not option_id.is_empty():
+			result[option_id] = true
+	return result
