@@ -4,12 +4,12 @@ set -euo pipefail
 
 readonly SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 readonly PROJECT_ROOT="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
-readonly BUILD_ROOT="${PROJECT_ROOT}/builds/v0.6.4-alpha"
+readonly BUILD_ROOT="${PROJECT_ROOT}/builds/v0.6.5-alpha"
 readonly WINDOWS_DIR="${BUILD_ROOT}/windows-x86_64"
 readonly LINUX_DIR="${BUILD_ROOT}/linux-x86_64"
 readonly README_SOURCE="${PROJECT_ROOT}/playtest/README-PLAYTEST.txt"
-readonly WINDOWS_ZIP="${BUILD_ROOT}/NETfishing-v0.6.4-alpha-windows-x86_64.zip"
-readonly LINUX_ZIP="${BUILD_ROOT}/NETfishing-v0.6.4-alpha-linux-x86_64.zip"
+readonly WINDOWS_ZIP="${BUILD_ROOT}/NETfishing-v0.6.5-alpha-windows-x86_64.zip"
+readonly LINUX_ZIP="${BUILD_ROOT}/NETfishing-v0.6.5-alpha-linux-x86_64.zip"
 readonly GODOT_BIN="${GODOT_BIN:-godot}"
 
 if [[ ! -f "${PROJECT_ROOT}/project.godot" ]]; then
