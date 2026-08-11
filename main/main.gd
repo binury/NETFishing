@@ -557,6 +557,7 @@ func _initialize_application(dedicated: bool) -> void:
 		_player_spawn_service,
 		_fishing_spot,
 		_player.inventory,
+		_player.bag,
 		_player.collection_log,
 		_player.cooler_capacity,
 		_player.experience,
@@ -1747,13 +1748,17 @@ func _on_active_hotbar_item_changed(
 		and item.category == ItemDataType.Category.ROD
 		and _player.bag.owns_item(item_id)
 	)
+	var active_is_art_kit: bool = (
+		item_id == ArtShopStockType.ART_KIT_ITEM_ID
+		and item != null
+		and _player.bag.owns_item(item_id)
+	)
 	_player.set_active_item_is_rod(active_is_rod, true)
 	_player.set_active_art_kit(
 		item.icon if item != null else null,
-		item_id == ArtShopStockType.ART_KIT_ITEM_ID
-		and item != null
-		and _player.bag.owns_item(item_id),
+		active_is_art_kit,
 	)
+	_game_ui.set_surface_drawing_hotbar_selected(active_is_art_kit)
 	_network_item_use.submit_local_equipped(item_id, active_is_rod or (
 		item != null and _player.bag.owns_item(item_id)
 	))

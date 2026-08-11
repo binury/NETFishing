@@ -50,6 +50,7 @@ func _run_host() -> void:
 	) as PlayerSpawnService
 	var remote_avatar: Player = spawn_service.get_avatar(remote_peer_id)
 	assert(remote_avatar != null)
+	assert(remote_avatar.bag.get_quantity(&"worms") == 0)
 	remote_avatar.global_position = Vector3(-0.5, 3.95, 2.1)
 	var remote_visuals := remote_avatar.get_node("Visuals") as Node3D
 	remote_visuals.rotation.y = PI * 0.5
@@ -178,6 +179,12 @@ func _run_client() -> void:
 	)
 	var fishing_spot := main.get_node("%FishingSpot") as FishingSpotType
 	var player := main.get("_player") as Player
+	var item_catalog := main.get("item_catalog") as ItemCatalog
+	var worms: ItemData = item_catalog.get_item_by_id(&"worms")
+	if player.bag.get_quantity(&"worms") == 0:
+		assert(player.bag.add_item(&"worms", 1))
+	assert(player.equip_bait(worms))
+	var worms_before_cast: int = player.bag.get_quantity(&"worms")
 	var character_animation_player := player.get_node(
 		"Visuals/CharacterRig/AnimationPlayer"
 	) as AnimationPlayer
@@ -265,6 +272,7 @@ func _run_client() -> void:
 		]
 	)
 	assert(service.has_local_attempt())
+	assert(player.bag.get_quantity(&"worms") == worms_before_cast - 1)
 	var fishing_deadline: int = Time.get_ticks_msec() + 5000
 	while (
 		Time.get_ticks_msec() < fishing_deadline

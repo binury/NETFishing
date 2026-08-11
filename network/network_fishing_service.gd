@@ -33,6 +33,7 @@ var _session: NetworkSession
 var _spawn_service: PlayerSpawnService
 var _fishing_spot: FishingSpot
 var _local_inventory: FishInventory
+var _local_bag: PlayerBag
 var _local_collection: CollectionLog
 var _local_capacity: PlayerCoolerCapacity
 var _local_experience: PlayerExperienceType
@@ -47,6 +48,7 @@ var _result_acknowledgements: Dictionary[String, String] = {}
 var _last_cast_time: Dictionary[int, float] = {}
 var _last_input_time: Dictionary[int, float] = {}
 var _remote_presentations: Dictionary[int, RemoteFishingPresentation] = {}
+var _pending_local_bait_by_request: Dictionary[String, StringName] = {}
 var _snapshot_accumulator: float = 0.0
 var _local_input_sequence: int = 0
 
@@ -56,6 +58,7 @@ func setup(
 	spawn_service: PlayerSpawnService,
 	fishing_spot: FishingSpot,
 	local_inventory: FishInventory,
+	local_bag: PlayerBag,
 	local_collection: CollectionLog,
 	local_capacity: PlayerCoolerCapacity,
 	local_experience: PlayerExperienceType,
@@ -68,6 +71,7 @@ func setup(
 	_spawn_service = spawn_service
 	_fishing_spot = fishing_spot
 	_local_inventory = local_inventory
+	_local_bag = local_bag
 	_local_collection = local_collection
 	_local_capacity = local_capacity
 	_local_experience = local_experience
@@ -97,6 +101,18 @@ func request_local_cast(
 	):
 		local_cast_rejected.emit("Fishing attempt ended.")
 		return ""
+	var bait_id := StringName(str(evidence.get("bait_id", "")))
+	if not bait_id.is_empty() and (
+		_local_bag == null or not _local_bag.owns_item(bait_id)
+	):
+		local_cast_rejected.emit("No bait available.")
+		return ""
+	var lure_id := StringName(str(evidence.get("lure_id", "")))
+	if not lure_id.is_empty() and (
+		_local_bag == null or not _local_bag.owns_item(lure_id)
+	):
+		local_cast_rejected.emit("Lure is unavailable.")
+		return ""
 	var request_id: String = _new_id("cast")
 	var data: Dictionary = {
 		"request_id": request_id,
@@ -111,12 +127,14 @@ func request_local_cast(
 		"rarity_multipliers": evidence.get("rarity_multipliers", []),
 		"discovered_fish_ids": evidence.get("discovered_fish_ids", []),
 		"capacity_available": bool(evidence.get("capacity_available", false)),
-		"bait_id": str(evidence.get("bait_id", "")),
-		"lure_id": str(evidence.get("lure_id", "")),
+		"bait_id": str(bait_id),
+		"lure_id": str(lure_id),
 	}
 	if _session.is_host():
 		_handle_cast_request(_session.get_local_peer_id(), data)
 	else:
+		if not bait_id.is_empty():
+			_pending_local_bait_by_request[request_id] = bait_id
 		submit_cast_request.rpc_id(1, data)
 	return request_id
 
@@ -303,6 +321,14 @@ func _handle_cast_request(peer_id: int, data: Dictionary) -> void:
 		return
 	var bait_id: StringName = StringName(str(data.get("bait_id", "")))
 	var avatar_bag: PlayerBag = avatar.bag
+	var owns_authoritative_bag: bool = (
+		peer_id == _session.get_local_peer_id()
+	)
+	var bait: ItemDataType = (
+		_item_catalog.get_item_by_id(bait_id)
+		if not bait_id.is_empty() and _item_catalog != null
+		else null
+	)
 	var lure_id: StringName = StringName(str(data.get("lure_id", "")))
 	var lure: ItemDataType = (
 		_item_catalog.get_item_by_id(lure_id)
@@ -314,13 +340,28 @@ func _handle_cast_request(peer_id: int, data: Dictionary) -> void:
 		and (
 			lure == null
 			or not lure.is_lure()
-			or avatar_bag == null
-			or not avatar_bag.owns_item(lure_id)
+			or (
+				owns_authoritative_bag
+				and (
+					avatar_bag == null
+					or not avatar_bag.owns_item(lure_id)
+				)
+			)
 		)
 	):
 		_record_and_reject(peer_id, request_id, "Lure is unavailable.")
 		return
-	if not bait_id.is_empty() and (avatar_bag == null or not avatar_bag.remove_item(bait_id, 1)):
+	if not bait_id.is_empty() and (
+		bait == null
+		or not bait.is_bait()
+		or (
+			owns_authoritative_bag
+			and (
+				avatar_bag == null
+				or not avatar_bag.remove_item(bait_id, 1)
+			)
+		)
+	):
 		_record_and_reject(peer_id, request_id, "No bait available.")
 		return
 	var attempt := NetworkFishingAttempt.new()
@@ -1025,6 +1066,20 @@ func _apply_cast_accepted(data: Dictionary) -> void:
 		# On the host this replaces the same authoritative value with itself.
 		if not _session.is_host():
 			_attempts[peer_id] = attempt
+			var pending_bait_id: StringName = (
+				_pending_local_bait_by_request.get(
+					attempt.request_id,
+					StringName(),
+				)
+			)
+			_pending_local_bait_by_request.erase(attempt.request_id)
+			if not pending_bait_id.is_empty() and (
+				_local_bag == null
+				or not _local_bag.remove_item(pending_bait_id, 1)
+			):
+				cancel_local_attempt("No bait available.")
+				local_cast_rejected.emit("No bait available.")
+				return
 		local_cast_accepted.emit(attempt.attempt_id, target)
 	else:
 		var presentation := _get_remote_presentation(peer_id)
@@ -1093,7 +1148,8 @@ func _send_cast_rejected(
 
 
 @rpc("authority", "call_remote", "reliable", 0)
-func receive_cast_rejected(_request_id: String, message: String) -> void:
+func receive_cast_rejected(request_id: String, message: String) -> void:
+	_pending_local_bait_by_request.erase(request_id)
 	local_cast_rejected.emit(message)
 
 

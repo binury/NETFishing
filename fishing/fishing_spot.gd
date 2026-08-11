@@ -67,7 +67,6 @@ signal showcase_changed(
 signal bite_activated
 signal bite_prompt_changed(is_visible: bool)
 signal ready_for_equipment_refresh
-signal art_ui_toggle_requested
 
 enum FishingState {
 	READY,
@@ -510,13 +509,6 @@ func _unhandled_input(event: InputEvent) -> void:
 				if not _new_cast_press_armed:
 					return
 				var active_item: ItemDataType = _get_active_item()
-				if (
-					active_item != null
-					and active_item.item_id == ArtShopStockType.ART_KIT_ITEM_ID
-				):
-					art_ui_toggle_requested.emit()
-					get_viewport().set_input_as_handled()
-					return
 				if (
 					active_item != null
 					and (

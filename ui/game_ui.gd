@@ -342,7 +342,6 @@ func setup(
 	fishing_spot.bite_prompt_changed.connect(_on_bite_prompt_changed)
 	fishing_spot.catch_display_changed.connect(_on_catch_display_changed)
 	fishing_spot.showcase_changed.connect(_on_showcase_changed)
-	fishing_spot.art_ui_toggle_requested.connect(_toggle_surface_drawing)
 	_player_menu.menu_visibility_changed.connect(
 		_on_player_menu_visibility_changed
 	)
@@ -1111,6 +1110,16 @@ func _toggle_surface_drawing() -> void:
 		_surface_drawing.deactivate()
 	elif _surface_drawing.can_activate():
 		_surface_drawing.activate(_drawing_pointer_window_position())
+
+
+func set_surface_drawing_hotbar_selected(is_selected: bool) -> void:
+	if _surface_drawing == null:
+		return
+	if is_selected:
+		if not _surface_drawing.is_active() and _surface_drawing.can_activate():
+			_surface_drawing.activate(_drawing_pointer_window_position())
+	elif _surface_drawing.is_active():
+		_surface_drawing.deactivate()
 
 
 func _drawing_pointer_window_position() -> Vector2:

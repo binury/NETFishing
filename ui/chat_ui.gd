@@ -241,6 +241,7 @@ func set_available(value: bool) -> void:
 func close_chat() -> void:
 	var ownership_was_active: bool = _opened or _input_lock_applied
 	_opened = false
+	_set_status("")
 	_entry.virtual_keyboard_enabled = false
 	_entry.release_focus()
 	_entry.hide()
@@ -743,6 +744,9 @@ func _send() -> void:
 	if _send_pending:
 		return
 	var body := _entry.text
+	if body.strip_edges().is_empty():
+		close_chat()
+		return
 	if _handle_chat_command(body):
 		return
 	_send_pending = true
@@ -1114,6 +1118,9 @@ func _update_speech() -> void:
 		if camera.is_position_behind(world_position):
 			bubble.hide()
 			continue
+		if _is_speech_world_occluded(camera, avatar, world_position):
+			bubble.hide()
+			continue
 		var screen_position := (
 			camera.unproject_position(world_position) / _output_scale
 		)
@@ -1152,6 +1159,38 @@ func _update_speech() -> void:
 				bubble.size.y - SPEECH_POINTER_OVERLAP,
 			)
 		bubble.show()
+
+
+func _is_speech_world_occluded(
+	camera: Camera3D,
+	speaker: Player,
+	world_position: Vector3,
+) -> bool:
+	var world := camera.get_world_3d()
+	if world == null:
+		return false
+	var excluded: Array[RID] = []
+	if _player != null:
+		excluded.append(_player.get_rid())
+	if speaker != _player:
+		excluded.append(speaker.get_rid())
+	var query := PhysicsRayQueryParameters3D.create(
+		camera.global_position,
+		world_position,
+	)
+	query.collide_with_areas = false
+	query.collide_with_bodies = true
+	for _attempt: int in range(8):
+		query.exclude = excluded
+		var hit: Dictionary = world.direct_space_state.intersect_ray(query)
+		if hit.is_empty():
+			return false
+		var collider := hit.get("collider") as CollisionObject3D
+		if collider is Player:
+			excluded.append(collider.get_rid())
+			continue
+		return true
+	return false
 
 
 func _on_draft_changed(_value: String) -> void:

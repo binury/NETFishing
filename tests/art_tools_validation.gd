@@ -296,11 +296,20 @@ func _run() -> void:
 	await process_frame
 	assert(not service.is_active() and not toolbar.visible)
 	assert(player.hotbar.assign_item(0, ArtShopStock.ART_KIT_ITEM_ID))
+	player.hotbar.select_slot(0)
 	var fishing_spot := main.get_node("%FishingSpot") as FishingSpot
-	fishing_spot.art_ui_toggle_requested.emit()
 	await process_frame
+	assert(not fishing_spot.has_signal(&"art_ui_toggle_requested"))
 	assert(service.is_active() and toolbar.visible)
 	assert(service.get_grid_size() == 128)
+	assert(service.handle_input(world_click, true))
+	assert(service.is_active() and toolbar.visible)
+	player.hotbar.select_slot(1)
+	await process_frame
+	assert(not service.is_active() and not toolbar.visible)
+	assert(service.handle_input(paint_key, true))
+	await process_frame
+	assert(service.is_active() and toolbar.visible)
 
 	print("Art tools validation: PASS")
 	var session := main.get_node("%NetworkSession") as NetworkSession
