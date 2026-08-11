@@ -82,7 +82,8 @@ func _run() -> void:
 	print("Economy regression validation: PASS")
 	session.disconnect_session("Economy validation complete.")
 	main.queue_free()
-	await process_frame
+	for _frame: int in 4:
+		await process_frame
 	quit()
 
 
@@ -555,19 +556,25 @@ func _test_fishing_shop_sale_ui(
 	assert(not shop.has_node("ShopPanel/Margin/Layout/ModeTabs"))
 	var shop_tabs: Array = shop.get("_shop_tabs") as Array
 	assert(shop_tabs.size() == 6)
+	var art_supplies_tab := shop_tabs[4] as Button
+	assert(art_supplies_tab != null and art_supplies_tab.text == "Art Supplies")
 	var sell_mode := shop_tabs[5] as Button
 	assert(sell_mode != null and sell_mode.text == "Sell Fish")
+	await _activate_focused_button(art_supplies_tab, ui_viewport)
+	await process_frame
 	var stock_sections: Array[String] = []
 	for child: Node in shop.get_node("%SuppliesList").get_children():
 		if child is Label:
 			stock_sections.append((child as Label).text)
-	assert(stock_sections == ["supplies", "art kit", "markers", "brushes", "grids"])
+	assert(stock_sections == ["art kit", "markers", "brushes", "grids"])
 	await _activate_focused_button(sell_mode, ui_viewport)
 	await process_frame
 	assert(shop.visible and not player_menu.visible)
 	assert(not shop.has_node("ShopPanel/Margin/Layout/Body/FishSales"))
 	assert((shop.get_node("%ShopCoolerPage") as Control).visible)
-	assert(not (shop.get_node("%ShopPanel") as Control).visible)
+	assert((shop.get_node("%ShopPanel") as Control).visible)
+	assert(not (shop.get_node("ShopPanel/Margin/Layout/Body") as Control).visible)
+	assert(not (shop.get_node("%Feedback") as Control).visible)
 	var mounted_cooler := player_menu.get("_cooler_page") as Control
 	assert(mounted_cooler != null and mounted_cooler.visible)
 	assert(
@@ -613,7 +620,8 @@ func _test_fishing_shop_sale_ui(
 	assert(not (shop.get_node("%ShopCoolerPage") as Control).visible)
 	assert(not player_menu.is_shop_cooler_mounted())
 	shop.close_shop()
-	await process_frame
+	await shop.menu_visibility_changed
+	assert(not shop.visible)
 
 
 func _assert_sale(
@@ -634,7 +642,9 @@ func _assert_sale(
 	assert(bool(_sale_result[1]) == expected_success)
 	assert(not sale_service.is_local_sale_pending())
 	if expected_success:
-		assert(player.wallet.get_balance() > balance_before)
+		var payout: int = int(_sale_result[4])
+		assert(payout >= 0)
+		assert(player.wallet.get_balance() == balance_before + payout)
 		for catch_id: StringName in catch_ids:
 			assert(not player.inventory.contains_catch_id(catch_id))
 	else:
