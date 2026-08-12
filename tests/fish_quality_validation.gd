@@ -83,40 +83,68 @@ func _validate_barrier_challenge_curve() -> void:
 	var expected_maximums: Array[int] = [9, 50, 100, 200, 400]
 	var previous_health: int = 0
 	for quality: int in FishQualityType.TIER_COUNT:
+		var expected_range := Vector2i(
+			expected_minimums[quality], expected_maximums[quality]
+		)
+		assert(
+			FishQualityType.barrier_health_range(quality)
+			== expected_range
+		)
+		assert(
+			FishQualityType.roll_barrier_health(null, quality)
+			== expected_range.x
+		)
+		var rng := RandomNumberGenerator.new()
+		rng.seed = 73013 + quality
+		var observed_counts: Dictionary[int, int] = {}
+		var observed_minimum: int = expected_range.y
+		var observed_maximum: int = expected_range.x
+		var observed_total: int = 0
+		var band_size: int = expected_range.y - expected_range.x + 1
+		var sample_count: int = maxi(10000, band_size * 250)
+		for _sample: int in sample_count:
+			var rolled_health: int = FishQualityType.roll_barrier_health(
+				rng, quality
+			)
+			assert(
+				rolled_health >= expected_range.x
+				and rolled_health <= expected_range.y
+			)
+			observed_counts[rolled_health] = (
+				int(observed_counts.get(rolled_health, 0)) + 1
+			)
+			observed_minimum = mini(observed_minimum, rolled_health)
+			observed_maximum = maxi(observed_maximum, rolled_health)
+			observed_total += rolled_health
+		assert(observed_minimum == expected_range.x)
+		assert(observed_maximum == expected_range.y)
+		for authored_health: int in range(
+			expected_range.x, expected_range.y + 1
+		):
+			assert(observed_counts.has(authored_health))
+		var observed_average: float = (
+			float(observed_total) / float(sample_count)
+		)
+		var authored_midpoint: float = (
+			float(expected_range.x + expected_range.y) / 2.0
+		)
+		assert(
+			absf(observed_average - authored_midpoint)
+			< maxf(0.15, float(band_size) * 0.01)
+		)
 		var health: int = FishQualityType.apply_barrier_health(8, quality)
 		assert(health > previous_health)
 		previous_health = health
 	assert(FishQualityType.apply_barrier_health(8, -1) == 8)
 	assert(FishQualityType.apply_barrier_health(0, FishQualityType.Tier.SHINY) == 4)
-	var impressive_low_input: int = FishQualityType.barrier_health_for_catch(
-		FishQualityType.Tier.IMPRESSIVE,
-		0,
-		0.0,
-		1.0,
-	)
-	var impressive_high_input: int = FishQualityType.barrier_health_for_catch(
-		FishQualityType.Tier.IMPRESSIVE,
-		4,
-		1.0,
-		1.0,
-	)
-	assert(impressive_low_input >= 50 and impressive_low_input <= 100)
-	assert(impressive_high_input > impressive_low_input)
-	assert(impressive_high_input <= 100)
 	assert(
-		FishQualityType.barrier_health_for_catch(
-			FishQualityType.Tier.BORING,
-			4,
-			1.0,
-			1.0,
-		) <= 9
+		FishQualityType.barrier_health_range(-1)
+		== Vector2i(1, 9)
 	)
 
 	var profile := CatchDifficultyProfile.new()
 	profile.barrier_count_min = 1
 	profile.barrier_count_max = 1
-	profile.barrier_health_min = 8
-	profile.barrier_health_max = 8
 	profile.first_barrier_margin = 0.2
 	profile.final_barrier_margin = 0.2
 	profile.minimum_barrier_spacing = 0.1
@@ -141,12 +169,9 @@ func _validate_barrier_challenge_curve() -> void:
 		assert(health <= expected_maximums[quality])
 	controller.queue_free()
 
-	var shiny_health: int = FishQualityType.barrier_health_for_catch(
-		FishQualityType.Tier.SHINY,
-		4,
-		1.0,
-		1.0,
-	)
+	var shiny_health: int = FishQualityType.barrier_health_range(
+		FishQualityType.Tier.SHINY
+	).y
 	var base_power_clicks: int = ceili(float(shiny_health) / 1.0)
 	var max_power_clicks: int = ceili(
 		float(shiny_health)

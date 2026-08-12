@@ -1,6 +1,9 @@
 extends SceneTree
 
 const TEST_PORT: int = 35777
+const OPERATOR_FINGERPRINT: String = (
+	"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+)
 
 
 func _init() -> void:
@@ -35,12 +38,18 @@ func _run() -> void:
 		host_bans,
 		true,
 	)
+	assert(session.configure_dedicated_operators(
+		PackedStringArray([OPERATOR_FINGERPRINT])
+	))
 	assert(session.start_dedicated_host(TEST_PORT, 5, "127.0.0.1"))
 	assert(session.is_dedicated_host())
 	assert(session.get_local_peer_id() == 0)
 	assert(session.get_player_count() == 0)
 	assert(session.get_session_max_players() == 5)
 	assert(session.get_host_port() == TEST_PORT)
+	assert(bool(session.call(
+		"_operator_for_fingerprint", OPERATOR_FINGERPRINT
+	)))
 	assert(session.set_host_open(true))
 	assert(session.is_open_host())
 	session.disconnect_session("Dedicated host validation complete.")

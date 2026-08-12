@@ -109,6 +109,7 @@ func _run() -> void:
 	select_button.button_index = JOY_BUTTON_BACK
 	select_button.pressed = true
 	assert(bool(game_ui.call("_handle_controller_chat_controls", select_button)))
+	await process_frame
 	assert(chat_ui.is_open())
 	assert(chat_panel.mouse_filter == Control.MOUSE_FILTER_STOP)
 	var typed_chat_entry := chat_ui.find_child(
@@ -121,6 +122,8 @@ func _run() -> void:
 	accept_button.pressed = true
 	assert(bool(game_ui.call("_handle_controller_chat_controls", accept_button)))
 	assert(typed_chat_entry.virtual_keyboard_enabled)
+	await process_frame
+	assert(typed_chat_entry.has_focus())
 	var left_bumper := InputEventJoypadButton.new()
 	left_bumper.button_index = JOY_BUTTON_LEFT_SHOULDER
 	left_bumper.pressed = true
@@ -129,10 +132,8 @@ func _run() -> void:
 	assert(chat_panel.mouse_filter == Control.MOUSE_FILTER_IGNORE)
 	assert(not typed_chat_entry.virtual_keyboard_enabled)
 	assert(bool(game_ui.call("_handle_controller_chat_controls", left_bumper)))
-	assert(chat_ui.is_open())
-	assert(not typed_chat_entry.virtual_keyboard_enabled)
-	assert(bool(game_ui.call("_handle_controller_chat_controls", left_bumper)))
 	assert(not chat_ui.is_open())
+	assert(not typed_chat_entry.virtual_keyboard_enabled)
 	assert(bool(game_ui.call("_handle_controller_chat_controls", select_button)))
 	assert(not chat_ui.is_open())
 	assert(chat_ui.is_collapsed())
@@ -315,5 +316,7 @@ func _run() -> void:
 	var session := main.get_node("%NetworkSession") as NetworkSession
 	session.disconnect_session("")
 	main.queue_free()
-	await process_frame
+	for _frame: int in 4:
+		await process_frame
+	await create_timer(0.1).timeout
 	quit()

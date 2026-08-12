@@ -58,6 +58,7 @@ var _session: NetworkSession
 var _base_url: String = ""
 var _room_name: String = DEFAULT_ROOM_NAME
 var _room_name_uses_default: bool = true
+var _host_settings_persistence_enabled: bool = true
 var _discoverable: bool = false
 var _host_status_message: String = ""
 var _host_status_is_error: bool = false
@@ -216,6 +217,11 @@ func get_host_state() -> HostState:
 
 func get_public_join_state() -> PublicJoinState:
 	return _public_join_state
+
+
+func configure_dedicated_runtime(room_name: String) -> bool:
+	_host_settings_persistence_enabled = false
+	return set_room_name(room_name)
 
 
 func set_room_name(value: String) -> bool:
@@ -865,10 +871,44 @@ func _parse_response_dictionary(body: PackedByteArray) -> Dictionary:
 func _request_failure(response: Dictionary) -> String:
 	var error: Variant = response.get("error", {})
 	if typeof(error) == TYPE_DICTIONARY:
-		var message: String = str((error as Dictionary).get("message", "")).strip_edges()
+		var details := error as Dictionary
+		if str(details.get("code", "")) == "game_version_mismatch":
+			var required_version: String = str(
+				details.get("required_game_version", "")
+			).strip_edges()
+			if not required_version.is_empty():
+				return _discovery_version_mismatch_message(required_version)
+		var message: String = str(details.get("message", "")).strip_edges()
 		if not message.is_empty():
 			return message
 	return "Room discovery is temporarily unavailable."
+
+
+func _discovery_version_mismatch_message(required_version: String) -> String:
+	var local_version: String = NetworkProtocol.game_version()
+	var rejection: NetworkProtocol.RejectionCode = (
+		NetworkProtocol.game_version_rejection(
+			local_version,
+			required_version,
+		)
+	)
+	match rejection:
+		NetworkProtocol.RejectionCode.CLIENT_OUTDATED:
+			return (
+				"Your NETfishing version is out of date. Update to %s to "
+				+ "enable public discovery. This room will not be listed "
+				+ "until you update."
+			) % required_version
+		NetworkProtocol.RejectionCode.SERVER_OUTDATED:
+			return (
+				"Public discovery is still on NETfishing %s. This room "
+				+ "will not be listed until discovery is updated for %s."
+			) % [required_version, local_version]
+		_:
+			return (
+				"Public discovery requires NETfishing %s. This room will "
+				+ "not be listed until both versions match."
+			) % required_version
 
 
 func _on_session_state_changed(state: NetworkSession.State) -> void:
@@ -1013,6 +1053,8 @@ func _load_settings() -> void:
 
 
 func _save_settings() -> void:
+	if not _host_settings_persistence_enabled:
+		return
 	var config := ConfigFile.new()
 	config.set_value("host", "room_name", _room_name)
 	config.set_value(

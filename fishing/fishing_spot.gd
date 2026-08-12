@@ -1045,8 +1045,6 @@ func _activate_bite(confirmation_override: bool = false) -> void:
 		_get_effective_reel_speed(),
 		_get_effective_barrier_damage(),
 		_pending_catch.quality,
-		int(_pending_catch.fish.rarity),
-		_pending_catch.fish.get_weight_percentile(_pending_catch.weight_lb),
 	)
 	_catch_controller.set_reel_input(
 		Input.is_action_pressed("fish_primary")

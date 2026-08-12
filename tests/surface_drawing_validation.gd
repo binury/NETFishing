@@ -21,6 +21,8 @@ func _run() -> void:
 	await _validate_blocked_author_visibility()
 	_validate_peer_capability_tracking()
 	print("Surface drawing validation: PASS")
+	for _frame: int in 4:
+		await process_frame
 	quit()
 
 
@@ -118,6 +120,7 @@ func _validate_art_unlocks() -> void:
 	assert(unlocks.is_brush_size_unlocked(4))
 	assert(unlocks.is_grid_size_unlocked(128))
 	assert(not unlocks.restore_mask(PlayerArtUnlocks.ALL_UNLOCK_MASK + 1))
+	unlocks.free()
 
 
 func _validate_grid_snapping() -> void:
@@ -265,6 +268,7 @@ func _validate_blocked_author_visibility() -> void:
 	})
 	var world := Node3D.new()
 	root.add_child(world)
+	world.add_child(relationships)
 	var canvas := SurfaceDrawingCanvas.new()
 	world.add_child(canvas)
 	var state: Dictionary = {

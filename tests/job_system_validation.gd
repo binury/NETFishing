@@ -187,8 +187,10 @@ func _run() -> void:
 	assert(int(save_data.get("save_version", -1)) == 7)
 	assert(PlayerJobService.validate_save_data(save_data.get("jobs", {})))
 
+	session.disconnect_session("Job system validation complete.")
 	main.queue_free()
-	await process_frame
+	for _frame: int in 4:
+		await process_frame
 	print("Job system validation: PASS")
 	quit()
 

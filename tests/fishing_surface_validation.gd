@@ -266,11 +266,47 @@ func _validate_bite_wait_distribution() -> void:
 		if wait_seconds >= FishingSpotType.BITE_LONG_MAX_SECONDS:
 			very_long_count += 1
 	var average_wait_seconds: float = total_wait_seconds / 10000.0
-	assert(quick_count >= 2300 and quick_count <= 2700)
+	var quick_ratio: float = float(quick_count) / 10000.0
+	var very_long_ratio: float = float(very_long_count) / 10000.0
+	var very_long_probability: float = 1.0 - (
+		FishingSpotType.BITE_QUICK_PROBABILITY
+		+ FishingSpotType.BITE_TYPICAL_PROBABILITY
+		+ FishingSpotType.BITE_LONG_PROBABILITY
+	)
+	var expected_average_wait_seconds: float = (
+		FishingSpotType.BITE_QUICK_PROBABILITY
+		* (
+			FishingSpotType.BITE_QUICK_MIN_SECONDS
+			+ FishingSpotType.BITE_QUICK_MAX_SECONDS
+		)
+		* 0.5
+		+ FishingSpotType.BITE_TYPICAL_PROBABILITY
+		* (
+			FishingSpotType.BITE_QUICK_MAX_SECONDS
+			+ FishingSpotType.BITE_TYPICAL_MAX_SECONDS
+		)
+		* 0.5
+		+ FishingSpotType.BITE_LONG_PROBABILITY
+		* (
+			FishingSpotType.BITE_TYPICAL_MAX_SECONDS
+			+ FishingSpotType.BITE_LONG_MAX_SECONDS
+		)
+		* 0.5
+		+ very_long_probability
+		* (
+			FishingSpotType.BITE_LONG_MAX_SECONDS
+			+ FishingSpotType.BITE_MAX_SECONDS
+		)
+		* 0.5
+	)
+	assert(absf(
+		quick_ratio - FishingSpotType.BITE_QUICK_PROBABILITY
+	) <= 0.02)
 	assert(typical_or_long_count > quick_count)
-	assert(very_long_count >= 100 and very_long_count <= 300)
-	assert(average_wait_seconds >= 45.0)
-	assert(average_wait_seconds <= 49.0)
+	assert(absf(very_long_ratio - very_long_probability) <= 0.005)
+	assert(absf(
+		average_wait_seconds - expected_average_wait_seconds
+	) <= 1.0)
 	fishing_spot.queue_free()
 	await process_frame
 
@@ -305,11 +341,16 @@ func _validate_remote_presentation() -> void:
 	fish_catch.sale_value = 1
 	assert(fish_catch.is_valid())
 	presentation.play_return(fish_catch)
-	await create_timer(0.6).timeout
 	var catch_display := player.find_child(
 		"CatchDisplay", true, false
 	) as Node3D
 	assert(catch_display != null)
+	var showcase_deadline_msec: int = Time.get_ticks_msec() + 2000
+	while (
+		not catch_display.visible
+		and Time.get_ticks_msec() < showcase_deadline_msec
+	):
+		await process_frame
 	assert(catch_display.visible)
 	await presentation.return_completed
 	assert(not catch_display.visible)

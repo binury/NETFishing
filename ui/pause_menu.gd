@@ -351,7 +351,10 @@ func _open_confirmation(
 			else BubbleConfirmationPageType.InitialFocus.CONFIRM
 		)
 	)
-	_begin_root_exit(_show_confirmation)
+	# Confirmation actions reject input while the root page is still leaving.
+	# Finish that exit before exposing an interactive confirmation page so a
+	# pointer click can never land in the overlap window and be discarded.
+	_begin_root_exit(_show_confirmation, false)
 
 
 func _show_confirmation() -> void:
@@ -450,7 +453,10 @@ func _finish_root_entry(generation: int) -> void:
 	_root_transition_active = false
 
 
-func _begin_root_exit(completed: Callable) -> void:
+func _begin_root_exit(
+	completed: Callable,
+	overlap_next_page: bool = true,
+) -> void:
 	if _root_transition_active or not _root_page.visible:
 		return
 	_root_transition_generation += 1
@@ -458,9 +464,14 @@ func _begin_root_exit(completed: Callable) -> void:
 	_emit_transition_flurry()
 	var generation: int = _root_transition_generation
 	_root_page.transition_out(
-		_finish_root_exit.bind(generation),
+		_finish_root_exit.bind(
+			generation,
+			Callable() if overlap_next_page else completed,
+		),
 		0.0
 	)
+	if not overlap_next_page:
+		return
 	await get_tree().create_timer(
 		UIMotion.BUBBLE_TRANSITION_OVERLAP_DELAY
 	).timeout
@@ -471,10 +482,13 @@ func _begin_root_exit(completed: Callable) -> void:
 
 func _finish_root_exit(
 	generation: int,
+	completed: Callable,
 ) -> void:
 	if generation != _root_transition_generation or not visible:
 		return
 	_root_transition_active = false
+	if completed.is_valid():
+		completed.call()
 
 
 func _finish_user_close() -> void:

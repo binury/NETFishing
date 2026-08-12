@@ -41,6 +41,8 @@ func _input(event: InputEvent) -> void:
 			CONTROLLER_MOTION_THRESHOLD
 		):
 			_set_controller_active(true)
+	elif event is InputEventMouseMotion:
+		_set_controller_active(false)
 	elif event is InputEventMouseButton:
 		if (event as InputEventMouseButton).pressed:
 			_set_controller_active(false)

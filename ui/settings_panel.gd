@@ -156,6 +156,7 @@ func _ready() -> void:
 	%ChangeDataFolder.pressed.connect(_choose_data_folder)
 	%ExportPlayerIdentity.pressed.connect(_choose_identity_export.bind("player"))
 	%ImportPlayerIdentity.pressed.connect(_choose_identity_import.bind("player"))
+	%CopyPlayerFingerprint.pressed.connect(_copy_player_fingerprint)
 	%ExportHostIdentity.pressed.connect(_choose_identity_export.bind("host"))
 	%ImportHostIdentity.pressed.connect(_choose_identity_import.bind("host"))
 	for index: int in _world_options.size():
@@ -485,11 +486,32 @@ func _refresh_data_page() -> void:
 		_data_root.override_active
 		or (_network_session != null and _network_session.is_session_active())
 	)
+	var fingerprint: String = (
+		_player_identity.fingerprint if _player_identity != null else ""
+	)
+	%CopyPlayerFingerprint.disabled = not NetworkIdentityCrypto.valid_fingerprint(
+		fingerprint
+	)
+	%CopyPlayerFingerprint.text = (
+		"Copy Player Fingerprint · %s"
+		% NetworkIdentityCrypto.compact_suffix(fingerprint)
+	)
 
 
 func _open_data_folder() -> void:
 	if _data_root == null or not _data_root.open_folder():
 		_feedback.text = "Could not open the data folder."
+
+
+func _copy_player_fingerprint() -> void:
+	var fingerprint: String = (
+		_player_identity.fingerprint if _player_identity != null else ""
+	)
+	if not NetworkIdentityCrypto.valid_fingerprint(fingerprint):
+		_feedback.text = "Player identity is unavailable."
+		return
+	DisplayServer.clipboard_set(fingerprint)
+	_feedback.text = "Full player fingerprint copied for server operator setup."
 
 
 func _choose_data_folder() -> void:

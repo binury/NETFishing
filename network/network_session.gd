@@ -32,6 +32,7 @@ signal server_trust_required(
 	is_changed: bool,
 )
 signal peer_identity_observed(peer_id: int, status: String)
+signal operator_status_changed(peer_id: int, is_operator: bool)
 signal server_lost
 signal remote_recovery_requested(peer_id: int, entry_position: Vector3)
 signal remote_recovery_presentation_changed(
@@ -102,6 +103,10 @@ var _moderation_disconnect_message := ""
 var _host_port: int = 0
 var _session_display_name: String = "NETfishing Room"
 var _dedicated_host: bool = false
+var _configured_operator_fingerprints: Dictionary[String, bool] = {}
+var _session_operator_fingerprints: Dictionary[String, bool] = {}
+var _operator_peer_ids: Dictionary[int, bool] = {}
+var _local_operator: bool = false
 
 
 func _ready() -> void:
@@ -135,6 +140,20 @@ func setup(
 		_profile_ready = _profile.load_or_create()
 	if not dedicated and _player_identity != null:
 		_profile_ready = _profile_ready and _player_identity.load_or_create()
+
+
+func configure_dedicated_operators(
+	fingerprints: PackedStringArray,
+) -> bool:
+	if state != State.INACTIVE:
+		return false
+	var configured: Dictionary[String, bool] = {}
+	for fingerprint: String in fingerprints:
+		if not NetworkIdentityCrypto.valid_fingerprint(fingerprint):
+			return false
+		configured[fingerprint] = true
+	_configured_operator_fingerprints = configured
+	return true
 
 
 func start_private_host(
@@ -215,6 +234,9 @@ func _start_host(
 	multiplayer.multiplayer_peer = peer
 	_session_id = Crypto.new().generate_random_bytes(16).hex_encode()
 	_registry.clear()
+	_session_operator_fingerprints.clear()
+	_operator_peer_ids.clear()
+	_local_operator = false
 	_spawn_service.clear_remote_players()
 	if not dedicated:
 		_register_player_host()
@@ -299,6 +321,44 @@ func send_traversal_packet(
 
 func is_dedicated_host() -> bool:
 	return is_host() and _dedicated_host
+
+
+func is_local_operator() -> bool:
+	return state == State.JOINED_CLIENT and _local_operator
+
+
+func can_local_moderate() -> bool:
+	return is_host() or is_local_operator()
+
+
+func can_manage_operators() -> bool:
+	return is_host() and not _dedicated_host
+
+
+func is_peer_operator(peer_id: int) -> bool:
+	return bool(_operator_peer_ids.get(peer_id, false))
+
+
+func set_peer_operator(
+	peer_id: int,
+	fingerprint: String,
+	enabled: bool,
+) -> bool:
+	if not can_manage_operators() or peer_id <= 1:
+		return false
+	var record: PeerRegistry.PeerRecord = _registry.get_peer(peer_id)
+	if (
+		record == null
+		or not record.identity_authenticated
+		or record.identity_fingerprint != fingerprint
+	):
+		return false
+	if enabled:
+		_session_operator_fingerprints[fingerprint] = true
+	else:
+		_session_operator_fingerprints.erase(fingerprint)
+	_set_operator_status(peer_id, enabled)
+	return true
 
 
 func set_session_display_name(value: String) -> void:
@@ -822,6 +882,7 @@ func _on_peer_disconnected(peer_id: int) -> void:
 	_pending_authentication.erase(peer_id)
 	_pending_identity_challenges.erase(peer_id)
 	_authenticated_identity_cache.erase(peer_id)
+	_operator_peer_ids.erase(peer_id)
 	var recovery_attempt: String = _recovery_attempts.get(peer_id, "")
 	if not recovery_attempt.is_empty():
 		_recovery_attempts.erase(peer_id)
@@ -1136,6 +1197,11 @@ func submit_client_hello(data: Dictionary) -> void:
 			NetworkProtocol.RejectionCode.MALFORMED_HANDSHAKE
 		)
 		return
+	var operator_enabled: bool = _operator_for_fingerprint(
+		str(identity["fingerprint"])
+	)
+	if operator_enabled:
+		_operator_peer_ids[sender_id] = true
 	var submitted_appearance := CharacterCustomizationCatalog.sanitized_snapshot(
 		data["cosmetic_snapshot"]
 	)
@@ -1180,9 +1246,12 @@ func submit_client_hello(data: Dictionary) -> void:
 		)
 	)
 	receive_spawn_list.rpc_id(sender_id, _build_spawn_list())
+	receive_operator_snapshot.rpc_id(sender_id, _operator_peer_id_snapshot())
 	receive_peer_spawn.rpc(
 		_make_spawn_entry(sender_id, display_name, spawn_transform)
 	)
+	if operator_enabled:
+		receive_operator_status.rpc(sender_id, true)
 	peer_authenticated.emit(sender_id, display_name)
 	_emit_peer_count()
 
@@ -1334,10 +1403,39 @@ func receive_peer_spawn(entry: Dictionary) -> void:
 func receive_peer_despawn(peer_id: int) -> void:
 	if state != State.JOINED_CLIENT:
 		return
+	_operator_peer_ids.erase(peer_id)
 	_registry.remove_peer(peer_id)
 	_spawn_service.remove_peer(peer_id)
 	peer_removed.emit(peer_id)
 	_emit_peer_count()
+
+
+@rpc("authority", "call_remote", "reliable", 0)
+func receive_operator_snapshot(peer_ids: PackedInt32Array) -> void:
+	if (
+		state != State.JOINED_CLIENT
+		or peer_ids.size() > get_session_max_players()
+	):
+		return
+	_operator_peer_ids.clear()
+	for peer_id: int in peer_ids:
+		if peer_id > 1:
+			_operator_peer_ids[peer_id] = true
+	_update_local_operator()
+	for peer_id: int in _operator_peer_ids:
+		operator_status_changed.emit(peer_id, true)
+
+
+@rpc("authority", "call_remote", "reliable", 0)
+func receive_operator_status(peer_id: int, enabled: bool) -> void:
+	if state != State.JOINED_CLIENT or peer_id <= 1:
+		return
+	if enabled:
+		_operator_peer_ids[peer_id] = true
+	else:
+		_operator_peer_ids.erase(peer_id)
+	_update_local_operator()
+	operator_status_changed.emit(peer_id, enabled)
 
 
 func _apply_spawn_entry(entry: Dictionary) -> void:
@@ -1468,6 +1566,36 @@ func _sanitized_capabilities(value: Variant) -> PackedStringArray:
 		):
 			result.append(str(capability))
 	return result
+
+
+func _operator_for_fingerprint(fingerprint: String) -> bool:
+	return bool((
+		_configured_operator_fingerprints
+		if _dedicated_host
+		else _session_operator_fingerprints
+	).get(fingerprint, false))
+
+
+func _operator_peer_id_snapshot() -> PackedInt32Array:
+	var result: PackedInt32Array = PackedInt32Array()
+	for peer_id: int in _operator_peer_ids:
+		result.append(peer_id)
+	result.sort()
+	return result
+
+
+func _set_operator_status(peer_id: int, enabled: bool) -> void:
+	if enabled:
+		_operator_peer_ids[peer_id] = true
+	else:
+		_operator_peer_ids.erase(peer_id)
+	operator_status_changed.emit(peer_id, enabled)
+	receive_operator_status.rpc(peer_id, enabled)
+
+
+func _update_local_operator() -> void:
+	var local_peer_id: int = multiplayer.get_unique_id()
+	_local_operator = bool(_operator_peer_ids.get(local_peer_id, false))
 
 
 func _verify_spawn_identity(entry: Dictionary) -> bool:
@@ -1929,5 +2057,8 @@ func _teardown_peer() -> void:
 	_server_identity_fingerprint = ""
 	_server_identity_public_key = ""
 	_session_identity_keys.clear()
+	_session_operator_fingerprints.clear()
+	_operator_peer_ids.clear()
+	_local_operator = false
 	_host_port = 0
 	_dedicated_host = false

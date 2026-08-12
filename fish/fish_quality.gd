@@ -23,16 +23,11 @@ const MINNOW_ROLL_WEIGHTS: Array[float] = [34.0, 27.0, 20.0, 13.0, 6.0]
 const SARDINE_ROLL_WEIGHTS: Array[float] = [25.0, 28.0, 23.0, 16.0, 8.0]
 const LUMINOUS_ROE_ROLL_WEIGHTS: Array[float] = [16.0, 26.0, 26.0, 20.0, 12.0]
 const SALE_MULTIPLIERS: Array[float] = [1.0, 1.1, 1.25, 1.5, 2.0]
-# Legacy profile multiplier retained for serialized/profile compatibility.
-# New encounters use the weighted quality/rarity/weight bands below.
+# Legacy multiplier helpers remain available for compatibility. New encounters
+# roll directly within the authored quality bands below.
 const BARRIER_HEALTH_MULTIPLIERS: Array[float] = [1.0, 1.25, 1.6, 2.2, 3.25]
-# Barrier health is weighted 70% by quality, 20% by rarity, and 10% by the
-# catch's position in its authored weight range.  The upper bounds define the
-# intended per-barrier challenge bands; a small seeded variance keeps barriers
-# from feeling identical without crossing those bands.
-const BARRIER_QUALITY_WEIGHT: float = 0.70
-const BARRIER_RARITY_WEIGHT: float = 0.20
-const BARRIER_WEIGHT_WEIGHT: float = 0.10
+# Inclusive per-barrier health bands authored for each quality tier. Encounter
+# generation rolls uniformly across the selected tier's complete band.
 const BARRIER_HEALTH_MINIMUMS: Array[int] = [1, 10, 50, 100, 200]
 const BARRIER_HEALTH_MAXIMUMS: Array[int] = [9, 50, 100, 200, 400]
 const DISPLAY_NAMES: PackedStringArray = [
@@ -89,30 +84,24 @@ static func apply_barrier_health(base_health: int, quality: int) -> int:
 	)
 
 
-static func barrier_health_for_catch(
-	quality: int,
-	rarity: int,
-	weight_percentile: float,
-	variance: float = 1.0,
-) -> int:
+static func barrier_health_range(quality: int) -> Vector2i:
 	var safe_quality: int = (
 		quality if is_valid(quality) else Tier.BORING
 	)
-	var safe_rarity: float = clampf(float(rarity) / 4.0, 0.0, 1.0)
-	var safe_weight: float = clampf(weight_percentile, 0.0, 1.0)
-	var weighted_health: float = float(BARRIER_HEALTH_MAXIMUMS[safe_quality]) * (
-		BARRIER_QUALITY_WEIGHT
-		+ BARRIER_RARITY_WEIGHT * safe_rarity
-		+ BARRIER_WEIGHT_WEIGHT * safe_weight
-	)
-	var varied_health: int = roundi(
-		weighted_health * clampf(variance, 0.8, 1.2)
-	)
-	return clampi(
-		varied_health,
+	return Vector2i(
 		BARRIER_HEALTH_MINIMUMS[safe_quality],
 		BARRIER_HEALTH_MAXIMUMS[safe_quality],
 	)
+
+
+static func roll_barrier_health(
+	rng: RandomNumberGenerator,
+	quality: int,
+) -> int:
+	var health_range: Vector2i = barrier_health_range(quality)
+	if rng == null:
+		return health_range.x
+	return rng.randi_range(health_range.x, health_range.y)
 
 
 static func roll(

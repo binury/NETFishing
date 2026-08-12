@@ -5,6 +5,7 @@ const DEFAULT_NAME: String = "NETfishing Dedicated Server"
 const DEFAULT_BIND_ADDRESS: String = "*"
 const DEFAULT_PORT: int = 7777
 const DEFAULT_MAX_PLAYERS: int = 8
+const MAX_OPERATORS: int = 64
 
 var server_name: String = DEFAULT_NAME
 var bind_address: String = DEFAULT_BIND_ADDRESS
@@ -13,6 +14,7 @@ var max_players: int = DEFAULT_MAX_PLAYERS
 var public_listing: bool = false
 var discovery_url: String = ""
 var data_directory: String = ""
+var operator_fingerprints: PackedStringArray = PackedStringArray()
 var error_message: String = ""
 
 
@@ -65,6 +67,9 @@ func _load_file(path: String) -> bool:
 	discovery_url = str(file.get_value(
 		"discovery", "url", discovery_url
 	))
+	operator_fingerprints = _parse_fingerprint_list(file.get_value(
+		"moderation", "operators", operator_fingerprints
+	))
 	return true
 
 
@@ -88,6 +93,10 @@ func _apply_environment() -> void:
 	data_directory = _environment_string(
 		"NETFISHING_DATA_DIR", data_directory
 	)
+	if OS.has_environment("NETFISHING_SERVER_OPERATORS"):
+		operator_fingerprints = _parse_fingerprint_list(
+			OS.get_environment("NETFISHING_SERVER_OPERATORS")
+		)
 
 
 func _apply_arguments(arguments: PackedStringArray) -> void:
@@ -106,6 +115,10 @@ func _apply_arguments(arguments: PackedStringArray) -> void:
 			data_directory = argument.trim_prefix("--data-dir=")
 		elif argument.begins_with("--discovery-url="):
 			discovery_url = argument.trim_prefix("--discovery-url=")
+		elif argument.begins_with("--operators="):
+			operator_fingerprints = _parse_fingerprint_list(
+				argument.trim_prefix("--operators=")
+			)
 		elif argument == "--public":
 			public_listing = true
 		elif argument == "--private":
@@ -117,6 +130,7 @@ func _validate() -> void:
 	bind_address = bind_address.strip_edges()
 	discovery_url = discovery_url.strip_edges().trim_suffix("/")
 	data_directory = data_directory.strip_edges()
+	operator_fingerprints = _normalized_fingerprints(operator_fingerprints)
 	if server_name.is_empty():
 		error_message = "Server name cannot be empty."
 	elif not _safe_text(server_name):
@@ -134,6 +148,17 @@ func _validate() -> void:
 		or discovery_url.begins_with("http://")
 	):
 		error_message = "A public server requires a discovery URL."
+	elif operator_fingerprints.size() > MAX_OPERATORS:
+		error_message = "A server may configure at most %d operators." % (
+			MAX_OPERATORS
+		)
+	else:
+		for fingerprint: String in operator_fingerprints:
+			if not NetworkIdentityCrypto.valid_fingerprint(fingerprint):
+				error_message = (
+					"Server operator fingerprints must be 64 lowercase hex characters."
+				)
+				break
 
 
 static func _safe_text(value: String) -> bool:
@@ -164,3 +189,29 @@ static func _environment_bool(name: String, fallback: bool) -> bool:
 
 static func _parse_int(value: String, fallback: int) -> int:
 	return int(value) if value.strip_edges().is_valid_int() else fallback
+
+
+static func _parse_fingerprint_list(value: Variant) -> PackedStringArray:
+	var values: PackedStringArray = PackedStringArray()
+	if typeof(value) == TYPE_STRING:
+		var text: String = str(value)
+		for separator: String in [";", "\n", "\r", "\t", " "]:
+			text = text.replace(separator, ",")
+		values = text.split(",", false)
+	elif typeof(value) in [TYPE_ARRAY, TYPE_PACKED_STRING_ARRAY]:
+		for entry: Variant in value:
+			if typeof(entry) in [TYPE_STRING, TYPE_STRING_NAME]:
+				values.append(str(entry))
+	return _normalized_fingerprints(values)
+
+
+static func _normalized_fingerprints(
+	values: PackedStringArray,
+) -> PackedStringArray:
+	var result: PackedStringArray = PackedStringArray()
+	for value: String in values:
+		var fingerprint: String = value.strip_edges().to_lower()
+		if not fingerprint.is_empty() and fingerprint not in result:
+			result.append(fingerprint)
+	result.sort()
+	return result

@@ -205,6 +205,8 @@ func _run() -> void:
 
 	presenter.queue_free()
 	root.size = original_size
-	await process_frame
+	for _frame: int in 4:
+		await process_frame
+	await create_timer(0.1).timeout
 	print("UI scaling runtime validation: PASS")
 	quit()

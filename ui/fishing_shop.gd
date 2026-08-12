@@ -74,6 +74,8 @@ const SUPPLY_PRICE_HORIZONTAL_PADDING: float = 12.0
 
 @onready var _wallet_label: Label = %WalletLabel
 @onready var _shop_panel: PanelContainer = %ShopPanel
+@onready var _shop_panel_margin: MarginContainer = $ShopPanel/Margin
+@onready var _shop_panel_layout: VBoxContainer = $ShopPanel/Margin/Layout
 @onready var _shop_cooler_page: Control = %ShopCoolerPage
 @onready var _shop_cooler_mount: Control = %ShopCoolerMount
 @onready var _shop_body: HBoxContainer = $ShopPanel/Margin/Layout/Body
@@ -367,6 +369,7 @@ func get_shop_cooler_mount() -> Control:
 func activate_shop_cooler_page() -> void:
 	_cooler_page_active = true
 	_shop_panel.show()
+	_set_shop_panel_background_pointer_blocking(false)
 	_shop_body.hide()
 	_feedback.hide()
 	_shop_cooler_page.show()
@@ -377,12 +380,24 @@ func deactivate_shop_cooler_page() -> void:
 		_shop_tab_bar.show()
 	_cooler_page_active = false
 	_cooler_modal_open = false
+	_set_shop_panel_background_pointer_blocking(true)
 	for tab: OrganizerTab in _shop_tabs:
 		tab.disabled = false
 	_shop_cooler_page.hide()
 	_shop_panel.show()
 	_shop_body.show()
 	_feedback.show()
+
+
+func _set_shop_panel_background_pointer_blocking(blocking: bool) -> void:
+	var mouse_filter := (
+		Control.MOUSE_FILTER_STOP
+		if blocking
+		else Control.MOUSE_FILTER_IGNORE
+	)
+	_shop_panel.mouse_filter = mouse_filter
+	_shop_panel_margin.mouse_filter = mouse_filter
+	_shop_panel_layout.mouse_filter = mouse_filter
 
 
 func set_shop_cooler_modal_open(is_open: bool) -> void:

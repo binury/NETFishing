@@ -82,7 +82,8 @@ func _run() -> void:
 	print("Economy regression validation: PASS")
 	session.disconnect_session("Economy validation complete.")
 	main.queue_free()
-	await process_frame
+	for _frame: int in 4:
+		await process_frame
 	quit()
 
 
@@ -126,7 +127,9 @@ func _run_multiplayer_host() -> void:
 	print("Economy multiplayer host validation: PASS")
 	session.disconnect_session("Economy host validation complete.")
 	main.queue_free()
-	await process_frame
+	for _frame: int in 4:
+		await process_frame
+	await create_timer(0.1).timeout
 	quit()
 
 
@@ -228,7 +231,9 @@ func _run_multiplayer_client() -> void:
 	print("Economy multiplayer client validation: PASS")
 	session.disconnect_session("Economy client validation complete.")
 	main.queue_free()
-	await process_frame
+	for _frame: int in 4:
+		await process_frame
+	await create_timer(0.1).timeout
 	quit()
 
 
@@ -407,7 +412,7 @@ func _test_player_menu_sale(
 	assert(sell_action.mouse_filter == Control.MOUSE_FILTER_STOP)
 	assert(sell_action.focus_mode == Control.FOCUS_ALL)
 	assert(ui_viewport != null)
-	await _activate_focused_button(sell_action, ui_viewport)
+	await _activate_pointer_control(sell_action, ui_viewport)
 	await process_frame
 	assert(confirmation.visible)
 	assert(confirm_button.visible and not confirm_button.disabled)
@@ -416,7 +421,7 @@ func _test_player_menu_sale(
 		> (player_menu.get_node("%CoolerOuterWall") as Control).z_index
 	)
 	_sale_result.clear()
-	await _activate_focused_button(confirm_button, ui_viewport)
+	await _activate_pointer_control(confirm_button, ui_viewport)
 	await process_frame
 	assert(not _sale_result.is_empty() and bool(_sale_result[1]))
 	assert(not player.inventory.contains_catch_id(fish_catch.catch_id))
@@ -435,18 +440,29 @@ func _test_player_menu_sale(
 	await create_timer(2.2).timeout
 
 
-func _activate_focused_button(
-	button: Button,
+func _activate_pointer_control(
+	control: Control,
 	ui_viewport: SubViewport,
 ) -> void:
-	button.grab_focus()
+	var presenter := ui_viewport.get_parent() as SubViewportContainer
+	assert(presenter != null)
+	var local_center: Vector2 = control.get_global_transform_with_canvas() * (
+		control.size * 0.5
+	)
+	var center: Vector2 = presenter.position + local_center * presenter.scale
+	var motion := InputEventMouseMotion.new()
+	motion.position = center
+	motion.global_position = center
+	root.push_input(motion, true)
 	await process_frame
-	assert(button.has_focus())
+	assert(ui_viewport.gui_get_hovered_control() == control)
 	for is_pressed: bool in [true, false]:
-		var accept := InputEventAction.new()
-		accept.action = &"ui_accept"
-		accept.pressed = is_pressed
-		ui_viewport.push_input(accept, false)
+		var click := InputEventMouseButton.new()
+		click.button_index = MOUSE_BUTTON_LEFT
+		click.position = center
+		click.global_position = center
+		click.pressed = is_pressed
+		root.push_input(click, true)
 		await process_frame
 
 
@@ -555,19 +571,25 @@ func _test_fishing_shop_sale_ui(
 	assert(not shop.has_node("ShopPanel/Margin/Layout/ModeTabs"))
 	var shop_tabs: Array = shop.get("_shop_tabs") as Array
 	assert(shop_tabs.size() == 6)
+	var art_supplies_tab := shop_tabs[4] as Button
+	assert(art_supplies_tab != null and art_supplies_tab.text == "Art Supplies")
 	var sell_mode := shop_tabs[5] as Button
 	assert(sell_mode != null and sell_mode.text == "Sell Fish")
+	await _activate_pointer_control(art_supplies_tab, ui_viewport)
+	await process_frame
 	var stock_sections: Array[String] = []
 	for child: Node in shop.get_node("%SuppliesList").get_children():
 		if child is Label:
 			stock_sections.append((child as Label).text)
-	assert(stock_sections == ["supplies", "art kit", "markers", "brushes", "grids"])
-	await _activate_focused_button(sell_mode, ui_viewport)
+	assert(stock_sections == ["art kit", "markers", "brushes", "grids"])
+	await _activate_pointer_control(sell_mode, ui_viewport)
 	await process_frame
 	assert(shop.visible and not player_menu.visible)
 	assert(not shop.has_node("ShopPanel/Margin/Layout/Body/FishSales"))
 	assert((shop.get_node("%ShopCoolerPage") as Control).visible)
-	assert(not (shop.get_node("%ShopPanel") as Control).visible)
+	assert((shop.get_node("%ShopPanel") as Control).visible)
+	assert(not (shop.get_node("ShopPanel/Margin/Layout/Body") as Control).visible)
+	assert(not (shop.get_node("%Feedback") as Control).visible)
 	var mounted_cooler := player_menu.get("_cooler_page") as Control
 	assert(mounted_cooler != null and mounted_cooler.visible)
 	assert(
@@ -577,6 +599,11 @@ func _test_fishing_shop_sale_ui(
 	var water_surface := player_menu.get("_cooler_water_surface") as ColorRect
 	assert(cooler_outer_wall != null and cooler_outer_wall.visible)
 	assert(water_surface.visible and water_surface.material is ShaderMaterial)
+	var cooler_sort_option := player_menu.get("_cooler_sort_option") as Control
+	await _activate_pointer_control(cooler_sort_option, ui_viewport)
+	var cooler_choice_panel := cooler_sort_option.get("_choice_panel") as Control
+	assert(cooler_choice_panel.visible)
+	cooler_sort_option.call("close_choices")
 	assert(
 		StringName(
 			(player_menu.get("_sale_buyer_override") as FishBuyerProfile).id
@@ -587,10 +614,10 @@ func _test_fishing_shop_sale_ui(
 	var reserved_button := fish_nodes.get(reserved_catch.catch_id) as Button
 	assert(fish_button != null and fish_button.visible)
 	assert(reserved_button != null and reserved_button.visible)
-	await _activate_focused_button(fish_button, ui_viewport)
+	await _activate_pointer_control(fish_button, ui_viewport)
 	var sell_button := player_menu.get("_sell_bubble") as Button
 	assert(sell_button.visible and not sell_button.disabled)
-	await _activate_focused_button(sell_button, ui_viewport)
+	await _activate_pointer_control(sell_button, ui_viewport)
 	await process_frame
 	var confirmation := player_menu.get("_sale_confirmation") as Control
 	var confirm_button := player_menu.get("_confirm_sale_button") as Button
@@ -600,20 +627,21 @@ func _test_fishing_shop_sale_ui(
 		> cooler_outer_wall.z_index
 	)
 	_sale_result.clear()
-	await _activate_focused_button(confirm_button, ui_viewport)
+	await _activate_pointer_control(confirm_button, ui_viewport)
 	await process_frame
 	assert(not _sale_result.is_empty() and bool(_sale_result[1]))
 	assert(not player.inventory.contains_catch_id(fish_catch.catch_id))
 	assert(player.wallet.get_balance() == balance_before + fish_catch.sale_value)
 	assert(not sale_service.is_local_sale_pending())
 	assert(reservations.release(reservation_id))
-	await _activate_focused_button(shop_tabs[0] as Button, ui_viewport)
+	await _activate_pointer_control(shop_tabs[0] as Button, ui_viewport)
 	await process_frame
 	assert(shop.visible and (shop.get_node("%ShopPanel") as Control).visible)
 	assert(not (shop.get_node("%ShopCoolerPage") as Control).visible)
 	assert(not player_menu.is_shop_cooler_mounted())
 	shop.close_shop()
-	await process_frame
+	await shop.menu_visibility_changed
+	assert(not shop.visible)
 
 
 func _assert_sale(
@@ -634,7 +662,9 @@ func _assert_sale(
 	assert(bool(_sale_result[1]) == expected_success)
 	assert(not sale_service.is_local_sale_pending())
 	if expected_success:
-		assert(player.wallet.get_balance() > balance_before)
+		var payout: int = int(_sale_result[4])
+		assert(payout >= 0)
+		assert(player.wallet.get_balance() == balance_before + payout)
 		for catch_id: StringName in catch_ids:
 			assert(not player.inventory.contains_catch_id(catch_id))
 	else:
