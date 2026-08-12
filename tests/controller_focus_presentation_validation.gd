@@ -39,6 +39,15 @@ func _run() -> void:
 		standard_button.material != null,
 		"ordinary controller focus receives inversion",
 	)
+	var pointer_motion := InputEventMouseMotion.new()
+	pointer_motion.position = Vector2(4.0, 4.0)
+	presentation._input(pointer_motion)
+	await process_frame
+	_expect(
+		standard_button.material == null,
+		"mouse motion clears controller focus presentation",
+	)
+	presentation._input(controller_event)
 
 	authored_selector.grab_focus()
 	await process_frame

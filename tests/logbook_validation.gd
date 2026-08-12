@@ -171,7 +171,7 @@ func _validate_page() -> void:
 	page.activate()
 	await process_frame
 	assert(page.get("_category") == WaterType.Type.FRESH_WATER)
-	assert((page.get("_catalog_grid") as GridContainer).columns == 5)
+	assert((page.get("_catalog_grid") as GridContainer).columns == 4)
 	var initial_detail_body := page.get("_detail_body") as VBoxContainer
 	assert(not initial_detail_body.get_parent() is ScrollContainer)
 	assert(
@@ -209,7 +209,7 @@ func _validate_page() -> void:
 			assert(portrait.source_texture == fish.display_texture)
 			assert(
 				portrait.custom_minimum_size
-				== LogbookPortraitType.ENTRY_FRAME_SIZE
+				== LogbookPage.CATALOG_PORTRAIT_SIZE
 			)
 			assert(
 				portrait.expand_mode

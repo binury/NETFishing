@@ -83,7 +83,9 @@ func _run_host() -> void:
 	print("World time multiplayer host validation: PASS")
 	session.disconnect_session("")
 	main.queue_free()
-	await process_frame
+	for _frame: int in 4:
+		await process_frame
+	await create_timer(0.1).timeout
 	quit()
 
 
@@ -195,7 +197,9 @@ func _run_client() -> void:
 	print("World time multiplayer client validation: PASS")
 	session.disconnect_session("")
 	main.queue_free()
-	await process_frame
+	for _frame: int in 4:
+		await process_frame
+	await create_timer(0.1).timeout
 	quit()
 
 

@@ -62,7 +62,9 @@ func _run() -> void:
 	await _capture_inventory_pages(player_menu)
 	print("Inventory notepad artwork validation: PASS")
 	presentation_stage.queue_free()
-	await process_frame
+	for _frame: int in 10:
+		await process_frame
+	await create_timer(0.1).timeout
 	quit()
 
 

@@ -431,7 +431,7 @@ func _draw_line_ribbon(points: PackedVector3Array) -> void:
 		return
 
 	var half_thickness: float = line_thickness * 0.5
-	_line_mesh.surface_begin(Mesh.PRIMITIVE_TRIANGLES)
+	var ribbon_vertices := PackedVector3Array()
 	for point_index: int in range(1, points.size()):
 		var start: Vector3 = points[point_index - 1]
 		var end: Vector3 = points[point_index]
@@ -452,12 +452,17 @@ func _draw_line_ribbon(points: PackedVector3Array) -> void:
 		var start_right: Vector3 = to_local(start + side)
 		var end_right: Vector3 = to_local(end + side)
 		var end_left: Vector3 = to_local(end - side)
-		_line_mesh.surface_add_vertex(start_left)
-		_line_mesh.surface_add_vertex(start_right)
-		_line_mesh.surface_add_vertex(end_right)
-		_line_mesh.surface_add_vertex(start_left)
-		_line_mesh.surface_add_vertex(end_right)
-		_line_mesh.surface_add_vertex(end_left)
+		ribbon_vertices.append(start_left)
+		ribbon_vertices.append(start_right)
+		ribbon_vertices.append(end_right)
+		ribbon_vertices.append(start_left)
+		ribbon_vertices.append(end_right)
+		ribbon_vertices.append(end_left)
+	if ribbon_vertices.is_empty():
+		return
+	_line_mesh.surface_begin(Mesh.PRIMITIVE_TRIANGLES)
+	for vertex: Vector3 in ribbon_vertices:
+		_line_mesh.surface_add_vertex(vertex)
 	_line_mesh.surface_end()
 
 

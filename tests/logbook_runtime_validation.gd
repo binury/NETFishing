@@ -79,10 +79,15 @@ func _run() -> void:
 		"_show_section_immediate", PlayerMenu.Section.PROFILE
 	)
 	await process_frame
-	assert(not bool(
+	assert(bool(
 		player_menu.call("_handle_direct_page_shortcut", shortcut)
 	))
+	await create_timer(0.5).timeout
 	assert(player_menu.visible)
+	assert(logbook.visible)
+	assert(
+		player_menu.get("_current_section") == PlayerMenu.Section.LOGBOOK
+	)
 	player_menu.close_menu(PlayerMenu.CloseReason.TEARDOWN, false)
 
 	print(
@@ -90,7 +95,8 @@ func _run() -> void:
 		% [root.size.x, root.size.y]
 	)
 	main.queue_free()
-	await process_frame
+	for _frame: int in 4:
+		await process_frame
 	quit()
 
 

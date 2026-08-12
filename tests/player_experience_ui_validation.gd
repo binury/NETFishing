@@ -12,6 +12,14 @@ func _run() -> void:
 	root.add_child(game_ui)
 	await process_frame
 	game_ui.set("_gameplay_ui_enabled", true)
+	var panel := game_ui.get_node("%ExperienceProgressPanel") as PanelContainer
+	var bubble := game_ui.get_node("%ExperienceBubble") as PanelContainer
+	var bubble_label := game_ui.get_node("%ExperienceBubbleLabel") as Label
+	var award_label := game_ui.get_node("%ExperienceAwardLabel") as Label
+	assert(panel != null and bubble != null)
+	assert(not panel.visible and not bubble.visible)
+	game_ui.call("_on_showcase_changed", "bluegill", "common", 1.0, 0, true)
+	await process_frame
 	game_ui.call(
 		"_on_experience_awarded",
 		50,
@@ -20,13 +28,6 @@ func _run() -> void:
 		1,
 		1,
 	)
-	var panel := game_ui.get_node("%ExperienceProgressPanel") as PanelContainer
-	var bubble := game_ui.get_node("%ExperienceBubble") as PanelContainer
-	var bubble_label := game_ui.get_node("%ExperienceBubbleLabel") as Label
-	var award_label := game_ui.get_node("%ExperienceAwardLabel") as Label
-	assert(panel != null and bubble != null)
-	assert(not panel.visible and not bubble.visible)
-	game_ui.call("_on_showcase_changed", "bluegill", "common", 1.0, 0, true)
 	await process_frame
 	assert(not panel.visible and not bubble.visible)
 	game_ui.call("_on_showcase_changed", "", "", 0.0, 0, false)
@@ -43,5 +44,8 @@ func _run() -> void:
 	await create_timer(1.2).timeout
 	assert(not panel.visible and not bubble.visible)
 	game_ui.queue_free()
+	for _frame: int in 4:
+		await process_frame
+	await create_timer(0.1).timeout
 	print("Player experience UI validation: PASS")
 	quit()

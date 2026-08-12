@@ -35,8 +35,8 @@ func _run_host() -> void:
 	var fish_catch: FishCatch = _add_bluegill(main, player)
 	assert(player.hotbar.assign_fish(1, fish_catch.catch_id))
 	assert(player.hotbar.select_slot(1))
-	assert(service.toggle_selected_fish())
 	assert(service.is_local_showcase_visible())
+	await _wait_for_held_fish_visibility(player, true)
 	assert(session.set_host_open(true))
 
 	var remote_peer_id: int = 0
@@ -66,7 +66,9 @@ func _run_host() -> void:
 	print("Fish showcase multiplayer host validation: PASS")
 	session.disconnect_session("")
 	main.queue_free()
-	await process_frame
+	for _frame: int in 4:
+		await process_frame
+	await create_timer(0.1).timeout
 	quit()
 
 
@@ -118,8 +120,8 @@ func _run_client() -> void:
 	var fish_catch: FishCatch = _add_bluegill(main, player)
 	assert(player.hotbar.assign_fish(1, fish_catch.catch_id))
 	assert(player.hotbar.select_slot(1))
-	assert(service.toggle_selected_fish())
-	assert((player.get("_held_fish_display") as Node3D).visible)
+	assert(service.is_local_showcase_visible())
+	await _wait_for_held_fish_visibility(player, true)
 	await create_timer(2.0).timeout
 	assert(service.toggle_selected_fish())
 	var held_display := player.get("_held_fish_display") as Node3D
@@ -132,7 +134,9 @@ func _run_client() -> void:
 	print("Fish showcase multiplayer client validation: PASS")
 	session.disconnect_session("")
 	main.queue_free()
-	await process_frame
+	for _frame: int in 4:
+		await process_frame
+	await create_timer(0.1).timeout
 	quit()
 
 
@@ -166,3 +170,18 @@ func _create_initialized_main() -> Node:
 		await process_frame
 	assert(bool(main.get("_application_initialized")))
 	return main
+
+
+func _wait_for_held_fish_visibility(
+	player: Player,
+	expected_visible: bool,
+) -> void:
+	var held_fish_display := player.get("_held_fish_display") as Node3D
+	assert(held_fish_display != null)
+	var deadline_msec: int = Time.get_ticks_msec() + 2000
+	while (
+		held_fish_display.visible != expected_visible
+		and Time.get_ticks_msec() < deadline_msec
+	):
+		await process_frame
+	assert(held_fish_display.visible == expected_visible)

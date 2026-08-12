@@ -1,12 +1,13 @@
 NETfishing
-v0.6.5-alpha
-Alpha 0.6.5
+v0.6.6-alpha
+Alpha 0.6.6
 
 Thank you for trying this early private playtest.
 
-NETfishing is currently a local gameplay prototype for a future
-multiplayer-first game. Networking and multiplayer are NOT implemented in
-this build.
+NETfishing is an early multiplayer fishing game. This alpha includes local
+progression, player-hosted and dedicated multiplayer sessions, public room
+discovery, and direct UDP connections. Expect rough edges and please keep a
+backup of any save or identity data you care about.
 
 INSTALLATION
 
@@ -60,6 +61,9 @@ FISHING
 
 FEATURES TO TRY
 
+- Hosting a private or public room and joining compatible online sessions
+- Direct-IP, saved-server, recent-server, and public-room connection flows
+- Text chat, player calls, player lists, relationships, and moderation tools
 - Movement, jumping, camera rotation, and zoom
 - Short, medium, and maximum-distance casts
 - Valid water and invalid land casts
@@ -101,11 +105,11 @@ Please include:
 - How movement, casting, chase pressure, barrier clicking, menus, and camera
   controls felt
 
-KNOWN PRE-ALPHA LIMITATIONS
+KNOWN ALPHA LIMITATIONS
 
-- Multiplayer/networking is not implemented.
-- Fish and character art are temporary.
-- UI and balance values are placeholders.
-- There is no audio.
+- Public sessions remain direct connections; restrictive NAT or carrier-grade
+  networks may prevent some players from joining.
+- Multiplayer, dedicated-server deployment, UI, and balance are still alpha.
+- Some fish and character artwork remains temporary.
 - There is no installer or automatic updater.
 - Windows builds are unsigned.

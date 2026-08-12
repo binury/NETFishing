@@ -36,8 +36,14 @@ func _run() -> void:
 	assert(not session.is_open_host())
 	assert(service != null and fishing_spot != null and player != null)
 	assert(player.hotbar.get_selected_item_id() == &"basic_fishing_rod")
+	var pond := main.get_node(
+		"TestWorld/Regions/StarterIslandRegion/WaterBodies/Pond"
+	) as Node3D
+	var pond_region := pond.get_node("FishingRegion") as FishableWaterRegion
+	assert(pond != null and pond_region != null)
+	var pond_surface_y: float = pond_region.get_surface_height()
 
-	player.global_position = Vector3(-0.5, 3.95, 2.1)
+	player.global_position = pond.global_position + Vector3(8.9, 1.44, 0.0)
 	var visuals := player.get_node("Visuals") as Node3D
 	visuals.rotation.y = PI * 0.5
 	for _frame: int in 4:
@@ -50,8 +56,8 @@ func _run() -> void:
 	fishing_spot.set("_cast_charge", 0.32)
 	fishing_spot.call("_update_cast_charge", 0.0)
 	var aimed_target: Vector3 = fishing_spot.get("_cast_target")
-	assert(aimed_target.x < -1.35)
-	assert(is_equal_approx(aimed_target.y, 2.51))
+	assert(aimed_target.x < player.global_position.x - 0.85)
+	assert(is_equal_approx(aimed_target.y, pond_surface_y))
 	assert(fishing_spot.is_target_fishable(aimed_target))
 	fishing_spot.call("_confirm_cast")
 	assert(fishing_spot.state == FishingSpotType.FishingState.CASTING)
@@ -68,7 +74,7 @@ func _run() -> void:
 	var attempts: Dictionary = service.get("_attempts")
 	var attempt: NetworkFishingAttempt = attempts.get(session.get_local_peer_id())
 	assert(attempt != null)
-	assert(is_equal_approx(attempt.target.y, 2.51))
+	assert(is_equal_approx(attempt.target.y, pond_surface_y))
 	assert(attempt.bobber_position.is_equal_approx(attempt.target))
 
 	fishing_spot.set("_withdrawal_input_held", true)
@@ -124,29 +130,42 @@ func _run() -> void:
 		fish,
 	)
 	assert(fish_catch != null and fish_catch.is_valid())
-	var baseline_controller := CatchController.new()
-	root.add_child(baseline_controller)
-	baseline_controller.start_authoritative_encounter(
+	var reference_controller := CatchController.new()
+	root.add_child(reference_controller)
+	reference_controller.start_authoritative_encounter(
 		fish.catch_profile,
 		attempt.reel_speed,
 		attempt.barrier_damage,
 		attempt.encounter_seed,
-		FishQuality.Tier.BORING,
+		fish_catch.quality,
+		int(fish.rarity),
+		fish.get_weight_percentile(fish_catch.weight_lb),
 	)
 	var quality_barriers: Array = attempt.controller.get("_barriers")
-	var baseline_barriers: Array = baseline_controller.get("_barriers")
-	assert(quality_barriers.size() == baseline_barriers.size())
+	var reference_barriers: Array = reference_controller.get("_barriers")
+	assert(quality_barriers.size() == reference_barriers.size())
 	for barrier_index: int in quality_barriers.size():
 		var quality_barrier: RefCounted = quality_barriers[barrier_index]
-		var baseline_barrier: RefCounted = baseline_barriers[barrier_index]
+		var reference_barrier: RefCounted = reference_barriers[barrier_index]
 		assert(
-			int(quality_barrier.get("maximum_health"))
-			== FishQuality.apply_barrier_health(
-				int(baseline_barrier.get("maximum_health")),
-				fish_catch.quality,
+			is_equal_approx(
+				float(quality_barrier.get("position")),
+				float(reference_barrier.get("position")),
 			)
 		)
-	baseline_controller.queue_free()
+		assert(
+			int(quality_barrier.get("maximum_health"))
+			== int(reference_barrier.get("maximum_health"))
+		)
+		assert(
+			int(quality_barrier.get("maximum_health"))
+			>= FishQuality.BARRIER_HEALTH_MINIMUMS[fish_catch.quality]
+		)
+		assert(
+			int(quality_barrier.get("maximum_health"))
+			<= FishQuality.BARRIER_HEALTH_MAXIMUMS[fish_catch.quality]
+		)
+	reference_controller.queue_free()
 	service.call("_cancel_attempt", session.get_local_peer_id(), "")
 	await process_frame
 	assert(not service.has_local_attempt())
@@ -154,5 +173,7 @@ func _run() -> void:
 	print("Fishing authority validation: PASS")
 	session.disconnect_session("")
 	main.queue_free()
-	await process_frame
+	for _frame: int in 4:
+		await process_frame
+	await create_timer(0.1).timeout
 	quit()

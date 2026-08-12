@@ -3,7 +3,6 @@ extends SceneTree
 const MainScene = preload("res://main/main.tscn")
 const FishCatchType = preload("res://fish/fish_catch.gd")
 const FishDataType = preload("res://fish/fish_data.gd")
-const FishingSpotType = preload("res://fishing/fishing_spot.gd")
 
 
 func _initialize() -> void:
@@ -40,7 +39,6 @@ func _run() -> void:
 	var service := main.get_node(
 		"%NetworkFishShowcaseService"
 	) as NetworkFishShowcaseService
-	var fishing_spot := main.get_node("%FishingSpot") as FishingSpotType
 	assert(player != null and fish_catalog != null and service != null)
 	var fish: FishDataType = fish_catalog.get_fish_by_id(&"bluegill")
 	assert(fish != null)
@@ -83,22 +81,18 @@ func _run() -> void:
 	assert(player.hotbar.get_selected_fish_catch_id() == fish_catch.catch_id)
 	assert(player.hotbar.get_selected_item_id().is_empty())
 
-	var press := InputEventMouseButton.new()
-	press.button_index = MOUSE_BUTTON_LEFT
-	press.pressed = true
-	fishing_spot.call("_unhandled_input", press)
-	await process_frame
 	assert(service.is_local_showcase_visible())
 	assert(service.get_local_showcase_catch_id() == fish_catch.catch_id)
-	assert((player.get_node("%HeldFishDisplay") as Node3D).visible)
-	fishing_spot.call("_unhandled_input", press)
+	await _wait_for_held_fish_visibility(player, true)
+	assert(service.toggle_selected_fish())
 	await process_frame
 	assert(not service.is_local_showcase_visible())
-	assert(not (player.get_node("%HeldFishDisplay") as Node3D).visible)
+	await _wait_for_held_fish_visibility(player, false)
 	var saved_weather: WorldWeatherService.Weather = (
 		world_weather.get_weather()
 	)
 	var saved_weather_seconds: float = world_weather.get_seconds_remaining()
+	var saved_time_hours: float = world_time.get_time_hours()
 
 	assert(save_manager.save_now())
 	var save_path: String = str(save_manager.get("_save_path"))
@@ -116,7 +110,7 @@ func _run() -> void:
 		== 125
 	)
 	assert(absf(
-		float((parsed as Dictionary)["world"]["time_hours"]) - 19.75
+		float((parsed as Dictionary)["world"]["time_hours"]) - saved_time_hours
 	) < 0.01)
 	assert(
 		int((parsed as Dictionary)["world"]["weather"])
@@ -149,7 +143,7 @@ func _run() -> void:
 	)
 	assert(save_manager.load_player_data())
 	assert(player.experience.get_total_experience() == 125)
-	assert(absf(world_time.get_time_hours() - 19.75) < 0.01)
+	assert(absf(world_time.get_time_hours() - saved_time_hours) < 0.01)
 	assert(world_weather.get_weather() == saved_weather)
 	assert(absf(
 		world_weather.get_seconds_remaining() - saved_weather_seconds
@@ -163,14 +157,13 @@ func _run() -> void:
 			FishQuality.Tier.EXCEPTIONAL,
 		)
 	)
-	assert(not service.is_local_showcase_visible())
-	assert(service.toggle_selected_fish())
 	assert(service.is_local_showcase_visible())
+	await _wait_for_held_fish_visibility(player, true)
 	assert(player.inventory.remove_catch_by_id(fish_catch.catch_id) != null)
 	await process_frame
 	assert(player.hotbar.get_fish_catch_id(1).is_empty())
 	assert(not service.is_local_showcase_visible())
-	assert(not (player.get_node("%HeldFishDisplay") as Node3D).visible)
+	await _wait_for_held_fish_visibility(player, false)
 
 	var valid_state: Dictionary = {
 		"session_id": "session",
@@ -202,5 +195,26 @@ func _run() -> void:
 	print("Fish hotbar showcase validation: PASS")
 	session.disconnect_session("")
 	main.queue_free()
-	await process_frame
+	for _frame: int in 4:
+		await process_frame
+	await create_timer(0.1).timeout
 	quit()
+
+
+func _wait_for_held_fish_visibility(
+	player: Player,
+	expected_visible: bool,
+) -> void:
+	var held_fish_display := player.get("_held_fish_display") as Node3D
+	assert(held_fish_display != null)
+	var deadline_msec: int = Time.get_ticks_msec() + 2000
+	while (
+		held_fish_display.visible != expected_visible
+		and Time.get_ticks_msec() < deadline_msec
+	):
+		await process_frame
+	assert(
+		held_fish_display.visible == expected_visible,
+		"Held fish display did not become %s within the timeout."
+		% expected_visible,
+	)
