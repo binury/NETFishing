@@ -8,6 +8,9 @@ customization, jobs, and a controller-aware interface.
 The project is under active development. Interfaces, balance, content, and
 save migrations may continue to change before a stable release.
 
+NETfishing is developed and published by **Woofmeow**, the independent team of
+co-owners Alexander Sellite and Rheannon Eisworth.
+
 ## Requirements
 
 - Godot 4.7.x with the GL Compatibility renderer
@@ -68,3 +71,22 @@ scripts do not create or publish tags.
 See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) and
 [`world/README-WORLD-AUTHORING.md`](world/README-WORLD-AUTHORING.md) for more
 detail.
+
+## Licensing
+
+- Project-owned software code is licensed under
+  [GPL-3.0-or-later](LICENSE).
+- Project-owned artwork, models, music, and other creative assets are covered
+  by the [NETfishing Asset License](ASSET-LICENSE.md). It permits community
+  Mods for official NETfishing software, but not use in forks, clones, or
+  unrelated products.
+- The NETfishing and Woofmeow names and branding are reserved as described in
+  [TRADEMARKS.md](TRADEMARKS.md).
+- Third-party materials retain their own terms; see
+  [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
+- Contributions are accepted under [CONTRIBUTOR-TERMS.md](CONTRIBUTOR-TERMS.md).
+
+The material boundaries and binary-release requirements are summarized in
+[`docs/LICENSING.md`](docs/LICENSING.md).
+
+Copyright © 2026 Alexander Sellite and Rheannon Eisworth.

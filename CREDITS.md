@@ -1,10 +1,12 @@
 # Credits
 
-## Project direction
+## Project ownership and development
 
-NETfishing is designed, directed, reviewed, and released by its project
-creator. A public-facing creator or studio credit has not yet been recorded in
-this repository.
+NETfishing is jointly owned, developed, and published by Alexander Sellite and
+Rheannon Eisworth, operating collectively as the independent team Woofmeow.
+
+- Alexander Sellite: co-owner, developer, project director, and 3D artist.
+- Rheannon Eisworth: co-owner, developer, and lead 2D artist.
 
 ## Development assistance
 
@@ -21,13 +23,15 @@ written with or without assistance.
 
 - Tuffy: Thatcher Ulrich, Karoly Barta, and Michael Evans. The bundled license
   dedicates the work to the public domain; see `ui/fonts/Tuffy-LICENSE.txt`.
-- Seattle Avenue: bundled as `ui/fonts/seattle_avenue.otf`. Author and
-  redistribution terms still need to be recorded before public distribution.
+- Seattle Avenue: public-domain font by JLH Fonts, bundled as
+  `ui/fonts/seattle_avenue.otf`; see `ui/fonts/Seattle-Avenue-LICENSE.txt`.
 
 ## Music
 
 - `audio/music/title/as_in_four_wolves.ogg`: original title/ambient music by
-  the project owner.
+  Alexander Sellite.
+- `audio/music/world/craft.mp3`: original world music composed by Alexander
+  Sellite.
 
 ## Sound effects
 
@@ -46,11 +50,16 @@ written with or without assistance.
 - “Quick Water Droplet” by qubodup, used for the bobber water-impact sound.
   Freesound sound 792931, Creative Commons Zero (CC0):
   https://freesound.org/s/792931/
+- `sound/dialogue/animalese/placeholder/*.wav`: original animalese tones
+  composed by Alexander Sellite without third-party samples.
 
 ## Artwork
 
-- 2D artwork: Rheannon Eisworth, contributor.
-- 3D models: original work by the project owner.
+- Original 2D artwork: Rheannon Eisworth.
+- Original 3D models: Alexander Sellite.
 
 Asset categories and release-record requirements are listed in
 [`docs/ASSET-PROVENANCE.md`](docs/ASSET-PROVENANCE.md).
+
+Complete license wording, modification notices, and Godot Engine attribution
+are recorded in [`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md).

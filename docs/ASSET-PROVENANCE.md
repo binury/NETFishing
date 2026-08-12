@@ -23,21 +23,24 @@ locations only and must never appear in scenes or resources.
 
 | Asset family | Repository location | Recorded provenance |
 | --- | --- | --- |
-| Fish art and portraits | `fish/species/`, `art/exported/fish/` | 2D artwork by contributor Rheannon Eisworth. |
-| Item icons | `items/icons/` | 2D artwork by contributor Rheannon Eisworth. |
-| Inventory notepad | `art/ui/ui_notepad.png` | 2D artwork by contributor Rheannon Eisworth; integrated without a runtime external path. |
-| Environment textures | `art/exported/environment/textures/` | 2D artwork by contributor Rheannon Eisworth. |
-| UI patterns | `art/patterns/` | 2D artwork by contributor Rheannon Eisworth. |
-| Character and world models | `art/exported/` | Original 3D models by the project owner. Any embedded 2D artwork is by Rheannon Eisworth. |
+| Fish art and portraits | `fish/species/`, `art/exported/fish/` | Original 2D artwork by co-owner Rheannon Eisworth. |
+| Item icons | `items/icons/` | Original 2D artwork by co-owner Rheannon Eisworth. |
+| Inventory notepad | `art/ui/ui_notepad.png` | Original 2D artwork by co-owner Rheannon Eisworth; integrated without a runtime external path. |
+| Environment textures | `art/exported/environment/textures/` | Original 2D artwork by co-owner Rheannon Eisworth. |
+| UI patterns | `art/patterns/` | Original 2D artwork by co-owner Rheannon Eisworth. |
+| Character and world models | `art/exported/` | Original 3D models by co-owner Alexander Sellite. Any embedded original 2D artwork is by Rheannon Eisworth. |
 | Tuffy font | `ui/fonts/Tuffy_Bold.otf` | Public-domain dedication in `ui/fonts/Tuffy-LICENSE.txt`. |
-| Seattle Avenue font | `ui/fonts/seattle_avenue.otf` | License and attribution not present; resolve before public distribution. |
-| Title music | `audio/music/title/as_in_four_wolves.ogg` | Original music composed and owned by the project owner. |
+| Seattle Avenue font | `ui/fonts/seattle_avenue.otf` | Public-domain font by JLH Fonts; source record and hash in `ui/fonts/Seattle-Avenue-LICENSE.txt`. |
+| Title music | `audio/music/title/as_in_four_wolves.ogg` | Original music composed and owned by co-owner Alexander Sellite. |
+| Dusk music | `audio/music/world/craft.mp3` | Original music composed and owned by co-owner Alexander Sellite. |
 | Fishing fight loop | `audio/sfx/fishing/fighting.wav` | Edited from “Spinning reel.wav” by Freesound user tosha73, sound 509902, CC0. |
 | Manual-reeling loop | `audio/sfx/fishing/reeling.wav` | Edited from the same CC0 “Spinning reel.wav” source. |
 | Saltwater wave ambience | `audio/ambience/waves.wav` | “Gentle Ocean Waves Loop” by Freesound user kkenny101, sound 852826, CC0. |
 | Bobber water impact | `audio/sfx/fishing/bobber.wav` | “Quick Water Droplet” by Freesound user qubodup, sound 792931, CC0. |
+| Rain ambience | `audio/ambience/rain_loop_ontario.ogg` | Converted from “Rain Loop Ontario” by Freesound user Ayton, sound 212799, CC BY 3.0. |
 | Character bark call | `sound/dialogue/calls/bark.wav` | Edited from `Dog_Bark.wav` by Freesound user ivolipa, sound 328729, CC0. |
 | Character meow call | `sound/dialogue/calls/meow.wav` | Edited from `Cat meow.m4a` by Freesound user Christyboy100, sound 495694, Attribution 3.0. |
+| Animalese placeholder tones | `sound/dialogue/animalese/placeholder/` | Original tones composed and owned by co-owner Alexander Sellite without third-party samples. |
 
 ### Fishing fight loop source record
 
@@ -127,6 +130,20 @@ locations only and must never appear in scenes or resources.
 - The downloaded sources and working edits remain in the project owner's
   source-work archive; only the finished runtime sounds ship in the game.
 
+### Rain ambience source record
+
+- Source page: https://freesound.org/s/212799/
+- Creator: Ayton
+- Source title: `Rain Loop Ontario`
+- License: Creative Commons Attribution 3.0
+- Downloaded source filename: `212799__ayton__rain-loop-ontario.aiff`
+- Downloaded source SHA-256:
+  `b491fc036b78a274d9ac7f6acbd014af1b5d24f5cba9bd7e3fdc05c5432ee66f`
+- Runtime edit SHA-256:
+  `b1979609b20fe34ed6f8902f3de65ae787a09abd71429e8aab850e87b74a4fa2`
+- Changes: converted from AIFF to Ogg Vorbis and configured as looping
+  weather ambience.
+
 ## Generated resources
 
 Godot `.import` sidecars and deterministic shoreline `.tres` meshes are derived
@@ -137,9 +154,8 @@ captures, exports, and temporary test data are not tracked.
 
 Before a public binary or source release:
 
-1. Resolve the Seattle Avenue font license and attribution gap above.
-2. Record the public owner/studio credit and the contributor's redistribution
-   permission in the chosen project license or release records.
-3. Confirm the project-wide source/content license selected by the owner.
-4. Search exported resources for external filesystem paths.
-5. Preserve required third-party notices with the package.
+1. Search exported resources for external filesystem paths.
+2. Preserve `LICENSE`, `ASSET-LICENSE.md`, `TRADEMARKS.md`, credits, and all
+   required third-party notices with the package.
+3. Publish or offer the exact corresponding GPL source for every distributed
+   binary release.

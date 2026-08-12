@@ -85,11 +85,26 @@ install -m 0644 "${ARM64_PCK}" "${GAME_ROOT}/NETfishing.pck"
 install -m 0644 "${TEMPLATE_ROOT}/gameinfo.xml" "${GAME_ROOT}/gameinfo.xml"
 install -m 0644 "${TEMPLATE_ROOT}/screenshot.png" "${GAME_ROOT}/screenshot.png"
 install -m 0644 \
-  "${TEMPLATE_ROOT}/licenses/CREDITS.md" \
+  "${PROJECT_ROOT}/CREDITS.md" \
   "${GAME_ROOT}/licenses/CREDITS.md"
 install -m 0644 \
-  "${TEMPLATE_ROOT}/licenses/Tuffy-LICENSE.txt" \
+  "${PROJECT_ROOT}/LICENSE" \
+  "${GAME_ROOT}/licenses/GPL-3.0-or-later.txt"
+install -m 0644 \
+  "${PROJECT_ROOT}/ASSET-LICENSE.md" \
+  "${GAME_ROOT}/licenses/NETFISHING-ASSET-LICENSE.md"
+install -m 0644 \
+  "${PROJECT_ROOT}/THIRD-PARTY-NOTICES.md" \
+  "${GAME_ROOT}/licenses/THIRD-PARTY-NOTICES.md"
+install -m 0644 \
+  "${PROJECT_ROOT}/TRADEMARKS.md" \
+  "${GAME_ROOT}/licenses/TRADEMARKS.md"
+install -m 0644 \
+  "${PROJECT_ROOT}/ui/fonts/Tuffy-LICENSE.txt" \
   "${GAME_ROOT}/licenses/Tuffy-LICENSE.txt"
+install -m 0644 \
+  "${PROJECT_ROOT}/ui/fonts/Seattle-Avenue-LICENSE.txt" \
+  "${GAME_ROOT}/licenses/Seattle-Avenue-LICENSE.txt"
 
 cat >"${GAME_ROOT}/BUILD-INFO.txt" <<EOF
 NETfishing PortMaster ARM64 build
@@ -103,6 +118,16 @@ Rendering method: gl_compatibility
 
 The executable and PCK were exported from the release commit listed above.
 Repository working-tree changes were not included in game content.
+EOF
+
+cat >"${GAME_ROOT}/licenses/SOURCE-CODE.md" <<EOF
+# Corresponding source
+
+NETfishing code is licensed under GPL-3.0-or-later.
+
+Source repository: https://forge.makearmy.io/woofmeow/netfishing
+Exact source revision: ${TAG_COMMIT}
+Release tag: ${RELEASE_TAG}
 EOF
 
 cat >"${GAME_ROOT}/README.md" <<EOF

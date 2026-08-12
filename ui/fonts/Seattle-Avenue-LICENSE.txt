@@ -1,0 +1,23 @@
+Seattle Avenue Regular
+Creator: JLH Fonts
+Status: Public domain — dedicated by the author/creator
+
+Source record retrieved 2026-08-12:
+https://www.publicdomainfiles.com/show_file.php?id=13486266913972
+
+The source page states that the file was dedicated to the public domain by the
+author/creator and may be freely reproduced, distributed, transmitted, used,
+modified, built upon, or otherwise exploited for commercial or noncommercial
+purposes.
+
+Additional longstanding attribution and public-domain listing:
+https://www.dafont.com/seattle-avenue.font
+
+Repository font file:
+ui/fonts/seattle_avenue.otf
+
+Repository font SHA-256:
+ee288a4a3c67a5339141bc08b14e7da84b7657d73ec1655c03869285c8af6324
+
+This record documents the published public-domain dedication and creator
+attribution. It does not impose additional restrictions on the font.

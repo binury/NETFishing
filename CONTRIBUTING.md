@@ -4,6 +4,12 @@ NETfishing is currently developed through focused changes on the repository's
 active development branch. Coordinate scope with the project owner before
 starting substantial work.
 
+By intentionally submitting material for inclusion, contributors agree to the
+applicable grants and representations in
+[`CONTRIBUTOR-TERMS.md`](CONTRIBUTOR-TERMS.md). Maintainers must preserve an
+affirmative record of that agreement. Contact the owners before submitting if
+separate written terms are needed.
+
 ## Change discipline
 
 - Keep a change focused; avoid unrelated cleanup.
@@ -16,6 +22,8 @@ starting substantial work.
 - Store runtime assets under repository-owned paths; never reference a
   workstation sync or temporary directory.
 - Record the source and license of newly imported assets.
+- Do not assume the GPL code license applies to project assets; observe
+  [`ASSET-LICENSE.md`](ASSET-LICENSE.md) and third-party terms.
 - Do not commit `.godot/`, test data, logs, captures, or build outputs.
 
 ## Before requesting review
@@ -46,3 +54,7 @@ Follow the conventions already present in the surrounding GDScript, scene, and
 resource files. Prefer typed values, named constants, shared resources, and
 small domain-specific services. Avoid duplicating protocol definitions or
 using display strings as persistent identifiers.
+
+New standalone source files should use `SPDX-License-Identifier:
+GPL-3.0-or-later` where the file format permits comments. Do not add that
+identifier to asset files governed by the NETfishing Asset License.

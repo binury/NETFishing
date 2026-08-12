@@ -93,9 +93,13 @@ The remaining catalog metadata assets were copied from the installed official
 
 ```text
 e2a9d132744684c67865c01eca027a8c9946b4c5a19da57c82f1af0373dc83b7  gameinfo.xml
-ff08aacc52bbdc95616320800da3eaee0c0ba5fafdd962bf04f9655859409764  licenses/CREDITS.md
-b84fdd2c3da5db56385cdbb639795e90aa3e035c53bc3591135f18df3331451f  licenses/Tuffy-LICENSE.txt
 ```
+
+The package’s `licenses/` directory is now assembled from the authoritative
+root license, asset-license, credits, trademark, font, and third-party-notice
+files at build time. It also records the exact release tag and corresponding
+GPL source commit. Do not restore stale duplicated license templates beneath
+`scripts/portmaster/`.
 
 The original catalog porter credit, `Voyager`, remains in `port.json`.
 
