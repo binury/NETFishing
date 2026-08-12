@@ -1,6 +1,12 @@
 extends SceneTree
 
 const ConfigType = preload("res://server/dedicated_server_config.gd")
+const OPERATOR_A: String = (
+	"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+)
+const OPERATOR_B: String = (
+	"fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210"
+)
 
 
 func _initialize() -> void:
@@ -25,6 +31,9 @@ func _run() -> void:
 	file.set_value("server", "public", true)
 	file.set_value("server", "data_directory", "/tmp/configured-server")
 	file.set_value("discovery", "url", "https://discovery.netfishing.org/")
+	file.set_value(
+		"moderation", "operators", PackedStringArray([OPERATOR_B, OPERATOR_A])
+	)
 	assert(file.save(path) == OK)
 
 	var configured := ConfigType.new()
@@ -37,7 +46,34 @@ func _run() -> void:
 	assert(int(configured.get("max_players")) == 12)
 	assert(bool(configured.get("public_listing")))
 	assert(str(configured.get("discovery_url")) == "https://discovery.netfishing.org")
+	assert(
+		configured.get("operator_fingerprints")
+		== PackedStringArray([OPERATOR_A, OPERATOR_B])
+	)
 	assert(DirAccess.remove_absolute(path) == OK)
+
+	var parsed := ConfigType.new()
+	parsed.set(
+		"operator_fingerprints",
+		ConfigType._parse_fingerprint_list(
+			"%s, %s;%s" % [OPERATOR_B.to_upper(), OPERATOR_A, OPERATOR_A]
+		),
+	)
+	parsed.set("data_directory", "/tmp/parsed-server")
+	parsed.call("_validate")
+	assert(parsed.is_valid())
+	assert(
+		parsed.get("operator_fingerprints")
+		== PackedStringArray([OPERATOR_A, OPERATOR_B])
+	)
+
+	var invalid_operator := ConfigType.new()
+	invalid_operator.set(
+		"operator_fingerprints", PackedStringArray(["not-a-fingerprint"])
+	)
+	invalid_operator.set("data_directory", "/tmp/invalid-operator-server")
+	invalid_operator.call("_validate")
+	assert(not invalid_operator.is_valid())
 
 	var invalid := ConfigType.new()
 	invalid.set("public_listing", true)
@@ -58,6 +94,27 @@ func _run() -> void:
 		DiscoveryClient.UPNP_RETRY_INTERVAL_SECONDS
 		< DiscoveryClient.UPNP_RENEW_INTERVAL_SECONDS
 	)
+	var discovery_settings_path: String = ProjectSettings.globalize_path(
+		DiscoveryClient.SETTINGS_PATH
+	)
+	assert(not FileAccess.file_exists(discovery_settings_path))
+	assert(discovery.set_room_name("Client Room"))
+	var client_settings: PackedByteArray = FileAccess.get_file_as_bytes(
+		discovery_settings_path
+	)
+	assert(not client_settings.is_empty())
+	var dedicated_discovery := DiscoveryClient.new()
+	dedicated_discovery.call("_load_settings")
+	assert(
+		dedicated_discovery.configure_dedicated_runtime("Headless Room")
+	)
+	assert(dedicated_discovery.get_room_name() == "Headless Room")
+	assert(
+		FileAccess.get_file_as_bytes(discovery_settings_path)
+		== client_settings
+	)
+	dedicated_discovery.free()
+	assert(DirAccess.remove_absolute(discovery_settings_path) == OK)
 	assert(
 		discovery.get_host_state()
 		== DiscoveryClient.HostState.CLOSED

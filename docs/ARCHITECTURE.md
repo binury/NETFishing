@@ -46,6 +46,14 @@ derives trusted context from registered peers, authoritative regions, and
 server-owned state before mutating inventory, wallet, progression, or shared
 world state. See [`decisions/0001-host-authority.md`](decisions/0001-host-authority.md).
 
+Moderation follows the same boundary. Player hosts may grant session-scoped
+operator status to an authenticated identity. Dedicated servers derive
+operators from their configured fingerprint allowlist. Operator status is
+replicated for presentation, but kick, ban, unban, and artwork-reset requests
+are always reauthorized against the authenticated sender by the host. Only a
+player host can grant or revoke operators; operators cannot moderate the host
+or another operator.
+
 Protocol compatibility is defined in `network/network_protocol.gd`. A visible
 release version is not a reason to change the protocol number.
 

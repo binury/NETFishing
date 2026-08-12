@@ -10,6 +10,7 @@ readonly RUN_ROOT="$(mktemp -d -t netfishing-validations.XXXXXX)"
 
 readonly -a QUICK_TESTS=(
 	"tests/android_readiness_validation.gd"
+	"tests/dedicated_server_config_validation.gd"
 	"tests/fish_catalog_content_validation.gd"
 	"tests/fish_quality_validation.gd"
 	"tests/fishing_audio_validation.gd"
@@ -32,6 +33,7 @@ readonly -a RUNTIME_TESTS=(
 
 readonly -a HOST_TESTS=(
 	"tests/art_tools_validation.gd"
+	"tests/dedicated_host_session_validation.gd"
 	"tests/economy_regression_validation.gd"
 	"tests/fish_hotbar_showcase_validation.gd"
 	"tests/fishing_authority_validation.gd"
@@ -44,6 +46,7 @@ readonly -a NETWORK_TESTS=(
 	"tests/fish_showcase_multiplayer_validation.gd"
 	"tests/fishing_multiplayer_validation.gd"
 	"tests/job_multiplayer_validation.gd"
+	"tests/operator_multiplayer_validation.gd"
 	"tests/surface_drawing_multiplayer_validation.gd"
 	"tests/world_time_multiplayer_validation.gd"
 )

@@ -194,7 +194,7 @@ func _set_host_toggle_state(
 
 
 func _select_tab(index: int) -> void:
-	if index == 2 and (_service == null or not _service.is_local_host()):
+	if index == 2 and (_service == null or not _service.is_local_moderator()):
 		return
 	_current_tab = index
 	_refresh()
@@ -207,10 +207,12 @@ func _refresh() -> void:
 	_count_label.text = "%d / %d connected" % [
 		_service.get_connected_count(), _service.get_max_players(),
 	]
+	if _current_tab == 2 and not _service.is_local_moderator():
+		_current_tab = 0
 	for index: int in _tabs.get_child_count():
 		var button := _tabs.get_child(index) as Button
 		button.button_pressed = index == _current_tab
-		button.visible = index != 2 or _service.is_local_host()
+		button.visible = index != 2 or _service.is_local_moderator()
 	_refresh_host_settings()
 	for child: Node in _list.get_children():
 		child.queue_free()
@@ -330,7 +332,7 @@ func _on_host_status_changed(message: String, is_error: bool) -> void:
 
 
 func _build_active_rows() -> void:
-	if _service.is_local_host():
+	if _service.is_local_moderator():
 		_build_session_artwork_controls()
 	var entries := _service.get_entries()
 	if entries.is_empty():
@@ -339,10 +341,12 @@ func _build_active_rows() -> void:
 	for entry: PlayerListEntry in entries:
 		var row := _make_row()
 		var identity := Label.new()
-		identity.custom_minimum_size.x = 515
+		identity.custom_minimum_size.x = 430
 		var markers: Array[String] = []
 		if entry.is_host:
 			markers.append("host")
+		if entry.is_operator:
+			markers.append("operator")
 		if entry.is_local_player:
 			markers.append("You")
 		identity.text = "%s%s · %s\n%s" % [
@@ -351,7 +355,7 @@ func _build_active_rows() -> void:
 			entry.compact_fingerprint,
 			entry.continuity_state,
 		]
-		identity.tooltip_text = NetworkIdentityCrypto.format_fingerprint(
+		identity.tooltip_text = "Full identity fingerprint:\n%s" % (
 			entry.full_fingerprint
 		)
 		identity.add_theme_color_override(
@@ -381,6 +385,12 @@ func _build_active_rows() -> void:
 		block.pressed.connect(_confirm_block.bind(entry))
 		UtilityPageStyle.apply_ocean_button(block)
 		row.add_child(block)
+		if entry.can_manage_operator:
+			var operator := Button.new()
+			operator.text = "deop" if entry.is_operator else "op"
+			operator.pressed.connect(_confirm_operator.bind(entry))
+			UtilityPageStyle.apply_ocean_button(operator)
+			row.add_child(operator)
 		var kick := Button.new()
 		kick.text = "kick"
 		kick.disabled = not entry.can_kick
@@ -536,6 +546,24 @@ func _confirm_ban(entry: PlayerListEntry) -> void:
 		_service.ban(
 			entry.peer_id, entry.full_fingerprint, entry.display_name, entry.revision
 		)
+	)
+
+
+func _confirm_operator(entry: PlayerListEntry) -> void:
+	var enabled: bool = not entry.is_operator
+	_confirm(
+		(
+			"Grant operator access to %s for this room session?"
+			if enabled
+			else "Remove operator access from %s?"
+		) % entry.display_name,
+		func() -> void:
+			_service.set_operator(
+				entry.peer_id,
+				entry.full_fingerprint,
+				enabled,
+				entry.revision,
+			)
 	)
 
 

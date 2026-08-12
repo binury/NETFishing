@@ -308,7 +308,15 @@ func _start_dedicated_server() -> void:
 	if not _discovery.set_base_url_override(config.discovery_url):
 		_fail_dedicated_server("The discovery URL is invalid.")
 		return
+	if not _network_session.configure_dedicated_operators(
+		config.operator_fingerprints
+	):
+		_fail_dedicated_server("The server operator list is invalid.")
+		return
 	_configure_portable_stores()
+	if not _discovery.configure_dedicated_runtime(config.server_name):
+		_fail_dedicated_server("The server room name is invalid.")
+		return
 	_initialize_application(true)
 	_player.set_local_control(false)
 	_player.visible = false
@@ -323,7 +331,6 @@ func _start_dedicated_server() -> void:
 		_fail_dedicated_server("Could not start the dedicated server.")
 		return
 	_network_session.set_session_display_name(config.server_name)
-	_discovery.set_room_name(config.server_name)
 	if not _network_session.set_host_open(true):
 		_fail_dedicated_server("Could not open the dedicated server.")
 		return

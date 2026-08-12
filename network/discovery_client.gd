@@ -58,6 +58,7 @@ var _session: NetworkSession
 var _base_url: String = ""
 var _room_name: String = DEFAULT_ROOM_NAME
 var _room_name_uses_default: bool = true
+var _host_settings_persistence_enabled: bool = true
 var _discoverable: bool = false
 var _host_status_message: String = ""
 var _host_status_is_error: bool = false
@@ -216,6 +217,11 @@ func get_host_state() -> HostState:
 
 func get_public_join_state() -> PublicJoinState:
 	return _public_join_state
+
+
+func configure_dedicated_runtime(room_name: String) -> bool:
+	_host_settings_persistence_enabled = false
+	return set_room_name(room_name)
 
 
 func set_room_name(value: String) -> bool:
@@ -1047,6 +1053,8 @@ func _load_settings() -> void:
 
 
 func _save_settings() -> void:
+	if not _host_settings_persistence_enabled:
+		return
 	var config := ConfigFile.new()
 	config.set_value("host", "room_name", _room_name)
 	config.set_value(
