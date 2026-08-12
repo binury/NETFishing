@@ -548,8 +548,6 @@ func _start_bite(attempt: NetworkFishingAttempt) -> void:
 		attempt.barrier_damage,
 		attempt.encounter_seed,
 		fish_catch.quality,
-		int(fish.rarity),
-		fish.get_weight_percentile(fish_catch.weight_lb),
 	)
 	var data: Dictionary = {
 		"attempt_id": attempt.attempt_id,

@@ -104,7 +104,7 @@ func _run() -> void:
 	assert(not bobber.visible)
 
 	# A private host rolls and retains the authoritative catch before the fight
-	# so its quality can scale the same barriers clients receive in snapshots.
+	# so its quality selects the barrier band clients receive in snapshots.
 	fishing_spot.call("_begin_aiming", player)
 	fishing_spot.set("_cast_charge", 0.32)
 	fishing_spot.call("_update_cast_charge", 0.0)
@@ -138,8 +138,6 @@ func _run() -> void:
 		attempt.barrier_damage,
 		attempt.encounter_seed,
 		fish_catch.quality,
-		int(fish.rarity),
-		fish.get_weight_percentile(fish_catch.weight_lb),
 	)
 	var quality_barriers: Array = attempt.controller.get("_barriers")
 	var reference_barriers: Array = reference_controller.get("_barriers")

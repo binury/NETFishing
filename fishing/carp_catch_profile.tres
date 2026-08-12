@@ -6,8 +6,6 @@
 script = ExtResource("1_profile")
 barrier_count_min = 3
 barrier_count_max = 4
-barrier_health_min = 5
-barrier_health_max = 8
 first_barrier_margin = 0.13
 final_barrier_margin = 0.09
 minimum_barrier_spacing = 0.14
