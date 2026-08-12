@@ -3,6 +3,8 @@ extends Control
 
 const CHECK_DEBOUNCE_SECONDS: float = 0.4
 const OPTION_GRID_COLUMNS: int = 6
+const FUR_PALETTE_GRID_COLUMNS: int = 10
+const FUR_CHANNEL_ICON_SIZE: int = 20
 const FEATURE_DRAWER_ANIMATION_SECONDS: float = 0.16
 const ControllerMappingManagerType = preload(
 	"res://settings/controller_mapping_manager.gd"
@@ -48,11 +50,13 @@ var _experience_level: Label
 var _experience_progress: ProgressBar
 var _experience_value: Label
 var _feature_preview_cache: Dictionary = {}
+var _fur_swatch_icon_cache: Dictionary = {}
 var _expanded_feature_drawers: Dictionary = {}
 var _feature_drawer_animation_key: String = ""
 var _scale_value_label: Label
 var _voice_preview: AnimaleseVoiceType
 var _voice_preview_tween: Tween
+var _active_fur_color_id: String = "fur_pattern"
 
 
 func _ready() -> void:
@@ -882,28 +886,165 @@ func _feature_preview_texture(
 
 
 func _build_fur_color_options(options: Array) -> void:
-	var grid := GridContainer.new()
-	grid.columns = OPTION_GRID_COLUMNS
-	grid.add_theme_constant_override("h_separation", 10)
-	grid.add_theme_constant_override("v_separation", 10)
-	_option_list.add_child(grid)
-	var selected_id: String = CharacterCustomizationCatalog.canonical_option_id(
-		"fur_pattern", str(_draft_appearance.get("fur_pattern", "white"))
+	var pattern_label := Label.new()
+	pattern_label.text = "pattern"
+	pattern_label.add_theme_color_override(
+		"font_color", UtilityPageStyle.OCEAN_TEXT_PRIMARY
 	)
+	_option_list.add_child(pattern_label)
+	var pattern_row := HBoxContainer.new()
+	pattern_row.add_theme_constant_override("separation", 8)
+	_option_list.add_child(pattern_row)
+	var selected_style_id := str(_draft_appearance.get(
+		CharacterCustomizationCatalog.FUR_STYLE_ID,
+		CharacterCustomizationCatalog.DEFAULT_FUR_STYLE,
+	))
+	for pattern_option: Dictionary in CharacterCustomizationCatalog.options_for(
+		CharacterCustomizationCatalog.FUR_STYLE_ID
+	):
+		var pattern_id := str(pattern_option.get("id", ""))
+		var pattern_button := Button.new()
+		pattern_button.text = str(pattern_option.get("label", pattern_id))
+		pattern_button.toggle_mode = true
+		pattern_button.button_pressed = selected_style_id == pattern_id
+		pattern_button.custom_minimum_size = Vector2(118.0, 32.0)
+		pattern_button.pressed.connect(_select_option.bind(
+			CharacterCustomizationCatalog.FUR_STYLE_ID,
+			pattern_id,
+		))
+		UtilityPageStyle.apply_compact_ocean_button(pattern_button)
+		pattern_row.add_child(pattern_button)
+
+	var channel_label := Label.new()
+	channel_label.text = "color channel"
+	channel_label.add_theme_color_override(
+		"font_color", UtilityPageStyle.OCEAN_TEXT_PRIMARY
+	)
+	_option_list.add_child(channel_label)
+	var channel_grid := GridContainer.new()
+	channel_grid.columns = 2
+	channel_grid.add_theme_constant_override("h_separation", 8)
+	channel_grid.add_theme_constant_override("v_separation", 8)
+	_option_list.add_child(channel_grid)
+	for color_category_id: String in CharacterCustomizationCatalog.FUR_COLOR_IDS:
+		var selected_color_id := str(_draft_appearance.get(
+			color_category_id,
+			"white",
+		))
+		var selected_color := CharacterCustomizationCatalog.option_color(
+			color_category_id,
+			selected_color_id,
+		)
+		var channel_button := Button.new()
+		channel_button.text = CharacterCustomizationCatalog.fur_color_label(
+			color_category_id
+		)
+		channel_button.icon = _fur_swatch_icon(selected_color)
+		channel_button.icon_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		channel_button.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		channel_button.add_theme_constant_override(
+			"icon_max_width", FUR_CHANNEL_ICON_SIZE
+		)
+		channel_button.add_theme_constant_override("h_separation", 8)
+		channel_button.tooltip_text = "Edit %s: %s" % [
+			CharacterCustomizationCatalog.fur_color_label(color_category_id),
+			_fur_option_label(options, selected_color_id),
+		]
+		channel_button.toggle_mode = true
+		channel_button.custom_minimum_size = Vector2(140.0, 34.0)
+		channel_button.button_pressed = (
+			_active_fur_color_id == color_category_id
+		)
+		channel_button.pressed.connect(
+			_select_fur_color_slot.bind(color_category_id)
+		)
+		UtilityPageStyle.apply_compact_ocean_button(channel_button)
+		channel_grid.add_child(channel_button)
+
+	_build_fur_palette(_active_fur_color_id, options)
+
+
+func _build_fur_palette(category_id: String, options: Array) -> void:
+	var selected_id: String = CharacterCustomizationCatalog.canonical_option_id(
+		category_id,
+		str(_draft_appearance.get(category_id, "white")),
+	)
+	var label := Label.new()
+	label.text = "%s palette" % CharacterCustomizationCatalog.fur_color_label(
+		category_id
+	)
+	label.add_theme_font_size_override("font_size", 14)
+	label.add_theme_color_override(
+		"font_color", UtilityPageStyle.OCEAN_TEXT_PRIMARY
+	)
+	_option_list.add_child(label)
+
+	var grid := GridContainer.new()
+	grid.columns = FUR_PALETTE_GRID_COLUMNS
+	grid.add_theme_constant_override("h_separation", 6)
+	grid.add_theme_constant_override("v_separation", 6)
+	_option_list.add_child(grid)
 	for option: Dictionary in options:
 		var option_id: String = str(option.get("id", ""))
 		var color: Color = CharacterCustomizationCatalog.option_color(
-			"fur_pattern", option_id
+			category_id, option_id
 		)
 		var button := Button.new()
 		button.text = ""
-		button.tooltip_text = str(option.get("label", option_id))
+		button.tooltip_text = "%s: %s" % [
+			CharacterCustomizationCatalog.fur_color_label(category_id),
+			str(option.get("label", option_id)),
+		]
 		button.toggle_mode = true
-		button.custom_minimum_size = Vector2(44.0, 44.0)
+		button.custom_minimum_size = Vector2(30.0, 30.0)
 		button.button_pressed = selected_id == option_id
-		button.pressed.connect(_select_option.bind("fur_pattern", option_id))
+		button.pressed.connect(_select_option.bind(category_id, option_id))
 		_apply_fur_swatch_style(button, color, button.button_pressed)
 		grid.add_child(button)
+
+
+func _fur_option_label(options: Array, option_id: String) -> String:
+	for option: Dictionary in options:
+		if str(option.get("id", "")) == option_id:
+			return str(option.get("label", option_id))
+	return option_id
+
+
+func _fur_swatch_icon(color: Color) -> Texture2D:
+	var cache_id := color.to_html(true)
+	if _fur_swatch_icon_cache.has(cache_id):
+		return _fur_swatch_icon_cache[cache_id] as Texture2D
+	var image := Image.create(
+		FUR_CHANNEL_ICON_SIZE,
+		FUR_CHANNEL_ICON_SIZE,
+		false,
+		Image.FORMAT_RGBA8,
+	)
+	var center := Vector2.ONE * (float(FUR_CHANNEL_ICON_SIZE) * 0.5)
+	var radius := float(FUR_CHANNEL_ICON_SIZE) * 0.39
+	for y: int in range(FUR_CHANNEL_ICON_SIZE):
+		for x: int in range(FUR_CHANNEL_ICON_SIZE):
+			var sample_position := Vector2(float(x) + 0.5, float(y) + 0.5)
+			var alpha := clampf(
+				radius + 0.8 - sample_position.distance_to(center),
+				0.0,
+				1.0,
+			)
+			image.set_pixel(
+				x,
+				y,
+				Color(color.r, color.g, color.b, color.a * alpha),
+			)
+	var texture := ImageTexture.create_from_image(image)
+	_fur_swatch_icon_cache[cache_id] = texture
+	return texture
+
+
+func _select_fur_color_slot(category_id: String) -> void:
+	if category_id not in CharacterCustomizationCatalog.FUR_COLOR_IDS:
+		return
+	_active_fur_color_id = category_id
+	_refresh_options()
 
 
 func _apply_fur_swatch_style(

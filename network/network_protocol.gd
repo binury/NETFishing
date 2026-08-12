@@ -268,6 +268,10 @@ static func client_profile_fields(data: Dictionary) -> Array:
 			)
 		),
 		str(appearance.get("fur_pattern", "")),
+		str(appearance.get("fur_style", "")),
+		str(appearance.get("fur_color_2", "")),
+		str(appearance.get("fur_color_3", "")),
+		str(appearance.get("fur_color_4", "")),
 		str(appearance.get("ears", "")),
 		str(appearance.get("eyes", "")),
 		str(appearance.get("nose", "")),

@@ -12,10 +12,28 @@ const CATEGORY_IDS: PackedStringArray = [
 	"tail",
 ]
 
+# CATEGORY_IDS controls the visible Profile navigation. The additional fur
+# fields are edited together on the existing fur page, but remain explicit in
+# saves and signed multiplayer appearance snapshots.
+const SNAPSHOT_IDS: PackedStringArray = [
+	"species",
+	"scale",
+	"fur_pattern",
+	"fur_style",
+	"fur_color_2",
+	"fur_color_3",
+	"fur_color_4",
+	"ears",
+	"eyes",
+	"nose",
+	"mouth",
+	"tail",
+]
+
 const CATEGORY_LABELS: Dictionary = {
 	"species": "head",
 	"scale": "size",
-	"fur_pattern": "fur color",
+	"fur_pattern": "fur",
 	"ears": "ears",
 	"eyes": "eyes",
 	"nose": "nose",
@@ -28,6 +46,20 @@ const MIN_CHARACTER_SCALE: float = 0.5
 const MAX_CHARACTER_SCALE: float = 1.5
 const DEFAULT_CHARACTER_SCALE: float = 1.0
 const CHARACTER_SCALE_STEP: float = 0.05
+const FUR_STYLE_ID: String = "fur_style"
+const FUR_COLOR_IDS: PackedStringArray = [
+	"fur_pattern",
+	"fur_color_2",
+	"fur_color_3",
+	"fur_color_4",
+]
+const FUR_COLOR_LABELS: Dictionary = {
+	"fur_pattern": "primary",
+	"fur_color_2": "secondary",
+	"fur_color_3": "accent",
+	"fur_color_4": "detail",
+}
+const DEFAULT_FUR_STYLE: String = "solid"
 
 const FEATURE_CATEGORIES: PackedStringArray = ["eyes", "nose", "mouth"]
 const FEATURE_ASSET_ROOTS: Dictionary = {
@@ -41,28 +73,79 @@ const FEATURE_LABEL_OVERRIDES: Dictionary = {
 	"dog_round": "round",
 	"three": "three",
 }
+const FUR_COLOR_OPTIONS: Array = [
+	{"id": "white", "label": "white", "color": Color("f2f0e8")},
+	{"id": "ivory", "label": "ivory", "color": Color("f0e2c2")},
+	{"id": "cream", "label": "cream", "color": Color("e6d39b")},
+	{"id": "sand", "label": "sand", "color": Color("c6a66f")},
+	{"id": "tan", "label": "tan", "color": Color("ad7c55")},
+	{"id": "taupe", "label": "taupe", "color": Color("89756a")},
+	{"id": "silver", "label": "silver", "color": Color("b8c3c1")},
+	{"id": "gray", "label": "gray", "color": Color("819398")},
+	{"id": "slate", "label": "slate", "color": Color("58686c")},
+	{"id": "charcoal", "label": "charcoal", "color": Color("34444a")},
+	{"id": "black", "label": "black", "color": Color("192126")},
+	{"id": "dark_brown", "label": "dark brown", "color": Color("432a25")},
+	{"id": "chocolate", "label": "chocolate", "color": Color("603b2c")},
+	{"id": "brown", "label": "brown", "color": Color("7b4a32")},
+	{"id": "chestnut", "label": "chestnut", "color": Color("98513d")},
+	{"id": "ginger", "label": "ginger", "color": Color("d28742")},
+	{"id": "orange", "label": "orange", "color": Color("c86c36")},
+	{"id": "red", "label": "red", "color": Color("a9433f")},
+	{"id": "pink", "label": "pink", "color": Color("d8899e")},
+	{"id": "yellow", "label": "yellow", "color": Color("d8c545")},
+	{"id": "gold", "label": "gold", "color": Color("c29a3d")},
+	{"id": "sage", "label": "sage", "color": Color("8fa16b")},
+	{"id": "green", "label": "green", "color": Color("6f913c")},
+	{"id": "forest", "label": "forest", "color": Color("3f6945")},
+	{"id": "aqua", "label": "aqua", "color": Color("69aeb0")},
+	{"id": "teal", "label": "teal", "color": Color("3a8790")},
+	{"id": "blue", "label": "blue", "color": Color("4d76a8")},
+	{"id": "navy", "label": "navy", "color": Color("344b78")},
+	{"id": "lavender", "label": "lavender", "color": Color("9a7eaa")},
+	{"id": "purple", "label": "purple", "color": Color("76558f")},
+]
 const OPTIONS: Dictionary = {
 	"species": [
 		{"id": "round", "label": "round"},
 		{"id": "pointy", "label": "pointy"},
 	],
-	# The serialized field remains `fur_pattern` for save and network
-	# compatibility. It holds the initial solid fur-color selection until the
-	# authored pattern layer is ready.
-	"fur_pattern": [
-		{"id": "white", "label": "white", "color": Color("f2f0e8")},
-		{"id": "cream", "label": "cream", "color": Color("e6d39b")},
-		{"id": "gray", "label": "gray", "color": Color("819398")},
-		{"id": "charcoal", "label": "charcoal", "color": Color("34444a")},
-		{"id": "brown", "label": "brown", "color": Color("7b4a32")},
-		{"id": "orange", "label": "orange", "color": Color("c86c36")},
-		{"id": "red", "label": "red", "color": Color("a9433f")},
-		{"id": "pink", "label": "pink", "color": Color("d8899e")},
-		{"id": "yellow", "label": "yellow", "color": Color("d8c545")},
-		{"id": "green", "label": "green", "color": Color("6f913c")},
-		{"id": "teal", "label": "teal", "color": Color("3a8790")},
-		{"id": "blue", "label": "blue", "color": Color("4d76a8")},
-		{"id": "purple", "label": "purple", "color": Color("76558f")},
+	# `fur_pattern` remains the primary color key for compatibility with
+	# existing appearance saves. The actual authored pattern has its own field.
+	"fur_pattern": FUR_COLOR_OPTIONS,
+	"fur_color_2": FUR_COLOR_OPTIONS,
+	"fur_color_3": FUR_COLOR_OPTIONS,
+	"fur_color_4": FUR_COLOR_OPTIONS,
+	"fur_style": [
+		{"id": "solid", "label": "solid"},
+		{
+			"id": "spots_bengal",
+			"label": "bengal spots",
+			"textures": {
+				"body_main": (
+					"res://art/exported/characters/patterns/"
+					+ "spots_bengal/body_main.png"
+				),
+				"body_arms": (
+					"res://art/exported/characters/patterns/"
+					+ "spots_bengal/body_arms.png"
+				),
+			},
+		},
+		{
+			"id": "fox",
+			"label": "fox",
+			"textures": {
+				"body_main": (
+					"res://art/exported/characters/patterns/"
+					+ "fox/body_main.png"
+				),
+				"body_arms": (
+					"res://art/exported/characters/patterns/"
+					+ "fox/body_arms.png"
+				),
+			},
+		},
 	],
 	"ears": [
 		{"id": "none", "label": "none"},
@@ -96,6 +179,7 @@ const OPTIONS: Dictionary = {
 const LEGACY_OPTION_ALIASES: Dictionary = {
 	"species": {"default": "round"},
 	"fur_pattern": {"solid": "white"},
+	"fur_style": {"bengal": "spots_bengal"},
 	"ears": {"default": "none"},
 	"tail": {"default": "none"},
 	"eyes": {"default": "simple_shine"},
@@ -106,6 +190,7 @@ const LEGACY_OPTION_ALIASES: Dictionary = {
 static var _feature_assets_ready: bool = false
 static var _feature_options: Dictionary = {}
 static var _feature_textures: Dictionary = {}
+static var _fur_pattern_textures: Dictionary = {}
 
 
 static func default_snapshot() -> Dictionary:
@@ -114,6 +199,10 @@ static func default_snapshot() -> Dictionary:
 		"species": "round",
 		"scale": DEFAULT_CHARACTER_SCALE,
 		"fur_pattern": "white",
+		"fur_style": DEFAULT_FUR_STYLE,
+		"fur_color_2": "cream",
+		"fur_color_3": "brown",
+		"fur_color_4": "red",
 		"ears": "none",
 		"eyes": _default_feature_option("eyes", "simple_shine"),
 		"nose": _default_feature_option("nose", "dog_round"),
@@ -343,13 +432,41 @@ static func option_color(category_id: String, option_id: String) -> Color:
 	return Color.WHITE
 
 
+static func fur_color_label(category_id: String) -> String:
+	return str(FUR_COLOR_LABELS.get(category_id, category_id))
+
+
+static func fur_pattern_texture(
+	option_id: String,
+	component_id: String = "body_main",
+) -> Texture2D:
+	var canonical_id := canonical_option_id(FUR_STYLE_ID, option_id)
+	if canonical_id == DEFAULT_FUR_STYLE:
+		return null
+	var cache_id := "%s:%s" % [canonical_id, component_id]
+	if _fur_pattern_textures.has(cache_id):
+		return _fur_pattern_textures[cache_id] as Texture2D
+	for option: Dictionary in options_for(FUR_STYLE_ID):
+		if str(option.get("id", "")) != canonical_id:
+			continue
+		var textures := option.get("textures", {}) as Dictionary
+		var resource_path := str(textures.get(component_id, ""))
+		if resource_path.is_empty():
+			return null
+		var texture := ResourceLoader.load(resource_path) as Texture2D
+		if texture != null:
+			_fur_pattern_textures[cache_id] = texture
+		return texture
+	return null
+
+
 static func validate_snapshot(value: Variant) -> bool:
 	if typeof(value) != TYPE_DICTIONARY:
 		return false
 	var snapshot: Dictionary = value
-	if snapshot.size() != CATEGORY_IDS.size():
+	if snapshot.size() != SNAPSHOT_IDS.size():
 		return false
-	for category_id: String in CATEGORY_IDS:
+	for category_id: String in SNAPSHOT_IDS:
 		if category_id == SCALE_CATEGORY_ID:
 			if not is_valid_character_scale(snapshot.get(category_id)):
 				return false
@@ -367,7 +484,7 @@ static func sanitized_snapshot(value: Variant) -> Dictionary:
 	if typeof(value) != TYPE_DICTIONARY:
 		return result
 	var snapshot: Dictionary = value
-	for category_id: String in CATEGORY_IDS:
+	for category_id: String in SNAPSHOT_IDS:
 		if category_id == SCALE_CATEGORY_ID:
 			result[category_id] = character_scale(
 				snapshot.get(category_id, DEFAULT_CHARACTER_SCALE)

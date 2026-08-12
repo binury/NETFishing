@@ -15,6 +15,7 @@ readonly -a QUICK_TESTS=(
 	"tests/fish_quality_validation.gd"
 	"tests/fishing_audio_validation.gd"
 	"tests/fishing_surface_validation.gd"
+	"tests/fur_pattern_validation.gd"
 	"tests/logbook_validation.gd"
 	"tests/player_experience_validation.gd"
 	"tests/shoreline_ambience_validation.gd"

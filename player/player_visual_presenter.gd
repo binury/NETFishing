@@ -2,7 +2,11 @@ class_name PlayerVisualPresenter
 extends RefCounted
 
 const PlayerScene: PackedScene = preload("res://player/player.tscn")
+const FurPatternShader: Shader = preload("res://player/fur_pattern.gdshader")
 const RUNTIME_MATERIAL_META: StringName = &"netfishing_runtime_material"
+const RUNTIME_FUR_PATTERN_MATERIAL_META: StringName = (
+	&"netfishing_runtime_fur_pattern_material"
+)
 const EAR_MESH_NAMES: Array[String] = [
 	"ears_antlers_round",
 	"ears_bear",
@@ -144,14 +148,17 @@ static func apply_appearance(
 	var fur_color: Color = CharacterCustomizationCatalog.option_color(
 		"fur_pattern", str(snapshot.get("fur_pattern", "white"))
 	)
-	_set_mesh_color(skeleton, "body_arms", fur_color)
-	_set_mesh_color(skeleton, "body_main", fur_color)
-	_set_mesh_color(skeleton, "head_pointy", fur_color)
-	_set_mesh_color(skeleton, "head_round", fur_color)
+	for fur_mesh_name: String in [
+		"body_main",
+		"body_arms",
+		"head_pointy",
+		"head_round",
+	]:
+		_set_fur_mesh(skeleton, fur_mesh_name, snapshot, fur_color)
 	for ear_name: String in EAR_MESH_NAMES:
-		_set_mesh_color(skeleton, ear_name, fur_color)
+		_set_fur_mesh(skeleton, ear_name, snapshot, fur_color)
 	for tail_name: String in TAIL_MESH_NAMES:
-		_set_mesh_color(skeleton, tail_name, fur_color)
+		_set_fur_mesh(skeleton, tail_name, snapshot, fur_color)
 
 	var eye_id: String = CharacterCustomizationCatalog.canonical_option_id(
 		"eyes", str(snapshot.get("eyes", "simple_shine"))
@@ -202,17 +209,60 @@ static func _set_feature_texture(
 			material.albedo_texture = texture
 
 
-static func _set_mesh_color(
+static func _set_fur_mesh(
 	skeleton: Skeleton3D,
 	mesh_name: String,
-	color: Color,
+	snapshot: Dictionary,
+	base_color: Color,
 ) -> void:
-	var mesh_instance: MeshInstance3D = skeleton.get_node_or_null(
-		mesh_name
-	) as MeshInstance3D
-	var material: StandardMaterial3D = _runtime_material(mesh_instance)
-	if material != null:
-		material.albedo_color = color
+	var mesh_instance := skeleton.get_node_or_null(mesh_name) as MeshInstance3D
+	if mesh_instance == null:
+		return
+	var style_id := CharacterCustomizationCatalog.canonical_option_id(
+		CharacterCustomizationCatalog.FUR_STYLE_ID,
+		str(snapshot.get(
+			CharacterCustomizationCatalog.FUR_STYLE_ID,
+			CharacterCustomizationCatalog.DEFAULT_FUR_STYLE,
+		)),
+	)
+	var pattern_texture := CharacterCustomizationCatalog.fur_pattern_texture(
+		style_id,
+		mesh_name,
+	)
+	if pattern_texture == null:
+		var solid_material := _runtime_material(mesh_instance)
+		if solid_material != null:
+			solid_material.albedo_color = base_color
+			mesh_instance.material_override = solid_material
+		return
+
+	var pattern_material := _runtime_fur_pattern_material(mesh_instance)
+	pattern_material.set_shader_parameter("pattern_texture", pattern_texture)
+	pattern_material.set_shader_parameter("base_color", base_color)
+	pattern_material.set_shader_parameter(
+		"red_zone_color",
+		_fur_snapshot_color(snapshot, "fur_color_2", "cream"),
+	)
+	pattern_material.set_shader_parameter(
+		"green_zone_color",
+		_fur_snapshot_color(snapshot, "fur_color_3", "brown"),
+	)
+	pattern_material.set_shader_parameter(
+		"blue_zone_color",
+		_fur_snapshot_color(snapshot, "fur_color_4", "red"),
+	)
+	mesh_instance.material_override = pattern_material
+
+
+static func _fur_snapshot_color(
+	snapshot: Dictionary,
+	category_id: String,
+	default_id: String,
+) -> Color:
+	return CharacterCustomizationCatalog.option_color(
+		category_id,
+		str(snapshot.get(category_id, default_id)),
+	)
 
 
 static func _runtime_material(
@@ -221,7 +271,9 @@ static func _runtime_material(
 	if mesh_instance == null or mesh_instance.mesh == null:
 		return null
 	if mesh_instance.has_meta(RUNTIME_MATERIAL_META):
-		var runtime := mesh_instance.material_override as StandardMaterial3D
+		var runtime := mesh_instance.get_meta(
+			RUNTIME_MATERIAL_META
+		) as StandardMaterial3D
 		_configure_matte_material(runtime)
 		return runtime
 	var source: StandardMaterial3D = mesh_instance.mesh.surface_get_material(
@@ -232,7 +284,20 @@ static func _runtime_material(
 	var material: StandardMaterial3D = source.duplicate() as StandardMaterial3D
 	_configure_matte_material(material)
 	mesh_instance.material_override = material
-	mesh_instance.set_meta(RUNTIME_MATERIAL_META, true)
+	mesh_instance.set_meta(RUNTIME_MATERIAL_META, material)
+	return material
+
+
+static func _runtime_fur_pattern_material(
+	mesh_instance: MeshInstance3D,
+) -> ShaderMaterial:
+	if mesh_instance.has_meta(RUNTIME_FUR_PATTERN_MATERIAL_META):
+		return mesh_instance.get_meta(
+			RUNTIME_FUR_PATTERN_MATERIAL_META
+		) as ShaderMaterial
+	var material := ShaderMaterial.new()
+	material.shader = FurPatternShader
+	mesh_instance.set_meta(RUNTIME_FUR_PATTERN_MATERIAL_META, material)
 	return material
 
 

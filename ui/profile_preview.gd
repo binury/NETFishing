@@ -143,7 +143,7 @@ func _notification(what: int) -> void:
 
 
 func _rotate(amount: float) -> void:
-	_camera_yaw = fposmod(_camera_yaw + amount, TAU)
+	_camera_yaw = fposmod(_camera_yaw - amount, TAU)
 	_apply_camera_orbit()
 
 
