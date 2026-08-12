@@ -107,6 +107,46 @@ func _run() -> void:
 			"0.6.5-beta", "0.6.5-alpha"
 		) == NetworkProtocol.RejectionCode.SERVER_OUTDATED
 	)
+	var outdated_discovery_error := {
+		"error": {
+			"code": "game_version_mismatch",
+			"message": "generic mismatch",
+			"required_game_version": "0.6.8-alpha",
+		},
+	}
+	var outdated_message: String = str(
+		discovery.call("_request_failure", outdated_discovery_error)
+	)
+	assert("out of date" in outdated_message)
+	assert("0.6.8-alpha" in outdated_message)
+	assert("will not be listed" in outdated_message)
+	discovery.set(
+		"_host_request_kind",
+		DiscoveryClient.HostRequestKind.CREATE,
+	)
+	discovery.set("_host_request_in_flight", true)
+	discovery.call(
+		"_on_host_request_completed",
+		HTTPRequest.RESULT_SUCCESS,
+		HTTPClient.RESPONSE_CONFLICT,
+		PackedStringArray(),
+		JSON.stringify(outdated_discovery_error).to_utf8_buffer(),
+	)
+	assert(discovery.get_host_state() == DiscoveryClient.HostState.ERROR)
+	assert(discovery.host_status_is_error())
+	assert(discovery.get_host_status_message() == outdated_message)
+	var newer_discovery_error := {
+		"error": {
+			"code": "game_version_mismatch",
+			"message": "generic mismatch",
+			"required_game_version": "0.6.6-alpha",
+		},
+	}
+	var newer_message: String = str(
+		discovery.call("_request_failure", newer_discovery_error)
+	)
+	assert("discovery is updated" in newer_message)
+	assert("will not be listed" in newer_message)
 	discovery.free()
 	print("DEDICATED_SERVER_CONFIG_VALIDATION_OK")
 	quit()

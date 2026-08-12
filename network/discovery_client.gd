@@ -865,10 +865,44 @@ func _parse_response_dictionary(body: PackedByteArray) -> Dictionary:
 func _request_failure(response: Dictionary) -> String:
 	var error: Variant = response.get("error", {})
 	if typeof(error) == TYPE_DICTIONARY:
-		var message: String = str((error as Dictionary).get("message", "")).strip_edges()
+		var details := error as Dictionary
+		if str(details.get("code", "")) == "game_version_mismatch":
+			var required_version: String = str(
+				details.get("required_game_version", "")
+			).strip_edges()
+			if not required_version.is_empty():
+				return _discovery_version_mismatch_message(required_version)
+		var message: String = str(details.get("message", "")).strip_edges()
 		if not message.is_empty():
 			return message
 	return "Room discovery is temporarily unavailable."
+
+
+func _discovery_version_mismatch_message(required_version: String) -> String:
+	var local_version: String = NetworkProtocol.game_version()
+	var rejection: NetworkProtocol.RejectionCode = (
+		NetworkProtocol.game_version_rejection(
+			local_version,
+			required_version,
+		)
+	)
+	match rejection:
+		NetworkProtocol.RejectionCode.CLIENT_OUTDATED:
+			return (
+				"Your NETfishing version is out of date. Update to %s to "
+				+ "enable public discovery. This room will not be listed "
+				+ "until you update."
+			) % required_version
+		NetworkProtocol.RejectionCode.SERVER_OUTDATED:
+			return (
+				"Public discovery is still on NETfishing %s. This room "
+				+ "will not be listed until discovery is updated for %s."
+			) % [required_version, local_version]
+		_:
+			return (
+				"Public discovery requires NETfishing %s. This room will "
+				+ "not be listed until both versions match."
+			) % required_version
 
 
 func _on_session_state_changed(state: NetworkSession.State) -> void:
