@@ -389,6 +389,17 @@ func _run() -> void:
 	assert(service.get_color_id() == &"ocean_teal")
 	assert(service.get_brush_size() == 4)
 	assert(service.get_grid_size() == 128)
+	var marker_mode_material := mode_button.material as ShaderMaterial
+	assert(marker_mode_material != null)
+	assert(
+		marker_mode_material.shader.resource_path.ends_with(
+			"/ui/art_kit_marker_icon.gdshader"
+		)
+	)
+	assert(
+		marker_mode_material.get_shader_parameter("marker_color")
+		== SurfaceDrawingPalette.get_color(&"ocean_teal")
+	)
 
 	mode_button.pressed.emit()
 	assert(service.is_placement_mode())

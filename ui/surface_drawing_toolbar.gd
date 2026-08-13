@@ -5,6 +5,9 @@ const UtilityPageStyleType = preload("res://ui/utility_page_style.gd")
 const MARKER_MODE_ICON: Texture2D = preload(
 	"res://items/icons/art/art_kit_marker.png"
 )
+const MARKER_MODE_SHADER: Shader = preload(
+	"res://ui/art_kit_marker_icon.gdshader"
+)
 const GRID_MODE_ICON: Texture2D = preload(
 	"res://items/icons/art/art_kit_grid_light.png"
 )
@@ -28,6 +31,7 @@ var _service: NetworkSurfaceDrawingService
 var _unlocks: PlayerArtUnlocks
 var _color_buttons: Dictionary[StringName, Button] = {}
 var _dock_right: bool = true
+var _marker_mode_material: ShaderMaterial
 
 
 func _ready() -> void:
@@ -44,6 +48,13 @@ func _ready() -> void:
 	_mode_button.custom_minimum_size = Vector2(48, 48)
 	_make_button_round(_mode_button, 24)
 	_enlarge_action_icon(_mode_button)
+	_marker_mode_material = ShaderMaterial.new()
+	_marker_mode_material.shader = MARKER_MODE_SHADER
+	_marker_mode_material.set_shader_parameter(
+		"marker_color",
+		SurfaceDrawingPalette.get_color(SurfaceDrawingPalette.DEFAULT_COLOR_ID),
+	)
+	_mode_button.material = _marker_mode_material
 	for button: Button in _action_buttons():
 		_enlarge_action_icon(button)
 	_mode_button.pressed.connect(_toggle_mode)
@@ -290,7 +301,7 @@ func _on_service_state_changed(
 	is_active: bool,
 	mode_name: String,
 	_color_name: String,
-	_color_value: Color,
+	color_value: Color,
 	brush_size: int,
 	grid_size: int,
 	_status: String,
@@ -301,6 +312,7 @@ func _on_service_state_changed(
 	_mode_button.icon = (
 		GRID_MODE_ICON if mode_name == "place grid" else MARKER_MODE_ICON
 	)
+	_marker_mode_material.set_shader_parameter("marker_color", color_value)
 	_mode_button.accessibility_name = (
 		"switch to marker mode"
 		if mode_name == "place grid"
