@@ -1,11 +1,14 @@
-[gd_scene load_steps=8 format=3]
+[gd_scene load_steps=11 format=3]
 
 [ext_resource type="Script" path="res://ui/surface_drawing_toolbar.gd" id="1_script"]
 [ext_resource type="Theme" path="res://ui/game_theme.tres" id="2_theme"]
 [ext_resource type="Texture2D" path="res://ui/icons/pictograms/undo_light.png" id="3_undo_light"]
-[ext_resource type="Texture2D" path="res://ui/icons/pictograms/check_mark_light.png" id="4_check_mark_light"]
-[ext_resource type="Texture2D" path="res://ui/icons/pictograms/x_light.png" id="5_x_light"]
-[ext_resource type="Texture2D" path="res://items/icons/art/art_kit_eraser.png" id="6_art_kit_eraser"]
+[ext_resource type="Texture2D" path="res://items/icons/art/art_kit_eraser.png" id="4_art_kit_eraser"]
+[ext_resource type="Texture2D" path="res://items/icons/art/art_kit_marker.png" id="5_art_kit_marker"]
+[ext_resource type="Texture2D" path="res://items/icons/art/art_kit_grid_light.png" id="6_grid_light"]
+[ext_resource type="Texture2D" path="res://items/icons/art/art_kit_grid_hidden_light.png" id="7_grid_hidden"]
+[ext_resource type="Texture2D" path="res://items/icons/art/art_kit_grid_restore_light.png" id="8_grid_restore"]
+[ext_resource type="Texture2D" path="res://items/icons/art/art_kit_grid_finish_light.png" id="9_grid_finish"]
 
 [sub_resource type="ButtonGroup" id="GuideActionGroup"]
 allow_unpress = true
@@ -17,7 +20,7 @@ layout_mode = 0
 anchors_preset = 1
 anchor_left = 1.0
 anchor_right = 1.0
-offset_left = -580.0
+offset_left = -510.0
 offset_bottom = 373.0
 grow_horizontal = 0
 mouse_filter = 2
@@ -27,18 +30,12 @@ script = ExtResource("1_script")
 [node name="TopPanel" type="PanelContainer" parent="."]
 unique_name_in_owner = true
 layout_mode = 0
-offset_right = 580.0
+offset_right = 510.0
 offset_bottom = 60.0
 
 [node name="Top" type="HBoxContainer" parent="TopPanel"]
 layout_mode = 2
 theme_override_constants/separation = 5
-
-[node name="ModeButton" type="Button" parent="TopPanel/Top"]
-unique_name_in_owner = true
-layout_mode = 2
-tooltip_text = "switch between grid and marker mode"
-text = "▦"
 
 [node name="BrushOption" type="OptionButton" parent="TopPanel/Top"]
 unique_name_in_owner = true
@@ -59,7 +56,7 @@ texture_filter = 1
 tooltip_text = "toggle eraser"
 toggle_mode = true
 accessibility_name = "toggle eraser"
-icon = ExtResource("6_art_kit_eraser")
+icon = ExtResource("4_art_kit_eraser")
 expand_icon = true
 
 [node name="UndoButton" type="Button" parent="TopPanel/Top"]
@@ -74,18 +71,24 @@ expand_icon = true
 [node name="HideGuideButton" type="Button" parent="TopPanel/Top"]
 unique_name_in_owner = true
 layout_mode = 2
+texture_filter = 1
 tooltip_text = "toggle hide grid mode"
 toggle_mode = true
 button_group = SubResource("GuideActionGroup")
-text = "◌"
+accessibility_name = "toggle hide grid mode"
+icon = ExtResource("7_grid_hidden")
+expand_icon = true
 
 [node name="RestoreGuideButton" type="Button" parent="TopPanel/Top"]
 unique_name_in_owner = true
 layout_mode = 2
+texture_filter = 1
 tooltip_text = "toggle show grid mode"
 toggle_mode = true
 button_group = SubResource("GuideActionGroup")
-text = "▤"
+accessibility_name = "toggle show grid mode"
+icon = ExtResource("8_grid_restore")
+expand_icon = true
 
 [node name="FinalizeGuideButton" type="Button" parent="TopPanel/Top"]
 unique_name_in_owner = true
@@ -95,24 +98,24 @@ tooltip_text = "toggle finalize grid mode"
 toggle_mode = true
 button_group = SubResource("GuideActionGroup")
 accessibility_name = "toggle finalize grid mode"
-icon = ExtResource("4_check_mark_light")
+icon = ExtResource("9_grid_finish")
 expand_icon = true
 
-[node name="CloseButton" type="Button" parent="TopPanel/Top"]
+[node name="ModeButton" type="Button" parent="TopPanel/Top"]
 unique_name_in_owner = true
 layout_mode = 2
 texture_filter = 1
-tooltip_text = "close art tools"
-accessibility_name = "close art tools"
-icon = ExtResource("5_x_light")
+tooltip_text = "switch between grid and marker mode"
+accessibility_name = "switch to grid mode"
+icon = ExtResource("5_art_kit_marker")
 expand_icon = true
 
 [node name="ColorPanel" type="PanelContainer" parent="."]
 unique_name_in_owner = true
 layout_mode = 0
-offset_left = 534.0
+offset_left = 464.0
 offset_top = 54.0
-offset_right = 580.0
+offset_right = 510.0
 offset_bottom = 373.0
 
 [node name="ColorList" type="VBoxContainer" parent="ColorPanel"]

@@ -554,6 +554,7 @@ func _initialize_application(dedicated: bool) -> void:
 		_player,
 		_surface_drawings_root,
 		_player.bag,
+		_player.hotbar,
 		_player.art_unlocks,
 	)
 	_network_player_list.set_surface_drawing_service(

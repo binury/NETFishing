@@ -2,7 +2,13 @@ class_name SurfaceDrawingToolbar
 extends Control
 
 const UtilityPageStyleType = preload("res://ui/utility_page_style.gd")
-const TOOLBAR_WIDTH: float = 580.0
+const MARKER_MODE_ICON: Texture2D = preload(
+	"res://items/icons/art/art_kit_marker.png"
+)
+const GRID_MODE_ICON: Texture2D = preload(
+	"res://items/icons/art/art_kit_grid_light.png"
+)
+const TOOLBAR_WIDTH: float = 510.0
 const TOOLBAR_HEIGHT: float = 373.0
 const COLOR_RAIL_WIDTH: float = 46.0
 
@@ -17,7 +23,6 @@ const COLOR_RAIL_WIDTH: float = 46.0
 @onready var _hide_guide_button: Button = %HideGuideButton
 @onready var _restore_guide_button: Button = %RestoreGuideButton
 @onready var _finalize_guide_button: Button = %FinalizeGuideButton
-@onready var _close_button: Button = %CloseButton
 
 var _service: NetworkSurfaceDrawingService
 var _unlocks: PlayerArtUnlocks
@@ -36,10 +41,11 @@ func _ready() -> void:
 		UtilityPageStyleType.apply_ocean_button(button)
 		button.custom_minimum_size = Vector2(48, 44)
 		_make_button_round(button, 22)
-	_enlarge_action_icon(_eraser_button)
-	_enlarge_action_icon(_undo_button)
 	_mode_button.custom_minimum_size = Vector2(48, 48)
 	_make_button_round(_mode_button, 24)
+	_enlarge_action_icon(_mode_button)
+	for button: Button in _action_buttons():
+		_enlarge_action_icon(button)
 	_mode_button.pressed.connect(_toggle_mode)
 	_eraser_button.pressed.connect(_toggle_eraser)
 	_undo_button.pressed.connect(_undo_last_stroke)
@@ -52,7 +58,6 @@ func _ready() -> void:
 	_finalize_guide_button.pressed.connect(
 		_arm_guide_action.bind(NetworkSurfaceDrawingService.GuideAction.FINALIZE)
 	)
-	_close_button.pressed.connect(_close_toolbar)
 	_brush_option.item_selected.connect(_select_brush)
 	_grid_option.item_selected.connect(_select_grid)
 	_build_options()
@@ -77,7 +82,6 @@ func _action_buttons() -> Array[Button]:
 		_hide_guide_button,
 		_restore_guide_button,
 		_finalize_guide_button,
-		_close_button,
 	]
 
 
@@ -146,6 +150,8 @@ func _apply_dock_side() -> void:
 	offset_right = 0.0 if _dock_right else TOOLBAR_WIDTH
 	offset_top = 0.0
 	offset_bottom = TOOLBAR_HEIGHT
+	_top_panel.offset_left = 0.0
+	_top_panel.offset_right = TOOLBAR_WIDTH
 	_color_panel.offset_left = (
 		TOOLBAR_WIDTH - COLOR_RAIL_WIDTH if _dock_right else 0.0
 	)
@@ -276,11 +282,6 @@ func _arm_guide_action(action: int) -> void:
 		_service.arm_guide_action(action)
 
 
-func _close_toolbar() -> void:
-	if _service != null:
-		_service.deactivate()
-
-
 func _on_unlocks_changed(_unlock_mask: int) -> void:
 	_refresh_unlocks()
 
@@ -297,7 +298,14 @@ func _on_service_state_changed(
 	visible = is_active
 	if not is_active:
 		return
-	_mode_button.text = "▦" if mode_name == "place grid" else "●"
+	_mode_button.icon = (
+		GRID_MODE_ICON if mode_name == "place grid" else MARKER_MODE_ICON
+	)
+	_mode_button.accessibility_name = (
+		"switch to marker mode"
+		if mode_name == "place grid"
+		else "switch to grid mode"
+	)
 	_mode_button.tooltip_text = (
 		"Switch to marker mode"
 		if mode_name == "place grid"

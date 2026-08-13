@@ -32,6 +32,8 @@ func _run_host() -> void:
 	await physics_frame
 	var player := main.get("_player") as Player
 	assert(player.bag.add_item(&"art_kit", 1))
+	assert(player.hotbar.assign_item(0, &"art_kit"))
+	assert(player.hotbar.select_slot(0))
 	assert(player.art_unlocks.restore_mask(PlayerArtUnlocks.ALL_UNLOCK_MASK))
 
 	var service := main.get_node(
@@ -140,6 +142,8 @@ func _run_client() -> void:
 	))
 	var player := main.get("_player") as Player
 	assert(player.bag.add_item(&"art_kit", 1))
+	assert(player.hotbar.assign_item(0, &"art_kit"))
+	assert(player.hotbar.select_slot(0))
 	assert(player.art_unlocks.restore_mask(PlayerArtUnlocks.ALL_UNLOCK_MASK))
 
 	var service := main.get_node(

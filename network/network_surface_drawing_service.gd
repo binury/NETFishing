@@ -41,6 +41,7 @@ var _spawn_service: PlayerSpawnService
 var _relationships: PlayerRelationshipStore
 var _local_player: Player
 var _bag: PlayerBag
+var _hotbar: PlayerHotbar
 var _art_unlocks: PlayerArtUnlocks
 var _drawing_root: Node3D
 var _canvas_states: Dictionary[String, Dictionary] = {}
@@ -87,6 +88,7 @@ func setup(
 	local_player: Player,
 	drawing_root: Node3D,
 	bag: PlayerBag,
+	hotbar: PlayerHotbar,
 	art_unlocks: PlayerArtUnlocks,
 ) -> void:
 	_session = session
@@ -95,6 +97,7 @@ func setup(
 	_local_player = local_player
 	_drawing_root = drawing_root
 	_bag = bag
+	_hotbar = hotbar
 	_art_unlocks = art_unlocks
 	_refresh_local_unlocks()
 	if _session != null:
@@ -123,20 +126,6 @@ func handle_input(
 	can_open: bool,
 	pointer_screen_position: Vector2 = INVALID_POINTER_SCREEN_POSITION,
 ) -> bool:
-	if event is InputEventKey:
-		var key_event := event as InputEventKey
-		if (
-			key_event.pressed
-			and not key_event.echo
-			and key_event.physical_keycode == KEY_P
-		):
-			if _active:
-				deactivate()
-				return true
-			if can_open and can_activate():
-				activate(pointer_screen_position)
-				return true
-			return false
 	if not _active:
 		return false
 	if not can_open:
@@ -149,8 +138,7 @@ func handle_input(
 		if _placing_grid:
 			_set_placement_mode(false)
 			return true
-		deactivate()
-		return true
+		return false
 	if event is InputEventKey:
 		var key_event := event as InputEventKey
 		if not key_event.pressed or key_event.echo:
@@ -172,28 +160,19 @@ func handle_input(
 				return true
 	if event is InputEventMouseButton:
 		var mouse_event := event as InputEventMouseButton
+		# Ordinary wheel input always belongs to Hotbar selection. Brush size is
+		# selected explicitly in the Art Kit toolbar.
+		if mouse_event.button_index in [
+			MOUSE_BUTTON_WHEEL_UP,
+			MOUSE_BUTTON_WHEEL_DOWN,
+		]:
+			return false
 		_set_pointer_from_input(
 			mouse_event.position,
 			pointer_screen_position,
 		)
 		_update_aim()
-		if (
-			mouse_event.shift_pressed
-			and mouse_event.button_index in [
-				MOUSE_BUTTON_WHEEL_UP,
-				MOUSE_BUTTON_WHEEL_DOWN,
-			]
-		):
-			return false
 		match mouse_event.button_index:
-			MOUSE_BUTTON_WHEEL_UP:
-				if mouse_event.pressed and not _placing_grid:
-					_set_brush_size(_brush_size + 1)
-				return true
-			MOUSE_BUTTON_WHEEL_DOWN:
-				if mouse_event.pressed and not _placing_grid:
-					_set_brush_size(_brush_size - 1)
-				return true
 			MOUSE_BUTTON_LEFT:
 				if _placing_grid:
 					if mouse_event.pressed:
@@ -241,7 +220,7 @@ func activate(
 	if _active or not can_activate():
 		return
 	_active = true
-	_placing_grid = true
+	_placing_grid = false
 	_eraser_mode = false
 	_clear_armed_guide_action(false)
 	_refresh_local_unlocks()
@@ -257,9 +236,7 @@ func activate(
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	_update_aim()
 	_refresh_stencil_visibility()
-	_emit_hud_state(
-		"click to place a shared grid"
-	)
+	_emit_hud_state("marker selected")
 
 
 func deactivate() -> void:
@@ -288,7 +265,11 @@ func is_placement_mode() -> bool:
 
 
 func can_activate() -> bool:
-	return _drawing_available() and _owns_art_kit()
+	return (
+		_drawing_available()
+		and _owns_art_kit()
+		and _art_kit_is_selected()
+	)
 
 
 func set_placement_mode(enabled: bool) -> void:
@@ -413,6 +394,15 @@ func _refresh_local_unlocks() -> void:
 
 func _owns_art_kit() -> bool:
 	return _bag != null and _bag.owns_item(ArtShopStockType.ART_KIT_ITEM_ID)
+
+
+func _art_kit_is_selected() -> bool:
+	return (
+		_hotbar != null
+		and _hotbar.get_selected_assignment_kind()
+			== PlayerHotbar.AssignmentKind.ITEM
+		and _hotbar.get_selected_item_id() == ArtShopStockType.ART_KIT_ITEM_ID
+	)
 
 
 func _local_entitlement() -> Dictionary:
@@ -550,8 +540,7 @@ func request_canvas_at_surface(
 	tangent: Vector3,
 ) -> bool:
 	if (
-		not _drawing_available()
-		or not _owns_art_kit()
+		not can_activate()
 		or _art_unlocks == null
 		or not _art_unlocks.is_grid_size_unlocked(_grid_size)
 		or normal.is_zero_approx()
@@ -581,8 +570,7 @@ func request_cell_edits(
 	stroke_id: String = "",
 ) -> bool:
 	if (
-		not _drawing_available()
-		or not _owns_art_kit()
+		not can_activate()
 		or canvas_id.is_empty()
 		or edits.is_empty()
 	):
@@ -613,7 +601,7 @@ func request_guide_visibility(
 	should_be_visible: bool,
 	should_finalize: bool = false,
 ) -> bool:
-	if not _drawing_available() or not _owns_art_kit() or canvas_id.is_empty():
+	if not can_activate() or canvas_id.is_empty():
 		return false
 	var data: Dictionary = {
 		"request_id": _new_request_id("guide"),
@@ -633,8 +621,7 @@ func request_guide_visibility(
 
 func request_undo_last_stroke() -> bool:
 	if (
-		not _drawing_available()
-		or not _owns_art_kit()
+		not can_activate()
 		or _last_local_stroke_id.is_empty()
 	):
 		_emit_hud_state("nothing to undo")
@@ -697,6 +684,9 @@ func get_canvas_state(canvas_id: String) -> Dictionary:
 
 func _process(_delta: float) -> void:
 	if not _active:
+		return
+	if not can_activate():
+		deactivate()
 		return
 	_update_aim()
 	if _placing_grid:
@@ -2171,7 +2161,7 @@ func _on_peer_removed(peer_id: int) -> void:
 
 
 func _on_local_art_entitlement_changed() -> void:
-	if _active and not _owns_art_kit():
+	if _active and not can_activate():
 		deactivate()
 	_publish_local_entitlement()
 

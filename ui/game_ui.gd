@@ -122,6 +122,7 @@ const SHOP_ANIMALESE_VOICE_ID: String = "natural"
 const SHOP_ANIMALESE_BASE_PITCH: float = 1.08
 const SHOP_SPEECH_CHARACTERS_PER_SECOND: float = 28.0
 const SHOP_NPC_SPEECH_COOLDOWN_MILLISECONDS: int = 5000
+const ART_KIT_ITEM_ID: StringName = &"art_kit"
 
 
 @onready var _canonical_stage: Control = %CanonicalStage
@@ -164,6 +165,7 @@ var _network_chat_service: NetworkChatService
 var _network_profile: NetworkProfilePreferences
 var _spawn_service: PlayerSpawnService
 var _bag: PlayerBagType
+var _hotbar: PlayerHotbarType
 var _item_catalog: ItemCatalogType
 var _player_menu_open: bool = false
 var _gameplay_ui_enabled: bool = false
@@ -177,6 +179,7 @@ var _item_effects: PlayerItemEffectsType
 var _main_shop_buyer: FishBuyerProfileType
 var _shop_interaction: ShopInteractionType
 var _surface_drawing: NetworkSurfaceDrawingService
+var _surface_drawing_hotbar_selected: bool = false
 var _experience: PlayerExperienceType
 var _experience_award_queue: Array[Dictionary] = []
 var _experience_animation_active: bool = false
@@ -293,6 +296,7 @@ func setup(
 	_network_profile = network_profile
 	_spawn_service = spawn_service
 	_bag = bag
+	_hotbar = hotbar
 	_item_catalog = item_catalog
 	_settings_manager = settings_manager
 	_fishing_spot = fishing_spot
@@ -448,16 +452,7 @@ func _input(event: InputEvent) -> void:
 		)
 		get_viewport().set_input_as_handled()
 		return
-	var drawing_can_open: bool = (
-		_gameplay_ui_enabled
-		and not _system_menu_open
-		and not _player_menu_open
-		and not _shop_open
-		and not _chat_input_open
-		and not _showcase_active
-		and _fishing_spot != null
-		and _fishing_spot.can_use_surface_drawing()
-	)
+	var drawing_can_open: bool = _can_surface_drawing_be_active()
 	if (
 		_surface_drawing != null
 		and _surface_drawing.handle_input(
@@ -630,7 +625,7 @@ func _on_quick_action_selected(action_id: StringName) -> void:
 		&"online":
 			_player_menu.open_section(PlayerMenuType.Section.PLAYERS)
 		&"paint":
-			_toggle_surface_drawing()
+			_select_art_kit_hotbar_slot()
 		&"chat":
 			_chat_ui.open_chat()
 		&"freecam":
@@ -1121,23 +1116,44 @@ static func get_virtual_mouse_window_bounds(window_size: Vector2) -> Rect2:
 	return Rect2(cursor_margin, bounds_size)
 
 
-func _toggle_surface_drawing() -> void:
-	if _surface_drawing == null:
+func _select_art_kit_hotbar_slot() -> void:
+	if _hotbar == null:
 		return
-	if _surface_drawing.is_active():
-		_surface_drawing.deactivate()
-	elif _surface_drawing.can_activate():
-		_surface_drawing.activate(_drawing_pointer_window_position())
+	for slot_index: int in range(PlayerHotbarType.SLOT_COUNT):
+		if _hotbar.get_item_id(slot_index) == ART_KIT_ITEM_ID:
+			_hotbar.select_slot(slot_index)
+			return
 
 
 func set_surface_drawing_hotbar_selected(is_selected: bool) -> void:
+	_surface_drawing_hotbar_selected = is_selected
+	_refresh_surface_drawing_activation()
+
+
+func _refresh_surface_drawing_activation() -> void:
 	if _surface_drawing == null:
 		return
-	if is_selected:
-		if not _surface_drawing.is_active() and _surface_drawing.can_activate():
-			_surface_drawing.activate(_drawing_pointer_window_position())
-	elif _surface_drawing.is_active():
+	var should_be_active: bool = _can_surface_drawing_be_active()
+	if should_be_active and not _surface_drawing.is_active():
+		_surface_drawing.activate(_drawing_pointer_window_position())
+	elif not should_be_active and _surface_drawing.is_active():
 		_surface_drawing.deactivate()
+
+
+func _can_surface_drawing_be_active() -> bool:
+	return (
+		_surface_drawing_hotbar_selected
+		and _gameplay_ui_enabled
+		and not _system_menu_open
+		and not _player_menu_open
+		and not _shop_open
+		and not _chat_input_open
+		and not _showcase_active
+		and _fishing_spot != null
+		and _fishing_spot.can_use_surface_drawing()
+		and _surface_drawing != null
+		and _surface_drawing.can_activate()
+	)
 
 
 func _drawing_pointer_window_position() -> Vector2:
@@ -1462,6 +1478,7 @@ func set_gameplay_ui_enabled(enabled: bool) -> void:
 		_hotbar_ui.set_gameplay_input_enabled(true)
 		_refresh_fishing_panel_visibility()
 		call_deferred("_start_next_experience_animation")
+	_refresh_surface_drawing_activation()
 
 
 func set_gameplay_hud_hidden(hidden: bool) -> void:
@@ -1505,8 +1522,7 @@ func _refresh_gameplay_hud_visibility() -> void:
 
 func set_system_menu_open(is_open: bool) -> void:
 	_system_menu_open = is_open
-	if is_open and _surface_drawing != null:
-		_surface_drawing.deactivate()
+	_refresh_surface_drawing_activation()
 	_refresh_gameplay_hud_visibility()
 	_refresh_chat_availability()
 	_refresh_hotbar_visibility()
@@ -1862,6 +1878,7 @@ func _on_showcase_changed(
 	showcase_visible: bool,
 ) -> void:
 	_showcase_active = showcase_visible
+	_refresh_surface_drawing_activation()
 	if not showcase_visible:
 		_set_fishing_panel_showcase_position(false)
 		_showcase_details.text = ""
@@ -2103,8 +2120,7 @@ func _on_player_menu_visibility_changed(is_open: bool) -> void:
 	_player_menu_open = is_open
 	if is_open:
 		_end_virtual_mouse()
-	if is_open and _surface_drawing != null:
-		_surface_drawing.deactivate()
+	_refresh_surface_drawing_activation()
 	_refresh_gameplay_hud_visibility()
 	if is_open:
 		_hotbar_ui.set_drag_enabled(false)
@@ -2156,8 +2172,7 @@ func _on_shop_exit_started() -> void:
 
 func _on_shop_visibility_changed(is_open: bool) -> void:
 	_shop_open = is_open
-	if is_open and _surface_drawing != null:
-		_surface_drawing.deactivate()
+	_refresh_surface_drawing_activation()
 	if is_open:
 		shop_backdrop_visibility_changed.emit(true)
 	if not is_open and _player_menu.is_shop_cooler_mounted():
@@ -2309,8 +2324,7 @@ func _emit_interactive_pointer_ui_changed() -> void:
 
 func _on_chat_text_entry_ownership_changed(active: bool) -> void:
 	_chat_input_open = active
-	if active and _surface_drawing != null:
-		_surface_drawing.deactivate()
+	_refresh_surface_drawing_activation()
 	_refresh_chat_availability()
 	_emit_interactive_pointer_ui_changed()
 

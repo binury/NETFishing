@@ -259,9 +259,8 @@ func _run() -> void:
 	assert(game_ui.is_gameplay_hud_hidden())
 	assert(player_menu.visible)
 	assert(root.gui_get_focus_owner() is not LineEdit)
-	player_menu.close_menu()
-	for _frame: int in 12:
-		await process_frame
+	player_menu.close_menu(PlayerMenu.CloseReason.SESSION_END)
+	await process_frame
 	game_ui.call("_on_quick_action_selected", &"hud")
 	await process_frame
 	assert(not game_ui.is_gameplay_hud_hidden())
@@ -269,14 +268,17 @@ func _run() -> void:
 	assert(not service.can_activate())
 	assert(not service.is_active() and not toolbar.visible)
 	assert(player.bag.add_item(ArtShopStock.ART_KIT_ITEM_ID, 1))
-	assert(service.can_activate())
-
+	player.hotbar.select_slot(1)
+	assert(player.hotbar.assign_item(0, ArtShopStock.ART_KIT_ITEM_ID))
+	assert(not service.can_activate())
 	var paint_key := InputEventKey.new()
 	paint_key.physical_keycode = KEY_P
 	paint_key.pressed = true
-	assert(service.handle_input(paint_key, true))
+	assert(not service.handle_input(paint_key, true))
+	assert(not service.is_active())
+	player.hotbar.select_slot(0)
 	await process_frame
-	assert(service.is_active() and service.is_placement_mode())
+	assert(service.is_active() and not service.is_placement_mode())
 	assert(toolbar.visible)
 	var ui_root := game_ui.get_node("%UIRoot") as Control
 	assert(toolbar.get_parent() == ui_root)
@@ -291,6 +293,8 @@ func _run() -> void:
 	assert(toolbar.get_global_rect().end.y <= 720.0)
 	var top_panel := toolbar.get_node("%TopPanel") as PanelContainer
 	var color_panel := toolbar.get_node("%ColorPanel") as PanelContainer
+	assert(is_equal_approx(toolbar.size.x, SurfaceDrawingToolbar.TOOLBAR_WIDTH))
+	assert(is_equal_approx(top_panel.size.x, SurfaceDrawingToolbar.TOOLBAR_WIDTH))
 	assert(top_panel.position.is_equal_approx(Vector2.ZERO))
 	assert(color_panel.position.x > 0.0)
 	assert(is_equal_approx(color_panel.get_rect().end.x, top_panel.get_rect().end.x))
@@ -315,7 +319,6 @@ func _run() -> void:
 	var hide_button := toolbar.get_node("%HideGuideButton") as Button
 	var restore_button := toolbar.get_node("%RestoreGuideButton") as Button
 	var finalize_button := toolbar.get_node("%FinalizeGuideButton") as Button
-	var close_button := toolbar.get_node("%CloseButton") as Button
 	assert(
 		mode_button != null
 		and eraser_button != null
@@ -323,16 +326,30 @@ func _run() -> void:
 		and hide_button != null
 		and restore_button != null
 		and finalize_button != null
-		and close_button != null
 	)
-	assert(eraser_button.text.is_empty())
-	assert(eraser_button.icon != null)
-	assert(
-		eraser_button.icon.resource_path.ends_with(
-			"/art/art_kit_eraser.png"
+	assert(toolbar.get_node_or_null("%CloseButton") == null)
+	var expected_toolbar_icons: Dictionary[Button, String] = {
+		mode_button: "/art/art_kit_marker.png",
+		eraser_button: "/art/art_kit_eraser.png",
+		hide_button: "/art/art_kit_grid_hidden_light.png",
+		restore_button: "/art/art_kit_grid_restore_light.png",
+		finalize_button: "/art/art_kit_grid_finish_light.png",
+	}
+	for icon_button: Button in expected_toolbar_icons:
+		assert(icon_button.text.is_empty())
+		assert(icon_button.icon != null)
+		assert(
+			icon_button.icon.resource_path.ends_with(
+				expected_toolbar_icons[icon_button]
+			)
 		)
-	)
-	for icon_button: Button in [eraser_button, undo_button]:
+	for icon_button: Button in [
+		eraser_button,
+		undo_button,
+		hide_button,
+		restore_button,
+		finalize_button,
+	]:
 		assert(icon_button.custom_minimum_size == Vector2(48, 44))
 		assert(icon_button.get_theme_constant("icon_max_width") == 40)
 		var icon_style := (
@@ -340,6 +357,9 @@ func _run() -> void:
 		)
 		assert(is_equal_approx(icon_style.content_margin_left, 4.0))
 		assert(is_equal_approx(icon_style.content_margin_top, 2.0))
+	assert(mode_button.custom_minimum_size == Vector2(48, 48))
+	assert(mode_button.get_theme_constant("icon_max_width") == 40)
+	assert(mode_button.get_index() > finalize_button.get_index())
 	assert(hide_button.button_group != null)
 	assert(hide_button.button_group == restore_button.button_group)
 	assert(hide_button.button_group == finalize_button.button_group)
@@ -371,7 +391,12 @@ func _run() -> void:
 	assert(service.get_grid_size() == 128)
 
 	mode_button.pressed.emit()
-	assert(not service.is_placement_mode())
+	assert(service.is_placement_mode())
+	assert(
+		mode_button.icon.resource_path.ends_with(
+			"/art/art_kit_grid_light.png"
+		)
+	)
 	eraser_button.pressed.emit()
 	assert(service.is_eraser_mode())
 	assert(eraser_button.button_pressed)
@@ -427,18 +452,8 @@ func _run() -> void:
 	assert(not service.is_eraser_mode())
 	undo_button.pressed.emit()
 	assert(service.is_active())
-	close_button.pressed.emit()
-	assert(not service.is_active() and not toolbar.visible)
-
-	assert(service.handle_input(paint_key, true))
-	await process_frame
+	assert(not service.handle_input(paint_key, true))
 	assert(service.is_active() and toolbar.visible)
-
-	assert(service.handle_input(paint_key, true))
-	await process_frame
-	assert(not service.is_active() and not toolbar.visible)
-	assert(player.hotbar.assign_item(0, ArtShopStock.ART_KIT_ITEM_ID))
-	player.hotbar.select_slot(0)
 	var fishing_spot := main.get_node("%FishingSpot") as FishingSpot
 	await process_frame
 	var held_art_kit_display := player.get("_held_art_kit_display") as Node3D
@@ -472,11 +487,35 @@ func _run() -> void:
 	assert(service.get_grid_size() == 128)
 	assert(service.handle_input(world_click, true))
 	assert(service.is_active() and toolbar.visible)
-	player.hotbar.select_slot(1)
+	var hotbar_ui := game_ui.get_node("%Hotbar") as HotbarUI
+	var wheel_down := InputEventMouseButton.new()
+	wheel_down.button_index = MOUSE_BUTTON_WHEEL_DOWN
+	wheel_down.pressed = true
+	assert(not service.handle_input(wheel_down, true))
+	hotbar_ui._unhandled_input(wheel_down)
 	await process_frame
+	assert(player.hotbar.get_selected_slot() == 1)
 	assert(not service.is_active() and not toolbar.visible)
-	assert(service.handle_input(paint_key, true))
+
+	var number_one := InputEventKey.new()
+	number_one.physical_keycode = KEY_1
+	number_one.pressed = true
+	assert(not service.handle_input(number_one, true))
+	hotbar_ui._unhandled_input(number_one)
 	await process_frame
+	assert(service.is_active() and toolbar.visible)
+	assert(player.hotbar.get_selected_slot() == 0)
+	var number_two := InputEventKey.new()
+	number_two.physical_keycode = KEY_2
+	number_two.pressed = true
+	assert(not service.handle_input(number_two, true))
+	hotbar_ui._unhandled_input(number_two)
+	await process_frame
+	assert(player.hotbar.get_selected_slot() == 1)
+	assert(not service.is_active() and not toolbar.visible)
+	game_ui.call("_on_quick_action_selected", &"paint")
+	await process_frame
+	assert(player.hotbar.get_selected_slot() == 0)
 	assert(service.is_active() and toolbar.visible)
 
 	print("Art tools validation: PASS")

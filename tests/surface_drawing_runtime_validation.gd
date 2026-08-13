@@ -29,12 +29,15 @@ func _run() -> void:
 
 	var player := main.get("_player") as Player
 	assert(player.bag.add_item(&"art_kit", 1))
+	assert(player.hotbar.assign_item(0, &"art_kit"))
+	assert(player.hotbar.select_slot(0))
 	assert(player.art_unlocks.restore_mask(PlayerArtUnlocks.ALL_UNLOCK_MASK))
 	var service := main.get_node(
 		"%NetworkSurfaceDrawingService"
 	) as NetworkSurfaceDrawingService
 	assert(service != null)
 	assert(session.supports_server_capability(SurfaceDrawingProtocol.CAPABILITY))
+	service.deactivate()
 	_validate_marker_controls(service, player)
 	var query := PhysicsRayQueryParameters3D.create(
 		player.global_position + Vector3.UP * 3.0,
@@ -124,7 +127,7 @@ func _validate_marker_controls(
 	var activation_pointer := Vector2(824.0, 318.0)
 	service.activate(activation_pointer)
 	assert(service.is_active())
-	assert(service.is_placement_mode())
+	assert(not service.is_placement_mode())
 	assert(service.get_pointer_screen_position() == activation_pointer)
 	if DisplayServer.get_name() != "headless":
 		assert(Input.mouse_mode == Input.MOUSE_MODE_VISIBLE)
@@ -133,7 +136,7 @@ func _validate_marker_controls(
 	placement_key.physical_keycode = KEY_R
 	placement_key.pressed = true
 	assert(service.handle_input(placement_key, true))
-	assert(not service.is_placement_mode())
+	assert(service.is_placement_mode())
 
 	var pointer_before: Vector2 = service.get_pointer_screen_position()
 	var pointer_motion := InputEventMouseMotion.new()
@@ -171,6 +174,6 @@ func _validate_marker_controls(
 	assert(not service.handle_input(camera_release, true))
 
 	assert(service.handle_input(placement_key, true))
-	assert(service.is_placement_mode())
+	assert(not service.is_placement_mode())
 	service.deactivate()
 	assert(Input.mouse_mode == prior_mouse_mode)
