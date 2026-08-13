@@ -1,6 +1,6 @@
 NETfishing
-v0.6.7-alpha
-Alpha 0.6.7
+v0.6.8-alpha
+Alpha 0.6.8
 
 Thank you for trying this early private playtest.
 

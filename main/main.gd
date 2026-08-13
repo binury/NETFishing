@@ -1078,6 +1078,8 @@ func _confirm_server_trust() -> void:
 		_server_trust_dialog.ok_button_text = "Replace Pin"
 		_server_trust_dialog.popup_centered(Vector2i(520, 260))
 		return
+	if _server_trust_dialog != null:
+		_server_trust_dialog.hide()
 	_network_session.resolve_server_trust(true)
 
 

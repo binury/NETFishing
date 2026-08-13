@@ -168,14 +168,14 @@ func _run() -> void:
 		"error": {
 			"code": "game_version_mismatch",
 			"message": "generic mismatch",
-			"required_game_version": "0.6.8-alpha",
+			"required_game_version": "99.0.0-alpha",
 		},
 	}
 	var outdated_message: String = str(
 		discovery.call("_request_failure", outdated_discovery_error)
 	)
 	assert("out of date" in outdated_message)
-	assert("0.6.8-alpha" in outdated_message)
+	assert("99.0.0-alpha" in outdated_message)
 	assert("will not be listed" in outdated_message)
 	discovery.set(
 		"_host_request_kind",
@@ -196,7 +196,7 @@ func _run() -> void:
 		"error": {
 			"code": "game_version_mismatch",
 			"message": "generic mismatch",
-			"required_game_version": "0.6.6-alpha",
+			"required_game_version": "0.0.0-alpha",
 		},
 	}
 	var newer_message: String = str(

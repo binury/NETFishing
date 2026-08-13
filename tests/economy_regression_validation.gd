@@ -84,6 +84,7 @@ func _run() -> void:
 	main.queue_free()
 	for _frame: int in 4:
 		await process_frame
+	await create_timer(0.1).timeout
 	quit()
 
 
@@ -97,7 +98,10 @@ func _run_multiplayer_host() -> void:
 	var session := main.get_node("%NetworkSession") as NetworkSession
 	assert(session.set_host_open(true))
 	var client_connected := false
-	var connection_deadline: int = Time.get_ticks_msec() + 30000
+	# Loading the full client world can take longer on a cold import. Keep the
+	# host available until the client has completed authentication rather than
+	# timing out while the client is still starting.
+	var connection_deadline: int = Time.get_ticks_msec() + 60000
 	while Time.get_ticks_msec() < connection_deadline:
 		await process_frame
 		if session.get_authenticated_peer_ids().size() >= 2:

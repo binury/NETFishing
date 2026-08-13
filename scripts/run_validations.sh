@@ -84,6 +84,37 @@ run_test() {
 		--headless --path "${PROJECT_ROOT}" --script "${script}"
 }
 
+
+wait_for_network_host() {
+	local script="$1"
+	local host_pid="$2"
+	local test_port="7777"
+	local declared_port
+	declared_port="$(
+		sed -n -E \
+			's/^const TEST_PORT(: int)? = ([0-9]+)$/\2/p' \
+			"${PROJECT_ROOT}/${script}"
+	)"
+	if [[ -n "${declared_port}" ]]; then
+		test_port="${declared_port}"
+	fi
+	if ! command -v ss >/dev/null 2>&1; then
+		sleep 2
+		return 0
+	fi
+	for _attempt in {1..100}; do
+		if ! kill -0 "${host_pid}" 2>/dev/null; then
+			return 1
+		fi
+		if ss -H -lun "sport = :${test_port}" | grep -q .; then
+			return 0
+		fi
+		sleep 0.1
+	done
+	return 1
+}
+
+
 run_network_test() {
 	local script="$1"
 	local name="${script#tests/}"
@@ -99,7 +130,17 @@ run_network_test() {
 		--headless --path "${PROJECT_ROOT}" --script "${script}" -- host \
 		>"${host_root}/output.log" 2>&1 &
 	host_pid=$!
-	sleep 0.75
+	if ! wait_for_network_host "${script}" "${host_pid}"; then
+		set +e
+		wait "${host_pid}"
+		host_status=$?
+		set -e
+		printf '%s\n' '-- host output --'
+		sed -n '1,240p' "${host_root}/output.log"
+		printf 'error: host did not become ready (exit %d)\n' \
+			"${host_status}" >&2
+		return 1
+	fi
 	set +e
 	XDG_DATA_HOME="${client_root}/data" \
 	XDG_CONFIG_HOME="${client_root}/config" \

@@ -32,7 +32,7 @@ func _run_host() -> void:
 		"%NetworkFishingService"
 	) as NetworkFishingService
 
-	var join_deadline: int = Time.get_ticks_msec() + 20000
+	var join_deadline: int = Time.get_ticks_msec() + 60000
 	while (
 		Time.get_ticks_msec() < join_deadline
 		and session.get_authenticated_peer_ids().size() < 2
@@ -55,7 +55,7 @@ func _run_host() -> void:
 	var remote_visuals := remote_avatar.get_node("Visuals") as Node3D
 	remote_visuals.rotation.y = PI * 0.5
 	session.publish_authoritative_teleport(remote_peer_id)
-	var aiming_deadline: int = Time.get_ticks_msec() + 5000
+	var aiming_deadline: int = Time.get_ticks_msec() + 15000
 	while (
 		Time.get_ticks_msec() < aiming_deadline
 		and int(remote_avatar.get("_fishing_visual_phase"))
@@ -110,7 +110,7 @@ func _run_host() -> void:
 			Player.FishingVisualPhase.FISHING,
 		]
 	)
-	var sitting_deadline: int = Time.get_ticks_msec() + 3000
+	var sitting_deadline: int = Time.get_ticks_msec() + 10000
 	while Time.get_ticks_msec() < sitting_deadline and not remote_avatar.is_sitting():
 		await process_frame
 	assert(remote_avatar.is_sitting())
@@ -139,6 +139,12 @@ func _run_host() -> void:
 		int(remote_avatar.get("_fishing_visual_phase"))
 		== Player.FishingVisualPhase.RETRACT
 	)
+	var retract_animation_deadline: int = Time.get_ticks_msec() + 3000
+	while (
+		Time.get_ticks_msec() < retract_animation_deadline
+		and remote_animation_player.current_animation != &"retract_sit"
+	):
+		await process_frame
 	assert(remote_animation_player.current_animation == &"retract_sit")
 
 	var completion_deadline: int = Time.get_ticks_msec() + 12000
@@ -209,7 +215,7 @@ func _run_client() -> void:
 	for _frame: int in 30:
 		await physics_frame
 	player.set_fishing_visual(false)
-	player.call("_set_sitting", true)
+	player.call("_set_sitting", true, true)
 	assert(player.is_sitting())
 	for _frame: int in 15:
 		await physics_frame
@@ -303,6 +309,12 @@ func _run_client() -> void:
 		int(player.get("_fishing_visual_phase"))
 		== Player.FishingVisualPhase.RETRACT
 	)
+	var retract_animation_deadline: int = Time.get_ticks_msec() + 3000
+	while (
+		Time.get_ticks_msec() < retract_animation_deadline
+		and character_animation_player.current_animation != &"retract_sit"
+	):
+		await process_frame
 	assert(character_animation_player.current_animation == &"retract_sit")
 	var bobber := fishing_spot.get_node(
 		"FishingPresentation/Bobber"

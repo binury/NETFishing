@@ -1517,7 +1517,9 @@ func _refresh_gameplay_hud_visibility() -> void:
 		and not _shop_open
 	)
 	_gameplay_transient_hud.visible = show_world_hud
-	_experience_presentation.visible = show_world_hud
+	_experience_presentation.visible = (
+		_gameplay_ui_enabled and not _gameplay_hud_hidden
+	)
 
 
 func set_system_menu_open(is_open: bool) -> void:

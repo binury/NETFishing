@@ -97,6 +97,7 @@ func _run() -> void:
 	main.queue_free()
 	for _frame: int in 4:
 		await process_frame
+	await create_timer(0.1).timeout
 	quit()
 
 

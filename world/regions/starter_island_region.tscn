@@ -37,23 +37,23 @@ size = Vector2(10000, 10000)
 
 [sub_resource type="BoxShape3D" id="OceanWestShape"]
 resource_local_to_scene = true
-size = Vector3(17, 2, 80)
+size = Vector3(20.820662814, 2, 97.979589711)
 
 [sub_resource type="BoxShape3D" id="OceanEastShape"]
 resource_local_to_scene = true
-size = Vector3(42, 2, 80)
+size = Vector3(51.439284598, 2, 97.979589711)
 
 [sub_resource type="BoxShape3D" id="OceanNorthShape"]
 resource_local_to_scene = true
-size = Vector3(48, 2, 18)
+size = Vector3(58.787753827, 2, 22.045407685)
 
 [sub_resource type="BoxShape3D" id="OceanSouthShape"]
 resource_local_to_scene = true
-size = Vector3(48, 2, 18)
+size = Vector3(58.787753827, 2, 22.045407685)
 
 [sub_resource type="BoxShape3D" id="OceanCenterShape"]
 resource_local_to_scene = true
-size = Vector3(48, 2, 44)
+size = Vector3(58.787753827, 2, 53.888774341)
 
 [sub_resource type="BoxShape3D" id="OceanWestRecoveryShape"]
 resource_local_to_scene = true
@@ -180,23 +180,23 @@ fish_pool = ExtResource("4_pool")
 surface_height_mode = 1
 
 [node name="WestShape" type="CollisionShape3D" parent="WaterBodies/Ocean/FishingRegions/OceanFishingRegion" unique_id=357406062]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -45.5, -1, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -55.613519213, -1, 0)
 shape = SubResource("OceanWestShape")
 
 [node name="EastShape" type="CollisionShape3D" parent="WaterBodies/Ocean/FishingRegions/OceanFishingRegion" unique_id=772224738]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 32, -1, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 39.30420832, -1, 0)
 shape = SubResource("OceanEastShape")
 
 [node name="NorthShape" type="CollisionShape3D" parent="WaterBodies/Ocean/FishingRegions/OceanFishingRegion" unique_id=646147646]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -13, -1, 31)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -15.809310892, -1, 37.967091013)
 shape = SubResource("OceanNorthShape")
 
 [node name="SouthShape" type="CollisionShape3D" parent="WaterBodies/Ocean/FishingRegions/OceanFishingRegion" unique_id=894083854]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -13, -1, -31)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -15.809310892, -1, -37.967091013)
 shape = SubResource("OceanSouthShape")
 
 [node name="CenterShape" type="CollisionShape3D" parent="WaterBodies/Ocean/FishingRegions/OceanFishingRegion"]
-position = Vector3(-13, -1, 0)
+position = Vector3(-15.809310892, -1, 0)
 shape = SubResource("OceanCenterShape")
 
 [node name="RecoveryRegions" type="Node3D" parent="WaterBodies/Ocean" unique_id=463706703]

@@ -162,6 +162,34 @@ func _validate_portable_water_body() -> void:
 func _validate_starter_region_surfaces() -> void:
 	var region := StarterRegionScene.instantiate() as Node3D
 	root.add_child(region)
+	var ocean_region := region.get_node(
+		"WaterBodies/Ocean/FishingRegions/OceanFishingRegion"
+	) as FishableWaterRegionType
+	var minimum_x: float = INF
+	var maximum_x: float = -INF
+	var minimum_z: float = INF
+	var maximum_z: float = -INF
+	for child: Node in ocean_region.get_children():
+		var shape_node := child as CollisionShape3D
+		assert(shape_node != null and shape_node.shape is BoxShape3D)
+		var box := shape_node.shape as BoxShape3D
+		assert(is_equal_approx(box.size.y, 2.0))
+		minimum_x = minf(minimum_x, shape_node.position.x - box.size.x * 0.5)
+		maximum_x = maxf(maximum_x, shape_node.position.x + box.size.x * 0.5)
+		minimum_z = minf(minimum_z, shape_node.position.z - box.size.z * 0.5)
+		maximum_z = maxf(maximum_z, shape_node.position.z + box.size.z * 0.5)
+	var ocean_footprint := Vector2(
+		maximum_x - minimum_x,
+		maximum_z - minimum_z,
+	)
+	assert(is_equal_approx(
+		ocean_footprint.x * ocean_footprint.y,
+		12840.0,
+	))
+	assert(is_equal_approx(
+		ocean_footprint.x / 107.0,
+		ocean_footprint.y / 80.0,
+	))
 	var fishing_spot := FishingSpotScene.instantiate() as FishingSpotType
 	root.add_child(fishing_spot)
 	await physics_frame
@@ -179,6 +207,14 @@ func _validate_starter_region_surfaces() -> void:
 	)
 	assert(ocean.is_fishable())
 	assert(is_equal_approx(ocean.position.y, -0.45))
+	var expanded_ocean: FishingSurfaceSampleType = (
+		fishing_spot.resolve_fishing_surface(
+			Vector3(72.0, -0.45, 0.0),
+			4.0,
+		)
+	)
+	assert(expanded_ocean.is_fishable())
+	assert(is_equal_approx(expanded_ocean.position.y, -0.45))
 	var covered_ocean: FishingSurfaceSampleType = (
 		fishing_spot.resolve_fishing_surface(
 			Vector3(20.0, -0.45, 0.0),
