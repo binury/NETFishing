@@ -15,6 +15,9 @@ const SALUTATION_LABELS := {
 	"good_luck_have_fun": "Good Luck Have Fun",
 }
 const FishQualityType = preload("res://fish/fish_quality.gd")
+const CurrencyPresentationType = preload(
+	"res://ui/currency_presentation.gd"
+)
 
 var _service: NetworkMailService
 var _reservations: PlayerAssetReservationService
@@ -36,14 +39,16 @@ var _signature: Label
 var _attachment_kind: OptionButton
 var _attachment_choice: OptionButton
 var _attachment_amount: LineEdit
-var _coin_available: Label
+var _coin_available_heading: Label
+var _coin_available: CurrencyAmount
+var _attachment_amount_currency_icon: TextureRect
 var _amount_minus: Button
 var _amount_plus: Button
-var _attachment_summary: Label
+var _attachment_summary: RichTextLabel
 var _send_button: Button
 var _status: Label
 var _letter_text: Label
-var _letter_gift: Label
+var _letter_gift: RichTextLabel
 var _accept: Button
 var _decline: Button
 var _archive: Button
@@ -212,7 +217,7 @@ func _build_compose() -> Control:
 	_attachment_kind = OptionButton.new()
 	_attachment_kind.position = Vector2(688, 48)
 	_attachment_kind.size = Vector2(280, 46)
-	for label: String in ["No gift", "Fish coin", "Fish", "Consumable"]:
+	for label: String in ["No gift", "Currency", "Fish", "Consumable"]:
 		_attachment_kind.add_item(label)
 	_attachment_kind.item_selected.connect(_refresh_attachment_choices)
 	page.add_child(_attachment_kind)
@@ -225,13 +230,34 @@ func _build_compose() -> Control:
 			_update_attachment_summary()
 	)
 	page.add_child(_attachment_choice)
-	_coin_available = Label.new()
-	_coin_available.position = Vector2(688, 158)
-	_coin_available.size = Vector2(280, 28)
+	_coin_available_heading = Label.new()
+	_coin_available_heading.text = "Available"
+	_coin_available_heading.position = Vector2(688, 158)
+	_coin_available_heading.size = Vector2(80, 28)
+	page.add_child(_coin_available_heading)
+	_coin_available = CurrencyPresentationType.instantiate_amount(0, 18.0)
+	_coin_available.position = Vector2(770, 158)
+	_coin_available.size = Vector2(198, 28)
+	_coin_available.alignment = BoxContainer.ALIGNMENT_BEGIN
 	page.add_child(_coin_available)
+	_attachment_amount_currency_icon = TextureRect.new()
+	_attachment_amount_currency_icon.position = Vector2(746, 204)
+	_attachment_amount_currency_icon.size = Vector2(18, 18)
+	_attachment_amount_currency_icon.texture = preload(
+		"res://items/icons/shop/32_currency.png"
+	)
+	_attachment_amount_currency_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_attachment_amount_currency_icon.stretch_mode = (
+		TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	)
+	_attachment_amount_currency_icon.texture_filter = (
+		CanvasItem.TEXTURE_FILTER_NEAREST
+	)
+	_attachment_amount_currency_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	page.add_child(_attachment_amount_currency_icon)
 	_attachment_amount = LineEdit.new()
-	_attachment_amount.position = Vector2(746, 190)
-	_attachment_amount.size = Vector2(164, 46)
+	_attachment_amount.position = Vector2(770, 190)
+	_attachment_amount.size = Vector2(140, 46)
 	_attachment_amount.placeholder_text = "0"
 	_attachment_amount.text = "0"
 	_attachment_amount.text_changed.connect(_on_attachment_amount_changed)
@@ -248,9 +274,12 @@ func _build_compose() -> Control:
 	_amount_plus.size = Vector2(48, 46)
 	_amount_plus.pressed.connect(_step_attachment_amount.bind(1))
 	page.add_child(_amount_plus)
-	_attachment_summary = Label.new()
+	_attachment_summary = RichTextLabel.new()
 	_attachment_summary.position = Vector2(688, 246)
 	_attachment_summary.size = Vector2(280, 78)
+	_attachment_summary.bbcode_enabled = true
+	_attachment_summary.fit_content = true
+	_attachment_summary.scroll_active = false
 	_attachment_summary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	page.add_child(_attachment_summary)
 	var cancel := Button.new()
@@ -281,9 +310,12 @@ func _build_letter() -> Control:
 	_letter_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_letter_text.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 	page.add_child(_letter_text)
-	_letter_gift = Label.new()
+	_letter_gift = RichTextLabel.new()
 	_letter_gift.position = Vector2(730, 46)
 	_letter_gift.size = Vector2(230, 180)
+	_letter_gift.bbcode_enabled = true
+	_letter_gift.fit_content = true
+	_letter_gift.scroll_active = false
 	_letter_gift.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	page.add_child(_letter_gift)
 	_accept = Button.new()
@@ -479,13 +511,18 @@ func _refresh_attachment_choices(_index: int) -> void:
 	_attachment_amount.visible = amount_visible
 	_amount_minus.visible = amount_visible
 	_amount_plus.visible = amount_visible
-	_coin_available.visible = _attachment_kind.selected == 1
+	var currency_selected: bool = _attachment_kind.selected == 1
+	_coin_available_heading.visible = currency_selected
+	_coin_available.visible = currency_selected
+	_attachment_amount_currency_icon.visible = currency_selected
+	_attachment_amount.position.x = 770.0 if currency_selected else 746.0
+	_attachment_amount.size.x = 140.0 if currency_selected else 164.0
 	match _attachment_kind.selected:
 		0:
 			_attachment_choice.add_item("No attachment")
 		1:
-			_attachment_choice.add_item("Fish coin")
-			_coin_available.text = "Available: %d fish coin" % (
+			_attachment_choice.add_item("Currency")
+			_coin_available.set_amount(
 				_reservations.get_available_fish_coin()
 			)
 		2:
@@ -705,7 +742,9 @@ func _attachment_text(attachment: Dictionary) -> String:
 		PlayerAssetReservationService.AttachmentType.NONE:
 			return "No gift attached."
 		PlayerAssetReservationService.AttachmentType.FISH_COIN:
-			return "%d fish coin" % int(attachment.get("amount", 0))
+			return CurrencyPresentationType.bbcode_amount(
+				int(attachment.get("amount", 0)), 18
+			)
 		PlayerAssetReservationService.AttachmentType.FISH:
 			var fish_catch := _inventory.get_catch_by_id(
 				StringName(str(attachment.get("catch_id", "")))

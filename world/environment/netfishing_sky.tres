@@ -4,6 +4,12 @@
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_netfishing"]
 shader = ExtResource("1_sky_shader")
+shader_parameter/cloud_coverage = 0.0
+shader_parameter/cloud_opacity = 0.0
+shader_parameter/cloud_light_color = Color(0.7, 0.76, 0.77, 1)
+shader_parameter/cloud_shadow_color = Color(0.31, 0.38, 0.4, 1)
+shader_parameter/cloud_wind = Vector2(0.01, -0.006)
+shader_parameter/cloud_scale = 0.72
 shader_parameter/sky_top_color = Color(0.204, 0.498, 0.643, 1)
 shader_parameter/sky_horizon_color = Color(0.663, 0.843, 0.847, 1)
 shader_parameter/ground_bottom_color = Color(0.157, 0.361, 0.439, 1)

@@ -5,6 +5,7 @@ extends PanelContainer
 
 @onready var _heading: Label = %Heading
 @onready var _value: Label = %Value
+@onready var _currency_icon: TextureRect = %CurrencyIcon
 
 
 func _ready() -> void:
@@ -16,3 +17,10 @@ func _ready() -> void:
 func set_content(heading: String, value: String) -> void:
 	_heading.text = heading
 	_value.text = value
+	_currency_icon.visible = false
+
+
+func set_currency_amount(heading: String, amount: int) -> void:
+	_heading.text = heading
+	_value.text = str(amount)
+	_currency_icon.visible = true

@@ -30,6 +30,15 @@ const UIMotionType = preload("res://ui/ui_motion.gd")
 const FALLBACK_SUPPLY_ICON: Texture2D = preload(
 	"res://ui/icons/pictograms/x_light.png"
 )
+const ART_KIT_MARKER_ICON: Texture2D = preload(
+	"res://items/icons/art/art_kit_marker.png"
+)
+const ART_KIT_MARKER_SHADER: Shader = preload(
+	"res://ui/art_kit_marker_icon.gdshader"
+)
+const CURRENCY_ICON: Texture2D = preload(
+	"res://items/icons/shop/32_currency.png"
+)
 
 signal menu_visibility_changed(is_open: bool)
 signal menu_exit_started
@@ -71,6 +80,8 @@ const SUPPLY_PRICE_FONT_SIZE: int = 15
 const SUPPLY_PRICE_Y: float = 60.0
 const SUPPLY_PRICE_HEIGHT: float = 24.0
 const SUPPLY_PRICE_HORIZONTAL_PADDING: float = 12.0
+const SUPPLY_PRICE_ICON_SIZE: float = 18.0
+const SUPPLY_PRICE_ICON_GAP: float = 3.0
 
 @onready var _wallet_label: Label = %WalletLabel
 @onready var _shop_panel: PanelContainer = %ShopPanel
@@ -79,23 +90,20 @@ const SUPPLY_PRICE_HORIZONTAL_PADDING: float = 12.0
 @onready var _shop_cooler_page: Control = %ShopCoolerPage
 @onready var _shop_cooler_mount: Control = %ShopCoolerMount
 @onready var _shop_body: HBoxContainer = $ShopPanel/Margin/Layout/Body
-@onready var _feedback: Label = %Feedback
+@onready var _feedback: RichTextLabel = %Feedback
 @onready var _shop_tab_bar: HBoxContainer = %ShopTabBar
 @onready var _upgrades_content: VBoxContainer = %Upgrades
 @onready var _supplies_content: VBoxContainer = %Supplies
 @onready var _stock_title: Label = %StockTitle
-@onready var _reel_level: Label = %ReelLevel
-@onready var _reel_effect: Label = %ReelEffect
-@onready var _reel_cost: Label = %ReelCost
+@onready var _reel_cost: CurrencyAmount = %ReelCost
+@onready var _reel_price_bubble: PanelContainer = %ReelPriceBubble
 @onready var _reel_purchase: Button = %ReelPurchase
-@onready var _barrier_level: Label = %BarrierLevel
-@onready var _barrier_effect: Label = %BarrierEffect
-@onready var _barrier_cost: Label = %BarrierCost
+@onready var _barrier_cost: CurrencyAmount = %BarrierCost
+@onready var _barrier_price_bubble: PanelContainer = %BarrierPriceBubble
 @onready var _barrier_purchase: Button = %BarrierPurchase
 @onready var _supplies_list: VBoxContainer = %SuppliesList
-@onready var _cooler_level: Label = %CoolerLevel
-@onready var _cooler_effect: Label = %CoolerEffect
-@onready var _cooler_cost: Label = %CoolerCost
+@onready var _cooler_cost: CurrencyAmount = %CoolerCost
+@onready var _cooler_price_bubble: PanelContainer = %CoolerPriceBubble
 @onready var _cooler_purchase: Button = %CoolerPurchase
 
 var _player: PlayerType
@@ -136,17 +144,17 @@ func _ready() -> void:
 
 func _request_shop_cooler() -> bool:
 	if _transaction_in_progress:
-		_feedback.text = "Finish the current transaction first."
+		_set_feedback("Finish the current transaction first.")
 		return false
 	if not _is_transaction_context_valid():
-		_feedback.text = "The fishing shop is no longer available."
+		_set_feedback("The fishing shop is no longer available.")
 		return false
 	sell_fish_requested.emit()
 	return _cooler_page_active
 
 
 func _focus_shop_section() -> void:
-	_feedback.text = ""
+	_set_feedback("")
 	if _shop_section == ShopSection.UPGRADES:
 		_reel_purchase.grab_focus()
 		return
@@ -193,6 +201,10 @@ func _select_shop_section(section_index: int, focus_content: bool) -> void:
 	if _closing:
 		return
 	if section_index == int(_shop_section):
+		if section_index != ShopSection.SELL_FISH:
+			var showing_upgrades := section_index == ShopSection.UPGRADES
+			_upgrades_content.visible = showing_upgrades
+			_supplies_content.visible = not showing_upgrades
 		_update_shop_tab_selection()
 		if focus_content:
 			_focus_shop_section()
@@ -236,13 +248,31 @@ func _apply_shop_styles() -> void:
 		"panel", shop_panel_style
 	)
 	for panel: PanelContainer in [
-		$ShopPanel/Margin/Layout/Body/Upgrades/ReelCard,
-		$ShopPanel/Margin/Layout/Body/Upgrades/BarrierCard,
-		$ShopPanel/Margin/Layout/Body/Upgrades/CoolerCard,
+		_reel_price_bubble,
+		_barrier_price_bubble,
+		_cooler_price_bubble,
 	]:
-		panel.add_theme_stylebox_override(
-			"panel", UtilityPageStyleType.row_style()
+		var price_style := UtilityPageStyleType.rounded_style(
+			UtilityPageStyleType.OCEAN_FIELD,
+			18,
 		)
+		price_style.content_margin_left = 8.0
+		price_style.content_margin_right = 8.0
+		price_style.content_margin_top = 2.0
+		price_style.content_margin_bottom = 2.0
+		panel.add_theme_stylebox_override(
+			"panel", price_style
+		)
+	for price: CurrencyAmount in [
+		_reel_cost,
+		_barrier_cost,
+		_cooler_cost,
+	]:
+		var amount_label := price.get_amount_label()
+		amount_label.add_theme_color_override(
+			"font_color", SUPPLY_PRICE_COLOR
+		)
+		amount_label.add_theme_font_size_override("font_size", 18)
 	for button: BaseButton in [
 		%CloseButton,
 		_reel_purchase,
@@ -336,7 +366,7 @@ func open_shop() -> bool:
 	_player.set_camera_input_enabled(false)
 	_fishing_spot.set_local_menu_input_suppressed(INPUT_OWNER, true)
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-	_feedback.text = ""
+	_set_feedback("")
 	deactivate_shop_cooler_page()
 	show()
 	_shop_tab_bar.show()
@@ -520,7 +550,6 @@ func _refresh_upgrades() -> void:
 		return
 	var reel_level: int = _upgrades.get_reel_speed_level()
 	var reel_cost: int = _upgrades.get_next_reel_speed_cost()
-	_reel_level.text = "level %d" % reel_level
 	_reel_purchase.disabled = (
 		reel_cost < 0
 		or _transaction_in_progress
@@ -529,27 +558,30 @@ func _refresh_upgrades() -> void:
 		or not _network_shop.can_request_purchase()
 		or not _upgrades.can_purchase_reel_speed(_wallet)
 	)
-	_reel_purchase.tooltip_text = (
-		"Purchases are unavailable in this session."
-		if _network_shop == null or not _network_shop.can_request_purchase()
-		else ""
-	)
+	var reel_effect: String
 	if reel_cost < 0:
-		_reel_effect.text = "%.2f×" % _upgrades.get_reel_speed_multiplier()
-		_reel_cost.text = "max"
+		reel_effect = "%.2f× reel speed · maximum level" % (
+			_upgrades.get_reel_speed_multiplier()
+		)
+		_reel_price_bubble.hide()
 	else:
-		_reel_effect.text = (
+		_reel_price_bubble.show()
+		reel_effect = (
 			"%.2f× → %.2f×"
 			% [
 				_upgrades.get_reel_speed_multiplier(),
 				1.0 + float(reel_level + 1) * 0.10,
 			]
 		)
-		_reel_cost.text = "$%d" % reel_cost
-	_reel_purchase.text = "max" if reel_cost < 0 else "purchase"
+		_reel_cost.set_amount(reel_cost)
+	_reel_purchase.tooltip_text = _upgrade_tooltip(
+		"reel speed",
+		reel_level,
+		reel_effect,
+	)
+	_reel_purchase.accessibility_name = _reel_purchase.tooltip_text
 	var barrier_level: int = _upgrades.get_barrier_power_level()
 	var barrier_cost: int = _upgrades.get_next_barrier_power_cost()
-	_barrier_level.text = "level %d" % barrier_level
 	_barrier_purchase.disabled = (
 		barrier_cost < 0
 		or _transaction_in_progress
@@ -558,20 +590,39 @@ func _refresh_upgrades() -> void:
 		or not _network_shop.can_request_purchase()
 		or not _upgrades.can_purchase_barrier_power(_wallet)
 	)
-	_barrier_purchase.tooltip_text = _reel_purchase.tooltip_text
+	var barrier_effect: String
 	if barrier_cost < 0:
-		_barrier_effect.text = "%d damage" % _upgrades.get_barrier_damage()
-		_barrier_cost.text = "max"
+		barrier_effect = "%d damage · maximum level" % (
+			_upgrades.get_barrier_damage()
+		)
+		_barrier_price_bubble.hide()
 	else:
-		_barrier_effect.text = (
+		_barrier_price_bubble.show()
+		barrier_effect = (
 			"%d damage → %d damage"
 			% [
 				_upgrades.get_barrier_damage(),
 				barrier_level + 2,
 			]
 		)
-		_barrier_cost.text = "$%d" % barrier_cost
-	_barrier_purchase.text = "max" if barrier_cost < 0 else "purchase"
+		_barrier_cost.set_amount(barrier_cost)
+	_barrier_purchase.tooltip_text = _upgrade_tooltip(
+		"rod power",
+		barrier_level,
+		barrier_effect,
+	)
+	_barrier_purchase.accessibility_name = _barrier_purchase.tooltip_text
+
+
+func _upgrade_tooltip(
+	upgrade_name: String,
+	level: int,
+	effect: String,
+) -> String:
+	var tooltip := "%s\nlevel %d\n%s" % [upgrade_name, level, effect]
+	if _network_shop == null or not _network_shop.can_request_purchase():
+		tooltip += "\nPurchases are unavailable in this session."
+	return tooltip
 
 
 func _refresh_supplies() -> void:
@@ -632,9 +683,8 @@ func _refresh_supplies() -> void:
 		var use_icon_tile: bool = (
 			current_stock_grid != null
 		)
-		button.text = "%s\n$%d • owned %d" % [
+		button.text = "%s\nowned %d" % [
 			item.display_name,
-			FishingShopStockType.get_price(item_id),
 			owned,
 		]
 		var item_tooltip_text: String = item.description
@@ -646,27 +696,24 @@ func _refresh_supplies() -> void:
 				button.text = ""
 			else:
 				button.text = (
-					"%s\nunlock $%d" % [item.display_name, total_cost]
+					"%s\nunlock and fill" % item.display_name
 					if not bait_unlocked
-					else "%s\n$%d each • %d/%d" % [
+					else "%s\n%d/%d owned" % [
 						item.display_name,
-						FishingShopStockType.get_price(item_id),
 						owned,
 						item.max_stack,
 					]
 				)
 			item_tooltip_text = (
-				"%s\nunlock $%d • fills to %d/%d\n%s" % [
+				"%s\nunlock and fill to %d/%d\n%s" % [
 					item.display_name,
-					total_cost,
 					item.max_stack,
 					item.max_stack,
 					item.description,
 				]
 				if not bait_unlocked
-				else "%s\n$%d each • %d/%d\n%s" % [
+				else "%s\n%d/%d owned\n%s" % [
 					item.display_name,
-					FishingShopStockType.get_price(item_id),
 					owned,
 					item.max_stack,
 					item.description,
@@ -677,9 +724,8 @@ func _refresh_supplies() -> void:
 			button.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 			button.alignment = HORIZONTAL_ALIGNMENT_CENTER
 			button.text = ""
-			item_tooltip_text = "%s\n$%d • owned %d\n%s" % [
+			item_tooltip_text = "%s\nowned %d\n%s" % [
 				item.display_name,
-				FishingShopStockType.get_price(item_id),
 				owned,
 				item.description,
 			]
@@ -704,7 +750,11 @@ func _refresh_supplies() -> void:
 			_add_supply_icon_tile(
 				current_stock_grid,
 				button,
-				FishingShopStockType.get_price(item_id),
+				(
+					total_cost
+					if bait_topoff and not bait_unlocked
+					else FishingShopStockType.get_price(item_id)
+				),
 			)
 		else:
 			_supplies_list.add_child(button)
@@ -769,14 +819,12 @@ func _add_art_kit_button(parent: GridContainer) -> void:
 		return
 	var owned: bool = _bag.get_quantity(ArtShopStockType.ART_KIT_ITEM_ID) > 0
 	var button: Button = _make_stock_button(
-		"%s\n$%d • %s" % [
+		"%s\n%s" % [
 			item.display_name,
-			ArtShopStockType.ART_KIT_PRICE,
 			"owned" if owned else "not owned",
 		],
-		"%s\n$%d • %s\n%s" % [
+		"%s\n%s\n%s" % [
 			item.display_name,
-			ArtShopStockType.ART_KIT_PRICE,
 			"owned" if owned else "not owned",
 			item.description,
 		],
@@ -808,19 +856,26 @@ func _add_art_upgrade_button(
 	)
 	var unlocked: bool = _art_unlocks.owns_product(product_id)
 	var button: Button = _make_stock_button(
-		"%s\n$%d • %s" % [
+		"%s\n%s" % [
 			ArtShopStockType.get_display_name(product_id),
-			ArtShopStockType.UPGRADE_PRICE,
 			"unlocked" if unlocked else "locked",
 		],
-		"%s\n$%d • %s\n%s" % [
+		"%s\n%s\n%s" % [
 			ArtShopStockType.get_display_name(product_id),
-			ArtShopStockType.UPGRADE_PRICE,
 			"unlocked" if unlocked else "locked",
 			ArtShopStockType.get_description(product_id),
 		],
 	)
-	_configure_supply_icon_tile(button, FALLBACK_SUPPLY_ICON)
+	var marker_color_id: StringName = (
+		PlayerArtUnlocksType.color_id_for_product(product_id)
+	)
+	if marker_color_id.is_empty():
+		_configure_supply_icon_tile(button, FALLBACK_SUPPLY_ICON)
+	else:
+		_configure_marker_icon_tile(
+			button,
+			SurfaceDrawingPalette.get_color(marker_color_id),
+		)
 	_add_supply_icon_tile(
 		parent,
 		button,
@@ -863,6 +918,29 @@ func _configure_supply_icon_tile(
 	button.text = ""
 
 
+func _configure_marker_icon_tile(
+	button: Button,
+	marker_color: Color,
+) -> void:
+	button.custom_minimum_size = SUPPLY_ICON_TILE_SIZE
+	button.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	button.icon = null
+	button.text = ""
+	var icon := TextureRect.new()
+	icon.name = "MarkerIcon"
+	icon.position = Vector2(4.0, 4.0)
+	icon.size = Vector2(64.0, 64.0)
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var marker_material := ShaderMaterial.new()
+	marker_material.shader = ART_KIT_MARKER_SHADER
+	marker_material.set_shader_parameter("marker_color", marker_color)
+	icon.material = marker_material
+	icon.texture = ART_KIT_MARKER_ICON
+	button.add_child(icon)
+
+
 func _add_supply_icon_tile(
 	parent: GridContainer,
 	button: Button,
@@ -875,7 +953,7 @@ func _add_supply_icon_tile(
 	button.position = Vector2.ZERO
 	button.size = SUPPLY_ICON_TILE_SIZE
 	tile_host.add_child(button)
-	var price_text := "$%d" % price
+	var price_text := str(price)
 	var price_text_width: float = UtilityPageStyleType.TuffyFont.get_string_size(
 		price_text,
 		HORIZONTAL_ALIGNMENT_LEFT,
@@ -884,7 +962,12 @@ func _add_supply_icon_tile(
 	).x
 	var price_width: float = minf(
 		SUPPLY_ICON_TILE_SIZE.x,
-		ceilf(price_text_width + SUPPLY_PRICE_HORIZONTAL_PADDING),
+		ceilf(
+			price_text_width
+			+ SUPPLY_PRICE_ICON_SIZE
+			+ SUPPLY_PRICE_ICON_GAP
+			+ SUPPLY_PRICE_HORIZONTAL_PADDING
+		),
 	)
 	var price_bubble := PanelContainer.new()
 	price_bubble.name = "PriceBubble"
@@ -905,6 +988,23 @@ func _add_supply_icon_tile(
 	price_style.content_margin_bottom = 0.0
 	price_bubble.add_theme_stylebox_override("panel", price_style)
 	tile_host.add_child(price_bubble)
+	var price_row := HBoxContainer.new()
+	price_row.name = "CurrencyAmount"
+	price_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	price_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	price_row.add_theme_constant_override(
+		"separation", int(SUPPLY_PRICE_ICON_GAP)
+	)
+	price_bubble.add_child(price_row)
+	var price_icon := TextureRect.new()
+	price_icon.name = "CurrencyIcon"
+	price_icon.custom_minimum_size = Vector2.ONE * SUPPLY_PRICE_ICON_SIZE
+	price_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	price_icon.texture = CURRENCY_ICON
+	price_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	price_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	price_icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	price_row.add_child(price_icon)
 	var price_label := Label.new()
 	price_label.name = "Price"
 	price_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -921,7 +1021,7 @@ func _add_supply_icon_tile(
 		"font_color", SUPPLY_PRICE_COLOR
 	)
 	price_label.add_theme_constant_override("outline_size", 0)
-	price_bubble.add_child(price_label)
+	price_row.add_child(price_label)
 
 
 func _refresh_cooler_capacity() -> void:
@@ -930,7 +1030,6 @@ func _refresh_cooler_capacity() -> void:
 	var level: int = _cooler_capacity.get_level()
 	var cost: int = _cooler_capacity.get_next_cost()
 	var next_capacity: int = _cooler_capacity.get_next_capacity()
-	_cooler_level.text = "level %d" % level
 	_cooler_purchase.disabled = (
 		cost < 0
 		or _transaction_in_progress
@@ -939,18 +1038,25 @@ func _refresh_cooler_capacity() -> void:
 		or not _network_shop.can_request_purchase()
 		or not _cooler_capacity.can_purchase(_wallet)
 	)
-	_cooler_purchase.tooltip_text = _reel_purchase.tooltip_text
+	var cooler_effect: String
 	if cost < 0:
-		_cooler_effect.text = "%d fish" % _cooler_capacity.get_capacity()
-		_cooler_cost.text = "max"
-		_cooler_purchase.text = "max"
+		cooler_effect = "%d fish · maximum level" % (
+			_cooler_capacity.get_capacity()
+		)
+		_cooler_price_bubble.hide()
 	else:
-		_cooler_effect.text = "%d → %d fish" % [
+		_cooler_price_bubble.show()
+		cooler_effect = "%d → %d fish" % [
 			_cooler_capacity.get_capacity(),
 			next_capacity,
 		]
-		_cooler_cost.text = "$%d" % cost
-		_cooler_purchase.text = "purchase"
+		_cooler_cost.set_amount(cost)
+	_cooler_purchase.tooltip_text = _upgrade_tooltip(
+		"cooler capacity",
+		level,
+		cooler_effect,
+	)
+	_cooler_purchase.accessibility_name = _cooler_purchase.tooltip_text
 
 
 func _purchase_reel_speed() -> void:
@@ -963,65 +1069,65 @@ func _purchase_barrier_power() -> void:
 
 func _purchase_supply(item_id: StringName) -> void:
 	if _transaction_in_progress or not _is_transaction_context_valid():
-		_feedback.text = "unable to complete purchase."
+		_set_feedback("unable to complete purchase.")
 		return
 	var owned: int = _bag.get_quantity(item_id)
 	var item: ItemDataType = _item_catalog.get_item_by_id(item_id)
 	if item == null:
-		_feedback.text = "Purchase could not be completed."
+		_set_feedback("Purchase could not be completed.")
 		return
 	var quantity: int = FishingShopStockType.get_purchase_quantity(
 		item_id, owned, item.max_stack
 	)
 	if quantity <= 0 or not _bag.can_add_item(item_id, quantity):
-		_feedback.text = "Your Bag is full."
+		_set_feedback("Your Bag is full.")
 		return
 	var total_cost: int = FishingShopStockType.get_purchase_cost(
 		item_id, quantity, _bag.is_bait_unlocked(item_id)
 	)
 	if total_cost < 0 or not _wallet.can_afford(total_cost):
-		_feedback.text = "Not enough fish coin."
+		_set_feedback("Insufficient funds.")
 		return
 	if _network_shop == null:
-		_feedback.text = "Purchase could not be completed."
+		_set_feedback("Purchase could not be completed.")
 		return
 	_network_shop.request_supply(item_id)
 
 
 func _purchase_art_kit() -> void:
 	if _network_shop == null or not _is_transaction_context_valid():
-		_feedback.text = "Purchase could not be completed."
+		_set_feedback("Purchase could not be completed.")
 		return
 	_network_shop.request_art_kit()
 
 
 func _purchase_art_upgrade(product_id: StringName) -> void:
 	if _network_shop == null or not _is_transaction_context_valid():
-		_feedback.text = "Purchase could not be completed."
+		_set_feedback("Purchase could not be completed.")
 		return
 	_network_shop.request_art_upgrade(product_id)
 
 
 func _purchase_cooler_capacity() -> void:
 	if _transaction_in_progress or not _is_transaction_context_valid():
-		_feedback.text = "unable to complete purchase."
+		_set_feedback("unable to complete purchase.")
 		return
 	var cost: int = _cooler_capacity.get_next_cost()
 	if cost < 0:
-		_feedback.text = "Upgrade is already at maximum."
+		_set_feedback("Upgrade is already at maximum.")
 		return
 	if not _wallet.can_afford(cost):
-		_feedback.text = "Not enough fish coin."
+		_set_feedback("Insufficient funds.")
 		return
 	if _network_shop == null:
-		_feedback.text = "Purchase could not be completed."
+		_set_feedback("Purchase could not be completed.")
 		return
 	_network_shop.request_cooler_capacity_upgrade()
 
 
 func _purchase_upgrade(is_reel_speed: bool) -> void:
 	if _transaction_in_progress or not _is_transaction_context_valid():
-		_feedback.text = "unable to complete purchase."
+		_set_feedback("unable to complete purchase.")
 		return
 	var cost: int = (
 		_upgrades.get_next_reel_speed_cost()
@@ -1029,13 +1135,13 @@ func _purchase_upgrade(is_reel_speed: bool) -> void:
 		else _upgrades.get_next_barrier_power_cost()
 	)
 	if cost < 0:
-		_feedback.text = "Upgrade is already at maximum."
+		_set_feedback("Upgrade is already at maximum.")
 		return
 	if not _wallet.can_afford(cost):
-		_feedback.text = "Not enough fish coin."
+		_set_feedback("Insufficient funds.")
 		return
 	if _network_shop == null:
-		_feedback.text = "Purchase could not be completed."
+		_set_feedback("Purchase could not be completed.")
 		return
 	if is_reel_speed:
 		_network_shop.request_reel_speed_upgrade()
@@ -1046,7 +1152,7 @@ func _purchase_upgrade(is_reel_speed: bool) -> void:
 func _on_network_purchase_pending(_request_id: String) -> void:
 	_transaction_in_progress = true
 	if visible:
-		_feedback.text = "Purchasing…"
+		_set_feedback("Purchasing…")
 		_refresh_all()
 
 
@@ -1062,12 +1168,19 @@ func _on_network_purchase_finished(
 	_transaction_in_progress = false
 	if not visible:
 		return
-	_feedback.text = (
-		"Purchase complete. $%d spent." % total_cost
+	_set_feedback(
+		(
+			"Purchase complete • %s spent."
+			% CurrencyPresentation.bbcode_amount(total_cost, 18)
+		)
 		if accepted
 		else message
 	)
 	_refresh_all()
+
+
+func _set_feedback(message: String) -> void:
+	_feedback.text = "[center]%s[/center]" % message
 
 
 func _is_transaction_context_valid() -> bool:

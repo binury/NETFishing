@@ -325,6 +325,25 @@ func _run() -> void:
 		and finalize_button != null
 		and close_button != null
 	)
+	assert(eraser_button.text.is_empty())
+	assert(eraser_button.icon != null)
+	assert(
+		eraser_button.icon.resource_path.ends_with(
+			"/art/art_kit_eraser.png"
+		)
+	)
+	for icon_button: Button in [eraser_button, undo_button]:
+		assert(icon_button.custom_minimum_size == Vector2(48, 44))
+		assert(icon_button.get_theme_constant("icon_max_width") == 40)
+		var icon_style := (
+			icon_button.get_theme_stylebox("normal") as StyleBoxFlat
+		)
+		assert(is_equal_approx(icon_style.content_margin_left, 4.0))
+		assert(is_equal_approx(icon_style.content_margin_top, 2.0))
+	assert(hide_button.button_group != null)
+	assert(hide_button.button_group == restore_button.button_group)
+	assert(hide_button.button_group == finalize_button.button_group)
+	assert(hide_button.button_group.allow_unpress)
 	assert(brush_option.item_count == 4)
 	assert(grid_option.item_count == 4)
 	assert(not brush_option.get_popup().is_item_disabled(0))
@@ -369,28 +388,40 @@ func _run() -> void:
 	assert(service.handle_input(world_click, true))
 	assert(
 		service.get_armed_guide_action()
+		== NetworkSurfaceDrawingService.GuideAction.HIDE
+	)
+	assert(service.is_placement_mode())
+	assert(not service.is_eraser_mode())
+	assert(hide_button.button_pressed)
+	hide_button.pressed.emit()
+	assert(
+		service.get_armed_guide_action()
 		== NetworkSurfaceDrawingService.GuideAction.NONE
 	)
-	assert(not service.is_placement_mode())
-	assert(service.is_eraser_mode())
+	assert(not service.is_placement_mode() and service.is_eraser_mode())
 
 	restore_button.pressed.emit()
 	assert(
 		service.get_armed_guide_action()
 		== NetworkSurfaceDrawingService.GuideAction.RESTORE
 	)
-	restore_button.pressed.emit()
-	assert(
-		service.get_armed_guide_action()
-		== NetworkSurfaceDrawingService.GuideAction.NONE
-	)
-	assert(not service.is_placement_mode() and service.is_eraser_mode())
 	finalize_button.pressed.emit()
 	assert(
 		service.get_armed_guide_action()
 		== NetworkSurfaceDrawingService.GuideAction.FINALIZE
 	)
+	assert(not restore_button.button_pressed)
+	assert(finalize_button.button_pressed)
 	assert(service.handle_input(world_click, true))
+	assert(
+		service.get_armed_guide_action()
+		== NetworkSurfaceDrawingService.GuideAction.FINALIZE
+	)
+	finalize_button.pressed.emit()
+	assert(
+		service.get_armed_guide_action()
+		== NetworkSurfaceDrawingService.GuideAction.NONE
+	)
 	assert(not service.is_placement_mode() and service.is_eraser_mode())
 	(color_buttons[&"ocean_teal"] as Button).pressed.emit()
 	assert(not service.is_eraser_mode())
@@ -410,6 +441,32 @@ func _run() -> void:
 	player.hotbar.select_slot(0)
 	var fishing_spot := main.get_node("%FishingSpot") as FishingSpot
 	await process_frame
+	var held_art_kit_display := player.get("_held_art_kit_display") as Node3D
+	var held_art_kit_sprite := player.get("_held_art_kit_sprite") as Sprite3D
+	var pocket_animation_player := player.get(
+		"_character_animation_player"
+	) as AnimationPlayer
+	var pocket_animation_name: StringName = player.get(
+		"_pocket_visual_animation"
+	)
+	if (
+		not held_art_kit_display.visible
+		and pocket_animation_player != null
+		and not pocket_animation_name.is_empty()
+		and pocket_animation_player.has_animation(pocket_animation_name)
+	):
+		var pocket_animation: Animation = (
+			pocket_animation_player.get_animation(pocket_animation_name)
+		)
+		await create_timer(pocket_animation.length * 0.55).timeout
+	assert(held_art_kit_display.visible)
+	assert(held_art_kit_sprite.visible and held_art_kit_sprite.texture != null)
+	assert(held_art_kit_sprite.texture.resource_path.ends_with("/art/art_kit.png"))
+	assert(is_zero_approx(angle_difference(
+		held_art_kit_sprite.rotation.z,
+		-PI * 0.5,
+	)))
+	assert(held_art_kit_sprite.flip_h)
 	assert(not fishing_spot.has_signal(&"art_ui_toggle_requested"))
 	assert(service.is_active() and toolbar.visible)
 	assert(service.get_grid_size() == 128)

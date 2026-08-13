@@ -464,7 +464,7 @@ func _build_authoritative_result(
 						current_state, product_id
 					)
 	if rejection.is_empty() and (cost < 0 or wallet_balance < cost):
-		rejection = "Not enough fish coin."
+		rejection = "Insufficient funds."
 	if not rejection.is_empty():
 		return _rejected_result(request, rejection)
 	return {
@@ -633,7 +633,7 @@ func _validate_local_result(data: Dictionary) -> String:
 	):
 		return "Purchase could not be completed."
 	if not _wallet.can_afford(cost):
-		return "Not enough fish coin."
+		return "Insufficient funds."
 	match category:
 		NetworkShopProtocol.ProductCategory.SUPPLY:
 			var item: ItemDataType = (

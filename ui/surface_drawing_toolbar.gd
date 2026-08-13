@@ -36,6 +36,8 @@ func _ready() -> void:
 		UtilityPageStyleType.apply_ocean_button(button)
 		button.custom_minimum_size = Vector2(48, 44)
 		_make_button_round(button, 22)
+	_enlarge_action_icon(_eraser_button)
+	_enlarge_action_icon(_undo_button)
 	_mode_button.custom_minimum_size = Vector2(48, 48)
 	_make_button_round(_mode_button, 24)
 	_mode_button.pressed.connect(_toggle_mode)
@@ -88,6 +90,25 @@ func _make_button_round(button: Button, radius: int) -> void:
 		if style == null:
 			continue
 		style.set_corner_radius_all(radius)
+		button.add_theme_stylebox_override(style_name, style)
+
+
+func _enlarge_action_icon(button: Button) -> void:
+	# The shared ocean button uses generous text padding, leaving only a
+	# 20-pixel icon area in these compact bubbles. Keep the 48x44 control and
+	# hitbox intact while giving icon-only actions a full 40x40 presentation.
+	button.add_theme_constant_override("icon_max_width", 40)
+	for style_name: StringName in [
+		&"normal", &"hover", &"pressed", &"focus", &"disabled",
+	]:
+		var existing: StyleBox = button.get_theme_stylebox(style_name)
+		var style := existing.duplicate() as StyleBoxFlat
+		if style == null:
+			continue
+		style.content_margin_left = 4.0
+		style.content_margin_right = 4.0
+		style.content_margin_top = 2.0
+		style.content_margin_bottom = 2.0
 		button.add_theme_stylebox_override(style_name, style)
 
 

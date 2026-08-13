@@ -383,7 +383,7 @@ static func _lifetime_title(chain_id: String, target: int) -> String:
 		"catch":
 			return "seasoned angler"
 		"sell":
-			return "fish coin regular"
+			return "market regular"
 		"level":
 			return "reach level %d" % target
 		"discover":

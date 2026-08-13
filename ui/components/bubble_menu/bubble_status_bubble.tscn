@@ -1,7 +1,8 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=4 format=3]
 
 [ext_resource type="Script" path="res://ui/components/bubble_menu/bubble_status_bubble.gd" id="1_status"]
 [ext_resource type="Resource" path="res://ui/components/bubble_menu/bubble_menu_profile.tres" id="2_profile"]
+[ext_resource type="Texture2D" path="res://items/icons/shop/32_currency.png" id="3_currency"]
 
 [node name="BubbleStatusBubble" type="PanelContainer"]
 custom_minimum_size = Vector2(112, 62)
@@ -23,7 +24,25 @@ theme_override_font_sizes/font_size = 13
 text = "status"
 horizontal_alignment = 1
 
-[node name="Value" type="Label" parent="Labels"]
+[node name="ValueRow" type="HBoxContainer" parent="Labels"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 3
+alignment = 1
+
+[node name="CurrencyIcon" type="TextureRect" parent="Labels/ValueRow"]
+unique_name_in_owner = true
+visible = false
+custom_minimum_size = Vector2(18, 18)
+layout_mode = 2
+size_flags_vertical = 4
+mouse_filter = 2
+texture = ExtResource("3_currency")
+expand_mode = 1
+stretch_mode = 5
+texture_filter = 1
+
+[node name="Value" type="Label" parent="Labels/ValueRow"]
 unique_name_in_owner = true
 layout_mode = 2
 mouse_filter = 2

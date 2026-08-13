@@ -232,17 +232,20 @@ smoothing overrides, and generated `.tres` path. Props, players, bobbers, and
 gameplay areas are not scanned unless selected explicitly. Only `SALT_WATER`
 bodies generate ribbons.
 
-In the editor, select the baker and press **Rebuild Shoreline Ribbons**. The
-equivalent validation command is:
+The editor automatically rebuilds configured shoreline resources when an
+authored terrain GLB is reimported. Select the baker and press **Rebuild
+Shoreline Ribbons** only when intentionally forcing a rebuild without a terrain
+reimport. The equivalent headless fallback and validation command is:
 
 ```sh
 godot --headless --path . --script scripts/bake_shoreline_ribbons.gd
 ```
 
 Use `debug_path_stage` only while comparing extraction stages and leave it Off
-in committed scenes. Rebuild when saltwater terrain at the waterline, water
-height, or generation bounds change. Normal gameplay loads committed generated
-meshes and never runs extraction.
+in committed scenes. A rebuild is required when saltwater terrain at the
+waterline, water height, or generation bounds change; terrain reimports handle
+the usual case automatically. Normal gameplay loads committed generated meshes
+and never runs extraction.
 
 ### Facial-feature textures
 
@@ -261,6 +264,24 @@ Filenames normalize to lowercase snake_case and are stored in appearance
 snapshots, so do not casually rename them. Preserve the established RGBA
 transparent canvas. Restart a development build after adding an image; rebuild
 exports to package new `res://` files.
+
+### Texture sampling
+
+NETfishing artwork always uses nearest-neighbor sampling. Do not enable linear,
+bilinear, trilinear, or anisotropic texture filtering, and do not generate
+mipmaps. Shader samplers must declare `filter_nearest`. The
+`TextureSamplingPolicy` autoload applies nearest sampling to 2D canvas items,
+Sprite3D presentations, imported 3D materials, and dynamically constructed
+mesh materials at runtime.
+
+After importing new artwork, normalize its tracked import metadata where
+needed and run the focused policy check:
+
+```sh
+godot --headless --path . --script scripts/normalize_texture_imports.gd \
+  -- --apply --root res://path/to/new/artwork
+godot --headless --path . --script tests/texture_sampling_validation.gd
+```
 
 ### Bubble menus
 

@@ -23,10 +23,12 @@ visible = false
 
 [node name="HeldArtKitSprite" type="Sprite3D" parent="HeldArtKitDisplay"]
 unique_name_in_owner = true
+rotation = Vector3(0, 0, 4.71239)
 pixel_size = 0.008
+flip_h = true
 shaded = false
 double_sided = true
-texture_filter = 1
+texture_filter = 0
 
 [node name="CatchDisplay" type="Node3D" parent="."]
 unique_name_in_owner = true

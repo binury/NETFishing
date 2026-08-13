@@ -656,9 +656,7 @@ func _reward_claimed(reward: Dictionary) -> void:
 	var fish_coin: int = int(reward.get("fish_coin", 0))
 	var experience: int = int(reward.get("experience", 0))
 	reward_claimed.emit(title, fish_coin, experience)
-	status_changed.emit("payment received — $%d and %d xp" % [
-		fish_coin, experience,
-	])
+	status_changed.emit("payment received — %d xp" % experience)
 	changed.emit()
 
 

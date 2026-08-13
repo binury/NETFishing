@@ -20,6 +20,9 @@ const TitleCreditsPageType = preload("res://ui/title_credits_page.gd")
 const NetworkSessionType = preload("res://network/network_session.gd")
 const SavedServerStoreType = preload("res://network/saved_server_store.gd")
 const JoinGamePageType = preload("res://ui/network/join_game_page.gd")
+const CurrencyPresentationType = preload(
+	"res://ui/currency_presentation.gd"
+)
 const DECORATIVE_FISH_TEXTURES: Array[Texture2D] = [
 	preload("res://fish/species/bass/fish_bass_striped.png"),
 	preload("res://fish/species/bluegill/fish_bluegill.png"),
@@ -106,7 +109,7 @@ enum ConfirmationAction {
 @onready var _join_game_button: BubbleButtonType = %JoinGameButton
 @onready var _new_game_label: Label = %NewGameLabel
 @onready var _delete_save_label: Label = %DeleteSaveLabel
-@onready var _feedback_label: Label = %FeedbackLabel
+@onready var _feedback_label: RichTextLabel = %FeedbackLabel
 @onready var _confirmation_page: TitleConfirmationBubblePageType = (
 	%ConfirmationPage
 )
@@ -287,7 +290,7 @@ func open_join_game_page(endpoint: String = "") -> void:
 func report_network_error(message: String) -> void:
 	_join_game_page.set_status(message)
 	if not _join_game_page.visible:
-		_feedback_label.text = message
+		_feedback_label.text = _center_feedback_text(message)
 		_feedback_label.show()
 		_feedback_label.modulate.a = 1.0
 
@@ -953,14 +956,21 @@ func _get_continue_stats_text() -> String:
 		or _inspection.status != SaveInspectionType.Status.VALID_SUPPORTED
 	):
 		return ""
-	return (
-		"%d fish • $%d • %d discovered"
-		% [
+	return _center_feedback_text(
+		"%d fish • %s • %d discovered" % [
 			_inspection.catch_count,
-			_inspection.wallet_balance,
+			CurrencyPresentationType.bbcode_amount(
+				_inspection.wallet_balance, 18
+			),
 			_inspection.discovered_species_count,
 		]
 	)
+
+
+func _center_feedback_text(message: String) -> String:
+	if message.begins_with("[center]"):
+		return message
+	return "[center]%s[/center]" % message
 
 
 func _on_continue_pressed() -> void:
@@ -991,13 +1001,15 @@ func _on_new_game_pressed() -> void:
 		new_game_requested.emit()
 		return
 	if _inspection.status == SaveInspectionType.Status.UNSUPPORTED_VERSION:
-		_feedback_label.text = (
+		_feedback_label.text = _center_feedback_text(
 			"this save is from a newer game version. "
 			+ "use delete save before starting over."
 		)
 		return
 	if _inspection.status == SaveInspectionType.Status.IO_ERROR:
-		_feedback_label.text = "the existing save cannot be accessed safely."
+		_feedback_label.text = _center_feedback_text(
+			"the existing save cannot be accessed safely."
+		)
 		return
 	_open_confirmation(
 		ConfirmationAction.NEW_GAME,
@@ -1043,14 +1055,16 @@ func _on_confirmation_accepted() -> void:
 		_action_in_progress = false
 		return
 	if not _save_manager.delete_progression_save():
-		_feedback_label.text = "failed to delete saved progression."
+		_feedback_label.text = _center_feedback_text(
+			"failed to delete saved progression."
+		)
 		_action_in_progress = false
 		_refresh_save_inspection()
 		_begin_confirmation_return()
 		return
 	_save_manager.initialize_new_game()
 	_refresh_save_inspection()
-	_feedback_label.text = "saved progression deleted."
+	_feedback_label.text = _center_feedback_text("saved progression deleted.")
 	_begin_confirmation_return()
 	_action_in_progress = false
 
@@ -1325,8 +1339,9 @@ func _begin_title_cluster_return(feedback_text: String) -> void:
 	_title_settings_transition_generation += 1
 	_cancel_title_settings_tween()
 	_title_settings_transition_active = true
-	if _feedback_label.text != feedback_text:
-		_feedback_label.text = feedback_text
+	var centered_feedback: String = _center_feedback_text(feedback_text)
+	if _feedback_label.text != centered_feedback:
+		_feedback_label.text = centered_feedback
 	_feedback_label.visible = _feedback_visible_before_settings
 	_hide_continue_stats_context()
 	_set_title_bubbles_interactive(false)
@@ -1434,7 +1449,7 @@ func _refresh_save_inspection() -> void:
 	_delete_save_label.modulate.a = (
 		DISABLED_BUBBLE_LABEL_ALPHA if _delete_button.disabled else 1.0
 	)
-	_feedback_label.text = _inspection.message
+	_feedback_label.text = _center_feedback_text(_inspection.message)
 	if _inspection.status == SaveInspectionType.Status.VALID_SUPPORTED:
 		_feedback_label.text = _get_continue_stats_text()
 	if _continue_button.disabled:

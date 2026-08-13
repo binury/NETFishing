@@ -189,6 +189,27 @@ func _validate_starter_region_surfaces() -> void:
 	assert(not covered_ocean.is_fishable())
 	assert(covered_ocean.position.y > -0.45)
 
+	# The ocean fishing layer covers the island's complete editable footprint.
+	# Terrain at or above the waterline remains authoritative, while shoreline
+	# terrain lowered below the surface becomes fishable without reshaping a
+	# manually authored exclusion ring.
+	var editable_shallows_found := 0
+	for x_position: int in range(-24, 24, 2):
+		for z_position: int in range(-21, 22, 2):
+			var candidate: FishingSurfaceSampleType = (
+				fishing_spot.resolve_fishing_surface(
+					Vector3(x_position, -0.45, z_position),
+					4.0,
+				)
+			)
+			if (
+				candidate.is_fishable()
+				and candidate.water_region.water_type
+				== WaterType.Type.SALT_WATER
+			):
+				editable_shallows_found += 1
+	assert(editable_shallows_found > 0)
+
 	fishing_spot.queue_free()
 	region.queue_free()
 	await process_frame

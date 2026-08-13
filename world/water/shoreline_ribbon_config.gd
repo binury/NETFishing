@@ -12,3 +12,4 @@ extends Resource
 @export var simplification_tolerance := -1.0
 @export_range(-1, 4, 1) var smoothing_iterations := -1
 @export var resample_spacing := -1.0
+@export var corner_rounding_distance := -1.0

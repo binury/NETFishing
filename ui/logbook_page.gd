@@ -16,6 +16,9 @@ const InventoryNotepadType = preload(
 const LogbookPortraitType = preload(
 	"res://ui/components/logbook_portrait.gd"
 )
+const CurrencyPresentationType = preload(
+	"res://ui/currency_presentation.gd"
+)
 
 const DETAIL_FADE_DURATION: float = 0.12
 const CATEGORY_FADE_DURATION: float = UIMotion.UTILITY_EXIT_DURATION
@@ -756,19 +759,17 @@ func _build_known_details(fish: FishDataType) -> void:
 	_add_detail_row(left_stats, "number caught", "unknown")
 	_add_detail_row(right_stats, "rarity", fish.get_rarity_name().to_lower())
 	_add_detail_row(right_stats, "time of day", _availability_text(fish))
-	_add_detail_row(
+	_add_currency_detail_row(
 		right_stats,
 		"value range",
-		"%d–%d fish coin" % [
-			FishQualityType.apply_sale_value(
-				fish.sell_value_min,
-				FishQualityType.Tier.BORING,
-			),
-			FishQualityType.apply_sale_value(
-				fish.sell_value_max,
-				FishQualityType.Tier.SHINY,
-			),
-		],
+		FishQualityType.apply_sale_value(
+			fish.sell_value_min,
+			FishQualityType.Tier.BORING,
+		),
+		FishQualityType.apply_sale_value(
+			fish.sell_value_max,
+			FishQualityType.Tier.SHINY,
+		),
 	)
 	_add_detail_row(
 		right_stats,
@@ -875,6 +876,31 @@ func _add_detail_row(
 	content.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	row.add_child(heading)
 	row.add_child(content)
+	parent.add_child(row)
+
+
+func _add_currency_detail_row(
+	parent: VBoxContainer,
+	row_name: String,
+	minimum_value: int,
+	maximum_value: int,
+) -> void:
+	var row := VBoxContainer.new()
+	row.add_theme_constant_override("separation", 2)
+	var heading := _field_label(row_name, 14)
+	heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	heading.add_theme_color_override("font_color", MUTED_INK)
+	row.add_child(heading)
+	var value: CurrencyAmount = (
+		CurrencyPresentationType.instantiate_amount(minimum_value, 16.0)
+	)
+	value.set_amount_text("%d–%d" % [minimum_value, maximum_value])
+	value.get_amount_label().add_theme_font_override(
+		"font", InventoryNotepadType.HANDWRITTEN_FONT
+	)
+	value.get_amount_label().add_theme_font_size_override("font_size", 16)
+	value.get_amount_label().add_theme_color_override("font_color", INK)
+	row.add_child(value)
 	parent.add_child(row)
 
 

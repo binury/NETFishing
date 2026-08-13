@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://trqvs4dgd4rt"
-path="res://.godot/imported/fish_coin.svg-9d00b5918d94a555938a84ee65e06386.ctex"
+uid="uid://datu7j7tq2k3e"
+path="res://.godot/imported/art_kit.png-b54a66a446203c844f97c37241065423.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://items/icons/placeholder/fish_coin.svg"
-dest_files=["res://.godot/imported/fish_coin.svg-9d00b5918d94a555938a84ee65e06386.ctex"]
+source_file="res://items/icons/art/art_kit.png"
+dest_files=["res://.godot/imported/art_kit.png-b54a66a446203c844f97c37241065423.ctex"]
 
 [params]
 
@@ -38,6 +38,3 @@ process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
 process/size_limit=0
 detect_3d/compress_to=1
-svg/scale=1.0
-editor/scale_with_editor_scale=false
-editor/convert_colors_with_editor_theme=false

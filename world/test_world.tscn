@@ -6,13 +6,13 @@
 [ext_resource type="Environment" path="res://world/environment/netfishing_environment.tres" id="4_environment"]
 
 [sub_resource type="BoxShape3D" id="NorthSouthBoundsShape"]
-size = Vector3(120, 14, 2)
+size = Vector3(168.8772, 14, 2)
 
 [sub_resource type="BoxShape3D" id="EastWestBoundsShape"]
-size = Vector3(2, 14, 90)
+size = Vector3(2, 14, 126.45079)
 
 [sub_resource type="BoxShape3D" id="FailsafeShape"]
-size = Vector3(118, 4, 88)
+size = Vector3(166.8772, 4, 124.45079)
 
 [node name="TestWorld" type="Node3D"]
 script = ExtResource("1_world")
@@ -49,25 +49,25 @@ shape = SubResource("FailsafeShape")
 [node name="WorldBounds" type="Node3D" parent="."]
 
 [node name="North" type="StaticBody3D" parent="WorldBounds"]
-position = Vector3(12, 5, 45)
+position = Vector3(12, 5, 63.225395)
 
 [node name="Shape" type="CollisionShape3D" parent="WorldBounds/North"]
 shape = SubResource("NorthSouthBoundsShape")
 
 [node name="South" type="StaticBody3D" parent="WorldBounds"]
-position = Vector3(12, 5, -45)
+position = Vector3(12, 5, -63.225395)
 
 [node name="Shape" type="CollisionShape3D" parent="WorldBounds/South"]
 shape = SubResource("NorthSouthBoundsShape")
 
 [node name="West" type="StaticBody3D" parent="WorldBounds"]
-position = Vector3(-48, 5, 0)
+position = Vector3(-72.4386, 5, 0)
 
 [node name="Shape" type="CollisionShape3D" parent="WorldBounds/West"]
 shape = SubResource("EastWestBoundsShape")
 
 [node name="East" type="StaticBody3D" parent="WorldBounds"]
-position = Vector3(72, 5, 0)
+position = Vector3(96.4386, 5, 0)
 
 [node name="Shape" type="CollisionShape3D" parent="WorldBounds/East"]
 shape = SubResource("EastWestBoundsShape")

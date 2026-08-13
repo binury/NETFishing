@@ -1,12 +1,13 @@
-[gd_scene load_steps=8 format=3]
+[gd_scene load_steps=9 format=3]
 
 [ext_resource type="Script" path="res://ui/fishing_shop.gd" id="1_script"]
 [ext_resource type="Theme" path="res://ui/game_theme.tres" id="2_theme"]
 [ext_resource type="Texture2D" path="res://items/icons/shop/64_speed_plus.png" id="3_reel"]
 [ext_resource type="Texture2D" path="res://items/icons/shop/64_power_plus.png" id="4_barrier"]
-[ext_resource type="Texture2D" path="res://items/icons/placeholder/fish_coin.svg" id="5_coin"]
+[ext_resource type="Texture2D" path="res://items/icons/shop/32_currency.png" id="5_coin"]
 [ext_resource type="Texture2D" path="res://items/icons/equipment/64_cooler_plus.png" id="6_cooler"]
 [ext_resource type="Texture2D" path="res://ui/icons/pictograms/x_light.png" id="7_close"]
+[ext_resource type="PackedScene" path="res://ui/components/currency_amount.tscn" id="8_currency"]
 
 [node name="FishingShop" type="Control"]
 unique_name_in_owner = true
@@ -126,12 +127,16 @@ icon = ExtResource("7_close")
 expand_icon = true
 icon_max_width = 40
 
-[node name="Feedback" type="Label" parent="ShopPanel/Margin/Layout"]
+[node name="Feedback" type="RichTextLabel" parent="ShopPanel/Margin/Layout"]
 unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 28)
 layout_mode = 2
 text = ""
-horizontal_alignment = 1
-theme_override_colors/font_color = Color(1, 0.82, 0.4, 1)
+bbcode_enabled = true
+fit_content = true
+scroll_active = false
+theme_override_colors/default_color = Color(1, 0.82, 0.4, 1)
+theme_override_font_sizes/normal_font_size = 20
 
 [node name="ShopTabBar" type="HBoxContainer" parent="."]
 unique_name_in_owner = true
@@ -184,164 +189,102 @@ layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/separation = 5
 
-[node name="ReelCard" type="PanelContainer" parent="ShopPanel/Margin/Layout/Body/Upgrades"]
+[node name="UpgradeScroll" type="ScrollContainer" parent="ShopPanel/Margin/Layout/Body/Upgrades"]
 layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
 
-[node name="Margin" type="MarginContainer" parent="ShopPanel/Margin/Layout/Body/Upgrades/ReelCard"]
-layout_mode = 2
-theme_override_constants/margin_left = 9
-theme_override_constants/margin_top = 7
-theme_override_constants/margin_right = 9
-theme_override_constants/margin_bottom = 7
-
-[node name="Row" type="HBoxContainer" parent="ShopPanel/Margin/Layout/Body/Upgrades/ReelCard/Margin"]
-layout_mode = 2
-theme_override_constants/separation = 9
-
-[node name="Icon" type="TextureRect" parent="ShopPanel/Margin/Layout/Body/Upgrades/ReelCard/Margin/Row"]
-custom_minimum_size = Vector2(88, 88)
-layout_mode = 2
-texture = ExtResource("3_reel")
-expand_mode = 1
-stretch_mode = 5
-texture_filter = 1
-
-[node name="Data" type="VBoxContainer" parent="ShopPanel/Margin/Layout/Body/Upgrades/ReelCard/Margin/Row"]
+[node name="UpgradeGrid" type="GridContainer" parent="ShopPanel/Margin/Layout/Body/Upgrades/UpgradeScroll"]
+unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
+theme_override_constants/h_separation = 20
+theme_override_constants/v_separation = 20
+columns = 3
 
-[node name="Name" type="Label" parent="ShopPanel/Margin/Layout/Body/Upgrades/ReelCard/Margin/Row/Data"]
+[node name="ReelTile" type="Control" parent="ShopPanel/Margin/Layout/Body/Upgrades/UpgradeScroll/UpgradeGrid"]
+custom_minimum_size = Vector2(144, 168)
 layout_mode = 2
-text = "reel speed"
-theme_override_font_sizes/font_size = 22
+mouse_filter = 2
 
-[node name="ReelLevel" type="Label" parent="ShopPanel/Margin/Layout/Body/Upgrades/ReelCard/Margin/Row/Data"]
+[node name="ReelPurchase" type="Button" parent="ShopPanel/Margin/Layout/Body/Upgrades/UpgradeScroll/UpgradeGrid/ReelTile"]
+unique_name_in_owner = true
+offset_right = 144.0
+offset_bottom = 144.0
+tooltip_text = "reel speed"
+icon = ExtResource("3_reel")
+expand_icon = true
+icon_max_width = 128
+
+[node name="ReelPriceBubble" type="PanelContainer" parent="ShopPanel/Margin/Layout/Body/Upgrades/UpgradeScroll/UpgradeGrid/ReelTile"]
+unique_name_in_owner = true
+z_index = 2
+offset_left = 22.0
+offset_top = 128.0
+offset_right = 122.0
+offset_bottom = 160.0
+mouse_filter = 2
+
+[node name="ReelCost" parent="ShopPanel/Margin/Layout/Body/Upgrades/UpgradeScroll/UpgradeGrid/ReelTile/ReelPriceBubble" instance=ExtResource("8_currency")]
 unique_name_in_owner = true
 layout_mode = 2
-text = "level 0"
-theme_override_font_sizes/font_size = 18
+amount = 50
+icon_size = 24.0
 
-[node name="ReelEffect" type="Label" parent="ShopPanel/Margin/Layout/Body/Upgrades/ReelCard/Margin/Row/Data"]
+[node name="BarrierTile" type="Control" parent="ShopPanel/Margin/Layout/Body/Upgrades/UpgradeScroll/UpgradeGrid"]
+custom_minimum_size = Vector2(144, 168)
+layout_mode = 2
+mouse_filter = 2
+
+[node name="BarrierPurchase" type="Button" parent="ShopPanel/Margin/Layout/Body/Upgrades/UpgradeScroll/UpgradeGrid/BarrierTile"]
+unique_name_in_owner = true
+offset_right = 144.0
+offset_bottom = 144.0
+tooltip_text = "rod power"
+icon = ExtResource("4_barrier")
+expand_icon = true
+icon_max_width = 128
+
+[node name="BarrierPriceBubble" type="PanelContainer" parent="ShopPanel/Margin/Layout/Body/Upgrades/UpgradeScroll/UpgradeGrid/BarrierTile"]
+unique_name_in_owner = true
+z_index = 2
+offset_left = 22.0
+offset_top = 128.0
+offset_right = 122.0
+offset_bottom = 160.0
+mouse_filter = 2
+
+[node name="BarrierCost" parent="ShopPanel/Margin/Layout/Body/Upgrades/UpgradeScroll/UpgradeGrid/BarrierTile/BarrierPriceBubble" instance=ExtResource("8_currency")]
 unique_name_in_owner = true
 layout_mode = 2
-text = "1.00× → 1.10×"
-theme_override_font_sizes/font_size = 18
+amount = 100
+icon_size = 24.0
 
-[node name="ReelCost" type="Label" parent="ShopPanel/Margin/Layout/Body/Upgrades/ReelCard/Margin/Row/Data"]
+[node name="CoolerTile" type="Control" parent="ShopPanel/Margin/Layout/Body/Upgrades/UpgradeScroll/UpgradeGrid"]
+custom_minimum_size = Vector2(144, 168)
+layout_mode = 2
+mouse_filter = 2
+
+[node name="CoolerPurchase" type="Button" parent="ShopPanel/Margin/Layout/Body/Upgrades/UpgradeScroll/UpgradeGrid/CoolerTile"]
+unique_name_in_owner = true
+offset_right = 144.0
+offset_bottom = 144.0
+tooltip_text = "cooler capacity"
+icon = ExtResource("6_cooler")
+expand_icon = true
+icon_max_width = 128
+
+[node name="CoolerPriceBubble" type="PanelContainer" parent="ShopPanel/Margin/Layout/Body/Upgrades/UpgradeScroll/UpgradeGrid/CoolerTile"]
+unique_name_in_owner = true
+z_index = 2
+offset_left = 22.0
+offset_top = 128.0
+offset_right = 122.0
+offset_bottom = 160.0
+mouse_filter = 2
+
+[node name="CoolerCost" parent="ShopPanel/Margin/Layout/Body/Upgrades/UpgradeScroll/UpgradeGrid/CoolerTile/CoolerPriceBubble" instance=ExtResource("8_currency")]
 unique_name_in_owner = true
 layout_mode = 2
-text = "$50"
-theme_override_font_sizes/font_size = 18
-
-[node name="ReelPurchase" type="Button" parent="ShopPanel/Margin/Layout/Body/Upgrades/ReelCard/Margin/Row"]
-unique_name_in_owner = true
-layout_mode = 2
-text = "purchase"
-
-[node name="BarrierCard" type="PanelContainer" parent="ShopPanel/Margin/Layout/Body/Upgrades"]
-layout_mode = 2
-
-[node name="Margin" type="MarginContainer" parent="ShopPanel/Margin/Layout/Body/Upgrades/BarrierCard"]
-layout_mode = 2
-theme_override_constants/margin_left = 9
-theme_override_constants/margin_top = 7
-theme_override_constants/margin_right = 9
-theme_override_constants/margin_bottom = 7
-
-[node name="Row" type="HBoxContainer" parent="ShopPanel/Margin/Layout/Body/Upgrades/BarrierCard/Margin"]
-layout_mode = 2
-theme_override_constants/separation = 9
-
-[node name="Icon" type="TextureRect" parent="ShopPanel/Margin/Layout/Body/Upgrades/BarrierCard/Margin/Row"]
-custom_minimum_size = Vector2(88, 88)
-layout_mode = 2
-texture = ExtResource("4_barrier")
-expand_mode = 1
-stretch_mode = 5
-texture_filter = 1
-
-[node name="Data" type="VBoxContainer" parent="ShopPanel/Margin/Layout/Body/Upgrades/BarrierCard/Margin/Row"]
-layout_mode = 2
-size_flags_horizontal = 3
-
-[node name="Name" type="Label" parent="ShopPanel/Margin/Layout/Body/Upgrades/BarrierCard/Margin/Row/Data"]
-layout_mode = 2
-text = "rod power"
-theme_override_font_sizes/font_size = 22
-
-[node name="BarrierLevel" type="Label" parent="ShopPanel/Margin/Layout/Body/Upgrades/BarrierCard/Margin/Row/Data"]
-unique_name_in_owner = true
-layout_mode = 2
-text = "level 0"
-theme_override_font_sizes/font_size = 18
-
-[node name="BarrierEffect" type="Label" parent="ShopPanel/Margin/Layout/Body/Upgrades/BarrierCard/Margin/Row/Data"]
-unique_name_in_owner = true
-layout_mode = 2
-text = "1 damage → 2 damage"
-theme_override_font_sizes/font_size = 18
-
-[node name="BarrierCost" type="Label" parent="ShopPanel/Margin/Layout/Body/Upgrades/BarrierCard/Margin/Row/Data"]
-unique_name_in_owner = true
-layout_mode = 2
-text = "$100"
-theme_override_font_sizes/font_size = 18
-
-[node name="BarrierPurchase" type="Button" parent="ShopPanel/Margin/Layout/Body/Upgrades/BarrierCard/Margin/Row"]
-unique_name_in_owner = true
-layout_mode = 2
-text = "purchase"
-
-[node name="CoolerCard" type="PanelContainer" parent="ShopPanel/Margin/Layout/Body/Upgrades"]
-layout_mode = 2
-
-[node name="Margin" type="MarginContainer" parent="ShopPanel/Margin/Layout/Body/Upgrades/CoolerCard"]
-layout_mode = 2
-theme_override_constants/margin_left = 9
-theme_override_constants/margin_top = 7
-theme_override_constants/margin_right = 9
-theme_override_constants/margin_bottom = 7
-
-[node name="Row" type="HBoxContainer" parent="ShopPanel/Margin/Layout/Body/Upgrades/CoolerCard/Margin"]
-layout_mode = 2
-theme_override_constants/separation = 9
-
-[node name="Icon" type="TextureRect" parent="ShopPanel/Margin/Layout/Body/Upgrades/CoolerCard/Margin/Row"]
-custom_minimum_size = Vector2(88, 88)
-layout_mode = 2
-texture = ExtResource("6_cooler")
-expand_mode = 1
-stretch_mode = 5
-texture_filter = 1
-
-[node name="Data" type="VBoxContainer" parent="ShopPanel/Margin/Layout/Body/Upgrades/CoolerCard/Margin/Row"]
-layout_mode = 2
-size_flags_horizontal = 3
-
-[node name="Name" type="Label" parent="ShopPanel/Margin/Layout/Body/Upgrades/CoolerCard/Margin/Row/Data"]
-layout_mode = 2
-text = "cooler capacity"
-theme_override_font_sizes/font_size = 22
-
-[node name="CoolerLevel" type="Label" parent="ShopPanel/Margin/Layout/Body/Upgrades/CoolerCard/Margin/Row/Data"]
-unique_name_in_owner = true
-layout_mode = 2
-text = "level 0"
-theme_override_font_sizes/font_size = 18
-
-[node name="CoolerEffect" type="Label" parent="ShopPanel/Margin/Layout/Body/Upgrades/CoolerCard/Margin/Row/Data"]
-unique_name_in_owner = true
-layout_mode = 2
-text = "12 → 18 fish"
-theme_override_font_sizes/font_size = 18
-
-[node name="CoolerCost" type="Label" parent="ShopPanel/Margin/Layout/Body/Upgrades/CoolerCard/Margin/Row/Data"]
-unique_name_in_owner = true
-layout_mode = 2
-text = "$75"
-theme_override_font_sizes/font_size = 18
-
-[node name="CoolerPurchase" type="Button" parent="ShopPanel/Margin/Layout/Body/Upgrades/CoolerCard/Margin/Row"]
-unique_name_in_owner = true
-layout_mode = 2
-text = "purchase"
+amount = 75
+icon_size = 24.0

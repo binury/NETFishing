@@ -350,6 +350,7 @@ var _held_item_attachment: BoneAttachment3D
 var _held_fish_display: Node3D
 var _held_fish_attachment_offset: Vector3 = Vector3(0.0, 0.08, 0.04)
 var _held_fish_sprite: Sprite3D
+var _held_art_kit_display: Node3D
 var _held_art_kit_sprite: Sprite3D
 var _catch_attachment_offset: Vector3 = Vector3(0.0, 0.08, 0.04)
 
@@ -510,6 +511,7 @@ func _initialize_held_item_attachment() -> void:
 	_held_fish_sprite = attachment.get_node(
 		"HeldFishDisplay/HeldFishSprite"
 	) as Sprite3D
+	_held_art_kit_display = attachment.get_node("HeldArtKitDisplay") as Node3D
 	_held_art_kit_sprite = attachment.get_node(
 		"HeldArtKitDisplay/HeldArtKitSprite"
 	) as Sprite3D
@@ -1710,6 +1712,8 @@ func set_active_art_kit(icon: Texture2D, should_show: bool) -> void:
 	_held_art_kit_visible = true
 	_held_art_kit_sprite.texture = icon
 	_held_art_kit_sprite.visible = true
+	if not previous_show_pose:
+		_held_art_kit_display.visible = false
 	_fishing_rod.visible = false
 	if item_changed:
 		_begin_pocket_visual(
@@ -1717,8 +1721,11 @@ func set_active_art_kit(icon: Texture2D, should_show: bool) -> void:
 			previous_show_pose,
 			true,
 			Callable(),
+			false,
+			_apply_active_art_kit_visual,
 		)
 	else:
+		_apply_active_art_kit_visual()
 		_update_character_animation()
 
 
@@ -1798,6 +1805,7 @@ func _apply_pending_held_fish() -> void:
 func _clear_active_art_kit() -> void:
 	var was_visible: bool = _held_art_kit_visible
 	_held_art_kit_visible = false
+	_held_art_kit_display.visible = false
 	_held_art_kit_sprite.texture = null
 	_held_art_kit_sprite.visible = false
 	if was_visible:
@@ -1805,6 +1813,12 @@ func _clear_active_art_kit() -> void:
 		if _held_fish_visible:
 			_apply_pending_held_fish()
 	_update_character_animation()
+
+
+func _apply_active_art_kit_visual() -> void:
+	if not _held_art_kit_visible or _held_art_kit_sprite.texture == null:
+		return
+	_held_art_kit_display.visible = true
 
 
 func _begin_pocket_visual(

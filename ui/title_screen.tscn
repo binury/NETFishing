@@ -1,4 +1,4 @@
-[gd_scene load_steps=18 format=3]
+[gd_scene load_steps=19 format=3]
 
 [ext_resource type="Script" path="res://ui/title_screen.gd" id="1_script"]
 [ext_resource type="Theme" path="res://ui/game_theme.tres" id="2_theme"]
@@ -21,6 +21,17 @@ shader = ExtResource("4_water_shader")
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_title_logo"]
 shader = ExtResource("6_logo_shader")
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_continue_stats"]
+content_margin_left = 14.0
+content_margin_top = 6.0
+content_margin_right = 14.0
+content_margin_bottom = 6.0
+bg_color = Color(0.031, 0.122, 0.169, 1)
+corner_radius_top_left = 14
+corner_radius_top_right = 14
+corner_radius_bottom_right = 14
+corner_radius_bottom_left = 14
 
 [node name="TitleScreen" type="Control"]
 unique_name_in_owner = true
@@ -433,15 +444,18 @@ motion_phase = 4.8
 deformation_amplitude = 0.02
 deformation_period = 4.8
 
-[node name="FeedbackLabel" type="Label" parent="ResponsiveTitleStage/TitlePresentationScaleRoot/Center/MainContent"]
+[node name="FeedbackLabel" type="RichTextLabel" parent="ResponsiveTitleStage/TitlePresentationScaleRoot/Center/MainContent"]
 unique_name_in_owner = true
 visible = false
-custom_minimum_size = Vector2(0, 44)
+custom_minimum_size = Vector2(430, 44)
 layout_mode = 2
+size_flags_horizontal = 4
 text = ""
-horizontal_alignment = 1
-vertical_alignment = 1
+bbcode_enabled = true
+scroll_active = false
 autowrap_mode = 2
+vertical_alignment = 1
+theme_override_styles/normal = SubResource("StyleBoxFlat_continue_stats")
 
 [node name="ConfirmationPage" parent="ResponsiveTitleStage/TitlePresentationScaleRoot" instance=ExtResource("10_confirmation_page")]
 unique_name_in_owner = true

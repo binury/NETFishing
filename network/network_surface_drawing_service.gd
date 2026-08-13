@@ -344,7 +344,7 @@ func arm_guide_action(action: int) -> bool:
 	_selected_canvas_id = ""
 	_update_aim()
 	_refresh_stencil_visibility()
-	_emit_hud_state("click a grid to %s it" % _guide_action_verb(action))
+	_emit_hud_state(_guide_action_status(action))
 	return true
 
 
@@ -1874,8 +1874,10 @@ func _execute_armed_guide_action() -> void:
 			_restore_selected_guide()
 		GuideAction.FINALIZE:
 			_finalize_selected_guide()
-	_clear_armed_guide_action(true)
-	_emit_hud_state("")
+	# Guide actions are persistent modes. Keep the selected action armed so
+	# multiple grids can be handled without returning to the toolbar after
+	# every click; selecting the active toggle again explicitly exits it.
+	_emit_hud_state(_guide_action_status(action))
 
 
 func _cancel_armed_guide_action() -> void:
@@ -1904,10 +1906,16 @@ func _guide_action_verb(action: int) -> String:
 		GuideAction.HIDE:
 			return "hide"
 		GuideAction.RESTORE:
-			return "restore"
+			return "show"
 		GuideAction.FINALIZE:
 			return "finish"
 	return "use"
+
+
+func _guide_action_status(action: int) -> String:
+	return "%s grid mode • click grids • toggle again to exit" % (
+		_guide_action_verb(action).capitalize()
+	)
 
 
 func _remove_selected_guide() -> void:

@@ -511,6 +511,8 @@ func _test_host_art_shop_purchase(
 		ArtShopStock.ART_KIT_ITEM_ID
 	)
 	assert(art_item != null and art_item.hotbar_allowed and art_item.equippable)
+	assert(art_item.icon != null)
+	assert(art_item.icon.resource_path.ends_with("/art/art_kit.png"))
 	assert(player.hotbar.assign_item(0, ArtShopStock.ART_KIT_ITEM_ID))
 	for product_id: StringName in [
 		&"marker_ocean_teal", &"brush_2x", &"grid_32x",
@@ -568,6 +570,41 @@ func _test_fishing_shop_sale_ui(
 	var shop_panel_style := shop_panel.get_theme_stylebox("panel") as StyleBoxFlat
 	assert(shop_panel_style != null)
 	assert(shop_panel_style.corner_radius_top_left == 24)
+	var upgrade_grid := shop.get_node("%UpgradeGrid") as GridContainer
+	assert(upgrade_grid != null and upgrade_grid.columns == 3)
+	assert((shop.get_node("%Upgrades") as Control).visible)
+	assert(not (shop.get_node("%Supplies") as Control).visible)
+	for upgrade_name: String in [
+		"ReelPurchase", "BarrierPurchase", "CoolerPurchase"
+	]:
+		var upgrade_button := shop.get_node("%%%s" % upgrade_name) as Button
+		assert(upgrade_button != null)
+		assert(upgrade_button.size == Vector2(144.0, 144.0))
+		assert(upgrade_button.text.is_empty())
+		assert(upgrade_button.icon != null)
+		assert(upgrade_button.tooltip_text.contains("level"))
+	assert(not shop.has_node("%ReelLevel"))
+	assert(not shop.has_node("%BarrierEffect"))
+	assert(not shop.has_node("%CoolerLevel"))
+	var balance_coin := shop.get_node(
+		"ShopPanel/Margin/Layout/Header/BalanceDisplay/CoinIcon"
+	) as TextureRect
+	assert(balance_coin != null and balance_coin.texture != null)
+	assert(
+		balance_coin.texture.resource_path.ends_with(
+			"/shop/32_currency.png"
+		)
+	)
+	for cost_name: String in ["ReelCost", "BarrierCost", "CoolerCost"]:
+		var cost_display := shop.get_node("%%%s" % cost_name) as CurrencyAmount
+		assert(cost_display != null)
+		var cost_icon := cost_display.get_node("Icon") as TextureRect
+		assert(cost_icon != null and cost_icon.texture != null)
+		assert(
+			cost_icon.texture.resource_path.ends_with(
+				"/shop/32_currency.png"
+			)
+		)
 	assert(not shop.has_node("ShopPanel/Margin/Layout/ModeTabs"))
 	var shop_tabs: Array = shop.get("_shop_tabs") as Array
 	assert(shop_tabs.size() == 6)
@@ -582,6 +619,37 @@ func _test_fishing_shop_sale_ui(
 		if child is Label:
 			stock_sections.append((child as Label).text)
 	assert(stock_sections == ["art kit", "markers", "brushes", "grids"])
+	var marker_icons := shop.find_children(
+		"MarkerIcon", "TextureRect", true, false
+	)
+	assert(marker_icons.size() == ArtShopStock.MARKER_PRODUCTS.size())
+	for index: int in marker_icons.size():
+		var marker_icon := marker_icons[index] as TextureRect
+		var marker_material := marker_icon.material as ShaderMaterial
+		var product_id: StringName = ArtShopStock.MARKER_PRODUCTS[index]
+		var color_id: StringName = PlayerArtUnlocks.color_id_for_product(
+			product_id
+		)
+		assert(marker_icon.texture.resource_path.ends_with("art_kit_marker.png"))
+		assert(marker_material != null)
+		assert(
+			marker_material.get_shader_parameter("marker_color")
+			== SurfaceDrawingPalette.get_color(color_id)
+		)
+	var price_bubbles := shop.find_children(
+		"PriceBubble", "PanelContainer", true, false
+	)
+	assert(not price_bubbles.is_empty())
+	for price_bubble: Node in price_bubbles:
+		var currency_icon := price_bubble.find_child(
+			"CurrencyIcon", true, false
+		) as TextureRect
+		assert(currency_icon != null and currency_icon.texture != null)
+		assert(
+			currency_icon.texture.resource_path.ends_with(
+				"/shop/32_currency.png"
+			)
+		)
 	await _activate_pointer_control(sell_mode, ui_viewport)
 	await process_frame
 	assert(shop.visible and not player_menu.visible)

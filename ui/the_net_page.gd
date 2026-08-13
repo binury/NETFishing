@@ -1,6 +1,10 @@
 class_name TheNetPage
 extends Control
 
+const CurrencyPresentationType = preload(
+	"res://ui/currency_presentation.gd"
+)
+
 enum View {
 	DAILY,
 	LIFETIME,
@@ -278,15 +282,11 @@ func _build_job_rows(jobs: Array[Dictionary], empty_text: String) -> void:
 		)
 		content.add_child(count)
 
-		var reward := Label.new()
-		reward.custom_minimum_size.x = 98.0
-		reward.text = "$%d  •  %d xp" % [
-			int(job.get("fish_coin", 0)), int(job.get("experience", 0)),
-		]
-		reward.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		reward.add_theme_color_override(
-			"font_color", UtilityPageStyle.OCEAN_TEXT_SECONDARY
+		var reward := _make_reward_display(
+			int(job.get("fish_coin", 0)),
+			int(job.get("experience", 0)),
 		)
+		reward.custom_minimum_size.x = 128.0
 		content.add_child(reward)
 
 		var claim := Button.new()
@@ -326,17 +326,19 @@ func _build_payment_rows() -> void:
 		var content := HBoxContainer.new()
 		content.add_theme_constant_override("separation", 14)
 		row.add_child(content)
+		var reward_details := VBoxContainer.new()
+		reward_details.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		var label := Label.new()
-		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		label.text = "%s\n$%d  •  %d xp" % [
-			str(reward.get("title", "completed job")),
-			int(reward.get("fish_coin", 0)),
-			int(reward.get("experience", 0)),
-		]
+		label.text = str(reward.get("title", "completed job"))
 		label.add_theme_color_override(
 			"font_color", UtilityPageStyle.OCEAN_TEXT_PRIMARY
 		)
-		content.add_child(label)
+		reward_details.add_child(label)
+		reward_details.add_child(_make_reward_display(
+			int(reward.get("fish_coin", 0)),
+			int(reward.get("experience", 0)),
+		))
+		content.add_child(reward_details)
 		var claim := Button.new()
 		claim.text = "claim"
 		claim.custom_minimum_size = Vector2(110.0, 42.0)
@@ -361,6 +363,27 @@ func _claim(claim_id: String) -> void:
 	if not _jobs.claim(claim_id):
 		_status.text = "payment could not be completed"
 	_refresh()
+
+
+func _make_reward_display(fish_coin: int, experience: int) -> HBoxContainer:
+	var reward := HBoxContainer.new()
+	reward.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	reward.add_theme_constant_override("separation", 7)
+	var currency: CurrencyAmount = (
+		CurrencyPresentationType.instantiate_amount(fish_coin, 18.0)
+	)
+	currency.get_amount_label().add_theme_color_override(
+		"font_color", UtilityPageStyle.OCEAN_TEXT_SECONDARY
+	)
+	reward.add_child(currency)
+	var experience_label := Label.new()
+	experience_label.text = "•  %d xp" % experience
+	experience_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	experience_label.add_theme_color_override(
+		"font_color", UtilityPageStyle.OCEAN_TEXT_SECONDARY
+	)
+	reward.add_child(experience_label)
+	return reward
 
 
 func _add_empty(message: String) -> void:

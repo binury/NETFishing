@@ -21,6 +21,7 @@ readonly -a QUICK_TESTS=(
 	"tests/shoreline_ambience_validation.gd"
 	"tests/surface_drawing_validation.gd"
 	"tests/terrain_blender_material_validation.gd"
+	"tests/texture_sampling_validation.gd"
 	"tests/world_time_validation.gd"
 	"tests/world_weather_validation.gd"
 )

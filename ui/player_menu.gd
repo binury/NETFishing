@@ -14,6 +14,9 @@ const FishInventoryType = preload("res://inventory/fish_inventory.gd")
 const InventoryNotepadType = preload(
 	"res://ui/components/inventory_notepad.gd"
 )
+const CurrencyPresentationType = preload(
+	"res://ui/currency_presentation.gd"
+)
 const OrganizerTabType = preload("res://ui/components/organizer_tab.gd")
 const FishPoolType = preload("res://fish/fish_pool.gd")
 const FishingSpotType = preload("res://fishing/fishing_spot.gd")
@@ -168,7 +171,7 @@ const SALE_CONFIRMATION_SIZE := Vector2(520.0, 190.0)
 @onready var _notepad_binding: Label = %BindingDecoration
 @onready var _notepad_title: Label = %NotepadTitle
 @onready var _notepad_rule: ColorRect = %NotepadRule
-@onready var _notepad_wallet_value: Label = %NotepadWalletValue
+@onready var _notepad_wallet_value: CurrencyAmount = %NotepadWalletValue
 @onready var _notepad_capacity_value: Label = %NotepadCapacityValue
 @onready var _cooler_detail_texture: TextureRect = %CoolerDetailTexture
 @onready var _cooler_detail_name: Label = %CoolerDetailName
@@ -178,7 +181,7 @@ const SALE_CONFIRMATION_SIZE := Vector2(520.0, 190.0)
 @onready var _cooler_weight_unit: Label = %CoolerWeightUnit
 @onready var _cooler_offer_row: HBoxContainer = %CoolerOfferRow
 @onready var _cooler_offer_label: Label = %CoolerOfferLabel
-@onready var _cooler_offer_value: Label = %CoolerOfferValue
+@onready var _cooler_offer_value: CurrencyAmount = %CoolerOfferValue
 @onready var _cooler_selection_summary: Control = %CoolerSelectionSummary
 @onready var _cooler_selection_empty: Label = %CoolerSelectionEmpty
 @onready var _cooler_selected_count_row: HBoxContainer = %CoolerSelectedCountRow
@@ -186,7 +189,7 @@ const SALE_CONFIRMATION_SIZE := Vector2(520.0, 190.0)
 @onready var _cooler_selected_count_label: Label = %CoolerSelectedCountLabel
 @onready var _cooler_combined_offer_row: HBoxContainer = %CoolerCombinedOfferRow
 @onready var _cooler_combined_offer_label: Label = %CoolerCombinedOfferLabel
-@onready var _cooler_combined_offer_value: Label = %CoolerCombinedOfferValue
+@onready var _cooler_combined_offer_value: CurrencyAmount = %CoolerCombinedOfferValue
 @onready var _favorite_bubble: NotepadInkActionType = %FavoriteBubble
 @onready var _sell_bubble: NotepadInkActionType = %SellBubble
 @onready var _sell_all_bubble: NotepadInkActionType = %SellAllBubble
@@ -247,7 +250,7 @@ const SALE_CONFIRMATION_SIZE := Vector2(520.0, 190.0)
 @onready var _content_stage: Control = %Content
 @onready var _cooler_scroll: ScrollContainer = %CoolerScroll
 @onready var _cooler_host: Control = %CoolerHost
-@onready var _wallet_balance: Label = %WalletBalance
+@onready var _wallet_balance: CurrencyAmount = %WalletBalance
 @onready var _header: Control = %Header
 @onready var _separator: Control = %Separator
 @onready var _wallet_status: BubbleStatusBubbleType = %WalletStatus
@@ -266,16 +269,16 @@ const SALE_CONFIRMATION_SIZE := Vector2(520.0, 190.0)
 @onready var _bag_detail_data: Label = %BagDetailData
 @onready var _sort_option: OptionButton = %SortOption
 @onready var _sort_direction: Button = %SortDirection
-@onready var _held_value: Label = %HeldValue
+@onready var _held_value: CurrencyAmount = %HeldValue
 @onready var _cooler_count: Label = %CoolerCount
 @onready var _inventory_empty: Label = %InventoryEmpty
 @onready var _selection_summary: Label = %SelectionSummary
 @onready var _favorite_button: Button = %FavoriteButton
 @onready var _sell_button: Button = %SellButton
 @onready var _sale_unavailable: Label = %SaleUnavailable
-@onready var _transaction_feedback: Label = %TransactionFeedback
+@onready var _transaction_feedback: RichTextLabel = %TransactionFeedback
 @onready var _sale_confirmation: PanelContainer = %SaleConfirmation
-@onready var _confirmation_message: Label = %ConfirmationMessage
+@onready var _confirmation_message: RichTextLabel = %ConfirmationMessage
 @onready var _confirm_sale_button: Button = %ConfirmSaleButton
 @onready var _cancel_sale_button: Button = %CancelSaleButton
 @onready var _logbook_empty: Label = %LogbookEmpty
@@ -1881,11 +1884,11 @@ func _apply_inventory_styles() -> void:
 		UtilityPageStyle.panel_style(),
 	)
 	_confirmation_message.add_theme_font_override(
-		"font",
+		"normal_font",
 		UtilityPageStyle.TuffyFont,
 	)
 	_confirmation_message.add_theme_color_override(
-		"font_color",
+		"default_color",
 		UtilityPageStyle.OCEAN_TEXT_PRIMARY,
 	)
 	UtilityPageStyle.apply_ocean_button(_confirm_sale_button)
@@ -2405,14 +2408,13 @@ func _update_shell_layout() -> void:
 	_notepad_capacity_value.size = (
 		Vector2(142.0, 17.0) if compact else Vector2(124.0, 23.0)
 	)
-	for status_value: Label in [
-		_notepad_wallet_value,
-		_notepad_capacity_value,
-	]:
-		status_value.add_theme_font_size_override(
-			"font_size",
-			10 if compact else 14,
-		)
+	_notepad_wallet_value.icon_size = 10.0 if compact else 14.0
+	_notepad_wallet_value.get_amount_label().add_theme_font_size_override(
+		"font_size", 10 if compact else 14
+	)
+	_notepad_capacity_value.add_theme_font_size_override(
+		"font_size", 10 if compact else 14
+	)
 	_cooler_detail_texture.position = (
 		Vector2(5.0, 84.0) if compact else Vector2(80.0, 137.0)
 	)
@@ -2594,22 +2596,21 @@ func _layout_cooler_detail_text(compact: bool) -> void:
 		"font_size",
 		13 if compact else 18,
 	)
-	_cooler_offer_value.add_theme_font_size_override(
-		"font_size",
-		10 if compact else 15,
+	_cooler_offer_value.icon_size = 10.0 if compact else 15.0
+	_cooler_offer_value.get_amount_label().add_theme_font_size_override(
+		"font_size", 10 if compact else 15
 	)
 
 
 func _layout_cooler_selection_text(compact: bool) -> void:
 	var row_height: float = 17.5 if compact else 20.0
-	for numeric_label: Label in [
-		_cooler_selected_count_value,
-		_cooler_combined_offer_value,
-	]:
-		numeric_label.add_theme_font_size_override(
-			"font_size",
-			10 if compact else 14,
-		)
+	_cooler_selected_count_value.add_theme_font_size_override(
+		"font_size", 10 if compact else 14
+	)
+	_cooler_combined_offer_value.icon_size = 10.0 if compact else 14.0
+	_cooler_combined_offer_value.get_amount_label().add_theme_font_size_override(
+		"font_size", 10 if compact else 14
+	)
 	for word_label: Label in [
 		_cooler_selection_empty,
 		_cooler_selected_count_label,
@@ -3438,9 +3439,9 @@ func _refresh_economy_summary() -> void:
 		if _inventory != null
 		else 0
 	)
-	_wallet_balance.text = "wallet: $%d" % balance
-	_wallet_status.set_content("wallet", "$%d" % balance)
-	_notepad_wallet_value.text = "$%d" % balance
+	_wallet_balance.set_amount(balance)
+	_wallet_status.set_currency_amount("wallet", balance)
+	_notepad_wallet_value.set_amount(balance)
 	_capacity_status.set_content("cooler", "%d / %d" % [
 		_inventory.get_all_catches().size() if _inventory != null else 0,
 		_cooler_capacity.get_capacity() if _cooler_capacity != null else 0,
@@ -3449,8 +3450,8 @@ func _refresh_economy_summary() -> void:
 		_inventory.get_all_catches().size() if _inventory != null else 0,
 		_cooler_capacity.get_capacity() if _cooler_capacity != null else 0,
 	]
-	_held_value_status.set_content("held value", "$%d" % held_total)
-	_held_value.text = "held fish base value: $%d" % held_total
+	_held_value_status.set_currency_amount("held value", held_total)
+	_held_value.set_amount(held_total)
 	_cooler_count.text = "%d / %d" % [
 		_inventory.get_all_catches().size() if _inventory != null else 0,
 		_cooler_capacity.get_capacity() if _cooler_capacity != null else 0,
@@ -3707,7 +3708,7 @@ func _on_catch_card_pressed(catch_id: StringName) -> void:
 		Input.is_key_pressed(KEY_CTRL),
 		Input.is_key_pressed(KEY_SHIFT)
 	)
-	_transaction_feedback.text = ""
+	_set_transaction_feedback("")
 	_refresh_inventory()
 
 
@@ -3719,7 +3720,7 @@ func _on_fish_field_gui_input(event: InputEvent) -> void:
 		and not get_viewport().gui_is_dragging()
 	):
 		_fish_selection.clear()
-		_transaction_feedback.text = ""
+		_set_transaction_feedback("")
 		_refresh_inventory()
 
 
@@ -3751,9 +3752,9 @@ func _clear_cooler_detail_stats() -> void:
 		_cooler_weight_value,
 		_cooler_weight_unit,
 		_cooler_offer_label,
-		_cooler_offer_value,
 	]:
 		label.text = ""
+	_cooler_offer_value.visible = false
 
 
 func _set_cooler_selection_summary_empty() -> void:
@@ -3764,10 +3765,10 @@ func _set_cooler_selection_summary_empty() -> void:
 		_cooler_selected_count_value,
 		_cooler_selected_count_label,
 		_cooler_combined_offer_label,
-		_cooler_combined_offer_value,
 	]:
 		label.visible = false
 		label.text = ""
+	_cooler_combined_offer_value.visible = false
 
 
 func _set_cooler_selection_summary(
@@ -3785,10 +3786,9 @@ func _set_cooler_selection_summary(
 	_cooler_selected_count_label.text = "fish selected"
 	if offer_value >= 0:
 		_cooler_combined_offer_label.text = "combined offer"
-		_cooler_combined_offer_value.text = "$%d" % offer_value
+		_cooler_combined_offer_value.set_amount(offer_value)
 	else:
 		_cooler_combined_offer_label.text = "offer unavailable"
-		_cooler_combined_offer_value.text = ""
 
 
 func _update_inventory_detail(fish_catch: FishCatchType) -> void:
@@ -3838,10 +3838,11 @@ func _update_inventory_detail(fish_catch: FishCatchType) -> void:
 	]
 	if buyer_offer >= 0 and active_buyer != null:
 		_cooler_offer_label.text = _get_offer_label(active_buyer)
-		_cooler_offer_value.text = "$%d" % buyer_offer
+		_cooler_offer_value.visible = true
+		_cooler_offer_value.set_amount(buyer_offer)
 	else:
 		_cooler_offer_label.text = "buyer unavailable"
-		_cooler_offer_value.text = ""
+		_cooler_offer_value.visible = false
 	_favorite_button.disabled = false
 	_favorite_button.text = (
 		"unfavorite" if fish_catch.is_favorited else "favorite"
@@ -3970,12 +3971,8 @@ func _update_sale_summary() -> void:
 			or preview.status == FishSaleResultType.Status.FAVORITED
 		)
 	):
-		_selection_summary.text += "\n%s total offer: $%d" % [
-			active_buyer.display_name,
-			preview.payout,
-		]
 		_set_cooler_selection_summary(selected_count, preview.payout)
-		_offer_status.set_content(offer_label, "$%d" % preview.payout)
+		_offer_status.set_currency_amount(offer_label, preview.payout)
 	else:
 		_set_cooler_selection_summary(selected_count, -1)
 		_offer_status.set_content(offer_label, "unavailable")
@@ -4058,7 +4055,7 @@ func _on_favorite_pressed() -> void:
 		fish_catch.catch_id,
 		not fish_catch.is_favorited
 	):
-		_transaction_feedback.text = (
+		_set_transaction_feedback(
 			"%s %s."
 			% [
 				fish_catch.fish.display_name,
@@ -4074,7 +4071,7 @@ func _on_sell_pressed() -> void:
 func _on_sell_all_pressed() -> void:
 	var catch_ids: Array[StringName] = _get_sell_all_catch_ids()
 	if catch_ids.is_empty():
-		_transaction_feedback.text = "No sellable fish in the cooler."
+		_set_transaction_feedback("No sellable fish in the cooler.")
 		return
 	_begin_sale_confirmation(catch_ids)
 
@@ -4091,14 +4088,14 @@ func _begin_sale_confirmation(catch_ids: Array[StringName]) -> void:
 			and _network_sale_service.is_local_sale_pending()
 		)
 	):
-		_transaction_feedback.text = "Selling…"
+		_set_transaction_feedback("Selling…")
 		return
 	if (
 		_network_sale_service == null
 		or buyer_id.is_empty()
 		or not _network_sale_service.can_request_sale(buyer_id)
 	):
-		_transaction_feedback.text = (
+		_set_transaction_feedback(
 			"Selling is not supported by this server."
 		)
 		return
@@ -4114,7 +4111,7 @@ func _begin_sale_confirmation(catch_ids: Array[StringName]) -> void:
 		active_buyer
 	)
 	if not preview.is_success():
-		_transaction_feedback.text = (
+		_set_transaction_feedback(
 			"favorited fish cannot be sold. "
 			+ "remove them from the selection first."
 			if preview.status == FishSaleResultType.Status.FAVORITED
@@ -4128,15 +4125,15 @@ func _begin_sale_confirmation(catch_ids: Array[StringName]) -> void:
 	_confirmation_generation = _menu_generation
 	var fish_label: String = "fish"
 	_confirmation_message.text = (
-		"sell %d %s to the %s for $%d?\ncombined base value: $%d"
-		% [
-			preview.fish_count,
-			fish_label,
-			_get_buyer_display_group(active_buyer),
-			preview.payout,
-			preview.base_value,
-		]
-	)
+		"[center]sell %d %s to the %s for %s?\n"
+		+ "combined base value: %s[/center]"
+	) % [
+		preview.fish_count,
+		fish_label,
+		_get_buyer_display_group(active_buyer),
+		CurrencyPresentationType.bbcode_amount(preview.payout, 22),
+		CurrencyPresentationType.bbcode_amount(preview.base_value, 22),
+	]
 	_sale_confirmation.visible = true
 	if _shop_cooler_context_active:
 		shop_cooler_modal_changed.emit(true)
@@ -4182,7 +4179,7 @@ func _on_confirm_sale_pressed() -> void:
 		and transaction_generation == _menu_generation
 		and (visible or _shop_cooler_context_active)
 	):
-		_transaction_feedback.text = "Selling…"
+		_set_transaction_feedback("Selling…")
 
 
 func _can_use_shared_world_actions() -> bool:
@@ -4195,7 +4192,7 @@ func _can_use_shared_world_actions() -> bool:
 func _on_network_sale_pending(_request_id: String) -> void:
 	_sale_in_progress = true
 	if visible or _shop_cooler_context_active:
-		_transaction_feedback.text = "Selling…"
+		_set_transaction_feedback("Selling…")
 		_update_sale_summary()
 
 
@@ -4213,11 +4210,12 @@ func _on_network_sale_finished(
 		return
 	_refresh_all()
 	var feedback_message: String = (
-		"Sale complete. $%d received." % payout
+		"Sale complete • %s received."
+		% CurrencyPresentationType.bbcode_amount(payout, 20)
 		if accepted
 		else message
 	)
-	_transaction_feedback.text = feedback_message
+	_set_transaction_feedback(feedback_message)
 	if not accepted:
 		_sale_unavailable.text = feedback_message
 		_sale_unavailable.visible = true
@@ -4273,7 +4271,7 @@ func _revalidate_confirmation() -> void:
 		or _confirmation_buyer.id != _confirmation_buyer_id
 	):
 		_close_sale_confirmation()
-		_transaction_feedback.text = "sale selection is no longer available."
+		_set_transaction_feedback("sale selection is no longer available.")
 		return
 	var preview: FishSaleResultType = _sale_service.preview_batch(
 		_confirmation_catch_ids,
@@ -4288,7 +4286,7 @@ func _revalidate_confirmation() -> void:
 		)
 	):
 		_close_sale_confirmation()
-		_transaction_feedback.text = (
+		_set_transaction_feedback(
 			"favorited fish cannot be sold. "
 			+ "remove them from the selection first."
 			if preview.status == FishSaleResultType.Status.FAVORITED
@@ -4306,6 +4304,10 @@ func _get_buyer_display_group(
 	if not buyer.display_name.is_empty():
 		return buyer.display_name
 	return "buyer"
+
+
+func _set_transaction_feedback(message: String) -> void:
+	_transaction_feedback.text = "[center]%s[/center]" % message
 
 
 func _get_active_sale_buyer() -> FishBuyerProfileType:

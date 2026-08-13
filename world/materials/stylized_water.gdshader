@@ -49,9 +49,6 @@ uniform float shoreline_base_fill : hint_range(0.0, 1.0, 0.01) = 0.32;
 uniform float shoreline_opacity_boost : hint_range(0.0, 0.5, 0.01) = 0.26;
 uniform float surface_highlight_night_floor : hint_range(0.0, 1.0, 0.01) = 0.72;
 uniform float shoreline_minimum_reach : hint_range(0.1, 1.0, 0.01) = 0.48;
-uniform float shoreline_crest_width : hint_range(0.02, 0.5, 0.01) = 0.13;
-uniform float shoreline_trail_spacing : hint_range(0.05, 0.8, 0.01) = 0.28;
-uniform float shoreline_trail_strength : hint_range(0.0, 1.0, 0.01) = 0.55;
 
 uniform float distant_alpha_start : hint_range(10.0, 2000.0, 1.0) = 260.0;
 uniform float distant_alpha_end : hint_range(20.0, 5000.0, 1.0) = 1400.0;
@@ -486,25 +483,6 @@ void fragment() {
 		water_depth
 	);
 	shoreline_mask *= shoreline_depth_visibility;
-	float shoreline_lead_depth = animated_shoreline_depth * 0.82;
-	float shoreline_lead_crest = 1.0 - smoothstep(
-		shoreline_crest_width * 0.25,
-		shoreline_crest_width,
-		abs(contour_depth - shoreline_lead_depth)
-	);
-	float shoreline_trail_depth = max(
-		shoreline_lead_depth - shoreline_trail_spacing,
-		shoreline_crest_width
-	);
-	float shoreline_trail_crest = 1.0 - smoothstep(
-		shoreline_crest_width * 0.40,
-		shoreline_crest_width * 1.45,
-		abs(contour_depth - shoreline_trail_depth)
-	);
-	shoreline_lead_crest *= shoreline_depth_visibility;
-	shoreline_trail_crest *= (
-		shoreline_depth_visibility * shoreline_trail_strength
-	);
 	float shoreline_marks = max(
 		blocky_mark_layer(
 			world_position.xz * shoreline_mark_density
@@ -524,17 +502,14 @@ void fragment() {
 		1.0,
 		shoreline_marks
 	);
-	float moving_crests = max(
-		shoreline_lead_crest,
-		shoreline_trail_crest
-	) * mix(0.68, 1.0, shoreline_marks);
-	shoreline_foam = max(shoreline_foam, moving_crests);
 	shoreline_foam *= shoreline_proximity;
 	water_alpha = min(
 		water_alpha + shoreline_foam * shoreline_opacity_boost,
 		0.98
 	);
-	water_alpha *= contact_stability;
+	// Preserve most of the water layer at exact terrain contact. Fully fading
+	// it exposed the sand texture as a broken tan seam along the water plane.
+	water_alpha *= mix(0.82, 1.0, contact_stability);
 
 	float surface_mottle = value_noise(
 		world_position.xz * surface_mottle_scale

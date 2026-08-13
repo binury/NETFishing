@@ -1,10 +1,14 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=8 format=3]
 
 [ext_resource type="Script" path="res://ui/surface_drawing_toolbar.gd" id="1_script"]
 [ext_resource type="Theme" path="res://ui/game_theme.tres" id="2_theme"]
 [ext_resource type="Texture2D" path="res://ui/icons/pictograms/undo_light.png" id="3_undo_light"]
 [ext_resource type="Texture2D" path="res://ui/icons/pictograms/check_mark_light.png" id="4_check_mark_light"]
 [ext_resource type="Texture2D" path="res://ui/icons/pictograms/x_light.png" id="5_x_light"]
+[ext_resource type="Texture2D" path="res://items/icons/art/art_kit_eraser.png" id="6_art_kit_eraser"]
+
+[sub_resource type="ButtonGroup" id="GuideActionGroup"]
+allow_unpress = true
 
 [node name="SurfaceDrawingToolbar" type="Control"]
 visible = false
@@ -51,9 +55,12 @@ tooltip_text = "grid size"
 [node name="EraserButton" type="Button" parent="TopPanel/Top"]
 unique_name_in_owner = true
 layout_mode = 2
+texture_filter = 1
 tooltip_text = "toggle eraser"
 toggle_mode = true
-text = "⌫"
+accessibility_name = "toggle eraser"
+icon = ExtResource("6_art_kit_eraser")
+expand_icon = true
 
 [node name="UndoButton" type="Button" parent="TopPanel/Top"]
 unique_name_in_owner = true
@@ -67,24 +74,27 @@ expand_icon = true
 [node name="HideGuideButton" type="Button" parent="TopPanel/Top"]
 unique_name_in_owner = true
 layout_mode = 2
-tooltip_text = "hide grid on next click"
+tooltip_text = "toggle hide grid mode"
 toggle_mode = true
+button_group = SubResource("GuideActionGroup")
 text = "◌"
 
 [node name="RestoreGuideButton" type="Button" parent="TopPanel/Top"]
 unique_name_in_owner = true
 layout_mode = 2
-tooltip_text = "restore hidden grid on next click"
+tooltip_text = "toggle show grid mode"
 toggle_mode = true
+button_group = SubResource("GuideActionGroup")
 text = "▤"
 
 [node name="FinalizeGuideButton" type="Button" parent="TopPanel/Top"]
 unique_name_in_owner = true
 layout_mode = 2
 texture_filter = 1
-tooltip_text = "finish grid on next click"
+tooltip_text = "toggle finalize grid mode"
 toggle_mode = true
-accessibility_name = "finish grid on next click"
+button_group = SubResource("GuideActionGroup")
+accessibility_name = "toggle finalize grid mode"
 icon = ExtResource("4_check_mark_light")
 expand_icon = true
 

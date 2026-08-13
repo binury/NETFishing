@@ -165,9 +165,10 @@ func _validate_batch(
 			result.payout
 		)
 	else:
-		result.sale_message = "you sold %d fish to the %s for $%d." % [
+		result.sale_message = (
+			"you sold %d fish to the %s." % [
 			result.fish_count,
 			result.buyer_animal_name,
-			result.payout,
-		]
+			]
+		)
 	return result

@@ -51,7 +51,8 @@ func _rebuild(configuration: ShorelineRibbonConfig) -> Dictionary:
 		configuration.water_is_inside,
 		configuration.simplification_tolerance,
 		configuration.smoothing_iterations,
-		configuration.resample_spacing
+		configuration.resample_spacing,
+		configuration.corner_rounding_distance,
 	)
 	var output_directory := configuration.output_resource_path.get_base_dir()
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(output_directory))

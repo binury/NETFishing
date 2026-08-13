@@ -5,9 +5,14 @@ const WATER_PLANE_EPSILON := 0.001
 const ENDPOINT_MERGE_TOLERANCE := 0.03
 const LOOP_CLOSURE_TOLERANCE := 0.06
 const MINIMUM_FRAGMENT_LENGTH := 2.0
-const SIMPLIFICATION_TOLERANCE := 0.025
-const SMOOTHING_ITERATIONS := 0
-const RESAMPLE_SPACING := 0.10
+const SIMPLIFICATION_TOLERANCE := 0.55
+const SMOOTHING_ITERATIONS := 3
+const RESAMPLE_SPACING := 0.16
+const CORNER_ROUNDING_DISTANCE := 2.4
+const CORNER_ROUNDING_START_DEGREES := 24.0
+const CORNER_ROUNDING_FULL_DEGREES := 78.0
+const MAXIMUM_JOIN_SCALE := 1.0
+const RIBBON_REACH_GROWTH_PER_METER := 0.52
 const RIBBON_WIDTH := 1.35
 const LAND_INSET := 0.12
 const SURFACE_OFFSET := 0.018
@@ -21,7 +26,8 @@ static func generate(
 	water_is_inside: bool,
 	simplification_override := -1.0,
 	smoothing_iterations_override := -1,
-	resample_spacing_override := -1.0
+	resample_spacing_override := -1.0,
+	corner_rounding_override := -1.0
 ) -> Dictionary:
 	var simplification := (
 		SIMPLIFICATION_TOLERANCE
@@ -38,6 +44,11 @@ static func generate(
 		if resample_spacing_override < 0.0
 		else resample_spacing_override
 	)
+	var corner_rounding := (
+		CORNER_ROUNDING_DISTANCE
+		if corner_rounding_override < 0.0
+		else corner_rounding_override
+	)
 	var segments := _extract_segments(faces, water_height, bounds)
 	var raw_paths := _stitch_segments(segments)
 	var processed_paths: Array[Dictionary] = []
@@ -52,7 +63,12 @@ static func generate(
 			continue
 		var simplified := _simplify(raw_points, closed, simplification)
 		simplified_paths.append({"points": simplified, "closed": closed})
-		var smoothed := _chaikin(simplified, closed, smoothing_iterations)
+		var rounded := _round_sharp_corners(
+			simplified,
+			closed,
+			corner_rounding,
+		)
+		var smoothed := _chaikin(rounded, closed, smoothing_iterations)
 		var resampled := _resample(smoothed, closed, resample_spacing)
 		if resampled.size() < (3 if closed else 2):
 			continue
@@ -296,6 +312,65 @@ static func _chaikin(
 	return result
 
 
+static func _round_sharp_corners(
+	points: PackedVector2Array,
+	closed: bool,
+	rounding_distance: float,
+) -> PackedVector2Array:
+	if rounding_distance <= WATER_PLANE_EPSILON or points.size() < 3:
+		return points
+	var result := PackedVector2Array()
+	for index: int in points.size():
+		if not closed and (index == 0 or index == points.size() - 1):
+			result.append(points[index])
+			continue
+		var previous := points[(index - 1 + points.size()) % points.size()]
+		var point := points[index]
+		var following := points[(index + 1) % points.size()]
+		var incoming_vector := point - previous
+		var outgoing_vector := following - point
+		var incoming_length := incoming_vector.length()
+		var outgoing_length := outgoing_vector.length()
+		if (
+			incoming_length <= WATER_PLANE_EPSILON
+			or outgoing_length <= WATER_PLANE_EPSILON
+		):
+			result.append(point)
+			continue
+		var incoming := incoming_vector / incoming_length
+		var outgoing := outgoing_vector / outgoing_length
+		var turn_degrees := rad_to_deg(
+			acos(clampf(incoming.dot(outgoing), -1.0, 1.0))
+		)
+		var corner_weight := smoothstep(
+			CORNER_ROUNDING_START_DEGREES,
+			CORNER_ROUNDING_FULL_DEGREES,
+			turn_degrees,
+		)
+		var cut_distance := minf(
+			rounding_distance * corner_weight,
+			minf(incoming_length, outgoing_length) * 0.44,
+		)
+		if cut_distance <= WATER_PLANE_EPSILON:
+			result.append(point)
+			continue
+		var entry := point - incoming * cut_distance
+		var exit := point + outgoing * cut_distance
+		var curve_steps := maxi(3, ceili(cut_distance / 0.22))
+		for step: int in curve_steps + 1:
+			var amount := float(step) / float(curve_steps)
+			var first := entry.lerp(point, amount)
+			var second := point.lerp(exit, amount)
+			var rounded_point := first.lerp(second, amount)
+			if (
+				result.is_empty()
+				or result[result.size() - 1].distance_to(rounded_point)
+				> WATER_PLANE_EPSILON
+			):
+				result.append(rounded_point)
+	return result
+
+
 static func _resample(
 	points: PackedVector2Array,
 	closed: bool,
@@ -348,10 +423,10 @@ static func _build_mesh(
 			else 0.0
 		)
 		var base_index := vertices.size()
-		var path_distance := 0.0
+		var water_normals := PackedVector2Array()
+		var join_scales := PackedFloat32Array()
+		var water_reaches := PackedFloat32Array()
 		for index: int in points.size():
-			if index > 0:
-				path_distance += points[index - 1].distance_to(points[index])
 			var previous := points[(index - 1 + points.size()) % points.size()]
 			var following := points[(index + 1) % points.size()]
 			if not closed:
@@ -381,14 +456,37 @@ static func _build_mesh(
 					water_normal = -water_normal
 			var join_scale := minf(
 				1.0 / maxf(absf(water_normal.dot(outgoing_normal)), 0.55),
-				1.65,
+				MAXIMUM_JOIN_SCALE,
 			)
+			var water_reach := _safe_water_reach(
+				incoming,
+				outgoing,
+				water_normal,
+				previous.distance_to(point),
+				point.distance_to(following),
+				(RIBBON_WIDTH - LAND_INSET) * join_scale,
+			)
+			water_normals.append(water_normal)
+			join_scales.append(join_scale)
+			water_reaches.append(water_reach)
+		water_reaches = _smooth_water_reaches(
+			points,
+			water_reaches,
+			closed,
+		)
+		var path_distance := 0.0
+		for index: int in points.size():
+			if index > 0:
+				path_distance += points[index - 1].distance_to(points[index])
+			var point := points[index]
+			var water_normal := water_normals[index]
+			var join_scale := join_scales[index]
 			var land_point := (
 				point - water_normal * LAND_INSET * join_scale
 			)
 			var water_point := (
 				point
-				+ water_normal * (RIBBON_WIDTH - LAND_INSET) * join_scale
+				+ water_normal * water_reaches[index]
 			)
 			vertices.append(Vector3(land_point.x, water_height + SURFACE_OFFSET, land_point.y))
 			vertices.append(Vector3(water_point.x, water_height + SURFACE_OFFSET, water_point.y))
@@ -414,6 +512,58 @@ static func _build_mesh(
 	if not vertices.is_empty():
 		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
 	return mesh
+
+
+static func _safe_water_reach(
+	incoming: Vector2,
+	outgoing: Vector2,
+	water_normal: Vector2,
+	incoming_length: float,
+	outgoing_length: float,
+	desired_reach: float,
+) -> float:
+	var turn_cross := incoming.cross(outgoing)
+	var water_side := incoming.cross(water_normal)
+	if turn_cross * water_side <= 0.0:
+		return desired_reach
+	var turn_angle := acos(clampf(incoming.dot(outgoing), -1.0, 1.0))
+	if turn_angle <= WATER_PLANE_EPSILON:
+		return desired_reach
+	var radius := minf(incoming_length, outgoing_length) / maxf(
+		2.0 * sin(turn_angle * 0.5),
+		WATER_PLANE_EPSILON,
+	)
+	return minf(desired_reach, maxf(radius * 0.58, 0.24))
+
+
+static func _smooth_water_reaches(
+	points: PackedVector2Array,
+	reaches: PackedFloat32Array,
+	closed: bool,
+) -> PackedFloat32Array:
+	var result := reaches.duplicate()
+	if result.size() < 2:
+		return result
+	for _pass: int in 3:
+		var forward_start := 0 if closed else 1
+		for index: int in range(forward_start, result.size()):
+			var previous := (index - 1 + result.size()) % result.size()
+			var allowed := (
+				result[previous]
+				+ points[previous].distance_to(points[index])
+				* RIBBON_REACH_GROWTH_PER_METER
+			)
+			result[index] = minf(result[index], allowed)
+		var backward_start := result.size() - 1 if closed else result.size() - 2
+		for index: int in range(backward_start, -1, -1):
+			var following := (index + 1) % result.size()
+			var allowed := (
+				result[following]
+				+ points[index].distance_to(points[following])
+				* RIBBON_REACH_GROWTH_PER_METER
+			)
+			result[index] = minf(result[index], allowed)
+	return result
 
 
 static func _closed_path_water_side(

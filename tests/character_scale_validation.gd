@@ -47,6 +47,10 @@ func _run() -> void:
 	assert(body != null)
 	var body_material := body.material_override as StandardMaterial3D
 	assert(body_material != null)
+	assert(
+		body_material.texture_filter
+		== BaseMaterial3D.TEXTURE_FILTER_NEAREST
+	)
 	assert(body_material.shading_mode == BaseMaterial3D.SHADING_MODE_UNSHADED)
 	assert(is_zero_approx(body_material.metallic))
 	assert(is_zero_approx(body_material.metallic_specular))

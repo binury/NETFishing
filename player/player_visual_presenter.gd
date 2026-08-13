@@ -304,6 +304,7 @@ static func _runtime_fur_pattern_material(
 static func _configure_matte_material(material: StandardMaterial3D) -> void:
 	if material == null:
 		return
+	material.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
 	# Character artwork is deliberately graphic and flat. Unshaded rendering
 	# keeps the authored fur and facial colors invariant across world weather,
 	# time of day, and the isolated Profile preview.

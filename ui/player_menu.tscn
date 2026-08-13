@@ -1,4 +1,4 @@
-[gd_scene load_steps=33 format=3]
+[gd_scene load_steps=34 format=3]
 
 [ext_resource type="Script" path="res://ui/player_menu.gd" id="1_menu"]
 [ext_resource type="Theme" path="res://ui/game_theme.tres" id="2_theme"]
@@ -31,6 +31,7 @@
 [ext_resource type="Texture2D" path="res://ui/icons/tab_menu/profile_simple.png" id="29_profile_simple"]
 [ext_resource type="Texture2D" path="res://ui/icons/tab_menu/online_simple.png" id="30_online_simple"]
 [ext_resource type="Texture2D" path="res://ui/icons/tab_menu/close.png" id="31_close"]
+[ext_resource type="PackedScene" path="res://ui/components/currency_amount.tscn" id="32_currency"]
 
 [sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_collection"]
 
@@ -224,7 +225,7 @@ theme_override_font_sizes/font_size = 19
 text = "cooler notes"
 horizontal_alignment = 1
 
-[node name="NotepadWalletValue" type="Label" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/CoolerPage/DetailConstellation"]
+[node name="NotepadWalletValue" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/CoolerPage/DetailConstellation" instance=ExtResource("32_currency")]
 unique_name_in_owner = true
 layout_mode = 0
 offset_left = 18.0
@@ -232,9 +233,7 @@ offset_top = 61.0
 offset_right = 138.0
 offset_bottom = 84.0
 mouse_filter = 2
-theme_override_colors/font_color = Color(0.16, 0.16, 0.14, 1)
-theme_override_font_sizes/font_size = 14
-text = "$0"
+icon_size = 14.0
 
 [node name="NotepadCapacityValue" type="Label" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/CoolerPage/DetailConstellation"]
 unique_name_in_owner = true
@@ -367,12 +366,11 @@ mouse_filter = 2
 theme_override_colors/font_color = Color(0.16, 0.16, 0.14, 1)
 theme_override_font_sizes/font_size = 18
 
-[node name="CoolerOfferValue" type="Label" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/CoolerPage/DetailConstellation/CoolerDetailStats/CoolerOfferRow"]
+[node name="CoolerOfferValue" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/CoolerPage/DetailConstellation/CoolerDetailStats/CoolerOfferRow" instance=ExtResource("32_currency")]
 unique_name_in_owner = true
 layout_mode = 2
 mouse_filter = 2
-theme_override_colors/font_color = Color(0.16, 0.16, 0.14, 1)
-theme_override_font_sizes/font_size = 15
+icon_size = 15.0
 
 [node name="CoolerSelectionSummary" type="Control" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/CoolerPage/DetailConstellation"]
 unique_name_in_owner = true
@@ -442,12 +440,11 @@ theme_override_colors/font_color = Color(0.2, 0.18, 0.15, 0.86)
 theme_override_font_sizes/font_size = 18
 text = "combined offer"
 
-[node name="CoolerCombinedOfferValue" type="Label" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/CoolerPage/DetailConstellation/CoolerSelectionSummary/CoolerCombinedOfferRow"]
+[node name="CoolerCombinedOfferValue" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/CoolerPage/DetailConstellation/CoolerSelectionSummary/CoolerCombinedOfferRow" instance=ExtResource("32_currency")]
 unique_name_in_owner = true
 layout_mode = 2
 mouse_filter = 2
-theme_override_colors/font_color = Color(0.2, 0.18, 0.15, 0.86)
-theme_override_font_sizes/font_size = 14
+icon_size = 14.0
 
 [node name="FavoriteBubble" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/CoolerPage/DetailConstellation" instance=ExtResource("12_ink_action")]
 unique_name_in_owner = true
@@ -965,24 +962,31 @@ unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/separation = 8
 
-[node name="WalletBalance" type="Label" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/MenuPanel/Margin/Layout/Header"]
+[node name="WalletHeading" type="Label" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/MenuPanel/Margin/Layout/Header"]
+layout_mode = 2
+text = "wallet"
+theme_override_colors/font_color = Color(1, 0.82, 0.4, 1)
+
+[node name="WalletBalance" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/MenuPanel/Margin/Layout/Header" instance=ExtResource("32_currency")]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
-text = "wallet: $0"
-theme_override_colors/font_color = Color(1, 0.82, 0.4, 1)
+alignment = 0
 
 [node name="Separator" type="HSeparator" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/MenuPanel/Margin/Layout"]
 unique_name_in_owner = true
 layout_mode = 2
 
-[node name="TransactionFeedback" type="Label" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/MenuPanel/Margin/Layout"]
+[node name="TransactionFeedback" type="RichTextLabel" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/MenuPanel/Margin/Layout"]
 unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 30)
 layout_mode = 2
 text = ""
-horizontal_alignment = 1
-theme_override_colors/font_color = Color(1, 0.82, 0.4, 1)
-theme_override_font_sizes/font_size = 21
+bbcode_enabled = true
+fit_content = true
+scroll_active = false
+theme_override_colors/default_color = Color(1, 0.82, 0.4, 1)
+theme_override_font_sizes/normal_font_size = 21
 
 [node name="Content" type="Control" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/MenuPanel/Margin/Layout"]
 unique_name_in_owner = true
@@ -1057,12 +1061,16 @@ layout_mode = 2
 text = "0 / 12"
 theme_override_colors/font_color = Color(0.208, 0.725, 0.78, 1)
 
-[node name="HeldValue" type="Label" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/MenuPanel/Margin/Layout/Content/InventorySection/SortBar"]
+[node name="HeldValueHeading" type="Label" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/MenuPanel/Margin/Layout/Content/InventorySection/SortBar"]
+visible = false
+layout_mode = 2
+text = "held fish base value"
+theme_override_colors/font_color = Color(0.682, 0.733, 0.761, 1)
+
+[node name="HeldValue" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/MenuPanel/Margin/Layout/Content/InventorySection/SortBar" instance=ExtResource("32_currency")]
 unique_name_in_owner = true
 visible = false
 layout_mode = 2
-text = "held fish base value: $0"
-theme_override_colors/font_color = Color(0.682, 0.733, 0.761, 1)
 
 [node name="InventoryBody" type="BoxContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/MenuPanel/Margin/Layout/Content/InventorySection"]
 unique_name_in_owner = true
@@ -1366,12 +1374,15 @@ layout_mode = 2
 theme_override_constants/separation = 12
 alignment = 1
 
-[node name="ConfirmationMessage" type="Label" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/SaleConfirmation/ConfirmationMargin/ConfirmationLayout"]
+[node name="ConfirmationMessage" type="RichTextLabel" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/SaleConfirmation/ConfirmationMargin/ConfirmationLayout"]
 unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 64)
 layout_mode = 2
-theme_override_font_sizes/font_size = 22
+bbcode_enabled = true
+fit_content = true
+scroll_active = false
+theme_override_font_sizes/normal_font_size = 22
 autowrap_mode = 2
-horizontal_alignment = 1
 
 [node name="ConfirmationButtons" type="HBoxContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/SaleConfirmation/ConfirmationMargin/ConfirmationLayout"]
 layout_mode = 2
