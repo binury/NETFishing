@@ -152,6 +152,10 @@ const OPTIONS: Dictionary = {
 					"res://art/exported/characters/patterns/"
 					+ "fox/head_pointy_fox.png"
 				),
+				"head_round": (
+					"res://art/exported/characters/patterns/"
+					+ "fox/head_round_fox.png"
+				),
 				"tails_fox": (
 					"res://art/exported/characters/patterns/"
 					+ "fox/tails_fox_fox.png"

@@ -175,10 +175,11 @@ authored `mesh_style.png` filenames.
 | --- | --- | --- | --- |
 | Bengal spots, body and arms | `body_arms_bengal.png` | `art/exported/characters/patterns/bengal/body_arms_bengal.png` | `fa90bd4e74b0b770ce97bf69d069676f5d4bd1f5d649f89e09638a66b61a8470` |
 | Bengal spots, main body | `body_main_bengal.png` | `art/exported/characters/patterns/bengal/body_main_bengal.png` | `8662fa198220cfdbe0aa83bdeeef7b855e20124d74f8481467f750d32b67ee8b` |
-| Bengal spots, round head | `head_round_bengal.png` | `art/exported/characters/patterns/bengal/head_round_bengal.png` | `c464b042397f5ffe371c48a711ec3d7257adf794d363f3116cb2bddc23e444f8` |
-| Fox, body and arms | `body_arms_fox.png` | `art/exported/characters/patterns/fox/body_arms_fox.png` | `fd2ab31ede371129ca4806480783d57153318a909d6b87c593b6ff82d03d65eb` |
-| Fox, main body | `body_main_fox.png` | `art/exported/characters/patterns/fox/body_main_fox.png` | `d2a975cf042728299de4819a023a95e9c1467671a6886f6c6eaf8b44a5a9ca3a` |
-| Fox, pointy head | `head_pointy_fox.png` | `art/exported/characters/patterns/fox/head_pointy_fox.png` | `8e74685ef7a9f61b5ae75c16e86898ea80f3996471e2999862479798ce28aa52` |
+| Bengal spots, round head | `head_round_bengal.png` | `art/exported/characters/patterns/bengal/head_round_bengal.png` | `f397ed8d152e3fda8181757a2bbd01925b7b8c2c4362f515d91c7f0fbf3ddfb6` |
+| Fox, body and arms | `body_arms_fox.png` | `art/exported/characters/patterns/fox/body_arms_fox.png` | `9930808718f31d84b415902f1ba55ac2a508bb2ac127300e793d73a8a013022d` |
+| Fox, main body | `body_main_fox.png` | `art/exported/characters/patterns/fox/body_main_fox.png` | `c65e4390173b8c31c9396edd053f940f0f809e47e01d18042cd7babc712dde9d` |
+| Fox, pointy head | `head_pointy_fox.png` | `art/exported/characters/patterns/fox/head_pointy_fox.png` | `71a9d2383e62884dbd3981460fcd985b18805fa907f61ffb16dce08ff9418ddf` |
+| Fox, round head | `head_round_fox.png` | `art/exported/characters/patterns/fox/head_round_fox.png` | `86dd7af8a2346faf67359ad668a117a74e2408676137d6b0626403cfcf2aba73` |
 | Fox tail | `tails_fox_fox.png` | `art/exported/characters/patterns/fox/tails_fox_fox.png` | `72da9673f038e2c3bb8aca19ed99932085fa3b162cab95366901c4e97153dd3e` |
 
 ### Tekgator shop icon contribution record

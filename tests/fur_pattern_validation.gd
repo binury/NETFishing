@@ -81,6 +81,14 @@ func _run() -> void:
 	assert(fox_head_texture != null)
 	assert(fox_head_texture.get_width() == 1024)
 	assert(fox_head_texture.get_height() == 1024)
+	var fox_round_head_texture := (
+		CharacterCustomizationCatalog.fur_pattern_texture(
+			"fox", "head_round"
+		)
+	)
+	assert(fox_round_head_texture != null)
+	assert(fox_round_head_texture.get_width() == 1024)
+	assert(fox_round_head_texture.get_height() == 1024)
 	var fox_tail_texture := CharacterCustomizationCatalog.fur_pattern_texture(
 		"fox", "tails_fox"
 	)
@@ -152,6 +160,12 @@ func _run() -> void:
 	assert(
 		pointy_head_material.get_shader_parameter("pattern_texture")
 		== fox_head_texture
+	)
+	fox_snapshot["species"] = "round"
+	PlayerVisualPresenter.apply_appearance(visuals, fox_snapshot)
+	assert(
+		round_head_material.get_shader_parameter("pattern_texture")
+		== fox_round_head_texture
 	)
 	var fox_tail := skeleton.get_node_or_null("tails_fox") as MeshInstance3D
 	assert(fox_tail != null)
