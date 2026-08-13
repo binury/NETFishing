@@ -27,6 +27,55 @@ func _run() -> void:
 	await physics_frame
 
 	var player := main.get("_player") as Player
+	var sprint_dust := player.get_node("%SprintDust") as SprintDustTrail
+	assert(sprint_dust != null)
+	assert(sprint_dust.get_active_puff_count() == 0)
+	sprint_dust.update_trail(
+		0.016,
+		Vector3.ZERO,
+		Vector3(4.5, 0.0, 0.0),
+		true,
+	)
+	assert(sprint_dust.get_active_puff_count() == 0)
+	sprint_dust.update_trail(
+		0.016,
+		Vector3(0.5, 0.0, 0.0),
+		Vector3(4.5, 0.0, 0.0),
+		true,
+	)
+	assert(sprint_dust.get_active_puff_count() == 1)
+	var planted_puff_position: Vector3 = (
+		sprint_dust.get_first_active_puff_position()
+	)
+	sprint_dust.update_trail(
+		0.08,
+		Vector3(0.75, 0.0, 0.0),
+		Vector3(4.5, 0.0, 0.0),
+		true,
+	)
+	assert(
+		sprint_dust.get_first_active_puff_position()
+		== planted_puff_position
+	)
+	sprint_dust.update_trail(
+		0.08,
+		Vector3(0.75, 0.0, 0.0),
+		Vector3.ZERO,
+		false,
+	)
+	assert(sprint_dust.get_active_puff_count() == 1)
+	sprint_dust.clear_trail()
+	assert(sprint_dust.get_active_puff_count() == 0)
+	sprint_dust.emit_landing_burst(Vector3.ZERO, Vector3.FORWARD)
+	assert(sprint_dust.get_active_puff_count() == 5)
+	sprint_dust.update_trail(
+		0.08,
+		Vector3.ZERO,
+		Vector3.ZERO,
+		false,
+	)
+	assert(sprint_dust.get_active_puff_count() == 5)
+	sprint_dust.clear_trail()
 	var service := main.get_node(
 		"%NetworkSurfaceDrawingService"
 	) as NetworkSurfaceDrawingService

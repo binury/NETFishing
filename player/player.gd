@@ -34,6 +34,7 @@ const FishingRodAttachmentScene = preload(
 const HeldItemAttachmentScene = preload(
 	"res://player/held_item_attachment.tscn"
 )
+const SprintDustTrailType = preload("res://player/sprint_dust_trail.gd")
 
 signal retract_visual_finished
 
@@ -90,6 +91,7 @@ const BLINK_DURATION_SECONDS: float = 0.11
 const CHARACTER_CALL_MOUTH_ID: String = "open_ah"
 const CHARACTER_CALL_MOUTH_DURATION_SECONDS: float = 0.16
 const BASE_REEL_SPEED: float = 0.16
+const LANDING_DUST_MIN_FALL_SPEED: float = 2.5
 # The target Android handheld exposes its physical right trigger through
 # Godot's left-trigger axis. Keep the role named here so the platform mapping
 # remains isolated from camera behavior.
@@ -424,8 +426,11 @@ var _fishing_rod: Node3D
 var _fishing_rod_tip: Marker3D
 var _active_item_is_rod: bool = false
 var _controller_mapping_manager: ControllerMappingManagerType
+var _sprint_dust_landing_ready: bool = false
+var _sprint_dust_airborne: bool = false
+var _sprint_dust_fall_speed: float = 0.0
 
-@onready var _sprint_dust: CPUParticles3D = %SprintDust
+@onready var _sprint_dust: SprintDustTrailType = %SprintDust
 
 
 func _ready() -> void:
@@ -608,7 +613,7 @@ func _physics_process(delta: float) -> void:
 func _process(delta: float) -> void:
 	_update_blink(delta)
 	_update_character_animation()
-	_update_sprint_dust()
+	_update_sprint_dust(delta)
 	# The hand bone supplies the attachment position, but its animated wrist
 	# rotation should not turn the flat fish/catch artwork edge-on. Keep each
 	# display aligned with the character's facing while it follows the hand.
@@ -694,23 +699,53 @@ func _schedule_next_blink() -> void:
 	)
 
 
-func _update_sprint_dust() -> void:
+func _update_sprint_dust(delta: float) -> void:
 	if _sprint_dust == null:
 		return
-	var horizontal_speed_squared: float = (
-		velocity.x * velocity.x + velocity.z * velocity.z
-	)
+	var horizontal_velocity := Vector3(velocity.x, 0.0, velocity.z)
+	var grounded: bool = is_on_floor()
+	if _water_recovery_active:
+		_sprint_dust_airborne = false
+		_sprint_dust_fall_speed = 0.0
+	elif not _sprint_dust_landing_ready:
+		# Establish a real ground contact before arming landing effects. This
+		# prevents the player's initial placement from looking like a fall.
+		_sprint_dust_landing_ready = grounded
+	elif not grounded:
+		_sprint_dust_airborne = true
+		_sprint_dust_fall_speed = maxf(
+			_sprint_dust_fall_speed,
+			maxf(-velocity.y, 0.0),
+		)
+	elif _sprint_dust_airborne:
+		if _sprint_dust_fall_speed >= LANDING_DUST_MIN_FALL_SPEED:
+			var landing_facing: Vector3 = horizontal_velocity.normalized()
+			if landing_facing.is_zero_approx() and _visuals != null:
+				landing_facing = -_visuals.global_basis.z
+			_sprint_dust.emit_landing_burst(
+				global_position,
+				landing_facing,
+			)
+		_sprint_dust_airborne = false
+		_sprint_dust_fall_speed = 0.0
+	var horizontal_speed_squared: float = horizontal_velocity.length_squared()
 	var fastest_non_sprint_speed := maxf(
 		walk_speed,
 		maxf(sneak_speed, slow_walk_speed)
 	)
 	var running_threshold := fastest_non_sprint_speed + 0.5
-	_sprint_dust.emitting = (
-		is_on_floor()
+	var should_emit: bool = (
+		grounded
 		and not _sitting
 		and not _water_recovery_active
 		and horizontal_speed_squared
 		> running_threshold * running_threshold
+	)
+	_sprint_dust.update_trail(
+		delta,
+		global_position,
+		horizontal_velocity,
+		should_emit,
 	)
 
 

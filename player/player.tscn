@@ -1,4 +1,4 @@
-[gd_scene load_steps=21 format=3]
+[gd_scene load_steps=22 format=3]
 
 [ext_resource type="Script" path="res://player/player.gd" id="1_script"]
 [ext_resource type="Script" path="res://inventory/fish_inventory.gd" id="2_inventory"]
@@ -15,6 +15,7 @@
 [ext_resource type="PackedScene" path="res://art/exported/characters/base/netfishing_base_character.glb" id="13_character"]
 [ext_resource type="Script" path="res://progression/player_art_unlocks.gd" id="14_art_unlocks"]
 [ext_resource type="Script" path="res://progression/player_experience.gd" id="15_experience"]
+[ext_resource type="Script" path="res://player/sprint_dust_trail.gd" id="16_sprint_dust"]
 
 [sub_resource type="CapsuleShape3D" id="PlayerShape"]
 radius = 0.45
@@ -25,7 +26,7 @@ material = ExtResource("12_blob_shadow")
 size = Vector2(1.15, 0.72)
 
 [sub_resource type="Shader" id="SprintDustShader"]
-code = "shader_type spatial;\nrender_mode blend_mix, depth_draw_never, cull_disabled, unshaded, shadows_disabled;\n\nuniform vec4 dust_color : source_color = vec4(0.47, 0.39, 0.27, 0.42);\nvarying float particle_phase;\n\nvoid vertex() {\n\tparticle_phase = INSTANCE_CUSTOM.y;\n\tMODELVIEW_MATRIX = VIEW_MATRIX * mat4(\n\t\tINV_VIEW_MATRIX[0],\n\t\tINV_VIEW_MATRIX[1],\n\t\tINV_VIEW_MATRIX[2],\n\t\tMODEL_MATRIX[3]\n\t);\n}\n\nvoid fragment() {\n\tvec2 centered_uv = UV * 2.0 - 1.0;\n\tfloat angle = atan(centered_uv.y, centered_uv.x);\n\tfloat edge_wobble = sin(angle * 5.0 + particle_phase * 8.0) * 0.07;\n\tfloat radius = length(centered_uv);\n\tfloat soft_shape = 1.0 - smoothstep(0.48 + edge_wobble, 1.0 + edge_wobble, radius);\n\tfloat fade_in = smoothstep(0.0, 0.12, particle_phase);\n\tfloat fade_out = 1.0 - smoothstep(0.38, 1.0, particle_phase);\n\tALBEDO = dust_color.rgb;\n\tALPHA = soft_shape * dust_color.a * fade_in * fade_out;\n}\n"
+code = "shader_type spatial;\nrender_mode blend_mix, depth_draw_never, cull_disabled, unshaded, shadows_disabled;\n\nuniform vec3 dust_color : source_color = vec3(0.61, 0.57, 0.53);\nvarying flat float puff_phase;\nvarying flat float puff_alpha;\n\nvoid vertex() {\n\tpuff_phase = INSTANCE_CUSTOM.x;\n\tpuff_alpha = INSTANCE_CUSTOM.w;\n\tVERTEX.xy *= INSTANCE_CUSTOM.yz;\n\tfloat puff_rotation = puff_phase * 6.28318530718;\n\tfloat rotation_sine = sin(puff_rotation);\n\tfloat rotation_cosine = cos(puff_rotation);\n\tVERTEX.xy = mat2(\n\t\tvec2(rotation_cosine, -rotation_sine),\n\t\tvec2(rotation_sine, rotation_cosine)\n\t) * VERTEX.xy;\n\tMODELVIEW_MATRIX = VIEW_MATRIX * mat4(\n\t\tINV_VIEW_MATRIX[0],\n\t\tINV_VIEW_MATRIX[1],\n\t\tINV_VIEW_MATRIX[2],\n\t\tMODEL_MATRIX[3]\n\t);\n}\n\nvoid fragment() {\n\tvec2 centered_uv = UV * 2.0 - 1.0;\n\tfloat angle = atan(centered_uv.y, centered_uv.x);\n\tfloat edge_wobble =\n\t\tsin(angle * 5.0 + puff_phase * 8.0) * 0.07\n\t\t+ sin(angle * 3.0 - puff_phase * 5.0) * 0.025;\n\tfloat radius = length(centered_uv);\n\tif (radius > 0.82 + edge_wobble) {\n\t\tdiscard;\n\t}\n\tALBEDO = dust_color;\n\tALPHA = puff_alpha;\n}\n"
 
 [sub_resource type="ShaderMaterial" id="SprintDustMaterial"]
 render_priority = 1
@@ -33,7 +34,7 @@ shader = SubResource("SprintDustShader")
 
 [sub_resource type="QuadMesh" id="SprintDustMesh"]
 material = SubResource("SprintDustMaterial")
-size = Vector2(0.38, 0.28)
+size = Vector2(1, 1)
 
 [node name="Player" type="CharacterBody3D"]
 collision_layer = 2
@@ -66,27 +67,11 @@ rotation_degrees = Vector3(-90, 0, 0)
 cast_shadow = 0
 mesh = SubResource("GroundShadowMesh")
 
-[node name="SprintDust" type="CPUParticles3D" parent="."]
+[node name="SprintDust" type="MultiMeshInstance3D" parent="."]
 unique_name_in_owner = true
-position = Vector3(0, 0.08, 0)
-emitting = false
-amount = 16
-lifetime = 0.65
-randomness = 0.55
-visibility_aabb = AABB(-4, -2, -4, 8, 5, 8)
-local_coords = false
-emission_shape = 3
-emission_box_extents = Vector3(0.24, 0.03, 0.16)
-direction = Vector3(0, 1, 0)
-spread = 65.0
-gravity = Vector3(0, -0.8, 0)
-initial_velocity_min = 0.35
-initial_velocity_max = 0.8
-angular_velocity_min = -90.0
-angular_velocity_max = 90.0
-scale_amount_min = 0.35
-scale_amount_max = 0.72
-mesh = SubResource("SprintDustMesh")
+cast_shadow = 0
+script = ExtResource("16_sprint_dust")
+puff_mesh = SubResource("SprintDustMesh")
 
 [node name="CharacterRig" parent="Visuals" instance=ExtResource("13_character")]
 rotation_degrees = Vector3(0, 180, 0)
