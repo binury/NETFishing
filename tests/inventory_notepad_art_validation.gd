@@ -58,6 +58,7 @@ func _run() -> void:
 		))
 	_validate_shared_inventory_geometry(player_menu)
 	_validate_inventory_layering(player_menu)
+	_validate_cooler_notepad_typography(player_menu)
 	_validate_resolution_matrix()
 	await _capture_inventory_pages(player_menu)
 	print("Inventory notepad artwork validation: PASS")
@@ -128,7 +129,7 @@ func _validate_inventory_layering(player_menu: PlayerMenu) -> void:
 	# The contextual Hotbar uses z=90 while the Player Menu is open.
 	assert(sale_confirmation.z_index > 90)
 	assert(sale_confirmation.position.is_equal_approx(Vector2(380.0, 265.0)))
-	assert(sale_confirmation.size.is_equal_approx(Vector2(520.0, 190.0)))
+	assert(sale_confirmation.size.is_equal_approx(Vector2(520.0, 200.0)))
 	var confirmation_style := sale_confirmation.get_theme_stylebox(
 		"panel"
 	) as StyleBoxFlat
@@ -138,6 +139,39 @@ func _validate_inventory_layering(player_menu: PlayerMenu) -> void:
 			UtilityPageStyle.OCEAN_PANEL_DEEP
 		)
 	)
+
+
+func _validate_cooler_notepad_typography(player_menu: PlayerMenu) -> void:
+	var sort_choice := player_menu.get_node("%CoolerSortOption") as Control
+	var sort_direction := player_menu.get_node(
+		"%CoolerSortDirection"
+	) as Button
+	var empty_selection := player_menu.get_node(
+		"%CoolerSelectionEmpty"
+	) as Label
+	var favorite := player_menu.get_node("%FavoriteBubble") as Button
+	var sell := player_menu.get_node("%SellBubble") as Button
+	var sell_all := player_menu.get_node("%SellAllBubble") as Button
+	assert(sort_choice != null)
+	assert(sort_direction != null)
+	assert(empty_selection != null)
+	assert(favorite != null and sell != null and sell_all != null)
+	var displayed_value := sort_choice.get_node("%DisplayedValue") as Label
+	assert(displayed_value != null)
+	assert(displayed_value.get_theme_font_size("font_size") == 17)
+	for choice_name: StringName in [
+		&"CatchOrderChoice",
+		&"NameChoice",
+		&"RarityChoice",
+	]:
+		var choice := sort_choice.get_node("%%%s" % choice_name) as Button
+		assert(choice != null)
+		assert(choice.get_theme_font_size("font_size") == 17)
+	assert(sort_direction.get_theme_font_size("font_size") == 17)
+	assert(empty_selection.get_theme_font_size("font_size") == 20)
+	assert(favorite.get_theme_font_size("font_size") == 19)
+	assert(sell.get_theme_font_size("font_size") == 19)
+	assert(sell_all.get_theme_font_size("font_size") == 17)
 
 
 func _validate_resolution_matrix() -> void:

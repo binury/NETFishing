@@ -2391,10 +2391,10 @@ func _update_shell_layout() -> void:
 	_cooler_sort_direction.custom_minimum_size = (
 		Vector2(140.0, 31.0) if compact else Vector2(123.0, 38.0)
 	)
-	_cooler_sort_option.set_choice_font_size(12 if compact else 15)
+	_cooler_sort_option.set_choice_font_size(14 if compact else 17)
 	_cooler_sort_direction.add_theme_font_size_override(
 		"font_size",
-		12 if compact else 14,
+		14 if compact else 17,
 	)
 	_notepad_wallet_value.position = (
 		Vector2(10.0, 33.0) if compact else Vector2(18.0, 61.0)
@@ -2472,13 +2472,13 @@ func _update_shell_layout() -> void:
 		Vector2(96.0, 38.0) if compact else Vector2(122.0, 44.0)
 	)
 	_favorite_bubble.add_theme_font_size_override(
-		"font_size", 11 if compact else 17,
+		"font_size", 13 if compact else 19,
 	)
 	_sell_bubble.add_theme_font_size_override(
-		"font_size", 11 if compact else 17,
+		"font_size", 13 if compact else 19,
 	)
 	_sell_all_bubble.add_theme_font_size_override(
-		"font_size", 11 if compact else 15,
+		"font_size", 12 if compact else 17,
 	)
 	_update_sort_direction_text()
 	_bag_page.size = reference_size
@@ -2611,8 +2611,10 @@ func _layout_cooler_selection_text(compact: bool) -> void:
 	_cooler_combined_offer_value.get_amount_label().add_theme_font_size_override(
 		"font_size", 10 if compact else 14
 	)
+	_cooler_selection_empty.add_theme_font_size_override(
+		"font_size", 14 if compact else 20
+	)
 	for word_label: Label in [
-		_cooler_selection_empty,
 		_cooler_selected_count_label,
 		_cooler_combined_offer_label,
 	]:
