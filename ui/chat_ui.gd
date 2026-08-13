@@ -99,6 +99,7 @@ var _opacity_tween: Tween
 var _height_tween: Tween
 var _opened: bool = false
 var _available: bool = false
+var _hud_hidden: bool = false
 var _presentation_state := PresentationState.COMPACT
 var _visible_state_before_collapse := PresentationState.COMPACT
 var _panel_hovered: bool = false
@@ -435,7 +436,10 @@ func _build_ui() -> void:
 	_history.add_theme_stylebox_override("normal", _borderless_style(Color.TRANSPARENT))
 	box.add_child(_history)
 	_status = Label.new()
+	_status.name = "ChatStatus"
 	_status.custom_minimum_size = Vector2(0, 20)
+	_status.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_status.hide()
 	_status.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_status.add_theme_font_override("font", UtilityPageStyle.TuffyFont)
@@ -770,6 +774,8 @@ func _handle_chat_command(body: String) -> bool:
 	match command:
 		"time":
 			_handle_time_command(parts)
+		"weather":
+			_handle_weather_command(parts)
 		"":
 			_set_status("Enter a command after /.")
 		_:
@@ -810,6 +816,41 @@ func _handle_time_command(parts: PackedStringArray) -> void:
 	_service.broadcast_system_message(
 		"World time set to %s (%s)."
 		% [phase_name, _world_time.get_clock_text()]
+	)
+	close_chat()
+
+
+func _handle_weather_command(parts: PackedStringArray) -> void:
+	if parts.size() != 2:
+		_set_status("Usage: /weather [clear, cloudy, rainy, foggy]")
+		return
+	if _session == null or not _session.is_host():
+		_set_status("Only the host can change world weather.")
+		return
+	if _world_weather == null:
+		_set_status("World weather is unavailable.")
+		return
+	var weather_name := String(parts[1]).to_lower()
+	var target_weather: WorldWeatherServiceType.Weather
+	match weather_name:
+		"clear", "sunny":
+			target_weather = WorldWeatherServiceType.Weather.SUNNY
+			weather_name = "clear"
+		"cloudy":
+			target_weather = WorldWeatherServiceType.Weather.CLOUDY
+		"rainy":
+			target_weather = WorldWeatherServiceType.Weather.RAINY
+		"foggy":
+			target_weather = WorldWeatherServiceType.Weather.FOGGY
+		_:
+			_set_status("Usage: /weather [clear, cloudy, rainy, foggy]")
+			return
+	if not _world_weather.set_authoritative_weather(target_weather):
+		_set_status("World weather could not be changed.")
+		return
+	_set_status("")
+	_service.broadcast_system_message(
+		"World weather set to %s." % weather_name
 	)
 	close_chat()
 
@@ -956,6 +997,16 @@ func _refresh_visibility() -> void:
 		_unread_indicator.hide()
 		_hint.hide()
 		return
+	if _hud_hidden and not _opened:
+		_panel.hide()
+		_clock_panel.hide()
+		_weather_icon.hide()
+		_fish_finder_effect_icon.hide()
+		_collapse_button.hide()
+		_height_button.hide()
+		_unread_indicator.hide()
+		_hint.hide()
+		return
 	_clock_panel.show()
 	_weather_icon.show()
 	_fish_finder_effect_icon.visible = (
@@ -1042,6 +1093,15 @@ func set_mobile_mode(enabled: bool) -> void:
 
 func is_mobile_mode() -> bool:
 	return _mobile_mode
+
+
+func set_hud_hidden(hidden: bool) -> void:
+	_hud_hidden = hidden
+	_refresh_visibility()
+
+
+func is_hud_hidden() -> bool:
+	return _hud_hidden
 
 
 func _refresh_handle_labels(state: PresentationState) -> void:

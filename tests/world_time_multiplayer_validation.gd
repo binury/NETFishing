@@ -31,13 +31,15 @@ func _run_host() -> void:
 		main.get_node("%WorldWeatherService") as WorldWeatherService
 	)
 	assert(session.start_private_host(TEST_PORT))
+	var game_ui := main.get_node("%GameUI") as CanvasLayer
+	var chat_ui := game_ui.get_node("%ChatUI") as ChatUI
+	assert(chat_ui.call("_handle_chat_command", "/weather clear"))
+	assert(world_weather.get_weather() == WorldWeatherService.Weather.SUNNY)
 	world_time.synchronize_time(INITIAL_HOST_TIME)
 	assert(is_equal_approx(
 		world_time.get_persistent_time_hours(), INITIAL_HOST_TIME
 	))
-	world_weather.apply_authoritative_snapshot(
-		WorldWeatherService.Weather.RAINY, 300.0
-	)
+	assert(chat_ui.call("_handle_chat_command", "/weather rainy"))
 	assert(
 		world_weather.get_persistent_weather()
 		== WorldWeatherService.Weather.RAINY
@@ -66,9 +68,7 @@ func _run_host() -> void:
 	assert(is_equal_approx(
 		world_time.get_persistent_time_hours(), UPDATED_HOST_TIME
 	))
-	world_weather.apply_authoritative_snapshot(
-		WorldWeatherService.Weather.FOGGY, 300.0
-	)
+	assert(chat_ui.call("_handle_chat_command", "/weather foggy"))
 	assert(
 		world_weather.get_persistent_weather()
 		== WorldWeatherService.Weather.FOGGY

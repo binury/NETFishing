@@ -249,6 +249,15 @@ func _validate_environment_presentation() -> void:
 		< 0.01
 	)
 	var day_ambient_energy: float = runtime_environment.ambient_light_energy
+	assert(not runtime_environment.fog_enabled)
+	assert(is_equal_approx(runtime_environment.fog_sky_affect, 0.35))
+	var water_shader: Shader = preload(
+		"res://world/materials/stylized_water.gdshader"
+	)
+	assert("fog_disabled" in water_shader.code)
+	assert(is_zero_approx(float(
+		SaltWaterMaterial.get_shader_parameter("weather_fog_amount")
+	)))
 	var day_water_brightness := float(
 		SaltWaterMaterial.get_shader_parameter("environment_brightness")
 	)
@@ -292,17 +301,24 @@ func _validate_environment_presentation() -> void:
 	)
 	assert(night_water_tint.get_luminance() < 0.5)
 	var night_background_energy := runtime_environment.background_energy_multiplier
+	var night_ambient_energy := runtime_environment.ambient_light_energy
+	var night_fog_light_energy := runtime_environment.fog_light_energy
 	var night_adjustment_brightness := runtime_environment.adjustment_brightness
 	var night_adjustment_saturation := runtime_environment.adjustment_saturation
 	visuals.apply_weather_immediately(WorldWeatherService.Weather.FOGGY)
 	visuals.apply_time_immediately(0.0)
+	assert(runtime_environment.fog_enabled)
+	assert(float(
+		SaltWaterMaterial.get_shader_parameter("weather_fog_amount")
+	) > 0.99)
 	var foggy_sky_horizon := (
 		runtime_sky_material.get_shader_parameter("sky_horizon_color") as Color
 	)
 	assert(foggy_sky_horizon.is_equal_approx(night_horizon))
-	assert(is_zero_approx(runtime_environment.fog_sky_affect))
+	assert(is_equal_approx(runtime_environment.fog_sky_affect, 1.0))
+	assert(is_zero_approx(runtime_environment.fog_aerial_perspective))
 	assert(is_equal_approx(runtime_environment.fog_depth_begin, 3.0))
-	assert(is_equal_approx(runtime_environment.fog_depth_end, 28.0))
+	assert(is_equal_approx(runtime_environment.fog_depth_end, 18.0))
 	assert(is_equal_approx(
 		float(SaltWaterMaterial.get_shader_parameter("environment_brightness")),
 		night_water_brightness,
@@ -310,6 +326,14 @@ func _validate_environment_presentation() -> void:
 	assert(is_equal_approx(
 		runtime_environment.background_energy_multiplier,
 		night_background_energy,
+	))
+	assert(is_equal_approx(
+		runtime_environment.ambient_light_energy,
+		night_ambient_energy,
+	))
+	assert(is_equal_approx(
+		runtime_environment.fog_light_energy,
+		night_fog_light_energy,
 	))
 	assert(is_equal_approx(
 		runtime_environment.adjustment_brightness,
@@ -321,6 +345,10 @@ func _validate_environment_presentation() -> void:
 	))
 	visuals.apply_weather_immediately(WorldWeatherService.Weather.SUNNY)
 	visuals.apply_time_immediately(20.0)
+	assert(not runtime_environment.fog_enabled)
+	assert(is_zero_approx(float(
+		SaltWaterMaterial.get_shader_parameter("weather_fog_amount")
+	)))
 	var dusk_horizon: Color = runtime_sky_material.get_shader_parameter(
 		"sky_horizon_color"
 	) as Color

@@ -9,7 +9,6 @@ const BubbleButtonScene: PackedScene = preload(
 const BubbleProfile: BubbleMenuProfile = preload(
 	"res://ui/components/bubble_menu/bubble_menu_profile.tres"
 )
-const SECTOR_COUNT: int = 8
 const RING_RADIUS: float = 172.0
 const BUBBLE_SIZE: Vector2 = Vector2(92.0, 88.0)
 const CONTROLLER_SELECTION_DEADZONE: float = 0.35
@@ -25,6 +24,8 @@ const ACTIONS: Array[StringName] = [
 	&"online",
 	&"paint",
 	&"chat",
+	&"freecam",
+	&"hud",
 ]
 const LABELS: Array[String] = [
 	"stuff",
@@ -35,13 +36,17 @@ const LABELS: Array[String] = [
 	"online",
 	"paint",
 	"chat",
+	"freecam",
+	"hide hud",
 ]
+const SECTOR_COUNT: int = 10
 
 var _buttons: Array[BubbleButton] = []
 var _is_open: bool = false
 var _selected_sector: int = 0
 var _controller_selection_mode: bool = false
 var _controller_mapping_manager: ControllerMappingManagerType
+var _hud_hidden: bool = false
 
 
 func setup_controller_mapping(
@@ -58,7 +63,7 @@ func _ready() -> void:
 		bubble.profile = BubbleProfile
 		bubble.focus_mode = Control.FOCUS_NONE
 		bubble.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		bubble.text = LABELS[sector]
+		bubble.text = _label_for_sector(sector)
 		add_child(bubble)
 		_buttons.append(bubble)
 	_apply_selection_styles()
@@ -88,6 +93,7 @@ func open_menu(controller_selection: bool = false) -> void:
 	_selected_sector = 0
 	_controller_selection_mode = controller_selection
 	visible = true
+	_refresh_labels()
 	_layout_bubbles()
 	_apply_selection_styles()
 
@@ -99,6 +105,22 @@ func close_menu() -> void:
 
 func is_open() -> bool:
 	return _is_open
+
+
+func set_hud_hidden(hidden: bool) -> void:
+	_hud_hidden = hidden
+	_refresh_labels()
+
+
+func _refresh_labels() -> void:
+	for sector: int in _buttons.size():
+		_buttons[sector].text = _label_for_sector(sector)
+
+
+func _label_for_sector(sector: int) -> String:
+	if ACTIONS[sector] == &"hud":
+		return "show hud" if _hud_hidden else "hide hud"
+	return LABELS[sector]
 
 
 func _emit_selected_action(action_id: StringName) -> void:
@@ -157,7 +179,8 @@ func _update_mouse_selection() -> void:
 
 
 func _select_sector_from_offset(offset: Vector2) -> void:
-	var angle: float = fposmod(offset.angle() + PI * 0.5 + PI / 8.0, TAU)
+	var half_sector: float = TAU / (float(SECTOR_COUNT) * 2.0)
+	var angle: float = fposmod(offset.angle() + PI * 0.5 + half_sector, TAU)
 	var sector: int = int(floor(angle / (TAU / float(SECTOR_COUNT))))
 	if sector == _selected_sector:
 		return

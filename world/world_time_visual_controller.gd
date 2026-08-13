@@ -9,11 +9,20 @@ const RAIN_PARTICLE_AMOUNT: int = 560
 const RAIN_VELOCITY_MIN: float = 16.0
 const RAIN_VELOCITY_MAX: float = 20.0
 const RAIN_DROP_SIZE := Vector3(0.014, 0.34, 0.014)
+const FOG_DAYLIGHT_SCENE_BRIGHTNESS: float = 0.42
+const FOG_DAYLIGHT_FOG_LIGHT_BRIGHTNESS: float = 0.42
+const FOG_DAYLIGHT_WATER_BRIGHTNESS: float = 0.42
+const FOG_DAYLIGHT_POST_BRIGHTNESS: float = 0.50
+const RAIN_DAYLIGHT_POST_BRIGHTNESS: float = 0.52
+const WATER_FOG_COLOR := Color(0.025, 0.038, 0.045)
 const SALT_WATER_MATERIAL: ShaderMaterial = preload(
 	"res://world/materials/stylized_water.tres"
 )
 const FRESH_WATER_MATERIAL: ShaderMaterial = preload(
 	"res://world/materials/stylized_water_fresh.tres"
+)
+const LocalStormCloudLayerType = preload(
+	"res://world/environment/local_storm_cloud_layer.gd"
 )
 
 const DAY_SKY_TOP := Color(0.204, 0.498, 0.643)
@@ -44,15 +53,27 @@ const WARM_SUN := Color(1.0, 0.58, 0.30)
 const WARM_WATER_TINT := Color(0.78, 0.62, 0.58)
 const WARM_SUN_DISC := Color(1.0, 0.45, 0.16)
 const MOON_DISC := Color(0.78, 0.88, 1.0)
+const DAY_CLOUD_LIGHT := Color(0.70, 0.76, 0.77)
+const DAY_CLOUD_SHADOW := Color(0.31, 0.38, 0.40)
+const NIGHT_CLOUD_LIGHT := Color(0.18, 0.22, 0.30)
+const NIGHT_CLOUD_SHADOW := Color(0.06, 0.09, 0.14)
+const WARM_CLOUD_LIGHT := Color(0.76, 0.55, 0.45)
+const WARM_CLOUD_SHADOW := Color(0.31, 0.23, 0.24)
+const STORM_CLOUD_SHADOW := Color(0.08, 0.12, 0.14)
+const DAY_LOWER_CLOUD := Color(0.22, 0.25, 0.26)
+const NIGHT_LOWER_CLOUD := Color(0.08, 0.10, 0.14)
+const WARM_LOWER_CLOUD := Color(0.22, 0.16, 0.16)
 
 var _time_service: WorldTimeService
 var _weather_service: WorldWeatherService
 var _world_environment: WorldEnvironment
 var _sun: DirectionalLight3D
 var _rain_target: Node3D
+var _rain_camera_provider: Callable
 var _environment: Environment
 var _sky_material: ShaderMaterial
 var _rain: GPUParticles3D
+var _storm_clouds: LocalStormCloudLayer
 var _elapsed: float = 0.0
 var _weather_from: WorldWeatherService.Weather = (
 	WorldWeatherService.Weather.SUNNY
@@ -69,16 +90,19 @@ func setup(
 	sun: DirectionalLight3D,
 	weather_service: WorldWeatherService = null,
 	rain_target: Node3D = null,
+	rain_camera_provider: Callable = Callable(),
 ) -> void:
 	_time_service = time_service
 	_weather_service = weather_service
 	_world_environment = world_environment
 	_sun = sun
 	_rain_target = rain_target
+	_rain_camera_provider = rain_camera_provider
 	if not _prepare_runtime_environment():
 		set_process(false)
 		return
 	_prepare_rain()
+	_prepare_storm_clouds()
 	if _weather_service != null:
 		_weather_from = _weather_service.get_weather()
 		_weather_to = _weather_from
@@ -184,6 +208,13 @@ func _prepare_rain() -> void:
 	_update_rain_position()
 
 
+func _prepare_storm_clouds() -> void:
+	_storm_clouds = LocalStormCloudLayerType.new()
+	_storm_clouds.name = "LocalStormClouds"
+	add_child(_storm_clouds)
+	_storm_clouds.setup(_rain_target)
+
+
 func _apply_time(time_hours: float) -> void:
 	if _environment == null or _sky_material == null or _sun == null:
 		return
@@ -220,6 +251,19 @@ func _apply_time(time_hours: float) -> void:
 	var fog_color: Color = _blended_color(
 		NIGHT_FOG, DAY_FOG, WARM_FOG, daylight, warmth
 	)
+	var fog_daylight_amount: float = (
+		daylight * _weather_value(0.0, 0.0, 0.0, 1.0)
+	)
+	var rain_daylight_amount: float = (
+		daylight * _weather_value(0.0, 0.0, 1.0, 0.0)
+	)
+	var weather_fog_amount: float = _weather_value(0.0, 0.0, 1.0, 1.0)
+	_environment.fog_enabled = weather_fog_amount > 0.001
+	var fog_scene_brightness: float = lerpf(
+		1.0,
+		FOG_DAYLIGHT_SCENE_BRIGHTNESS,
+		fog_daylight_amount,
+	)
 	_sky_material.set_shader_parameter(
 		"sky_top_color", sky_top
 	)
@@ -235,24 +279,34 @@ func _apply_time(time_hours: float) -> void:
 		"ground_horizon_color",
 		ground_horizon,
 	)
+	_apply_sky_clouds(daylight, warmth)
 	_environment.background_energy_multiplier = (
 		lerpf(0.52, 0.85, daylight)
 		* _weather_value(1.0, 0.82, 0.66, 1.0)
+		* fog_scene_brightness
 	)
 	_environment.ambient_light_color = ambient
 	_environment.ambient_light_energy = (
 		lerpf(0.66, 1.08, daylight)
-		* _weather_value(1.0, 0.88, 0.76, 0.82)
+		* _weather_value(1.0, 0.88, 0.76, 1.0)
+		* fog_scene_brightness
 	)
 	_environment.fog_light_color = fog_color
 	_environment.fog_light_energy = (
 		lerpf(0.56, 0.82, daylight)
-		* _weather_value(1.0, 0.92, 0.82, 1.05)
+		* _weather_value(1.0, 0.92, 0.82, 1.0)
+		* lerpf(
+			1.0,
+			FOG_DAYLIGHT_FOG_LIGHT_BRIGHTNESS,
+			fog_daylight_amount,
+		)
 	)
 	_environment.fog_aerial_perspective = _weather_value(
-		0.35, 0.48, 0.62, 0.92
+		0.35, 0.48, 0.62, 0.0
 	)
-	_environment.fog_sky_affect = 0.0
+	_environment.fog_sky_affect = _weather_value(
+		0.35, 0.48, 0.68, 1.0
+	)
 	_environment.fog_depth_curve = _weather_value(
 		1.6, 1.5, 1.4, 1.18
 	)
@@ -260,12 +314,22 @@ func _apply_time(time_hours: float) -> void:
 		42.0, 32.0, 20.0, 3.0
 	)
 	_environment.fog_depth_end = _weather_value(
-		170.0, 140.0, 95.0, 28.0
+		170.0, 140.0, 95.0, 18.0
 	)
-	_apply_water_environment(daylight, warmth)
+	_apply_water_environment(daylight, warmth, weather_fog_amount)
 	_environment.adjustment_brightness = (
 		lerpf(0.93, 0.98, daylight)
 		* _weather_value(1.0, 0.97, 0.92, 1.0)
+		* lerpf(
+			1.0,
+			FOG_DAYLIGHT_POST_BRIGHTNESS,
+			fog_daylight_amount,
+		)
+		* lerpf(
+			1.0,
+			RAIN_DAYLIGHT_POST_BRIGHTNESS,
+			rain_daylight_amount,
+		)
 	)
 	_environment.adjustment_saturation = (
 		lerpf(0.82, 0.91, daylight)
@@ -299,7 +363,7 @@ func _apply_time(time_hours: float) -> void:
 	)
 	_sun.light_energy = (
 		lerpf(0.0, 0.10, daylight)
-		* _weather_value(1.0, 0.55, 0.25, 0.35)
+		* _weather_value(1.0, 0.55, 0.25, 0.30)
 	)
 	_update_rain_amount()
 
@@ -307,6 +371,7 @@ func _apply_time(time_hours: float) -> void:
 func _apply_water_environment(
 	daylight: float,
 	warmth: float,
+	weather_fog_amount: float,
 ) -> void:
 	var water_tint := _blended_color(
 		NIGHT_WATER_TINT,
@@ -318,6 +383,11 @@ func _apply_water_environment(
 	var water_brightness := (
 		lerpf(0.34, 1.0, daylight)
 		* _weather_value(1.0, 0.90, 0.78, 1.0)
+		* lerpf(
+			1.0,
+			FOG_DAYLIGHT_WATER_BRIGHTNESS,
+			daylight * _weather_value(0.0, 0.0, 0.0, 1.0),
+		)
 	)
 	for material: ShaderMaterial in [
 		SALT_WATER_MATERIAL,
@@ -327,6 +397,68 @@ func _apply_water_environment(
 		material.set_shader_parameter(
 			"environment_brightness",
 			water_brightness,
+		)
+		material.set_shader_parameter("weather_fog_color", WATER_FOG_COLOR)
+		material.set_shader_parameter(
+			"weather_fog_amount",
+			weather_fog_amount,
+		)
+		material.set_shader_parameter(
+			"weather_fog_begin",
+			_weather_value(42.0, 32.0, 20.0, 3.0),
+		)
+		material.set_shader_parameter(
+			"weather_fog_end",
+			_weather_value(170.0, 140.0, 95.0, 18.0),
+		)
+		material.set_shader_parameter(
+			"weather_fog_curve",
+			_weather_value(1.6, 1.5, 1.4, 1.18),
+		)
+
+
+func _apply_sky_clouds(daylight: float, warmth: float) -> void:
+	var cloud_light := _blended_color(
+		NIGHT_CLOUD_LIGHT,
+		DAY_CLOUD_LIGHT,
+		WARM_CLOUD_LIGHT,
+		daylight,
+		warmth,
+	)
+	var cloud_shadow := _blended_color(
+		NIGHT_CLOUD_SHADOW,
+		DAY_CLOUD_SHADOW,
+		WARM_CLOUD_SHADOW,
+		daylight,
+		warmth,
+	)
+	var storm_amount: float = _weather_value(0.0, 0.18, 0.55, 0.0)
+	cloud_light = cloud_light.lerp(cloud_shadow, storm_amount * 0.35)
+	cloud_shadow = cloud_shadow.lerp(
+		STORM_CLOUD_SHADOW,
+		storm_amount * 0.10,
+	)
+	var lower_cloud_color := _blended_color(
+		NIGHT_LOWER_CLOUD,
+		DAY_LOWER_CLOUD,
+		WARM_LOWER_CLOUD,
+		daylight,
+		warmth,
+	)
+	_sky_material.set_shader_parameter(
+		"cloud_coverage",
+		_weather_value(0.0, 0.58, 0.985, 0.0),
+	)
+	_sky_material.set_shader_parameter(
+		"cloud_opacity",
+		_weather_value(0.0, 0.76, 1.0, 0.0),
+	)
+	_sky_material.set_shader_parameter("cloud_light_color", cloud_light)
+	_sky_material.set_shader_parameter("cloud_shadow_color", cloud_shadow)
+	if _storm_clouds != null:
+		_storm_clouds.set_storm_amount(
+			_weather_value(0.0, 0.0, 1.0, 0.0),
+			lower_cloud_color,
 		)
 
 
@@ -382,7 +514,14 @@ func _update_rain_amount() -> void:
 func _update_rain_position() -> void:
 	if _rain == null or _rain_target == null:
 		return
-	_rain.global_position = _rain_target.global_position + RAIN_EMITTER_OFFSET
+	var anchor_position: Vector3 = _rain_target.global_position
+	if _rain_camera_provider.is_valid():
+		var camera_candidate: Variant = _rain_camera_provider.call()
+		if camera_candidate is Camera3D:
+			var active_camera := camera_candidate as Camera3D
+			if is_instance_valid(active_camera):
+				anchor_position = active_camera.global_position
+	_rain.global_position = anchor_position + RAIN_EMITTER_OFFSET
 
 
 func _daylight_amount(hour: float) -> float:

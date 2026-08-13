@@ -21,7 +21,8 @@ independent team Woofmeow.
   arms, ears and tails, and multiple world props and decorative assets,
   including trees and bridges. The contributor requested to be credited as
   `chillnfill`.
-- Tekgator: creator of the cooler-capacity and barrier-power shop icons.
+- Tekgator: creator of the cooler-capacity, reel-speed, and barrier-power shop
+  icons.
 
 Voyager is also the original catalog porter credit in PortMaster metadata.
 Third-party creators are credited with their individual records below. Those
@@ -124,6 +125,7 @@ locations only and must never appear in scenes or resources.
 | Fish art and portraits | `fish/species/`, `art/exported/fish/` | Original 2D artwork by co-owner Endeavour. |
 | Item icons | `items/icons/` | Original 2D artwork by co-owner Endeavour except where separately credited below. |
 | Cooler-capacity shop icon | `items/icons/equipment/64_cooler_plus.png` | Original artwork by Tekgator. Repository SHA-256: `b63705be5b78915753c068170323781a90e22b555b57a5b2ca9466e2726539f7`. |
+| Reel-speed shop icon | `items/icons/shop/64_speed_plus.png` | Original artwork by Tekgator. Repository SHA-256: `938452798f2be505e06ce3fbef178f52459331fd3bced8763fbc2a80157125ca`. |
 | Barrier-power shop icon | `items/icons/shop/64_power_plus.png` | Original artwork by Tekgator. Repository SHA-256: `164d34ce152aa6d75de79b69f0be2d9074f7891057de9636678889028ff98ae7`. |
 | Inventory notepad | `art/ui/ui_notepad.png` | Original 2D artwork by co-owner Endeavour; integrated without a runtime external path. |
 | Environment textures | `art/exported/environment/textures/` | Original 2D artwork by co-owner Endeavour. |
@@ -182,10 +184,13 @@ authored `mesh_style.png` filenames.
 ### Tekgator shop icon contribution record
 
 - Requested credit: `Tekgator`.
-- Original contributions: cooler-capacity and barrier-power shop icons.
+- Original contributions: cooler-capacity, reel-speed, and barrier-power shop
+  icons.
 - Repository files and SHA-256:
   - `items/icons/equipment/64_cooler_plus.png`:
     `b63705be5b78915753c068170323781a90e22b555b57a5b2ca9466e2726539f7`
+  - `items/icons/shop/64_speed_plus.png`:
+    `938452798f2be505e06ce3fbef178f52459331fd3bced8763fbc2a80157125ca`
   - `items/icons/shop/64_power_plus.png`:
     `164d34ce152aa6d75de79b69f0be2d9074f7891057de9636678889028ff98ae7`
 - Permission record: retain the original permission record or a later written

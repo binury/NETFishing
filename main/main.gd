@@ -420,6 +420,7 @@ func _initialize_application(dedicated: bool) -> void:
 			_test_world.get_sun(),
 			_world_weather,
 			_player,
+			Callable(_player, "get_active_gameplay_camera"),
 		)
 		if not _world_time.natural_time_advanced.is_connected(
 			_on_natural_time_advanced

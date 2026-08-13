@@ -1005,7 +1005,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	if not local_control_enabled or not _is_camera_input_enabled():
 		return
 	if event.is_action_pressed("toggle_free_camera"):
-		_set_free_camera_active(not _free_camera_active)
+		toggle_free_camera()
 		get_viewport().set_input_as_handled()
 		return
 
@@ -1138,6 +1138,16 @@ func _set_free_camera_active(active: bool) -> void:
 		_free_camera_body.queue_free()
 		_free_camera_body = null
 	_camera.current = local_control_enabled
+
+
+func toggle_free_camera() -> void:
+	if not local_control_enabled:
+		return
+	_set_free_camera_active(not _free_camera_active)
+
+
+func is_free_camera_active() -> bool:
+	return _free_camera_active
 
 
 func _update_free_camera_physics() -> void:

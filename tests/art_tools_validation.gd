@@ -85,6 +85,14 @@ func _run() -> void:
 	assert(not toolbar.is_docked_right())
 	var chat_panel := chat_ui.get_node("ChatPanel") as PanelContainer
 	var chat_height_button := chat_ui.get_node("ChatHeightButton") as Button
+	var chat_status := chat_ui.find_child(
+		"ChatStatus", true, false
+	) as Label
+	assert(chat_status != null)
+	assert(
+		chat_status.autowrap_mode
+		== TextServer.AUTOWRAP_WORD_SMART
+	)
 	assert(is_zero_approx(chat_panel.position.y))
 	assert(is_equal_approx(chat_panel.size.x, ChatUI.MOBILE_COMPACT_WIDTH))
 	assert(not chat_height_button.visible)
@@ -101,6 +109,17 @@ func _run() -> void:
 	default_docks.paint_dock_right = true
 	assert(settings_manager.apply_settings(default_docks))
 	await process_frame
+	chat_ui.call(
+		"_set_status",
+		(
+			"Unknown command: /this-command-name-is-intentionally-long-"
+			+ "enough-to-require-smart-character-wrapping"
+		),
+	)
+	await process_frame
+	assert(is_equal_approx(chat_panel.size.x, ChatUI.PANEL_WIDTH))
+	assert(chat_status.size.x <= ChatUI.PANEL_WIDTH)
+	chat_ui.call("_set_status", "")
 	assert(not chat_ui.is_docked_right())
 	assert(not chat_ui.is_mobile_mode())
 	assert(toolbar.is_docked_right())
@@ -140,6 +159,42 @@ func _run() -> void:
 	assert(bool(game_ui.call("_handle_controller_chat_controls", select_button)))
 	assert(chat_ui.is_open())
 	chat_ui.refocus_gameplay()
+	var quick_menu := game_ui.get_node(
+		"%QuickRadialMenu"
+	) as QuickRadialMenu
+	var emote_menu := game_ui.get_node(
+		"%EmoteRadialMenu"
+	) as EmoteRadialMenu
+	assert(quick_menu != null and emote_menu != null)
+	assert(QuickRadialMenu.ACTIONS.size() == QuickRadialMenu.SECTOR_COUNT)
+	assert(QuickRadialMenu.ACTIONS.has(&"freecam"))
+	assert(QuickRadialMenu.ACTIONS.has(&"hud"))
+	game_ui.call("_on_quick_action_selected", &"freecam")
+	assert(player.is_free_camera_active())
+	assert(player.get_active_gameplay_camera().name == &"FreeCamera")
+	game_ui.call("_on_quick_action_selected", &"freecam")
+	assert(not player.is_free_camera_active())
+	game_ui.call("_on_quick_action_selected", &"hud")
+	await process_frame
+	assert(game_ui.is_gameplay_hud_hidden())
+	assert(chat_ui.is_hud_hidden())
+	assert(not (
+		game_ui.get_node("%GameplayTransientHUD") as Control
+	).visible)
+	assert(not (
+		game_ui.get_node("%ExperiencePresentation") as Control
+	).visible)
+	quick_menu.open_menu(true)
+	assert(quick_menu.visible and quick_menu.is_open())
+	quick_menu.close_menu()
+	emote_menu.open_menu(true)
+	assert(emote_menu.visible and emote_menu.is_open())
+	emote_menu.close_menu()
+	chat_ui.open_chat()
+	await process_frame
+	assert(chat_ui.is_open() and chat_panel.visible)
+	chat_ui.refocus_gameplay()
+	assert(chat_ui.is_hud_hidden())
 	var cancel_button := InputEventJoypadButton.new()
 	cancel_button.button_index = JOY_BUTTON_B
 	cancel_button.pressed = true
@@ -152,10 +207,16 @@ func _run() -> void:
 	player_menu.open_section(PlayerMenu.Section.PROFILE)
 	for _frame: int in 12:
 		await process_frame
+	assert(game_ui.is_gameplay_hud_hidden())
+	assert(player_menu.visible)
 	assert(root.gui_get_focus_owner() is not LineEdit)
 	player_menu.close_menu()
 	for _frame: int in 12:
 		await process_frame
+	game_ui.call("_on_quick_action_selected", &"hud")
+	await process_frame
+	assert(not game_ui.is_gameplay_hud_hidden())
+	assert(not chat_ui.is_hud_hidden())
 	assert(not service.can_activate())
 	assert(not service.is_active() and not toolbar.visible)
 	assert(player.bag.add_item(ArtShopStock.ART_KIT_ITEM_ID, 1))

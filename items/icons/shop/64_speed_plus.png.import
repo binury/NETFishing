@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://c2hal1gkmnuqa"
-path="res://.godot/imported/reel_speed_upgrade.svg-6bce0cfdbf18895938d0bcb4850467c8.ctex"
+uid="uid://dk6yx5cbpblo6"
+path="res://.godot/imported/64_speed_plus.png-c695fb4021c17dfa94ed7aa48ce262c1.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://items/icons/placeholder/reel_speed_upgrade.svg"
-dest_files=["res://.godot/imported/reel_speed_upgrade.svg-6bce0cfdbf18895938d0bcb4850467c8.ctex"]
+source_file="res://items/icons/shop/64_speed_plus.png"
+dest_files=["res://.godot/imported/64_speed_plus.png-c695fb4021c17dfa94ed7aa48ce262c1.ctex"]
 
 [params]
 
@@ -38,6 +38,3 @@ process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
 process/size_limit=0
 detect_3d/compress_to=1
-svg/scale=1.0
-editor/scale_with_editor_scale=false
-editor/convert_colors_with_editor_theme=false

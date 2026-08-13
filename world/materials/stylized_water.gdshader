@@ -57,6 +57,11 @@ uniform float distant_alpha_start : hint_range(10.0, 2000.0, 1.0) = 260.0;
 uniform float distant_alpha_end : hint_range(20.0, 5000.0, 1.0) = 1400.0;
 uniform vec4 environment_tint : source_color = vec4(1.0);
 uniform float environment_brightness : hint_range(0.1, 1.2, 0.01) = 1.0;
+uniform vec4 weather_fog_color : source_color = vec4(0.025, 0.038, 0.045, 1.0);
+uniform float weather_fog_amount : hint_range(0.0, 1.0, 0.01) = 0.0;
+uniform float weather_fog_begin : hint_range(0.0, 500.0, 0.5) = 20.0;
+uniform float weather_fog_end : hint_range(1.0, 1000.0, 0.5) = 95.0;
+uniform float weather_fog_curve : hint_range(0.1, 4.0, 0.01) = 1.4;
 
 varying vec3 world_position;
 varying float surface_view_depth;
@@ -569,6 +574,22 @@ void fragment() {
 		visible_highlight_color,
 		clamp(visible_highlight, 0.0, 1.0)
 	);
+	float weather_fog_distance = smoothstep(
+		weather_fog_begin,
+		max(weather_fog_end, weather_fog_begin + 1.0),
+		surface_view_depth
+	);
+	weather_fog_distance = pow(
+		clamp(weather_fog_distance, 0.0, 1.0),
+		weather_fog_curve
+	);
+	float weather_fog_mix = weather_fog_amount * weather_fog_distance;
+	water_color = mix(
+		water_color,
+		weather_fog_color.rgb,
+		weather_fog_mix
+	);
+	water_alpha = mix(water_alpha, 0.96, weather_fog_mix);
 
 	ALBEDO = water_color;
 	ALPHA = clamp(water_alpha, 0.1, 0.96);

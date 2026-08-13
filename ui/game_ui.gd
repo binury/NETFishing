@@ -167,6 +167,7 @@ var _bag: PlayerBagType
 var _item_catalog: ItemCatalogType
 var _player_menu_open: bool = false
 var _gameplay_ui_enabled: bool = false
+var _gameplay_hud_hidden: bool = false
 var _fishing_spot: FishingSpotType
 var _system_menu_open: bool = false
 var _shop_open: bool = false
@@ -429,6 +430,14 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		return
 	if (
+		event.is_action_pressed("toggle_hud")
+		and not (event is InputEventKey and event.echo)
+		and _can_toggle_gameplay_hud()
+	):
+		set_gameplay_hud_hidden(not _gameplay_hud_hidden)
+		get_viewport().set_input_as_handled()
+		return
+	if (
 		_surface_drawing_toolbar != null
 		and _surface_drawing_toolbar.owns_pointer_event(event)
 	):
@@ -624,6 +633,11 @@ func _on_quick_action_selected(action_id: StringName) -> void:
 			_toggle_surface_drawing()
 		&"chat":
 			_chat_ui.open_chat()
+		&"freecam":
+			if _player != null:
+				_player.toggle_free_camera()
+		&"hud":
+			set_gameplay_hud_hidden(not _gameplay_hud_hidden)
 
 
 func _handle_virtual_mouse_input(event: InputEvent) -> bool:
@@ -1401,6 +1415,7 @@ func _on_hud_active_bait_changed(_item_id: StringName) -> void:
 func _refresh_active_bait_indicator_visibility() -> void:
 	_active_bait_indicator.visible = (
 		_gameplay_ui_enabled
+		and not _gameplay_hud_hidden
 		and not _system_menu_open
 		and not _player_menu_open
 		and not _shop_open
@@ -1413,11 +1428,12 @@ func _on_hud_bait_inventory_changed() -> void:
 
 func set_gameplay_ui_enabled(enabled: bool) -> void:
 	_gameplay_ui_enabled = enabled
+	if not enabled:
+		_gameplay_hud_hidden = false
 	_refresh_active_bait_indicator_visibility()
 	if enabled:
 		_try_start_shop_npc_speech()
-	_gameplay_transient_hud.visible = enabled and not _player_menu_open
-	_experience_presentation.visible = enabled
+	_refresh_gameplay_hud_visibility()
 	_refresh_chat_availability()
 	if not enabled:
 		_end_virtual_mouse()
@@ -1448,10 +1464,50 @@ func set_gameplay_ui_enabled(enabled: bool) -> void:
 		call_deferred("_start_next_experience_animation")
 
 
+func set_gameplay_hud_hidden(hidden: bool) -> void:
+	_gameplay_hud_hidden = hidden
+	if _quick_radial_menu != null:
+		_quick_radial_menu.set_hud_hidden(hidden)
+	_refresh_gameplay_hud_visibility()
+	_refresh_active_bait_indicator_visibility()
+	_refresh_hotbar_visibility()
+	_refresh_chat_availability()
+
+
+func is_gameplay_hud_hidden() -> bool:
+	return _gameplay_hud_hidden
+
+
+func _can_toggle_gameplay_hud() -> bool:
+	return (
+		_gameplay_ui_enabled
+		and not _system_menu_open
+		and not _player_menu_open
+		and not _shop_open
+		and not _chat_input_open
+		and not _showcase_active
+		and not _emote_radial_menu.is_open()
+		and not _quick_radial_menu.is_open()
+	)
+
+
+func _refresh_gameplay_hud_visibility() -> void:
+	var show_world_hud: bool = (
+		_gameplay_ui_enabled
+		and not _gameplay_hud_hidden
+		and not _system_menu_open
+		and not _player_menu_open
+		and not _shop_open
+	)
+	_gameplay_transient_hud.visible = show_world_hud
+	_experience_presentation.visible = show_world_hud
+
+
 func set_system_menu_open(is_open: bool) -> void:
 	_system_menu_open = is_open
 	if is_open and _surface_drawing != null:
 		_surface_drawing.deactivate()
+	_refresh_gameplay_hud_visibility()
 	_refresh_chat_availability()
 	_refresh_hotbar_visibility()
 	_hotbar_ui.set_gameplay_input_enabled(
@@ -2049,7 +2105,7 @@ func _on_player_menu_visibility_changed(is_open: bool) -> void:
 		_end_virtual_mouse()
 	if is_open and _surface_drawing != null:
 		_surface_drawing.deactivate()
-	_gameplay_transient_hud.visible = _gameplay_ui_enabled and not is_open
+	_refresh_gameplay_hud_visibility()
 	if is_open:
 		_hotbar_ui.set_drag_enabled(false)
 		_hotbar_ui.set_presentation_visible(false, false)
@@ -2106,6 +2162,7 @@ func _on_shop_visibility_changed(is_open: bool) -> void:
 		shop_backdrop_visibility_changed.emit(true)
 	if not is_open and _player_menu.is_shop_cooler_mounted():
 		_player_menu.unmount_shop_cooler()
+	_refresh_gameplay_hud_visibility()
 	_refresh_chat_availability()
 	_refresh_hotbar_visibility()
 	_hotbar_ui.set_gameplay_input_enabled(
@@ -2229,6 +2286,10 @@ func _on_hotbar_presentation_transition_finished(
 func _refresh_hotbar_visibility() -> void:
 	_hotbar_ui.set_presentation_visible(
 		_gameplay_ui_enabled
+		and (
+			not _gameplay_hud_hidden
+			or (_player_menu_open and _player_menu_hotbar_visible)
+		)
 		and not _system_menu_open
 		and not _shop_open
 		and (
@@ -2250,6 +2311,7 @@ func _on_chat_text_entry_ownership_changed(active: bool) -> void:
 	_chat_input_open = active
 	if active and _surface_drawing != null:
 		_surface_drawing.deactivate()
+	_refresh_chat_availability()
 	_emit_interactive_pointer_ui_changed()
 
 
@@ -2263,4 +2325,5 @@ func _refresh_chat_availability() -> void:
 		and not _shop_open
 	)
 	_chat_ui.set_available(chat_available)
+	_chat_ui.set_hud_hidden(_gameplay_hud_hidden and not _chat_input_open)
 	passive_pointer_ui_changed.emit(chat_available)

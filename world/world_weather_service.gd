@@ -30,6 +30,8 @@ var _rng := RandomNumberGenerator.new()
 var _daily_plan_id: String = ""
 var _daily_schedule: Array[Dictionary] = []
 var _world_time: WorldTimeService
+var _manual_override_weather: Weather = DEFAULT_WEATHER
+var _manual_override_segment_index: int = -1
 
 
 func _ready() -> void:
@@ -44,6 +46,7 @@ func begin_authoritative_session(seed_value: int) -> void:
 	_rng.seed = seed_value
 	_running_authority = true
 	set_process(true)
+	_clear_manual_override()
 	if _daily_schedule.is_empty() or _world_time == null:
 		if _has_persistent_state:
 			_set_weather(
@@ -64,12 +67,14 @@ func begin_authoritative_session(seed_value: int) -> void:
 func begin_remote_session() -> void:
 	_running_authority = false
 	set_process(false)
+	_clear_manual_override()
 	_set_weather(DEFAULT_WEATHER, SUNNY_DURATION_RANGE.x, true)
 
 
 func end_session() -> void:
 	_running_authority = false
 	set_process(false)
+	_clear_manual_override()
 	_set_weather(DEFAULT_WEATHER, SUNNY_DURATION_RANGE.x, true)
 
 
@@ -96,6 +101,22 @@ func apply_authoritative_snapshot(
 	if not is_valid_weather(int(weather)) or not is_finite(seconds_remaining):
 		return
 	_set_weather(weather, maxf(seconds_remaining, 0.0), false)
+
+
+func set_authoritative_weather(weather: Weather) -> bool:
+	if not _running_authority or not is_valid_weather(int(weather)):
+		return false
+	var duration: float = _roll_duration(weather)
+	if not _daily_schedule.is_empty() and _world_time != null:
+		_manual_override_weather = weather
+		_manual_override_segment_index = _current_daily_segment_index()
+		duration = _current_daily_segment_seconds_remaining(
+			_manual_override_segment_index
+		)
+	else:
+		_clear_manual_override()
+	_set_weather(weather, duration, true)
+	return true
 
 
 func set_persistence_tracking_enabled(enabled: bool) -> void:
@@ -181,6 +202,7 @@ func configure_daily_plan(
 		return false
 	_daily_plan_id = plan_id
 	_daily_schedule.clear()
+	_clear_manual_override()
 	for value: Variant in schedule:
 		_daily_schedule.append((value as Dictionary).duplicate(true))
 	_world_time = world_time
@@ -193,6 +215,7 @@ func clear_daily_plan() -> void:
 	_daily_plan_id = ""
 	_daily_schedule.clear()
 	_world_time = null
+	_clear_manual_override()
 
 
 func get_daily_plan_id() -> String:
@@ -327,21 +350,43 @@ func _duration_range(weather: Weather) -> Vector2:
 func _update_scheduled_weather(force_emit: bool) -> void:
 	if _daily_schedule.is_empty() or _world_time == null:
 		return
+	var segment_index: int = _current_daily_segment_index()
+	var entry: Dictionary = _daily_schedule[segment_index]
+	var weather: Weather = int(entry.get("weather", DEFAULT_WEATHER)) as Weather
+	if _manual_override_segment_index == segment_index:
+		weather = _manual_override_weather
+	elif _manual_override_segment_index >= 0:
+		_clear_manual_override()
+	var seconds_remaining: float = _current_daily_segment_seconds_remaining(
+		segment_index
+	)
+	_set_weather(weather, seconds_remaining, force_emit)
+
+
+func _current_daily_segment_index() -> int:
 	var elapsed_hours: float = fposmod(
 		_world_time.get_time_hours() - WorldTimeService.DAY_START_HOUR,
 		WorldTimeService.HOURS_PER_DAY,
 	)
-	var segment_hours: float = DAILY_PLAN_SEGMENT_HOURS
-	var segment_index: int = clampi(
-		floori(elapsed_hours / segment_hours),
+	return clampi(
+		floori(elapsed_hours / DAILY_PLAN_SEGMENT_HOURS),
 		0,
 		_daily_schedule.size() - 1,
 	)
-	var entry: Dictionary = _daily_schedule[segment_index]
-	var weather: Weather = int(entry.get("weather", DEFAULT_WEATHER)) as Weather
-	var next_boundary: float = float(segment_index + 1) * segment_hours
-	var hours_remaining: float = maxf(next_boundary - elapsed_hours, 0.0)
-	var seconds_remaining: float = (
-		hours_remaining / WorldTimeService.HOURS_PER_REAL_SECOND
+
+
+func _current_daily_segment_seconds_remaining(segment_index: int) -> float:
+	var elapsed_hours: float = fposmod(
+		_world_time.get_time_hours() - WorldTimeService.DAY_START_HOUR,
+		WorldTimeService.HOURS_PER_DAY,
 	)
-	_set_weather(weather, seconds_remaining, force_emit)
+	var next_boundary: float = (
+		float(segment_index + 1) * DAILY_PLAN_SEGMENT_HOURS
+	)
+	var hours_remaining: float = maxf(next_boundary - elapsed_hours, 0.0)
+	return hours_remaining / WorldTimeService.HOURS_PER_REAL_SECOND
+
+
+func _clear_manual_override() -> void:
+	_manual_override_weather = DEFAULT_WEATHER
+	_manual_override_segment_index = -1

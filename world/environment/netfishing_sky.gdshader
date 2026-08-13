@@ -1,5 +1,7 @@
 shader_type sky;
 
+#include "res://world/environment/netfishing_sky_clouds.gdshaderinc"
+
 uniform vec4 sky_top_color : source_color = vec4(0.204, 0.498, 0.643, 1.0);
 uniform vec4 sky_horizon_color : source_color = vec4(0.663, 0.843, 0.847, 1.0);
 uniform vec4 ground_bottom_color : source_color = vec4(0.157, 0.361, 0.439, 1.0);
@@ -83,6 +85,7 @@ void sky() {
 	base_color = mix(
 		base_color, moon_color.rgb, moon_disc * moon_visible_strength
 	);
+	base_color = apply_weather_clouds(base_color, view_direction);
 
 	COLOR = base_color;
 }
