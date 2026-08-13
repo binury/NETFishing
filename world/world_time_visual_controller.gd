@@ -14,7 +14,7 @@ const FOG_DAYLIGHT_FOG_LIGHT_BRIGHTNESS: float = 0.42
 const FOG_DAYLIGHT_WATER_BRIGHTNESS: float = 0.42
 const FOG_DAYLIGHT_POST_BRIGHTNESS: float = 0.50
 const RAIN_DAYLIGHT_POST_BRIGHTNESS: float = 0.52
-const WATER_FOG_COLOR := Color(0.025, 0.038, 0.045)
+const RAIN_WATER_FOG_COLOR := Color(0.025, 0.038, 0.045)
 const SALT_WATER_MATERIAL: ShaderMaterial = preload(
 	"res://world/materials/stylized_water.tres"
 )
@@ -251,13 +251,14 @@ func _apply_time(time_hours: float) -> void:
 	var fog_color: Color = _blended_color(
 		NIGHT_FOG, DAY_FOG, WARM_FOG, daylight, warmth
 	)
-	var fog_daylight_amount: float = (
-		daylight * _weather_value(0.0, 0.0, 0.0, 1.0)
+	var foggy_fog_amount: float = _weather_value(0.0, 0.0, 0.0, 1.0)
+	var rain_fog_amount: float = _weather_value(0.0, 0.0, 1.0, 0.0)
+	var fog_daylight_amount: float = daylight * foggy_fog_amount
+	var rain_daylight_amount: float = daylight * rain_fog_amount
+	var weather_fog_amount: float = minf(
+		rain_fog_amount + foggy_fog_amount,
+		1.0,
 	)
-	var rain_daylight_amount: float = (
-		daylight * _weather_value(0.0, 0.0, 1.0, 0.0)
-	)
-	var weather_fog_amount: float = _weather_value(0.0, 0.0, 1.0, 1.0)
 	_environment.fog_enabled = weather_fog_amount > 0.001
 	var fog_scene_brightness: float = lerpf(
 		1.0,
@@ -292,7 +293,7 @@ func _apply_time(time_hours: float) -> void:
 		* fog_scene_brightness
 	)
 	_environment.fog_light_color = fog_color
-	_environment.fog_light_energy = (
+	var fog_light_energy := (
 		lerpf(0.56, 0.82, daylight)
 		* _weather_value(1.0, 0.92, 0.82, 1.0)
 		* lerpf(
@@ -301,6 +302,7 @@ func _apply_time(time_hours: float) -> void:
 			fog_daylight_amount,
 		)
 	)
+	_environment.fog_light_energy = fog_light_energy
 	_environment.fog_aerial_perspective = _weather_value(
 		0.35, 0.48, 0.62, 0.0
 	)
@@ -316,7 +318,13 @@ func _apply_time(time_hours: float) -> void:
 	_environment.fog_depth_end = _weather_value(
 		170.0, 140.0, 95.0, 18.0
 	)
-	_apply_water_environment(daylight, warmth, weather_fog_amount)
+	_apply_water_environment(
+		daylight,
+		warmth,
+		rain_fog_amount,
+		foggy_fog_amount,
+		_fog_render_color(fog_color, fog_light_energy),
+	)
 	_environment.adjustment_brightness = (
 		lerpf(0.93, 0.98, daylight)
 		* _weather_value(1.0, 0.97, 0.92, 1.0)
@@ -371,7 +379,9 @@ func _apply_time(time_hours: float) -> void:
 func _apply_water_environment(
 	daylight: float,
 	warmth: float,
-	weather_fog_amount: float,
+	rain_fog_amount: float,
+	foggy_fog_amount: float,
+	fog_render_color: Color,
 ) -> void:
 	var water_tint := _blended_color(
 		NIGHT_WATER_TINT,
@@ -389,6 +399,19 @@ func _apply_water_environment(
 			daylight * _weather_value(0.0, 0.0, 0.0, 1.0),
 		)
 	)
+	var weather_fog_amount: float = minf(
+		rain_fog_amount + foggy_fog_amount,
+		1.0,
+	)
+	var foggy_color_weight: float = (
+		foggy_fog_amount / weather_fog_amount
+		if weather_fog_amount > 0.001
+		else 0.0
+	)
+	var water_fog_color := RAIN_WATER_FOG_COLOR.lerp(
+		fog_render_color,
+		foggy_color_weight,
+	)
 	for material: ShaderMaterial in [
 		SALT_WATER_MATERIAL,
 		FRESH_WATER_MATERIAL,
@@ -398,7 +421,7 @@ func _apply_water_environment(
 			"environment_brightness",
 			water_brightness,
 		)
-		material.set_shader_parameter("weather_fog_color", WATER_FOG_COLOR)
+		material.set_shader_parameter("weather_fog_color", water_fog_color)
 		material.set_shader_parameter(
 			"weather_fog_amount",
 			weather_fog_amount,
@@ -415,6 +438,15 @@ func _apply_water_environment(
 			"weather_fog_curve",
 			_weather_value(1.6, 1.5, 1.4, 1.18),
 		)
+
+
+func _fog_render_color(fog_color: Color, fog_light_energy: float) -> Color:
+	return Color(
+		fog_color.r * fog_light_energy,
+		fog_color.g * fog_light_energy,
+		fog_color.b * fog_light_energy,
+		1.0,
+	)
 
 
 func _apply_sky_clouds(daylight: float, warmth: float) -> void:

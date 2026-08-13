@@ -175,7 +175,7 @@ authored `mesh_style.png` filenames.
 | --- | --- | --- | --- |
 | Bengal spots, body and arms | `body_arms_bengal.png` | `art/exported/characters/patterns/bengal/body_arms_bengal.png` | `fa90bd4e74b0b770ce97bf69d069676f5d4bd1f5d649f89e09638a66b61a8470` |
 | Bengal spots, main body | `body_main_bengal.png` | `art/exported/characters/patterns/bengal/body_main_bengal.png` | `8662fa198220cfdbe0aa83bdeeef7b855e20124d74f8481467f750d32b67ee8b` |
-| Bengal spots, round head | `head_round_bengal.png` | `art/exported/characters/patterns/bengal/head_round_bengal.png` | `7a48c5ac47cfd35ddec1783e6c4defa7807b5ef3f1c6b428157fbc0651e71ef3` |
+| Bengal spots, round head | `head_round_bengal.png` | `art/exported/characters/patterns/bengal/head_round_bengal.png` | `c464b042397f5ffe371c48a711ec3d7257adf794d363f3116cb2bddc23e444f8` |
 | Fox, body and arms | `body_arms_fox.png` | `art/exported/characters/patterns/fox/body_arms_fox.png` | `fd2ab31ede371129ca4806480783d57153318a909d6b87c593b6ff82d03d65eb` |
 | Fox, main body | `body_main_fox.png` | `art/exported/characters/patterns/fox/body_main_fox.png` | `d2a975cf042728299de4819a023a95e9c1467671a6886f6c6eaf8b44a5a9ca3a` |
 | Fox, pointy head | `head_pointy_fox.png` | `art/exported/characters/patterns/fox/head_pointy_fox.png` | `8e74685ef7a9f61b5ae75c16e86898ea80f3996471e2999862479798ce28aa52` |

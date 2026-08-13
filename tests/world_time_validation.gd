@@ -311,6 +311,19 @@ func _validate_environment_presentation() -> void:
 	assert(float(
 		SaltWaterMaterial.get_shader_parameter("weather_fog_amount")
 	) > 0.99)
+	var night_rendered_fog_color := Color(
+		runtime_environment.fog_light_color.r
+			* runtime_environment.fog_light_energy,
+		runtime_environment.fog_light_color.g
+			* runtime_environment.fog_light_energy,
+		runtime_environment.fog_light_color.b
+			* runtime_environment.fog_light_energy,
+		1.0,
+	)
+	var night_water_fog_color := (
+		SaltWaterMaterial.get_shader_parameter("weather_fog_color") as Color
+	)
+	assert(night_water_fog_color.is_equal_approx(night_rendered_fog_color))
 	var foggy_sky_horizon := (
 		runtime_sky_material.get_shader_parameter("sky_horizon_color") as Color
 	)
