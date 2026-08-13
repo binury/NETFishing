@@ -14,6 +14,11 @@ const FOG_DAYLIGHT_FOG_LIGHT_BRIGHTNESS: float = 0.42
 const FOG_DAYLIGHT_WATER_BRIGHTNESS: float = 0.42
 const FOG_DAYLIGHT_POST_BRIGHTNESS: float = 0.50
 const RAIN_DAYLIGHT_POST_BRIGHTNESS: float = 0.52
+const DEFAULT_SURFACE_HIGHLIGHT_FLOOR: float = 0.72
+const FOGGY_NIGHT_SURFACE_HIGHLIGHT_FLOOR: float = 0.25
+const FOGGY_NIGHT_WATER_NEAR_FOG_AMOUNT: float = 1.0
+const FOGGY_DARK_WATER_FOG_CORRECTION := Color(1.15, 1.025, 1.0, 1.0)
+const FOGGY_BRIGHT_WATER_FOG_CORRECTION := Color(0.99, 1.005, 1.01, 1.0)
 const RAIN_WATER_FOG_COLOR := Color(0.025, 0.038, 0.045)
 const SALT_WATER_MATERIAL: ShaderMaterial = preload(
 	"res://world/materials/stylized_water.tres"
@@ -259,6 +264,7 @@ func _apply_time(time_hours: float) -> void:
 		rain_fog_amount + foggy_fog_amount,
 		1.0,
 	)
+	var foggy_horizon_occlusion := _foggy_horizon_occlusion_amount(hour)
 	_environment.fog_enabled = weather_fog_amount > 0.001
 	var fog_scene_brightness: float = lerpf(
 		1.0,
@@ -279,6 +285,11 @@ func _apply_time(time_hours: float) -> void:
 	_sky_material.set_shader_parameter(
 		"ground_horizon_color",
 		ground_horizon,
+	)
+	_sky_material.set_shader_parameter("fog_horizon_color", fog_color)
+	_sky_material.set_shader_parameter(
+		"fog_horizon_occlusion",
+		foggy_fog_amount * foggy_horizon_occlusion,
 	)
 	_apply_sky_clouds(daylight, warmth)
 	_environment.background_energy_multiplier = (
@@ -323,6 +334,7 @@ func _apply_time(time_hours: float) -> void:
 		warmth,
 		rain_fog_amount,
 		foggy_fog_amount,
+		foggy_horizon_occlusion,
 		_fog_render_color(fog_color, fog_light_energy),
 	)
 	_environment.adjustment_brightness = (
@@ -381,6 +393,7 @@ func _apply_water_environment(
 	warmth: float,
 	rain_fog_amount: float,
 	foggy_fog_amount: float,
+	foggy_horizon_occlusion: float,
 	fog_render_color: Color,
 ) -> void:
 	var water_tint := _blended_color(
@@ -412,6 +425,44 @@ func _apply_water_environment(
 		fog_render_color,
 		foggy_color_weight,
 	)
+	var fog_correction_amount := (
+		foggy_fog_amount * foggy_horizon_occlusion
+	)
+	var bright_fog_amount := maxf(daylight, warmth)
+	var fog_color_correction := FOGGY_DARK_WATER_FOG_CORRECTION.lerp(
+		FOGGY_BRIGHT_WATER_FOG_CORRECTION,
+		bright_fog_amount,
+	)
+	water_fog_color.r *= lerpf(
+		1.0,
+		fog_color_correction.r,
+		fog_correction_amount,
+	)
+	water_fog_color.g *= lerpf(
+		1.0,
+		fog_color_correction.g,
+		fog_correction_amount,
+	)
+	water_fog_color.b *= lerpf(
+		1.0,
+		fog_color_correction.b,
+		fog_correction_amount,
+	)
+	var foggy_surface_highlight_floor := lerpf(
+		FOGGY_NIGHT_SURFACE_HIGHLIGHT_FLOOR,
+		DEFAULT_SURFACE_HIGHLIGHT_FLOOR,
+		daylight,
+	)
+	var surface_highlight_floor := lerpf(
+		DEFAULT_SURFACE_HIGHLIGHT_FLOOR,
+		foggy_surface_highlight_floor,
+		foggy_fog_amount,
+	)
+	var water_near_fog_amount := (
+		FOGGY_NIGHT_WATER_NEAR_FOG_AMOUNT
+		* foggy_fog_amount
+		* foggy_horizon_occlusion
+	)
 	for material: ShaderMaterial in [
 		SALT_WATER_MATERIAL,
 		FRESH_WATER_MATERIAL,
@@ -423,8 +474,16 @@ func _apply_water_environment(
 		)
 		material.set_shader_parameter("weather_fog_color", water_fog_color)
 		material.set_shader_parameter(
+			"surface_highlight_night_floor",
+			surface_highlight_floor,
+		)
+		material.set_shader_parameter(
 			"weather_fog_amount",
 			weather_fog_amount,
+		)
+		material.set_shader_parameter(
+			"weather_fog_near_amount",
+			water_near_fog_amount,
 		)
 		material.set_shader_parameter(
 			"weather_fog_begin",
@@ -447,6 +506,28 @@ func _fog_render_color(fog_color: Color, fog_light_energy: float) -> Color:
 	linear_fog_color.b *= fog_light_energy
 	linear_fog_color.a = 1.0
 	return linear_fog_color.linear_to_srgb()
+
+
+func _foggy_horizon_occlusion_amount(hour: float) -> float:
+	# Day and dusk already blend cleanly. During night and most of dawn, make
+	# the manually fogged transparent water fully occluding so the dark scene
+	# below it cannot reintroduce a horizon band. Brief edge fades avoid a pop
+	# where the dawn/night phases meet their neighboring phases.
+	if hour >= WorldTimeService.DUSK_END_HOUR - 0.1:
+		return smoothstep(
+			WorldTimeService.DUSK_END_HOUR - 0.1,
+			WorldTimeService.DUSK_END_HOUR,
+			hour,
+		)
+	if hour < WorldTimeService.DAWN_START_HOUR:
+		return 1.0
+	if hour < WorldTimeService.DAWN_END_HOUR:
+		return 1.0 - smoothstep(
+			WorldTimeService.DAWN_END_HOUR - 0.1,
+			WorldTimeService.DAWN_END_HOUR,
+			hour,
+		)
+	return 0.0
 
 
 func _apply_sky_clouds(daylight: float, warmth: float) -> void:

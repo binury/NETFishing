@@ -23,8 +23,6 @@ const SaltWaterMaterial: ShaderMaterial = preload(
 const FreshWaterMaterial: ShaderMaterial = preload(
 	"res://world/materials/stylized_water_fresh.tres"
 )
-
-
 func _initialize() -> void:
 	call_deferred("_run")
 
@@ -254,10 +252,28 @@ func _validate_environment_presentation() -> void:
 	var water_shader: Shader = preload(
 		"res://world/materials/stylized_water.gdshader"
 	)
+	var sky_shader: Shader = preload(
+		"res://world/environment/netfishing_sky.gdshader"
+	)
+	assert("uniform float fog_horizon_occlusion" in sky_shader.code)
+	assert("fog_horizon_color.rgb" in sky_shader.code)
 	assert("fog_disabled" in water_shader.code)
+	assert("surface_view_position = view_vertex.xyz" in water_shader.code)
+	assert("surface_view_distance = length(surface_view_position)" in water_shader.code)
+	assert(
+		"max(weather_fog_end, weather_fog_begin + 1.0),\n"
+		+ "\t\tsurface_view_distance"
+		in water_shader.code
+	)
+	assert("weather_fog_near_amount" in water_shader.code)
+	assert("float weather_fog_alpha = mix(" in water_shader.code)
+	assert("ALPHA = clamp(water_alpha, 0.1, weather_fog_alpha)" in water_shader.code)
 	assert(is_zero_approx(float(
 		SaltWaterMaterial.get_shader_parameter("weather_fog_amount")
 	)))
+	assert(is_equal_approx(float(
+		SaltWaterMaterial.get_shader_parameter("surface_highlight_night_floor")
+	), WorldTimeVisualController.DEFAULT_SURFACE_HIGHLIGHT_FLOOR))
 	var day_water_brightness := float(
 		SaltWaterMaterial.get_shader_parameter("environment_brightness")
 	)
@@ -288,6 +304,9 @@ func _validate_environment_presentation() -> void:
 	assert(night_moon_direction.y > 0.85)
 	assert(night_moon_direction.is_equal_approx(-night_sun_direction))
 	assert(runtime_environment.ambient_light_energy < day_ambient_energy)
+	assert(is_zero_approx(float(
+		runtime_sky_material.get_shader_parameter("fog_horizon_occlusion")
+	)))
 	var night_water_brightness := float(
 		SaltWaterMaterial.get_shader_parameter("environment_brightness")
 	)
@@ -311,6 +330,18 @@ func _validate_environment_presentation() -> void:
 	assert(float(
 		SaltWaterMaterial.get_shader_parameter("weather_fog_amount")
 	) > 0.99)
+	assert(is_equal_approx(float(
+		SaltWaterMaterial.get_shader_parameter("weather_fog_near_amount")
+	), WorldTimeVisualController.FOGGY_NIGHT_WATER_NEAR_FOG_AMOUNT))
+	assert(is_equal_approx(float(
+		SaltWaterMaterial.get_shader_parameter("surface_highlight_night_floor")
+	), WorldTimeVisualController.FOGGY_NIGHT_SURFACE_HIGHLIGHT_FLOOR))
+	assert(is_equal_approx(float(
+		runtime_sky_material.get_shader_parameter("fog_horizon_occlusion")
+	), 1.0))
+	assert((
+		runtime_sky_material.get_shader_parameter("fog_horizon_color") as Color
+	).is_equal_approx(WorldTimeVisualController.NIGHT_FOG))
 	var night_rendered_fog_color := (
 		runtime_environment.fog_light_color.srgb_to_linear()
 	)
@@ -322,7 +353,17 @@ func _validate_environment_presentation() -> void:
 	var night_water_fog_color := (
 		SaltWaterMaterial.get_shader_parameter("weather_fog_color") as Color
 	)
-	assert(night_water_fog_color.is_equal_approx(night_rendered_fog_color))
+	var corrected_night_fog_color := night_rendered_fog_color
+	corrected_night_fog_color.r *= (
+		WorldTimeVisualController.FOGGY_DARK_WATER_FOG_CORRECTION.r
+	)
+	corrected_night_fog_color.g *= (
+		WorldTimeVisualController.FOGGY_DARK_WATER_FOG_CORRECTION.g
+	)
+	corrected_night_fog_color.b *= (
+		WorldTimeVisualController.FOGGY_DARK_WATER_FOG_CORRECTION.b
+	)
+	assert(night_water_fog_color.is_equal_approx(corrected_night_fog_color))
 	var foggy_sky_horizon := (
 		runtime_sky_material.get_shader_parameter("sky_horizon_color") as Color
 	)
@@ -355,11 +396,34 @@ func _validate_environment_presentation() -> void:
 		runtime_environment.adjustment_saturation,
 		night_adjustment_saturation,
 	))
+	visuals.apply_time_immediately(8.0)
+	assert(is_equal_approx(float(
+		SaltWaterMaterial.get_shader_parameter("weather_fog_near_amount")
+	), WorldTimeVisualController.FOGGY_NIGHT_WATER_NEAR_FOG_AMOUNT))
+	assert(is_equal_approx(float(
+		runtime_sky_material.get_shader_parameter("fog_horizon_occlusion")
+	), 1.0))
+	visuals.apply_time_immediately(20.0)
+	assert(is_zero_approx(float(
+		SaltWaterMaterial.get_shader_parameter("weather_fog_near_amount")
+	)))
+	assert(is_zero_approx(float(
+		runtime_sky_material.get_shader_parameter("fog_horizon_occlusion")
+	)))
 	visuals.apply_weather_immediately(WorldWeatherService.Weather.SUNNY)
 	visuals.apply_time_immediately(20.0)
 	assert(not runtime_environment.fog_enabled)
 	assert(is_zero_approx(float(
 		SaltWaterMaterial.get_shader_parameter("weather_fog_amount")
+	)))
+	assert(is_zero_approx(float(
+		SaltWaterMaterial.get_shader_parameter("weather_fog_near_amount")
+	)))
+	assert(is_equal_approx(float(
+		SaltWaterMaterial.get_shader_parameter("surface_highlight_night_floor")
+	), WorldTimeVisualController.DEFAULT_SURFACE_HIGHLIGHT_FLOOR))
+	assert(is_zero_approx(float(
+		runtime_sky_material.get_shader_parameter("fog_horizon_occlusion")
 	)))
 	var dusk_horizon: Color = runtime_sky_material.get_shader_parameter(
 		"sky_horizon_color"

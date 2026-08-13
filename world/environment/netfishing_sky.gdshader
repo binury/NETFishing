@@ -7,6 +7,8 @@ uniform vec4 sky_horizon_color : source_color = vec4(0.663, 0.843, 0.847, 1.0);
 uniform vec4 ground_bottom_color : source_color = vec4(0.157, 0.361, 0.439, 1.0);
 uniform vec4 ground_horizon_color : source_color = vec4(0.549, 0.749, 0.765, 1.0);
 uniform float horizon_blend_width : hint_range(0.005, 0.15, 0.005) = 0.01;
+uniform vec4 fog_horizon_color : source_color = vec4(0.13, 0.21, 0.32, 1.0);
+uniform float fog_horizon_occlusion : hint_range(0.0, 1.0) = 0.0;
 
 uniform vec3 sun_direction = vec3(0.0, 1.0, 0.0);
 uniform vec4 sun_color : source_color = vec4(1.0, 0.86, 0.46, 1.0);
@@ -86,6 +88,14 @@ void sky() {
 		base_color, moon_color.rgb, moon_disc * moon_visible_strength
 	);
 	base_color = apply_weather_clouds(base_color, view_direction);
+	// Compatibility fog does not fully erase the color split between a custom
+	// sky's upper and lower hemispheres. Dense low-light fog supplies one
+	// uniform sky color here so that split cannot masquerade as an ocean edge.
+	base_color = mix(
+		base_color,
+		fog_horizon_color.rgb,
+		fog_horizon_occlusion
+	);
 
 	COLOR = base_color;
 }

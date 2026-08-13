@@ -313,7 +313,12 @@ func _validate_starter_water_bodies() -> void:
 	assert(pond.fish_pool == PondPool)
 	assert(ocean.fish_pool == OceanPool)
 	assert(region.get_node_or_null("ShorelineRibbons/Pond") == null)
-	assert(region.get_node_or_null("ShorelineRibbons/Ocean") != null)
+	var shoreline_geometry := (
+		region.get_node_or_null("ShorelineRibbons/Ocean") as MeshInstance3D
+	)
+	assert(shoreline_geometry != null)
+	assert(not shoreline_geometry.visible)
+	assert(shoreline_geometry.material_override == null)
 	var pond_material := (
 		region.get_node("WaterBodies/Pond/VisualWater") as MeshInstance3D
 	).material_override as ShaderMaterial

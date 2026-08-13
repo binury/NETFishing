@@ -330,6 +330,11 @@ func _validate_weather_presentation() -> void:
 			"weather_fog_amount"
 		)
 	) > 0.99)
+	assert(is_zero_approx(float(
+		WorldTimeVisualControllerType.SALT_WATER_MATERIAL.get_shader_parameter(
+			"weather_fog_near_amount"
+		)
+	)))
 	var water_fog_color := (
 		WorldTimeVisualControllerType.SALT_WATER_MATERIAL.get_shader_parameter(
 			"weather_fog_color"
@@ -344,6 +349,11 @@ func _validate_weather_presentation() -> void:
 	rendered_fog_color.a = 1.0
 	rendered_fog_color = rendered_fog_color.linear_to_srgb()
 	assert(water_fog_color.is_equal_approx(rendered_fog_color))
+	assert(is_equal_approx(float(
+		WorldTimeVisualControllerType.SALT_WATER_MATERIAL.get_shader_parameter(
+			"surface_highlight_night_floor"
+		)
+	), WorldTimeVisualControllerType.DEFAULT_SURFACE_HIGHLIGHT_FLOOR))
 	assert(runtime_environment.fog_depth_begin <= 4.01)
 	assert(is_equal_approx(runtime_environment.fog_depth_end, 18.0))
 	assert(is_equal_approx(runtime_environment.fog_sky_affect, 1.0))
@@ -394,6 +404,11 @@ func _validate_weather_presentation() -> void:
 			"weather_fog_amount"
 		)
 	) > 0.99)
+	assert(is_zero_approx(float(
+		WorldTimeVisualControllerType.SALT_WATER_MATERIAL.get_shader_parameter(
+			"weather_fog_near_amount"
+		)
+	)))
 	var rainy_water_fog_color := (
 		WorldTimeVisualControllerType.SALT_WATER_MATERIAL.get_shader_parameter(
 			"weather_fog_color"
@@ -404,6 +419,11 @@ func _validate_weather_presentation() -> void:
 			WorldTimeVisualControllerType.RAIN_WATER_FOG_COLOR
 		)
 	)
+	assert(is_equal_approx(float(
+		WorldTimeVisualControllerType.SALT_WATER_MATERIAL.get_shader_parameter(
+			"surface_highlight_night_floor"
+		)
+	), WorldTimeVisualControllerType.DEFAULT_SURFACE_HIGHLIGHT_FLOOR))
 	assert(is_equal_approx(runtime_environment.fog_sky_affect, 0.68))
 	assert(
 		float(runtime_sky_material.get_shader_parameter("cloud_coverage"))

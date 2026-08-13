@@ -56,12 +56,14 @@ uniform vec4 environment_tint : source_color = vec4(1.0);
 uniform float environment_brightness : hint_range(0.1, 1.2, 0.01) = 1.0;
 uniform vec4 weather_fog_color : source_color = vec4(0.025, 0.038, 0.045, 1.0);
 uniform float weather_fog_amount : hint_range(0.0, 1.0, 0.01) = 0.0;
+uniform float weather_fog_near_amount : hint_range(0.0, 1.0, 0.01) = 0.0;
 uniform float weather_fog_begin : hint_range(0.0, 500.0, 0.5) = 20.0;
 uniform float weather_fog_end : hint_range(1.0, 1000.0, 0.5) = 95.0;
 uniform float weather_fog_curve : hint_range(0.1, 4.0, 0.01) = 1.4;
 
 varying vec3 world_position;
 varying float surface_view_depth;
+varying vec3 surface_view_position;
 
 
 float hash_21(vec2 point) {
@@ -208,6 +210,12 @@ void vertex() {
 	vec4 view_vertex = VIEW_MATRIX * world_vertex;
 	world_position = world_vertex.xyz;
 	surface_view_depth = -view_vertex.z;
+	// Godot's depth fog measures radial view-space distance. Keep the existing
+	// forward depth for distant-water presentation, but pass the linear view
+	// position so weather fog can derive the same per-fragment radial metric as
+	// opaque world geometry. Calculating length here would interpolate four
+	// corner distances across the oversized ocean plane and over-fog its center.
+	surface_view_position = view_vertex.xyz;
 }
 
 
@@ -549,25 +557,35 @@ void fragment() {
 		visible_highlight_color,
 		clamp(visible_highlight, 0.0, 1.0)
 	);
+	float surface_view_distance = length(surface_view_position);
 	float weather_fog_distance = smoothstep(
 		weather_fog_begin,
 		max(weather_fog_end, weather_fog_begin + 1.0),
-		surface_view_depth
+		surface_view_distance
 	);
 	weather_fog_distance = pow(
 		clamp(weather_fog_distance, 0.0, 1.0),
 		weather_fog_curve
 	);
-	float weather_fog_mix = weather_fog_amount * weather_fog_distance;
+	float distance_fog_mix = weather_fog_amount * weather_fog_distance;
+	float weather_fog_mix = 1.0 - (
+		(1.0 - weather_fog_near_amount)
+		* (1.0 - distance_fog_mix)
+	);
 	water_color = mix(
 		water_color,
 		weather_fog_color.rgb,
 		weather_fog_mix
 	);
-	water_alpha = mix(water_alpha, 0.96, weather_fog_mix);
+	float weather_fog_alpha = mix(
+		0.96,
+		1.0,
+		weather_fog_near_amount
+	);
+	water_alpha = mix(water_alpha, weather_fog_alpha, weather_fog_mix);
 
 	ALBEDO = water_color;
-	ALPHA = clamp(water_alpha, 0.1, 0.96);
+	ALPHA = clamp(water_alpha, 0.1, weather_fog_alpha);
 	METALLIC = 0.0;
 	SPECULAR = 0.0;
 	ROUGHNESS = 1.0;
