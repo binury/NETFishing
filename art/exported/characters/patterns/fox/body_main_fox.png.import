@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://ccbaq4d4nt3bm"
-path="res://.godot/imported/body_main.png-c83ac58a68a1485819fba3e07de784cd.ctex"
+uid="uid://wcsadkjjpaei"
+path="res://.godot/imported/body_main_fox.png-25e4fa03a48053f6b37b3bbadb1f01ba.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://art/exported/characters/patterns/fox/body_main.png"
-dest_files=["res://.godot/imported/body_main.png-c83ac58a68a1485819fba3e07de784cd.ctex"]
+source_file="res://art/exported/characters/patterns/fox/body_main_fox.png"
+dest_files=["res://.godot/imported/body_main_fox.png-25e4fa03a48053f6b37b3bbadb1f01ba.ctex"]
 
 [params]
 

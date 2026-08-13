@@ -29,6 +29,7 @@ readonly -a RUNTIME_TESTS=(
 	"tests/inventory_notepad_art_validation.gd"
 	"tests/logbook_runtime_validation.gd"
 	"tests/player_experience_ui_validation.gd"
+	"tests/title_credits_validation.gd"
 	"tests/ui_scaling_runtime_validation.gd"
 )
 

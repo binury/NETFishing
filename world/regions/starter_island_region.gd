@@ -32,7 +32,9 @@ var fishing_shop_path: NodePath = (
 	^"Interactables/FishingShopWorld/InteractionArea"
 )
 @export_group("Terrain Collision")
-@export var rebuild_terrain_collision_on_ready: bool = false
+# The imported GLB is the collision authority. Rebuild once per region load so
+# newly authored terrain and props cannot retain a stale saved fallback shape.
+@export var rebuild_terrain_collision_on_ready: bool = true
 @export_group("Foliage Wind")
 @export_range(0.0, 0.4, 0.005) var foliage_wind_strength: float = 0.36
 @export_range(0.0, 4.0, 0.05) var foliage_wind_speed: float = 0.9

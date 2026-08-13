@@ -67,12 +67,26 @@ func _run() -> void:
 	assert(fox_arm_pattern_texture != null)
 	assert(fox_arm_pattern_texture.get_width() == 1024)
 	assert(fox_arm_pattern_texture.get_height() == 1024)
-	assert(
+	var bengal_head_texture := (
 		CharacterCustomizationCatalog.fur_pattern_texture(
-			"spots_bengal",
-			"head_round",
-		) == null
+			"spots_bengal", "head_round"
+		)
 	)
+	assert(bengal_head_texture != null)
+	assert(bengal_head_texture.get_width() == 1024)
+	assert(bengal_head_texture.get_height() == 1024)
+	var fox_head_texture := CharacterCustomizationCatalog.fur_pattern_texture(
+		"fox", "head_pointy"
+	)
+	assert(fox_head_texture != null)
+	assert(fox_head_texture.get_width() == 1024)
+	assert(fox_head_texture.get_height() == 1024)
+	var fox_tail_texture := CharacterCustomizationCatalog.fur_pattern_texture(
+		"fox", "tails_fox"
+	)
+	assert(fox_tail_texture != null)
+	assert(fox_tail_texture.get_width() == 1024)
+	assert(fox_tail_texture.get_height() == 1024)
 
 	var patterned := migrated.duplicate(true)
 	patterned["fur_pattern"] = "orange"
@@ -117,7 +131,36 @@ func _run() -> void:
 	)
 	var round_head := skeleton.get_node_or_null("head_round") as MeshInstance3D
 	assert(round_head != null)
-	assert(round_head.material_override is StandardMaterial3D)
+	var round_head_material := round_head.material_override as ShaderMaterial
+	assert(round_head_material != null)
+	assert(
+		round_head_material.get_shader_parameter("pattern_texture")
+		== bengal_head_texture
+	)
+
+	var fox_snapshot := patterned.duplicate(true)
+	fox_snapshot["species"] = "pointy"
+	fox_snapshot["fur_style"] = "fox"
+	fox_snapshot["tail"] = "fox"
+	PlayerVisualPresenter.apply_appearance(visuals, fox_snapshot)
+	var pointy_head := (
+		skeleton.get_node_or_null("head_pointy") as MeshInstance3D
+	)
+	assert(pointy_head != null)
+	var pointy_head_material := pointy_head.material_override as ShaderMaterial
+	assert(pointy_head_material != null)
+	assert(
+		pointy_head_material.get_shader_parameter("pattern_texture")
+		== fox_head_texture
+	)
+	var fox_tail := skeleton.get_node_or_null("tails_fox") as MeshInstance3D
+	assert(fox_tail != null)
+	var fox_tail_material := fox_tail.material_override as ShaderMaterial
+	assert(fox_tail_material != null)
+	assert(
+		fox_tail_material.get_shader_parameter("pattern_texture")
+		== fox_tail_texture
+	)
 
 	var recolored := patterned.duplicate(true)
 	recolored["fur_color_3"] = "teal"

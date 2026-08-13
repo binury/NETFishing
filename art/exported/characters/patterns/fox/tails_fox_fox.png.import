@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bdwqv502so784"
-path="res://.godot/imported/body_arms.png-a4119ca84faf9d8bfa9bc0ab6f8ca133.ctex"
+uid="uid://cyr0wcavb1cmi"
+path="res://.godot/imported/tails_fox_fox.png-061a224c36e90f10b33d37e616ff7e94.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://art/exported/characters/patterns/fox/body_arms.png"
-dest_files=["res://.godot/imported/body_arms.png-a4119ca84faf9d8bfa9bc0ab6f8ca133.ctex"]
+source_file="res://art/exported/characters/patterns/fox/tails_fox_fox.png"
+dest_files=["res://.godot/imported/tails_fox_fox.png-061a224c36e90f10b33d37e616ff7e94.ctex"]
 
 [params]
 

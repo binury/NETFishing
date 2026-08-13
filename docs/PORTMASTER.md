@@ -1,4 +1,4 @@
-# PortMaster release builds
+# PortMaster reference
 
 NETfishing's PortMaster release is a canonical PortMaster package, not a
 version-named generic ZIP. The installer-facing archive must be named
@@ -95,10 +95,10 @@ The remaining catalog metadata assets were copied from the installed official
 e2a9d132744684c67865c01eca027a8c9946b4c5a19da57c82f1af0373dc83b7  gameinfo.xml
 ```
 
-The package’s `licenses/` directory is now assembled from the authoritative
-root license, asset-license, credits, trademark, font, and third-party-notice
-files at build time. It also records the exact release tag and corresponding
-GPL source commit. Do not restore stale duplicated license templates beneath
+The package’s `licenses/` directory is assembled from the authoritative root
+licenses and trademarks, the consolidated `docs/ATTRIBUTION.md`, and the font
+notices at build time. It also records the exact release tag and corresponding
+GPL source commit. Do not restore stale duplicated notice templates beneath
 `scripts/portmaster/`.
 
 The original catalog porter credit, `Voyager`, remains in `port.json`.
@@ -139,3 +139,31 @@ following in the installed game:
 - Both sticks, both bumpers, both triggers, Select, Start, L3, and R3 register.
 - A single button never cancels auto-map.
 - Holding both bumpers together for 1.25 seconds cancels auto-map.
+
+## Low-end performance profile
+
+The launcher keeps the normal game profile on unknown and stronger hardware.
+It enables the low-end profile only when the Linux device tree reports one of
+the identifiers used by Allwinner H616/H700 XX handhelds:
+
+- `allwinner,h616`
+- `sun50iw9p1`
+- `allwinner,sun50i-h700`
+
+The low-end profile passes these Godot options:
+
+- `--single-window`
+- `--disable-vsync`
+- `--max-fps 30`
+- `--audio-output-latency 40`
+
+It also passes `NETFISHING_LOW_END=1`. The game renders the 3D world at 75%
+linear resolution with nearest-neighbor scaling, reducing 3D pixel work by
+about 44% while the separately rendered UI retains its canonical resolution.
+
+Do not use Godot's low processor mode for this profile. It reduces idle CPU
+usage by sleeping between updates and is not a game-performance optimization.
+
+Before adding a device family, record its exact NUL-separated device-tree
+`compatible` value from hardware. Do not infer detection from a retail product
+name alone.

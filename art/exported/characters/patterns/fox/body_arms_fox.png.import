@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://m2un0oahhss3"
-path="res://.godot/imported/body_arms.png-a55eeb0787397c58508a7c65cc2d04f8.ctex"
+uid="uid://p5cg2bwrxf7v"
+path="res://.godot/imported/body_arms_fox.png-91ab21ce544fdc29b8a0ebf3e54ef7cd.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://art/exported/characters/patterns/spots_bengal/body_arms.png"
-dest_files=["res://.godot/imported/body_arms.png-a55eeb0787397c58508a7c65cc2d04f8.ctex"]
+source_file="res://art/exported/characters/patterns/fox/body_arms_fox.png"
+dest_files=["res://.godot/imported/body_arms_fox.png-91ab21ce544fdc29b8a0ebf3e54ef7cd.ctex"]
 
 [params]
 

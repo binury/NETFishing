@@ -9,8 +9,7 @@
   "attr": {
     "title": "NETfishing",
     "porter": [
-      "Voyager",
-      "asellite"
+      "Voyager"
     ],
     "desc": "A relaxed multiplayer fishing game about exploring a small island, catching and collecting fish, customizing your character, and spending time by the water.",
     "desc_md": null,

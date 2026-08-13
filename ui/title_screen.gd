@@ -16,6 +16,7 @@ const BubbleClusterType = preload(
 const TitleConfirmationBubblePageType = preload(
 	"res://ui/title_confirmation_bubble_page.gd"
 )
+const TitleCreditsPageType = preload("res://ui/title_credits_page.gd")
 const NetworkSessionType = preload("res://network/network_session.gd")
 const SavedServerStoreType = preload("res://network/saved_server_store.gd")
 const JoinGamePageType = preload("res://ui/network/join_game_page.gd")
@@ -70,7 +71,7 @@ const LOGO_MAX_WIDTH: float = 662.0
 const TITLE_HORIZONTAL_MARGIN: float = 48.0
 const TITLE_DESKTOP_REFERENCE_SIZE: Vector2 = Vector2(1280.0, 720.0)
 const TITLE_COMPACT_REFERENCE_SIZE: Vector2 = Vector2(640.0, 480.0)
-const BUBBLE_FIELD_MAX_WIDTH: float = 396.0
+const BUBBLE_FIELD_MAX_WIDTH: float = 440.0
 const BUBBLE_FIELD_DESKTOP_HEIGHT: float = 318.0
 const BUBBLE_FIELD_COMPACT_WIDTH: float = 294.0
 const BUBBLE_FIELD_COMPACT_HEIGHT: float = 200.0
@@ -99,6 +100,7 @@ enum ConfirmationAction {
 @onready var _continue_button: BubbleButtonType = %ContinueButton
 @onready var _new_game_button: BubbleButtonType = %NewGameButton
 @onready var _settings_button: BubbleButtonType = %SettingsButton
+@onready var _credits_button: BubbleButtonType = %CreditsButton
 @onready var _delete_button: BubbleButtonType = %DeleteSaveButton
 @onready var _quit_button: BubbleButtonType = %QuitButton
 @onready var _join_game_button: BubbleButtonType = %JoinGameButton
@@ -134,6 +136,7 @@ enum ConfirmationAction {
 @onready var _start_prompt_center: CenterContainer = %StartPromptCenter
 @onready var _start_prompt_label: Label = %StartPromptLabel
 @onready var _join_game_page: JoinGamePageType = %JoinGamePage
+@onready var _credits_page: TitleCreditsPageType = %CreditsPage
 
 var _save_manager: SaveManagerType
 var _settings_manager: SettingsManagerType
@@ -200,6 +203,7 @@ func _ready() -> void:
 	_new_game_button.pressed.connect(_on_new_game_pressed)
 	_join_game_button.pressed.connect(_open_join_game)
 	_settings_button.pressed.connect(_open_settings)
+	_credits_button.pressed.connect(_open_credits)
 	_delete_button.pressed.connect(_on_delete_pressed)
 	%QuitButton.pressed.connect(_on_quit_pressed)
 	_confirmation_page.confirmed.connect(_on_confirmation_accepted)
@@ -211,6 +215,7 @@ func _ready() -> void:
 	_settings_panel.navigation_transition_started.connect(
 		_emit_navigation_bubble_flurry
 	)
+	_credits_page.back_requested.connect(_close_credits)
 	_bubble_field.configure(_get_title_buttons())
 	_decorative_fish_timer.timeout.connect(_on_decorative_fish_timer_timeout)
 	_decorative_bubble_event_timer.timeout.connect(
@@ -261,6 +266,7 @@ func reopen() -> void:
 	_reset_confirmation()
 	_settings_panel.hide()
 	_join_game_page.close_page()
+	_credits_page.close_page()
 	_refresh_save_inspection()
 	show()
 	_start_decorative_presentation()
@@ -274,6 +280,7 @@ func open_join_game_page(endpoint: String = "") -> void:
 	_presentation_center.hide()
 	_settings_panel.hide()
 	_confirmation_page.hide_page()
+	_credits_page.close_page()
 	_join_game_page.open_page(endpoint)
 
 
@@ -286,7 +293,11 @@ func report_network_error(message: String) -> void:
 
 
 func _open_join_game() -> void:
-	if _action_in_progress or _is_confirmation_active():
+	if (
+		_action_in_progress
+		or _is_confirmation_active()
+		or _credits_page.visible
+	):
 		return
 	open_join_game_page()
 
@@ -297,6 +308,39 @@ func _close_join_game() -> void:
 	_button_center.show()
 	_start_prompt_center.hide()
 	_focus_initial_button()
+
+
+func _open_credits() -> void:
+	if (
+		_action_in_progress
+		or _is_confirmation_active()
+		or _settings_panel.visible
+		or _join_game_page.visible
+		or _credits_page.visible
+	):
+		return
+	_hide_continue_stats_context()
+	var restore_navigation_focus: bool = _navigation_focus_active
+	_set_title_bubbles_interactive(false)
+	_release_primary_menu_focus()
+	_presentation_center.hide()
+	_start_prompt_center.hide()
+	_credits_page.open_page(restore_navigation_focus)
+
+
+func _close_credits(restore_navigation_focus: bool) -> void:
+	_credits_page.close_page()
+	_presentation_center.show()
+	_button_center.show()
+	_start_prompt_center.hide()
+	_set_title_bubbles_interactive(true)
+	if restore_navigation_focus:
+		_navigation_focus_active = true
+		_credits_button.grab_focus()
+	else:
+		_navigation_focus_active = false
+		_release_title_focus()
+	_update_continue_stats_visibility()
 
 
 func is_awaiting_start_input() -> bool:
@@ -403,6 +447,7 @@ func _get_title_buttons() -> Array[BubbleButton]:
 		_new_game_button,
 		_join_game_button,
 		_settings_button,
+		_credits_button,
 		_delete_button,
 		_quit_button,
 	]
@@ -498,6 +543,10 @@ func _input(event: InputEvent) -> void:
 		and _settings_panel.is_controller_mapping_capturing()
 	):
 		return
+	if _credits_page.visible:
+		if _credits_page.handle_input(event):
+			get_viewport().set_input_as_handled()
+			return
 	if _join_game_page.visible:
 		if event.is_action_pressed("ui_cancel"):
 			_close_join_game()
@@ -549,6 +598,7 @@ func _handle_primary_menu_focus_input(event: InputEvent) -> bool:
 		not _button_center.visible
 		or _is_confirmation_active()
 		or _settings_panel.visible
+		or _credits_page.visible
 	):
 		return false
 	if event is InputEventMouseMotion:
@@ -1186,6 +1236,7 @@ func _open_settings() -> void:
 		_is_confirmation_active()
 		or _action_in_progress
 		or _settings_panel.visible
+		or _credits_page.visible
 		or _title_settings_transition_active
 	):
 		return
@@ -1398,6 +1449,7 @@ func _focus_initial_button() -> void:
 		or not visible
 		or _awaiting_start_input
 		or not _button_center.visible
+		or _credits_page.visible
 	):
 		return
 	if not _continue_button.disabled:
@@ -1413,6 +1465,7 @@ func _on_quit_pressed() -> void:
 		not _action_in_progress
 		and not _is_confirmation_active()
 		and not _settings_panel.visible
+		and not _credits_page.visible
 	):
 		_hide_continue_stats_context()
 		quit_requested.emit()
@@ -1430,6 +1483,7 @@ func _on_title_visibility_changed() -> void:
 		_navigation_focus_active = false
 		_modal_restore_navigation_focus = false
 		_reset_confirmation()
+		_credits_page.close_page()
 		_stop_decorative_presentation()
 
 

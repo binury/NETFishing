@@ -21,7 +21,8 @@ separate written terms are needed.
 - Keep presentation-only systems out of save files and network messages.
 - Store runtime assets under repository-owned paths; never reference a
   workstation sync or temporary directory.
-- Record the source and license of newly imported assets.
+- Record the source and license of newly imported assets in
+  [`docs/ATTRIBUTION.md`](docs/ATTRIBUTION.md).
 - Do not assume the GPL code license applies to project assets; observe
   [`ASSET-LICENSE.md`](ASSET-LICENSE.md) and third-party terms.
 - Do not commit `.godot/`, test data, logs, captures, or build outputs.
@@ -34,7 +35,8 @@ scripts/run_validations.sh quick
 git status --short
 ```
 
-Choose additional focused tests from [`docs/TESTING.md`](docs/TESTING.md).
+Choose additional focused tests from the validation section of
+[`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md#validation).
 Changes involving networking should run the network suite and a real
 two-process check. Visual changes still require graphical review; headless
 tests are supporting evidence, not a replacement.

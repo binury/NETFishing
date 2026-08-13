@@ -4,9 +4,10 @@ These terms apply to contributions intentionally submitted for inclusion in
 NETfishing after these terms are published. They do not retroactively change
 ownership of earlier work or replace a separately signed agreement.
 
-“Owners” means Alexander Sellite and Rheannon Eisworth. “Project” means the
-official NETfishing game, its servers, tools, documentation, websites, ports,
-updates, and promotional materials.
+“Owners” means the two NETfishing co-owners who publish the Project as
+Woofmeow and are publicly credited as Voyager and Endeavour. “Project” means
+the official NETfishing game, its servers, tools, documentation, websites,
+ports, updates, and promotional materials.
 
 ## 1. Your ownership and authority
 

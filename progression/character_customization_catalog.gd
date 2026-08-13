@@ -124,11 +124,15 @@ const OPTIONS: Dictionary = {
 			"textures": {
 				"body_main": (
 					"res://art/exported/characters/patterns/"
-					+ "spots_bengal/body_main.png"
+					+ "bengal/body_main_bengal.png"
 				),
 				"body_arms": (
 					"res://art/exported/characters/patterns/"
-					+ "spots_bengal/body_arms.png"
+					+ "bengal/body_arms_bengal.png"
+				),
+				"head_round": (
+					"res://art/exported/characters/patterns/"
+					+ "bengal/head_round_bengal.png"
 				),
 			},
 		},
@@ -138,11 +142,19 @@ const OPTIONS: Dictionary = {
 			"textures": {
 				"body_main": (
 					"res://art/exported/characters/patterns/"
-					+ "fox/body_main.png"
+					+ "fox/body_main_fox.png"
 				),
 				"body_arms": (
 					"res://art/exported/characters/patterns/"
-					+ "fox/body_arms.png"
+					+ "fox/body_arms_fox.png"
+				),
+				"head_pointy": (
+					"res://art/exported/characters/patterns/"
+					+ "fox/head_pointy_fox.png"
+				),
+				"tails_fox": (
+					"res://art/exported/characters/patterns/"
+					+ "fox/tails_fox_fox.png"
 				),
 			},
 		},

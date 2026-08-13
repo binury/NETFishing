@@ -7,7 +7,7 @@ readonly PROJECT_ROOT="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
 readonly BUILD_ROOT="${PROJECT_ROOT}/builds/v0.6.7-alpha"
 readonly WINDOWS_DIR="${BUILD_ROOT}/windows-x86_64"
 readonly LINUX_DIR="${BUILD_ROOT}/linux-x86_64"
-readonly README_SOURCE="${PROJECT_ROOT}/playtest/README-PLAYTEST.txt"
+readonly README_SOURCE="${PROJECT_ROOT}/docs/README-PLAYTEST.txt"
 readonly SOURCE_COMMIT="$(git -C "${PROJECT_ROOT}" rev-parse HEAD)"
 readonly SOURCE_URL="https://forge.makearmy.io/woofmeow/netfishing"
 readonly WINDOWS_ZIP="${BUILD_ROOT}/NETfishing-v0.6.7-alpha-windows-x86_64.zip"
@@ -61,12 +61,10 @@ stage_licenses() {
 		"${destination}/GPL-3.0-or-later.txt"
 	install -m 0644 "${PROJECT_ROOT}/ASSET-LICENSE.md" \
 		"${destination}/NETFISHING-ASSET-LICENSE.md"
-	install -m 0644 "${PROJECT_ROOT}/THIRD-PARTY-NOTICES.md" \
-		"${destination}/THIRD-PARTY-NOTICES.md"
+	install -m 0644 "${PROJECT_ROOT}/docs/ATTRIBUTION.md" \
+		"${destination}/ATTRIBUTION.md"
 	install -m 0644 "${PROJECT_ROOT}/TRADEMARKS.md" \
 		"${destination}/TRADEMARKS.md"
-	install -m 0644 "${PROJECT_ROOT}/CREDITS.md" \
-		"${destination}/CREDITS.md"
 	install -m 0644 "${PROJECT_ROOT}/ui/fonts/Tuffy-LICENSE.txt" \
 		"${destination}/Tuffy-LICENSE.txt"
 	install -m 0644 "${PROJECT_ROOT}/ui/fonts/Seattle-Avenue-LICENSE.txt" \

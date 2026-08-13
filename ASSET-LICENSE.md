@@ -1,19 +1,20 @@
 # NETfishing Asset License 1.0
 
-Copyright © 2026 Alexander Sellite and Rheannon Eisworth. All rights
-reserved except for the permissions expressly granted below.
+Copyright © 2026 Woofmeow. All rights reserved except for the permissions
+expressly granted below.
 
 ## 1. Scope
 
 This license applies to original NETfishing artwork, graphics, textures,
 models, animations, music, sound recordings, narrative content, visual
-designs, characters, and other creative assets owned by Alexander Sellite and
-Rheannon Eisworth (the **“NETfishing Assets”**).
+designs, characters, and other creative assets owned by the NETfishing owners,
+publishing as Woofmeow (the **“NETfishing Assets”**).
 
 It does not apply to:
 
 - software source code identified as GPL-3.0-or-later;
-- third-party material identified in `THIRD-PARTY-NOTICES.md`;
+- third-party material identified in the source repository's
+  `docs/ATTRIBUTION.md` or the packaged `ATTRIBUTION.md` notice;
 - material accompanied by a different license; or
 - the NETfishing and Woofmeow names and logos, which are addressed in
   `TRADEMARKS.md`.
@@ -62,9 +63,9 @@ A distributed Mod must:
 2. be presented as unofficial community content;
 3. include the following notice in its documentation or distribution page:
 
-   > Contains or adapts NETfishing assets © 2026 Alexander Sellite and
-   > Rheannon Eisworth, used under the NETfishing Asset License 1.0. This Mod
-   > is unofficial and is not endorsed by Woofmeow.
+   > Contains or adapts NETfishing assets © 2026 Woofmeow, used under the
+   > NETfishing Asset License 1.0. This Mod is unofficial and is not endorsed
+   > by Woofmeow.
 
 4. identify material created by the Mod author separately from NETfishing
    Assets; and
@@ -98,9 +99,9 @@ owners grant separate written permission.
 
 ## 6. Ownership of Mods
 
-You retain ownership of your original Mod material. Alexander Sellite and
-Rheannon Eisworth retain ownership of the NETfishing Assets and adaptations of
-those assets to the extent provided by applicable law.
+You retain ownership of your original Mod material. The NETfishing owners
+retain ownership of the NETfishing Assets and adaptations of those assets to
+the extent provided by applicable law.
 
 This license does not require you to assign your original Mod material to the
 NETfishing owners. It also does not grant you ownership of the underlying
@@ -126,9 +127,9 @@ OTHER LIABILITY ARISING FROM THIS LICENSE OR USE OF THE NETFISHING ASSETS.
 
 ## 9. Additional permission
 
-Uses not granted here require written permission from both Alexander Sellite
-and Rheannon Eisworth. A permission granted to one person or project does not
-amend this license for others.
+Uses not granted here require written permission from both NETfishing owners.
+A permission granted to one person or project does not amend this license for
+others.
 
 This is a custom asset license, not an open-source software license or a
 Creative Commons license.

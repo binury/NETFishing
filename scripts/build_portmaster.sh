@@ -85,17 +85,14 @@ install -m 0644 "${ARM64_PCK}" "${GAME_ROOT}/NETfishing.pck"
 install -m 0644 "${TEMPLATE_ROOT}/gameinfo.xml" "${GAME_ROOT}/gameinfo.xml"
 install -m 0644 "${TEMPLATE_ROOT}/screenshot.png" "${GAME_ROOT}/screenshot.png"
 install -m 0644 \
-  "${PROJECT_ROOT}/CREDITS.md" \
-  "${GAME_ROOT}/licenses/CREDITS.md"
+  "${PROJECT_ROOT}/docs/ATTRIBUTION.md" \
+  "${GAME_ROOT}/licenses/ATTRIBUTION.md"
 install -m 0644 \
   "${PROJECT_ROOT}/LICENSE" \
   "${GAME_ROOT}/licenses/GPL-3.0-or-later.txt"
 install -m 0644 \
   "${PROJECT_ROOT}/ASSET-LICENSE.md" \
   "${GAME_ROOT}/licenses/NETFISHING-ASSET-LICENSE.md"
-install -m 0644 \
-  "${PROJECT_ROOT}/THIRD-PARTY-NOTICES.md" \
-  "${GAME_ROOT}/licenses/THIRD-PARTY-NOTICES.md"
 install -m 0644 \
   "${PROJECT_ROOT}/TRADEMARKS.md" \
   "${GAME_ROOT}/licenses/TRADEMARKS.md"

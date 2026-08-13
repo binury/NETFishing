@@ -1,9 +1,9 @@
 # NETfishing and Woofmeow branding
 
 The NETfishing and Woofmeow names, logos, icons, trade dress, and other source
-identifiers are reserved by Alexander Sellite and Rheannon Eisworth. Their
-presence in a GPL-licensed repository does not grant trademark rights or imply
-permission to represent another product as official.
+identifiers are reserved by the NETfishing owners, publishing as Woofmeow.
+Their presence in a GPL-licensed repository does not grant trademark rights or
+imply permission to represent another product as official.
 
 No trademark registration is asserted by this notice. Applicable rights may
 exist through use and other law.
@@ -39,4 +39,4 @@ These branding terms do not limit rights granted by the GPL to the software
 code or lawful nominative, descriptive, comparative, or fair use.
 
 Permission for broader branding use must be obtained in writing from both
-Alexander Sellite and Rheannon Eisworth.
+NETfishing owners.

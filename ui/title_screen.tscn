@@ -1,4 +1,4 @@
-[gd_scene load_steps=17 format=3]
+[gd_scene load_steps=18 format=3]
 
 [ext_resource type="Script" path="res://ui/title_screen.gd" id="1_script"]
 [ext_resource type="Theme" path="res://ui/game_theme.tres" id="2_theme"]
@@ -14,6 +14,7 @@
 [ext_resource type="Texture2D" path="res://ui/icons/pictograms/online_dark.png" id="12_online_dark"]
 [ext_resource type="Texture2D" path="res://ui/icons/pictograms/settings_dark.png" id="13_settings_dark"]
 [ext_resource type="Texture2D" path="res://ui/icons/pictograms/x_dark.png" id="14_x_dark"]
+[ext_resource type="PackedScene" path="res://ui/title_credits_page.tscn" id="15_credits_page"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_title_water"]
 shader = ExtResource("4_water_shader")
@@ -224,21 +225,21 @@ layout_mode = 2
 
 [node name="BubbleLayoutSlot" type="Control" parent="ResponsiveTitleStage/TitlePresentationScaleRoot/Center/MainContent/ButtonCenter"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(396, 318)
+custom_minimum_size = Vector2(440, 318)
 layout_mode = 2
 
 [node name="BubbleMotionRoot" type="Control" parent="ResponsiveTitleStage/TitlePresentationScaleRoot/Center/MainContent/ButtonCenter/BubbleLayoutSlot"]
 unique_name_in_owner = true
 layout_mode = 0
-offset_right = 396.0
+offset_right = 440.0
 offset_bottom = 318.0
 mouse_filter = 2
 
 [node name="BubbleField" type="Control" parent="ResponsiveTitleStage/TitlePresentationScaleRoot/Center/MainContent/ButtonCenter/BubbleLayoutSlot/BubbleMotionRoot"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(396, 318)
+custom_minimum_size = Vector2(440, 318)
 layout_mode = 0
-offset_right = 396.0
+offset_right = 440.0
 offset_bottom = 318.0
 script = ExtResource("8_bubble_cluster")
 profile = ExtResource("9_bubble_profile")
@@ -321,6 +322,30 @@ vertical_amplitude = 3.7
 motion_period = 4.9
 motion_phase = 2.5
 deformation_period = 6.3
+
+[node name="CreditsButton" type="Button" parent="ResponsiveTitleStage/TitlePresentationScaleRoot/Center/MainContent/ButtonCenter/BubbleLayoutSlot/BubbleMotionRoot/BubbleField"]
+unique_name_in_owner = true
+offset_left = 330.0
+offset_top = 125.0
+offset_right = 414.0
+offset_bottom = 207.0
+text = "credits"
+tooltip_text = "credits"
+accessibility_name = "credits"
+script = ExtResource("7_bubble_button")
+profile = ExtResource("9_bubble_profile")
+neutral_size = Vector2(84, 82)
+desktop_anchor = Vector2(372, 166)
+compact_anchor = Vector2(372, 166)
+compact_minimum_size = Vector2(62, 62)
+minimum_font_size = 12
+maximum_font_size = 17
+horizontal_amplitude = 1.4
+vertical_amplitude = 3.0
+motion_period = 5.0
+motion_phase = 1.8
+deformation_amplitude = 0.015
+deformation_period = 5.6
 
 [node name="JoinGameButton" type="Button" parent="ResponsiveTitleStage/TitlePresentationScaleRoot/Center/MainContent/ButtonCenter/BubbleLayoutSlot/BubbleMotionRoot/BubbleField"]
 unique_name_in_owner = true
@@ -441,6 +466,16 @@ offset_left = -360.0
 offset_top = -300.0
 offset_right = 360.0
 offset_bottom = 300.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="CreditsPage" parent="ResponsiveTitleStage/TitlePresentationScaleRoot" instance=ExtResource("15_credits_page")]
+unique_name_in_owner = true
+z_index = 220
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 

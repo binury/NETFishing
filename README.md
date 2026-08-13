@@ -9,7 +9,7 @@ The project is under active development. Interfaces, balance, content, and
 save migrations may continue to change before a stable release.
 
 NETfishing is developed and published by **Woofmeow**, the independent team of
-co-owners Alexander Sellite and Rheannon Eisworth.
+co-owners publicly credited as Voyager and Endeavour.
 
 ## Requirements
 
@@ -38,8 +38,8 @@ Run the fast, deterministic suite before submitting a change:
 scripts/run_validations.sh quick
 ```
 
-Additional suites and individual commands are documented in
-[`docs/TESTING.md`](docs/TESTING.md).
+Additional suites and individual commands are documented in the
+[`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md#validation) validation section.
 
 ## Building
 
@@ -68,9 +68,10 @@ scripts do not create or publish tags.
 - `tests/`: focused Godot validation scripts
 - `scripts/`: build, bake, and validation entry points
 
-See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) and
-[`world/README-WORLD-AUTHORING.md`](world/README-WORLD-AUTHORING.md) for more
-detail.
+All maintained project guidance starts at the
+[`docs/` documentation index](docs/README.md). Architecture, content policy,
+world and UI authoring, and testing are consolidated in
+[`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md).
 
 ## Licensing
 
@@ -82,11 +83,11 @@ detail.
   unrelated products.
 - The NETfishing and Woofmeow names and branding are reserved as described in
   [TRADEMARKS.md](TRADEMARKS.md).
-- Third-party materials retain their own terms; see
-  [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
+- Third-party materials retain their own terms; see the consolidated
+  [credits, notices, and provenance record](docs/ATTRIBUTION.md).
 - Contributions are accepted under [CONTRIBUTOR-TERMS.md](CONTRIBUTOR-TERMS.md).
 
-The material boundaries and binary-release requirements are summarized in
-[`docs/LICENSING.md`](docs/LICENSING.md).
+Material boundaries and binary-release requirements are recorded in that same
+[`docs/ATTRIBUTION.md`](docs/ATTRIBUTION.md) reference.
 
-Copyright © 2026 Alexander Sellite and Rheannon Eisworth.
+Copyright © 2026 Woofmeow.

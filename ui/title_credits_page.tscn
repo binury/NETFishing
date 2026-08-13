@@ -1,0 +1,180 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://ui/title_credits_page.gd" id="1_script"]
+[ext_resource type="Theme" path="res://ui/game_theme.tres" id="2_theme"]
+
+[node name="TitleCreditsPage" type="Control"]
+visible = false
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 1
+theme = ExtResource("2_theme")
+script = ExtResource("1_script")
+
+[node name="Paper" type="PanelContainer" parent="."]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 160.0
+offset_top = 38.0
+offset_right = 1120.0
+offset_bottom = 682.0
+
+[node name="Margin" type="MarginContainer" parent="Paper"]
+layout_mode = 2
+theme_override_constants/margin_left = 52
+theme_override_constants/margin_top = 26
+theme_override_constants/margin_right = 52
+theme_override_constants/margin_bottom = 24
+
+[node name="Layout" type="VBoxContainer" parent="Paper/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="Title" type="Label" parent="Paper/Margin/Layout"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.902, 0.969, 0.969, 1)
+theme_override_font_sizes/font_size = 36
+text = "credits"
+horizontal_alignment = 1
+
+[node name="Subtitle" type="Label" parent="Paper/Margin/Layout"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.624, 0.812, 0.824, 1)
+theme_override_font_sizes/font_size = 18
+text = "NETfishing is created by Woofmeow"
+horizontal_alignment = 1
+
+[node name="Columns" type="HBoxContainer" parent="Paper/Margin/Layout"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 52
+
+[node name="CreativeCredits" type="VBoxContainer" parent="Paper/Margin/Layout/Columns"]
+custom_minimum_size = Vector2(404, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 5
+
+[node name="CreativeHeading" type="Label" parent="Paper/Margin/Layout/Columns/CreativeCredits"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.902, 0.969, 0.969, 1)
+theme_override_font_sizes/font_size = 23
+text = "creative team"
+
+[node name="VoyagerName" type="Label" parent="Paper/Margin/Layout/Columns/CreativeCredits"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.902, 0.969, 0.969, 1)
+theme_override_font_sizes/font_size = 18
+text = "Voyager"
+
+[node name="VoyagerRoles" type="Label" parent="Paper/Margin/Layout/Columns/CreativeCredits"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.624, 0.812, 0.824, 1)
+theme_override_font_sizes/font_size = 15
+text = "co-owner • development • project direction • 3d art • music"
+autowrap_mode = 2
+
+[node name="EndeavourName" type="Label" parent="Paper/Margin/Layout/Columns/CreativeCredits"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.902, 0.969, 0.969, 1)
+theme_override_font_sizes/font_size = 18
+text = "Endeavour"
+
+[node name="EndeavourRoles" type="Label" parent="Paper/Margin/Layout/Columns/CreativeCredits"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.624, 0.812, 0.824, 1)
+theme_override_font_sizes/font_size = 15
+text = "co-owner • development • 2d art"
+autowrap_mode = 2
+
+[node name="ContributorSpacer" type="Control" parent="Paper/Margin/Layout/Columns/CreativeCredits"]
+custom_minimum_size = Vector2(0, 9)
+layout_mode = 2
+
+[node name="ContributorHeading" type="Label" parent="Paper/Margin/Layout/Columns/CreativeCredits"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.902, 0.969, 0.969, 1)
+theme_override_font_sizes/font_size = 23
+text = "additional contributors"
+
+[node name="ChillnfillName" type="Label" parent="Paper/Margin/Layout/Columns/CreativeCredits"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.902, 0.969, 0.969, 1)
+theme_override_font_sizes/font_size = 18
+text = "chillnfill"
+
+[node name="ChillnfillCredit" type="Label" parent="Paper/Margin/Layout/Columns/CreativeCredits"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.624, 0.812, 0.824, 1)
+theme_override_font_sizes/font_size = 15
+text = "original 3d models for character bodies and arms, ears and tails, and multiple world props and decorative assets including trees and bridges"
+autowrap_mode = 2
+
+[node name="TekgatorName" type="Label" parent="Paper/Margin/Layout/Columns/CreativeCredits"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.902, 0.969, 0.969, 1)
+theme_override_font_sizes/font_size = 18
+text = "Tekgator"
+
+[node name="TekgatorCredit" type="Label" parent="Paper/Margin/Layout/Columns/CreativeCredits"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.624, 0.812, 0.824, 1)
+theme_override_font_sizes/font_size = 15
+text = "cooler-capacity and barrier-power shop icon artwork"
+autowrap_mode = 2
+
+[node name="AdditionalCredits" type="VBoxContainer" parent="Paper/Margin/Layout/Columns"]
+custom_minimum_size = Vector2(404, 0)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 5
+
+[node name="AudioHeading" type="Label" parent="Paper/Margin/Layout/Columns/AdditionalCredits"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.902, 0.969, 0.969, 1)
+theme_override_font_sizes/font_size = 23
+text = "additional audio"
+
+[node name="AudioCredits" type="Label" parent="Paper/Margin/Layout/Columns/AdditionalCredits"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.624, 0.812, 0.824, 1)
+theme_override_font_sizes/font_size = 15
+text = "tosha73 • fishing reel sounds\nkkenny101 • ocean ambience\nqubodup • water impact\nAyton • rain ambience\nivolipa • dog bark\nChristyboy100 • cat meow"
+
+[node name="TechnologySpacer" type="Control" parent="Paper/Margin/Layout/Columns/AdditionalCredits"]
+custom_minimum_size = Vector2(0, 9)
+layout_mode = 2
+
+[node name="TechnologyHeading" type="Label" parent="Paper/Margin/Layout/Columns/AdditionalCredits"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.902, 0.969, 0.969, 1)
+theme_override_font_sizes/font_size = 23
+text = "fonts & technology"
+
+[node name="TechnologyCredits" type="Label" parent="Paper/Margin/Layout/Columns/AdditionalCredits"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.624, 0.812, 0.824, 1)
+theme_override_font_sizes/font_size = 15
+text = "Tuffy • Thatcher Ulrich, Karoly Barta & Michael Evans\nSeattle Avenue • JLH Fonts\nbuilt with Godot Engine"
+autowrap_mode = 2
+
+[node name="Notice" type="Label" parent="Paper/Margin/Layout"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.624, 0.812, 0.824, 1)
+theme_override_font_sizes/font_size = 13
+text = "complete attribution, licensing, and asset provenance are included with every release"
+horizontal_alignment = 1
+autowrap_mode = 2
+
+[node name="BackCenter" type="CenterContainer" parent="Paper/Margin/Layout"]
+layout_mode = 2
+
+[node name="CreditsBackButton" type="Button" parent="Paper/Margin/Layout/BackCenter"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(112, 50)
+layout_mode = 2
+text = "back"
