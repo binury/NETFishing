@@ -335,15 +335,14 @@ func _validate_weather_presentation() -> void:
 			"weather_fog_color"
 		) as Color
 	)
-	var rendered_fog_color := Color(
-		runtime_environment.fog_light_color.r
-			* runtime_environment.fog_light_energy,
-		runtime_environment.fog_light_color.g
-			* runtime_environment.fog_light_energy,
-		runtime_environment.fog_light_color.b
-			* runtime_environment.fog_light_energy,
-		1.0,
+	var rendered_fog_color := (
+		runtime_environment.fog_light_color.srgb_to_linear()
 	)
+	rendered_fog_color.r *= runtime_environment.fog_light_energy
+	rendered_fog_color.g *= runtime_environment.fog_light_energy
+	rendered_fog_color.b *= runtime_environment.fog_light_energy
+	rendered_fog_color.a = 1.0
+	rendered_fog_color = rendered_fog_color.linear_to_srgb()
 	assert(water_fog_color.is_equal_approx(rendered_fog_color))
 	assert(runtime_environment.fog_depth_begin <= 4.01)
 	assert(is_equal_approx(runtime_environment.fog_depth_end, 18.0))

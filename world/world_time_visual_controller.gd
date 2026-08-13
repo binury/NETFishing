@@ -441,12 +441,12 @@ func _apply_water_environment(
 
 
 func _fog_render_color(fog_color: Color, fog_light_energy: float) -> Color:
-	return Color(
-		fog_color.r * fog_light_energy,
-		fog_color.g * fog_light_energy,
-		fog_color.b * fog_light_energy,
-		1.0,
-	)
+	var linear_fog_color := fog_color.srgb_to_linear()
+	linear_fog_color.r *= fog_light_energy
+	linear_fog_color.g *= fog_light_energy
+	linear_fog_color.b *= fog_light_energy
+	linear_fog_color.a = 1.0
+	return linear_fog_color.linear_to_srgb()
 
 
 func _apply_sky_clouds(daylight: float, warmth: float) -> void:
