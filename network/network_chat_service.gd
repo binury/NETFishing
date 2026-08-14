@@ -5,6 +5,7 @@ const BURST_COUNT: int = 3
 const WINDOW_COUNT: int = 5
 const WINDOW_SECONDS: float = 10.0
 const CALL_COOLDOWN_MILLISECONDS: int = 180
+const WORLD_COMMAND_COOLDOWN_MILLISECONDS: int = 500
 const CALL_PITCH_VARIANTS: Array[float] = [
 	0.96,
 	1.03,
@@ -22,6 +23,7 @@ signal message_received(message: Dictionary)
 signal local_message_confirmed(message: Dictionary)
 signal send_rejected(message: String)
 signal history_replaced(messages: Array[Dictionary])
+signal world_command_finished(success: bool, message: String)
 signal character_call_received(
 	peer_id: int,
 	call_id: String,
@@ -35,13 +37,22 @@ var _request_ledgers: Dictionary[int, Dictionary] = {}
 var _rate_times: Dictionary[int, Array] = {}
 var _last_call_msec: Dictionary[int, int] = {}
 var _call_variant_indices: Dictionary[int, int] = {}
+var _last_world_command_msec: Dictionary[int, int] = {}
 var _sequence: int = 0
 var _peer_names: Dictionary[int, String] = {}
 var _relationships: PlayerRelationshipStore
+var _world_time: WorldTimeService
+var _world_weather: WorldWeatherService
 
 
-func setup(session: NetworkSession) -> void:
+func setup(
+	session: NetworkSession,
+	world_time: WorldTimeService,
+	world_weather: WorldWeatherService,
+) -> void:
 	_session = session
+	_world_time = world_time
+	_world_weather = world_weather
 	_session.peer_authenticated.connect(_on_peer_authenticated)
 	_session.peer_removed.connect(_on_peer_removed)
 	_session.state_changed.connect(_on_session_state_changed)
@@ -242,6 +253,188 @@ func broadcast_system_message(body: String) -> bool:
 	return true
 
 
+func request_world_time_change(phase_name: String) -> bool:
+	var normalized: String = phase_name.strip_edges().to_lower()
+	if not _valid_time_phase(normalized) or _session == null:
+		return false
+	if _session.is_host():
+		return _apply_world_time_change(normalized)
+	if (
+		not _session.is_joined_client()
+		or not _session.is_local_operator()
+		or not _session.supports_server_capability(
+			NetworkProtocol.WORLD_TIME_CAPABILITY
+		)
+	):
+		return false
+	submit_world_time_command.rpc_id(1, normalized)
+	return true
+
+
+func request_world_weather_change(weather_name: String) -> bool:
+	var normalized: String = _normalized_weather_name(weather_name)
+	if normalized.is_empty() or _session == null:
+		return false
+	if _session.is_host():
+		return _apply_world_weather_change(normalized)
+	if (
+		not _session.is_joined_client()
+		or not _session.is_local_operator()
+		or not _session.supports_server_capability(
+			NetworkProtocol.WORLD_WEATHER_CAPABILITY
+		)
+	):
+		return false
+	submit_world_weather_command.rpc_id(1, normalized)
+	return true
+
+
+@rpc("any_peer", "call_remote", "reliable", NetworkChatProtocol.RELIABLE_CHANNEL)
+func submit_world_time_command(phase_name: String) -> void:
+	var sender_id: int = multiplayer.get_remote_sender_id()
+	if not _valid_world_command_sender(sender_id):
+		_send_world_command_result(
+			sender_id, false, "Only the host or an operator can change world time."
+		)
+		return
+	if not _consume_world_command_rate(sender_id):
+		_send_world_command_result(sender_id, false, "Slow down.")
+		return
+	var success: bool = _apply_world_time_change(
+		phase_name.strip_edges().to_lower()
+	)
+	_send_world_command_result(
+		sender_id,
+		success,
+		"" if success else "World time could not be changed.",
+	)
+
+
+@rpc("any_peer", "call_remote", "reliable", NetworkChatProtocol.RELIABLE_CHANNEL)
+func submit_world_weather_command(weather_name: String) -> void:
+	var sender_id: int = multiplayer.get_remote_sender_id()
+	if not _valid_world_command_sender(sender_id):
+		_send_world_command_result(
+			sender_id,
+			false,
+			"Only the host or an operator can change world weather.",
+		)
+		return
+	if not _consume_world_command_rate(sender_id):
+		_send_world_command_result(sender_id, false, "Slow down.")
+		return
+	var success: bool = _apply_world_weather_change(
+		_normalized_weather_name(weather_name)
+	)
+	_send_world_command_result(
+		sender_id,
+		success,
+		"" if success else "World weather could not be changed.",
+	)
+
+
+@rpc("authority", "call_remote", "reliable", NetworkChatProtocol.RELIABLE_CHANNEL)
+func receive_world_command_result(success: bool, message: String) -> void:
+	if _session == null or not _session.is_joined_client():
+		return
+	world_command_finished.emit(success, message.left(120))
+
+
+func _valid_world_command_sender(peer_id: int) -> bool:
+	return (
+		_session != null
+		and _session.is_host()
+		and peer_id > 1
+		and _session.is_authenticated_peer(peer_id)
+		and _session.is_peer_operator(peer_id)
+	)
+
+
+func _apply_world_time_change(phase_name: String) -> bool:
+	if _world_time == null or not _valid_time_phase(phase_name):
+		return false
+	var target_hour: float = _time_phase_hour(phase_name)
+	if not _world_time.set_authoritative_time(target_hour):
+		return false
+	broadcast_system_message(
+		"World time set to %s (%s)."
+		% [phase_name, _world_time.get_clock_text()]
+	)
+	return true
+
+
+func _apply_world_weather_change(weather_name: String) -> bool:
+	if _world_weather == null:
+		return false
+	var normalized: String = _normalized_weather_name(weather_name)
+	if normalized.is_empty():
+		return false
+	var target_weather: WorldWeatherService.Weather = (
+		_weather_for_name(normalized)
+	)
+	if not _world_weather.set_authoritative_weather(target_weather):
+		return false
+	broadcast_system_message("World weather set to %s." % normalized)
+	return true
+
+
+func _send_world_command_result(
+	peer_id: int,
+	success: bool,
+	message: String,
+) -> void:
+	if peer_id > 1 and _session.is_authenticated_peer(peer_id):
+		receive_world_command_result.rpc_id(peer_id, success, message.left(120))
+
+
+func _consume_world_command_rate(peer_id: int) -> bool:
+	var now_msec: int = Time.get_ticks_msec()
+	var last_msec: int = _last_world_command_msec.get(
+		peer_id, now_msec - WORLD_COMMAND_COOLDOWN_MILLISECONDS
+	)
+	if now_msec - last_msec < WORLD_COMMAND_COOLDOWN_MILLISECONDS:
+		return false
+	_last_world_command_msec[peer_id] = now_msec
+	return true
+
+
+static func _valid_time_phase(phase_name: String) -> bool:
+	return phase_name in ["dawn", "day", "dusk", "night"]
+
+
+static func _time_phase_hour(phase_name: String) -> float:
+	match phase_name:
+		"dawn":
+			return WorldTimeService.DAWN_START_HOUR
+		"day":
+			return WorldTimeService.DAWN_END_HOUR
+		"dusk":
+			return WorldTimeService.DUSK_START_HOUR
+		"night":
+			return WorldTimeService.DUSK_END_HOUR
+	return -1.0
+
+
+static func _normalized_weather_name(weather_name: String) -> String:
+	var normalized: String = weather_name.strip_edges().to_lower()
+	return "clear" if normalized == "sunny" else normalized if normalized in [
+		"clear", "cloudy", "rainy", "foggy"
+	] else ""
+
+
+static func _weather_for_name(
+	weather_name: String,
+) -> WorldWeatherService.Weather:
+	match weather_name:
+		"cloudy":
+			return WorldWeatherService.Weather.CLOUDY
+		"rainy":
+			return WorldWeatherService.Weather.RAINY
+		"foggy":
+			return WorldWeatherService.Weather.FOGGY
+	return WorldWeatherService.Weather.SUNNY
+
+
 func get_history() -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for message: Dictionary in _history:
@@ -422,6 +615,7 @@ func _on_peer_removed(peer_id: int) -> void:
 	_rate_times.erase(peer_id)
 	_last_call_msec.erase(peer_id)
 	_call_variant_indices.erase(peer_id)
+	_last_world_command_msec.erase(peer_id)
 	if not _session.is_host():
 		return
 	var display_name: String = _peer_names.get(peer_id, "Player")
@@ -481,6 +675,7 @@ func _on_session_state_changed(state: NetworkSession.State) -> void:
 		_rate_times.clear()
 		_last_call_msec.clear()
 		_call_variant_indices.clear()
+		_last_world_command_msec.clear()
 		_peer_names.clear()
 		_sequence = 0
 		history_replaced.emit([])

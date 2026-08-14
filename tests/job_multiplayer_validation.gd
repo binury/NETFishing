@@ -23,13 +23,12 @@ func _run() -> void:
 func _run_host() -> void:
 	var main: Node = await _create_initialized_main()
 	var session := main.get_node("%NetworkSession") as NetworkSession
-	var save_manager := main.get("_save_manager") as PlayerSaveManager
 	var jobs := main.get_node("%PlayerJobService") as PlayerJobService
-	assert(session.start_private_host(TEST_PORT))
-	assert(save_manager.initialize_new_game())
-	main.call("_enter_gameplay")
+	assert(session.start_dedicated_host(TEST_PORT, 8, "127.0.0.1"))
+	jobs.begin_progression_session()
 	await process_frame
 	assert(session.set_host_open(true))
+	assert(session.is_dedicated_host())
 	var host_board: Dictionary = jobs.get_host_board_network_data()
 	assert(PlayerJobService.validate_board(host_board))
 

@@ -3,7 +3,7 @@ extends SceneTree
 const MainScene = preload("res://main/main.tscn")
 const TEST_PORT: int = 17983
 const INITIAL_HOST_TIME: float = 19.75
-const UPDATED_HOST_TIME: float = 20.75
+const UPDATED_HOST_TIME: float = WorldTimeService.DUSK_END_HOUR
 const TIME_TOLERANCE_HOURS: float = 0.05
 
 
@@ -61,14 +61,31 @@ func _run_host() -> void:
 	assert(session.peer_supports_capability(
 		remote_peer_id, NetworkProtocol.WORLD_WEATHER_CAPABILITY
 	))
+	var remote_record: PeerRegistry.PeerRecord = session.get_peer_record(
+		remote_peer_id
+	)
+	assert(remote_record != null and remote_record.identity_authenticated)
+	assert(session.set_peer_operator(
+		remote_peer_id,
+		remote_record.identity_fingerprint,
+		true,
+	))
 	assert(world_time.get_phase() == WorldTimeService.Phase.DUSK)
 
-	await create_timer(1.0).timeout
-	world_time.synchronize_time(UPDATED_HOST_TIME)
+	var command_deadline: int = Time.get_ticks_msec() + 10000
+	while (
+		Time.get_ticks_msec() < command_deadline
+		and _wrapped_time_difference(
+			world_time.get_time_hours(), UPDATED_HOST_TIME
+		) > TIME_TOLERANCE_HOURS
+	):
+		await process_frame
 	assert(is_equal_approx(
 		world_time.get_persistent_time_hours(), UPDATED_HOST_TIME
 	))
-	assert(chat_ui.call("_handle_chat_command", "/weather foggy"))
+	var fog_deadline: int = Time.get_ticks_msec() + 10000
+	while Time.get_ticks_msec() < fog_deadline and not world_weather.is_foggy():
+		await process_frame
 	assert(
 		world_weather.get_persistent_weather()
 		== WorldWeatherService.Weather.FOGGY
@@ -153,6 +170,11 @@ func _run_client() -> void:
 	assert(is_equal_approx(clock_panel.position.y, 10.0))
 	assert(is_equal_approx(weather_icon.position.y, 10.0))
 	assert(clock_panel.position.y + clock_panel.size.y < chat_panel.position.y)
+	var operator_deadline: int = Time.get_ticks_msec() + 10000
+	while Time.get_ticks_msec() < operator_deadline and not session.is_local_operator():
+		await process_frame
+	assert(session.is_local_operator())
+	assert(chat_ui.call("_handle_chat_command", "/time night"))
 
 	var update_deadline: int = Time.get_ticks_msec() + 10000
 	while (
@@ -168,6 +190,8 @@ func _run_client() -> void:
 	assert(world_time.get_phase() == WorldTimeService.Phase.NIGHT)
 	assert(is_equal_approx(world_time.get_persistent_time_hours(), 15.25))
 	assert(clock_label.text == world_time.get_clock_text())
+	await create_timer(0.6).timeout
+	assert(chat_ui.call("_handle_chat_command", "/weather foggy"))
 	var fog_deadline: int = Time.get_ticks_msec() + 8000
 	while (
 		Time.get_ticks_msec() < fog_deadline

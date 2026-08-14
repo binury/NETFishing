@@ -34,7 +34,7 @@ signal server_trust_required(
 )
 signal peer_identity_observed(peer_id: int, status: String)
 signal operator_status_changed(peer_id: int, is_operator: bool)
-signal server_lost
+signal server_lost(message: String)
 signal remote_recovery_requested(peer_id: int, entry_position: Vector3)
 signal remote_recovery_presentation_changed(
 	peer_id: int,
@@ -875,7 +875,7 @@ func _on_server_disconnected() -> void:
 	)
 	_moderation_disconnect_message = ""
 	_set_state(State.SERVER_LOST, message)
-	server_lost.emit()
+	server_lost.emit(message)
 	connection_error.emit(message)
 
 
@@ -1108,7 +1108,6 @@ func submit_client_identity_proof(data: Dictionary) -> void:
 @rpc("authority", "call_remote", "reliable", 0)
 func receive_moderation_disconnect(message: String) -> void:
 	_moderation_disconnect_message = message.left(120)
-	connection_error.emit(_moderation_disconnect_message)
 
 
 @rpc("authority", "call_remote", "reliable", 0)

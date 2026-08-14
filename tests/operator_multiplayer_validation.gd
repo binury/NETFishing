@@ -88,6 +88,11 @@ func _run_host() -> void:
 		entry.revision,
 	))
 	assert(not session.is_peer_operator(remote_peer_id))
+	await create_timer(2.0).timeout
+	assert(session.kick_authenticated_peer(
+		remote_peer_id,
+		remote_record.identity_fingerprint,
+	))
 
 	var disconnect_deadline: int = Time.get_ticks_msec() + 8000
 	while (
@@ -173,9 +178,25 @@ func _run_client() -> void:
 	assert(not (tabs.get_child(2) as Button).visible)
 	assert(int(players_page.get("_current_tab")) == 0)
 	service.request_unban.rpc_id(1, SECOND_BANNED_FINGERPRINT)
-	await create_timer(1.0).timeout
+	var disconnect_deadline: int = Time.get_ticks_msec() + 10000
+	while (
+		Time.get_ticks_msec() < disconnect_deadline
+		and session.state != NetworkSession.State.SERVER_LOST
+	):
+		await process_frame
+	assert(session.state == NetworkSession.State.SERVER_LOST)
+	assert(not bool(main.get("_gameplay_started")))
+	var game_ui := main.get_node("%GameUI") as GameUI
+	var title_screen := game_ui.get_title_screen()
+	assert(title_screen.visible)
+	assert(not title_screen.is_awaiting_start_input())
+	assert((title_screen.get_node("%Center") as Control).visible)
+	assert((title_screen.get_node("%ButtonCenter") as Control).visible)
+	assert(not (title_screen.get_node("%JoinGamePage") as Control).visible)
+	var feedback := title_screen.get_node("%FeedbackLabel") as RichTextLabel
+	assert(feedback.visible)
+	assert("removed by the host" in feedback.text.to_lower())
 	print("Operator multiplayer client validation: PASS")
-	session.disconnect_session("")
 	main.queue_free()
 	for _frame: int in 4:
 		await process_frame

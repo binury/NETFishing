@@ -181,6 +181,7 @@ func setup(
 	_service.local_message_confirmed.connect(_on_local_message_confirmed)
 	_service.history_replaced.connect(_on_history)
 	_service.send_rejected.connect(_on_rejected)
+	_service.world_command_finished.connect(_on_world_command_finished)
 	_session.peer_removed.connect(_on_peer_removed)
 	_entry.text = _settings.current_settings.chat_draft
 	_entry.caret_column = _entry.text.length()
@@ -789,34 +790,16 @@ func _handle_time_command(parts: PackedStringArray) -> void:
 	if parts.size() != 2:
 		_set_status("Usage: /time [dawn, day, dusk, night]")
 		return
-	if _session == null or not _session.is_host():
-		_set_status("Only the host can change world time.")
-		return
-	if _world_time == null:
+	if _service == null or _world_time == null:
 		_set_status("World time is unavailable.")
 		return
 	var phase_name := String(parts[1]).to_lower()
-	var target_hour: float
-	match phase_name:
-		"dawn":
-			target_hour = WorldTimeServiceType.DAWN_START_HOUR
-		"day":
-			target_hour = WorldTimeServiceType.DAWN_END_HOUR
-		"dusk":
-			target_hour = WorldTimeServiceType.DUSK_START_HOUR
-		"night":
-			target_hour = WorldTimeServiceType.DUSK_END_HOUR
-		_:
-			_set_status("Usage: /time [dawn, day, dusk, night]")
-			return
-	if not _world_time.set_authoritative_time(target_hour):
-		_set_status("World time could not be changed.")
+	if phase_name not in ["dawn", "day", "dusk", "night"]:
+		_set_status("Usage: /time [dawn, day, dusk, night]")
 		return
-	_set_status("")
-	_service.broadcast_system_message(
-		"World time set to %s (%s)."
-		% [phase_name, _world_time.get_clock_text()]
-	)
+	if not _service.request_world_time_change(phase_name):
+		_set_status("Only the host or an operator can change world time.")
+		return
 	close_chat()
 
 
@@ -824,35 +807,29 @@ func _handle_weather_command(parts: PackedStringArray) -> void:
 	if parts.size() != 2:
 		_set_status("Usage: /weather [clear, cloudy, rainy, foggy]")
 		return
-	if _session == null or not _session.is_host():
-		_set_status("Only the host can change world weather.")
-		return
-	if _world_weather == null:
+	if _service == null or _world_weather == null:
 		_set_status("World weather is unavailable.")
 		return
 	var weather_name := String(parts[1]).to_lower()
-	var target_weather: WorldWeatherServiceType.Weather
 	match weather_name:
 		"clear", "sunny":
-			target_weather = WorldWeatherServiceType.Weather.SUNNY
 			weather_name = "clear"
-		"cloudy":
-			target_weather = WorldWeatherServiceType.Weather.CLOUDY
-		"rainy":
-			target_weather = WorldWeatherServiceType.Weather.RAINY
-		"foggy":
-			target_weather = WorldWeatherServiceType.Weather.FOGGY
+		"cloudy", "rainy", "foggy":
+			pass
 		_:
 			_set_status("Usage: /weather [clear, cloudy, rainy, foggy]")
 			return
-	if not _world_weather.set_authoritative_weather(target_weather):
-		_set_status("World weather could not be changed.")
+	if not _service.request_world_weather_change(weather_name):
+		_set_status("Only the host or an operator can change world weather.")
 		return
-	_set_status("")
-	_service.broadcast_system_message(
-		"World weather set to %s." % weather_name
-	)
 	close_chat()
+
+
+func _on_world_command_finished(success: bool, message: String) -> void:
+	if success:
+		_set_status("")
+	elif not message.is_empty():
+		_set_status(message)
 
 
 func _on_local_message_confirmed(message: Dictionary) -> void:

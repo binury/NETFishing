@@ -276,6 +276,19 @@ func reopen() -> void:
 	_start_entry_prompt_animation()
 
 
+func reopen_to_menu() -> void:
+	reopen()
+	_awaiting_start_input = false
+	_stop_entry_prompt_animation()
+	_start_prompt_center.hide()
+	_presentation_center.show()
+	_button_center.show()
+	var bubble_field := get_node_or_null("%BubbleField") as Control
+	if bubble_field != null:
+		bubble_field.show()
+	_set_title_bubbles_interactive(true)
+
+
 func open_join_game_page(endpoint: String = "") -> void:
 	_cancel_title_entry_transition()
 	_awaiting_start_input = false

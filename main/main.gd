@@ -334,6 +334,7 @@ func _start_dedicated_server() -> void:
 	if not _network_session.set_host_open(true):
 		_fail_dedicated_server("Could not open the dedicated server.")
 		return
+	_player_jobs.begin_progression_session()
 	if config.public_listing and not _discovery.set_discoverable(true):
 		_network_session.disconnect_session("Discovery setup failed.")
 		_fail_dedicated_server(_discovery.get_host_status_message())
@@ -560,7 +561,7 @@ func _initialize_application(dedicated: bool) -> void:
 	_network_player_list.set_surface_drawing_service(
 		_network_surface_drawing
 	)
-	_network_chat.setup(_network_session)
+	_network_chat.setup(_network_session, _world_time, _world_weather)
 	_network_fishing.setup(
 		_network_session,
 		_player_spawn_service,
@@ -1646,14 +1647,16 @@ func _handle_failed_session_switch(message: String) -> void:
 	_show_title_music(true)
 
 
-func _on_network_server_lost() -> void:
+func _on_network_server_lost(message: String) -> void:
 	if not _gameplay_started:
 		return
+	_join_requested_from_title = false
+	_join_requested_from_pause = false
+	_pending_join_endpoint = ""
 	_set_gameplay_active(false)
 	var title_screen: TitleScreenType = _game_ui.get_title_screen()
-	title_screen.reopen()
-	title_screen.open_join_game_page(_pending_join_endpoint)
-	title_screen.report_network_error("The server connection was lost.")
+	title_screen.reopen_to_menu()
+	title_screen.report_network_error(message)
 	_show_title_music(true)
 
 
