@@ -150,6 +150,10 @@ func get_plan_id() -> String:
 	return _active_plan_id
 
 
+func has_active_board() -> bool:
+	return validate_board(_active_board)
+
+
 func get_time_until_refresh_text() -> String:
 	if _active_plan_id.is_empty() or _world_time == null:
 		return "daily jobs unavailable"

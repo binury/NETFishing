@@ -147,12 +147,6 @@ func _run_host() -> void:
 		await process_frame
 	assert(remote_animation_player.current_animation == &"retract_sit")
 
-	var completion_deadline: int = Time.get_ticks_msec() + 12000
-	while (
-		Time.get_ticks_msec() < completion_deadline
-		and session.get_authenticated_peer_ids().size() == 2
-	):
-		await process_frame
 	print("Fishing multiplayer host validation: PASS")
 	session.disconnect_session("")
 	main.queue_free()
@@ -337,7 +331,14 @@ func _run_client() -> void:
 	while Time.get_ticks_msec() < host_observation_deadline:
 		await process_frame
 	print("Fishing multiplayer client validation: PASS")
-	session.disconnect_session("")
+	var host_completion_deadline: int = Time.get_ticks_msec() + 10000
+	while (
+		Time.get_ticks_msec() < host_completion_deadline
+		and session.is_joined_client()
+	):
+		await process_frame
+	if session.is_joined_client():
+		session.disconnect_session("")
 	main.queue_free()
 	for _frame: int in 4:
 		await process_frame

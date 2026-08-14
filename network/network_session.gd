@@ -9,6 +9,7 @@ const CONNECTION_TIMEOUT_SECONDS: float = 10.0
 const AUTHENTICATION_TIMEOUT_SECONDS: float = 60.0
 const INPUT_INTERVAL: float = 1.0 / 30.0
 const SNAPSHOT_INTERVAL: float = 1.0 / 30.0
+const MAX_MOVEMENT_INPUT_SEQUENCE: int = 2147483647
 
 signal state_changed(state: State)
 signal status_message_changed(message: String)
@@ -1741,9 +1742,10 @@ func _is_valid_movement_input(data: Dictionary) -> bool:
 		or typeof(data.get("sprint")) != TYPE_BOOL
 		or typeof(data.get("sneak")) != TYPE_BOOL
 		or typeof(data.get("slow_walk")) != TYPE_BOOL
-		or (
-			data.has("sitting")
-			and typeof(data.get("sitting")) != TYPE_BOOL
+		or typeof(data.get("sitting")) != TYPE_BOOL
+		or typeof(data.get("casting")) != TYPE_BOOL
+		or not NetworkPlayerAnimationProtocol.validate_action_state(
+			data.get("animation_action")
 		)
 		or typeof(data.get("camera_yaw")) not in [TYPE_FLOAT, TYPE_INT]
 	):
@@ -1751,11 +1753,18 @@ func _is_valid_movement_input(data: Dictionary) -> bool:
 	var axis: Array = data["axis"]
 	if axis.size() != 2:
 		return false
+	if (
+		typeof(axis[0]) not in [TYPE_FLOAT, TYPE_INT]
+		or typeof(axis[1]) not in [TYPE_FLOAT, TYPE_INT]
+	):
+		return false
 	var x: float = float(axis[0])
 	var y: float = float(axis[1])
 	var camera_yaw: float = float(data["camera_yaw"])
 	return (
-		is_finite(x)
+		int(data["sequence"]) > 0
+		and int(data["sequence"]) <= MAX_MOVEMENT_INPUT_SEQUENCE
+		and is_finite(x)
 		and is_finite(y)
 		and is_finite(camera_yaw)
 		and absf(x) <= 1.01

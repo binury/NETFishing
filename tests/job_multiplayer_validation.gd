@@ -87,6 +87,20 @@ func _run_client() -> void:
 	assert(not jobs.get_plan_id().is_empty())
 	assert(jobs.get_daily_jobs().size() == JobCatalog.DAILY_JOB_COUNT)
 	assert(jobs.get_forecast().size() == JobCatalog.WEATHER_SEGMENT_COUNT)
+	var preserved_plan_id: String = jobs.get_plan_id()
+	jobs.clear_remote_board()
+	assert(not jobs.has_active_board())
+	assert(jobs.get_plan_id() == preserved_plan_id)
+	var retry_deadline: int = Time.get_ticks_msec() + 5000
+	while (
+		Time.get_ticks_msec() < retry_deadline
+		and not jobs.has_active_board()
+	):
+		await process_frame
+	assert(jobs.has_active_board())
+	assert(jobs.get_plan_id() == preserved_plan_id)
+	assert(jobs.get_daily_jobs().size() == JobCatalog.DAILY_JOB_COUNT)
+	assert(jobs.get_forecast().size() == JobCatalog.WEATHER_SEGMENT_COUNT)
 	assert(weather.get_daily_plan_id().is_empty())
 	var game_ui := main.get_node("%GameUI") as GameUI
 	var player_menu := game_ui.get("_player_menu") as PlayerMenu

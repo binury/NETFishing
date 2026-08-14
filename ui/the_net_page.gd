@@ -158,6 +158,8 @@ func _build_laptop() -> void:
 	)
 	forecast_stack.add_child(forecast_heading)
 	_forecast_list = HBoxContainer.new()
+	_forecast_list.custom_minimum_size = Vector2(272.0, 66.0)
+	_forecast_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_forecast_list.alignment = BoxContainer.ALIGNMENT_CENTER
 	_forecast_list.add_theme_constant_override("separation", 6)
 	forecast_stack.add_child(_forecast_list)
@@ -501,7 +503,10 @@ func _daily_refresh_text() -> String:
 func _add_forecast_empty(message: String) -> void:
 	var label := Label.new()
 	label.text = message
-	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	label.custom_minimum_size = Vector2(252.0, 66.0)
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.autowrap_mode = TextServer.AUTOWRAP_OFF
 	label.add_theme_color_override(
 		"font_color", UtilityPageStyle.OCEAN_TEXT_SECONDARY
 	)

@@ -85,6 +85,7 @@ func _run() -> void:
 		(player_menu.get_node("%NavigationCluster") as Control).get_child_count()
 		== 7
 	)
+	await _validate_unavailable_fishnet_layout()
 
 	var wallet_before: int = player.wallet.get_balance()
 	var experience_before: int = player.experience.get_total_experience()
@@ -162,6 +163,24 @@ func _run() -> void:
 	var pause_menu := game_ui.get_pause_menu()
 	var join_page := pause_menu.get_node("%JoinGamePage") as JoinGamePage
 	assert(join_page != null)
+	pause_menu.show()
+	join_page.set_status("Connection timed out.")
+	join_page.show()
+	join_page.call(
+		"_on_discovery_status_changed", "2 public rooms found", false
+	)
+	var join_status := join_page.get_node("%Status") as Label
+	assert(join_status.text == "Could not reach the server.")
+	join_page.hide()
+	join_page.call("_set_mode", JoinGamePage.Mode.DIRECT)
+	join_page.call("_set_mode", JoinGamePage.Mode.DISCOVER)
+	join_page.show()
+	join_page.call(
+		"_on_discovery_status_changed", "2 public rooms found", false
+	)
+	assert(join_status.text == "2 public rooms found")
+	join_page.close_page()
+	pause_menu.hide()
 	join_page.call("_refresh")
 	var session_summary := (
 		join_page.get_node("%SessionSummary") as Label
@@ -191,8 +210,35 @@ func _run() -> void:
 	main.queue_free()
 	for _frame: int in 4:
 		await process_frame
+	await create_timer(0.1).timeout
 	print("Job system validation: PASS")
 	quit()
+
+
+func _validate_unavailable_fishnet_layout() -> void:
+	var unavailable_page := TheNetPage.new()
+	unavailable_page.size = Vector2(1280.0, 720.0)
+	root.add_child(unavailable_page)
+	for _frame: int in 3:
+		await process_frame
+	unavailable_page.call("_refresh_forecast", true)
+	await process_frame
+	var forecast_list := unavailable_page.get("_forecast_list") as HBoxContainer
+	assert(forecast_list != null)
+	assert(forecast_list.size.x >= 272.0)
+	assert(forecast_list.size.y <= 66.0)
+	assert(forecast_list.get_child_count() == 1)
+	var placeholder := forecast_list.get_child(0) as Label
+	assert(placeholder != null)
+	assert(placeholder.size.x >= 252.0)
+	assert(placeholder.size.y <= 66.0)
+	assert(placeholder.autowrap_mode == TextServer.AUTOWRAP_OFF)
+	var tabs := unavailable_page.get("_tabs") as HBoxContainer
+	assert(tabs != null)
+	assert(tabs.position.y + tabs.size.y < UtilityPageStyle.LAPTOP_RECT.end.y)
+	unavailable_page.queue_free()
+	for _frame: int in 2:
+		await process_frame
 
 
 func _validate_weather_guarantees(board: Dictionary) -> void:

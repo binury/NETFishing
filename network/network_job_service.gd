@@ -2,11 +2,13 @@ class_name NetworkJobService
 extends Node
 
 const MAX_SESSION_ID_LENGTH: int = 96
+const BOARD_REQUEST_INTERVAL_SECONDS: float = 1.5
 
 var _session: NetworkSession
 var _jobs: PlayerJobService
 var _sequence: int = 0
 var _last_received_sequence: int = -1
+var _board_request_accumulator: float = 0.0
 
 
 func setup(session: NetworkSession, jobs: PlayerJobService) -> void:
@@ -15,13 +17,36 @@ func setup(session: NetworkSession, jobs: PlayerJobService) -> void:
 	_session.state_changed.connect(_on_session_state_changed)
 	_session.peer_authenticated.connect(_on_peer_authenticated)
 	_jobs.board_changed.connect(_on_board_changed)
+	set_process(true)
+
+
+func _process(delta: float) -> void:
+	if (
+		_session == null
+		or _jobs == null
+		or not _session.is_joined_client()
+		or not _session.supports_server_capability(
+			NetworkProtocol.JOBS_CAPABILITY
+		)
+		or _jobs.has_active_board()
+	):
+		_board_request_accumulator = 0.0
+		return
+	_board_request_accumulator += delta
+	if _board_request_accumulator < BOARD_REQUEST_INTERVAL_SECONDS:
+		return
+	_board_request_accumulator = 0.0
+	_request_remote_board()
 
 
 func _on_session_state_changed(state: NetworkSession.State) -> void:
 	_sequence = 0
 	_last_received_sequence = -1
+	_board_request_accumulator = 0.0
 	if state == NetworkSession.State.JOINED_CLIENT:
-		if not _session.supports_server_capability(NetworkProtocol.JOBS_CAPABILITY):
+		if _session.supports_server_capability(NetworkProtocol.JOBS_CAPABILITY):
+			_request_remote_board()
+		else:
 			_jobs.clear_remote_board()
 	elif state in [
 		NetworkSession.State.INACTIVE,
@@ -69,6 +94,33 @@ func _send_board(peer_id: int) -> void:
 	})
 
 
+func _request_remote_board() -> void:
+	if (
+		_session != null
+		and _session.is_joined_client()
+		and _session.supports_server_capability(
+			NetworkProtocol.JOBS_CAPABILITY
+		)
+	):
+		request_job_board.rpc_id(1)
+
+
+@rpc("any_peer", "call_remote", "reliable", 0)
+func request_job_board() -> void:
+	var sender_id: int = multiplayer.get_remote_sender_id()
+	if (
+		_session == null
+		or not _session.is_host()
+		or sender_id <= 1
+		or not _session.is_authenticated_peer(sender_id)
+		or not _session.peer_supports_capability(
+			sender_id, NetworkProtocol.JOBS_CAPABILITY
+		)
+	):
+		return
+	_send_board(sender_id)
+
+
 @rpc("authority", "call_remote", "reliable", 0)
 func receive_job_board(data: Dictionary) -> void:
 	if (
@@ -86,6 +138,7 @@ func receive_job_board(data: Dictionary) -> void:
 	var board: Dictionary = data.get("board", {})
 	if _jobs.apply_remote_board(board):
 		_last_received_sequence = sequence
+		_board_request_accumulator = 0.0
 
 
 static func validate_snapshot(value: Variant) -> bool:

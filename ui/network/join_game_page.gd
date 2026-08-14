@@ -62,6 +62,7 @@ var _discovery_refresh_timer: Timer
 var _editing_entry_id: String = ""
 var _name_entry_active: bool = false
 var _delete_armed: bool = false
+var _connection_error_latched: bool = false
 
 
 func _ready() -> void:
@@ -181,7 +182,7 @@ func open_page(preserved_endpoint: String = "") -> void:
 		_address.text = "127.0.0.1:7777"
 	show()
 	UtilityPageStyle.animate_in(self)
-	_set_mode(_mode)
+	_set_mode(_mode, false)
 	if _mode == Mode.DIRECT:
 		_address.grab_focus()
 		_address.select_all()
@@ -201,10 +202,13 @@ func get_endpoint_text() -> String:
 
 
 func set_status(message: String) -> void:
+	_connection_error_latched = true
 	_set_status(_friendly_connection_message(message), true)
 
 
-func _set_mode(mode: Mode) -> void:
+func _set_mode(mode: Mode, clear_connection_error: bool = true) -> void:
+	if clear_connection_error:
+		_connection_error_latched = false
 	_mode = mode
 	_selected_entry = null
 	_selected_discovery_index = -1
@@ -225,6 +229,7 @@ func _set_mode(mode: Mode) -> void:
 
 
 func _request_join() -> void:
+	_connection_error_latched = false
 	if _network_session.state in [
 		NetworkSession.State.CONNECTION_FAILED,
 		NetworkSession.State.SERVER_LOST,
@@ -267,6 +272,10 @@ func _on_public_join_prepared(endpoint_text: String) -> void:
 
 func _on_public_join_status_changed(message: String, is_error: bool) -> void:
 	if _mode == Mode.DISCOVER and is_visible_in_tree():
+		if is_error:
+			_connection_error_latched = true
+		elif _connection_error_latched:
+			return
 		_set_status(message, is_error)
 		_refresh()
 
@@ -708,7 +717,11 @@ func _on_discovery_rooms_updated(rooms: Array[Dictionary]) -> void:
 
 
 func _on_discovery_status_changed(message: String, is_error: bool) -> void:
-	if _mode == Mode.DISCOVER and is_visible_in_tree():
+	if (
+		_mode == Mode.DISCOVER
+		and is_visible_in_tree()
+		and not _connection_error_latched
+	):
 		_set_status(message, is_error)
 
 
@@ -740,6 +753,7 @@ func _friendly_connection_message(message: String) -> String:
 		return "Connection cancelled."
 	if (
 		"timeout" in normalized
+		or "timed out" in normalized
 		or "unavailable" in normalized
 		or "refused" in normalized
 		or "reach" in normalized
@@ -769,6 +783,7 @@ func _clear_edit_state() -> void:
 
 
 func _on_cancel_pressed() -> void:
+	_connection_error_latched = false
 	if _network_session != null:
 		_network_session.cancel_connection()
 	_refresh()
@@ -795,11 +810,14 @@ func _on_state_changed(_state: NetworkSession.State) -> void:
 
 
 func _on_status_message_changed(message: String) -> void:
+	if _connection_error_latched:
+		return
 	_set_status(_friendly_connection_message(message))
 	_refresh()
 
 
 func _on_connection_error(message: String) -> void:
+	_connection_error_latched = true
 	_set_status(_friendly_connection_message(message), true)
 	_refresh()
 

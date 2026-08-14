@@ -1,7 +1,7 @@
 class_name NetworkProtocol
 extends RefCounted
 
-const PROTOCOL_VERSION: int = 3
+const PROTOCOL_VERSION: int = 4
 const GAME_BUILD: String = "prealpha"
 const MAX_GAME_VERSION_LENGTH: int = 64
 const MAX_DISPLAY_NAME_LENGTH: int = 24

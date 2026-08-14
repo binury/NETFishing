@@ -68,6 +68,10 @@ const CHARACTER_FISHING_ANIMATION: StringName = &"fishing"
 const CHARACTER_FISHING_SIT_ANIMATION: StringName = &"fishing_sit"
 const CHARACTER_FIGHTING_ANIMATION: StringName = &"fighting"
 const CHARACTER_FIGHTING_SIT_ANIMATION: StringName = &"fighting_sit"
+# Add future networked emote animation IDs here. The protocol accepts unknown
+# safe IDs so newer clients can extend it, but Player only presents actions
+# explicitly approved by this catalog.
+const NETWORK_ANIMATION_ACTION_IDS: Array[StringName] = []
 
 enum FishingVisualPhase {
 	NONE,
@@ -83,6 +87,12 @@ enum PocketVisualTarget {
 	HELD_FISH,
 	ART_KIT,
 	CATCH_SHOWCASE,
+}
+
+enum LocomotionState {
+	IDLE,
+	WALKING,
+	RUNNING,
 }
 const FIGHTING_EYES_ID: String = "alligator_eyes"
 const BLINK_EYES_ID: String = "closed"
@@ -393,8 +403,18 @@ var _last_network_input_sequence: int = 0
 var _network_target_position: Vector3
 var _network_target_velocity: Vector3
 var _network_target_visual_yaw: float = 0.0
+var _network_target_grounded: bool = false
+var _network_target_locomotion_state: LocomotionState = LocomotionState.IDLE
+var _network_target_animation_action_id: StringName = &""
+var _network_target_animation_action_sequence: int = 0
+var _network_target_animation_action_elapsed: float = 0.0
 var _network_snapshot_ready: bool = false
 var _network_snapshot_age: float = 0.0
+var _animation_action_id: StringName = &""
+var _animation_action_sequence: int = 0
+var _animation_action_elapsed: float = 0.0
+var _presented_animation_action_id: StringName = &""
+var _presented_animation_action_sequence: int = -1
 var _character_animation_name: StringName = &""
 var _sitting: bool = false
 var _sit_after_landing: bool = false
@@ -473,6 +493,72 @@ func set_controller_mapping_manager(
 	mapping_manager: ControllerMappingManagerType,
 ) -> void:
 	_controller_mapping_manager = mapping_manager
+
+
+func begin_animation_action(
+	action_id: StringName,
+	elapsed_seconds: float = 0.0,
+) -> bool:
+	if (
+		action_id.is_empty()
+		or not supports_network_animation_action(action_id)
+		or _character_animation_player == null
+		or not _character_animation_player.has_animation(action_id)
+	):
+		return false
+	var next_sequence: int = (
+		1
+		if _animation_action_sequence
+		>= NetworkPlayerAnimationProtocol.MAX_ACTION_SEQUENCE
+		else _animation_action_sequence + 1
+	)
+	var action_state: Dictionary = (
+		NetworkPlayerAnimationProtocol.make_action_state(
+			action_id, next_sequence, elapsed_seconds
+		)
+	)
+	if not NetworkPlayerAnimationProtocol.validate_action_state(action_state):
+		return false
+	_apply_animation_action_state(action_state)
+	return true
+
+
+func end_animation_action() -> void:
+	if _animation_action_id.is_empty():
+		return
+	var next_sequence: int = (
+		1
+		if _animation_action_sequence
+		>= NetworkPlayerAnimationProtocol.MAX_ACTION_SEQUENCE
+		else _animation_action_sequence + 1
+	)
+	_apply_animation_action_state(
+		NetworkPlayerAnimationProtocol.make_action_state(
+			&"", next_sequence, 0.0
+		)
+	)
+
+
+func _apply_animation_action_state(action_state: Dictionary) -> void:
+	if not NetworkPlayerAnimationProtocol.validate_action_state(action_state):
+		return
+	var action_id := StringName(str(action_state["id"]))
+	if (
+		not action_id.is_empty()
+		and not supports_network_animation_action(action_id)
+	):
+		action_id = &""
+	var action_sequence: int = int(action_state["sequence"])
+	var action_changed: bool = (
+		action_id != _animation_action_id
+		or action_sequence != _animation_action_sequence
+	)
+	_animation_action_id = action_id
+	_animation_action_sequence = action_sequence
+	_animation_action_elapsed = float(action_state["elapsed"])
+	if action_changed:
+		_character_animation_name = &""
+		_update_character_animation()
 
 
 func _initialize_fishing_rod() -> void:
@@ -613,6 +699,11 @@ func _physics_process(delta: float) -> void:
 
 
 func _process(delta: float) -> void:
+	if not _animation_action_id.is_empty():
+		_animation_action_elapsed = minf(
+			_animation_action_elapsed + delta,
+			NetworkPlayerAnimationProtocol.MAX_ACTION_ELAPSED_SECONDS,
+		)
 	_update_blink(delta)
 	_update_character_animation()
 	_update_sprint_dust(delta)
@@ -705,7 +796,7 @@ func _update_sprint_dust(delta: float) -> void:
 	if _sprint_dust == null:
 		return
 	var horizontal_velocity := Vector3(velocity.x, 0.0, velocity.z)
-	var grounded: bool = is_on_floor()
+	var grounded: bool = _get_presented_grounded()
 	if _water_recovery_active:
 		_sprint_dust_airborne = false
 		_sprint_dust_fall_speed = 0.0
@@ -730,18 +821,11 @@ func _update_sprint_dust(delta: float) -> void:
 			)
 		_sprint_dust_airborne = false
 		_sprint_dust_fall_speed = 0.0
-	var horizontal_speed_squared: float = horizontal_velocity.length_squared()
-	var fastest_non_sprint_speed := maxf(
-		walk_speed,
-		maxf(sneak_speed, slow_walk_speed)
-	)
-	var running_threshold := fastest_non_sprint_speed + 0.5
 	var should_emit: bool = (
 		grounded
 		and not _sitting
 		and not _water_recovery_active
-		and horizontal_speed_squared
-		> running_threshold * running_threshold
+		and _get_presented_locomotion_state() == LocomotionState.RUNNING
 	)
 	_sprint_dust.update_trail(
 		delta,
@@ -778,18 +862,17 @@ func _get_controller_zoom_strength() -> float:
 func _update_character_animation() -> void:
 	if _character_animation_player == null:
 		return
-	var horizontal_speed_squared: float = (
-		velocity.x * velocity.x + velocity.z * velocity.z
+	var locomotion_state: LocomotionState = (
+		_get_presented_locomotion_state()
 	)
-	var is_walking: bool = horizontal_speed_squared > 0.0025
-	var fastest_non_sprint_speed := maxf(
-		walk_speed,
-		maxf(sneak_speed, slow_walk_speed)
-	)
-	var running_threshold := fastest_non_sprint_speed + 0.5
-	var is_running := (
-		is_walking
-		and horizontal_speed_squared > running_threshold * running_threshold
+	var is_walking: bool = locomotion_state != LocomotionState.IDLE
+	var is_running: bool = locomotion_state == LocomotionState.RUNNING
+	var animation_action: Dictionary = _get_presented_animation_action()
+	var animation_action_id := StringName(str(animation_action.get("id", "")))
+	var animation_action_available: bool = (
+		not animation_action_id.is_empty()
+		and supports_network_animation_action(animation_action_id)
+		and _character_animation_player.has_animation(animation_action_id)
 	)
 	var held_show_item_visible: bool = (
 		_held_fish_visible or _held_art_kit_visible
@@ -878,6 +961,8 @@ func _update_character_animation() -> void:
 						CHARACTER_FISHING_ANIMATION,
 						CHARACTER_IDLE_ANIMATION,
 					]
+	elif animation_action_available:
+		requested_animation = [animation_action_id]
 	elif _sitting:
 		if held_show_item_visible:
 			requested_animation = [
@@ -934,13 +1019,45 @@ func _update_character_animation() -> void:
 			break
 	if next_animation.is_empty():
 		return
-	if _character_animation_name == next_animation:
+	var action_selected: bool = (
+		animation_action_available and next_animation == animation_action_id
+	)
+	var action_sequence: int = int(animation_action.get("sequence", 0))
+	var action_changed: bool = (
+		action_selected
+		and (
+			animation_action_id != _presented_animation_action_id
+			or action_sequence != _presented_animation_action_sequence
+		)
+	)
+	if not action_selected:
+		_presented_animation_action_id = &""
+		_presented_animation_action_sequence = -1
+	if _character_animation_name == next_animation and not action_changed:
 		return
 	_character_animation_player.play(next_animation)
 	_character_animation_name = next_animation
+	if action_selected:
+		_presented_animation_action_id = animation_action_id
+		_presented_animation_action_sequence = action_sequence
+		var elapsed: float = float(animation_action.get("elapsed", 0.0))
+		var animation: Animation = _character_animation_player.get_animation(
+			next_animation
+		)
+		if elapsed > 0.0 and animation != null and animation.length > 0.0:
+			_character_animation_player.seek(
+				fposmod(elapsed, animation.length), true
+			)
 
 
 func _on_character_animation_finished(animation_name: StringName) -> void:
+	if (
+		local_control_enabled
+		and not _animation_action_id.is_empty()
+		and animation_name == _animation_action_id
+	):
+		end_animation_action()
+		return
 	if animation_name in [
 		CHARACTER_POCKET_IDLE_IDLE_ANIMATION,
 		CHARACTER_POCKET_IDLE_SHOW_ANIMATION,
@@ -1278,6 +1395,11 @@ func configure_network_remote(authoritative_simulation: bool) -> void:
 	_network_interpolation_enabled = not authoritative_simulation
 	_network_snapshot_ready = false
 	_network_snapshot_age = 0.0
+	_network_target_grounded = false
+	_network_target_locomotion_state = LocomotionState.IDLE
+	_network_target_animation_action_id = &""
+	_network_target_animation_action_sequence = 0
+	_network_target_animation_action_elapsed = 0.0
 	_camera.current = false
 
 
@@ -1301,6 +1423,7 @@ func capture_network_input(sequence: int) -> Dictionary:
 			"casting": (
 				_fishing_visual_phase == FishingVisualPhase.CASTING
 			),
+			"animation_action": _make_animation_action_state(),
 		}
 	var axis: Vector2 = Input.get_vector(
 		"move_left",
@@ -1318,6 +1441,7 @@ func capture_network_input(sequence: int) -> Dictionary:
 		"slow_walk": Input.is_action_pressed("slow_walk"),
 		"sitting": _sitting,
 		"casting": _fishing_visual_phase == FishingVisualPhase.CASTING,
+		"animation_action": _make_animation_action_state(),
 	}
 
 
@@ -1335,6 +1459,7 @@ func apply_authoritative_network_input(data: Dictionary) -> void:
 	_network_sprint = bool(data.get("sprint", false))
 	_network_sneak = bool(data.get("sneak", false))
 	_network_slow_walk = bool(data.get("slow_walk", false))
+	_apply_animation_action_state(data.get("animation_action", {}))
 	_apply_network_casting(bool(data.get("casting", false)))
 	var sitting_requested: bool = bool(data.get("sitting", false))
 	if sitting_requested and not is_on_floor():
@@ -1352,7 +1477,13 @@ func make_network_snapshot(peer_id: int) -> Dictionary:
 		"position": [global_position.x, global_position.y, global_position.z],
 		"velocity": [velocity.x, velocity.y, velocity.z],
 		"visual_yaw": _visuals.rotation.y,
-		"grounded": is_on_floor(),
+		"animation_state": NetworkPlayerAnimationProtocol.make_state(
+			_get_authoritative_locomotion_id(),
+			is_on_floor(),
+			_animation_action_id,
+			_animation_action_sequence,
+			_animation_action_elapsed,
+		),
 		"sitting": _sitting,
 		"casting": _fishing_visual_phase == FishingVisualPhase.CASTING,
 	}
@@ -1365,6 +1496,7 @@ func push_network_snapshot(snapshot: Dictionary) -> void:
 	_network_target_position = parsed["position"]
 	_network_target_velocity = parsed["velocity"]
 	_network_target_visual_yaw = parsed["visual_yaw"]
+	_apply_network_target_animation_state(parsed["animation_state"])
 	_network_snapshot_age = 0.0
 	_apply_network_casting(bool(parsed["casting"]))
 	_set_sitting(bool(parsed["sitting"]))
@@ -1412,6 +1544,7 @@ func apply_network_teleport(snapshot: Dictionary) -> void:
 	_network_target_position = global_position
 	_network_target_velocity = velocity
 	_network_target_visual_yaw = _visuals.rotation.y
+	_apply_network_target_animation_state(parsed["animation_state"])
 	_network_snapshot_age = 0.0
 	_network_snapshot_ready = true
 
@@ -1437,6 +1570,12 @@ func _parse_network_snapshot(snapshot: Dictionary) -> Dictionary:
 		float(network_velocity[2])
 	)
 	var visual_yaw: float = float(snapshot.get("visual_yaw", 0.0))
+	var animation_state_value: Variant = snapshot.get("animation_state")
+	if not NetworkPlayerAnimationProtocol.validate_state(animation_state_value):
+		return {}
+	var animation_state: Dictionary = (
+		animation_state_value as Dictionary
+	).duplicate(true)
 	if (
 		snapshot.has("acknowledged_input")
 		and (
@@ -1464,10 +1603,117 @@ func _parse_network_snapshot(snapshot: Dictionary) -> Dictionary:
 		"position": parsed_position,
 		"velocity": parsed_velocity,
 		"visual_yaw": visual_yaw,
+		"animation_state": animation_state,
 		"acknowledged_input": acknowledged_input,
 		"sitting": sitting,
 		"casting": casting,
 	}
+
+
+func _make_animation_action_state() -> Dictionary:
+	return NetworkPlayerAnimationProtocol.make_action_state(
+		_animation_action_id,
+		_animation_action_sequence,
+		_animation_action_elapsed,
+	)
+
+
+func _apply_network_target_animation_state(state: Dictionary) -> void:
+	if not NetworkPlayerAnimationProtocol.validate_state(state):
+		return
+	_network_target_grounded = bool(state["grounded"])
+	_network_target_locomotion_state = _locomotion_state_from_id(
+		StringName(str(state["locomotion_id"]))
+	)
+	var action: Dictionary = state["action"]
+	_network_target_animation_action_id = StringName(str(action["id"]))
+	_network_target_animation_action_sequence = int(action["sequence"])
+	_network_target_animation_action_elapsed = float(action["elapsed"])
+
+
+func _get_authoritative_locomotion_state() -> LocomotionState:
+	if (
+		_network_authoritative_simulation
+		and _is_movement_input_enabled()
+		and not _water_recovery_active
+		and not _sitting
+		and _network_axis.length_squared() > 0.0025
+	):
+		return (
+			LocomotionState.RUNNING
+			if _network_sprint
+			else LocomotionState.WALKING
+		)
+	return _locomotion_state_from_velocity()
+
+
+func _get_authoritative_locomotion_id() -> StringName:
+	return _locomotion_id_from_state(_get_authoritative_locomotion_state())
+
+
+func _get_presented_locomotion_state() -> LocomotionState:
+	if _network_interpolation_enabled and _network_snapshot_ready:
+		return _network_target_locomotion_state
+	return _locomotion_state_from_velocity()
+
+
+func _get_presented_animation_action() -> Dictionary:
+	if _network_interpolation_enabled and _network_snapshot_ready:
+		return NetworkPlayerAnimationProtocol.make_action_state(
+			_network_target_animation_action_id,
+			_network_target_animation_action_sequence,
+			minf(
+				_network_target_animation_action_elapsed + _network_snapshot_age,
+				NetworkPlayerAnimationProtocol.MAX_ACTION_ELAPSED_SECONDS,
+			),
+		)
+	return _make_animation_action_state()
+
+
+func _locomotion_id_from_state(state: LocomotionState) -> StringName:
+	match state:
+		LocomotionState.WALKING:
+			return NetworkPlayerAnimationProtocol.LOCOMOTION_WALKING
+		LocomotionState.RUNNING:
+			return NetworkPlayerAnimationProtocol.LOCOMOTION_RUNNING
+		_:
+			return NetworkPlayerAnimationProtocol.LOCOMOTION_IDLE
+
+
+func _locomotion_state_from_id(state_id: StringName) -> LocomotionState:
+	match state_id:
+		NetworkPlayerAnimationProtocol.LOCOMOTION_WALKING:
+			return LocomotionState.WALKING
+		NetworkPlayerAnimationProtocol.LOCOMOTION_RUNNING:
+			return LocomotionState.RUNNING
+		_:
+			return LocomotionState.IDLE
+
+
+static func supports_network_animation_action(action_id: StringName) -> bool:
+	return action_id in NETWORK_ANIMATION_ACTION_IDS
+
+
+func _locomotion_state_from_velocity() -> LocomotionState:
+	var horizontal_speed_squared: float = (
+		velocity.x * velocity.x + velocity.z * velocity.z
+	)
+	if horizontal_speed_squared <= 0.0025:
+		return LocomotionState.IDLE
+	var fastest_non_sprint_speed := maxf(
+		walk_speed,
+		maxf(sneak_speed, slow_walk_speed)
+	)
+	var running_threshold := fastest_non_sprint_speed + 0.5
+	if horizontal_speed_squared > running_threshold * running_threshold:
+		return LocomotionState.RUNNING
+	return LocomotionState.WALKING
+
+
+func _get_presented_grounded() -> bool:
+	if _network_interpolation_enabled and _network_snapshot_ready:
+		return _network_target_grounded
+	return is_on_floor()
 
 
 func _apply_network_casting(casting: bool) -> void:
