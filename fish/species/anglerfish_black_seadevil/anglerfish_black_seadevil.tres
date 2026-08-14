@@ -1,0 +1,28 @@
+[gd_resource type="Resource" script_class="FishData" load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://fish/fish_data.gd" id="1_fish_data"]
+[ext_resource type="Resource" path="res://fishing/common_catch_profile.tres" id="2_profile"]
+[ext_resource type="Script" path="res://fish/fish_availability.gd" id="3_availability"]
+
+[sub_resource type="Resource" id="Availability"]
+script = ExtResource("3_availability")
+allow_day = false
+
+[resource]
+script = ExtResource("1_fish_data")
+id = &"anglerfish_black_seadevil"
+display_name = "black seadevil"
+active = false
+catalog_number = 1801
+collection_group = &"Deep-sea oddities"
+logbook_fact = "black seadevils lure prey with a glowing organ suspended above the mouth. tiny males permanently attach to much larger females."
+allowed_water_types = 2
+rarity = 4
+base_catch_weight = 0.05
+catch_profile = ExtResource("2_profile")
+availability = SubResource("Availability")
+weight_min_lb = 0.1
+weight_max_lb = 2.0
+sell_value_min = 48
+sell_value_max = 105
+sell_value_curve = 0.92

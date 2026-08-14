@@ -1,0 +1,29 @@
+[gd_resource type="Resource" script_class="FishData" load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://fish/fish_data.gd" id="1_fish_data"]
+[ext_resource type="Resource" path="res://fishing/common_catch_profile.tres" id="2_profile"]
+[ext_resource type="Script" path="res://fish/fish_availability.gd" id="3_availability"]
+
+[sub_resource type="Resource" id="Availability"]
+script = ExtResource("3_availability")
+allow_day = false
+require_fog = true
+
+[resource]
+script = ExtResource("1_fish_data")
+id = &"snakehead_giant"
+display_name = "giant snakehead"
+active = false
+catalog_number = 7601
+collection_group = &"Tropical freshwater predators"
+logbook_fact = "giant snakeheads breathe air and guard schools of young near the surface. long bodies launch sudden attacks from flooded vegetation."
+allowed_water_types = 1
+rarity = 3
+base_catch_weight = 0.1
+catch_profile = ExtResource("2_profile")
+availability = SubResource("Availability")
+weight_min_lb = 3.0
+weight_max_lb = 45.0
+sell_value_min = 28
+sell_value_max = 64
+sell_value_curve = 0.84

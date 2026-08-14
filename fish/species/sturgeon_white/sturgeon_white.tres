@@ -1,0 +1,28 @@
+[gd_resource type="Resource" script_class="FishData" load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://fish/fish_data.gd" id="1_fish_data"]
+[ext_resource type="Resource" path="res://fishing/common_catch_profile.tres" id="2_profile"]
+[ext_resource type="Script" path="res://fish/fish_availability.gd" id="3_availability"]
+
+[sub_resource type="Resource" id="Availability"]
+script = ExtResource("3_availability")
+allow_day = false
+
+[resource]
+script = ExtResource("1_fish_data")
+id = &"sturgeon_white"
+display_name = "white sturgeon"
+active = false
+catalog_number = 4301
+collection_group = &"Ocean-run giants"
+logbook_fact = "white sturgeon are the largest freshwater fish in north america. armored plates line bodies built for long lives in rivers and estuaries."
+allowed_water_types = 3
+rarity = 4
+base_catch_weight = 0.045
+catch_profile = ExtResource("2_profile")
+availability = SubResource("Availability")
+weight_min_lb = 20.0
+weight_max_lb = 500.0
+sell_value_min = 58
+sell_value_max = 135
+sell_value_curve = 0.78

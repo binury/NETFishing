@@ -1,6 +1,8 @@
 class_name NetworkItemUseService
 extends Node
 
+const FishingRodDataType = preload("res://items/fishing_rod_data.gd")
+
 const ArtShopStockType = preload("res://economy/art_shop_stock.gd")
 
 const MAX_LEDGER_ENTRIES: int = 64
@@ -128,6 +130,7 @@ func _handle_use_request(peer_id: int, data: Dictionary) -> void:
 	)
 	if error.is_empty() and (
 		item == null
+		or not item.is_available()
 		or (
 			item.category != ItemData.Category.CONSUMABLE
 			and not is_fish_finder
@@ -294,13 +297,16 @@ func submit_local_equipped(item_id: StringName, owns_item: bool) -> void:
 		return
 	_local_equipped_revision += 1
 	var item: ItemData = _catalog.get_item_by_id(item_id)
+	var can_equip: bool = (
+		item != null and item.is_available() and owns_item
+	)
 	var data := {
 		"session_id": _session.get_session_id(),
 		"owner_peer_id": _session.get_local_peer_id(),
-		"item_id": str(item_id) if item != null and owns_item else "",
-		"category": int(item.category) if item != null and owns_item else -1,
+		"item_id": str(item_id) if can_equip else "",
+		"category": int(item.category) if can_equip else -1,
 		"revision": _local_equipped_revision,
-		"owns_item": owns_item and item != null,
+		"owns_item": can_equip,
 	}
 	if _session.is_host():
 		_handle_equipped_state(_session.get_local_peer_id(), data)
@@ -331,6 +337,7 @@ func _handle_equipped_state(peer_id: int, data: Dictionary) -> void:
 	var item: ItemData = _catalog.get_item_by_id(item_id)
 	if not item_id.is_empty() and (
 		item == null
+		or not item.is_available()
 		or not bool(data["owns_item"])
 		or int(item.category) != int(data["category"])
 	):
@@ -353,8 +360,17 @@ func _apply_equipped(data: Dictionary) -> void:
 	if avatar != null:
 		var item_id := StringName(str(data["item_id"]))
 		var item: ItemData = _catalog.get_item_by_id(item_id)
-		avatar.set_active_item_is_rod(
-			int(data["category"]) == ItemData.Category.ROD,
+		avatar.set_active_fishing_rod(
+			(
+				item as FishingRodDataType
+				if (
+					item != null
+					and item.is_available()
+					and int(data["category"]) == ItemData.Category.ROD
+					and bool(data["owns_item"])
+				)
+				else null
+			),
 			true,
 		)
 		avatar.set_active_art_kit(

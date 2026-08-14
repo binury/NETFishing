@@ -1,0 +1,28 @@
+[gd_resource type="Resource" script_class="FishData" load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://fish/fish_data.gd" id="1_fish_data"]
+[ext_resource type="Resource" path="res://fishing/common_catch_profile.tres" id="2_profile"]
+[ext_resource type="Script" path="res://fish/fish_availability.gd" id="3_availability"]
+
+[sub_resource type="Resource" id="Availability"]
+script = ExtResource("3_availability")
+allow_night = false
+
+[resource]
+script = ExtResource("1_fish_data")
+id = &"plaice_european"
+display_name = "European plaice"
+active = false
+catalog_number = 401
+collection_group = &"Coastal flatfish"
+logbook_fact = "european plaice lie flat on the seafloor with both eyes on the same side. orange spots help distinguish them from neighboring flatfish."
+allowed_water_types = 2
+rarity = 0
+base_catch_weight = 1.8
+catch_profile = ExtResource("2_profile")
+availability = SubResource("Availability")
+weight_min_lb = 0.2
+weight_max_lb = 10.0
+sell_value_min = 4
+sell_value_max = 10
+sell_value_curve = 0.9

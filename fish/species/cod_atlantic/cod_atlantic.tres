@@ -1,0 +1,27 @@
+[gd_resource type="Resource" script_class="FishData" load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://fish/fish_data.gd" id="1_fish_data"]
+[ext_resource type="Resource" path="res://fishing/common_catch_profile.tres" id="2_profile"]
+[ext_resource type="Script" path="res://fish/fish_availability.gd" id="3_availability"]
+
+[sub_resource type="Resource" id="Availability"]
+script = ExtResource("3_availability")
+
+[resource]
+script = ExtResource("1_fish_data")
+id = &"cod_atlantic"
+display_name = "atlantic cod"
+active = false
+catalog_number = 1402
+collection_group = &"Cold shelf fish"
+logbook_fact = "atlantic cod carry a pale lateral line and one chin barbel. they search cold seafloors for crustaceans, mollusks, and smaller fish."
+allowed_water_types = 2
+rarity = 0
+base_catch_weight = 1.8
+catch_profile = ExtResource("2_profile")
+availability = SubResource("Availability")
+weight_min_lb = 1.0
+weight_max_lb = 55.0
+sell_value_min = 5
+sell_value_max = 18
+sell_value_curve = 0.85

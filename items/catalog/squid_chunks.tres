@@ -7,7 +7,7 @@
 script = ExtResource("1")
 item_id = &"squid_chunks"
 display_name = "squid chunks"
-description = "rich cut bait that strongly favors rarer catches."
+description = "rich cut bait that strongly favors rarer, higher-quality catches."
 icon = ExtResource("2_icon")
 category = 2
 bait_tags = Array[StringName]([&"bait_rarity_3"])

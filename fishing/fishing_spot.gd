@@ -15,6 +15,7 @@ const PlayerExperienceType = preload(
 )
 const ItemCatalogType = preload("res://items/item_catalog.gd")
 const ItemDataType = preload("res://items/item_data.gd")
+const FishingRodDataType = preload("res://items/fishing_rod_data.gd")
 const PlayerBagType = preload("res://inventory/player_bag.gd")
 const PlayerHotbarType = preload("res://inventory/player_hotbar.gd")
 const PlayerFishingUpgradesType = preload(
@@ -658,7 +659,7 @@ func has_active_fishing_rod() -> bool:
 	var item: ItemDataType = _get_active_item()
 	return (
 		item != null
-		and item.is_valid()
+		and item.is_available()
 		and item.category == ItemDataType.Category.ROD
 		and item.usable
 		and item.equippable
@@ -676,7 +677,11 @@ func _get_active_item() -> ItemDataType:
 	if item_id.is_empty() or not _local_bag.owns_item(item_id):
 		return null
 	var item: ItemDataType = _item_catalog.get_item_by_id(item_id)
-	return item if item != null and item.is_valid() else null
+	return item if item != null and item.is_available() else null
+
+
+func _get_active_rod() -> FishingRodDataType:
+	return _get_active_item() as FishingRodDataType
 
 
 func _is_cooler_full() -> bool:
@@ -829,7 +834,9 @@ func _on_cast_completed() -> void:
 
 	_selected_water_region = get_fishable_water_region(_cast_target)
 	_selection_context = _build_fishing_context(_selected_water_region)
+	var active_rod: FishingRodDataType = _get_active_rod()
 	_fish_selector.undiscovered_weight_multiplier = undiscovered_weight_multiplier
+	_fish_selector.active_rod = active_rod
 	_fish_selector.rarity_weight_multipliers = []
 	for rarity: int in range(FishDataType.Rarity.size()):
 		_fish_selector.rarity_weight_multipliers.append(
@@ -855,6 +862,10 @@ func _on_cast_completed() -> void:
 	_state_time_remaining = roll_bite_wait_time() * (
 		_item_effects.get_bite_time_multiplier()
 		if _item_effects != null
+		else 1.0
+	) * (
+		active_rod.bite_time_multiplier
+		if active_rod != null
 		else 1.0
 	)
 	_withdrawal_progress = 0.0
@@ -1055,6 +1066,7 @@ func _activate_bite(confirmation_override: bool = false) -> void:
 func _get_effective_reel_speed() -> float:
 	if _active_player == null:
 		return 0.0
+	var rod: FishingRodDataType = _get_active_rod()
 	return _active_player.reel_speed * (
 		_fishing_upgrades.get_reel_speed_multiplier()
 		if _fishing_upgrades != null
@@ -1063,13 +1075,16 @@ func _get_effective_reel_speed() -> float:
 		_item_effects.get_reel_multiplier()
 		if _item_effects != null
 		else 1.0
+	) * (
+		rod.reel_speed_multiplier if rod != null else 1.0
 	)
 
 
 func _get_effective_barrier_damage() -> int:
 	if _active_player == null:
 		return 1
-	return (
+	var rod: FishingRodDataType = _get_active_rod()
+	var damage: int = (
 		_fishing_upgrades.get_barrier_damage()
 		if _fishing_upgrades != null
 		else _active_player.click_power
@@ -1077,6 +1092,13 @@ func _get_effective_barrier_damage() -> int:
 		_item_effects.get_barrier_bonus()
 		if _item_effects != null
 		else 0
+	)
+	return maxi(
+		roundi(
+			float(damage)
+			* (rod.barrier_power_multiplier if rod != null else 1.0)
+		),
+		1,
 	)
 
 
@@ -1512,7 +1534,11 @@ func _get_active_bait_tags() -> Array[StringName]:
 	if bait_id.is_empty() or _local_bag == null or not _local_bag.owns_item(bait_id):
 		return []
 	var item: ItemDataType = _item_catalog.get_item_by_id(bait_id)
-	return item.bait_tags.duplicate() if item != null and item.is_bait() else []
+	return (
+		item.bait_tags.duplicate()
+		if item != null and item.is_available() and item.is_bait()
+		else []
+	)
 
 
 func _active_lure_has_effect(effect_id: StringName) -> bool:
@@ -1527,7 +1553,12 @@ func _active_lure_has_effect(effect_id: StringName) -> bool:
 	var lure: ItemDataType = _item_catalog.get_item_by_id(
 		_local_player.active_lure_id
 	)
-	return lure != null and lure.is_lure() and effect_id in lure.lure_effects
+	return (
+		lure != null
+		and lure.is_available()
+		and lure.is_lure()
+		and effect_id in lure.lure_effects
+	)
 
 
 func _build_network_evidence() -> Dictionary:

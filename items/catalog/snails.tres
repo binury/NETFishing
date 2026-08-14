@@ -7,7 +7,7 @@
 script = ExtResource("1")
 item_id = &"snails"
 display_name = "snails"
-description = "slow-moving bait with a better chance for rarer catches."
+description = "slow-moving bait with better rarity and quality odds."
 icon = ExtResource("2_icon")
 category = 2
 bait_tags = Array[StringName]([&"bait_rarity_1"])

@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="FishingRodData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://items/fishing_rod_data.gd" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+item_id = &"reef_raker_rod"
+display_name = "reef raker"
+description = "a bright hooked rod tuned for the crowded life around reefs."
+active = false
+category = 0
+stackable = false
+max_stack = 1
+usable = true
+equippable = true
+hotbar_allowed = true
+shop_order = 8
+shop_price = 900
+unlock_level = 6
+preferred_collection_groups = Array[StringName]([&"Cold reef fish", &"Reef ambush fish", &"Reef eels", &"Reef flatfish", &"Reef grazers", &"Reef oddities", &"Reef ornamentals", &"Reef predators", &"Reef schooling fish", &"Reef snapper", &"Reef wrasses", &"Temperate reef fish", &"Temperate reef predators"])
+affinity_weight_multiplier = 1.45
+quality_weight_multipliers = Array[float]([0.95, 1.00, 1.12, 1.05, 1.00])
+effect_summary = "favors eligible reef collection groups and modestly favors impressive quality."
+tradeoff = "no advantage away from reef-associated fish."

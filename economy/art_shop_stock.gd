@@ -49,7 +49,7 @@ static func get_display_name(product_id: StringName) -> String:
 
 static func get_description(product_id: StringName) -> String:
 	if product_id == ART_KIT_ITEM_ID:
-		return "Press P in the game world to paint!"
+		return "Select the Art Kit in the Hotbar to paint."
 	var color_id: StringName = PlayerArtUnlocks.color_id_for_product(product_id)
 	if not color_id.is_empty():
 		return "Unlocks this marker color in the Paint UI."

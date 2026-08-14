@@ -1,0 +1,28 @@
+[gd_resource type="Resource" script_class="FishData" load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://fish/fish_data.gd" id="1_fish_data"]
+[ext_resource type="Resource" path="res://fishing/common_catch_profile.tres" id="2_profile"]
+[ext_resource type="Script" path="res://fish/fish_availability.gd" id="3_availability"]
+
+[sub_resource type="Resource" id="Availability"]
+script = ExtResource("3_availability")
+allow_night = false
+
+[resource]
+script = ExtResource("1_fish_data")
+id = &"sheepshead"
+display_name = "sheepshead"
+active = false
+catalog_number = 6905
+collection_group = &"Temperate reef fish"
+logbook_fact = "sheepshead carry flat human-like front teeth for biting barnacles and crabs. dark bars cross their high silver bodies."
+allowed_water_types = 2
+rarity = 1
+base_catch_weight = 0.75
+catch_profile = ExtResource("2_profile")
+availability = SubResource("Availability")
+weight_min_lb = 0.5
+weight_max_lb = 20.0
+sell_value_min = 7
+sell_value_max = 18
+sell_value_curve = 0.86

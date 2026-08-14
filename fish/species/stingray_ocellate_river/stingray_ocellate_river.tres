@@ -1,0 +1,29 @@
+[gd_resource type="Resource" script_class="FishData" load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://fish/fish_data.gd" id="1_fish_data"]
+[ext_resource type="Resource" path="res://fishing/common_catch_profile.tres" id="2_profile"]
+[ext_resource type="Script" path="res://fish/fish_availability.gd" id="3_availability"]
+
+[sub_resource type="Resource" id="Availability"]
+script = ExtResource("3_availability")
+allow_night = false
+require_rain = true
+
+[resource]
+script = ExtResource("1_fish_data")
+id = &"stingray_ocellate_river"
+display_name = "ocellate river stingray"
+active = false
+catalog_number = 5104
+collection_group = &"Rays and skates"
+logbook_fact = "ocellate river stingrays carry bright eye-like spots across a round disc. they hide beneath sand in south american rivers."
+allowed_water_types = 1
+rarity = 3
+base_catch_weight = 0.09
+catch_profile = ExtResource("2_profile")
+availability = SubResource("Availability")
+weight_min_lb = 2.0
+weight_max_lb = 35.0
+sell_value_min = 28
+sell_value_max = 65
+sell_value_curve = 0.82

@@ -8,6 +8,7 @@ const PlayerWalletType = preload("res://economy/player_wallet.gd")
 const FishingShopStockType = preload("res://economy/fishing_shop_stock.gd")
 const ItemCatalogType = preload("res://items/item_catalog.gd")
 const ItemDataType = preload("res://items/item_data.gd")
+const FishingRodDataType = preload("res://items/fishing_rod_data.gd")
 const PlayerBagType = preload("res://inventory/player_bag.gd")
 const FishingSpotType = preload("res://fishing/fishing_spot.gd")
 const PlayerFishingUpgradesType = preload(
@@ -82,6 +83,15 @@ const SUPPLY_PRICE_HEIGHT: float = 24.0
 const SUPPLY_PRICE_HORIZONTAL_PADDING: float = 12.0
 const SUPPLY_PRICE_ICON_SIZE: float = 18.0
 const SUPPLY_PRICE_ICON_GAP: float = 3.0
+const ROD_CARD_TILE_SIZE := Vector2(144.0, 144.0)
+const ROD_CARD_HOST_SIZE := Vector2(152.0, 198.0)
+const ROD_CAROUSEL_HEIGHT: float = 206.0
+const ROD_CAROUSEL_SEPARATION: int = 12
+const ROD_CAROUSEL_STEP: float = 328.0
+const ROD_PRICE_Y: float = 128.0
+const ROD_PRICE_HEIGHT: float = 30.0
+const ROD_PRICE_FONT_SIZE: int = 18
+const ROD_PRICE_ICON_SIZE: float = 22.0
 
 @onready var _wallet_label: Label = %WalletLabel
 @onready var _shop_panel: PanelContainer = %ShopPanel
@@ -650,7 +660,12 @@ func _refresh_supplies() -> void:
 		stock_item_ids = grouped_item_ids
 	var current_stock_group: StringName = StringName()
 	var current_stock_grid: GridContainer
-	if _shop_section in [ShopSection.SNACKS, ShopSection.EQUIPMENT]:
+	if _shop_section == ShopSection.SNACKS:
+		current_stock_grid = _add_stock_icon_grid()
+	elif _shop_section == ShopSection.EQUIPMENT:
+		_add_stock_section("rods")
+		_add_rod_carousel()
+		_add_stock_section("equipment")
 		current_stock_grid = _add_stock_icon_grid()
 	for item_id: StringName in stock_item_ids:
 		var item: ItemDataType = _item_catalog.get_item_by_id(item_id)
@@ -671,6 +686,10 @@ func _refresh_supplies() -> void:
 		button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		var owned: int = _bag.get_quantity(item_id)
 		var bait_topoff: bool = FishingShopStockType.is_bait_topoff(item_id)
+		var permanent_unlock: bool = (
+			FishingShopStockType.is_permanent_unlock(item_id, item)
+		)
+		var unlock_status: String = _unlock_status(owned > 0)
 		var bait_unlocked: bool = (
 			not bait_topoff or _bag.is_bait_unlocked(item_id)
 		)
@@ -683,10 +702,11 @@ func _refresh_supplies() -> void:
 		var use_icon_tile: bool = (
 			current_stock_grid != null
 		)
-		button.text = "%s\nowned %d" % [
-			item.display_name,
-			owned,
-		]
+		button.text = (
+			"%s\n%s" % [item.display_name, unlock_status]
+			if permanent_unlock
+			else "%s\nowned %d" % [item.display_name, owned]
+		)
 		var item_tooltip_text: String = item.description
 		if bait_topoff:
 			if use_icon_tile:
@@ -724,11 +744,19 @@ func _refresh_supplies() -> void:
 			button.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 			button.alignment = HORIZONTAL_ALIGNMENT_CENTER
 			button.text = ""
-			item_tooltip_text = "%s\nowned %d\n%s" % [
-				item.display_name,
-				owned,
-				item.description,
-			]
+			item_tooltip_text = (
+				"%s\n%s\n%s" % [
+					item.display_name,
+					unlock_status,
+					item.description,
+				]
+				if permanent_unlock
+				else "%s\nowned %d\n%s" % [
+					item.display_name,
+					owned,
+					item.description,
+				]
+			)
 		button.disabled = (
 			_transaction_in_progress
 			or _closing
@@ -777,6 +805,8 @@ func _refresh_supplies() -> void:
 
 
 func _item_belongs_in_current_section(item: ItemDataType) -> bool:
+	if not item.is_available():
+		return false
 	match _shop_section:
 		ShopSection.BAIT:
 			return item.is_bait() or item.is_lure()
@@ -785,6 +815,10 @@ func _item_belongs_in_current_section(item: ItemDataType) -> bool:
 		ShopSection.EQUIPMENT:
 			return item.category == ItemDataType.Category.TOOL
 	return false
+
+
+func _unlock_status(unlocked: bool) -> String:
+	return "unlocked" if unlocked else "locked"
 
 
 func _add_stock_section(title: String) -> void:
@@ -811,21 +845,156 @@ func _add_stock_icon_grid() -> GridContainer:
 	return grid
 
 
+func _add_rod_carousel() -> void:
+	var shell := HBoxContainer.new()
+	shell.name = "RodCarousel"
+	shell.custom_minimum_size.y = ROD_CAROUSEL_HEIGHT
+	shell.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	shell.alignment = BoxContainer.ALIGNMENT_CENTER
+	shell.add_theme_constant_override("separation", 8)
+	_supplies_list.add_child(shell)
+	var previous := Button.new()
+	previous.name = "PreviousRod"
+	previous.text = "‹"
+	previous.tooltip_text = "Previous rods"
+	previous.custom_minimum_size = Vector2(42.0, 72.0)
+	previous.focus_mode = Control.FOCUS_ALL
+	UtilityPageStyleType.apply_ocean_button(previous)
+	shell.add_child(previous)
+	var scroll := ScrollContainer.new()
+	scroll.name = "RodScroll"
+	scroll.custom_minimum_size.y = ROD_CAROUSEL_HEIGHT
+	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.follow_focus = true
+	shell.add_child(scroll)
+	var row := HBoxContainer.new()
+	row.name = "RodCards"
+	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_theme_constant_override(
+		"separation", ROD_CAROUSEL_SEPARATION
+	)
+	scroll.add_child(row)
+	var rods: Array[FishingRodDataType] = (
+		FishingShopStockType.get_rod_stock(_item_catalog)
+	)
+	for rod: FishingRodDataType in rods:
+		_add_rod_card(row, rod)
+	var next := Button.new()
+	next.name = "NextRod"
+	next.text = "›"
+	next.tooltip_text = "Next rods"
+	next.custom_minimum_size = Vector2(42.0, 72.0)
+	next.focus_mode = Control.FOCUS_ALL
+	UtilityPageStyleType.apply_ocean_button(next)
+	shell.add_child(next)
+	previous.disabled = rods.size() <= 1
+	next.disabled = rods.size() <= 1
+	previous.pressed.connect(
+		_scroll_rod_carousel.bind(scroll, -ROD_CAROUSEL_STEP)
+	)
+	next.pressed.connect(
+		_scroll_rod_carousel.bind(scroll, ROD_CAROUSEL_STEP)
+	)
+
+
+func _add_rod_card(parent: HBoxContainer, rod: FishingRodDataType) -> void:
+	var owned: bool = _bag.owns_item(rod.item_id)
+	var level: int = _player.experience.get_level()
+	var level_locked: bool = level < rod.unlock_level
+	var tooltip := "%s\n%s" % [rod.display_name, rod.description]
+	if not rod.effect_summary.strip_edges().is_empty():
+		tooltip += "\n%s" % rod.effect_summary
+	if not rod.tradeoff.strip_edges().is_empty():
+		tooltip += "\ntradeoff: %s" % rod.tradeoff
+	tooltip += "\nlevel %d" % rod.unlock_level
+	tooltip += "\n%s" % _unlock_status(owned)
+	var button := _make_stock_button("", tooltip)
+	button.name = "Rod_%s" % str(rod.item_id)
+	button.custom_minimum_size = ROD_CARD_TILE_SIZE
+	button.size = ROD_CARD_TILE_SIZE
+	button.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	button.icon = rod.icon
+	button.expand_icon = true
+	button.alignment = HORIZONTAL_ALIGNMENT_CENTER
+	button.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	button.disabled = (
+		owned
+		or level_locked
+		or _transaction_in_progress
+		or _closing
+		or _network_shop == null
+		or not _network_shop.can_request_purchase()
+		or not _wallet.can_afford(rod.shop_price)
+		or not _bag.can_add_item(rod.item_id, 1)
+	)
+	button.pressed.connect(_purchase_rod.bind(rod.item_id))
+	var host: Control = _add_supply_icon_tile(
+		parent,
+		button,
+		rod.shop_price,
+		ROD_CARD_TILE_SIZE,
+		ROD_CARD_HOST_SIZE,
+		ROD_PRICE_Y,
+		ROD_PRICE_HEIGHT,
+		ROD_PRICE_FONT_SIZE,
+		ROD_PRICE_ICON_SIZE,
+	)
+	var name_label := Label.new()
+	name_label.name = "RodName"
+	name_label.position = Vector2(0.0, 162.0)
+	name_label.size = Vector2(ROD_CARD_HOST_SIZE.x, 30.0)
+	name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	name_label.text = rod.display_name
+	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	name_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	name_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	name_label.add_theme_font_override("font", UtilityPageStyleType.TuffyFont)
+	name_label.add_theme_font_size_override("font_size", 17)
+	name_label.add_theme_color_override(
+		"font_color", UtilityPageStyleType.OCEAN_TEXT_PRIMARY
+	)
+	host.add_child(name_label)
+
+
+func _scroll_rod_carousel(scroll: ScrollContainer, amount: float) -> void:
+	var target: float = clampf(
+		float(scroll.scroll_horizontal) + amount,
+		0.0,
+		maxf(
+			scroll.get_h_scroll_bar().max_value
+			- scroll.get_h_scroll_bar().page,
+			0.0,
+		),
+	)
+	var tween := create_tween()
+	tween.set_trans(Tween.TRANS_QUAD)
+	tween.set_ease(Tween.EASE_OUT)
+	tween.tween_method(
+		func(value: float) -> void:
+			scroll.scroll_horizontal = roundi(value),
+		float(scroll.scroll_horizontal),
+		target,
+		0.15,
+	)
+
+
 func _add_art_kit_button(parent: GridContainer) -> void:
 	var item: ItemDataType = _item_catalog.get_item_by_id(
 		ArtShopStockType.ART_KIT_ITEM_ID
 	)
-	if item == null:
+	if item == null or not item.is_available():
 		return
 	var owned: bool = _bag.get_quantity(ArtShopStockType.ART_KIT_ITEM_ID) > 0
 	var button: Button = _make_stock_button(
 		"%s\n%s" % [
 			item.display_name,
-			"owned" if owned else "not owned",
+			_unlock_status(owned),
 		],
 		"%s\n%s\n%s" % [
 			item.display_name,
-			"owned" if owned else "not owned",
+			_unlock_status(owned),
 			item.description,
 		],
 	)
@@ -942,29 +1111,35 @@ func _configure_marker_icon_tile(
 
 
 func _add_supply_icon_tile(
-	parent: GridContainer,
+	parent: Container,
 	button: Button,
 	price: int,
-) -> void:
+	tile_size: Vector2 = SUPPLY_ICON_TILE_SIZE,
+	host_size: Vector2 = SUPPLY_ICON_HOST_SIZE,
+	price_y: float = SUPPLY_PRICE_Y,
+	price_height: float = SUPPLY_PRICE_HEIGHT,
+	price_font_size: int = SUPPLY_PRICE_FONT_SIZE,
+	price_icon_size: float = SUPPLY_PRICE_ICON_SIZE,
+) -> Control:
 	var tile_host := Control.new()
-	tile_host.custom_minimum_size = SUPPLY_ICON_HOST_SIZE
+	tile_host.custom_minimum_size = host_size
 	tile_host.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	parent.add_child(tile_host)
 	button.position = Vector2.ZERO
-	button.size = SUPPLY_ICON_TILE_SIZE
+	button.size = tile_size
 	tile_host.add_child(button)
 	var price_text := str(price)
 	var price_text_width: float = UtilityPageStyleType.TuffyFont.get_string_size(
 		price_text,
 		HORIZONTAL_ALIGNMENT_LEFT,
 		-1.0,
-		SUPPLY_PRICE_FONT_SIZE,
+		price_font_size,
 	).x
 	var price_width: float = minf(
-		SUPPLY_ICON_TILE_SIZE.x,
+		tile_size.x,
 		ceilf(
 			price_text_width
-			+ SUPPLY_PRICE_ICON_SIZE
+			+ price_icon_size
 			+ SUPPLY_PRICE_ICON_GAP
 			+ SUPPLY_PRICE_HORIZONTAL_PADDING
 		),
@@ -972,10 +1147,10 @@ func _add_supply_icon_tile(
 	var price_bubble := PanelContainer.new()
 	price_bubble.name = "PriceBubble"
 	price_bubble.position = Vector2(
-		(SUPPLY_ICON_TILE_SIZE.x - price_width) * 0.5,
-		SUPPLY_PRICE_Y,
+		(tile_size.x - price_width) * 0.5,
+		price_y,
 	)
-	price_bubble.size = Vector2(price_width, SUPPLY_PRICE_HEIGHT)
+	price_bubble.size = Vector2(price_width, price_height)
 	price_bubble.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	price_bubble.z_index = 2
 	var price_style := UtilityPageStyleType.rounded_style(
@@ -998,7 +1173,7 @@ func _add_supply_icon_tile(
 	price_bubble.add_child(price_row)
 	var price_icon := TextureRect.new()
 	price_icon.name = "CurrencyIcon"
-	price_icon.custom_minimum_size = Vector2.ONE * SUPPLY_PRICE_ICON_SIZE
+	price_icon.custom_minimum_size = Vector2.ONE * price_icon_size
 	price_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	price_icon.texture = CURRENCY_ICON
 	price_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
@@ -1015,13 +1190,14 @@ func _add_supply_icon_tile(
 		"font", UtilityPageStyleType.TuffyFont
 	)
 	price_label.add_theme_font_size_override(
-		"font_size", SUPPLY_PRICE_FONT_SIZE
+		"font_size", price_font_size
 	)
 	price_label.add_theme_color_override(
 		"font_color", SUPPLY_PRICE_COLOR
 	)
 	price_label.add_theme_constant_override("outline_size", 0)
 	price_row.add_child(price_label)
+	return tile_host
 
 
 func _refresh_cooler_capacity() -> void:
@@ -1073,7 +1249,7 @@ func _purchase_supply(item_id: StringName) -> void:
 		return
 	var owned: int = _bag.get_quantity(item_id)
 	var item: ItemDataType = _item_catalog.get_item_by_id(item_id)
-	if item == null:
+	if item == null or not item.is_available():
 		_set_feedback("Purchase could not be completed.")
 		return
 	var quantity: int = FishingShopStockType.get_purchase_quantity(
@@ -1092,6 +1268,23 @@ func _purchase_supply(item_id: StringName) -> void:
 		_set_feedback("Purchase could not be completed.")
 		return
 	_network_shop.request_supply(item_id)
+
+
+func _purchase_rod(item_id: StringName) -> void:
+	if _network_shop == null or not _is_transaction_context_valid():
+		_set_feedback("Purchase could not be completed.")
+		return
+	var rod := _item_catalog.get_item_by_id(item_id) as FishingRodDataType
+	if (
+		rod == null
+		or not rod.is_shop_available()
+		or _bag.owns_item(item_id)
+		or not _wallet.can_afford(rod.shop_price)
+		or not _bag.can_add_item(item_id, 1)
+	):
+		_set_feedback("Purchase could not be completed.")
+		return
+	_network_shop.request_rod(item_id)
 
 
 func _purchase_art_kit() -> void:

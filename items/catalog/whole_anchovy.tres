@@ -7,7 +7,7 @@
 script = ExtResource("1")
 item_id = &"whole_anchovy"
 display_name = "sardine"
-description = "valuable oily schooling bait tuned for exceptional catches."
+description = "valuable oily schooling bait tuned for exceptional rarity and quality odds."
 icon = ExtResource("2_icon")
 category = 2
 bait_tags = Array[StringName]([&"bait_rarity_5"])

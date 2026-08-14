@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="FishingRodData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://items/fishing_rod_data.gd" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+item_id = &"pond_skipper_rod"
+display_name = "pond skipper"
+description = "a springy little rod that feels at home beside quiet ponds."
+active = false
+category = 0
+stackable = false
+max_stack = 1
+usable = true
+equippable = true
+hotbar_allowed = true
+shop_order = 3
+shop_price = 150
+unlock_level = 2
+preferred_location_tags = Array[StringName]([&"starter_pond", &"pond"])
+affinity_weight_multiplier = 1.5
+bite_time_multiplier = 0.95
+effect_summary = "increases the relative selection weight of eligible pond fish."
+tradeoff = "none; a focused sidegrade rather than a direct upgrade."

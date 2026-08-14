@@ -39,7 +39,7 @@ func add_item(item_id: StringName, quantity: int = 1) -> bool:
 
 
 func can_add_item(item_id: StringName, quantity: int = 1) -> bool:
-	var item: ItemDataType = _resolve_valid_item(item_id)
+	var item: ItemDataType = _resolve_available_item(item_id)
 	if item == null or quantity <= 0:
 		return false
 	var existing: OwnedItemType = get_owned_item(item_id)
@@ -156,3 +156,8 @@ func _resolve_valid_item(item_id: StringName) -> ItemDataType:
 		return null
 	var item: ItemDataType = _catalog.get_item_by_id(item_id)
 	return item if item != null and item.is_valid() else null
+
+
+func _resolve_available_item(item_id: StringName) -> ItemDataType:
+	var item: ItemDataType = _resolve_valid_item(item_id)
+	return item if item != null and item.active else null

@@ -1,0 +1,28 @@
+[gd_resource type="Resource" script_class="FishData" load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://fish/fish_data.gd" id="1_fish_data"]
+[ext_resource type="Resource" path="res://fishing/common_catch_profile.tres" id="2_profile"]
+[ext_resource type="Script" path="res://fish/fish_availability.gd" id="3_availability"]
+
+[sub_resource type="Resource" id="Availability"]
+script = ExtResource("3_availability")
+require_rain = true
+
+[resource]
+script = ExtResource("1_fish_data")
+id = &"piranha_red_bellied"
+display_name = "red-bellied piranha"
+active = false
+catalog_number = 7605
+collection_group = &"Tropical freshwater predators"
+logbook_fact = "red-bellied piranhas communicate with barks and drum-like sounds. schools provide protection as they search for fish, insects, and carrion."
+allowed_water_types = 1
+rarity = 2
+base_catch_weight = 0.3
+catch_profile = ExtResource("2_profile")
+availability = SubResource("Availability")
+weight_min_lb = 0.2
+weight_max_lb = 4.0
+sell_value_min = 12
+sell_value_max = 27
+sell_value_curve = 0.9

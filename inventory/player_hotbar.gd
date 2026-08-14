@@ -249,7 +249,7 @@ func _can_assign(item_id: StringName) -> bool:
 	if _catalog == null:
 		return false
 	var item: ItemDataType = _catalog.get_item_by_id(item_id)
-	return item != null and item.is_valid() and item.hotbar_allowed
+	return item != null and item.is_available() and item.hotbar_allowed
 
 
 func _can_assign_fish(catch_id: StringName) -> bool:

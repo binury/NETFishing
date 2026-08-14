@@ -1,0 +1,28 @@
+[gd_resource type="Resource" script_class="FishData" load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://fish/fish_data.gd" id="1_fish_data"]
+[ext_resource type="Resource" path="res://fishing/common_catch_profile.tres" id="2_profile"]
+[ext_resource type="Script" path="res://fish/fish_availability.gd" id="3_availability"]
+
+[sub_resource type="Resource" id="Availability"]
+script = ExtResource("3_availability")
+allow_night = false
+
+[resource]
+script = ExtResource("1_fish_data")
+id = &"trevally_giant"
+display_name = "giant trevally"
+active = false
+catalog_number = 3603
+collection_group = &"Large coastal predators"
+logbook_fact = "giant trevally hunt reef edges with bursts of speed and force. large individuals sometimes charge prey from surf and shallow lagoons."
+allowed_water_types = 2
+rarity = 3
+base_catch_weight = 0.1
+catch_profile = ExtResource("2_profile")
+availability = SubResource("Availability")
+weight_min_lb = 10.0
+weight_max_lb = 150.0
+sell_value_min = 32
+sell_value_max = 78
+sell_value_curve = 0.8

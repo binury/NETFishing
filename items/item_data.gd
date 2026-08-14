@@ -15,6 +15,11 @@ enum Category {
 @export var item_id: StringName
 @export var display_name: String
 @export_multiline var description: String
+@export_category("Developer Catalog")
+## Inactive items remain resolvable for existing saves, but cannot be newly
+## acquired, equipped, used, or presented in shops.
+@export var active: bool = true
+@export_category("Item")
 @export var category: Category = Category.UTILITY
 @export var bait_tags: Array[StringName] = []
 @export var lure_effects: Array[StringName] = []
@@ -33,6 +38,10 @@ func is_valid() -> bool:
 		and max_stack >= 1
 		and (stackable or max_stack == 1)
 	)
+
+
+func is_available() -> bool:
+	return active and is_valid()
 
 
 func get_category_name() -> String:

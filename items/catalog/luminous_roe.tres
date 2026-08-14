@@ -7,7 +7,7 @@
 script = ExtResource("1")
 item_id = &"luminous_roe"
 display_name = "luminous roe"
-description = "rare glowing roe with the strongest rare catch odds."
+description = "rare glowing roe with the strongest rarity and quality odds."
 icon = ExtResource("2_icon")
 category = 2
 bait_tags = Array[StringName]([&"bait_rarity_6"])

@@ -26,14 +26,21 @@ enum Rarity {
 
 @export var id: StringName
 @export var display_name: String
+@export_category("Developer Catalog")
+## Disabled species remain resolvable for saves but cannot be newly selected.
+@export var active: bool = true
+@export_range(1, 999999, 1) var catalog_number: int = 1
+@export var collection_group: StringName
+@export_multiline var logbook_fact: String
+@export_category("Fishing")
 @export_flags("Fresh Water", "Salt Water")
 var allowed_water_types: int = WaterType.ALL_FISHABLE_MASK
 @export var rarity: Rarity = Rarity.COMMON
 @export_range(0.0, 1000.0, 0.01) var base_catch_weight: float = 1.0
 @export var catch_profile: CatchDifficultyProfileType
 @export var availability: FishAvailabilityType
-@export_range(0.01, 1000.0, 0.01) var weight_min_lb: float = 0.5
-@export_range(0.01, 1000.0, 0.01) var weight_max_lb: float = 1.0
+@export_range(0.001, 500000.0, 0.001) var weight_min_lb: float = 0.5
+@export_range(0.001, 500000.0, 0.001) var weight_max_lb: float = 1.0
 # Retained in resource files for compatibility with existing authored data;
 # runtime presentation is derived from absolute weight below.
 @export_range(0.01, 20.0, 0.01) var display_scale_min: float = 0.8
@@ -47,7 +54,8 @@ var allowed_water_types: int = WaterType.ALL_FISHABLE_MASK
 
 func is_selectable() -> bool:
 	return (
-		not id.is_empty()
+		active
+		and not id.is_empty()
 		and base_catch_weight > 0.0
 		and catch_profile != null
 		and weight_min_lb > 0.0
@@ -74,7 +82,7 @@ func get_primary_water_type() -> WaterType.Type:
 
 
 func get_minimum_weight() -> float:
-	return maxf(weight_min_lb, 0.01)
+	return maxf(weight_min_lb, 0.001)
 
 
 func get_maximum_weight() -> float:

@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="FishingRodData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://items/fishing_rod_data.gd" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+item_id = &"showboat_rod"
+display_name = "showboat"
+description = "a theatrical rod that refuses to land an unimpressive fish quietly."
+active = false
+category = 0
+stackable = false
+max_stack = 1
+usable = true
+equippable = true
+hotbar_allowed = true
+shop_order = 18
+shop_price = 2000
+unlock_level = 11
+bite_time_multiplier = 1.18
+reel_speed_multiplier = 0.9
+quality_weight_multipliers = Array[float]([0.50, 0.75, 1.35, 1.70, 2.10])
+effect_summary = "strongly shifts catch quality toward impressive, exceptional, and shiny."
+tradeoff = "longer bite waits and slower reeling; species rarity is unchanged."

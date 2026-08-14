@@ -24,6 +24,7 @@ const PauseMenuType = preload("res://ui/pause_menu.gd")
 const ItemCatalogType = preload("res://items/item_catalog.gd")
 const ArtShopStockType = preload("res://economy/art_shop_stock.gd")
 const ItemDataType = preload("res://items/item_data.gd")
+const FishingRodDataType = preload("res://items/fishing_rod_data.gd")
 const FishingShopType = preload("res://ui/fishing_shop.gd")
 const FishingShopInteractionType = preload(
 	"res://world/fishing_shop_interaction.gd"
@@ -1764,15 +1765,20 @@ func _on_active_hotbar_item_changed(
 	var item = item_catalog.get_item_by_id(item_id)
 	var active_is_rod: bool = (
 		item != null
+		and item.is_available()
 		and item.category == ItemDataType.Category.ROD
 		and _player.bag.owns_item(item_id)
 	)
 	var active_is_art_kit: bool = (
 		item_id == ArtShopStockType.ART_KIT_ITEM_ID
 		and item != null
+		and item.is_available()
 		and _player.bag.owns_item(item_id)
 	)
-	_player.set_active_item_is_rod(active_is_rod, true)
+	_player.set_active_fishing_rod(
+		item as FishingRodDataType if active_is_rod else null,
+		true,
+	)
 	_player.set_active_art_kit(
 		item.icon if item != null else null,
 		active_is_art_kit,

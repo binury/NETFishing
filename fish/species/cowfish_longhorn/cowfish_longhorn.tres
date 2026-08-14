@@ -1,0 +1,29 @@
+[gd_resource type="Resource" script_class="FishData" load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://fish/fish_data.gd" id="1_fish_data"]
+[ext_resource type="Resource" path="res://fishing/common_catch_profile.tres" id="2_profile"]
+[ext_resource type="Script" path="res://fish/fish_availability.gd" id="3_availability"]
+
+[sub_resource type="Resource" id="Availability"]
+script = ExtResource("3_availability")
+allow_night = false
+require_fog = true
+
+[resource]
+script = ExtResource("1_fish_data")
+id = &"cowfish_longhorn"
+display_name = "longhorn cowfish"
+active = false
+catalog_number = 5604
+collection_group = &"Reef oddities"
+logbook_fact = "longhorn cowfish wear a rigid box of fused scales with horns above the eyes. small fins steer the angular body with surprising precision."
+allowed_water_types = 2
+rarity = 3
+base_catch_weight = 0.13
+catch_profile = ExtResource("2_profile")
+availability = SubResource("Availability")
+weight_min_lb = 0.1
+weight_max_lb = 2.0
+sell_value_min = 23
+sell_value_max = 52
+sell_value_curve = 0.94

@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="FishingRodData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://items/fishing_rod_data.gd" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+item_id = &"small_fry_rod"
+display_name = "small fry"
+description = "a tiny rod for anglers who value character over size."
+active = false
+category = 0
+stackable = false
+max_stack = 1
+usable = true
+equippable = true
+hotbar_allowed = true
+shop_order = 14
+shop_price = 1200
+unlock_level = 8
+weight_roll_bias = -0.25
+quality_weight_multipliers = Array[float]([0.75, 0.90, 1.25, 1.40, 1.55])
+effect_summary = "biases fish weight downward while improving high-quality outcomes."
+tradeoff = "produces smaller catches on average."

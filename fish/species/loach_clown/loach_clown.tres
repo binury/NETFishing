@@ -1,0 +1,29 @@
+[gd_resource type="Resource" script_class="FishData" load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://fish/fish_data.gd" id="1_fish_data"]
+[ext_resource type="Resource" path="res://fishing/common_catch_profile.tres" id="2_profile"]
+[ext_resource type="Script" path="res://fish/fish_availability.gd" id="3_availability"]
+
+[sub_resource type="Resource" id="Availability"]
+script = ExtResource("3_availability")
+allow_night = false
+require_rain = true
+
+[resource]
+script = ExtResource("1_fish_data")
+id = &"loach_clown"
+display_name = "clown loach"
+active = false
+catalog_number = 7502
+collection_group = &"Tropical freshwater fish"
+logbook_fact = "clown loaches rest in groups and make clicking sounds while feeding. orange bodies carry three broad black bands and small eye spines."
+allowed_water_types = 1
+rarity = 2
+base_catch_weight = 0.32
+catch_profile = ExtResource("2_profile")
+availability = SubResource("Availability")
+weight_min_lb = 0.1
+weight_max_lb = 2.0
+sell_value_min = 10
+sell_value_max = 22
+sell_value_curve = 0.9

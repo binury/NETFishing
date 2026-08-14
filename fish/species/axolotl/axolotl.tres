@@ -1,0 +1,29 @@
+[gd_resource type="Resource" script_class="FishData" load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://fish/fish_data.gd" id="1_fish_data"]
+[ext_resource type="Resource" path="res://fishing/common_catch_profile.tres" id="2_profile"]
+[ext_resource type="Script" path="res://fish/fish_availability.gd" id="3_availability"]
+
+[sub_resource type="Resource" id="Availability"]
+script = ExtResource("3_availability")
+allow_day = false
+require_fog = true
+
+[resource]
+script = ExtResource("1_fish_data")
+id = &"axolotl"
+display_name = "axolotl"
+active = false
+catalog_number = 2001
+collection_group = &"Freshwater amphibians"
+logbook_fact = "axolotls remain aquatic and keep feathery external gills throughout adulthood. lost limbs and parts of several organs can regenerate."
+allowed_water_types = 1
+rarity = 4
+base_catch_weight = 0.04
+catch_profile = ExtResource("2_profile")
+availability = SubResource("Availability")
+weight_min_lb = 0.1
+weight_max_lb = 0.7
+sell_value_min = 36
+sell_value_max = 78
+sell_value_curve = 0.96

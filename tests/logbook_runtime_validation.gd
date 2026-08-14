@@ -108,9 +108,11 @@ func _validate_save_round_trip(
 	var player := main.get("_player") as Player
 	var catalog := main.get("fish_catalog") as FishPool
 	assert(catalog != null)
-	assert(catalog.candidates.size() == 53)
+	assert(catalog.candidates.size() == 313)
+	var active_species := LogbookCatalog.ordered_species(catalog.candidates)
+	assert(active_species.size() == 53)
 	for index: int in 4:
-		_add_test_catch(player, catalog.candidates[index])
+		_add_test_catch(player, active_species[index])
 	assert(save_manager.save_now())
 	var no_catches: Array[FishCatch] = []
 	var no_discoveries: Array[StringName] = []
@@ -119,18 +121,18 @@ func _validate_save_round_trip(
 	assert(save_manager.load_player_data())
 	assert(player.inventory.get_all_catches().size() == 4)
 	for index: int in 4:
-		var original_fish: FishData = catalog.candidates[index]
+		var original_fish: FishData = active_species[index]
 		assert(player.inventory.get_count(original_fish.id) == 1)
 		assert(player.collection_log.has_discovered(original_fish.id))
 
-	for index: int in range(4, catalog.candidates.size()):
-		_add_test_catch(player, catalog.candidates[index])
+	for index: int in range(4, active_species.size()):
+		_add_test_catch(player, active_species[index])
 	assert(save_manager.save_now())
 	assert(player.inventory.replace_all_catches(no_catches, 1))
 	assert(player.collection_log.replace_discovered_ids(no_discoveries))
 	assert(save_manager.load_player_data())
 	assert(player.inventory.get_all_catches().size() == 53)
-	for fish: FishData in catalog.candidates:
+	for fish: FishData in active_species:
 		assert(player.inventory.get_count(fish.id) == 1)
 		assert(player.collection_log.has_discovered(fish.id))
 	for fish_id: StringName in [

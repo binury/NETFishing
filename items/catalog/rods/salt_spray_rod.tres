@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="FishingRodData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://items/fishing_rod_data.gd" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+item_id = &"salt_spray_rod"
+display_name = "salt spray"
+description = "a sea-green rod that seems happiest with salt on the line."
+active = false
+category = 0
+stackable = false
+max_stack = 1
+usable = true
+equippable = true
+hotbar_allowed = true
+shop_order = 6
+shop_price = 600
+unlock_level = 5
+preferred_location_tags = Array[StringName]([&"ocean"])
+affinity_weight_multiplier = 1.5
+rarity_weight_multipliers = Array[float]([0.95, 1.00, 1.05, 1.05, 1.05])
+effect_summary = "increases the relative selection weight of eligible ocean fish."
+tradeoff = "none; a focused sidegrade rather than a direct upgrade."

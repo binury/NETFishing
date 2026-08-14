@@ -89,6 +89,8 @@ func _run() -> void:
 func _validate_weight_based_display_scale() -> void:
 	var previous_scale: float = 0.0
 	for fish: FishDataType in Catalog.candidates:
+		if not fish.active:
+			continue
 		assert(fish.is_selectable())
 		assert(fish.weight_min_lb > 0.0)
 		assert(fish.weight_max_lb <= 1000.0)
@@ -119,9 +121,48 @@ func _validate_weight_based_display_scale() -> void:
 
 
 func _validate_catalog_and_pools() -> void:
-	assert(Catalog.candidates.size() == 53)
+	assert(Catalog.candidates.size() == 313)
 	assert(PondPool.candidates.size() == 19)
 	assert(OceanPool.candidates.size() == 34)
+	var active_count: int = 0
+	var inactive_count: int = 0
+	var catalog_numbers: Dictionary[int, bool] = {}
+	for fish: FishDataType in Catalog.candidates:
+		assert(fish != null and not fish.id.is_empty())
+		assert(fish.catalog_number > 0)
+		assert(not fish.collection_group.is_empty())
+		assert(not catalog_numbers.has(fish.catalog_number))
+		catalog_numbers[fish.catalog_number] = true
+		assert(not fish.logbook_fact.strip_edges().is_empty())
+		if fish.active:
+			active_count += 1
+			assert(fish.is_selectable())
+			assert(fish.display_texture != null)
+		else:
+			inactive_count += 1
+			assert(not fish.is_selectable())
+			assert(fish.display_texture == null)
+	assert(active_count == 53)
+	assert(inactive_count == 260)
+	var inactive_fish: FishDataType = Catalog.get_fish_by_id(&"bowfin")
+	assert(inactive_fish != null and not inactive_fish.active)
+	var inactive_pool := FishPoolType.new()
+	inactive_pool.candidates = [inactive_fish]
+	var inactive_context := FishingContextType.new()
+	inactive_context.water_type = WaterType.Type.FRESH_WATER
+	var inactive_collection := CollectionLogType.new()
+	var inactive_selector := FishSelectorType.new()
+	inactive_selector.use_deterministic_test_seed = true
+	inactive_selector.begin_roll()
+	assert(
+		inactive_selector.select_fish(
+			inactive_pool,
+			inactive_context,
+			inactive_collection,
+		) == null
+	)
+	assert(inactive_selector.create_catch(inactive_fish) == null)
+	inactive_collection.free()
 	for fish_id: StringName in ORIGINAL_IDS:
 		var original_fish: FishDataType = Catalog.get_fish_by_id(fish_id)
 		assert(original_fish != null)
@@ -277,21 +318,33 @@ func _validate_authoritative_water_filter() -> void:
 	stale_fresh_pool_region.location_tags = [&"coast", &"ocean"]
 	var evidence := {"discovered_fish_ids": []}
 	assert(
-		service.call("_select_authoritative_fish", pond_region, evidence, null)
-		!= null
-	)
-	assert(
-		service.call("_select_authoritative_fish", ocean_region, evidence, null)
+		service.call(
+			"_select_authoritative_fish", pond_region, evidence, null, null
+		)
 		!= null
 	)
 	assert(
 		service.call(
-			"_select_authoritative_fish", stale_salt_pool_region, evidence, null
+			"_select_authoritative_fish", ocean_region, evidence, null, null
+		)
+		!= null
+	)
+	assert(
+		service.call(
+			"_select_authoritative_fish",
+			stale_salt_pool_region,
+			evidence,
+			null,
+			null,
 		) == null
 	)
 	assert(
 		service.call(
-			"_select_authoritative_fish", stale_fresh_pool_region, evidence, null
+			"_select_authoritative_fish",
+			stale_fresh_pool_region,
+			evidence,
+			null,
+			null,
 		) == null
 	)
 	service.free()
@@ -347,11 +400,14 @@ func _validate_catches_and_authoritative_sale() -> void:
 	}
 	sale_service.set("_buyers", sale_buyers)
 
-	for index: int in Catalog.candidates.size():
-		var fish: FishDataType = Catalog.candidates[index]
+	var catch_sequence: int = 0
+	for fish: FishDataType in Catalog.candidates:
+		if not fish.active:
+			continue
+		catch_sequence += 1
 		var fish_catch: FishCatch = selector.create_catch(fish)
 		assert(fish_catch != null)
-		fish_catch.catch_sequence = index + 1
+		fish_catch.catch_sequence = catch_sequence
 		assert(fish_catch.fish.display_texture == fish.display_texture)
 
 		var loaded: FishCatch = FishCatchType.from_save_dict(
@@ -385,7 +441,7 @@ func _validate_catches_and_authoritative_sale() -> void:
 		var sale_result: Dictionary = sale_service.call(
 			"_build_authoritative_result",
 			1,
-			"catalog_sale_%d" % index,
+			"catalog_sale_%d" % catch_sequence,
 			[loaded.to_network_dict()],
 			PelicanBuyer,
 		)

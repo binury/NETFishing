@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="FishingRodData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://items/fishing_rod_data.gd" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+item_id = &"river_runner_rod"
+display_name = "river runner"
+description = "a lively rod made to keep pace with moving river water."
+active = false
+category = 0
+stackable = false
+max_stack = 1
+usable = true
+equippable = true
+hotbar_allowed = true
+shop_order = 4
+shop_price = 250
+unlock_level = 3
+preferred_location_tags = Array[StringName]([&"river"])
+affinity_weight_multiplier = 1.5
+reel_speed_multiplier = 1.05
+effect_summary = "increases the relative selection weight of eligible river fish."
+tradeoff = "none; a focused sidegrade rather than a direct upgrade."

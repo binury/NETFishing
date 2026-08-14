@@ -654,7 +654,7 @@ func _refresh_details(animate: bool) -> void:
 
 func _build_known_details(fish: FishDataType) -> void:
 	_clear_details()
-	var catalog_number: int = LogbookCatalog.catalog_number(fish.id)
+	var catalog_number: int = LogbookCatalog.catalog_number(fish)
 	var summary_margin := MarginContainer.new()
 	summary_margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_set_margins(summary_margin, 40, 0, 40, 0)
@@ -719,7 +719,7 @@ func _build_known_details(fish: FishDataType) -> void:
 	summary_columns.add_child(facts_column)
 	var facts_heading := _field_label("fish facts", 16)
 	facts_column.add_child(facts_heading)
-	var facts := _label(LogbookCatalog.facts_for(fish.id), 16)
+	var facts := _label(LogbookCatalog.facts_for(fish), 16)
 	facts.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	facts.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	facts_column.add_child(facts)
@@ -999,7 +999,7 @@ func _on_inventory_changed() -> void:
 
 
 func _unknown_selection_key(fish: FishDataType) -> StringName:
-	var number: int = LogbookCatalog.catalog_number(fish.id)
+	var number: int = LogbookCatalog.catalog_number(fish)
 	return StringName("unknown_%d" % number)
 
 

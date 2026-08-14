@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="FishingRodData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://items/fishing_rod_data.gd" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+item_id = &"aurora_rod"
+display_name = "aurora rod"
+description = "a shifting ribbon of color for anglers who have tried nearly everything else."
+active = false
+category = 0
+stackable = false
+max_stack = 1
+usable = true
+equippable = true
+hotbar_allowed = true
+shop_order = 21
+shop_price = 5000
+unlock_level = 15
+bite_time_multiplier = 1.35
+reel_speed_multiplier = 0.9
+rarity_weight_multipliers = Array[float]([0.85, 1.00, 1.15, 1.30, 1.45])
+quality_weight_multipliers = Array[float]([0.80, 0.95, 1.15, 1.30, 1.45])
+effect_summary = "modestly improves both species rarity and catch quality across all eligible fish."
+tradeoff = "the slowest bite cycle in the set; intended as an expensive late-game sidegrade."

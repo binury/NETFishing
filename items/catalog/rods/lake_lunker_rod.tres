@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="FishingRodData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://items/fishing_rod_data.gd" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+item_id = &"lake_lunker_rod"
+display_name = "lake lunker"
+description = "a broad, patient rod that favors hefty catches from open lakes."
+active = false
+category = 0
+stackable = false
+max_stack = 1
+usable = true
+equippable = true
+hotbar_allowed = true
+shop_order = 5
+shop_price = 400
+unlock_level = 4
+preferred_location_tags = Array[StringName]([&"lake"])
+affinity_weight_multiplier = 1.45
+weight_roll_bias = 0.12
+bite_time_multiplier = 1.05
+effect_summary = "favors eligible lake fish and gently biases weight rolls upward."
+tradeoff = "slightly longer bite waits."

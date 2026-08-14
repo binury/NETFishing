@@ -7,10 +7,12 @@ const FishDataType = preload("res://fish/fish_data.gd")
 const FishPoolType = preload("res://fish/fish_pool.gd")
 const FishQualityType = preload("res://fish/fish_quality.gd")
 const FishingContextType = preload("res://fishing/fishing_context.gd")
+const FishingRodDataType = preload("res://items/fishing_rod_data.gd")
 
 var undiscovered_weight_multiplier: float = 1.5
 var rarity_weight_multipliers: Array[float] = []
 var quality_weight_multipliers: Array[float] = []
+var active_rod: FishingRodDataType
 var use_deterministic_test_seed: bool = false
 var deterministic_test_seed: int = 24680
 var selection_seed: int = 0
@@ -55,8 +57,16 @@ func select_fish(
 		# quality and rarity bands globally; required tags remain authoritative.
 		if not collection_log.has_discovered(fish.id):
 			final_weight *= maxf(undiscovered_weight_multiplier, 0.0)
+			if active_rod != null:
+				final_weight *= maxf(
+					active_rod.undiscovered_weight_multiplier,
+					0.0,
+				)
 		if fish.rarity >= 0 and fish.rarity < rarity_weight_multipliers.size():
 			final_weight *= maxf(rarity_weight_multipliers[fish.rarity], 0.0)
+		if active_rod != null:
+			final_weight *= active_rod.get_rarity_multiplier(fish.rarity)
+			final_weight *= active_rod.get_affinity_multiplier(fish, context)
 		if final_weight <= 0.0:
 			continue
 		all_fish.append(fish)
@@ -87,6 +97,8 @@ func _roll_rarity(context: FishingContextType) -> int:
 	for index: int in range(weights.size()):
 		if index < rarity_weight_multipliers.size():
 			weights[index] *= maxf(rarity_weight_multipliers[index], 0.0)
+		if active_rod != null:
+			weights[index] *= active_rod.get_rarity_multiplier(index)
 	var total: float = 0.0
 	for weight: float in weights:
 		total += weight
@@ -107,9 +119,13 @@ func create_catch(fish: FishDataType, bait_tags: Array[StringName] = []) -> Fish
 	caught_fish.fish = fish
 	caught_fish.fish_id = fish.id
 	caught_fish.ensure_identity()
-	caught_fish.weight_lb = _rng.randf_range(
+	var weight_roll: float = _biased_unit_roll(
+		active_rod.weight_roll_bias if active_rod != null else 0.0
+	)
+	caught_fish.weight_lb = lerpf(
 		fish.get_minimum_weight(),
-		fish.get_maximum_weight()
+		fish.get_maximum_weight(),
+		weight_roll,
 	)
 	caught_fish.display_scale = fish.get_display_scale_for_weight(
 		caught_fish.weight_lb
@@ -118,6 +134,11 @@ func create_catch(fish: FishDataType, bait_tags: Array[StringName] = []) -> Fish
 	var quality_multipliers: Array[float] = FishQualityType.roll_weights_for_bait(effective_bait)
 	for quality: int in range(mini(quality_multipliers.size(), quality_weight_multipliers.size())):
 		quality_multipliers[quality] *= maxf(quality_weight_multipliers[quality], 0.0)
+	for quality: int in range(quality_multipliers.size()):
+		if active_rod != null:
+			quality_multipliers[quality] *= active_rod.get_quality_multiplier(
+				quality
+			)
 	caught_fish.quality = FishQualityType.roll(
 		_rng,
 		quality_multipliers,
@@ -127,3 +148,14 @@ func create_catch(fish: FishDataType, bait_tags: Array[StringName] = []) -> Fish
 		caught_fish.quality,
 	)
 	return caught_fish
+
+
+func _biased_unit_roll(bias: float) -> float:
+	var roll: float = _rng.randf()
+	var safe_bias: float = clampf(bias, -0.5, 0.5)
+	if is_zero_approx(safe_bias):
+		return roll
+	var exponent: float = 1.0 / (1.0 + absf(safe_bias) * 2.0)
+	if safe_bias > 0.0:
+		return pow(roll, exponent)
+	return 1.0 - pow(1.0 - roll, exponent)

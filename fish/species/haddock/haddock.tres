@@ -1,0 +1,28 @@
+[gd_resource type="Resource" script_class="FishData" load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://fish/fish_data.gd" id="1_fish_data"]
+[ext_resource type="Resource" path="res://fishing/common_catch_profile.tres" id="2_profile"]
+[ext_resource type="Script" path="res://fish/fish_availability.gd" id="3_availability"]
+
+[sub_resource type="Resource" id="Availability"]
+script = ExtResource("3_availability")
+allow_night = false
+
+[resource]
+script = ExtResource("1_fish_data")
+id = &"haddock"
+display_name = "haddock"
+active = false
+catalog_number = 1405
+collection_group = &"Cold shelf fish"
+logbook_fact = "haddock are recognized by a dark shoulder mark and black lateral line. schools forage over cold seafloors for small bottom animals."
+allowed_water_types = 2
+rarity = 0
+base_catch_weight = 2.0
+catch_profile = ExtResource("2_profile")
+availability = SubResource("Availability")
+weight_min_lb = 0.5
+weight_max_lb = 20.0
+sell_value_min = 4
+sell_value_max = 11
+sell_value_curve = 0.9

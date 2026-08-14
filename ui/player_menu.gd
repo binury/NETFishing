@@ -4334,7 +4334,7 @@ func _refresh_logbook() -> void:
 	var valid_species: Array[FishDataType] = []
 	if _catalog != null:
 		for fish: FishDataType in _catalog.candidates:
-			if fish != null and not fish.id.is_empty():
+			if fish != null and fish.active and not fish.id.is_empty():
 				valid_species.append(fish)
 	_logbook_species = valid_species
 	_logbook_empty.visible = valid_species.is_empty()

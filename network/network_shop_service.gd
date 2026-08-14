@@ -5,6 +5,7 @@ const FishingShopStockType = preload(
 	"res://economy/fishing_shop_stock.gd"
 )
 const ItemDataType = preload("res://items/item_data.gd")
+const FishingRodDataType = preload("res://items/fishing_rod_data.gd")
 const OwnedItemType = preload("res://items/owned_item.gd")
 const ArtShopStockType = preload("res://economy/art_shop_stock.gd")
 
@@ -123,6 +124,15 @@ func request_supply(item_id: StringName) -> String:
 		NetworkShopProtocol.ProductCategory.SUPPLY,
 		quantity,
 		owned
+	)
+
+
+func request_rod(item_id: StringName) -> String:
+	return _request_purchase(
+		item_id,
+		NetworkShopProtocol.ProductCategory.ROD,
+		1,
+		_bag.get_quantity(item_id) if _bag != null else 0,
 	)
 
 
@@ -340,7 +350,7 @@ func _build_authoritative_result(
 				)
 				if (
 					item == null
-					or not item.is_valid()
+					or not item.is_available()
 					or product_id not in (
 						FishingShopStockType.get_stock_item_ids()
 					)
@@ -384,7 +394,29 @@ func _build_authoritative_result(
 							rejection = "Purchase could not be completed."
 						resulting_state = current_state + quantity
 			NetworkShopProtocol.ProductCategory.ROD:
-				rejection = "This item is not sold here."
+				var rod := (
+					_item_catalog.get_item_by_id(product_id)
+					as FishingRodDataType
+					if _item_catalog != null else null
+				)
+				var available_rods: Array[FishingRodDataType] = (
+					FishingShopStockType.get_rod_stock(_item_catalog)
+				)
+				if (
+					rod == null
+					or not rod.is_shop_available()
+					or rod not in available_rods
+					or quantity != 1
+					or current_state != 0
+				):
+					rejection = (
+						"Rod already owned."
+						if current_state > 0
+						else "Purchase could not be completed."
+					)
+				else:
+					cost = rod.shop_price
+					resulting_state = 1
 			NetworkShopProtocol.ProductCategory.REEL_SPEED_UPGRADE:
 				if (
 					product_id != REEL_PRODUCT_ID
@@ -434,7 +466,7 @@ func _build_authoritative_result(
 				if (
 					product_id != ArtShopStockType.ART_KIT_ITEM_ID
 					or art_item == null
-					or not art_item.is_valid()
+					or not art_item.is_available()
 					or art_item.category != ItemDataType.Category.TOOL
 					or art_item.stackable
 					or not art_item.equippable
@@ -643,6 +675,7 @@ func _validate_local_result(data: Dictionary) -> String:
 			var bait_unlocked: bool = _bag.is_bait_unlocked(product_id)
 			if (
 				item == null
+				or not item.is_available()
 				or _bag.get_quantity(product_id) != expected_state
 				or int(data["quantity"]) != FishingShopStockType.get_purchase_quantity(
 					product_id, expected_state, item.max_stack
@@ -655,6 +688,22 @@ func _validate_local_result(data: Dictionary) -> String:
 				return "Purchase could not be completed."
 			if not _bag.can_add_item(product_id, data["quantity"]):
 				return "Your Bag is full."
+		NetworkShopProtocol.ProductCategory.ROD:
+			var rod := (
+				_item_catalog.get_item_by_id(product_id)
+				as FishingRodDataType
+				if _item_catalog != null else null
+			)
+			if (
+				rod == null
+				or not rod.is_shop_available()
+				or _bag.get_quantity(product_id) != expected_state
+				or expected_state != 0
+				or int(data["quantity"]) != 1
+				or cost != rod.shop_price
+				or not _bag.can_add_item(product_id, 1)
+			):
+				return "Purchase could not be completed."
 		NetworkShopProtocol.ProductCategory.REEL_SPEED_UPGRADE:
 			if _upgrades.get_reel_speed_level() != expected_state:
 				return "Purchase could not be completed."
@@ -671,8 +720,14 @@ func _validate_local_result(data: Dictionary) -> String:
 			if _cooler_capacity.get_next_cost() != cost:
 				return "Purchase could not be completed."
 		NetworkShopProtocol.ProductCategory.ART_KIT:
+			var art_item: ItemDataType = (
+				_item_catalog.get_item_by_id(product_id)
+				if _item_catalog != null else null
+			)
 			if (
 				product_id != ArtShopStockType.ART_KIT_ITEM_ID
+				or art_item == null
+				or not art_item.is_available()
 				or _bag.get_quantity(product_id) != expected_state
 				or not _bag.can_add_item(product_id, 1)
 				or cost != ArtShopStockType.ART_KIT_PRICE
@@ -701,6 +756,11 @@ func _apply_local_product(data: Dictionary) -> bool:
 			return (
 				_wallet.debit(data["total_cost"])
 				and _bag.add_item(product_id, data["quantity"])
+			)
+		NetworkShopProtocol.ProductCategory.ROD:
+			return (
+				_wallet.debit(int(data["total_cost"]))
+				and _bag.add_item(product_id, 1)
 			)
 		NetworkShopProtocol.ProductCategory.REEL_SPEED_UPGRADE:
 			return _upgrades.purchase_reel_speed(_wallet)

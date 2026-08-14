@@ -3,10 +3,12 @@ extends RefCounted
 
 const ItemCatalogType = preload("res://items/item_catalog.gd")
 const ItemDataType = preload("res://items/item_data.gd")
+const FishingRodDataType = preload("res://items/fishing_rod_data.gd")
 const PlayerBagType = preload("res://inventory/player_bag.gd")
 const PlayerWalletType = preload("res://economy/player_wallet.gd")
 const WORM_MAX_STACK: int = 10
 const FISH_FINDER_ID: StringName = &"fish_finder"
+const MAGNET_ID: StringName = &"magnet"
 const BATTERIES_ID: StringName = &"batteries"
 
 const ITEM_PRICES: Dictionary[StringName, int] = {
@@ -22,6 +24,7 @@ const ITEM_PRICES: Dictionary[StringName, int] = {
 	&"energy_drink": 35,
 	&"snack": 30,
 	FISH_FINDER_ID: 500,
+	MAGNET_ID: 250,
 	BATTERIES_ID: 15,
 }
 const BAIT_UNLOCK_PRICES: Dictionary[StringName, int] = {
@@ -42,6 +45,7 @@ const ITEM_ORDER: Array[StringName] = [
 	&"luminous_roe",
 	&"the_standby",
 	FISH_FINDER_ID,
+	MAGNET_ID,
 	&"coffee",
 	&"energy_drink",
 	&"snack",
@@ -55,6 +59,25 @@ static func get_price(item_id: StringName) -> int:
 
 static func get_stock_item_ids() -> Array[StringName]:
 	return ITEM_ORDER.duplicate()
+
+
+static func get_rod_stock(
+	catalog: ItemCatalogType,
+) -> Array[FishingRodDataType]:
+	var rods: Array[FishingRodDataType] = []
+	if catalog == null:
+		return rods
+	for item: ItemDataType in catalog.get_available_items():
+		var rod := item as FishingRodDataType
+		if rod != null and rod.is_shop_available():
+			rods.append(rod)
+	rods.sort_custom(
+		func(left: FishingRodDataType, right: FishingRodDataType) -> bool:
+			if left.shop_order == right.shop_order:
+				return str(left.item_id) < str(right.item_id)
+			return left.shop_order < right.shop_order
+	)
+	return rods
 
 
 static func get_unlock_price(item_id: StringName) -> int:
@@ -81,7 +104,12 @@ static func is_permanent_unlock(
 ) -> bool:
 	return (
 		item != null
-		and (item.is_lure() or item_id == FISH_FINDER_ID)
+		and (
+			item.is_lure()
+			or item_id == FISH_FINDER_ID
+			or item_id == MAGNET_ID
+			or item is FishingRodDataType
+		)
 	)
 
 
@@ -111,6 +139,8 @@ static func purchase_one(
 	if wallet == null or bag == null or catalog == null:
 		return false
 	var item: ItemDataType = catalog.get_item_by_id(item_id)
+	if item == null or not item.is_available():
+		return false
 	var bait_topoff: bool = is_bait_topoff(item_id)
 	var permanent_unlock: bool = is_permanent_unlock(item_id, item)
 	var quantity: int = get_purchase_quantity(
@@ -118,15 +148,20 @@ static func purchase_one(
 		bag.get_quantity(item_id),
 		item.max_stack if item != null else WORM_MAX_STACK,
 	)
-	var price: int = get_purchase_cost(
-		item_id,
-		quantity,
-		bag.is_bait_unlocked(item_id),
+	var rod := item as FishingRodDataType
+	var price: int = (
+		rod.shop_price
+		if rod != null
+		else get_purchase_cost(
+			item_id,
+			quantity,
+			bag.is_bait_unlocked(item_id),
+		)
 	)
 	if (
 		price < 0
-		or item == null
-		or not item.is_valid()
+		or not item.is_available()
+		or (rod != null and not rod.is_shop_available())
 		or (
 			item.category != ItemDataType.Category.CONSUMABLE
 			and not bait_topoff

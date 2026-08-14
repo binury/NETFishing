@@ -7,7 +7,7 @@
 script = ExtResource("1_item")
 item_id = &"art_kit"
 display_name = "Art Kit"
-description = "Press P in the game world to paint!"
+description = "Select the Art Kit in the Hotbar to paint."
 category = 1
 icon = ExtResource("2_icon")
 stackable = false

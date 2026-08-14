@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="FishingRodData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://items/fishing_rod_data.gd" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+item_id = &"oddity_string_rod"
+display_name = "oddity string"
+description = "a crooked spool of string that attracts fish with questionable silhouettes."
+active = false
+category = 0
+stackable = false
+max_stack = 1
+usable = true
+equippable = true
+hotbar_allowed = true
+shop_order = 20
+shop_price = 2600
+unlock_level = 12
+preferred_collection_groups = Array[StringName]([&"Brackish oddities", &"Coastal oddities", &"Deep-sea oddities", &"Freshwater oddities", &"Reef oddities"])
+affinity_weight_multiplier = 1.8
+bite_time_multiplier = 1.18
+quality_weight_multipliers = Array[float]([1.10, 1.05, 0.95, 0.90, 0.90])
+effect_summary = "favors eligible fish from authored oddity collection groups."
+tradeoff = "longer bite waits and a slight average-quality penalty."

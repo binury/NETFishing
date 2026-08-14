@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="FishingRodData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://items/fishing_rod_data.gd" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+item_id = &"rainmaker_rod"
+display_name = "rainmaker"
+description = "a drip-shaped rod that becomes unusually lucky in the rain."
+active = false
+category = 0
+stackable = false
+max_stack = 1
+usable = true
+equippable = true
+hotbar_allowed = true
+shop_order = 11
+shop_price = 1100
+unlock_level = 7
+weather_affinity = 1
+affinity_weight_multiplier = 1.65
+effect_summary = "strongly favors eligible rain-active fish."
+tradeoff = "its affinity provides no benefit outside rainy weather."

@@ -1,0 +1,29 @@
+[gd_resource type="Resource" script_class="FishData" load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://fish/fish_data.gd" id="1_fish_data"]
+[ext_resource type="Resource" path="res://fishing/common_catch_profile.tres" id="2_profile"]
+[ext_resource type="Script" path="res://fish/fish_availability.gd" id="3_availability"]
+
+[sub_resource type="Resource" id="Availability"]
+script = ExtResource("3_availability")
+allow_night = false
+require_rain = true
+
+[resource]
+script = ExtResource("1_fish_data")
+id = &"fallfish"
+display_name = "fallfish"
+active = false
+catalog_number = 2506
+collection_group = &"Freshwater coarse fish"
+logbook_fact = "fallfish are large minnows that build broad stone nests in flowing water. other stream fish often reuse the gravel mounds for spawning."
+allowed_water_types = 1
+rarity = 1
+base_catch_weight = 0.9
+catch_profile = ExtResource("2_profile")
+availability = SubResource("Availability")
+weight_min_lb = 0.2
+weight_max_lb = 3.5
+sell_value_min = 5
+sell_value_max = 10
+sell_value_curve = 0.92

@@ -40,119 +40,27 @@ func _run() -> void:
 
 
 func _validate_catalog() -> void:
-	var expected_ids: Array[StringName] = [
-		&"bluegill",
-		&"bass",
-		&"carp",
-		&"sunfish",
-		&"catfish_blue",
-		&"catfish_channel",
-		&"catfish_flathead",
-		&"catfish_white",
-		&"tuna_albacore",
-		&"tuna_bigeye",
-		&"tuna_bluefin",
-		&"tuna_skipjack",
-		&"tuna_yellowfin",
-		&"goby_round",
-		&"salmon_atlantic",
-		&"salmon_chum",
-		&"salmon_coho",
-		&"salmon_pink",
-		&"salmon_sockeye",
-		&"anchovy_european",
-		&"anchovy_northern",
-		&"chub_european",
-		&"chub_flame",
-		&"chub_lake",
-		&"goldfish",
-		&"goldfish_bubbleeye",
-		&"grouper_gulf",
-		&"grouper_red",
-		&"mackerel_atlantic",
-		&"mackerel_cero",
-		&"mackerel_chub",
-		&"mackerel_king",
-		&"mackerel_spanish",
-		&"marlin_black",
-		&"marlin_blue",
-		&"marlin_white",
-		&"pomfret_black",
-		&"pomfret_chinese",
-		&"pomfret_golden",
-		&"pomfret_white",
-		&"sailfish",
-		&"sauger",
-		&"saugeye",
-		&"snapper_lane",
-		&"snapper_mangrove",
-		&"snapper_mutton",
-		&"snapper_red",
-		&"swordfish",
-		&"trout_cutthroat",
-		&"trout_golden",
-		&"trout_rainbow",
-		&"trout_steelhead",
-		&"walleye",
-	]
-	assert(LogbookCatalog.CATALOG_ORDER == expected_ids)
-	for index: int in expected_ids.size():
-		var fish := CatalogResource.get_fish_by_id(expected_ids[index])
+	assert(CatalogResource.candidates.size() == 313)
+	var ordered := LogbookCatalog.ordered_species(CatalogResource.candidates)
+	assert(ordered.size() == 53)
+	var previous_number: int = 0
+	var catalog_numbers: Dictionary[int, bool] = {}
+	for fish: FishDataType in CatalogResource.candidates:
 		assert(fish != null)
-		assert(not LogbookCatalog.facts_for(fish.id).is_empty())
+		assert(fish.catalog_number > 0)
+		assert(not catalog_numbers.has(fish.catalog_number))
+		catalog_numbers[fish.catalog_number] = true
+		assert(not LogbookCatalog.facts_for(fish).is_empty())
 		assert(
-			LogbookCatalog.facts_for(fish.id)
-			== LogbookCatalog.facts_for(fish.id).to_lower()
+			LogbookCatalog.facts_for(fish)
+			== LogbookCatalog.facts_for(fish).to_lower()
 		)
-		if LogbookCatalog.FISH_FACTS.has(fish.id):
-			assert(LogbookCatalog.facts_for(fish.id) != "unknown")
-		else:
-			assert(LogbookCatalog.facts_for(fish.id) == "unknown")
-		var expected_category: WaterType.Type = (
-			WaterType.Type.SALT_WATER
-			if expected_ids[index] in [
-				&"bass",
-				&"sunfish",
-				&"tuna_albacore",
-				&"tuna_bigeye",
-				&"tuna_bluefin",
-				&"tuna_skipjack",
-				&"tuna_yellowfin",
-				&"salmon_atlantic",
-				&"salmon_chum",
-				&"salmon_coho",
-				&"salmon_pink",
-				&"salmon_sockeye",
-				&"anchovy_european",
-				&"anchovy_northern",
-				&"grouper_gulf",
-				&"grouper_red",
-				&"mackerel_atlantic",
-				&"mackerel_cero",
-				&"mackerel_chub",
-				&"mackerel_king",
-				&"mackerel_spanish",
-				&"marlin_black",
-				&"marlin_blue",
-				&"marlin_white",
-				&"pomfret_black",
-				&"pomfret_chinese",
-				&"pomfret_golden",
-				&"pomfret_white",
-				&"sailfish",
-				&"snapper_lane",
-				&"snapper_mangrove",
-				&"snapper_mutton",
-				&"snapper_red",
-				&"swordfish",
-			]
-			else WaterType.Type.FRESH_WATER
-		)
-		assert(
-			LogbookCatalog.category_for(fish)
-			== expected_category
-		)
-		assert(LogbookCatalog.catalog_number(fish.id) == index + 1)
+		assert(LogbookCatalog.facts_for(fish) != "unknown")
+	for fish: FishDataType in ordered:
+		assert(fish.active)
+		assert(fish.catalog_number > previous_number)
+		assert(LogbookCatalog.catalog_number(fish) == fish.catalog_number)
+		previous_number = fish.catalog_number
 	assert(
 		LogbookCatalog.empty_state(WaterType.Type.SALT_WATER)
 		== "No saltwater catches cataloged yet."
@@ -195,7 +103,7 @@ func _validate_page() -> void:
 			if LogbookCatalog.category_for(fish) != category:
 				continue
 			var unknown_key := StringName(
-				"unknown_%d" % LogbookCatalog.catalog_number(fish.id)
+				"unknown_%d" % LogbookCatalog.catalog_number(fish)
 			)
 			var entry := entries.get(unknown_key) as Button
 			assert(entry != null)
@@ -251,10 +159,13 @@ func _validate_page() -> void:
 	await create_timer(0.25).timeout
 
 	var bluegill = CatalogResource.get_fish_by_id(&"bluegill")
-	page.call("_select_entry", &"unknown_1", StringName())
+	var bluegill_unknown := StringName(
+		"unknown_%d" % bluegill.catalog_number
+	)
+	page.call("_select_entry", bluegill_unknown, StringName())
 	assert(
 		(page.get("_entry_buttons") as Dictionary)
-		.get(&"unknown_1") != null
+		.get(bluegill_unknown) != null
 	)
 	collection.mark_discovered(&"bluegill")
 	await process_frame
@@ -290,9 +201,13 @@ func _validate_page() -> void:
 	assert(_detail_text(page).contains("number owned\n1"))
 	assert(_detail_text(page).contains("number caught\nunknown"))
 	assert(_detail_text(page).contains("body of water\nfresh water"))
-	assert(_detail_text(page).contains("catalog number\n#001"))
+	assert(
+		_detail_text(page).contains(
+			"catalog number\n#%03d" % bluegill.catalog_number
+		)
+	)
 	assert(_detail_text(page).contains("fish facts\n"))
-	assert(_detail_text(page).contains(LogbookCatalog.facts_for(&"bluegill")))
+	assert(_detail_text(page).contains(LogbookCatalog.facts_for(bluegill)))
 	_validate_detail_field_fonts(page)
 	_validate_handwritten_numeric_scale(page)
 	var portrait_button := page.get("_detail_portrait_button") as Button
@@ -413,7 +328,7 @@ func _validate_handwritten_numeric_scale(page: LogbookPage) -> void:
 		var label := node as Label
 		if label.text == "common":
 			text_value = label
-		elif label.text == "#001":
+		elif label.text.begins_with("#"):
 			numeric_value = label
 	assert(text_value != null)
 	assert(numeric_value != null)

@@ -1,0 +1,28 @@
+[gd_resource type="Resource" script_class="FishData" load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://fish/fish_data.gd" id="1_fish_data"]
+[ext_resource type="Resource" path="res://fishing/common_catch_profile.tres" id="2_profile"]
+[ext_resource type="Script" path="res://fish/fish_availability.gd" id="3_availability"]
+
+[sub_resource type="Resource" id="Availability"]
+script = ExtResource("3_availability")
+allow_night = false
+
+[resource]
+script = ExtResource("1_fish_data")
+id = &"boxfish_yellow"
+display_name = "yellow boxfish"
+active = false
+catalog_number = 5608
+collection_group = &"Reef oddities"
+logbook_fact = "yellow boxfish juveniles are bright cubes covered in black spots. rigid body armor leaves small fins to provide careful steering."
+allowed_water_types = 2
+rarity = 2
+base_catch_weight = 0.32
+catch_profile = ExtResource("2_profile")
+availability = SubResource("Availability")
+weight_min_lb = 0.03
+weight_max_lb = 0.8
+sell_value_min = 10
+sell_value_max = 22
+sell_value_curve = 0.96

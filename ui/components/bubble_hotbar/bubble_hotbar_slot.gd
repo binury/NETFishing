@@ -377,7 +377,7 @@ func _can_drop_data(_at_position: Vector2, data: Variant) -> bool:
 		if _bag == null or not _bag.owns_item(item_id) or _catalog == null:
 			return false
 		var item: ItemDataType = _catalog.get_item_by_id(item_id)
-		return item != null and item.is_valid() and item.hotbar_allowed
+		return item != null and item.is_available() and item.hotbar_allowed
 	if kind == "cooler_fish":
 		var catch_id: StringName = StringName(str(payload.get("catch_id", "")))
 		return (

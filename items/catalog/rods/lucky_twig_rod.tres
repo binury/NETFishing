@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="FishingRodData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://items/fishing_rod_data.gd" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+item_id = &"lucky_twig_rod"
+display_name = "lucky twig"
+description = "an ordinary-looking branch that insists it is extremely lucky."
+active = false
+category = 0
+stackable = false
+max_stack = 1
+usable = true
+equippable = true
+hotbar_allowed = true
+shop_order = 17
+shop_price = 1800
+unlock_level = 10
+bite_time_multiplier = 1.2
+reel_speed_multiplier = 0.9
+barrier_power_multiplier = 0.85
+rarity_weight_multipliers = Array[float]([0.65, 1.00, 1.35, 1.65, 2.00])
+effect_summary = "strongly shifts species rarity toward rare, epic, and legendary fish."
+tradeoff = "longer bite waits, slower reeling, and weaker barrier power."

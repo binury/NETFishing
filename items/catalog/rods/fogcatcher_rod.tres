@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="FishingRodData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://items/fishing_rod_data.gd" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+item_id = &"fogcatcher_rod"
+display_name = "fogcatcher"
+description = "a hazy blue rod for fish that prefer not to be seen."
+active = false
+category = 0
+stackable = false
+max_stack = 1
+usable = true
+equippable = true
+hotbar_allowed = true
+shop_order = 12
+shop_price = 1100
+unlock_level = 7
+weather_affinity = 2
+affinity_weight_multiplier = 1.65
+effect_summary = "strongly favors eligible fog-active fish."
+tradeoff = "its affinity provides no benefit outside foggy weather."

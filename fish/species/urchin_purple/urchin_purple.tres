@@ -1,0 +1,28 @@
+[gd_resource type="Resource" script_class="FishData" load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://fish/fish_data.gd" id="1_fish_data"]
+[ext_resource type="Resource" path="res://fishing/common_catch_profile.tres" id="2_profile"]
+[ext_resource type="Script" path="res://fish/fish_availability.gd" id="3_availability"]
+
+[sub_resource type="Resource" id="Availability"]
+script = ExtResource("3_availability")
+allow_night = false
+
+[resource]
+script = ExtResource("1_fish_data")
+id = &"urchin_purple"
+display_name = "purple sea urchin"
+active = false
+catalog_number = 1903
+collection_group = &"Echinoderms"
+logbook_fact = "purple sea urchins scrape algae from rocks with a five-toothed feeding structure. dense groups can clear kelp from entire reefs."
+allowed_water_types = 2
+rarity = 1
+base_catch_weight = 0.75
+catch_profile = ExtResource("2_profile")
+availability = SubResource("Availability")
+weight_min_lb = 0.05
+weight_max_lb = 1.0
+sell_value_min = 5
+sell_value_max = 12
+sell_value_curve = 0.96

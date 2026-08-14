@@ -7,7 +7,7 @@
 script = ExtResource("1")
 item_id = &"whole_sardine"
 display_name = "minnow"
-description = "small live bait with high rare catch potential."
+description = "small live bait with strong rarity and quality potential."
 icon = ExtResource("2_icon")
 category = 2
 bait_tags = Array[StringName]([&"bait_rarity_4"])

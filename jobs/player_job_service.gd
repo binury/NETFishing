@@ -454,7 +454,7 @@ func _generate_host_board(cycle: int) -> void:
 	var candidates: Array[FishDataType] = []
 	if _catalog != null:
 		for fish: FishDataType in _catalog.candidates:
-			if fish != null:
+			if fish != null and fish.is_selectable():
 				candidates.append(fish)
 	var schedule_anchor_index: int = _current_weather_segment()
 	var allow_weather_jobs: bool = (
@@ -727,7 +727,7 @@ func _matches_canonical_board(board: Dictionary) -> bool:
 	var candidates: Array[FishDataType] = []
 	if _catalog != null:
 		for fish: FishDataType in _catalog.candidates:
-			if fish != null:
+			if fish != null and fish.is_selectable():
 				candidates.append(fish)
 	var anchor_index: int = int(board.get("schedule_anchor_index", -1))
 	var allow_weather_jobs: bool = (

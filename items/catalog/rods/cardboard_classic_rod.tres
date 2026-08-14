@@ -1,0 +1,26 @@
+[gd_resource type="Resource" script_class="FishingRodData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://items/fishing_rod_data.gd" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+item_id = &"cardboard_classic_rod"
+display_name = "cardboard classic"
+description = "a cheerful folded rod that gets bites quickly, if not impressively."
+active = false
+category = 0
+stackable = false
+max_stack = 1
+usable = true
+equippable = true
+hotbar_allowed = true
+shop_order = 2
+shop_price = 40
+unlock_level = 1
+bite_time_multiplier = 0.85
+reel_speed_multiplier = 0.95
+barrier_power_multiplier = 0.85
+rarity_weight_multipliers = Array[float]([1.20, 1.00, 0.85, 0.70, 0.55])
+quality_weight_multipliers = Array[float]([1.20, 1.05, 0.85, 0.70, 0.55])
+effect_summary = "shorter bite waits and a low-cost early sidegrade."
+tradeoff = "leans toward common, lower-quality fish and has weaker handling."

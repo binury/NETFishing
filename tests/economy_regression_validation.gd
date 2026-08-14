@@ -48,7 +48,8 @@ func _run() -> void:
 		as PlayerAssetReservationService
 	)
 	assert(player != null)
-	assert(catalog != null and catalog.candidates.size() == 53)
+	assert(catalog != null and catalog.candidates.size() == 313)
+	assert(LogbookCatalog.ordered_species(catalog.candidates).size() == 53)
 	assert(sale_service != null)
 	assert(shop_service != null)
 	assert(session != null and session.is_host())
@@ -72,6 +73,7 @@ func _run() -> void:
 	assert(session.set_host_open(false))
 
 	await _test_host_shop_purchase(main, player, shop_service)
+	await _test_host_rod_purchase(player, shop_service)
 	await _test_host_art_shop_purchase(main, player, shop_service)
 	await _test_fishing_shop_sale_ui(
 		main, player, catalog, sale_service, reservations
@@ -160,6 +162,8 @@ func _run_multiplayer_client() -> void:
 	shop_service.local_purchase_finished.connect(_on_shop_finished)
 	var catch_ids: Array[StringName] = []
 	for fish: FishData in catalog.candidates:
+		if not fish.active:
+			continue
 		var fish_catch := _make_catch(fish)
 		player.inventory.add_catch(fish_catch)
 		catch_ids.append(fish_catch.catch_id)
@@ -260,6 +264,8 @@ func _test_each_species(
 	sale_service: NetworkSaleService,
 ) -> void:
 	for fish: FishData in catalog.candidates:
+		if not fish.active:
+			continue
 		assert(fish != null)
 		var fish_catch := _make_catch(fish)
 		player.inventory.add_catch(fish_catch)
@@ -372,6 +378,8 @@ func _test_host_shop_sale(
 	var species_ids: Array[StringName] = []
 	var expected_payout: int = 0
 	for fish: FishData in catalog.candidates:
+		if not fish.active:
+			continue
 		var fish_catch := _make_catch(fish)
 		player.inventory.add_catch(fish_catch)
 		species_ids.append(fish_catch.catch_id)
@@ -528,6 +536,18 @@ func _test_host_art_shop_purchase(
 	assert(not shop_service.is_local_purchase_pending())
 
 
+func _test_host_rod_purchase(
+	player: Player,
+	shop_service: NetworkShopService,
+) -> void:
+	assert(player.bag.remove_item(&"basic_fishing_rod", 1))
+	_shop_result.clear()
+	assert(not shop_service.request_rod(&"basic_fishing_rod").is_empty())
+	assert(not _shop_result.is_empty() and bool(_shop_result[1]))
+	assert(player.bag.owns_item(&"basic_fishing_rod"))
+	assert(not shop_service.is_local_purchase_pending())
+
+
 func _test_fishing_shop_sale_ui(
 	main: Node,
 	player: Player,
@@ -616,6 +636,27 @@ func _test_fishing_shop_sale_ui(
 	assert(art_supplies_tab != null and art_supplies_tab.text == "Art Supplies")
 	var sell_mode := shop_tabs[5] as Button
 	assert(sell_mode != null and sell_mode.text == "Sell Fish")
+	var equipment_tab := shop_tabs[3] as Button
+	assert(equipment_tab != null and equipment_tab.text == "Equipment")
+	await _activate_pointer_control(equipment_tab, ui_viewport)
+	await process_frame
+	var equipment_sections: Array[String] = []
+	for child: Node in shop.get_node("%SuppliesList").get_children():
+		if child is Label:
+			equipment_sections.append((child as Label).text)
+	assert(equipment_sections == ["rods", "equipment"])
+	var supplies_list := shop.get_node("%SuppliesList") as VBoxContainer
+	var rod_carousel := supplies_list.get_node("RodCarousel") as HBoxContainer
+	assert(rod_carousel != null)
+	var rod_cards := rod_carousel.get_node("RodScroll/RodCards") as HBoxContainer
+	assert(rod_cards != null and rod_cards.get_child_count() == 1)
+	var basic_rod_button := rod_cards.find_child(
+		"Rod_basic_fishing_rod", true, false
+	) as Button
+	assert(basic_rod_button != null)
+	assert(basic_rod_button.custom_minimum_size == Vector2(144.0, 144.0))
+	assert(basic_rod_button.icon != null and basic_rod_button.disabled)
+	assert(rod_cards.find_child("Rod_aurora_rod", true, false) == null)
 	await _activate_pointer_control(art_supplies_tab, ui_viewport)
 	await process_frame
 	var stock_sections: Array[String] = []

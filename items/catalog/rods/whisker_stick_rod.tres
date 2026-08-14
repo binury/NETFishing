@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="FishingRodData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://items/fishing_rod_data.gd" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+item_id = &"whisker_stick_rod"
+display_name = "whisker stick"
+description = "a bendy rod with a suspicious talent for finding catfish."
+active = false
+category = 0
+stackable = false
+max_stack = 1
+usable = true
+equippable = true
+hotbar_allowed = true
+shop_order = 7
+shop_price = 750
+unlock_level = 5
+preferred_collection_groups = Array[StringName]([&"Freshwater catfish"])
+affinity_weight_multiplier = 1.7
+bite_time_multiplier = 1.08
+effect_summary = "strongly favors eligible fish in the Freshwater catfish collection group."
+tradeoff = "slightly longer bite waits while it searches for whiskers."

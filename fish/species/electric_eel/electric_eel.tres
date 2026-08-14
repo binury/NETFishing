@@ -1,0 +1,29 @@
+[gd_resource type="Resource" script_class="FishData" load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://fish/fish_data.gd" id="1_fish_data"]
+[ext_resource type="Resource" path="res://fishing/common_catch_profile.tres" id="2_profile"]
+[ext_resource type="Script" path="res://fish/fish_availability.gd" id="3_availability"]
+
+[sub_resource type="Resource" id="Availability"]
+script = ExtResource("3_availability")
+allow_day = false
+require_rain = true
+
+[resource]
+script = ExtResource("1_fish_data")
+id = &"electric_eel"
+display_name = "electric eel"
+active = false
+catalog_number = 2901
+collection_group = &"Freshwater oddities"
+logbook_fact = "electric eels navigate and hunt with electrical pulses produced along most of the body. they must surface regularly to breathe air."
+allowed_water_types = 1
+rarity = 3
+base_catch_weight = 0.1
+catch_profile = ExtResource("2_profile")
+availability = SubResource("Availability")
+weight_min_lb = 1.0
+weight_max_lb = 44.0
+sell_value_min = 25
+sell_value_max = 60
+sell_value_curve = 0.82

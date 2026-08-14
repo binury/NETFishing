@@ -31,6 +31,7 @@ const ControllerMappingManagerType = preload(
 const FishingRodAttachmentScene = preload(
 	"res://player/fishing_rod_attachment.tscn"
 )
+const FishingRodDataType = preload("res://items/fishing_rod_data.gd")
 const HeldItemAttachmentScene = preload(
 	"res://player/held_item_attachment.tscn"
 )
@@ -445,6 +446,10 @@ var _fishing_after_release_pending: bool = false
 var _retract_animation_completed: bool = true
 var _fishing_rod: Node3D
 var _fishing_rod_tip: Marker3D
+var _fishing_rod_model_mount: Node3D
+var _fishing_rod_fallback_visual: GeometryInstance3D
+var _custom_fishing_rod_visual: Node3D
+var _active_fishing_rod_id: StringName
 var _active_item_is_rod: bool = false
 var _controller_mapping_manager: ControllerMappingManagerType
 var _sprint_dust_landing_ready: bool = false
@@ -577,6 +582,12 @@ func _initialize_fishing_rod() -> void:
 	_fishing_rod_tip = attachment.get_node(
 		"FishingRod/FishingRodTip"
 	) as Marker3D
+	_fishing_rod_model_mount = attachment.get_node(
+		"FishingRod/ModelMount"
+	) as Node3D
+	_fishing_rod_fallback_visual = attachment.get_node(
+		"FishingRod/FallbackRodMesh"
+	) as GeometryInstance3D
 
 
 func _initialize_held_item_attachment() -> void:
@@ -1900,6 +1911,45 @@ func get_fishing_rod_tip() -> Marker3D:
 
 func get_fishing_rod() -> Node3D:
 	return _fishing_rod
+
+
+func set_active_fishing_rod(
+	rod: FishingRodDataType,
+	animate_transition: bool = false,
+) -> void:
+	_apply_fishing_rod_model(rod)
+	set_active_item_is_rod(rod != null and rod.is_available(), animate_transition)
+
+
+func _apply_fishing_rod_model(rod: FishingRodDataType) -> void:
+	var next_id: StringName = rod.item_id if rod != null else StringName()
+	if next_id == _active_fishing_rod_id:
+		return
+	_active_fishing_rod_id = next_id
+	if _custom_fishing_rod_visual != null:
+		_custom_fishing_rod_visual.hide()
+		_custom_fishing_rod_visual.queue_free()
+		_custom_fishing_rod_visual = null
+	if _fishing_rod_fallback_visual == null or _fishing_rod_tip == null:
+		return
+	_fishing_rod_fallback_visual.show()
+	_fishing_rod_tip.position = Vector3(0.0, 1.1, 0.0)
+	if rod == null:
+		return
+	_fishing_rod_tip.position = rod.rod_tip_position
+	if rod.rod_model_scene == null or _fishing_rod_model_mount == null:
+		return
+	var instance := rod.rod_model_scene.instantiate() as Node3D
+	if instance == null:
+		push_warning(
+			"Rod %s model root is not Node3D; using fallback."
+			% rod.item_id
+		)
+		return
+	_custom_fishing_rod_visual = instance
+	_fishing_rod_model_mount.add_child(instance)
+	instance.transform = rod.rod_model_transform
+	_fishing_rod_fallback_visual.hide()
 
 
 func set_active_item_is_rod(

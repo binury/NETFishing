@@ -5,6 +5,7 @@ const FishCatchType = preload("res://fish/fish_catch.gd")
 const FishDataType = preload("res://fish/fish_data.gd")
 const FishPoolType = preload("res://fish/fish_pool.gd")
 const FishSelectorType = preload("res://fish/fish_selector.gd")
+const FishingRodDataType = preload("res://items/fishing_rod_data.gd")
 const FishingContextType = preload("res://fishing/fishing_context.gd")
 const CollectionLogType = preload("res://collection/collection_log.gd")
 const FishExperienceType = preload("res://fish/fish_experience.gd")
@@ -254,10 +255,10 @@ func _handle_cast_request(peer_id: int, data: Dictionary) -> void:
 	if not bool(data["capacity_available"]):
 		_record_and_reject(peer_id, request_id, "Cooler is full.")
 		return
-	var rod: ItemData = _item_catalog.get_item_by_id(
+	var rod := _item_catalog.get_item_by_id(
 		StringName(str(data["rod_id"]))
-	)
-	if rod == null or rod.category != ItemData.Category.ROD:
+	) as FishingRodDataType
+	if rod == null or not rod.is_available():
 		_record_and_reject(peer_id, request_id, "Select a fishing rod to cast.")
 		return
 	var avatar: Player = _spawn_service.get_avatar(peer_id)
@@ -312,7 +313,7 @@ func _handle_cast_request(peer_id: int, data: Dictionary) -> void:
 		if _item_use != null else null
 	)
 	var selected_fish: FishDataType = _select_authoritative_fish(
-		region, data, effects
+		region, data, effects, rod
 	)
 	if selected_fish == null or not selected_fish.is_allowed_in_water(
 		region.water_type
@@ -339,6 +340,7 @@ func _handle_cast_request(peer_id: int, data: Dictionary) -> void:
 		not lure_id.is_empty()
 		and (
 			lure == null
+			or not lure.is_available()
 			or not lure.is_lure()
 			or (
 				owns_authoritative_bag
@@ -353,6 +355,7 @@ func _handle_cast_request(peer_id: int, data: Dictionary) -> void:
 		return
 	if not bait_id.is_empty() and (
 		bait == null
+		or not bait.is_available()
 		or not bait.is_bait()
 		or (
 			owns_authoritative_bag
@@ -374,19 +377,37 @@ func _handle_cast_request(peer_id: int, data: Dictionary) -> void:
 	attempt.target = authoritative_target
 	attempt.bobber_position = authoritative_target
 	attempt.fish_id = selected_fish.id
+	attempt.rod_id = rod.item_id
 	attempt.bait_tags = _bait_tags_for_request(data)
 	attempt.lure_effects.clear()
 	if lure != null:
 		for effect_id: StringName in lure.lure_effects:
 			attempt.lure_effects.append(effect_id)
-	attempt.reel_speed = float(data["reel_speed"]) * (
+	var effect_reel_multiplier: float = (
 		effects.get_reel_multiplier() if effects != null else 1.0
 	)
-	attempt.barrier_damage = int(data["barrier_damage"]) + (
+	var effect_barrier_bonus: int = (
 		effects.get_barrier_bonus() if effects != null else 0
 	)
-	attempt.bite_time_remaining = _fishing_spot.roll_bite_wait_time() * float(
+	var effect_bite_multiplier: float = (
 		effects.get_bite_time_multiplier() if effects != null else 1.0
+	)
+	attempt.reel_speed = (
+		float(data["reel_speed"])
+		* effect_reel_multiplier
+		* rod.reel_speed_multiplier
+	)
+	attempt.barrier_damage = maxi(
+		roundi(
+			(float(data["barrier_damage"]) + effect_barrier_bonus)
+			* rod.barrier_power_multiplier
+		),
+		1,
+	)
+	attempt.bite_time_remaining = (
+		_fishing_spot.roll_bite_wait_time()
+		* effect_bite_multiplier
+		* rod.bite_time_multiplier
 	)
 	attempt.controller = CatchController.new()
 	add_child(attempt.controller)
@@ -472,6 +493,7 @@ func _select_authoritative_fish(
 	region: FishableWaterRegion,
 	data: Dictionary,
 	effects: PlayerItemEffects,
+	rod: FishingRodDataType,
 ) -> FishDataType:
 	var evidence_log := CollectionLogType.new()
 	for value: Variant in data["discovered_fish_ids"]:
@@ -480,6 +502,7 @@ func _select_authoritative_fish(
 			return null
 		evidence_log.mark_discovered(fish_id)
 	var selector := FishSelectorType.new()
+	selector.active_rod = rod
 	selector.undiscovered_weight_multiplier = (
 		_fishing_spot.undiscovered_weight_multiplier
 	)
@@ -503,7 +526,11 @@ func _bait_tags_for_request(data: Dictionary) -> Array[StringName]:
 	if bait_id.is_empty() or _item_catalog == null:
 		return []
 	var bait: ItemDataType = _item_catalog.get_item_by_id(bait_id)
-	return bait.bait_tags.duplicate() if bait != null and bait.is_bait() else []
+	return (
+		bait.bait_tags.duplicate()
+		if bait != null and bait.is_available() and bait.is_bait()
+		else []
+	)
 
 
 func _set_bite_pending(attempt: NetworkFishingAttempt) -> void:
@@ -527,13 +554,20 @@ func _start_bite(attempt: NetworkFishingAttempt) -> void:
 	if attempt.phase != NetworkFishingAttempt.Phase.WAITING_FOR_BITE:
 		return
 	var fish: FishDataType = _fish_catalog.get_fish_by_id(attempt.fish_id)
-	if fish == null or fish.catch_profile == null:
+	var rod := _item_catalog.get_item_by_id(attempt.rod_id) as FishingRodDataType
+	if (
+		fish == null
+		or fish.catch_profile == null
+		or rod == null
+		or not rod.is_available()
+	):
 		_cancel_attempt(attempt.owner_peer_id, "Fishing attempt ended.")
 		return
 	attempt.bite_confirmation_pending = false
 	attempt.phase = NetworkFishingAttempt.Phase.FIGHTING
 	attempt.encounter_seed = _new_seed()
 	var selector := FishSelectorType.new()
+	selector.active_rod = rod
 	selector.use_deterministic_test_seed = true
 	selector.deterministic_test_seed = attempt.encounter_seed ^ 0x5F3759DF
 	selector.begin_roll()

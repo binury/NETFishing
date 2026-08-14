@@ -28,3 +28,16 @@ func get_valid_items() -> Array[ItemDataType]:
 		seen[item.item_id] = true
 		result.append(item)
 	return result
+
+
+func get_available_item_by_id(item_id: StringName) -> ItemDataType:
+	var item: ItemDataType = get_item_by_id(item_id)
+	return item if item != null and item.is_available() else null
+
+
+func get_available_items() -> Array[ItemDataType]:
+	var result: Array[ItemDataType] = []
+	for item: ItemDataType in get_valid_items():
+		if item.active:
+			result.append(item)
+	return result

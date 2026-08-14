@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="FishingRodData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://items/fishing_rod_data.gd" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+item_id = &"heavy_hauler_rod"
+display_name = "heavy hauler"
+description = "a thick rod that would rather bring home one enormous fish."
+active = false
+category = 0
+stackable = false
+max_stack = 1
+usable = true
+equippable = true
+hotbar_allowed = true
+shop_order = 15
+shop_price = 1500
+unlock_level = 9
+weight_roll_bias = 0.28
+bite_time_multiplier = 1.18
+reel_speed_multiplier = 0.88
+barrier_power_multiplier = 1.2
+effect_summary = "biases fish weight upward and adds barrier power."
+tradeoff = "longer bite waits and slower reeling."

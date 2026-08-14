@@ -1,0 +1,27 @@
+[gd_resource type="Resource" script_class="FishingRodData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://items/fishing_rod_data.gd" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+item_id = &"deep_blue_rod"
+display_name = "deep blue"
+description = "a heavy navy rod for enormous shapes moving far offshore."
+active = false
+category = 0
+stackable = false
+max_stack = 1
+usable = true
+equippable = true
+hotbar_allowed = true
+shop_order = 19
+shop_price = 2500
+unlock_level = 12
+preferred_collection_groups = Array[StringName]([&"Coastal sharks", &"Large coastal predators", &"Oceanic billfish", &"Oceanic pelagic fish", &"Oceanic tuna", &"Open-ocean giants"])
+affinity_weight_multiplier = 1.75
+weight_roll_bias = 0.32
+bite_time_multiplier = 1.28
+reel_speed_multiplier = 0.82
+barrier_power_multiplier = 1.25
+effect_summary = "favors large ocean predator and pelagic collection groups and biases weight upward."
+tradeoff = "very long bite waits and slower reeling."
