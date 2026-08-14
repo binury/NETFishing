@@ -1,0 +1,314 @@
+catalog_number,id,implementation_status,active_status,art_status,fish_resource_path,display_texture_path,catch_profile_id
+101,bowfin,implemented,inactive,missing icon,res://fish/species/bowfin/bowfin.tres,,common
+102,sturgeon_lake,implemented,inactive,missing icon,res://fish/species/sturgeon_lake/sturgeon_lake.tres,,common
+103,gar_longnose,implemented,inactive,missing icon,res://fish/species/gar_longnose/gar_longnose.tres,,common
+104,paddlefish,implemented,inactive,missing icon,res://fish/species/paddlefish/paddlefish.tres,,common
+105,sturgeon_shovelnose,implemented,inactive,missing icon,res://fish/species/sturgeon_shovelnose/sturgeon_shovelnose.tres,,common
+106,gar_spotted,implemented,inactive,missing icon,res://fish/species/gar_spotted/gar_spotted.tres,,common
+107,lungfish_west_african,implemented,inactive,missing icon,res://fish/species/lungfish_west_african/lungfish_west_african.tres,,common
+201,mudskipper_atlantic,implemented,inactive,missing icon,res://fish/species/mudskipper_atlantic/mudskipper_atlantic.tres,,common
+202,foureyes_largescale,implemented,inactive,missing icon,res://fish/species/foureyes_largescale/foureyes_largescale.tres,,common
+301,mullet_red,implemented,inactive,missing icon,res://fish/species/mullet_red/mullet_red.tres,,common
+401,plaice_european,implemented,inactive,missing icon,res://fish/species/plaice_european/plaice_european.tres,,common
+402,flounder_summer,implemented,inactive,missing icon,res://fish/species/flounder_summer/flounder_summer.tres,,common
+403,flounder_winter,implemented,inactive,missing icon,res://fish/species/flounder_winter/flounder_winter.tres,,common
+501,dugong,implemented,inactive,missing icon,res://fish/species/dugong/dugong.tres,,common
+502,seal_harbor,implemented,inactive,missing icon,res://fish/species/seal_harbor/seal_harbor.tres,,common
+503,sea_otter,implemented,inactive,missing icon,res://fish/species/sea_otter/sea_otter.tres,,common
+504,walrus,implemented,inactive,missing icon,res://fish/species/walrus/walrus.tres,,common
+505,manatee_west_indian,implemented,inactive,missing icon,res://fish/species/manatee_west_indian/manatee_west_indian.tres,,common
+601,pipefish_bay,implemented,inactive,missing icon,res://fish/species/pipefish_bay/pipefish_bay.tres,,common
+602,seahorse_lined,implemented,inactive,missing icon,res://fish/species/seahorse_lined/seahorse_lined.tres,,common
+603,monkfish,implemented,inactive,missing icon,res://fish/species/monkfish/monkfish.tres,,common
+604,tripletail,implemented,inactive,missing icon,res://fish/species/tripletail/tripletail.tres,,common
+701,mackerel_atlantic,implemented,active,complete,res://fish/species/mackerel_atlantic/mackerel_atlantic.tres,res://fish/species/mackerel_atlantic/fish_mackerel_atlantic.png,common
+702,bluefish,implemented,inactive,missing icon,res://fish/species/bluefish/bluefish.tres,,common
+703,mackerel_cero,implemented,active,complete,res://fish/species/mackerel_cero/mackerel_cero.tres,res://fish/species/mackerel_cero/fish_mackerel_cero.png,common
+704,mackerel_chub,implemented,active,complete,res://fish/species/mackerel_chub/mackerel_chub.tres,res://fish/species/mackerel_chub/fish_mackerel_chub.png,common
+705,jack_crevalle,implemented,inactive,missing icon,res://fish/species/jack_crevalle/jack_crevalle.tres,,common
+706,mackerel_king,implemented,active,complete,res://fish/species/mackerel_king/mackerel_king.tres,res://fish/species/mackerel_king/fish_mackerel_king.png,common
+707,mackerel_spanish,implemented,active,complete,res://fish/species/mackerel_spanish/mackerel_spanish.tres,res://fish/species/mackerel_spanish/fish_mackerel_spanish.png,common
+708,queenfish_talang,implemented,inactive,missing icon,res://fish/species/queenfish_talang/queenfish_talang.tres,,common
+801,sand_lance_american,implemented,inactive,missing icon,res://fish/species/sand_lance_american/sand_lance_american.tres,,common
+802,menhaden_atlantic,implemented,inactive,missing icon,res://fish/species/menhaden_atlantic/menhaden_atlantic.tres,,common
+803,pomfret_black,implemented,active,complete,res://fish/species/pomfret_black/pomfret_black.tres,res://fish/species/pomfret_black/fish_pomfret_black.png,common
+804,pomfret_chinese,implemented,active,complete,res://fish/species/pomfret_chinese/pomfret_chinese.tres,res://fish/species/pomfret_chinese/fish_pomfret_chinese.png,common
+805,anchovy_european,implemented,active,complete,res://fish/species/anchovy_european/anchovy_european.tres,res://fish/species/anchovy_european/fish_anchovy_european.png,common
+806,sardine_european,implemented,inactive,missing icon,res://fish/species/sardine_european/sardine_european.tres,,common
+807,pomfret_golden,implemented,active,complete,res://fish/species/pomfret_golden/pomfret_golden.tres,res://fish/species/pomfret_golden/fish_pomfret_golden.png,common
+808,anchovy_northern,implemented,active,complete,res://fish/species/anchovy_northern/anchovy_northern.tres,res://fish/species/anchovy_northern/fish_anchovy_northern.png,common
+809,sardine_pacific,implemented,inactive,missing icon,res://fish/species/sardine_pacific/sardine_pacific.tres,,common
+810,pomfret_white,implemented,active,complete,res://fish/species/pomfret_white/pomfret_white.tres,res://fish/species/pomfret_white/fish_pomfret_white.png,common
+901,shark_blacktip,implemented,inactive,missing icon,res://fish/species/shark_blacktip/shark_blacktip.tres,,common
+902,shark_great_hammerhead,implemented,inactive,missing icon,res://fish/species/shark_great_hammerhead/shark_great_hammerhead.tres,,common
+903,shark_great_white,implemented,inactive,missing icon,res://fish/species/shark_great_white/shark_great_white.tres,,common
+904,shark_tiger,implemented,inactive,missing icon,res://fish/species/shark_tiger/shark_tiger.tres,,common
+905,shark_whale,implemented,inactive,missing icon,res://fish/species/shark_whale/shark_whale.tres,,common
+1001,burbot,implemented,inactive,missing icon,res://fish/species/burbot/burbot.tres,,common
+1002,cisco,implemented,inactive,missing icon,res://fish/species/cisco/cisco.tres,,common
+1003,whitefish_lake,implemented,inactive,missing icon,res://fish/species/whitefish_lake/whitefish_lake.tres,,common
+1101,char_arctic,implemented,inactive,missing icon,res://fish/species/char_arctic/char_arctic.tres,,common
+1102,grayling_arctic,implemented,inactive,missing icon,res://fish/species/grayling_arctic/grayling_arctic.tres,,common
+1103,trout_brown,implemented,inactive,missing icon,res://fish/species/trout_brown/trout_brown.tres,,common
+1104,trout_cutthroat,implemented,active,complete,res://fish/species/trout_cutthroat/trout_cutthroat.tres,res://fish/species/trout_cutthroat/fish_trout_cutthroat.png,common
+1105,trout_golden,implemented,active,complete,res://fish/species/trout_golden/trout_golden.tres,res://fish/species/trout_golden/fish_trout_golden.png,common
+1106,trout_rainbow,implemented,active,complete,res://fish/species/trout_rainbow/trout_rainbow.tres,res://fish/species/trout_rainbow/fish_trout_rainbow.png,common
+1201,wolffish_atlantic,implemented,inactive,missing icon,res://fish/species/wolffish_atlantic/wolffish_atlantic.tres,,common
+1202,cusk,implemented,inactive,missing icon,res://fish/species/cusk/cusk.tres,,common
+1203,wolffish_spotted,implemented,inactive,missing icon,res://fish/species/wolffish_spotted/wolffish_spotted.tres,,common
+1301,herring_atlantic,implemented,inactive,missing icon,res://fish/species/herring_atlantic/herring_atlantic.tres,,common
+1302,capelin,implemented,inactive,missing icon,res://fish/species/capelin/capelin.tres,,common
+1303,sprat_european,implemented,inactive,missing icon,res://fish/species/sprat_european/sprat_european.tres,,common
+1304,herring_pacific,implemented,inactive,missing icon,res://fish/species/herring_pacific/herring_pacific.tres,,common
+1401,pollock_alaska,implemented,inactive,missing icon,res://fish/species/pollock_alaska/pollock_alaska.tres,,common
+1402,cod_atlantic,implemented,inactive,missing icon,res://fish/species/cod_atlantic/cod_atlantic.tres,,common
+1403,pollock_atlantic,implemented,inactive,missing icon,res://fish/species/pollock_atlantic/pollock_atlantic.tres,,common
+1404,sole_dover,implemented,inactive,missing icon,res://fish/species/sole_dover/sole_dover.tres,,common
+1405,haddock,implemented,inactive,missing icon,res://fish/species/haddock/haddock.tres,,common
+1406,cod_pacific,implemented,inactive,missing icon,res://fish/species/cod_pacific/cod_pacific.tres,,common
+1407,hake_pacific,implemented,inactive,missing icon,res://fish/species/hake_pacific/hake_pacific.tres,,common
+1408,hake_silver,implemented,inactive,missing icon,res://fish/species/hake_silver/hake_silver.tres,,common
+1501,nautilus_chambered,implemented,inactive,missing icon,res://fish/species/nautilus_chambered/nautilus_chambered.tres,,common
+1502,cuttlefish_common,implemented,inactive,missing icon,res://fish/species/cuttlefish_common/cuttlefish_common.tres,,common
+1503,cuttlefish_flamboyant,implemented,inactive,missing icon,res://fish/species/cuttlefish_flamboyant/cuttlefish_flamboyant.tres,,common
+1601,tilefish_blueline,implemented,inactive,missing icon,res://fish/species/tilefish_blueline/tilefish_blueline.tres,,common
+1602,tilefish_golden,implemented,inactive,missing icon,res://fish/species/tilefish_golden/tilefish_golden.tres,,common
+1603,ocean_perch_pacific,implemented,inactive,missing icon,res://fish/species/ocean_perch_pacific/ocean_perch_pacific.tres,,common
+1604,sea_bass_chilean,implemented,inactive,missing icon,res://fish/species/sea_bass_chilean/sea_bass_chilean.tres,,common
+1605,sablefish,implemented,inactive,missing icon,res://fish/species/sablefish/sablefish.tres,,common
+1606,wreckfish,implemented,inactive,missing icon,res://fish/species/wreckfish/wreckfish.tres,,common
+1701,oarfish_giant,implemented,inactive,missing icon,res://fish/species/oarfish_giant/oarfish_giant.tres,,common
+1702,coelacanth_west_indian,implemented,inactive,missing icon,res://fish/species/coelacanth_west_indian/coelacanth_west_indian.tres,,common
+1801,anglerfish_black_seadevil,implemented,inactive,missing icon,res://fish/species/anglerfish_black_seadevil/anglerfish_black_seadevil.tres,,common
+1802,fangtooth_common,implemented,inactive,missing icon,res://fish/species/fangtooth_common/fangtooth_common.tres,,common
+1803,gulper_eel,implemented,inactive,missing icon,res://fish/species/gulper_eel/gulper_eel.tres,,common
+1804,barreleye_pacific,implemented,inactive,missing icon,res://fish/species/barreleye_pacific/barreleye_pacific.tres,,common
+1805,blobfish_smooth_head,implemented,inactive,missing icon,res://fish/species/blobfish_smooth_head/blobfish_smooth_head.tres,,common
+1806,lanternfish_spotted,implemented,inactive,missing icon,res://fish/species/lanternfish_spotted/lanternfish_spotted.tres,,common
+1901,sea_star_crown_of_thorns,implemented,inactive,missing icon,res://fish/species/sea_star_crown_of_thorns/sea_star_crown_of_thorns.tres,,common
+1902,sea_cucumber_giant_california,implemented,inactive,missing icon,res://fish/species/sea_cucumber_giant_california/sea_cucumber_giant_california.tres,,common
+1903,urchin_purple,implemented,inactive,missing icon,res://fish/species/urchin_purple/urchin_purple.tres,,common
+1904,sand_dollar,implemented,inactive,missing icon,res://fish/species/sand_dollar/sand_dollar.tres,,common
+1905,sea_star_sunflower,implemented,inactive,missing icon,res://fish/species/sea_star_sunflower/sea_star_sunflower.tres,,common
+2001,axolotl,implemented,inactive,missing icon,res://fish/species/axolotl/axolotl.tres,,common
+2002,hellbender,implemented,inactive,missing icon,res://fish/species/hellbender/hellbender.tres,,common
+2101,guppy,implemented,inactive,missing icon,res://fish/species/guppy/guppy.tres,,common
+2102,tetra_neon,implemented,inactive,missing icon,res://fish/species/tetra_neon/tetra_neon.tres,,common
+2103,danio_zebra,implemented,inactive,missing icon,res://fish/species/danio_zebra/danio_zebra.tres,,common
+2201,largemouth_bass,implemented,inactive,missing icon,res://fish/species/largemouth_bass/largemouth_bass.tres,,common
+2202,smallmouth_bass,implemented,inactive,missing icon,res://fish/species/smallmouth_bass/smallmouth_bass.tres,,common
+2301,buffalo_bigmouth,implemented,inactive,missing icon,res://fish/species/buffalo_bigmouth/buffalo_bigmouth.tres,,common
+2302,redhorse_golden,implemented,inactive,missing icon,res://fish/species/redhorse_golden/redhorse_golden.tres,,common
+2303,quillback,implemented,inactive,missing icon,res://fish/species/quillback/quillback.tres,,common
+2304,buffalo_smallmouth,implemented,inactive,missing icon,res://fish/species/buffalo_smallmouth/buffalo_smallmouth.tres,,common
+2305,sucker_white,implemented,inactive,missing icon,res://fish/species/sucker_white/sucker_white.tres,,common
+2401,bullhead_black,implemented,inactive,missing icon,res://fish/species/bullhead_black/bullhead_black.tres,,common
+2402,catfish_blue,implemented,active,complete,res://fish/species/catfish_blue/catfish_blue.tres,res://fish/species/catfish_blue/fish_catfish_blue.png,bass
+2403,bullhead_brown,implemented,inactive,missing icon,res://fish/species/bullhead_brown/bullhead_brown.tres,,common
+2404,catfish_channel,implemented,active,complete,res://fish/species/catfish_channel/catfish_channel.tres,res://fish/species/catfish_channel/fish_catfish_channel.png,common
+2405,catfish_flathead,implemented,active,complete,res://fish/species/catfish_flathead/catfish_flathead.tres,res://fish/species/catfish_flathead/fish_catfish_flathead.png,bass
+2406,madtom_tadpole,implemented,inactive,missing icon,res://fish/species/madtom_tadpole/madtom_tadpole.tres,,common
+2407,catfish_white,implemented,active,complete,res://fish/species/catfish_white/catfish_white.tres,res://fish/species/catfish_white/fish_catfish_white.png,common
+2408,bullhead_yellow,implemented,inactive,missing icon,res://fish/species/bullhead_yellow/bullhead_yellow.tres,,common
+2501,barbel_common,implemented,inactive,missing icon,res://fish/species/barbel_common/barbel_common.tres,,common
+2502,bream_common,implemented,inactive,missing icon,res://fish/species/bream_common/bream_common.tres,,common
+2503,carp,implemented,active,complete,res://fish/species/carp/carp.tres,res://fish/species/carp/fish_carp_common.png,carp
+2504,roach_common,implemented,inactive,missing icon,res://fish/species/roach_common/roach_common.tres,,common
+2505,chub_european,implemented,active,complete,res://fish/species/chub_european/chub_european.tres,res://fish/species/chub_european/fish_chub_european.png,common
+2506,fallfish,implemented,inactive,missing icon,res://fish/species/fallfish/fallfish.tres,,common
+2507,ide,implemented,inactive,missing icon,res://fish/species/ide/ide.tres,,common
+2508,rudd,implemented,inactive,missing icon,res://fish/species/rudd/rudd.tres,,common
+2509,tench,implemented,inactive,missing icon,res://fish/species/tench/tench.tres,,common
+2601,crayfish_red_swamp,implemented,inactive,missing icon,res://fish/species/crayfish_red_swamp/crayfish_red_swamp.tres,,common
+2701,gar_alligator,implemented,inactive,missing icon,res://fish/species/gar_alligator/gar_alligator.tres,,common
+2702,arapaima,implemented,inactive,missing icon,res://fish/species/arapaima/arapaima.tres,,common
+2703,tigerfish_goliath,implemented,inactive,missing icon,res://fish/species/tigerfish_goliath/tigerfish_goliath.tres,,common
+2704,muskellunge,implemented,inactive,missing icon,res://fish/species/muskellunge/muskellunge.tres,,common
+2801,shiner_common,implemented,inactive,missing icon,res://fish/species/shiner_common/shiner_common.tres,,common
+2802,chub_creek,implemented,inactive,missing icon,res://fish/species/chub_creek/chub_creek.tres,,common
+2803,shiner_emerald,implemented,inactive,missing icon,res://fish/species/shiner_emerald/shiner_emerald.tres,,common
+2804,minnow_fathead,implemented,inactive,missing icon,res://fish/species/minnow_fathead/minnow_fathead.tres,,common
+2805,chub_flame,implemented,active,complete,res://fish/species/chub_flame/chub_flame.tres,res://fish/species/chub_flame/fish_chub_flame.png,common
+2806,shiner_golden,implemented,inactive,missing icon,res://fish/species/shiner_golden/shiner_golden.tres,,common
+2807,chub_lake,implemented,active,complete,res://fish/species/chub_lake/chub_lake.tres,res://fish/species/chub_lake/fish_chub_lake.png,common
+2901,electric_eel,implemented,inactive,missing icon,res://fish/species/electric_eel/electric_eel.tres,,common
+2902,freshwater_drum,implemented,inactive,missing icon,res://fish/species/freshwater_drum/freshwater_drum.tres,,common
+2903,goldeye,implemented,inactive,missing icon,res://fish/species/goldeye/goldeye.tres,,common
+2904,mooneye,implemented,inactive,missing icon,res://fish/species/mooneye/mooneye.tres,,common
+2905,loach_weather,implemented,inactive,missing icon,res://fish/species/loach_weather/loach_weather.tres,,common
+3001,goldfish_bubbleeye,implemented,active,complete,res://fish/species/goldfish_bubbleeye/goldfish_bubbleeye.tres,res://fish/species/goldfish_bubbleeye/fish_goldfish_bubbleeye.png,common
+3002,goldfish,implemented,active,complete,res://fish/species/goldfish/goldfish.tres,res://fish/species/goldfish/fish_goldfish.png,common
+3003,koi,implemented,inactive,missing icon,res://fish/species/koi/koi.tres,,common
+3101,crappie_black,implemented,inactive,missing icon,res://fish/species/crappie_black/crappie_black.tres,,common
+3102,bluegill,implemented,active,complete,res://fish/species/bluegill/bluegill.tres,res://fish/species/bluegill/fish_bluegill.png,common
+3103,green_sunfish,implemented,inactive,missing icon,res://fish/species/green_sunfish/green_sunfish.tres,,common
+3104,pumpkinseed,implemented,inactive,missing icon,res://fish/species/pumpkinseed/pumpkinseed.tres,,common
+3105,redear_sunfish,implemented,inactive,missing icon,res://fish/species/redear_sunfish/redear_sunfish.tres,,common
+3106,warmouth,implemented,inactive,missing icon,res://fish/species/warmouth/warmouth.tres,,common
+3107,crappie_white,implemented,inactive,missing icon,res://fish/species/crappie_white/crappie_white.tres,,common
+3201,yellow_perch,implemented,inactive,missing icon,res://fish/species/yellow_perch/yellow_perch.tres,,common
+3301,pickerel_chain,implemented,inactive,missing icon,res://fish/species/pickerel_chain/pickerel_chain.tres,,common
+3302,pickerel_grass,implemented,inactive,missing icon,res://fish/species/pickerel_grass/pickerel_grass.tres,,common
+3303,pike_northern,implemented,inactive,missing icon,res://fish/species/pike_northern/pike_northern.tres,,common
+3304,sauger,implemented,active,complete,res://fish/species/sauger/sauger.tres,res://fish/species/sauger/fish_sauger.png,common
+3305,saugeye,implemented,active,complete,res://fish/species/saugeye/saugeye.tres,res://fish/species/saugeye/fish_saugeye.png,common
+3306,walleye,implemented,active,complete,res://fish/species/walleye/walleye.tres,res://fish/species/walleye/fish_walleye.png,common
+3401,goby_round,implemented,active,complete,res://fish/species/goby_round/goby_round.tres,res://fish/species/goby_round/fish_goby_round.png,common
+3501,jelly_crystal,implemented,inactive,missing icon,res://fish/species/jelly_crystal/jelly_crystal.tres,,common
+3502,jelly_lions_mane,implemented,inactive,missing icon,res://fish/species/jelly_lions_mane/jelly_lions_mane.tres,,common
+3503,jelly_moon,implemented,inactive,missing icon,res://fish/species/jelly_moon/jelly_moon.tres,,common
+3504,jelly_pacific_sea_nettle,implemented,inactive,missing icon,res://fish/species/jelly_pacific_sea_nettle/jelly_pacific_sea_nettle.tres,,common
+3505,jelly_sea_wasp,implemented,inactive,missing icon,res://fish/species/jelly_sea_wasp/jelly_sea_wasp.tres,,common
+3601,pompano_african,implemented,inactive,missing icon,res://fish/species/pompano_african/pompano_african.tres,,common
+3602,cobia,implemented,inactive,missing icon,res://fish/species/cobia/cobia.tres,,common
+3603,trevally_giant,implemented,inactive,missing icon,res://fish/species/trevally_giant/trevally_giant.tres,,common
+3604,amberjack_greater,implemented,inactive,missing icon,res://fish/species/amberjack_greater/amberjack_greater.tres,,common
+3605,amberjack_lesser,implemented,inactive,missing icon,res://fish/species/amberjack_lesser/amberjack_lesser.tres,,common
+3701,halibut_atlantic,implemented,inactive,missing icon,res://fish/species/halibut_atlantic/halibut_atlantic.tres,,common
+3702,halibut_pacific,implemented,inactive,missing icon,res://fish/species/halibut_pacific/halibut_pacific.tres,,common
+3703,turbot,implemented,inactive,missing icon,res://fish/species/turbot/turbot.tres,,common
+3801,lobster_american,implemented,inactive,missing icon,res://fish/species/lobster_american/lobster_american.tres,,common
+3802,krill_antarctic,implemented,inactive,missing icon,res://fish/species/krill_antarctic/krill_antarctic.tres,,common
+3803,lobster_caribbean_spiny,implemented,inactive,missing icon,res://fish/species/lobster_caribbean_spiny/lobster_caribbean_spiny.tres,,common
+3804,shrimp_peacock_mantis,implemented,inactive,missing icon,res://fish/species/shrimp_peacock_mantis/shrimp_peacock_mantis.tres,,common
+3805,shrimp_skunk_cleaner,implemented,inactive,missing icon,res://fish/species/shrimp_skunk_cleaner/shrimp_skunk_cleaner.tres,,common
+3901,crab_ghost,implemented,inactive,missing icon,res://fish/species/crab_ghost/crab_ghost.tres,,common
+3902,crab_blue,implemented,inactive,missing icon,res://fish/species/crab_blue/crab_blue.tres,,common
+3903,crab_dungeness,implemented,inactive,missing icon,res://fish/species/crab_dungeness/crab_dungeness.tres,,common
+3904,crab_japanese_spider,implemented,inactive,missing icon,res://fish/species/crab_japanese_spider/crab_japanese_spider.tres,,common
+3905,crab_red_king,implemented,inactive,missing icon,res://fish/species/crab_red_king/crab_red_king.tres,,common
+4001,eel_american,implemented,inactive,missing icon,res://fish/species/eel_american/eel_american.tres,,common
+4002,eel_european,implemented,inactive,missing icon,res://fish/species/eel_european/eel_european.tres,,common
+4101,smelt_rainbow,implemented,inactive,missing icon,res://fish/species/smelt_rainbow/smelt_rainbow.tres,,common
+4201,smelt_eulachon,implemented,inactive,missing icon,res://fish/species/smelt_eulachon/smelt_eulachon.tres,,common
+4301,sturgeon_white,implemented,inactive,missing icon,res://fish/species/sturgeon_white/sturgeon_white.tres,,common
+4401,salmon_atlantic,implemented,active,complete,res://fish/species/salmon_atlantic/salmon_atlantic.tres,res://fish/species/salmon_atlantic/fish_salmon_atlantic.png,bass
+4402,salmon_chum,implemented,active,complete,res://fish/species/salmon_chum/salmon_chum.tres,res://fish/species/salmon_chum/fish_salmon_chum.png,bass
+4403,salmon_coho,implemented,active,complete,res://fish/species/salmon_coho/salmon_coho.tres,res://fish/species/salmon_coho/fish_salmon_coho.png,bass
+4404,salmon_pink,implemented,active,complete,res://fish/species/salmon_pink/salmon_pink.tres,res://fish/species/salmon_pink/fish_salmon_pink.png,bass
+4405,salmon_sockeye,implemented,active,complete,res://fish/species/salmon_sockeye/salmon_sockeye.tres,res://fish/species/salmon_sockeye/fish_salmon_sockeye.png,bass
+4501,trout_steelhead,implemented,active,complete,res://fish/species/trout_steelhead/trout_steelhead.tres,res://fish/species/trout_steelhead/fish_trout_steelhead.png,common
+4601,marlin_black,implemented,active,complete,res://fish/species/marlin_black/marlin_black.tres,res://fish/species/marlin_black/fish_marlin_black.png,common
+4602,marlin_blue,implemented,active,complete,res://fish/species/marlin_blue/marlin_blue.tres,res://fish/species/marlin_blue/fish_marlin_blue.png,common
+4603,sailfish,implemented,active,complete,res://fish/species/sailfish/sailfish.tres,res://fish/species/sailfish/fish_sailfish.png,common
+4604,swordfish,implemented,active,complete,res://fish/species/swordfish/swordfish.tres,res://fish/species/swordfish/fish_swordfish.png,common
+4605,marlin_white,implemented,active,complete,res://fish/species/marlin_white/marlin_white.tres,res://fish/species/marlin_white/fish_marlin_white.png,common
+4701,mahi_mahi,implemented,inactive,missing icon,res://fish/species/mahi_mahi/mahi_mahi.tres,,common
+4702,opah,implemented,inactive,missing icon,res://fish/species/opah/opah.tres,,common
+4703,wahoo,implemented,inactive,missing icon,res://fish/species/wahoo/wahoo.tres,,common
+4801,tuna_albacore,implemented,active,complete,res://fish/species/tuna_albacore/tuna_albacore.tres,res://fish/species/tuna_albacore/fish_tuna_albacore.png,bass
+4802,tuna_bigeye,implemented,active,complete,res://fish/species/tuna_bigeye/tuna_bigeye.tres,res://fish/species/tuna_bigeye/fish_tuna_bigeye.png,bass
+4803,tuna_bluefin,implemented,active,complete,res://fish/species/tuna_bluefin/tuna_bluefin.tres,res://fish/species/tuna_bluefin/fish_tuna_bluefin.png,bass
+4804,tuna_skipjack,implemented,active,complete,res://fish/species/tuna_skipjack/tuna_skipjack.tres,res://fish/species/tuna_skipjack/fish_tuna_skipjack.png,bass
+4805,tuna_yellowfin,implemented,active,complete,res://fish/species/tuna_yellowfin/tuna_yellowfin.tres,res://fish/species/tuna_yellowfin/fish_tuna_yellowfin.png,bass
+4901,octopus_common,implemented,inactive,missing icon,res://fish/species/octopus_common/octopus_common.tres,,common
+4902,octopus_day,implemented,inactive,missing icon,res://fish/species/octopus_day/octopus_day.tres,,common
+4903,octopus_giant_pacific,implemented,inactive,missing icon,res://fish/species/octopus_giant_pacific/octopus_giant_pacific.tres,,common
+4904,octopus_greater_blue_ringed,implemented,inactive,missing icon,res://fish/species/octopus_greater_blue_ringed/octopus_greater_blue_ringed.tres,,common
+5001,sunfish,implemented,active,complete,res://fish/species/sunfish/sunfish.tres,res://fish/species/sunfish/fish_sunfish.png,common
+5101,skate_barndoor,implemented,inactive,missing icon,res://fish/species/skate_barndoor/skate_barndoor.tres,,common
+5102,manta_ray_giant,implemented,inactive,missing icon,res://fish/species/manta_ray_giant/manta_ray_giant.tres,,common
+5103,sawfish_largetooth,implemented,inactive,missing icon,res://fish/species/sawfish_largetooth/sawfish_largetooth.tres,,common
+5104,stingray_ocellate_river,implemented,inactive,missing icon,res://fish/species/stingray_ocellate_river/stingray_ocellate_river.tres,,common
+5105,stingray_southern,implemented,inactive,missing icon,res://fish/species/stingray_southern/stingray_southern.tres,,common
+5201,lionfish_red,implemented,inactive,missing icon,res://fish/species/lionfish_red/lionfish_red.tres,,common
+5202,scorpionfish_red,implemented,inactive,missing icon,res://fish/species/scorpionfish_red/scorpionfish_red.tres,,common
+5301,moray_green,implemented,inactive,missing icon,res://fish/species/moray_green/moray_green.tres,,common
+5401,flounder_peacock,implemented,inactive,missing icon,res://fish/species/flounder_peacock/flounder_peacock.tres,,common
+5501,surgeonfish_blue,implemented,inactive,missing icon,res://fish/species/surgeonfish_blue/surgeonfish_blue.tres,,common
+5502,parrotfish_rainbow,implemented,inactive,missing icon,res://fish/species/parrotfish_rainbow/parrotfish_rainbow.tres,,common
+5503,parrotfish_stoplight,implemented,inactive,missing icon,res://fish/species/parrotfish_stoplight/parrotfish_stoplight.tres,,common
+5504,tang_yellow,implemented,inactive,missing icon,res://fish/species/tang_yellow/tang_yellow.tres,,common
+5601,trumpetfish_atlantic,implemented,inactive,missing icon,res://fish/species/trumpetfish_atlantic/trumpetfish_atlantic.tres,,common
+5602,triggerfish_gray,implemented,inactive,missing icon,res://fish/species/triggerfish_gray/triggerfish_gray.tres,,common
+5603,pufferfish_guineafowl,implemented,inactive,missing icon,res://fish/species/pufferfish_guineafowl/pufferfish_guineafowl.tres,,common
+5604,cowfish_longhorn,implemented,inactive,missing icon,res://fish/species/cowfish_longhorn/cowfish_longhorn.tres,,common
+5605,triggerfish_queen,implemented,inactive,missing icon,res://fish/species/triggerfish_queen/triggerfish_queen.tres,,common
+5606,cornetfish_red,implemented,inactive,missing icon,res://fish/species/cornetfish_red/cornetfish_red.tres,,common
+5607,porcupinefish_spotted,implemented,inactive,missing icon,res://fish/species/porcupinefish_spotted/porcupinefish_spotted.tres,,common
+5608,boxfish_yellow,implemented,inactive,missing icon,res://fish/species/boxfish_yellow/boxfish_yellow.tres,,common
+5701,butterflyfish_copperband,implemented,inactive,missing icon,res://fish/species/butterflyfish_copperband/butterflyfish_copperband.tres,,common
+5702,clownfish_ocellaris,implemented,inactive,missing icon,res://fish/species/clownfish_ocellaris/clownfish_ocellaris.tres,,common
+5703,angelfish_queen,implemented,inactive,missing icon,res://fish/species/angelfish_queen/angelfish_queen.tres,,common
+5801,grouper_atlantic_goliath,implemented,inactive,missing icon,res://fish/species/grouper_atlantic_goliath/grouper_atlantic_goliath.tres,,common
+5802,trevally_bluefin,implemented,inactive,missing icon,res://fish/species/trevally_bluefin/trevally_bluefin.tres,,common
+5803,grouper_giant,implemented,inactive,missing icon,res://fish/species/grouper_giant/grouper_giant.tres,,common
+5804,barracuda_great,implemented,inactive,missing icon,res://fish/species/barracuda_great/barracuda_great.tres,,common
+5805,grouper_gulf,implemented,active,complete,res://fish/species/grouper_gulf/grouper_gulf.tres,res://fish/species/grouper_gulf/fish_grouper_gulf.png,common
+5806,grouper_nassau,implemented,inactive,missing icon,res://fish/species/grouper_nassau/grouper_nassau.tres,,common
+5807,grouper_red,implemented,active,complete,res://fish/species/grouper_red/grouper_red.tres,res://fish/species/grouper_red/fish_grouper_red.png,common
+5901,chromis_blue_green,implemented,inactive,missing icon,res://fish/species/chromis_blue_green/chromis_blue_green.tres,,common
+5902,grunt_bluestriped,implemented,inactive,missing icon,res://fish/species/grunt_bluestriped/grunt_bluestriped.tres,,common
+5903,grunt_french,implemented,inactive,missing icon,res://fish/species/grunt_french/grunt_french.tres,,common
+5904,damselfish_sergeant_major,implemented,inactive,missing icon,res://fish/species/damselfish_sergeant_major/damselfish_sergeant_major.tres,,common
+6001,snapper_lane,implemented,active,complete,res://fish/species/snapper_lane/snapper_lane.tres,res://fish/species/snapper_lane/fish_snapper_lane.png,common
+6002,snapper_mangrove,implemented,active,complete,res://fish/species/snapper_mangrove/snapper_mangrove.tres,res://fish/species/snapper_mangrove/fish_snapper_mangrove.png,common
+6003,snapper_mutton,implemented,active,complete,res://fish/species/snapper_mutton/snapper_mutton.tres,res://fish/species/snapper_mutton/fish_snapper_mutton.png,common
+6004,snapper_red,implemented,active,complete,res://fish/species/snapper_red/snapper_red.tres,res://fish/species/snapper_red/fish_snapper_red.png,common
+6101,wrasse_ballan,implemented,inactive,missing icon,res://fish/species/wrasse_ballan/wrasse_ballan.tres,,common
+6102,wrasse_cleaner,implemented,inactive,missing icon,res://fish/species/wrasse_cleaner/wrasse_cleaner.tres,,common
+6103,hogfish,implemented,inactive,missing icon,res://fish/species/hogfish/hogfish.tres,,common
+6201,turtle_green,implemented,inactive,missing icon,res://fish/species/turtle_green/turtle_green.tres,,common
+6202,turtle_hawksbill,implemented,inactive,missing icon,res://fish/species/turtle_hawksbill/turtle_hawksbill.tres,,common
+6203,turtle_leatherback,implemented,inactive,missing icon,res://fish/species/turtle_leatherback/turtle_leatherback.tres,,common
+6204,turtle_loggerhead,implemented,inactive,missing icon,res://fish/species/turtle_loggerhead/turtle_loggerhead.tres,,common
+6301,seadragon_leafy,implemented,inactive,missing icon,res://fish/species/seadragon_leafy/seadragon_leafy.tres,,common
+6302,seadragon_weedy,implemented,inactive,missing icon,res://fish/species/seadragon_weedy/seadragon_weedy.tres,,common
+6401,oyster_black_lip_pearl,implemented,inactive,missing icon,res://fish/species/oyster_black_lip_pearl/oyster_black_lip_pearl.tres,,common
+6402,clam_giant,implemented,inactive,missing icon,res://fish/species/clam_giant/clam_giant.tres,,common
+6403,clam_geoduck,implemented,inactive,missing icon,res://fish/species/clam_geoduck/clam_geoduck.tres,,common
+6404,conch_queen,implemented,inactive,missing icon,res://fish/species/conch_queen/conch_queen.tres,,common
+6405,abalone_red,implemented,inactive,missing icon,res://fish/species/abalone_red/abalone_red.tres,,common
+6501,squid_bigfin_reef,implemented,inactive,missing icon,res://fish/species/squid_bigfin_reef/squid_bigfin_reef.tres,,common
+6502,squid_colossal,implemented,inactive,missing icon,res://fish/species/squid_colossal/squid_colossal.tres,,common
+6503,squid_giant,implemented,inactive,missing icon,res://fish/species/squid_giant/squid_giant.tres,,common
+6504,squid_humboldt,implemented,inactive,missing icon,res://fish/species/squid_humboldt/squid_humboldt.tres,,common
+6601,halfbeak_ballyhoo,implemented,inactive,missing icon,res://fish/species/halfbeak_ballyhoo/halfbeak_ballyhoo.tres,,common
+6602,needlefish_hound,implemented,inactive,missing icon,res://fish/species/needlefish_hound/needlefish_hound.tres,,common
+6603,flyingfish_tropical,implemented,inactive,missing icon,res://fish/species/flyingfish_tropical/flyingfish_tropical.tres,,common
+6701,bass,implemented,active,complete,res://fish/species/bass/bass.tres,res://fish/species/bass/fish_bass_striped.png,bass
+6801,croaker_atlantic,implemented,inactive,missing icon,res://fish/species/croaker_atlantic/croaker_atlantic.tres,,common
+6802,black_drum,implemented,inactive,missing icon,res://fish/species/black_drum/black_drum.tres,,common
+6803,red_drum,implemented,inactive,missing icon,res://fish/species/red_drum/red_drum.tres,,common
+6804,mullet_striped,implemented,inactive,missing icon,res://fish/species/mullet_striped/mullet_striped.tres,,common
+6805,weakfish,implemented,inactive,missing icon,res://fish/species/weakfish/weakfish.tres,,common
+6806,white_perch,implemented,inactive,missing icon,res://fish/species/white_perch/white_perch.tres,,common
+6807,croaker_yellowfin,implemented,inactive,missing icon,res://fish/species/croaker_yellowfin/croaker_yellowfin.tres,,common
+6901,rockfish_black,implemented,inactive,missing icon,res://fish/species/rockfish_black/rockfish_black.tres,,common
+6902,sea_bass_black,implemented,inactive,missing icon,res://fish/species/sea_bass_black/sea_bass_black.tres,,common
+6903,rockfish_canary,implemented,inactive,missing icon,res://fish/species/rockfish_canary/rockfish_canary.tres,,common
+6904,porgy_scup,implemented,inactive,missing icon,res://fish/species/porgy_scup/porgy_scup.tres,,common
+6905,sheepshead,implemented,inactive,missing icon,res://fish/species/sheepshead/sheepshead.tres,,common
+6906,tautog,implemented,inactive,missing icon,res://fish/species/tautog/tautog.tres,,common
+6907,rockfish_yelloweye,implemented,inactive,missing icon,res://fish/species/rockfish_yelloweye/rockfish_yelloweye.tres,,common
+7001,lingcod,implemented,inactive,missing icon,res://fish/species/lingcod/lingcod.tres,,common
+7101,milkfish,implemented,inactive,missing icon,res://fish/species/milkfish/milkfish.tres,,common
+7201,roosterfish,implemented,inactive,missing icon,res://fish/species/roosterfish/roosterfish.tres,,common
+7301,tarpon_atlantic,implemented,inactive,missing icon,res://fish/species/tarpon_atlantic/tarpon_atlantic.tres,,common
+7302,barramundi,implemented,inactive,missing icon,res://fish/species/barramundi/barramundi.tres,,common
+7303,snook_common,implemented,inactive,missing icon,res://fish/species/snook_common/snook_common.tres,,common
+7401,bonefish,implemented,inactive,missing icon,res://fish/species/bonefish/bonefish.tres,,common
+7402,pompano_florida,implemented,inactive,missing icon,res://fish/species/pompano_florida/pompano_florida.tres,,common
+7403,ladyfish,implemented,inactive,missing icon,res://fish/species/ladyfish/ladyfish.tres,,common
+7404,permit,implemented,inactive,missing icon,res://fish/species/permit/permit.tres,,common
+7501,knifefish_clown,implemented,inactive,missing icon,res://fish/species/knifefish_clown/knifefish_clown.tres,,common
+7502,loach_clown,implemented,inactive,missing icon,res://fish/species/loach_clown/loach_clown.tres,,common
+7503,discus,implemented,inactive,missing icon,res://fish/species/discus/discus.tres,,common
+7504,angelfish_freshwater,implemented,inactive,missing icon,res://fish/species/angelfish_freshwater/angelfish_freshwater.tres,,common
+7505,gourami_giant,implemented,inactive,missing icon,res://fish/species/gourami_giant/gourami_giant.tres,,common
+7506,tilapia_nile,implemented,inactive,missing icon,res://fish/species/tilapia_nile/tilapia_nile.tres,,common
+7507,oscar,implemented,inactive,missing icon,res://fish/species/oscar/oscar.tres,,common
+7508,betta_siamese,implemented,inactive,missing icon,res://fish/species/betta_siamese/betta_siamese.tres,,common
+7509,tambaqui,implemented,inactive,missing icon,res://fish/species/tambaqui/tambaqui.tres,,common
+7510,catfish_walking,implemented,inactive,missing icon,res://fish/species/catfish_walking/catfish_walking.tres,,common
+7601,snakehead_giant,implemented,inactive,missing icon,res://fish/species/snakehead_giant/snakehead_giant.tres,,common
+7602,dorado_golden,implemented,inactive,missing icon,res://fish/species/dorado_golden/dorado_golden.tres,,common
+7603,mahseer_golden,implemented,inactive,missing icon,res://fish/species/mahseer_golden/mahseer_golden.tres,,common
+7604,peacock_bass,implemented,inactive,missing icon,res://fish/species/peacock_bass/peacock_bass.tres,,common
+7605,piranha_red_bellied,implemented,inactive,missing icon,res://fish/species/piranha_red_bellied/piranha_red_bellied.tres,,common
+7606,arowana_silver,implemented,inactive,missing icon,res://fish/species/arowana_silver/arowana_silver.tres,,common
+7701,whale_blue,implemented,inactive,missing icon,res://fish/species/whale_blue/whale_blue.tres,,common
+7702,dolphin_bottlenose,implemented,inactive,missing icon,res://fish/species/dolphin_bottlenose/dolphin_bottlenose.tres,,common
+7703,whale_humpback,implemented,inactive,missing icon,res://fish/species/whale_humpback/whale_humpback.tres,,common
+7704,whale_killer,implemented,inactive,missing icon,res://fish/species/whale_killer/whale_killer.tres,,common
+7705,whale_sperm,implemented,inactive,missing icon,res://fish/species/whale_sperm/whale_sperm.tres,,common
