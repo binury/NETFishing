@@ -206,13 +206,35 @@ func _run() -> void:
 	assert(int(save_data.get("save_version", -1)) == 7)
 	assert(PlayerJobService.validate_save_data(save_data.get("jobs", {})))
 
-	session.disconnect_session("Job system validation complete.")
+	_validate_pause_session_switch(main, session)
 	main.queue_free()
 	for _frame: int in 4:
 		await process_frame
 	await create_timer(0.1).timeout
 	print("Job system validation: PASS")
 	quit()
+
+
+func _validate_pause_session_switch(
+	main: Node,
+	session: NetworkSession,
+) -> void:
+	var discovery := main.get_node("%DiscoveryClient") as DiscoveryClient
+	discovery.set("_pending_join_endpoint", "127.0.0.1:18141")
+	discovery.set("_pending_join_room_id", "session-switch-room")
+	discovery.set("_pending_join_token", "session-switch-token")
+	discovery.call(
+		"_set_public_join_state",
+		DiscoveryClient.PublicJoinState.CONNECTING,
+	)
+	main.call("_on_pause_join_game_requested", "127.0.0.1:18141")
+	assert(session.state == NetworkSession.State.CONNECTING)
+	assert(discovery.get("_pending_join_token") == "session-switch-token")
+	var join_probe_timer := discovery.get("_join_probe_timer") as Timer
+	assert(join_probe_timer != null and not join_probe_timer.is_stopped())
+	session.cancel_connection()
+	assert(session.state == NetworkSession.State.INACTIVE)
+	assert(str(discovery.get("_pending_join_token")).is_empty())
 
 
 func _validate_unavailable_fishnet_layout() -> void:

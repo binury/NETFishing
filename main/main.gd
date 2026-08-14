@@ -1555,8 +1555,13 @@ func _on_pause_join_game_requested(endpoint: String) -> void:
 	_join_requested_from_title = false
 	_pending_join_endpoint = endpoint
 	_game_ui.get_pause_menu().close_for_title_transition()
+	var preserved_public_join: bool = (
+		_discovery.preserve_public_join_for_session_switch()
+	)
 	_network_session.disconnect_session("Connecting to another game.")
 	if not _network_session.join_direct(endpoint):
+		if preserved_public_join:
+			_discovery.cancel_pending_public_join()
 		_handle_failed_session_switch(
 			"Could not begin the direct connection."
 		)

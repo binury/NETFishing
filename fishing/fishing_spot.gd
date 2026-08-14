@@ -868,7 +868,7 @@ func _on_cast_completed() -> void:
 		_cast_origin_position.z + _cast_direction.z * withdrawal_cancel_distance
 	)
 	_presentation.set_line_mode(FishingPresentationType.LineMode.SLACK)
-	status_changed.emit("waiting for a bite...")
+	status_changed.emit("")
 
 
 func _consume_active_bait() -> void:
@@ -1131,10 +1131,7 @@ func _on_catch_escaped() -> void:
 		return
 
 	_stop_fight_audio()
-	var fish_name: String = "the fish"
-	if _selected_fish != null and not _selected_fish.display_name.is_empty():
-		fish_name = "the %s" % _selected_fish.display_name
-	_cleanup_attempt("%s got away!" % fish_name, &"escape")
+	_cleanup_attempt("", &"escape")
 
 
 func _on_outcome_completed(outcome: StringName) -> void:
@@ -1597,7 +1594,7 @@ func _on_network_cast_accepted(
 	_network_input_resend_elapsed = 0.0
 	_presentation.show_withdrawal_position(_bobber_water_position)
 	_presentation.set_line_mode(FishingPresentationType.LineMode.SLACK)
-	status_changed.emit("waiting for a bite...")
+	status_changed.emit("")
 
 
 func _on_network_cast_rejected(message: String) -> void:

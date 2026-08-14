@@ -5,7 +5,12 @@ const UPDATE_INTERVAL_SECONDS: float = 0.1
 const SUN_YAW_DEGREES: float = -32.0
 const WEATHER_TRANSITION_SECONDS: float = 10.0
 const RAIN_EMITTER_OFFSET := Vector3(0.0, 7.0, 0.0)
-const RAIN_PARTICLE_AMOUNT: int = 560
+const RAIN_EMISSION_EXTENTS := Vector3(13.0, 1.0, 13.0)
+const RAIN_VISIBILITY_AABB := AABB(
+	Vector3(-13.5, -9.0, -13.5),
+	Vector3(27.0, 12.0, 27.0),
+)
+const RAIN_PARTICLE_AMOUNT: int = 2240
 const RAIN_VELOCITY_MIN: float = 16.0
 const RAIN_VELOCITY_MAX: float = 20.0
 const RAIN_DROP_SIZE := Vector3(0.014, 0.34, 0.014)
@@ -187,14 +192,12 @@ func _prepare_rain() -> void:
 	_rain.lifetime = 1.25
 	_rain.fixed_fps = 30
 	_rain.local_coords = false
-	_rain.visibility_aabb = AABB(
-		Vector3(-7.0, -9.0, -7.0), Vector3(14.0, 12.0, 14.0)
-	)
+	_rain.visibility_aabb = RAIN_VISIBILITY_AABB
 	var process_material := ParticleProcessMaterial.new()
 	process_material.emission_shape = (
 		ParticleProcessMaterial.EMISSION_SHAPE_BOX
 	)
-	process_material.emission_box_extents = Vector3(6.5, 1.0, 6.5)
+	process_material.emission_box_extents = RAIN_EMISSION_EXTENTS
 	process_material.direction = Vector3.DOWN
 	process_material.spread = 5.0
 	process_material.initial_velocity_min = RAIN_VELOCITY_MIN

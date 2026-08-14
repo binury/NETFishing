@@ -456,8 +456,14 @@ func _validate_weather_presentation() -> void:
 	assert(rain.emitting)
 	assert(rain.amount_ratio > 0.99)
 	assert(rain.amount == WorldTimeVisualControllerType.RAIN_PARTICLE_AMOUNT)
+	assert(rain.visibility_aabb == (
+		WorldTimeVisualControllerType.RAIN_VISIBILITY_AABB
+	))
 	var rain_material := rain.process_material as ParticleProcessMaterial
 	assert(rain_material != null)
+	assert(rain_material.emission_box_extents.is_equal_approx(
+		WorldTimeVisualControllerType.RAIN_EMISSION_EXTENTS
+	))
 	assert(is_equal_approx(
 		rain_material.initial_velocity_min,
 		WorldTimeVisualControllerType.RAIN_VELOCITY_MIN,

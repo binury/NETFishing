@@ -85,6 +85,7 @@ var _join_request_in_flight: bool = false
 var _pending_join_endpoint: String = ""
 var _pending_join_token: String = ""
 var _pending_join_room_id: String = ""
+var _preserve_pending_join_on_inactive: bool = false
 var _upnp_thread: Thread
 var _upnp_mapping_in_progress: bool = false
 var _upnp_operation_is_renewal: bool = false
@@ -289,6 +290,17 @@ func set_discoverable(enabled: bool) -> bool:
 
 func is_public_join_preparing() -> bool:
 	return _join_request_in_flight
+
+
+func preserve_public_join_for_session_switch() -> bool:
+	_preserve_pending_join_on_inactive = not _pending_join_token.is_empty()
+	return _preserve_pending_join_on_inactive
+
+
+func cancel_pending_public_join() -> void:
+	_preserve_pending_join_on_inactive = false
+	_set_public_join_state(PublicJoinState.IDLE)
+	_clear_pending_join()
 
 
 func prepare_public_join(room: Dictionary) -> bool:
@@ -913,18 +925,30 @@ func _discovery_version_mismatch_message(required_version: String) -> String:
 
 func _on_session_state_changed(state: NetworkSession.State) -> void:
 	if state == NetworkSession.State.CONNECTING and not _pending_join_token.is_empty():
+		_preserve_pending_join_on_inactive = false
 		_set_public_join_state(PublicJoinState.CONNECTING)
 		_join_probe_timer.start()
 		call_deferred("_send_pending_join_probe")
 	elif state in [
 		NetworkSession.State.JOINED_CLIENT,
 		NetworkSession.State.SERVER_LOST,
-		NetworkSession.State.INACTIVE,
 	]:
+		_preserve_pending_join_on_inactive = false
 		_set_public_join_state(PublicJoinState.IDLE)
 		_join_probe_timer.stop()
 		_clear_pending_join()
+	elif state == NetworkSession.State.INACTIVE:
+		if (
+			_preserve_pending_join_on_inactive
+			and not _pending_join_token.is_empty()
+		):
+			_preserve_pending_join_on_inactive = false
+		else:
+			_set_public_join_state(PublicJoinState.IDLE)
+			_join_probe_timer.stop()
+			_clear_pending_join()
 	elif state == NetworkSession.State.CONNECTION_FAILED:
+		_preserve_pending_join_on_inactive = false
 		_set_public_join_state(PublicJoinState.ERROR)
 		_join_probe_timer.stop()
 		_clear_pending_join()

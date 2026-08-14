@@ -31,6 +31,9 @@ func _run() -> void:
 		"%NetworkFishingService"
 	) as NetworkFishingService
 	var fishing_spot := main.get_node("%FishingSpot") as FishingSpotType
+	var game_ui := main.get_node("UIPresentation/UIViewport/GameUI")
+	var fishing_status := game_ui.get_node("%StatusLabel") as Label
+	var fishing_panel := game_ui.get_node("%FishingPanel") as PanelContainer
 	var player := main.get("_player") as Player
 	assert(session.is_host())
 	assert(not session.is_open_host())
@@ -71,6 +74,9 @@ func _run() -> void:
 		await process_frame
 	assert(fishing_spot.state == FishingSpotType.FishingState.WAITING_FOR_BITE)
 	assert(service.has_local_attempt())
+	assert(fishing_status.text.is_empty())
+	assert(not fishing_status.visible)
+	assert(not fishing_panel.visible)
 	var attempts: Dictionary = service.get("_attempts")
 	var attempt: NetworkFishingAttempt = attempts.get(session.get_local_peer_id())
 	assert(attempt != null)
@@ -164,9 +170,12 @@ func _run() -> void:
 			<= FishQuality.BARRIER_HEALTH_MAXIMUMS[fish_catch.quality]
 		)
 	reference_controller.queue_free()
-	service.call("_cancel_attempt", session.get_local_peer_id(), "")
+	service.call("_on_attempt_escaped", session.get_local_peer_id())
 	await process_frame
 	assert(not service.has_local_attempt())
+	assert(fishing_status.text.is_empty())
+	assert(not fishing_status.visible)
+	assert(not fishing_panel.visible)
 
 	print("Fishing authority validation: PASS")
 	session.disconnect_session("")

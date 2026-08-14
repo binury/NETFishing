@@ -953,7 +953,7 @@ func _on_attempt_escaped(peer_id: int) -> void:
 	if attempt == null:
 		return
 	attempt.phase = NetworkFishingAttempt.Phase.ESCAPED
-	_broadcast_public_outcome(attempt, &"escape", "The fish got away!")
+	_broadcast_public_outcome(attempt, &"escape", "")
 	_dispose_attempt(peer_id)
 
 
