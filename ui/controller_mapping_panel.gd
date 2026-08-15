@@ -15,6 +15,7 @@ var _binding_buttons: Dictionary = {}
 var _controller_label: Label
 var _instruction_label: Label
 var _progress_label: Label
+var _mapping_scroll: ScrollContainer
 var _auto_map_button: Button
 var _reset_button: Button
 var _close_button: Button
@@ -258,17 +259,18 @@ func _build_interface() -> void:
 	)
 	page.add_child(_progress_label)
 
-	var scroll := ScrollContainer.new()
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	page.add_child(scroll)
+	_mapping_scroll = ScrollContainer.new()
+	_mapping_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_mapping_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_mapping_scroll.follow_focus = true
+	page.add_child(_mapping_scroll)
 
 	var role_grid := GridContainer.new()
 	role_grid.columns = 2
 	role_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	role_grid.add_theme_constant_override("h_separation", 12)
 	role_grid.add_theme_constant_override("v_separation", 7)
-	scroll.add_child(role_grid)
+	_mapping_scroll.add_child(role_grid)
 
 	for role: StringName in ControllerMappingManagerType.ROLE_ORDER:
 		var role_label := Label.new()
@@ -325,6 +327,65 @@ func _build_interface() -> void:
 	UtilityPageStyleType.apply_ocean_button(_close_button)
 	_close_button.pressed.connect(close_panel)
 	footer.add_child(_close_button)
+	_configure_mapping_navigation()
+
+
+func _configure_mapping_navigation() -> void:
+	var buttons: Array[Button] = []
+	for role: StringName in ControllerMappingManagerType.ROLE_ORDER:
+		var binding_button := _binding_buttons.get(role) as Button
+		if binding_button != null:
+			buttons.append(binding_button)
+	if buttons.is_empty():
+		return
+	for index: int in buttons.size():
+		var button: Button = buttons[index]
+		var previous: Control = buttons[index - 1] if index > 0 else button
+		var next: Control = (
+			buttons[index + 1]
+			if index < buttons.size() - 1
+			else _close_button
+		)
+		_set_focus_neighbors(button, button, button, previous, next)
+		button.focus_previous = button.get_path_to(previous)
+		button.focus_next = button.get_path_to(next)
+	var last_button: Button = buttons.back()
+	_set_focus_neighbors(
+		_auto_map_button,
+		_auto_map_button,
+		_reset_button,
+		last_button,
+		_auto_map_button,
+	)
+	_set_focus_neighbors(
+		_reset_button,
+		_auto_map_button,
+		_close_button,
+		last_button,
+		_reset_button,
+	)
+	_set_focus_neighbors(
+		_close_button,
+		_reset_button,
+		_close_button,
+		last_button,
+		_close_button,
+	)
+	_close_button.focus_previous = _close_button.get_path_to(last_button)
+	_close_button.focus_next = _close_button.get_path_to(_auto_map_button)
+
+
+func _set_focus_neighbors(
+	control: Control,
+	left: Control,
+	right: Control,
+	top: Control,
+	bottom: Control,
+) -> void:
+	control.focus_neighbor_left = control.get_path_to(left)
+	control.focus_neighbor_right = control.get_path_to(right)
+	control.focus_neighbor_top = control.get_path_to(top)
+	control.focus_neighbor_bottom = control.get_path_to(bottom)
 
 
 func _begin_auto_map() -> void:

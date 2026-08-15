@@ -55,6 +55,7 @@
 [ext_resource type="Script" uid="uid://b0c3o2vy76fg3" path="res://world/shoreline_ambience.gd" id="54_shoreline_ambience"]
 [ext_resource type="AudioStream" uid="uid://dck3tf8qkadea" path="res://audio/ambience/waves.wav" id="55_waves"]
 [ext_resource type="Script" uid="uid://c80x8jkdnx0xy" path="res://settings/controller_mapping_manager.gd" id="56_controller_mapping"]
+[ext_resource type="Script" path="res://settings/keyboard_mouse_mapping_manager.gd" id="keyboard_mouse_mapping"]
 [ext_resource type="Script" uid="uid://d0jv8n2nfqia0" path="res://network/discovery_client.gd" id="57_discovery"]
 [ext_resource type="AudioStream" uid="uid://c4y8puv0n6xk8" path="res://audio/music/world/craft.mp3" id="dusk_music"]
 [ext_resource type="Resource" path="res://gathering/catalog/gatherable_catalog.tres" id="58_gatherable_catalog"]
@@ -390,6 +391,10 @@ script = ExtResource("10_settings")
 [node name="ControllerMappingManager" type="Node" parent="." unique_id=1198390067]
 unique_name_in_owner = true
 script = ExtResource("56_controller_mapping")
+
+[node name="KeyboardMouseMappingManager" type="Node" parent="."]
+unique_name_in_owner = true
+script = ExtResource("keyboard_mouse_mapping")
 
 [node name="TitleMusic" type="AudioStreamPlayer" parent="." unique_id=1292939956]
 unique_name_in_owner = true

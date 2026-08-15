@@ -25,6 +25,15 @@ const ControllerMappingManagerType = preload(
 const ControllerMappingPanelType = preload(
 	"res://ui/controller_mapping_panel.gd"
 )
+const KeyboardMouseMappingManagerType = preload(
+	"res://settings/keyboard_mouse_mapping_manager.gd"
+)
+const KeyboardMouseMappingPanelType = preload(
+	"res://ui/keyboard_mouse_mapping_panel.gd"
+)
+const DialogControllerNavigationType = preload(
+	"res://ui/file_dialog_controller_navigation.gd"
+)
 
 signal applied
 signal closed
@@ -110,6 +119,8 @@ var _host_identity: HostIdentityStore
 var _interface_fonts: InterfaceFontController
 var _controller_mapping_manager: ControllerMappingManagerType
 var _controller_mapping_panel: ControllerMappingPanelType
+var _keyboard_mouse_mapping_manager: KeyboardMouseMappingManagerType
+var _keyboard_mouse_mapping_panel: KeyboardMouseMappingPanelType
 var _data_folder_dialog: FileDialog
 var _backup_file_dialog: FileDialog
 var _export_file_dialog: FileDialog
@@ -144,6 +155,7 @@ func _ready() -> void:
 	%SoundBackButton.pressed.connect(handle_back)
 	%ControlsBackButton.pressed.connect(handle_back)
 	%ControllerMapping.pressed.connect(_open_controller_mapping)
+	%KeyboardMapping.pressed.connect(_open_keyboard_mouse_mapping)
 	%AccessibilityBackButton.pressed.connect(handle_back)
 	%DataBackButton.pressed.connect(handle_back)
 	%RootBackButton.gui_input.connect(_on_back_bubble_gui_input)
@@ -230,6 +242,11 @@ func _ready() -> void:
 	_controller_mapping_panel.closed.connect(
 		_on_controller_mapping_panel_closed
 	)
+	_keyboard_mouse_mapping_panel = KeyboardMouseMappingPanelType.new()
+	add_child(_keyboard_mouse_mapping_panel)
+	_keyboard_mouse_mapping_panel.closed.connect(
+		_on_keyboard_mouse_mapping_panel_closed
+	)
 	_style_data_page()
 	_style_sound_page()
 	call_deferred("_refresh_panel_size")
@@ -248,6 +265,13 @@ func setup_controller_mapping(
 ) -> void:
 	_controller_mapping_manager = mapping_manager
 	_controller_mapping_panel.setup(_controller_mapping_manager)
+
+
+func setup_keyboard_mouse_mapping(
+	mapping_manager: KeyboardMouseMappingManagerType,
+) -> void:
+	_keyboard_mouse_mapping_manager = mapping_manager
+	_keyboard_mouse_mapping_panel.setup(_keyboard_mouse_mapping_manager)
 
 
 func setup_data_and_identity(
@@ -328,6 +352,11 @@ func _finish_panel_close(applied_result: bool) -> void:
 		and _controller_mapping_panel.is_open()
 	):
 		_controller_mapping_panel.close_panel()
+	if (
+		_keyboard_mouse_mapping_panel != null
+		and _keyboard_mouse_mapping_panel.is_open()
+	):
+		_keyboard_mouse_mapping_panel.close_panel()
 	for page: SettingsBubblePage in _pages.values():
 		page.hide_page()
 	_page_stack.clear()
@@ -341,6 +370,12 @@ func _finish_panel_close(applied_result: bool) -> void:
 
 
 func handle_back() -> void:
+	if (
+		_keyboard_mouse_mapping_panel != null
+		and _keyboard_mouse_mapping_panel.is_open()
+	):
+		_keyboard_mouse_mapping_panel.request_back()
+		return
 	if (
 		_controller_mapping_panel != null
 		and _controller_mapping_panel.is_open()
@@ -366,6 +401,17 @@ func _on_controller_mapping_panel_closed() -> void:
 	%ControllerMapping.grab_focus()
 
 
+func _open_keyboard_mouse_mapping() -> void:
+	if _keyboard_mouse_mapping_manager == null:
+		_feedback.text = "no keyboard binding service is available"
+		return
+	_keyboard_mouse_mapping_panel.open_panel()
+
+
+func _on_keyboard_mouse_mapping_panel_closed() -> void:
+	%KeyboardMapping.grab_focus()
+
+
 func get_active_page_id() -> StringName:
 	return _page_stack.back() if not _page_stack.is_empty() else StringName()
 
@@ -374,6 +420,16 @@ func is_controller_mapping_capturing() -> bool:
 	return (
 		_controller_mapping_panel != null
 		and _controller_mapping_panel.is_capturing()
+	)
+
+
+func is_input_mapping_capturing() -> bool:
+	return (
+		is_controller_mapping_capturing()
+		or (
+			_keyboard_mouse_mapping_panel != null
+			and _keyboard_mouse_mapping_panel.is_capturing()
+		)
 	)
 
 
@@ -579,6 +635,9 @@ func _show_existing_data_folder_choice(path: String) -> void:
 	_interface_fonts.apply_utility_theme(dialog)
 	add_child(dialog)
 	dialog.popup_centered(Vector2i(620, 340))
+	_configure_confirmation_dialog.call_deferred(
+		dialog, dialog.get_cancel_button()
+	)
 
 
 func _choose_identity_export(identity_type: String) -> void:
@@ -662,7 +721,9 @@ func _show_passphrase_dialog(exporting: bool) -> void:
 		if exporting else "Enter the backup passphrase."
 	)
 	_passphrase_dialog.popup_centered(Vector2i(560, 300))
-	_passphrase_entry.grab_focus()
+	_configure_confirmation_dialog.call_deferred(
+		_passphrase_dialog, _passphrase_entry
+	)
 
 
 func _submit_identity_passphrase() -> void:
@@ -707,6 +768,9 @@ func _show_identity_replacement_confirmation() -> void:
 	_interface_fonts.apply_utility_theme(dialog)
 	add_child(dialog)
 	dialog.popup_centered(Vector2i(620, 360))
+	_configure_confirmation_dialog.call_deferred(
+		dialog, dialog.get_cancel_button()
+	)
 
 
 func _advance_identity_replacement(dialog: ConfirmationDialog) -> void:
@@ -717,6 +781,9 @@ func _advance_identity_replacement(dialog: ConfirmationDialog) -> void:
 			"Replace the active identity and archive the current key locally?"
 		)
 		dialog.call_deferred("popup_centered", Vector2i(560, 280))
+		_configure_confirmation_dialog.call_deferred(
+			dialog, dialog.get_cancel_button()
+		)
 		return
 	_confirm_identity_replacement(dialog)
 
@@ -730,6 +797,16 @@ func _confirm_identity_replacement(dialog: ConfirmationDialog) -> void:
 	)
 	_pending_import_data.clear()
 	dialog.queue_free()
+
+
+func _configure_confirmation_dialog(
+	dialog: ConfirmationDialog,
+	preferred_control: Control,
+) -> void:
+	if dialog != null and is_instance_valid(dialog) and dialog.visible:
+		DialogControllerNavigationType.configure_scope(
+			dialog, preferred_control
+		)
 
 
 func _identity_operation_allowed() -> bool:

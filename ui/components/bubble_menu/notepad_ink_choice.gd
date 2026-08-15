@@ -169,10 +169,12 @@ func _on_choice_gui_input(event: InputEvent, index: int) -> void:
 		close_choices()
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("ui_up"):
-		_choice_buttons[posmod(index - 1, _choice_buttons.size())].grab_focus()
+		_choice_buttons[maxi(index - 1, 0)].grab_focus()
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("ui_down"):
-		_choice_buttons[(index + 1) % _choice_buttons.size()].grab_focus()
+		_choice_buttons[mini(
+			index + 1, _choice_buttons.size() - 1
+		)].grab_focus()
 		get_viewport().set_input_as_handled()
 
 

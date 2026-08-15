@@ -48,6 +48,9 @@ const PlayerSettingsManagerType = preload(
 const ControllerMappingManagerType = preload(
 	"res://settings/controller_mapping_manager.gd"
 )
+const KeyboardMouseMappingManagerType = preload(
+	"res://settings/keyboard_mouse_mapping_manager.gd"
+)
 const WorldTimeServiceType = preload("res://world/world_time_service.gd")
 const WorldWeatherServiceType = preload(
 	"res://world/world_weather_service.gd"
@@ -198,6 +201,7 @@ var _shared_trigger_rest_by_device: Dictionary[int, float] = {}
 var _controller_mapping_manager: ControllerMappingManagerType
 var _settings_manager: PlayerSettingsManagerType
 var _controller_text_entry_request: Callable
+var _controller_text_entry_is_open: Callable
 
 
 func _ready() -> void:
@@ -251,8 +255,28 @@ func _ready() -> void:
 		Input.joy_connection_changed.connect(_on_controller_connection_changed)
 
 
-func set_controller_text_entry_request(request: Callable) -> void:
+func set_controller_text_entry_request(
+	request: Callable,
+	is_open: Callable = Callable(),
+) -> void:
 	_controller_text_entry_request = request
+	_controller_text_entry_is_open = is_open
+
+
+func request_controller_text_entry_for(control: Control = null) -> bool:
+	return (
+		bool(_controller_text_entry_request.call(control))
+		if _controller_text_entry_request.is_valid()
+		else false
+	)
+
+
+func is_controller_text_entry_open() -> bool:
+	return (
+		bool(_controller_text_entry_is_open.call())
+		if _controller_text_entry_is_open.is_valid()
+		else false
+	)
 
 
 func setup(
@@ -603,10 +627,7 @@ func _handle_controller_chat_controls(event: InputEvent) -> bool:
 		_chat_ui.refocus_gameplay()
 		return true
 	if accept_pressed:
-		if (
-			_controller_text_entry_request.is_valid()
-			and bool(_controller_text_entry_request.call())
-		):
+		if request_controller_text_entry_for():
 			return true
 		return _chat_ui.request_virtual_keyboard()
 	return false
@@ -1175,16 +1196,33 @@ func setup_controller_mapping(
 	_emote_radial_menu.setup_controller_mapping(_controller_mapping_manager)
 	_quick_radial_menu.setup_controller_mapping(_controller_mapping_manager)
 	_player_menu.setup_controller_mapping(_controller_mapping_manager)
+	_fishing_shop.setup_controller_mapping(_controller_mapping_manager)
 	for panel: SettingsPanelType in [
 		_title_settings_panel, _pause_settings_panel
 	]:
 		panel.setup_controller_mapping(_controller_mapping_manager)
 
 
+func setup_keyboard_mouse_mapping(
+	mapping_manager: KeyboardMouseMappingManagerType,
+) -> void:
+	for panel: SettingsPanelType in [
+		_title_settings_panel, _pause_settings_panel
+	]:
+		panel.setup_keyboard_mouse_mapping(mapping_manager)
+
+
 func is_controller_mapping_capturing() -> bool:
 	return (
 		_title_settings_panel.is_controller_mapping_capturing()
 		or _pause_settings_panel.is_controller_mapping_capturing()
+	)
+
+
+func is_input_mapping_capturing() -> bool:
+	return (
+		_title_settings_panel.is_input_mapping_capturing()
+		or _pause_settings_panel.is_input_mapping_capturing()
 	)
 
 
@@ -1199,7 +1237,7 @@ func _update_controller_menu_scroll(delta: float) -> void:
 	if (
 		_controller_mapping_manager == null
 		or _virtual_mouse_active
-		or is_controller_mapping_capturing()
+		or is_input_mapping_capturing()
 	):
 		return
 	var stick_y: float = _controller_menu_scroll_axis()

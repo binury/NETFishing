@@ -11,6 +11,11 @@ enum View {
 	PAYMENTS,
 }
 
+enum ControllerZone {
+	TABS,
+	CLAIMS,
+}
+
 var _jobs: PlayerJobService
 var _world_time: WorldTimeService
 var _header: Label
@@ -18,11 +23,15 @@ var _refresh_label: Label
 var _forecast_list: HBoxContainer
 var _tabs: HBoxContainer
 var _list: VBoxContainer
+var _jobs_scroll: ScrollContainer
 var _status: Label
 var _current_view: View = View.DAILY
 var _forecast_start_index: int = -1
 var _active: bool = false
 var _interactive: bool = false
+var _controller_zone: ControllerZone = ControllerZone.TABS
+var _claim_buttons: Array[Button] = []
+var _controller_mapping_manager: ControllerMappingManager
 
 
 func _ready() -> void:
@@ -38,6 +47,10 @@ func setup(jobs: PlayerJobService, world_time: WorldTimeService) -> void:
 	_jobs.changed.connect(_refresh)
 	_jobs.status_changed.connect(_on_status_changed)
 	_refresh()
+
+
+func setup_controller_mapping(mapping_manager: ControllerMappingManager) -> void:
+	_controller_mapping_manager = mapping_manager
 
 
 func activate() -> void:
@@ -68,6 +81,7 @@ func set_interactive(interactive: bool) -> void:
 				button.focus_mode = (
 					Control.FOCUS_ALL
 					if interactive
+					and _controller_zone == ControllerZone.TABS
 					else Control.FOCUS_NONE
 				)
 				button.mouse_filter = (
@@ -75,20 +89,108 @@ func set_interactive(interactive: bool) -> void:
 					if interactive
 					else Control.MOUSE_FILTER_IGNORE
 				)
-	_refresh()
+	for claim_button: Button in _claim_buttons:
+		if not is_instance_valid(claim_button):
+			continue
+		claim_button.disabled = not interactive
+		claim_button.focus_mode = (
+			Control.FOCUS_ALL
+			if interactive
+			and _controller_zone == ControllerZone.CLAIMS
+			and not claim_button.disabled
+			else Control.FOCUS_NONE
+		)
+		claim_button.mouse_filter = (
+			Control.MOUSE_FILTER_STOP
+			if interactive else Control.MOUSE_FILTER_IGNORE
+		)
 
 
 func focus_initial() -> void:
-	if _interactive and _tabs != null and _tabs.get_child_count() > 0:
+	if not _interactive:
+		return
+	if _controller_zone == ControllerZone.CLAIMS:
+		if not _claim_buttons.is_empty():
+			_claim_buttons.front().grab_focus()
+		return
+	if _tabs != null and _tabs.get_child_count() > 0:
 		var button := _tabs.get_child(int(_current_view)) as Button
 		if button != null:
 			button.grab_focus()
 
 
-func _process(_delta: float) -> void:
+func reset_controller_zone() -> void:
+	_controller_zone = ControllerZone.TABS
+	set_interactive(_interactive)
+	call_deferred("focus_initial")
+
+
+func handle_controller_input(event: InputEvent) -> bool:
+	if not _active or not _interactive:
+		return false
+	if _handle_controller_scroll(event):
+		return true
+	if event.is_action_pressed("ui_cancel"):
+		if _controller_zone == ControllerZone.CLAIMS:
+			_controller_zone = ControllerZone.TABS
+			set_interactive(_interactive)
+			call_deferred("focus_initial")
+			return true
+		return false
+	if _controller_zone == ControllerZone.TABS:
+		var direction: int = 0
+		if event.is_action_pressed("ui_left"):
+			direction = -1
+		elif event.is_action_pressed("ui_right"):
+			direction = 1
+		if direction != 0:
+			var target_index: int = clampi(
+				int(_current_view) + direction,
+				0,
+				View.size() - 1,
+			)
+			if target_index != int(_current_view):
+				_select_view(target_index as View)
+			return true
+		if event.is_action_pressed("ui_accept"):
+			if not _claim_buttons.is_empty():
+				_controller_zone = ControllerZone.CLAIMS
+				set_interactive(_interactive)
+				call_deferred("focus_initial")
+			return true
+	return false
+
+
+func _handle_controller_scroll(event: InputEvent) -> bool:
+	var motion := event as InputEventJoypadMotion
+	if motion == null or _jobs_scroll == null:
+		return false
+	var uses_right_y: bool = (
+		_controller_mapping_manager.event_uses_role(
+			event,
+			ControllerMappingManager.ROLE_RIGHT_STICK_Y,
+		)
+		if _controller_mapping_manager != null
+		else motion.axis == JOY_AXIS_RIGHT_Y
+	)
+	if not uses_right_y:
+		return false
+	return true
+
+
+func _process(delta: float) -> void:
 	if _active and _jobs != null:
 		_refresh_label.text = _daily_refresh_text()
 		_refresh_forecast(false)
+		var right_y: float = (
+			_controller_mapping_manager.get_role_axis(
+				ControllerMappingManager.ROLE_RIGHT_STICK_Y
+			)
+			if _controller_mapping_manager != null
+			else Input.get_joy_axis(0, JOY_AXIS_RIGHT_Y)
+		)
+		if _jobs_scroll != null and absf(right_y) >= 0.18:
+			_jobs_scroll.scroll_vertical += roundi(right_y * 320.0 * delta)
 
 
 func _build_laptop() -> void:
@@ -177,15 +279,15 @@ func _build_laptop() -> void:
 	jobs_column.add_theme_constant_override("separation", 8)
 	layout.add_child(jobs_column)
 
-	var scroll := ScrollContainer.new()
-	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	jobs_column.add_child(scroll)
+	_jobs_scroll = ScrollContainer.new()
+	_jobs_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_jobs_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_jobs_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	jobs_column.add_child(_jobs_scroll)
 	_list = VBoxContainer.new()
 	_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_list.add_theme_constant_override("separation", 7)
-	scroll.add_child(_list)
+	_jobs_scroll.add_child(_list)
 
 	_status = Label.new()
 	_status.add_theme_font_size_override("font_size", 16)
@@ -212,6 +314,7 @@ func _refresh() -> void:
 	for child: Node in _list.get_children():
 		_list.remove_child(child)
 		child.queue_free()
+	_claim_buttons.clear()
 	match _current_view:
 		View.DAILY:
 			_build_job_rows(_jobs.get_daily_jobs(), "no daily jobs available")
@@ -221,6 +324,10 @@ func _refresh() -> void:
 			)
 		View.PAYMENTS:
 			_build_payment_rows()
+	if _controller_zone == ControllerZone.CLAIMS and _claim_buttons.is_empty():
+		_controller_zone = ControllerZone.TABS
+	set_interactive(_interactive)
+	ControllerFocusNavigation.configure_spatial_neighbors(_claim_buttons)
 
 
 func _build_job_rows(jobs: Array[Dictionary], empty_text: String) -> void:
@@ -311,6 +418,8 @@ func _build_job_rows(jobs: Array[Dictionary], empty_text: String) -> void:
 		)
 		claim.pressed.connect(_claim.bind(claim_id))
 		UtilityPageStyle.apply_compact_ocean_button(claim)
+		if claimable:
+			_claim_buttons.append(claim)
 		content.add_child(claim)
 		_list.add_child(row)
 
@@ -357,6 +466,7 @@ func _build_payment_rows() -> void:
 			_claim.bind(str(reward.get("claim_id", "")))
 		)
 		UtilityPageStyle.apply_ocean_button(claim)
+		_claim_buttons.append(claim)
 		content.add_child(claim)
 		_list.add_child(row)
 

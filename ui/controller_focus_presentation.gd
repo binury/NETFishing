@@ -70,11 +70,33 @@ func _set_controller_active(active: bool) -> void:
 	if _controller_active == active:
 		return
 	_controller_active = active
-	_apply_to_focus(get_viewport().gui_get_focus_owner())
+	var focus_owner: Control = get_viewport().gui_get_focus_owner()
+	_apply_to_focus(focus_owner)
+	if _controller_active:
+		_queue_focus_visibility_update(focus_owner)
 
 
 func _on_focus_changed(control: Control) -> void:
 	_apply_to_focus(control)
+	if _controller_active:
+		_queue_focus_visibility_update(control)
+
+
+func _queue_focus_visibility_update(control: Control) -> void:
+	if control == null:
+		return
+	_ensure_focus_visible.call_deferred(control)
+
+
+func _ensure_focus_visible(control: Control) -> void:
+	if not is_instance_valid(control) or not control.is_visible_in_tree():
+		return
+	var ancestor: Node = control.get_parent()
+	while ancestor != null:
+		var scroll := ancestor as ScrollContainer
+		if scroll != null and scroll.is_visible_in_tree():
+			scroll.ensure_control_visible(control)
+		ancestor = ancestor.get_parent()
 
 
 func _apply_to_focus(control: Control) -> void:

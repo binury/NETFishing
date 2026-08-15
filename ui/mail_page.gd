@@ -31,6 +31,8 @@ var _compose: Control
 var _letter: Control
 var _inbox_list: VBoxContainer
 var _empty_label: Label
+var _send_mail_button: Button
+var _archive_view_button: Button
 var _recipient: OptionButton
 var _greeting: OptionButton
 var _body: TextEdit
@@ -45,16 +47,20 @@ var _attachment_amount_currency_icon: TextureRect
 var _amount_minus: Button
 var _amount_plus: Button
 var _attachment_summary: RichTextLabel
+var _compose_cancel: Button
 var _send_button: Button
 var _status: Label
 var _letter_text: Label
 var _letter_gift: RichTextLabel
+var _letter_close: Button
 var _accept: Button
 var _decline: Button
 var _archive: Button
 var _delete: Button
 var _current_mail_id := ""
 var _showing_archive := false
+var _active: bool = false
+var _interactive: bool = false
 
 
 func _ready() -> void:
@@ -85,13 +91,16 @@ func setup(
 
 
 func activate() -> void:
+	_active = true
 	_show_inbox()
-	call_deferred("_focus_first")
+	call_deferred("_refresh_controller_navigation")
 
 
 func deactivate() -> void:
+	_active = false
 	_current_mail_id = ""
 	_show_inbox()
+	set_interactive(false)
 
 
 func consume_escape() -> bool:
@@ -106,12 +115,263 @@ func is_composing_letter() -> bool:
 
 
 func set_interactive(value: bool) -> void:
-	mouse_filter = Control.MOUSE_FILTER_PASS if value else Control.MOUSE_FILTER_IGNORE
-	for node: Node in find_children("*", "BaseButton", true, false):
-		(node as BaseButton).focus_mode = (
-			Control.FOCUS_ALL if value and node.is_visible_in_tree()
+	_interactive = value and _active
+	mouse_filter = (
+		Control.MOUSE_FILTER_PASS
+		if _interactive else Control.MOUSE_FILTER_IGNORE
+	)
+	_refresh_controller_navigation()
+
+
+func reset_controller_zone() -> void:
+	_show_inbox()
+	call_deferred("_refresh_controller_navigation")
+
+
+func handle_controller_input(event: InputEvent) -> bool:
+	if not _active or not _interactive:
+		return false
+	if event.is_action_pressed("ui_cancel"):
+		return consume_escape()
+	return false
+
+
+func _refresh_controller_navigation() -> void:
+	var controls: Array[Control] = []
+	_collect_visible_controller_controls(self, controls)
+	for control: Control in controls:
+		var button := control as BaseButton
+		control.focus_mode = (
+			Control.FOCUS_ALL
+			if _interactive and (button == null or not button.disabled)
 			else Control.FOCUS_NONE
 		)
+	ControllerFocusNavigation.configure_spatial_neighbors(controls)
+	if _compose != null and _compose.visible:
+		_configure_compose_controller_navigation()
+	elif _inbox != null and _inbox.visible:
+		_configure_inbox_controller_navigation()
+	elif _letter != null and _letter.visible:
+		_configure_letter_controller_navigation()
+	if not _interactive or controls.is_empty():
+		return
+	var focus_owner: Control = get_viewport().gui_get_focus_owner()
+	if focus_owner == null or not is_ancestor_of(focus_owner):
+		controls.sort_custom(func(first: Control, second: Control) -> bool:
+			if not is_equal_approx(first.global_position.y, second.global_position.y):
+				return first.global_position.y < second.global_position.y
+			return first.global_position.x < second.global_position.x
+		)
+		controls.front().grab_focus()
+
+
+func _configure_inbox_controller_navigation() -> void:
+	if not _interactive:
+		return
+	var entries: Array[Control] = []
+	for child: Node in _inbox_list.get_children():
+		var button := child as Button
+		if button != null and _controller_focus_eligible(button):
+			entries.append(button)
+	var first_entry: Control = (
+		entries.front() if not entries.is_empty() else _archive_view_button
+	)
+	_set_compose_neighbors(
+		_archive_view_button,
+		_archive_view_button,
+		_send_mail_button,
+		_archive_view_button,
+		first_entry,
+	)
+	_set_compose_neighbors(
+		_send_mail_button,
+		_archive_view_button,
+		_send_mail_button,
+		_send_mail_button,
+		entries.front() if not entries.is_empty() else _send_mail_button,
+	)
+	for index: int in entries.size():
+		var entry: Control = entries[index]
+		_set_compose_neighbors(
+			entry,
+			entry,
+			entry,
+			entries[index - 1] if index > 0 else _archive_view_button,
+			entries[index + 1] if index < entries.size() - 1 else entry,
+		)
+	var traversal: Array[Control] = [
+		_archive_view_button,
+		_send_mail_button,
+	]
+	traversal.append_array(entries)
+	ControllerFocusNavigation.configure_traversal(traversal)
+
+
+func _configure_letter_controller_navigation() -> void:
+	if not _interactive:
+		return
+	var pending_gift: bool = (
+		_accept != null
+		and _accept.is_visible_in_tree()
+		and _decline != null
+		and _decline.is_visible_in_tree()
+	)
+	if pending_gift:
+		_set_compose_neighbors(
+			_accept, _accept, _accept, _accept, _decline
+		)
+		_set_compose_neighbors(
+			_decline, _decline, _decline, _accept, _delete
+		)
+	_set_compose_neighbors(
+		_letter_close,
+		_letter_close,
+		_archive,
+		_letter_close,
+		_letter_close,
+	)
+	_set_compose_neighbors(
+		_archive,
+		_letter_close,
+		_delete,
+		_archive,
+		_archive,
+	)
+	_set_compose_neighbors(
+		_delete,
+		_archive,
+		_delete,
+		_decline if pending_gift else _delete,
+		_delete,
+	)
+	var traversal: Array[Control] = [_letter_close, _archive, _delete]
+	if pending_gift:
+		traversal = [_accept, _decline, _letter_close, _archive, _delete]
+	ControllerFocusNavigation.configure_traversal(traversal)
+
+
+func _configure_compose_controller_navigation() -> void:
+	if not _interactive:
+		return
+	var amount_visible: bool = (
+		_attachment_amount != null
+		and _attachment_amount.is_visible_in_tree()
+	)
+	var amount_left: Control = _amount_minus if amount_visible else _compose_cancel
+	var amount_middle: Control = (
+		_attachment_amount if amount_visible else _compose_cancel
+	)
+	var amount_right: Control = _amount_plus if amount_visible else _send_button
+	_set_compose_neighbors(
+		_greeting, _greeting, _recipient, _greeting, _body
+	)
+	_set_compose_neighbors(
+		_recipient, _greeting, _attachment_kind, _recipient, _body
+	)
+	_set_compose_neighbors(
+		_body, _body, _attachment_choice, _recipient, _salutation
+	)
+	_set_compose_neighbors(
+		_salutation, _salutation, _compose_cancel, _body, _salutation
+	)
+	_set_compose_neighbors(
+		_attachment_kind,
+		_recipient,
+		_attachment_kind,
+		_attachment_kind,
+		_attachment_choice,
+	)
+	_set_compose_neighbors(
+		_attachment_choice,
+		_body,
+		_attachment_choice,
+		_attachment_kind,
+		amount_middle,
+	)
+	if amount_visible:
+		_set_compose_neighbors(
+			_amount_minus,
+			_amount_minus,
+			_attachment_amount,
+			_attachment_choice,
+			_compose_cancel,
+		)
+		_set_compose_neighbors(
+			_attachment_amount,
+			_amount_minus,
+			_amount_plus,
+			_attachment_choice,
+			_compose_cancel,
+		)
+		_set_compose_neighbors(
+			_amount_plus,
+			_attachment_amount,
+			_amount_plus,
+			_attachment_choice,
+			_send_button,
+		)
+	_set_compose_neighbors(
+		_compose_cancel,
+		_salutation,
+		_send_button,
+		amount_left,
+		_compose_cancel,
+	)
+	_set_compose_neighbors(
+		_send_button,
+		_compose_cancel,
+		_send_button,
+		amount_right,
+		_send_button,
+	)
+
+
+func _set_compose_neighbors(
+	control: Control,
+	left: Control,
+	right: Control,
+	top: Control,
+	bottom: Control,
+) -> void:
+	if control == null or not control.is_visible_in_tree():
+		return
+	var safe_left: Control = left if _controller_focus_eligible(left) else control
+	var safe_right: Control = right if _controller_focus_eligible(right) else control
+	var safe_top: Control = top if _controller_focus_eligible(top) else control
+	var safe_bottom: Control = (
+		bottom if _controller_focus_eligible(bottom) else control
+	)
+	control.focus_neighbor_left = control.get_path_to(safe_left)
+	control.focus_neighbor_right = control.get_path_to(safe_right)
+	control.focus_neighbor_top = control.get_path_to(safe_top)
+	control.focus_neighbor_bottom = control.get_path_to(safe_bottom)
+
+
+func _controller_focus_eligible(control: Control) -> bool:
+	if (
+		control == null
+		or not control.is_visible_in_tree()
+		or control.focus_mode == Control.FOCUS_NONE
+	):
+		return false
+	var button := control as BaseButton
+	return button == null or not button.disabled
+
+
+func _collect_visible_controller_controls(
+	root: Node,
+	output: Array[Control],
+) -> void:
+	for child: Node in root.get_children():
+		var control := child as Control
+		if control != null and not control.is_visible_in_tree():
+			continue
+		if (
+			control != null
+			and (control is BaseButton or control is LineEdit or control is TextEdit)
+		):
+			output.append(control)
+		_collect_visible_controller_controls(child, output)
 
 
 func _build_ui() -> void:
@@ -144,22 +404,22 @@ func _build_inbox() -> Control:
 	title.size = Vector2(500, 42)
 	title.add_theme_font_size_override("font_size", 30)
 	page.add_child(title)
-	var send := Button.new()
-	send.text = "send mail"
-	send.position = Vector2(820, 0)
-	send.size = Vector2(150, 48)
-	send.pressed.connect(_show_compose)
-	page.add_child(send)
-	var archive_view := Button.new()
-	archive_view.text = "archive"
-	archive_view.position = Vector2(654, 0)
-	archive_view.size = Vector2(154, 48)
-	archive_view.pressed.connect(func() -> void:
+	_send_mail_button = Button.new()
+	_send_mail_button.text = "send mail"
+	_send_mail_button.position = Vector2(820, 0)
+	_send_mail_button.size = Vector2(150, 48)
+	_send_mail_button.pressed.connect(_show_compose)
+	page.add_child(_send_mail_button)
+	_archive_view_button = Button.new()
+	_archive_view_button.text = "archive"
+	_archive_view_button.position = Vector2(654, 0)
+	_archive_view_button.size = Vector2(154, 48)
+	_archive_view_button.pressed.connect(func() -> void:
 		_showing_archive = not _showing_archive
-		archive_view.text = "inbox" if _showing_archive else "archive"
+		_archive_view_button.text = "inbox" if _showing_archive else "archive"
 		_refresh_inbox()
 	)
-	page.add_child(archive_view)
+	page.add_child(_archive_view_button)
 	var scroll := ScrollContainer.new()
 	scroll.position = Vector2(12, 62)
 	scroll.size = Vector2(1036, 334)
@@ -281,12 +541,12 @@ func _build_compose() -> Control:
 	_attachment_summary.scroll_active = false
 	_attachment_summary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	page.add_child(_attachment_summary)
-	var cancel := Button.new()
-	cancel.text = "cancel"
-	cancel.position = Vector2(688, 342)
-	cancel.size = Vector2(126, 48)
-	cancel.pressed.connect(_show_inbox)
-	page.add_child(cancel)
+	_compose_cancel = Button.new()
+	_compose_cancel.text = "cancel"
+	_compose_cancel.position = Vector2(688, 342)
+	_compose_cancel.size = Vector2(126, 48)
+	_compose_cancel.pressed.connect(_show_inbox)
+	page.add_child(_compose_cancel)
 	_send_button = Button.new()
 	_send_button.text = "send letter"
 	_send_button.position = Vector2(826, 342)
@@ -333,12 +593,12 @@ func _build_letter() -> Control:
 		_service.decline_gift(_current_mail_id)
 	)
 	page.add_child(_decline)
-	var close := Button.new()
-	close.text = "close"
-	close.position = Vector2(26, 370)
-	close.size = Vector2(150, 48)
-	close.pressed.connect(_show_inbox)
-	page.add_child(close)
+	_letter_close = Button.new()
+	_letter_close.text = "close"
+	_letter_close.position = Vector2(26, 370)
+	_letter_close.size = Vector2(150, 48)
+	_letter_close.pressed.connect(_show_inbox)
+	page.add_child(_letter_close)
 	_archive = Button.new()
 	_archive.text = "archive"
 	_archive.position = Vector2(550, 370)
@@ -360,6 +620,7 @@ func _show_inbox() -> void:
 	_letter.hide()
 	_current_mail_id = ""
 	_refresh_inbox()
+	call_deferred("_refresh_controller_navigation")
 
 
 func _show_compose() -> void:
@@ -370,7 +631,7 @@ func _show_compose() -> void:
 	_signature.text = _service.get_local_display_name()
 	_refresh_recipients()
 	_update_send_state()
-	_greeting.grab_focus()
+	call_deferred("_refresh_controller_navigation")
 
 
 func _reset_compose() -> void:
@@ -427,7 +688,8 @@ func _open_letter(mail_id: String) -> void:
 		"Resolve this gift before deleting the letter." if pending else ""
 	)
 	if pending:
-		_accept.grab_focus()
+		_accept.call_deferred("grab_focus")
+	call_deferred("_refresh_controller_navigation")
 
 
 func _refresh_inbox() -> void:
@@ -444,6 +706,7 @@ func _refresh_inbox() -> void:
 		empty.custom_minimum_size = Vector2(1008, 80)
 		empty.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		_inbox_list.add_child(empty)
+		call_deferred("_refresh_controller_navigation")
 		return
 	for letter: Dictionary in letters:
 		var button := Button.new()
@@ -473,6 +736,7 @@ func _refresh_inbox() -> void:
 		button.pressed.connect(_open_letter.bind(str(letter["mail_id"])))
 		UtilityPageStyle.apply_ocean_button(button)
 		_inbox_list.add_child(button)
+	call_deferred("_refresh_controller_navigation")
 
 
 func _refresh_recipients() -> void:
@@ -556,6 +820,7 @@ func _refresh_attachment_choices(_index: int) -> void:
 					)
 	_update_attachment_amount_limit()
 	_update_attachment_summary()
+	call_deferred("_refresh_controller_navigation")
 
 
 func _update_attachment_amount_limit() -> void:
@@ -616,6 +881,7 @@ func _update_send_state() -> void:
 		or not _reservations.validate_attachment(attachment)
 		or not _attachment_is_available(attachment)
 	)
+	call_deferred("_refresh_controller_navigation")
 
 
 func _attachment_is_available(attachment: Dictionary) -> bool:

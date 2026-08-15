@@ -183,7 +183,7 @@ func handle_escape() -> bool:
 	if _confirmation_page.visible:
 		_close_confirmation()
 	elif _join_game_page.visible:
-		_close_join_game()
+		_join_game_page.request_back()
 	elif _settings_panel.visible:
 		_settings_panel.handle_back()
 	else:

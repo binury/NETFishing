@@ -197,6 +197,22 @@ func _set_interactive(interactive: bool) -> void:
 			if interactive
 			else Control.MOUSE_FILTER_IGNORE
 		)
+	# Most settings pages are configured while their parent panel is hidden.
+	# Rebuild the graph after a page becomes visible so hidden-at-ready controls
+	# do not retain the empty neighbors produced by the initial layout pass.
+	if interactive:
+		call_deferred("_refresh_focus_navigation")
+	else:
+		ControllerFocusNavigationType.configure_spatial_neighbors(
+			_focus_controls
+		)
+
+
+func _refresh_focus_navigation() -> void:
+	if visible and not _is_transitioning:
+		ControllerFocusNavigationType.configure_spatial_neighbors(
+			_focus_controls
+		)
 
 
 func _finish_transition_out(generation: int, completed: Callable) -> void:

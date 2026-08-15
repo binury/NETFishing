@@ -13,6 +13,9 @@ enum Mode {
 }
 
 const DISCOVERY_REFRESH_SECONDS: float = 8.0
+const ControllerFocusNavigationType = preload(
+	"res://ui/controller_focus_navigation.gd"
+)
 
 const ADDRESS_FORMAT_HELP: String = (
 	"Hostname, IPv4, or [IPv6]. Port 7777 is used when omitted; "
@@ -189,11 +192,17 @@ func open_page(preserved_endpoint: String = "") -> void:
 	if _mode == Mode.DIRECT:
 		_address.grab_focus()
 		_address.select_all()
+	else:
+		_server_list.grab_focus()
 
 
 func close_page() -> void:
 	cancel_pending_join_confirmation()
 	hide_for_join_confirmation()
+
+
+func request_back() -> void:
+	_on_back_pressed()
 
 
 func hide_for_join_confirmation() -> void:
@@ -649,6 +658,136 @@ func _refresh() -> void:
 	)
 	if not warning.is_empty() and _status.text.is_empty():
 		_status.text = warning
+	_configure_controller_navigation()
+
+
+func _configure_controller_navigation() -> void:
+	var mode_buttons: Array[Control] = [
+		_discover_button,
+		_direct_button,
+		_saved_button,
+		_recent_button,
+	]
+	var content_controls: Array[Control] = []
+	for control: Control in [_address, _name_edit, _server_list]:
+		if _controller_focus_eligible(control):
+			content_controls.append(control)
+	var action_controls: Array[Control] = []
+	for control: Control in [
+		_refresh_button,
+		_join_button,
+		_save_button,
+		_edit_button,
+		_favorite_button,
+		_delete_button,
+		_cancel_button,
+		_back_button,
+	]:
+		if _controller_focus_eligible(control):
+			action_controls.append(control)
+	var all_controls: Array[Control] = []
+	all_controls.append_array(mode_buttons)
+	all_controls.append_array(content_controls)
+	all_controls.append_array(action_controls)
+	for control: Control in all_controls:
+		control.focus_mode = Control.FOCUS_ALL
+	for control: Control in [
+		_address,
+		_name_edit,
+		_server_list,
+		_refresh_button,
+		_join_button,
+		_save_button,
+		_edit_button,
+		_favorite_button,
+		_delete_button,
+		_cancel_button,
+		_back_button,
+	]:
+		if control not in all_controls:
+			control.focus_mode = Control.FOCUS_NONE
+	var primary_content: Control = (
+		content_controls.front()
+		if not content_controls.is_empty()
+		else action_controls.front()
+		if not action_controls.is_empty()
+		else _back_button
+	)
+	for index: int in mode_buttons.size():
+		var mode_button: Control = mode_buttons[index]
+		_set_controller_neighbors(
+			mode_button,
+			mode_buttons[maxi(index - 1, 0)],
+			mode_buttons[mini(index + 1, mode_buttons.size() - 1)],
+			mode_button,
+			primary_content,
+		)
+	for index: int in content_controls.size():
+		var content: Control = content_controls[index]
+		var above: Control = (
+			content_controls[index - 1]
+			if index > 0
+			else mode_buttons[int(_mode)]
+		)
+		var below: Control = (
+			content_controls[index + 1]
+			if index < content_controls.size() - 1
+			else action_controls.front()
+			if not action_controls.is_empty()
+			else content
+		)
+		_set_controller_neighbors(content, content, content, above, below)
+	for index: int in action_controls.size():
+		var action: Control = action_controls[index]
+		_set_controller_neighbors(
+			action,
+			action_controls[maxi(index - 1, 0)],
+			action_controls[mini(index + 1, action_controls.size() - 1)],
+			content_controls.back()
+			if not content_controls.is_empty()
+			else mode_buttons[int(_mode)],
+			action,
+		)
+	ControllerFocusNavigationType.configure_traversal(all_controls)
+	_recover_controller_focus(all_controls, primary_content)
+
+
+func _controller_focus_eligible(control: Control) -> bool:
+	if control == null or not control.is_visible_in_tree():
+		return false
+	var button := control as BaseButton
+	if button != null and button.disabled:
+		return false
+	var line_edit := control as LineEdit
+	return line_edit == null or line_edit.editable
+
+
+func _set_controller_neighbors(
+	control: Control,
+	left: Control,
+	right: Control,
+	top: Control,
+	bottom: Control,
+) -> void:
+	control.focus_neighbor_left = control.get_path_to(left)
+	control.focus_neighbor_right = control.get_path_to(right)
+	control.focus_neighbor_top = control.get_path_to(top)
+	control.focus_neighbor_bottom = control.get_path_to(bottom)
+
+
+func _recover_controller_focus(
+	controls: Array[Control],
+	fallback: Control,
+) -> void:
+	if not is_visible_in_tree():
+		return
+	var owner: Control = get_viewport().gui_get_focus_owner()
+	if owner != null and owner in controls:
+		return
+	if owner != null and _delete_confirmation.is_ancestor_of(owner):
+		return
+	if fallback != null:
+		fallback.call_deferred("grab_focus")
 
 
 func _format_entry_details(entry: SavedServerEntry) -> String:
@@ -832,9 +971,14 @@ func _on_cancel_pressed() -> void:
 
 
 func _on_back_pressed() -> void:
-	if _name_entry_active or _delete_armed:
+	if _delete_armed or _delete_confirmation.visible:
+		_cancel_delete()
+		return
+	if _name_entry_active:
 		_clear_edit_state()
 		_refresh()
+		var content: Control = _address if _mode == Mode.DIRECT else _server_list
+		content.call_deferred("grab_focus")
 		return
 	if (
 		_network_session != null

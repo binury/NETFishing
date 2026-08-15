@@ -123,10 +123,10 @@ func begin_controller_placement(
 		var slot: BubbleHotbarSlotType = _slots[index]
 		slot.focus_mode = Control.FOCUS_ALL
 		slot.focus_neighbor_left = slot.get_path_to(
-			_slots[wrapi(index - 1, 0, slot_count)]
+			_slots[maxi(index - 1, 0)]
 		)
 		slot.focus_neighbor_right = slot.get_path_to(
-			_slots[wrapi(index + 1, 0, slot_count)]
+			_slots[mini(index + 1, slot_count - 1)]
 		)
 		slot.focus_neighbor_top = slot.get_path_to(slot)
 		slot.focus_neighbor_bottom = slot.get_path_to(slot)
@@ -158,10 +158,10 @@ func begin_controller_management(initial_slot: int) -> void:
 		var slot: BubbleHotbarSlotType = _slots[index]
 		slot.focus_mode = Control.FOCUS_ALL
 		slot.focus_neighbor_left = slot.get_path_to(
-			_slots[wrapi(index - 1, 0, slot_count)]
+			_slots[maxi(index - 1, 0)]
 		)
 		slot.focus_neighbor_right = slot.get_path_to(
-			_slots[wrapi(index + 1, 0, slot_count)]
+			_slots[mini(index + 1, slot_count - 1)]
 		)
 		slot.focus_neighbor_top = slot.get_path_to(slot)
 		slot.focus_neighbor_bottom = slot.get_path_to(slot)

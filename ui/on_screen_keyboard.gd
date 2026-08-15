@@ -9,6 +9,7 @@ const CHECK_ICON: Texture2D = preload(
 )
 const CHARACTER_KEY_SIZE: Vector2 = Vector2(96.0, 72.0)
 const CHARACTER_FONT_SIZE: int = 34
+const CANONICAL_WINDOW_SIZE: Vector2 = Vector2(1280.0, 720.0)
 const TRIGGER_PRESS_THRESHOLD: float = 0.55
 const TRIGGER_RELEASE_THRESHOLD: float = 0.25
 
@@ -36,6 +37,11 @@ var _space_button: Button
 var _check_button: Button
 var _left_trigger_pressed: bool = false
 var _right_trigger_pressed: bool = false
+var _portable_host_parent: Node
+var _portable_host_index: int = -1
+var _portable_target_window: Window
+var _portable_target_window_size: Vector2i
+var _portable_target_window_position: Vector2i
 
 
 func _ready() -> void:
@@ -63,12 +69,17 @@ func is_open() -> bool:
 
 
 func request_for_focused_control() -> bool:
-	if not _is_available_for_controller() or visible:
+	return request_for_control(get_viewport().gui_get_focus_owner())
+
+
+func request_for_control(control: Control = null) -> bool:
+	if (
+		not _is_available_for_controller()
+		or visible
+		or not _can_edit(control)
+	):
 		return false
-	var focus_owner: Control = get_viewport().gui_get_focus_owner()
-	if not _can_edit(focus_owner):
-		return false
-	_open_for(focus_owner)
+	_open_for(control)
 	return true
 
 
@@ -145,6 +156,7 @@ func _open_for(control: Control) -> void:
 	_target.set("virtual_keyboard_enabled", false)
 	_buffer = str(_target.get("text"))
 	_page = Page.LOWER
+	_attach_to_target_window(control)
 	show()
 	_refresh_preview()
 	_rebuild_keys()
@@ -159,9 +171,60 @@ func _close_keyboard(restore_focus: bool) -> void:
 		)
 	hide()
 	get_viewport().gui_release_focus()
+	_restore_portable_host()
 	_target = null
 	if restore_focus and is_instance_valid(prior_target):
 		prior_target.grab_focus()
+
+
+func _attach_to_target_window(control: Control) -> void:
+	var target_window: Window = control.get_window()
+	if target_window == null or target_window == get_window():
+		return
+	_portable_host_parent = get_parent()
+	_portable_host_index = get_index()
+	_portable_target_window = target_window
+	_portable_target_window_size = target_window.size
+	_portable_target_window_position = target_window.position
+	var parent_window := target_window.get_parent() as Window
+	if parent_window != null:
+		target_window.size = parent_window.size
+		target_window.position = parent_window.position
+	reparent(target_window, false)
+	anchor_left = 0.0
+	anchor_top = 0.0
+	anchor_right = 0.0
+	anchor_bottom = 0.0
+	size = CANONICAL_WINDOW_SIZE
+	var available: Vector2 = Vector2(target_window.size)
+	var fit_scale: float = minf(
+		available.x / CANONICAL_WINDOW_SIZE.x,
+		available.y / CANONICAL_WINDOW_SIZE.y,
+	)
+	scale = Vector2.ONE * maxf(fit_scale, 0.01)
+	position = (available - CANONICAL_WINDOW_SIZE * fit_scale) * 0.5
+
+
+func _restore_portable_host() -> void:
+	if _portable_host_parent == null:
+		return
+	var original_parent: Node = _portable_host_parent
+	var original_index: int = _portable_host_index
+	var target_window: Window = _portable_target_window
+	_portable_host_parent = null
+	_portable_host_index = -1
+	_portable_target_window = null
+	reparent(original_parent, false)
+	if original_index >= 0:
+		original_parent.move_child(
+			self,
+			mini(original_index, original_parent.get_child_count() - 1),
+		)
+	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	scale = Vector2.ONE
+	if target_window != null and is_instance_valid(target_window):
+		target_window.size = _portable_target_window_size
+		target_window.position = _portable_target_window_position
 
 
 func _submit() -> void:

@@ -556,7 +556,7 @@ func _input(event: InputEvent) -> void:
 		return
 	if (
 		_settings_panel.visible
-		and _settings_panel.is_controller_mapping_capturing()
+		and _settings_panel.is_input_mapping_capturing()
 	):
 		return
 	if _credits_page.visible:
@@ -565,7 +565,7 @@ func _input(event: InputEvent) -> void:
 			return
 	if _join_game_page.visible:
 		if event.is_action_pressed("ui_cancel"):
-			_close_join_game()
+			_join_game_page.request_back()
 			get_viewport().set_input_as_handled()
 		return
 	if (
@@ -624,23 +624,18 @@ func _handle_primary_menu_focus_input(event: InputEvent) -> bool:
 		return false
 	if event is InputEventKey and (event as InputEventKey).echo:
 		return false
-	var moves_forward: bool = (
+	var moves_directionally: bool = (
 		event.is_action_pressed("ui_down")
 		or event.is_action_pressed("ui_right")
-	)
-	var moves_backward: bool = (
-		event.is_action_pressed("ui_up")
+		or event.is_action_pressed("ui_up")
 		or event.is_action_pressed("ui_left")
 	)
-	if not moves_forward and not moves_backward:
+	if not moves_directionally:
 		return false
 	_navigation_focus_active = true
 	if _primary_menu_has_focus():
 		return false
-	if moves_forward:
-		_get_first_available_menu_button().grab_focus()
-	else:
-		_quit_button.grab_focus()
+	_get_first_available_menu_button().grab_focus()
 	return true
 
 

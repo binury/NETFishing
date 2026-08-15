@@ -19,6 +19,9 @@ const PlayerSettingsType = preload("res://settings/player_settings.gd")
 const ControllerMappingManagerType = preload(
 	"res://settings/controller_mapping_manager.gd"
 )
+const KeyboardMouseMappingManagerType = preload(
+	"res://settings/keyboard_mouse_mapping_manager.gd"
+)
 const TitleScreenType = preload("res://ui/title_screen.gd")
 const PauseMenuType = preload("res://ui/pause_menu.gd")
 const ItemCatalogType = preload("res://items/item_catalog.gd")
@@ -138,6 +141,9 @@ const SHOP_PATTERN_SCALE: float = 1.75
 @onready var _settings_manager: PlayerSettingsManagerType = %PlayerSettingsManager
 @onready var _controller_mapping_manager: ControllerMappingManagerType = (
 	%ControllerMappingManager
+)
+@onready var _keyboard_mouse_mapping_manager: KeyboardMouseMappingManagerType = (
+	%KeyboardMouseMappingManager
 )
 @onready var _interface_fonts: InterfaceFontController = %InterfaceFontController
 @onready var _title_music: AudioStreamPlayer = %TitleMusic
@@ -279,6 +285,10 @@ func _ready() -> void:
 		_settings_manager.settings_changed.connect(_apply_runtime_settings)
 	_settings_manager.load_settings()
 	_interface_fonts.enforce_standard_font()
+	_interface_fonts.set_controller_text_entry_request(
+		Callable(_game_ui, "request_controller_text_entry_for"),
+		Callable(_game_ui, "is_controller_text_entry_open"),
+	)
 	if _data_root.resolve():
 		_configure_portable_stores()
 		_initialize_after_data_root()
@@ -760,6 +770,7 @@ func _initialize_application(dedicated: bool) -> void:
 		_interface_fonts,
 	)
 	_game_ui.setup_controller_mapping(_controller_mapping_manager)
+	_game_ui.setup_keyboard_mouse_mapping(_keyboard_mouse_mapping_manager)
 	_data_root.conflict_detected.connect(_on_portable_conflict)
 	_data_root.status_changed.connect(_on_data_root_status)
 	if (
@@ -919,13 +930,13 @@ func _focus_data_setup_actions() -> void:
 	actions.append(_data_setup_dialog.get_cancel_button())
 	for index: int in actions.size():
 		var action: Button = actions[index]
-		var previous: Button = actions[posmod(index - 1, actions.size())]
-		var next: Button = actions[(index + 1) % actions.size()]
+		var previous: Button = actions[maxi(index - 1, 0)]
+		var next: Button = actions[mini(index + 1, actions.size() - 1)]
 		action.focus_mode = Control.FOCUS_ALL
 		action.focus_neighbor_left = action.get_path_to(previous)
-		action.focus_neighbor_top = action.focus_neighbor_left
 		action.focus_neighbor_right = action.get_path_to(next)
-		action.focus_neighbor_bottom = action.focus_neighbor_right
+		action.focus_neighbor_top = action.get_path_to(action)
+		action.focus_neighbor_bottom = action.get_path_to(action)
 	_data_setup_dialog.get_ok_button().grab_focus()
 
 
@@ -1072,12 +1083,16 @@ func _show_existing_root_choice(path: String) -> void:
 	_interface_fonts.apply_utility_theme(dialog)
 	add_child(dialog)
 	dialog.popup_centered(Vector2i(680, 360))
+	_configure_popup_dialog.call_deferred(
+		dialog, dialog.get_cancel_button()
+	)
 
 
 func _show_data_error(message: String) -> void:
 	if _data_setup_dialog != null:
 		_data_setup_dialog.dialog_text = message
 		_data_setup_dialog.popup_centered(Vector2i(640, 300))
+		_focus_data_setup_actions.call_deferred()
 
 
 func _on_portable_conflict(message: String, _path: String) -> void:
@@ -1096,6 +1111,7 @@ func _on_portable_conflict(message: String, _path: String) -> void:
 	dialog.confirmed.connect(dialog.queue_free)
 	_game_ui.add_child(dialog)
 	dialog.popup_centered(Vector2i(560, 300))
+	_configure_popup_dialog.call_deferred(dialog, dialog.get_ok_button())
 
 
 func _on_data_root_status(message: String) -> void:
@@ -1113,6 +1129,7 @@ func _on_data_root_status(message: String) -> void:
 	dialog.confirmed.connect(dialog.queue_free)
 	_game_ui.add_child(dialog)
 	dialog.popup_centered(Vector2i(560, 260))
+	_configure_popup_dialog.call_deferred(dialog, dialog.get_ok_button())
 
 
 func _on_server_trust_required(
@@ -1153,6 +1170,10 @@ func _on_server_trust_required(
 		)
 		_server_trust_dialog.ok_button_text = "Trust & Connect"
 	_server_trust_dialog.popup_centered(Vector2i(560, 360))
+	_configure_popup_dialog.call_deferred(
+		_server_trust_dialog,
+		_server_trust_dialog.get_cancel_button(),
+	)
 
 
 func _confirm_server_trust() -> void:
@@ -1164,6 +1185,10 @@ func _confirm_server_trust() -> void:
 		)
 		_server_trust_dialog.ok_button_text = "Replace Pin"
 		_server_trust_dialog.popup_centered(Vector2i(520, 260))
+		_configure_popup_dialog.call_deferred(
+			_server_trust_dialog,
+			_server_trust_dialog.get_cancel_button(),
+		)
 		return
 	if _server_trust_dialog != null:
 		_server_trust_dialog.hide()
@@ -1182,13 +1207,27 @@ func _on_peer_identity_observed(_peer_id: int, status: String) -> void:
 		+ "This may be a different player using the same display name."
 	)
 	_identity_notice_dialog.popup_centered(Vector2i(480, 240))
+	_configure_popup_dialog.call_deferred(
+		_identity_notice_dialog,
+		_identity_notice_dialog.get_ok_button(),
+	)
+
+
+func _configure_popup_dialog(
+	dialog: Window,
+	preferred_control: Control = null,
+) -> void:
+	if dialog != null and is_instance_valid(dialog) and dialog.visible:
+		FileDialogControllerNavigation.configure_scope(
+			dialog, preferred_control
+		)
 
 
 func _input(event: InputEvent) -> void:
 	if _handle_data_root_controller_input(event):
 		get_viewport().set_input_as_handled()
 		return
-	if _game_ui.is_controller_mapping_capturing():
+	if _game_ui.is_input_mapping_capturing():
 		return
 	if (
 		not (
@@ -1227,6 +1266,8 @@ func _input(event: InputEvent) -> void:
 
 
 func _handle_data_root_controller_input(event: InputEvent) -> bool:
+	if _game_ui.is_controller_text_entry_open():
+		return false
 	var button_event := event as InputEventJoypadButton
 	if button_event == null or not button_event.pressed:
 		return false
@@ -1238,6 +1279,11 @@ func _handle_data_root_controller_input(event: InputEvent) -> bool:
 	)
 	if not setup_visible and not picker_visible:
 		return false
+	var picker_scope: Window = (
+		FileDialogControllerNavigation.active_scope(_data_folder_dialog)
+		if picker_visible
+		else null
+	)
 	var use_mapping: bool = _controller_mapping_manager != null
 	var accept_pressed: bool = (
 		_controller_mapping_manager.event_matches_role(
@@ -1263,20 +1309,28 @@ func _handle_data_root_controller_input(event: InputEvent) -> bool:
 	)
 	if cancel_pressed:
 		if picker_visible:
-			_on_data_folder_picker_canceled()
+			if picker_scope != null and picker_scope != _data_folder_dialog:
+				picker_scope.hide()
+			else:
+				_on_data_folder_picker_canceled()
 		else:
 			_data_setup_dialog.get_cancel_button().pressed.emit()
 		return true
 	if not accept_pressed:
 		return false
 	var focused: Control = (
-		_data_folder_dialog.gui_get_focus_owner()
+		picker_scope.gui_get_focus_owner()
 		if picker_visible
 		else _data_setup_dialog.gui_get_focus_owner()
 	)
 	var focused_button := focused as BaseButton
 	if focused_button != null and not focused_button.disabled:
 		focused_button.pressed.emit()
+		return true
+	if (
+		(focused is LineEdit or focused is TextEdit)
+		and _game_ui.request_controller_text_entry_for(focused)
+	):
 		return true
 	if setup_visible:
 		_data_setup_dialog.get_ok_button().pressed.emit()

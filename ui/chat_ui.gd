@@ -293,6 +293,7 @@ func open_chat() -> void:
 	# prediction would let a remote host continue the last held movement.
 	_session.submit_neutral_local_movement()
 	_entry.show()
+	_configure_controller_focus()
 	_entry.virtual_keyboard_enabled = false
 	_hint.hide()
 	_refresh_input_ownership()
@@ -328,6 +329,7 @@ func close_chat() -> void:
 	_entry.virtual_keyboard_enabled = false
 	_entry.release_focus()
 	_entry.hide()
+	_configure_controller_focus()
 	if _input_lock_applied:
 		_player.set_local_input_suppressed(INPUT_OWNER, false)
 		_fishing_spot.set_local_menu_input_suppressed(INPUT_OWNER, false)
@@ -420,9 +422,6 @@ func _unhandled_input(event: InputEvent) -> void:
 				and Engine.get_process_frames() != _last_submit_frame
 			):
 				open_chat()
-			get_viewport().set_input_as_handled()
-		elif event.keycode == KEY_T and not _opened and _available:
-			open_chat()
 			get_viewport().set_input_as_handled()
 		elif (
 			event.unicode == 47
@@ -539,7 +538,7 @@ func _build_ui() -> void:
 	_collapse_button.name = "ChatCollapseButton"
 	_collapse_button.size = HANDLE_SIZE
 	_collapse_button.mouse_filter = Control.MOUSE_FILTER_STOP
-	_collapse_button.focus_mode = Control.FOCUS_ALL
+	_collapse_button.focus_mode = Control.FOCUS_NONE
 	_collapse_button.z_index = 3
 	_collapse_button.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	_collapse_button.expand_icon = true
@@ -574,7 +573,7 @@ func _build_ui() -> void:
 	_height_button.name = "ChatHeightButton"
 	_height_button.size = HANDLE_SIZE
 	_height_button.mouse_filter = Control.MOUSE_FILTER_STOP
-	_height_button.focus_mode = Control.FOCUS_ALL
+	_height_button.focus_mode = Control.FOCUS_NONE
 	_height_button.z_index = 3
 	_height_button.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	_height_button.expand_icon = true
@@ -1475,6 +1474,7 @@ func _layout_presentation(animate: bool) -> void:
 		_height_button.position = height_position
 		_unread_indicator.position = unread_position
 		_hint.position = hint_position
+		_configure_controller_focus()
 		return
 	_height_tween = create_tween().set_parallel(true)
 	_height_tween.tween_property(
@@ -1521,8 +1521,90 @@ func _layout_presentation(animate: bool) -> void:
 	).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	_height_tween.finished.connect(func() -> void:
 		_scroll_history_to_bottom()
+		_configure_controller_focus()
 	)
 	_hint.position = hint_position
+
+
+func _configure_controller_focus() -> void:
+	if _entry == null or _collapse_button == null or _height_button == null:
+		return
+	for button: Button in [_collapse_button, _height_button]:
+		button.focus_mode = (
+			Control.FOCUS_ALL if _opened else Control.FOCUS_NONE
+		)
+	if not _opened:
+		return
+	_entry.focus_mode = Control.FOCUS_ALL
+	if _mobile_mode:
+		_set_controller_neighbors(
+			_entry, _entry, _entry, _entry, _height_button
+		)
+		_set_controller_neighbors(
+			_height_button,
+			_height_button,
+			_collapse_button,
+			_entry,
+			_height_button,
+		)
+		_set_controller_neighbors(
+			_collapse_button,
+			_height_button,
+			_collapse_button,
+			_entry,
+			_collapse_button,
+		)
+		return
+	var panel_side: Control = _entry
+	if _dock_right:
+		_set_controller_neighbors(
+			_entry, _collapse_button, _entry, _entry, _entry
+		)
+		_set_controller_neighbors(
+			_collapse_button,
+			_collapse_button,
+			panel_side,
+			_height_button,
+			_collapse_button,
+		)
+		_set_controller_neighbors(
+			_height_button,
+			_height_button,
+			panel_side,
+			_height_button,
+			_collapse_button,
+		)
+	else:
+		_set_controller_neighbors(
+			_entry, _entry, _collapse_button, _entry, _entry
+		)
+		_set_controller_neighbors(
+			_collapse_button,
+			panel_side,
+			_collapse_button,
+			_height_button,
+			_collapse_button,
+		)
+		_set_controller_neighbors(
+			_height_button,
+			panel_side,
+			_height_button,
+			_height_button,
+			_collapse_button,
+		)
+
+
+func _set_controller_neighbors(
+	control: Control,
+	left: Control,
+	right: Control,
+	top: Control,
+	bottom: Control,
+) -> void:
+	control.focus_neighbor_left = control.get_path_to(left)
+	control.focus_neighbor_right = control.get_path_to(right)
+	control.focus_neighbor_top = control.get_path_to(top)
+	control.focus_neighbor_bottom = control.get_path_to(bottom)
 
 
 func _scroll_history_to_bottom() -> void:

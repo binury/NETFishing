@@ -249,6 +249,36 @@ func _validate_page() -> void:
 	assert(_detail_text(page).contains(LogbookCatalog.facts_for(bluegill)))
 	_validate_detail_field_fonts(page)
 	_validate_handwritten_numeric_scale(page)
+	var detail_buttons: Array = page.get("_detail_buttons") as Array
+	assert(detail_buttons.size() == 4)
+	var portrait_detail := detail_buttons[0] as Button
+	var facts_detail := detail_buttons[1] as Button
+	var quality_detail := detail_buttons[2] as Button
+	var stats_detail := detail_buttons[3] as Button
+	assert(
+		portrait_detail.get_node(portrait_detail.focus_neighbor_right)
+		== facts_detail
+	)
+	assert(
+		portrait_detail.get_node(portrait_detail.focus_neighbor_bottom)
+		== quality_detail
+	)
+	assert(
+		facts_detail.get_node(facts_detail.focus_neighbor_left)
+		== portrait_detail
+	)
+	assert(
+		facts_detail.get_node(facts_detail.focus_neighbor_bottom)
+		== quality_detail
+	)
+	assert(
+		quality_detail.get_node(quality_detail.focus_neighbor_bottom)
+		== stats_detail
+	)
+	assert(
+		stats_detail.get_node(stats_detail.focus_neighbor_top)
+		== quality_detail
+	)
 	var portrait_button := page.get("_detail_portrait_button") as Button
 	assert(portrait_button != null)
 	portrait_button.pressed.emit()
@@ -266,6 +296,29 @@ func _validate_page() -> void:
 	(page.get("_portrait_overlay_backdrop") as Button).pressed.emit()
 	await process_frame
 	assert(not portrait_overlay.visible)
+	facts_detail.pressed.emit()
+	await process_frame
+	var overlay_text := page.get("_portrait_overlay_text") as Label
+	assert(overlay_text.visible)
+	assert(
+		overlay_text.get_theme_font_size("font_size")
+		== LogbookPage.DETAIL_OVERLAY_TEXT_FONT_SIZE
+	)
+	assert(
+		overlay_text.horizontal_alignment
+		== HORIZONTAL_ALIGNMENT_LEFT
+	)
+	assert(
+		portrait_overlay.size.x
+		- overlay_text.size.x
+		<= float(
+			(LogbookPage.DETAIL_OVERLAY_EDGE_MARGIN
+			+ LogbookPage.DETAIL_OVERLAY_CONTENT_MARGIN) * 2
+			+ 8
+		)
+	)
+	(page.get("_portrait_overlay_backdrop") as Button).pressed.emit()
+	await process_frame
 
 	inventory.remove_catch_by_id(fish_catch.catch_id)
 	await process_frame

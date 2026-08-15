@@ -186,12 +186,16 @@ func _configure_focus() -> void:
 	)
 	_confirm_button.focus_neighbor_left = confirm_to_cancel
 	_confirm_button.focus_neighbor_right = confirm_to_cancel
-	_confirm_button.focus_neighbor_top = confirm_to_cancel
-	_confirm_button.focus_neighbor_bottom = confirm_to_cancel
+	_confirm_button.focus_neighbor_top = _confirm_button.get_path_to(
+		_confirm_button
+	)
+	_confirm_button.focus_neighbor_bottom = _confirm_button.focus_neighbor_top
 	_cancel_button.focus_neighbor_left = cancel_to_confirm
 	_cancel_button.focus_neighbor_right = cancel_to_confirm
-	_cancel_button.focus_neighbor_top = cancel_to_confirm
-	_cancel_button.focus_neighbor_bottom = cancel_to_confirm
+	_cancel_button.focus_neighbor_top = _cancel_button.get_path_to(
+		_cancel_button
+	)
+	_cancel_button.focus_neighbor_bottom = _cancel_button.focus_neighbor_top
 
 
 func _set_interactive(interactive: bool) -> void:
@@ -211,6 +215,8 @@ func _set_interactive(interactive: bool) -> void:
 			if interactive
 			else Control.MOUSE_FILTER_IGNORE
 		)
+	if interactive:
+		_configure_focus()
 
 
 func _finish_transition_in(

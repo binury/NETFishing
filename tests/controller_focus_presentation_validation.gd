@@ -69,6 +69,34 @@ func _run() -> void:
 		"inversion clears when a focused control is defocused",
 	)
 
+	var scroll := ScrollContainer.new()
+	scroll.position = Vector2(0.0, 80.0)
+	scroll.size = Vector2(180.0, 90.0)
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	stage.add_child(scroll)
+	var list := VBoxContainer.new()
+	list.custom_minimum_size.x = 160.0
+	scroll.add_child(list)
+	var last_scroll_button: Button
+	for index: int in 8:
+		var scroll_button := Button.new()
+		scroll_button.text = "scroll option %d" % index
+		scroll_button.custom_minimum_size = Vector2(160.0, 40.0)
+		list.add_child(scroll_button)
+		last_scroll_button = scroll_button
+	await process_frame
+	last_scroll_button.grab_focus()
+	await process_frame
+	await process_frame
+	_expect(
+		scroll.scroll_vertical > 0,
+		"controller focus scrolls an off-screen selection into view",
+	)
+	_expect(
+		root.gui_get_focus_owner() == last_scroll_button,
+		"scroll following preserves the selected controller control",
+	)
+
 	stage.queue_free()
 	if _failures.is_empty():
 		print("Controller focus presentation validation: PASS")

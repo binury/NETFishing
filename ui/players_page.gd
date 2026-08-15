@@ -2,6 +2,14 @@ class_name PlayersPage
 extends Control
 
 const TOGGLE_STATE_COLOR := Color("c3dfe6")
+const DialogControllerNavigationType = preload(
+	"res://ui/file_dialog_controller_navigation.gd"
+)
+
+enum ControllerZone {
+	TABS,
+	BODY,
+}
 
 var _service: NetworkPlayerListService
 var _discovery: DiscoveryClient
@@ -17,6 +25,9 @@ var _discoverable_toggle: Button
 var _discoverable_state_label: Label
 var _host_discovery_status: Label
 var _current_tab := 0
+var _active: bool = false
+var _interactive: bool = false
+var _controller_zone: ControllerZone = ControllerZone.TABS
 
 
 func _ready() -> void:
@@ -45,12 +56,107 @@ func setup(
 
 
 func activate() -> void:
+	_active = true
 	_refresh()
-	_focus_first()
+	reset_controller_zone()
 
 
 func deactivate() -> void:
+	_active = false
 	_status.text = ""
+	set_interactive(false)
+
+
+func set_interactive(interactive: bool) -> void:
+	_interactive = interactive and _active
+	var body_controls: Array[Control] = _body_controls()
+	for index: int in _tabs.get_child_count():
+		var tab := _tabs.get_child(index) as Button
+		if tab != null:
+			tab.focus_mode = (
+				Control.FOCUS_ALL
+				if _interactive
+				and _controller_zone == ControllerZone.TABS
+				and tab.visible
+				else Control.FOCUS_NONE
+			)
+	for control: Control in body_controls:
+		var button := control as BaseButton
+		control.focus_mode = (
+			Control.FOCUS_ALL
+			if _interactive
+			and _controller_zone == ControllerZone.BODY
+			and (button == null or not button.disabled)
+			else Control.FOCUS_NONE
+		)
+	ControllerFocusNavigation.configure_spatial_neighbors(body_controls)
+
+
+func reset_controller_zone() -> void:
+	_controller_zone = ControllerZone.TABS
+	set_interactive(_interactive)
+	call_deferred("_focus_controller_zone")
+
+
+func handle_controller_input(event: InputEvent) -> bool:
+	if not _active or not _interactive:
+		return false
+	if event.is_action_pressed("ui_cancel"):
+		if _controller_zone == ControllerZone.BODY:
+			_controller_zone = ControllerZone.TABS
+			set_interactive(_interactive)
+			call_deferred("_focus_controller_zone")
+			return true
+		return false
+	if _controller_zone == ControllerZone.TABS:
+		var direction: int = 0
+		if event.is_action_pressed("ui_left"):
+			direction = -1
+		elif event.is_action_pressed("ui_right"):
+			direction = 1
+		if direction != 0:
+			_select_adjacent_controller_tab(direction)
+			return true
+		if event.is_action_pressed("ui_accept"):
+			if not _body_controls().is_empty():
+				_controller_zone = ControllerZone.BODY
+				set_interactive(_interactive)
+				call_deferred("_focus_controller_zone")
+			return true
+	return false
+
+
+func _select_adjacent_controller_tab(direction: int) -> void:
+	var available: Array[int] = []
+	for index: int in _tabs.get_child_count():
+		var tab := _tabs.get_child(index) as Button
+		if tab != null and tab.visible:
+			available.append(index)
+	var current_position: int = available.find(_current_tab)
+	var target_position: int = clampi(
+		current_position + direction,
+		0,
+		available.size() - 1,
+	)
+	if target_position != current_position:
+		_select_tab(available[target_position])
+
+
+func _focus_controller_zone() -> void:
+	if not _interactive:
+		return
+	if _controller_zone == ControllerZone.TABS:
+		var tab := _tabs.get_child(_current_tab) as Button
+		if tab != null and tab.visible:
+			tab.grab_focus()
+		return
+	_focus_first()
+
+
+func _body_controls() -> Array[Control]:
+	var controls: Array[Control] = []
+	_collect_focusable_player_controls(self, controls)
+	return controls
 
 
 func _build() -> void:
@@ -196,7 +302,7 @@ func _select_tab(index: int) -> void:
 		return
 	_current_tab = index
 	_refresh()
-	_focus_first()
+	call_deferred("_focus_controller_zone")
 
 
 func _refresh() -> void:
@@ -221,6 +327,9 @@ func _refresh() -> void:
 			_build_relationship_rows()
 		2:
 			_build_ban_rows()
+	if _controller_zone == ControllerZone.BODY and _body_controls().is_empty():
+		_controller_zone = ControllerZone.TABS
+	set_interactive(_interactive)
 
 
 func _refresh_host_settings() -> void:
@@ -582,11 +691,22 @@ func _confirm(text: String, action: Callable) -> void:
 	)
 	add_child(dialog)
 	dialog.popup_centered(Vector2i(520, 220))
+	_configure_confirmation_dialog.call_deferred(dialog)
+
+
+func _configure_confirmation_dialog(dialog: ConfirmationDialog) -> void:
+	if dialog != null and is_instance_valid(dialog) and dialog.visible:
+		DialogControllerNavigationType.configure_scope(
+			dialog, dialog.get_cancel_button()
+		)
 
 
 func _focus_first() -> void:
 	var candidates: Array[Control] = []
 	_collect_focusable_player_controls(self, candidates)
+	candidates = candidates.filter(func(control: Control) -> bool:
+		return control.focus_mode != Control.FOCUS_NONE
+	)
 	if candidates.is_empty():
 		return
 	candidates.sort_custom(func(first: Control, second: Control) -> bool:
@@ -609,8 +729,7 @@ func _collect_focusable_player_controls(
 			continue
 		if (
 			control != null
-			and control.focus_mode != Control.FOCUS_NONE
-			and not control is ScrollBar
+			and (control is BaseButton or control is LineEdit)
 		):
 			output.append(control)
 		_collect_focusable_player_controls(child, output)

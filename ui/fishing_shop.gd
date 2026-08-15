@@ -28,6 +28,12 @@ const ShopInteractionType = preload(
 const UtilityPageStyleType = preload("res://ui/utility_page_style.gd")
 const OrganizerTabType = preload("res://ui/components/organizer_tab.gd")
 const UIMotionType = preload("res://ui/ui_motion.gd")
+const ControllerMappingManagerType = preload(
+	"res://settings/controller_mapping_manager.gd"
+)
+const ControllerFocusNavigationType = preload(
+	"res://ui/controller_focus_navigation.gd"
+)
 const FALLBACK_SUPPLY_ICON: Texture2D = preload(
 	"res://ui/icons/pictograms/x_light.png"
 )
@@ -168,6 +174,7 @@ var _cooler_page_active: bool = false
 var _cooler_modal_open: bool = false
 var _shop_section: ShopSection = ShopSection.UPGRADES
 var _shop_tabs: Array[OrganizerTab] = []
+var _controller_mapping_manager: ControllerMappingManagerType
 
 
 func _ready() -> void:
@@ -178,6 +185,53 @@ func _ready() -> void:
 	_reel_purchase.pressed.connect(_purchase_reel_speed)
 	_barrier_purchase.pressed.connect(_purchase_barrier_power)
 	_cooler_purchase.pressed.connect(_purchase_cooler_capacity)
+
+
+func setup_controller_mapping(
+	mapping_manager: ControllerMappingManagerType,
+) -> void:
+	_controller_mapping_manager = mapping_manager
+
+
+func _input(event: InputEvent) -> void:
+	if (
+		not visible
+		or _closing
+		or _cooler_page_active
+		or _cooler_modal_open
+	):
+		return
+	var button_event := event as InputEventJoypadButton
+	if button_event == null:
+		return
+	var uses_left_bumper: bool = (
+		_controller_mapping_manager.event_uses_role(
+			event,
+			ControllerMappingManagerType.ROLE_LB,
+		)
+		if _controller_mapping_manager != null
+		else button_event.button_index == JOY_BUTTON_LEFT_SHOULDER
+	)
+	var uses_right_bumper: bool = (
+		_controller_mapping_manager.event_uses_role(
+			event,
+			ControllerMappingManagerType.ROLE_RB,
+		)
+		if _controller_mapping_manager != null
+		else button_event.button_index == JOY_BUTTON_RIGHT_SHOULDER
+	)
+	if not (uses_left_bumper or uses_right_bumper):
+		return
+	get_viewport().set_input_as_handled()
+	if not button_event.pressed or _transaction_in_progress:
+		return
+	var direction: int = -1 if uses_left_bumper else 1
+	var next_section: int = wrapi(
+		int(_shop_section) + direction,
+		0,
+		ShopSection.size(),
+	)
+	_select_shop_section(next_section, true)
 
 
 func _request_shop_cooler() -> bool:
@@ -193,6 +247,7 @@ func _request_shop_cooler() -> bool:
 
 func _focus_shop_section() -> void:
 	_set_feedback("")
+	_configure_controller_focus()
 	if _shop_section == ShopSection.UPGRADES:
 		_reel_purchase.grab_focus()
 		return
@@ -264,6 +319,31 @@ func _select_shop_section(section_index: int, focus_content: bool) -> void:
 	_refresh_supplies()
 	if focus_content and visible:
 		_focus_shop_section()
+	call_deferred("_configure_controller_focus")
+
+
+func _configure_controller_focus() -> void:
+	if not visible or _cooler_page_active:
+		return
+	var candidates: Array[Control] = []
+	_collect_controller_focusables(self, candidates)
+	ControllerFocusNavigationType.configure_spatial_neighbors(candidates)
+
+
+func _collect_controller_focusables(
+	root: Node,
+	output: Array[Control],
+) -> void:
+	for child: Node in root.get_children():
+		var control := child as Control
+		if control != null and not control.is_visible_in_tree():
+			continue
+		if (
+			ControllerFocusNavigationType.is_focusable(control)
+			and not control is ScrollBar
+		):
+			output.append(control)
+		_collect_controller_focusables(child, output)
 
 
 func _update_shop_tab_selection() -> void:
@@ -410,6 +490,7 @@ func open_shop() -> bool:
 	_shop_tab_bar.show()
 	_select_shop_section(ShopSection.UPGRADES, false)
 	_refresh_all()
+	call_deferred("_configure_controller_focus")
 	_reel_purchase.grab_focus()
 	menu_visibility_changed.emit(true)
 	return true

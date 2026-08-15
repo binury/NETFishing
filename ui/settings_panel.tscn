@@ -600,8 +600,8 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("3_page")
 page_id = &"controls"
-bubble_paths = Array[NodePath]([NodePath("BubbleCluster/MouseDecrease"), NodePath("BubbleCluster/MouseValue"), NodePath("BubbleCluster/MouseIncrease"), NodePath("BubbleCluster/ControllerDecrease"), NodePath("BubbleCluster/ControllerValue"), NodePath("BubbleCluster/ControllerIncrease"), NodePath("BubbleCluster/InvertYToggle"), NodePath("BubbleCluster/OnScreenKeyboardToggle"), NodePath("BubbleCluster/ControllerMapping"), NodePath("BubbleCluster/ControlsBackButton")])
-focus_paths = Array[NodePath]([NodePath("BubbleCluster/MouseDecrease"), NodePath("BubbleCluster/MouseValue"), NodePath("BubbleCluster/MouseIncrease"), NodePath("BubbleCluster/ControllerDecrease"), NodePath("BubbleCluster/ControllerValue"), NodePath("BubbleCluster/ControllerIncrease"), NodePath("BubbleCluster/InvertYToggle"), NodePath("BubbleCluster/OnScreenKeyboardToggle"), NodePath("BubbleCluster/ControllerMapping"), NodePath("BubbleCluster/ControlsBackButton")])
+bubble_paths = Array[NodePath]([NodePath("BubbleCluster/MouseDecrease"), NodePath("BubbleCluster/MouseValue"), NodePath("BubbleCluster/MouseIncrease"), NodePath("BubbleCluster/ControllerDecrease"), NodePath("BubbleCluster/ControllerValue"), NodePath("BubbleCluster/ControllerIncrease"), NodePath("BubbleCluster/InvertYToggle"), NodePath("BubbleCluster/OnScreenKeyboardToggle"), NodePath("BubbleCluster/ControllerMapping"), NodePath("BubbleCluster/KeyboardMapping"), NodePath("BubbleCluster/ControlsBackButton")])
+focus_paths = Array[NodePath]([NodePath("BubbleCluster/MouseDecrease"), NodePath("BubbleCluster/MouseValue"), NodePath("BubbleCluster/MouseIncrease"), NodePath("BubbleCluster/ControllerDecrease"), NodePath("BubbleCluster/ControllerValue"), NodePath("BubbleCluster/ControllerIncrease"), NodePath("BubbleCluster/InvertYToggle"), NodePath("BubbleCluster/OnScreenKeyboardToggle"), NodePath("BubbleCluster/ControllerMapping"), NodePath("BubbleCluster/KeyboardMapping"), NodePath("BubbleCluster/ControlsBackButton")])
 initial_focus_path = NodePath("BubbleCluster/MouseValue")
 back_focus_path = NodePath("BubbleCluster/ControlsBackButton")
 
@@ -713,14 +713,26 @@ motion_phase = 4.7
 [node name="ControllerMapping" parent="ControlsPage/BubbleCluster" instance=ExtResource("4_bubble")]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 0)
-text = "map\ncontroller"
-neutral_size = Vector2(160, 150)
-desktop_anchor = Vector2(525, 390)
-compact_anchor = Vector2(485, 355)
-compact_minimum_size = Vector2(148, 138)
+text = "controller\nbinds"
+neutral_size = Vector2(130, 108)
+desktop_anchor = Vector2(470, 390)
+compact_anchor = Vector2(425, 350)
+compact_minimum_size = Vector2(116, 98)
 minimum_font_size = 14
-maximum_font_size = 23
+maximum_font_size = 20
 motion_phase = 4.9
+
+[node name="KeyboardMapping" parent="ControlsPage/BubbleCluster" instance=ExtResource("4_bubble")]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 0)
+text = "keyboard\nbinds"
+neutral_size = Vector2(130, 108)
+desktop_anchor = Vector2(610, 380)
+compact_anchor = Vector2(545, 345)
+compact_minimum_size = Vector2(116, 98)
+minimum_font_size = 14
+maximum_font_size = 20
+motion_phase = 5.2
 
 [node name="ControlsBackButton" parent="ControlsPage/BubbleCluster" instance=ExtResource("4_bubble")]
 unique_name_in_owner = true
@@ -845,8 +857,8 @@ grow_vertical = 2
 script = ExtResource("3_page")
 page_id = &"data"
 bubble_paths = Array[NodePath]([NodePath("BubbleCluster/DataBackButton")])
-focus_paths = Array[NodePath]([NodePath("BubbleCluster/DataBackButton")])
-initial_focus_path = NodePath("BubbleCluster/DataBackButton")
+focus_paths = Array[NodePath]([NodePath("Paper/Content/OpenDataFolder"), NodePath("Paper/Content/ChangeDataFolder"), NodePath("Paper/Content/CopyPlayerFingerprint"), NodePath("Paper/Content/IdentityGrid/ExportPlayerIdentity"), NodePath("Paper/Content/IdentityGrid/ImportPlayerIdentity"), NodePath("Paper/Content/IdentityGrid/ExportHostIdentity"), NodePath("Paper/Content/IdentityGrid/ImportHostIdentity"), NodePath("BubbleCluster/DataBackButton")])
+initial_focus_path = NodePath("Paper/Content/OpenDataFolder")
 back_focus_path = NodePath("BubbleCluster/DataBackButton")
 
 [node name="BubbleCluster" type="Control" parent="DataPage"]

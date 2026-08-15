@@ -94,6 +94,16 @@ func _validate_manager(manager: ControllerMappingManagerType) -> String:
 			ControllerMappingManagerType.ROLE_ORDER.size(),
 			str(defaults.keys()),
 		]
+	if ControllerMappingManagerType.ROLE_LABELS.get(
+		ControllerMappingManagerType.ROLE_RIGHT_STICK_CLICK, ""
+	) != "sneak":
+		return "right-stick click is not presented as sneak"
+	if ControllerMappingManagerType.BUTTON_ACTION_ROLES.get(
+		&"sneak", &""
+	) != ControllerMappingManagerType.ROLE_RIGHT_STICK_CLICK:
+		return "right-stick click is not assigned to the sneak action"
+	if not _has_joy_button(&"sneak", JOY_BUTTON_RIGHT_STICK):
+		return "sneak does not default to right-stick click"
 	var trigger_button := InputEventJoypadButton.new()
 	trigger_button.device = manager.get_active_device_id()
 	trigger_button.button_index = JOY_BUTTON_MISC1
@@ -226,10 +236,41 @@ func _validate_portmaster_launcher() -> String:
 
 
 func _validate_auto_map(manager: ControllerMappingManagerType) -> String:
+	if manager.get_role_prompt(ControllerMappingManagerType.ROLE_LT) != (
+		"press or squeeze LT"
+	):
+		return "auto-map does not identify the LT control"
+	if manager.get_role_prompt(ControllerMappingManagerType.ROLE_RT) != (
+		"press or squeeze RT"
+	):
+		return "auto-map does not identify the RT control"
 	var panel := ControllerMappingPanelType.new()
 	root.add_child(panel)
 	panel.setup(manager)
 	panel.open_panel()
+	var mapping_scrolls: Array[Node] = panel.find_children(
+		"", "ScrollContainer", true, false
+	)
+	if mapping_scrolls.is_empty():
+		return "controller mapper does not contain its mapping list"
+	if not (mapping_scrolls[0] as ScrollContainer).follow_focus:
+		return "controller mapper does not scroll to follow controller focus"
+	var first_binding := panel._binding_buttons.get(
+		ControllerMappingManagerType.ROLE_ORDER.front()
+	) as Button
+	var last_binding := panel._binding_buttons.get(
+		ControllerMappingManagerType.ROLE_ORDER.back()
+	) as Button
+	if first_binding.get_node(first_binding.focus_neighbor_top) != first_binding:
+		return "controller mapper loses focus above its first row"
+	if last_binding.get_node(last_binding.focus_neighbor_bottom) != (
+		panel._close_button
+	):
+		return "controller mapper cannot reach Done from its last row"
+	if panel._close_button.get_node(
+		panel._close_button.focus_neighbor_top
+	) != last_binding:
+		return "controller mapper cannot return from Done to its last row"
 	panel._begin_auto_map()
 	for role: StringName in ControllerMappingManagerType.ROLE_ORDER:
 		panel._process(ControllerMappingPanelType.CAPTURE_NEUTRAL_SECONDS)
@@ -391,3 +432,11 @@ func _keyboard_event_count(action: StringName) -> int:
 		if event is InputEventKey or event is InputEventMouseButton:
 			count += 1
 	return count
+
+
+func _has_joy_button(action: StringName, button_index: JoyButton) -> bool:
+	for event: InputEvent in InputMap.action_get_events(action):
+		var button := event as InputEventJoypadButton
+		if button != null and button.button_index == button_index:
+			return true
+	return false

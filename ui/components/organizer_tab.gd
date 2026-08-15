@@ -29,6 +29,7 @@ var _selected: bool = false
 
 func _ready() -> void:
 	toggle_mode = true
+	set_meta(&"controller_focus_inversion_disabled", true)
 	_selected = button_pressed
 	add_theme_font_override("font", UtilityPageStyle.TuffyFont)
 	add_theme_font_size_override("font_size", FONT_SIZE)

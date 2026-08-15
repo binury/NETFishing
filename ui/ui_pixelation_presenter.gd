@@ -44,7 +44,8 @@ func _ready() -> void:
 	_on_screen_keyboard = OnScreenKeyboardType.new()
 	_ui_root.add_child(_on_screen_keyboard)
 	_game_ui.set_controller_text_entry_request(
-		Callable(_on_screen_keyboard, "request_for_focused_control")
+		Callable(_on_screen_keyboard, "request_for_control"),
+		Callable(_on_screen_keyboard, "is_open"),
 	)
 	var controller_focus_recovery := ControllerFocusRecoveryType.new()
 	_ui_root.add_child(controller_focus_recovery)

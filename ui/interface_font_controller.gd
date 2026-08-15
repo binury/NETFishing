@@ -1,14 +1,20 @@
 class_name InterfaceFontController
 extends Node
 
+const FileDialogControllerNavigationType = preload(
+	"res://ui/file_dialog_controller_navigation.gd"
+)
 const STANDARD_FONT: Font = preload("res://ui/fonts/Tuffy_Bold.otf")
 const COMPACT_FILE_DIALOG_LIMIT := Vector2i(800, 600)
 const COMPACT_FILE_DIALOG_MARGIN := Vector2i(12, 12)
 const COMPACT_FILE_DIALOG_FONT_SIZE: int = 17
 
+var _controller_text_entry_request: Callable
+var _controller_text_entry_is_open: Callable
 var _game_theme: Theme = preload("res://ui/game_theme.tres")
 var _utility_theme: Theme
 var _compact_file_dialog_theme: Theme
+var _tracked_file_dialogs: Dictionary[int, WeakRef] = {}
 
 
 func _ready() -> void:
@@ -21,6 +27,14 @@ func enforce_standard_font() -> void:
 	_game_theme.default_font = STANDARD_FONT
 	if _utility_theme != null:
 		_utility_theme.default_font = STANDARD_FONT
+
+
+func set_controller_text_entry_request(
+	request: Callable,
+	is_open: Callable = Callable(),
+) -> void:
+	_controller_text_entry_request = request
+	_controller_text_entry_is_open = is_open
 
 
 func set_readable_font_enabled(_enabled: bool) -> void:
@@ -47,6 +61,7 @@ func apply_utility_theme(themed_node: Node) -> void:
 func popup_file_dialog(dialog: FileDialog) -> void:
 	if dialog == null or not dialog.is_inside_tree():
 		return
+	_tracked_file_dialogs[dialog.get_instance_id()] = weakref(dialog)
 	var host_window: Window = dialog.get_parent().get_window()
 	var host_size: Vector2i = host_window.size
 	var compact: bool = (
@@ -81,6 +96,55 @@ func popup_file_dialog(dialog: FileDialog) -> void:
 		_finalize_compact_file_dialog.call_deferred(
 			dialog, host_size, available_size
 		)
+
+
+func _process(_delta: float) -> void:
+	if (
+		_controller_text_entry_is_open.is_valid()
+		and bool(_controller_text_entry_is_open.call())
+	):
+		return
+	for instance_id: int in _tracked_file_dialogs.keys():
+		var reference: WeakRef = _tracked_file_dialogs[instance_id]
+		var dialog := reference.get_ref() as FileDialog
+		if dialog == null or not is_instance_valid(dialog):
+			_tracked_file_dialogs.erase(instance_id)
+			continue
+		if not dialog.visible:
+			continue
+		FileDialogControllerNavigationType.configure(dialog)
+		_connect_file_dialog_text_controls(dialog)
+
+
+func _connect_file_dialog_text_controls(dialog: FileDialog) -> void:
+	var scope: Window = FileDialogControllerNavigationType.active_scope(dialog)
+	for control: Control in (
+		FileDialogControllerNavigationType.interactive_controls(scope)
+	):
+		if not (control is LineEdit or control is TextEdit):
+			continue
+		var callback := _on_file_dialog_text_gui_input.bind(control)
+		if not control.gui_input.is_connected(callback):
+			control.gui_input.connect(callback)
+
+
+func _on_file_dialog_text_gui_input(
+	event: InputEvent,
+	control: Control,
+) -> void:
+	var button_event := event as InputEventJoypadButton
+	if (
+		button_event == null
+		or not button_event.pressed
+		or (
+			button_event.button_index != JOY_BUTTON_A
+			and not event.is_action_pressed("ui_accept")
+		)
+		or not _controller_text_entry_request.is_valid()
+	):
+		return
+	if bool(_controller_text_entry_request.call(control)):
+		control.accept_event()
 
 
 func _finalize_compact_file_dialog(

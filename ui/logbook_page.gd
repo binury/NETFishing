@@ -24,6 +24,10 @@ const DETAIL_FADE_DURATION: float = 0.12
 const CATEGORY_FADE_DURATION: float = UIMotion.UTILITY_EXIT_DURATION
 const HANDWRITTEN_NUMERIC_SCALE: float = 0.8
 const PORTRAIT_VIEW_MAX_SIZE := Vector2(860.0, 480.0)
+const DETAIL_OVERLAY_EDGE_MARGIN: int = 22
+const DETAIL_OVERLAY_CONTENT_MARGIN: int = 34
+const DETAIL_OVERLAY_TITLE_FONT_SIZE: int = 40
+const DETAIL_OVERLAY_TEXT_FONT_SIZE: int = 36
 const INK := Color("251b10")
 const MUTED_INK := Color("6d5b45")
 const LOGBOOK_ARTWORK: Texture2D = preload(
@@ -49,6 +53,13 @@ const CATALOG_ROW_STEP: float = 98.0
 const CATALOG_SNAP_DELAY: float = 0.12
 const DETAIL_PORTRAIT_SIZE := Vector2(160.0, 88.0)
 const DETAIL_BOTTOM_INSET: float = 35.0
+
+enum ControllerZone {
+	TABS,
+	ENTRIES,
+	DETAILS,
+	OVERLAY,
+}
 
 var _collection_log: CollectionLogType
 var _inventory: FishInventoryType
@@ -78,9 +89,14 @@ var _catalog_scroll_down_indicator: TextureRect
 var _empty_state: Label
 var _detail_body: VBoxContainer
 var _detail_portrait_button: Button
+var _detail_buttons: Array[Button] = []
 var _portrait_overlay: Control
 var _portrait_overlay_backdrop: Button
 var _portrait_overlay_artwork: LogbookPortraitType
+var _portrait_overlay_title: Label
+var _portrait_overlay_text: Label
+var _overlay_return_focus: Control
+var _controller_zone: ControllerZone = ControllerZone.TABS
 
 
 func _ready() -> void:
@@ -136,7 +152,9 @@ func set_interactive(value: bool) -> void:
 	)
 	for tab: Button in _category_tabs:
 		tab.focus_mode = (
-			Control.FOCUS_ALL if _interactive else Control.FOCUS_NONE
+			Control.FOCUS_ALL
+			if _interactive and _controller_zone == ControllerZone.TABS
+			else Control.FOCUS_NONE
 		)
 		tab.mouse_filter = (
 			Control.MOUSE_FILTER_STOP
@@ -145,31 +163,109 @@ func set_interactive(value: bool) -> void:
 		)
 	for entry: Button in _entry_buttons.values():
 		entry.focus_mode = (
-			Control.FOCUS_ALL if _interactive else Control.FOCUS_NONE
+			Control.FOCUS_ALL
+			if _interactive and _controller_zone == ControllerZone.ENTRIES
+			else Control.FOCUS_NONE
 		)
 		entry.mouse_filter = (
 			Control.MOUSE_FILTER_STOP
 			if _interactive
 			else Control.MOUSE_FILTER_IGNORE
 		)
+	for detail_button: Button in _detail_buttons:
+		if not is_instance_valid(detail_button):
+			continue
+		detail_button.focus_mode = (
+			Control.FOCUS_ALL
+			if _interactive and _controller_zone == ControllerZone.DETAILS
+			else Control.FOCUS_NONE
+		)
+	if _portrait_overlay_backdrop != null:
+		_portrait_overlay_backdrop.focus_mode = (
+			Control.FOCUS_ALL
+			if _interactive and _controller_zone == ControllerZone.OVERLAY
+			else Control.FOCUS_NONE
+		)
 
 
 func focus_initial() -> void:
 	if not _active or not _interactive:
 		return
-	if _portrait_overlay != null and _portrait_overlay.visible:
+	if _controller_zone == ControllerZone.OVERLAY:
 		_portrait_overlay_backdrop.grab_focus()
 		return
-	var selected := _entry_buttons.get(_selected_id) as Button
+	if _controller_zone == ControllerZone.TABS:
+		var category_tab_index: int = _category_tab_categories.find(_category)
+		if category_tab_index >= 0:
+			_category_tabs[category_tab_index].grab_focus()
+		return
+	if _controller_zone == ControllerZone.DETAILS:
+		if not _detail_buttons.is_empty():
+			_detail_buttons.front().grab_focus()
+		return
+	var selected := _entry_buttons.get(_selected_entry_key) as Button
 	if selected != null:
 		selected.grab_focus()
 	elif not _entry_buttons.is_empty():
 		var first := _entry_buttons.values().front() as Button
 		first.grab_focus()
-	else:
-		var category_tab_index: int = _category_tab_categories.find(_category)
-		if category_tab_index >= 0:
-			_category_tabs[category_tab_index].grab_focus()
+
+
+func reset_controller_zone() -> void:
+	_controller_zone = ControllerZone.TABS
+	set_interactive(_interactive)
+	call_deferred("focus_initial")
+
+
+func handle_controller_input(event: InputEvent) -> bool:
+	if not _active or not _interactive:
+		return false
+	var accept_pressed: bool = event.is_action_pressed("ui_accept")
+	var cancel_pressed: bool = event.is_action_pressed("ui_cancel")
+	if cancel_pressed:
+		match _controller_zone:
+			ControllerZone.OVERLAY:
+				_hide_portrait_overlay()
+			ControllerZone.DETAILS:
+				_set_controller_zone(ControllerZone.ENTRIES)
+			ControllerZone.ENTRIES:
+				_set_controller_zone(ControllerZone.TABS)
+			ControllerZone.TABS:
+				return false
+		return true
+	if _controller_zone == ControllerZone.TABS:
+		if event.is_action_pressed("ui_left"):
+			_select_adjacent_controller_category(-1)
+			return true
+		if event.is_action_pressed("ui_right"):
+			_select_adjacent_controller_category(1)
+			return true
+		if accept_pressed:
+			if not _entry_buttons.is_empty():
+				_set_controller_zone(ControllerZone.ENTRIES)
+			return true
+	if _controller_zone == ControllerZone.ENTRIES and accept_pressed:
+		if not _selected_entry_key.is_empty() and not _detail_buttons.is_empty():
+			_set_controller_zone(ControllerZone.DETAILS)
+		return true
+	return false
+
+
+func _set_controller_zone(zone: ControllerZone) -> void:
+	_controller_zone = zone
+	set_interactive(_interactive)
+	call_deferred("focus_initial")
+
+
+func _select_adjacent_controller_category(direction: int) -> void:
+	var current_index: int = _category_tab_categories.find(_category)
+	var target_index: int = clampi(
+		current_index + direction,
+		0,
+		_category_tab_categories.size() - 1,
+	)
+	if target_index != current_index:
+		_select_category(_category_tab_categories[target_index])
 
 
 func _build_interface() -> void:
@@ -715,6 +811,7 @@ func _build_known_details(fish: FishDataType) -> void:
 		_detail_portrait_button.pressed.connect(
 			_show_portrait_overlay.bind(fish.display_texture)
 		)
+		_detail_buttons.append(_detail_portrait_button)
 		portrait_column.add_child(_detail_portrait_button)
 		var artwork_center := CenterContainer.new()
 		artwork_center.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -729,11 +826,20 @@ func _build_known_details(fish: FishDataType) -> void:
 		)
 		artwork_center.add_child(artwork)
 
+	var facts_text: String = LogbookCatalog.facts_for(fish)
+	var facts_button := _make_detail_section_button(
+		"fish facts",
+		facts_text,
+	)
+	facts_button.custom_minimum_size = Vector2(190.0, 132.0)
+	facts_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	facts_button.size_flags_stretch_ratio = 1.0
+	summary_columns.add_child(facts_button)
 	var facts_column := VBoxContainer.new()
-	facts_column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	facts_column.size_flags_stretch_ratio = 1.0
+	facts_column.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	facts_column.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	facts_column.add_theme_constant_override("separation", 6)
-	summary_columns.add_child(facts_column)
+	facts_button.add_child(facts_column)
 	var facts_heading := _field_label(
 		"shellfish facts"
 		if fish.logbook_section == FishDataType.LogbookSection.SHELLFISH
@@ -741,17 +847,37 @@ func _build_known_details(fish: FishDataType) -> void:
 		16,
 	)
 	facts_column.add_child(facts_heading)
-	var facts := _label(LogbookCatalog.facts_for(fish), 16)
+	var facts := _label(facts_text, 16)
 	facts.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	facts.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	facts_column.add_child(facts)
-	_detail_body.add_child(_build_quality_progress(fish.id))
+	var quality_button := _make_detail_section_button(
+		"quality collection",
+		_quality_overlay_text(fish.id),
+	)
+	quality_button.custom_minimum_size.y = 132.0
+	quality_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_detail_body.add_child(quality_button)
+	var quality_progress := _build_quality_progress(fish.id)
+	quality_progress.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	quality_progress.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	quality_button.add_child(quality_progress)
 
+	var stats_button := _make_detail_section_button(
+		"fish stats",
+		_stats_overlay_text(fish, catalog_number),
+	)
+	stats_button.custom_minimum_size.y = 190.0
+	stats_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	stats_button.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_detail_body.add_child(stats_button)
 	var stats_anchor := VBoxContainer.new()
+	stats_anchor.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	stats_anchor.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	stats_anchor.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	stats_anchor.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	stats_anchor.alignment = BoxContainer.ALIGNMENT_END
-	_detail_body.add_child(stats_anchor)
+	stats_button.add_child(stats_anchor)
 	var stats_columns := HBoxContainer.new()
 	stats_columns.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	stats_columns.add_theme_constant_override("separation", 28)
@@ -806,6 +932,47 @@ func _build_known_details(fish: FishDataType) -> void:
 	bottom_inset.custom_minimum_size.y = DETAIL_BOTTOM_INSET
 	bottom_inset.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	stats_anchor.add_child(bottom_inset)
+	_configure_detail_focus(
+		_detail_portrait_button,
+		facts_button,
+		quality_button,
+		stats_button,
+	)
+	set_interactive(_interactive)
+
+
+func _configure_detail_focus(
+	portrait: Button,
+	facts: Button,
+	quality: Button,
+	stats: Button,
+) -> void:
+	var top_left: Button = portrait if portrait != null else facts
+	if portrait != null:
+		portrait.focus_neighbor_left = portrait.get_path_to(portrait)
+		portrait.focus_neighbor_right = portrait.get_path_to(facts)
+		portrait.focus_neighbor_top = portrait.get_path_to(portrait)
+		portrait.focus_neighbor_bottom = portrait.get_path_to(quality)
+		portrait.focus_previous = portrait.get_path_to(stats)
+		portrait.focus_next = portrait.get_path_to(facts)
+	facts.focus_neighbor_left = facts.get_path_to(top_left)
+	facts.focus_neighbor_right = facts.get_path_to(facts)
+	facts.focus_neighbor_top = facts.get_path_to(facts)
+	facts.focus_neighbor_bottom = facts.get_path_to(quality)
+	facts.focus_previous = facts.get_path_to(top_left)
+	facts.focus_next = facts.get_path_to(quality)
+	quality.focus_neighbor_left = quality.get_path_to(quality)
+	quality.focus_neighbor_right = quality.get_path_to(quality)
+	quality.focus_neighbor_top = quality.get_path_to(facts)
+	quality.focus_neighbor_bottom = quality.get_path_to(stats)
+	quality.focus_previous = quality.get_path_to(facts)
+	quality.focus_next = quality.get_path_to(stats)
+	stats.focus_neighbor_left = stats.get_path_to(stats)
+	stats.focus_neighbor_right = stats.get_path_to(stats)
+	stats.focus_neighbor_top = stats.get_path_to(quality)
+	stats.focus_neighbor_bottom = stats.get_path_to(stats)
+	stats.focus_previous = stats.get_path_to(quality)
+	stats.focus_next = stats.get_path_to(top_left)
 
 
 func _build_quality_progress(fish_id: StringName) -> VBoxContainer:
@@ -864,6 +1031,72 @@ func _build_quality_progress(fish_id: StringName) -> VBoxContainer:
 		tier.add_child(tier_label)
 		row.add_child(tier)
 	return quality_section
+
+
+func _make_detail_section_button(
+	section_title: String,
+	section_text: String,
+) -> Button:
+	var button := Button.new()
+	button.text = ""
+	button.tooltip_text = "View %s larger" % section_title
+	button.accessibility_name = "View %s larger" % section_title
+	button.add_theme_stylebox_override("normal", _portrait_button_style(false))
+	button.add_theme_stylebox_override("hover", _portrait_button_style(true))
+	button.add_theme_stylebox_override("focus", _portrait_button_style(true))
+	button.add_theme_stylebox_override("pressed", _portrait_button_style(true))
+	button.pressed.connect(
+		_show_detail_text_overlay.bind(section_title, section_text, button)
+	)
+	_detail_buttons.append(button)
+	return button
+
+
+func _quality_overlay_text(fish_id: StringName) -> String:
+	var lines: Array[String] = []
+	for quality: int in FishQualityType.TIER_COUNT:
+		var collected: bool = _collection_log.has_discovered_quality(
+			fish_id,
+			quality,
+		)
+		lines.append("%s  %s" % [
+			"collected" if collected else "not collected",
+			FishQualityType.display_name(quality),
+		])
+	return "\n".join(lines)
+
+
+func _stats_overlay_text(fish: FishDataType, catalog_number: int) -> String:
+	var habitat_label: String = (
+		"habitat"
+		if fish.logbook_section == FishDataType.LogbookSection.SHELLFISH
+		else "body of water"
+	)
+	return "\n".join([
+		"catalog number: %s" % (
+			"#%03d" % catalog_number if catalog_number > 0 else "unknown"
+		),
+		"%s: %s" % [habitat_label, fish.get_habitat_label()],
+		"weight range: %.2f–%.2f lb" % [
+			fish.get_minimum_weight(),
+			fish.get_maximum_weight(),
+		],
+		"rarity: %s" % fish.get_rarity_name().to_lower(),
+		"time of day: %s" % _availability_text(fish),
+		"value range: %d–%d" % [
+			FishQualityType.apply_sale_value(
+				fish.sell_value_min,
+				FishQualityType.Tier.BORING,
+			),
+			FishQualityType.apply_sale_value(
+				fish.sell_value_max,
+				FishQualityType.Tier.SHINY,
+			),
+		],
+		"number owned: %d" % (
+			_inventory.get_count(fish.id) if _inventory != null else 0
+		),
+	])
 
 
 func _show_no_selection() -> void:
@@ -992,6 +1225,7 @@ func _clear_entries() -> void:
 
 func _clear_details() -> void:
 	_detail_portrait_button = null
+	_detail_buttons.clear()
 	for child: Node in _detail_body.get_children():
 		_detail_body.remove_child(child)
 		child.queue_free()
@@ -1110,19 +1344,51 @@ func _build_portrait_overlay() -> void:
 	)
 	_portrait_overlay.add_child(_portrait_overlay_backdrop)
 
-	var center := CenterContainer.new()
-	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_portrait_overlay.add_child(center)
+	var overlay_margin := MarginContainer.new()
+	overlay_margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	overlay_margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_set_margins(
+		overlay_margin,
+		DETAIL_OVERLAY_EDGE_MARGIN,
+		DETAIL_OVERLAY_EDGE_MARGIN,
+		DETAIL_OVERLAY_EDGE_MARGIN,
+		DETAIL_OVERLAY_EDGE_MARGIN,
+	)
+	_portrait_overlay.add_child(overlay_margin)
 	var card := PanelContainer.new()
 	card.mouse_filter = Control.MOUSE_FILTER_STOP
+	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	card.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	card.add_theme_stylebox_override("panel", _portrait_view_style())
-	center.add_child(card)
+	overlay_margin.add_child(card)
 	var margin := MarginContainer.new()
-	_set_margins(margin, 22, 22, 22, 22)
+	_set_margins(
+		margin,
+		DETAIL_OVERLAY_CONTENT_MARGIN,
+		DETAIL_OVERLAY_CONTENT_MARGIN,
+		DETAIL_OVERLAY_CONTENT_MARGIN,
+		DETAIL_OVERLAY_CONTENT_MARGIN,
+	)
 	card.add_child(margin)
+	var overlay_stack := VBoxContainer.new()
+	overlay_stack.alignment = BoxContainer.ALIGNMENT_CENTER
+	overlay_stack.add_theme_constant_override("separation", 18)
+	margin.add_child(overlay_stack)
+	_portrait_overlay_title = _field_label(
+		"", DETAIL_OVERLAY_TITLE_FONT_SIZE
+	)
+	_portrait_overlay_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	overlay_stack.add_child(_portrait_overlay_title)
 	_portrait_overlay_artwork = LogbookPortraitType.new()
-	margin.add_child(_portrait_overlay_artwork)
+	_portrait_overlay_artwork.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	overlay_stack.add_child(_portrait_overlay_artwork)
+	_portrait_overlay_text = _label("", DETAIL_OVERLAY_TEXT_FONT_SIZE)
+	_portrait_overlay_text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_portrait_overlay_text.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_portrait_overlay_text.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	_portrait_overlay_text.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_portrait_overlay_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	overlay_stack.add_child(_portrait_overlay_text)
 
 
 func _show_portrait_overlay(portrait_texture: Texture2D) -> void:
@@ -1132,6 +1398,31 @@ func _show_portrait_overlay(portrait_texture: Texture2D) -> void:
 		portrait_texture,
 		PORTRAIT_VIEW_MAX_SIZE,
 	)
+	_portrait_overlay_title.text = "artwork"
+	_portrait_overlay_artwork.visible = true
+	_portrait_overlay_text.visible = false
+	_overlay_return_focus = _detail_portrait_button
+	_controller_zone = ControllerZone.OVERLAY
+	set_interactive(_interactive)
+	_portrait_overlay.visible = true
+	_portrait_overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+	_portrait_overlay_backdrop.grab_focus()
+
+
+func _show_detail_text_overlay(
+	section_title: String,
+	section_text: String,
+	return_focus: Control,
+) -> void:
+	if _portrait_overlay == null:
+		return
+	_portrait_overlay_title.text = section_title
+	_portrait_overlay_artwork.visible = false
+	_portrait_overlay_text.text = section_text
+	_portrait_overlay_text.visible = true
+	_overlay_return_focus = return_focus
+	_controller_zone = ControllerZone.OVERLAY
+	set_interactive(_interactive)
 	_portrait_overlay.visible = true
 	_portrait_overlay.mouse_filter = Control.MOUSE_FILTER_STOP
 	_portrait_overlay_backdrop.grab_focus()
@@ -1142,14 +1433,16 @@ func _hide_portrait_overlay(restore_focus: bool = true) -> void:
 		return
 	_portrait_overlay.visible = false
 	_portrait_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_controller_zone = ControllerZone.DETAILS
+	set_interactive(_interactive)
 	if (
 		restore_focus
-		and _detail_portrait_button != null
-		and is_instance_valid(_detail_portrait_button)
+		and _overlay_return_focus != null
+		and is_instance_valid(_overlay_return_focus)
 		and _active
 		and _interactive
 	):
-		_detail_portrait_button.grab_focus()
+		_overlay_return_focus.grab_focus()
 
 
 func _on_portrait_overlay_backdrop_input(event: InputEvent) -> void:
