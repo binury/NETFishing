@@ -220,7 +220,27 @@ func _run() -> void:
 	assert(QuickRadialMenu.ACTIONS.has(&"hud"))
 	game_ui.call("_on_quick_action_selected", &"freecam")
 	assert(player.is_free_camera_active())
-	assert(player.get_active_gameplay_camera().name == &"FreeCamera")
+	var free_camera := player.get_active_gameplay_camera()
+	assert(free_camera.name == &"FreeCamera")
+	var free_camera_yaw_before: float = free_camera.global_rotation.y
+	var mapping_manager := main.get(
+		"_controller_mapping_manager"
+	) as ControllerMappingManager
+	var right_stick_motion := InputEventJoypadMotion.new()
+	right_stick_motion.device = mapping_manager.get_active_device_id()
+	right_stick_motion.axis = JOY_AXIS_RIGHT_X
+	right_stick_motion.axis_value = 0.9
+	Input.parse_input_event(right_stick_motion)
+	await create_timer(0.1).timeout
+	assert(
+		absf(angle_difference(
+			free_camera.global_rotation.y,
+			free_camera_yaw_before,
+		)) > 0.02
+	)
+	right_stick_motion.axis_value = 0.0
+	Input.parse_input_event(right_stick_motion)
+	await process_frame
 	game_ui.call("_on_quick_action_selected", &"freecam")
 	assert(not player.is_free_camera_active())
 	game_ui.call("_on_quick_action_selected", &"hud")

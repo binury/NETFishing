@@ -1,6 +1,7 @@
 extends SceneTree
 
 const MainScene: PackedScene = preload("res://main/main.tscn")
+const PlayerScene: PackedScene = preload("res://player/player.tscn")
 const TEST_PORT: int = 18141
 
 
@@ -9,7 +10,12 @@ func _initialize() -> void:
 
 
 func _run() -> void:
+	await _validate_latency_smoothing()
 	var arguments: PackedStringArray = OS.get_cmdline_user_args()
+	if arguments.has("unit"):
+		print("Movement latency smoothing validation: PASS")
+		quit()
+		return
 	if arguments.has("host"):
 		await _run_host()
 		return
@@ -18,6 +24,67 @@ func _run() -> void:
 		return
 	push_error("Movement multiplayer validation needs host or client mode.")
 	quit(1)
+
+
+func _validate_latency_smoothing() -> void:
+	var avatar := PlayerScene.instantiate() as Player
+	root.add_child(avatar)
+	await process_frame
+	avatar.set_process(false)
+	avatar.set_physics_process(false)
+	avatar.configure_network_remote(false)
+	var moving_snapshot: Dictionary = _network_snapshot(
+		Vector3.ZERO,
+		Vector3(4.5, 0.0, 0.0),
+		1,
+	)
+	assert(NetworkSession.MOVEMENT_SNAPSHOT_BATCH_SIZE == 8)
+	var encoded_snapshots: Array = []
+	for _peer: int in NetworkSession.MOVEMENT_SNAPSHOT_BATCH_SIZE:
+		encoded_snapshots.append(
+			NetworkSession._encode_movement_snapshot(moving_snapshot)
+		)
+	assert(var_to_bytes(encoded_snapshots).size() < 1200)
+	assert(
+		NetworkSession._decode_movement_snapshot(
+			encoded_snapshots[0]
+		) == moving_snapshot
+	)
+	avatar.push_network_snapshot(moving_snapshot)
+	for _step: int in 12:
+		avatar.call("_update_network_interpolation", 1.0 / 30.0)
+	assert(avatar.global_position.x > 1.5)
+
+	avatar.configure_network_remote(false)
+	avatar.global_position = Vector3(1.35, 0.0, 0.0)
+	avatar.apply_local_prediction_correction(
+		moving_snapshot,
+		10,
+		1.0 / 30.0,
+	)
+	assert(avatar.global_position.x > 1.25)
+	avatar.queue_free()
+	await process_frame
+
+
+func _network_snapshot(
+	position: Vector3,
+	velocity: Vector3,
+	acknowledged_input: int,
+) -> Dictionary:
+	return {
+		"peer_id": 2,
+		"acknowledged_input": acknowledged_input,
+		"position": [position.x, position.y, position.z],
+		"velocity": [velocity.x, velocity.y, velocity.z],
+		"visual_yaw": 0.0,
+		"animation_state": NetworkPlayerAnimationProtocol.make_state(
+			NetworkPlayerAnimationProtocol.LOCOMOTION_RUNNING,
+			true,
+		),
+		"sitting": false,
+		"casting": false,
+	}
 
 
 func _run_host() -> void:

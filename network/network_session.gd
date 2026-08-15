@@ -9,6 +9,8 @@ const CONNECTION_TIMEOUT_SECONDS: float = 10.0
 const AUTHENTICATION_TIMEOUT_SECONDS: float = 60.0
 const INPUT_INTERVAL: float = 1.0 / 30.0
 const SNAPSHOT_INTERVAL: float = 1.0 / 30.0
+const MOVEMENT_SNAPSHOT_BATCH_SIZE: int = 8
+const MOVEMENT_SNAPSHOT_FIELD_COUNT: int = 12
 const MAX_MOVEMENT_INPUT_SEQUENCE: int = 2147483647
 
 signal state_changed(state: State)
@@ -1775,24 +1777,122 @@ func _is_valid_movement_input(data: Dictionary) -> bool:
 
 
 func _broadcast_movement_snapshots() -> void:
-	var snapshots: Array[Dictionary] = []
+	var snapshots: Array = []
 	for peer_id: int in _registry.get_peer_ids():
 		var avatar: Player = _spawn_service.get_avatar(peer_id)
 		if avatar == null:
 			continue
-		snapshots.append(avatar.make_network_snapshot(peer_id))
-	receive_movement_snapshots.rpc(snapshots)
+		var encoded: Array = _encode_movement_snapshot(
+			avatar.make_network_snapshot(peer_id)
+		)
+		if not encoded.is_empty():
+			snapshots.append(encoded)
+	# The compact v5 representation keeps a normal eight-player update near
+	# 1 KiB instead of the roughly 3.7 KiB dictionary representation. Rooms
+	# configured above the normal cap are divided into the same safe size.
+	for start_index: int in range(
+		0,
+		snapshots.size(),
+		MOVEMENT_SNAPSHOT_BATCH_SIZE,
+	):
+		receive_movement_snapshots.rpc(
+			snapshots.slice(
+				start_index,
+				mini(
+					start_index + MOVEMENT_SNAPSHOT_BATCH_SIZE,
+					snapshots.size(),
+				),
+			)
+		)
+
+
+static func _encode_movement_snapshot(snapshot: Dictionary) -> Array:
+	var position: Variant = snapshot.get("position")
+	var snapshot_velocity: Variant = snapshot.get("velocity")
+	var animation_value: Variant = snapshot.get("animation_state")
+	if (
+		typeof(position) != TYPE_ARRAY
+		or position.size() != 3
+		or typeof(snapshot_velocity) != TYPE_ARRAY
+		or snapshot_velocity.size() != 3
+		or not NetworkPlayerAnimationProtocol.validate_state(animation_value)
+	):
+		return []
+	var animation: Dictionary = animation_value
+	var action: Dictionary = animation["action"]
+	return [
+		int(snapshot.get("peer_id", 0)),
+		int(snapshot.get("acknowledged_input", 0)),
+		Vector3(float(position[0]), float(position[1]), float(position[2])),
+		Vector3(
+			float(snapshot_velocity[0]),
+			float(snapshot_velocity[1]),
+			float(snapshot_velocity[2]),
+		),
+		float(snapshot.get("visual_yaw", 0.0)),
+		str(animation["locomotion_id"]),
+		bool(animation["grounded"]),
+		str(action["id"]),
+		int(action["sequence"]),
+		float(action["elapsed"]),
+		bool(snapshot.get("sitting", false)),
+		bool(snapshot.get("casting", false)),
+	]
+
+
+static func _decode_movement_snapshot(value: Variant) -> Dictionary:
+	if typeof(value) != TYPE_ARRAY:
+		return {}
+	var fields: Array = value
+	if (
+		fields.size() != MOVEMENT_SNAPSHOT_FIELD_COUNT
+		or typeof(fields[0]) != TYPE_INT
+		or typeof(fields[1]) != TYPE_INT
+		or typeof(fields[2]) != TYPE_VECTOR3
+		or typeof(fields[3]) != TYPE_VECTOR3
+		or typeof(fields[4]) not in [TYPE_FLOAT, TYPE_INT]
+		or typeof(fields[5]) not in [TYPE_STRING, TYPE_STRING_NAME]
+		or typeof(fields[6]) != TYPE_BOOL
+		or typeof(fields[7]) not in [TYPE_STRING, TYPE_STRING_NAME]
+		or typeof(fields[8]) != TYPE_INT
+		or typeof(fields[9]) not in [TYPE_FLOAT, TYPE_INT]
+		or typeof(fields[10]) != TYPE_BOOL
+		or typeof(fields[11]) != TYPE_BOOL
+	):
+		return {}
+	var position: Vector3 = fields[2]
+	var snapshot_velocity: Vector3 = fields[3]
+	return {
+		"peer_id": int(fields[0]),
+		"acknowledged_input": int(fields[1]),
+		"position": [position.x, position.y, position.z],
+		"velocity": [
+			snapshot_velocity.x,
+			snapshot_velocity.y,
+			snapshot_velocity.z,
+		],
+		"visual_yaw": float(fields[4]),
+		"animation_state": NetworkPlayerAnimationProtocol.make_state(
+			StringName(str(fields[5])),
+			bool(fields[6]),
+			StringName(str(fields[7])),
+			int(fields[8]),
+			float(fields[9]),
+		),
+		"sitting": bool(fields[10]),
+		"casting": bool(fields[11]),
+	}
 
 
 @rpc("authority", "call_remote", "unreliable_ordered", 2)
-func receive_movement_snapshots(snapshots: Array) -> void:
+func receive_movement_snapshots(encoded_snapshots: Array) -> void:
 	if state != State.JOINED_CLIENT:
 		return
 	var local_peer_id: int = multiplayer.get_unique_id()
-	for value: Variant in snapshots:
-		if typeof(value) != TYPE_DICTIONARY:
+	for value: Variant in encoded_snapshots:
+		var snapshot: Dictionary = _decode_movement_snapshot(value)
+		if snapshot.is_empty():
 			continue
-		var snapshot: Dictionary = value
 		if typeof(snapshot.get("peer_id")) != TYPE_INT:
 			continue
 		var peer_id: int = snapshot["peer_id"]
@@ -1800,7 +1900,11 @@ func receive_movement_snapshots(snapshots: Array) -> void:
 		if avatar == null:
 			continue
 		if peer_id == local_peer_id:
-			avatar.apply_local_prediction_correction(snapshot)
+			avatar.apply_local_prediction_correction(
+				snapshot,
+				_input_sequence,
+				INPUT_INTERVAL,
+			)
 		else:
 			avatar.push_network_snapshot(snapshot)
 

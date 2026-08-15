@@ -104,6 +104,11 @@ const CHARACTER_CALL_MOUTH_ID: String = "open_ah"
 const CHARACTER_CALL_MOUTH_DURATION_SECONDS: float = 0.16
 const BASE_REEL_SPEED: float = 0.16
 const LANDING_DUST_MIN_FALL_SPEED: float = 2.5
+const NETWORK_EXTRAPOLATION_LIMIT_SECONDS: float = 0.5
+const LOCAL_PREDICTION_EXTRAPOLATION_LIMIT_SECONDS: float = 0.25
+const LOCAL_PREDICTION_CORRECTION_THRESHOLD: float = 0.12
+const LOCAL_PREDICTION_SNAP_DISTANCE: float = 2.0
+const LOCAL_PREDICTION_CORRECTION_WEIGHT: float = 0.18
 # The target Android handheld exposes its physical right trigger through
 # Godot's left-trigger axis. Keep the role named here so the platform mapping
 # remains isolated from camera behavior.
@@ -767,6 +772,13 @@ func _process(delta: float) -> void:
 	if not local_control_enabled:
 		return
 	if _free_camera_active:
+		if _is_camera_input_enabled():
+			_rotate_free_camera(
+				_scale_controller_camera_input(
+					_get_controller_camera_stick(),
+					delta,
+				)
+			)
 		return
 
 	if _camera_dragging and not Input.is_action_pressed("camera_drag"):
@@ -785,15 +797,8 @@ func _process(delta: float) -> void:
 					+ vertical_zoom_input * controller_zoom_speed * delta
 				)
 			else:
-				var adjusted_strength: float = (
-					(stick.length() - controller_camera_deadzone)
-					/ (1.0 - controller_camera_deadzone)
-				)
 				_rotate_camera(
-					stick.normalized()
-						* adjusted_strength
-						* controller_camera_speed
-						* delta
+					_scale_controller_camera_input(stick, delta)
 				)
 
 		var zoom_weight: float = 1.0 - exp(-zoom_smoothing * delta)
@@ -881,6 +886,25 @@ func _get_controller_camera_stick() -> Vector2:
 	return Vector2(
 		Input.get_joy_axis(0, JOY_AXIS_RIGHT_X),
 		Input.get_joy_axis(0, JOY_AXIS_RIGHT_Y),
+	)
+
+
+func _scale_controller_camera_input(
+	stick: Vector2,
+	delta: float,
+) -> Vector2:
+	var strength: float = stick.length()
+	if strength <= controller_camera_deadzone:
+		return Vector2.ZERO
+	var adjusted_strength: float = (
+		(strength - controller_camera_deadzone)
+		/ (1.0 - controller_camera_deadzone)
+	)
+	return (
+		stick.normalized()
+		* adjusted_strength
+		* controller_camera_speed
+		* delta
 	)
 
 
@@ -1540,7 +1564,11 @@ func push_network_snapshot(snapshot: Dictionary) -> void:
 	_network_snapshot_ready = true
 
 
-func apply_local_prediction_correction(snapshot: Dictionary) -> void:
+func apply_local_prediction_correction(
+	snapshot: Dictionary,
+	latest_input_sequence: int = 0,
+	input_interval_seconds: float = 0.0,
+) -> void:
 	var parsed: Dictionary = _parse_network_snapshot(snapshot)
 	if parsed.is_empty():
 		return
@@ -1556,13 +1584,32 @@ func apply_local_prediction_correction(snapshot: Dictionary) -> void:
 	if not _sitting_intent_pending:
 		_set_sitting(bool(parsed["sitting"]))
 	var authoritative_position: Vector3 = parsed["position"]
+	if (
+		acknowledged_input > 0
+		and latest_input_sequence > acknowledged_input
+		and input_interval_seconds > 0.0
+	):
+		# The snapshot describes the host's position when an older input was
+		# acknowledged. Project it through the measured input-sequence gap so
+		# ordinary round-trip latency is not mistaken for prediction error.
+		var sequence_gap: int = latest_input_sequence - acknowledged_input
+		var transit_seconds: float = minf(
+			float(sequence_gap) * input_interval_seconds,
+			LOCAL_PREDICTION_EXTRAPOLATION_LIMIT_SECONDS,
+		)
+		authoritative_position += (
+			(parsed["velocity"] as Vector3) * transit_seconds
+		)
 	var error_distance: float = global_position.distance_to(
 		authoritative_position
 	)
-	if error_distance > 2.0:
+	if error_distance > LOCAL_PREDICTION_SNAP_DISTANCE:
 		global_position = authoritative_position
-	elif error_distance > 0.05:
-		global_position = global_position.lerp(authoritative_position, 0.18)
+	elif error_distance > LOCAL_PREDICTION_CORRECTION_THRESHOLD:
+		global_position = global_position.lerp(
+			authoritative_position,
+			LOCAL_PREDICTION_CORRECTION_WEIGHT,
+		)
 
 
 func apply_network_teleport(snapshot: Dictionary) -> void:
@@ -1760,7 +1807,10 @@ func _apply_network_casting(casting: bool) -> void:
 func _update_network_interpolation(delta: float) -> void:
 	if not _network_snapshot_ready:
 		return
-	_network_snapshot_age = minf(_network_snapshot_age + delta, 0.1)
+	_network_snapshot_age = minf(
+		_network_snapshot_age + delta,
+		NETWORK_EXTRAPOLATION_LIMIT_SECONDS,
+	)
 	var predicted_position: Vector3 = (
 		_network_target_position
 		+ _network_target_velocity * _network_snapshot_age
