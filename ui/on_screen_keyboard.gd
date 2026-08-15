@@ -50,20 +50,30 @@ func _ready() -> void:
 
 func set_enabled(enabled: bool) -> void:
 	_enabled = enabled
-	if not _enabled and visible:
+	if not _is_available_for_controller() and visible:
 		_close_keyboard(false)
 
 
 func is_enabled() -> bool:
-	return _enabled
+	return _is_available_for_controller()
 
 
 func is_open() -> bool:
 	return visible
 
 
+func request_for_focused_control() -> bool:
+	if not _is_available_for_controller() or visible:
+		return false
+	var focus_owner: Control = get_viewport().gui_get_focus_owner()
+	if not _can_edit(focus_owner):
+		return false
+	_open_for(focus_owner)
+	return true
+
+
 func _input(event: InputEvent) -> void:
-	if not _enabled:
+	if not _is_available_for_controller():
 		return
 	if visible:
 		var joy_motion := event as InputEventJoypadMotion
@@ -98,10 +108,25 @@ func _input(event: InputEvent) -> void:
 		)
 	):
 		return
-	var focus_owner: Control = get_viewport().gui_get_focus_owner()
-	if _can_edit(focus_owner):
-		_open_for(focus_owner)
+	if request_for_focused_control():
 		get_viewport().set_input_as_handled()
+
+
+func _is_available_for_controller() -> bool:
+	return should_enable_for_controller(
+		_enabled,
+		DisplayServer.has_feature(DisplayServer.FEATURE_VIRTUAL_KEYBOARD),
+	)
+
+
+static func should_enable_for_controller(
+	preference_enabled: bool,
+	native_virtual_keyboard_available: bool,
+) -> bool:
+	# A controller user must always have one viable text-entry path. Android
+	# and any future display backend with native support can keep using the
+	# platform keyboard unless the in-game keyboard is explicitly requested.
+	return preference_enabled or not native_virtual_keyboard_available
 
 
 func _can_edit(control: Control) -> bool:

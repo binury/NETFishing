@@ -189,9 +189,22 @@ func _run() -> void:
 	accept_button.button_index = JOY_BUTTON_A
 	accept_button.pressed = true
 	assert(bool(game_ui.call("_handle_controller_chat_controls", accept_button)))
-	assert(typed_chat_entry.virtual_keyboard_enabled)
-	await process_frame
-	assert(typed_chat_entry.has_focus())
+	var ui_pixelation := main.get("_ui_pixelation") as UIPixelationPresenter
+	assert(ui_pixelation != null)
+	var on_screen_keyboard := ui_pixelation.get(
+		"_on_screen_keyboard"
+	) as OnScreenKeyboard
+	assert(on_screen_keyboard != null)
+	if DisplayServer.has_feature(DisplayServer.FEATURE_VIRTUAL_KEYBOARD):
+		assert(typed_chat_entry.virtual_keyboard_enabled)
+		assert(not on_screen_keyboard.is_open())
+		await process_frame
+		assert(typed_chat_entry.has_focus())
+	else:
+		assert(not typed_chat_entry.virtual_keyboard_enabled)
+		assert(on_screen_keyboard.is_open())
+		on_screen_keyboard.call("_close_keyboard", true)
+		assert(typed_chat_entry.has_focus())
 	var left_bumper := InputEventJoypadButton.new()
 	left_bumper.button_index = JOY_BUTTON_LEFT_SHOULDER
 	left_bumper.pressed = true

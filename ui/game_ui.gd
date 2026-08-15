@@ -199,6 +199,7 @@ var _virtual_mouse_trigger_rest_by_device: Dictionary[int, float] = {}
 var _shared_trigger_rest_by_device: Dictionary[int, float] = {}
 var _controller_mapping_manager: ControllerMappingManagerType
 var _settings_manager: PlayerSettingsManagerType
+var _controller_text_entry_request: Callable
 
 
 func _ready() -> void:
@@ -250,6 +251,10 @@ func _ready() -> void:
 		_on_controller_connection_changed
 	):
 		Input.joy_connection_changed.connect(_on_controller_connection_changed)
+
+
+func set_controller_text_entry_request(request: Callable) -> void:
+	_controller_text_entry_request = request
 
 
 func setup(
@@ -600,6 +605,11 @@ func _handle_controller_chat_controls(event: InputEvent) -> bool:
 		_chat_ui.refocus_gameplay()
 		return true
 	if accept_pressed:
+		if (
+			_controller_text_entry_request.is_valid()
+			and bool(_controller_text_entry_request.call())
+		):
+			return true
 		return _chat_ui.request_virtual_keyboard()
 	return false
 

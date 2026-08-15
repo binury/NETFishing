@@ -19,6 +19,7 @@ signal effective_pixel_size_changed(
 )
 
 @onready var _ui_viewport: SubViewport = $UIViewport
+@onready var _game_ui: GameUI = $UIViewport/GameUI
 @onready var _ui_root: Control = $UIViewport/GameUI/UIRoot
 @onready var _canonical_stage: Control = (
 	$UIViewport/GameUI/UIRoot/CanonicalStage
@@ -42,6 +43,9 @@ var _on_screen_keyboard: OnScreenKeyboardType
 func _ready() -> void:
 	_on_screen_keyboard = OnScreenKeyboardType.new()
 	_ui_root.add_child(_on_screen_keyboard)
+	_game_ui.set_controller_text_entry_request(
+		Callable(_on_screen_keyboard, "request_for_focused_control")
+	)
 	var controller_focus_recovery := ControllerFocusRecoveryType.new()
 	_ui_root.add_child(controller_focus_recovery)
 	var controller_focus_presentation := ControllerFocusPresentationType.new()

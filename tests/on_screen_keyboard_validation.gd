@@ -20,6 +20,9 @@ func _run() -> void:
 func _validate_default_and_persistence() -> void:
 	var defaults := PlayerSettings.new()
 	assert(not defaults.on_screen_keyboard_enabled)
+	assert(KeyboardType.should_enable_for_controller(false, false))
+	assert(not KeyboardType.should_enable_for_controller(false, true))
+	assert(KeyboardType.should_enable_for_controller(true, true))
 	var manager := SettingsManagerType.new()
 	root.add_child(manager)
 	assert(manager.load_settings())
@@ -43,11 +46,24 @@ func _validate_keyboard_entry() -> void:
 	var keyboard := KeyboardType.new()
 	host.add_child(keyboard)
 	await process_frame
-	keyboard.set_enabled(true)
-	edit.grab_focus()
+	keyboard.set_enabled(false)
+	assert(
+		keyboard.is_enabled()
+		== not DisplayServer.has_feature(
+			DisplayServer.FEATURE_VIRTUAL_KEYBOARD
+		)
+	)
 	var activate_event := InputEventJoypadButton.new()
 	activate_event.button_index = JOY_BUTTON_A
 	activate_event.pressed = true
+	if keyboard.is_enabled():
+		edit.grab_focus()
+		keyboard.call("_input", activate_event)
+		assert(keyboard.is_open())
+		keyboard.call("_close_keyboard", true)
+		assert(not keyboard.is_open())
+	keyboard.set_enabled(true)
+	edit.grab_focus()
 	keyboard.call("_input", activate_event)
 	assert(keyboard.is_open())
 	keyboard.call("_type_character", "a")
