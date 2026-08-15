@@ -77,6 +77,47 @@ func get_identity_fingerprint() -> String:
 	)
 
 
+func preview_appearance(appearance: Dictionary) -> bool:
+	if not CharacterCustomizationCatalog.validate_snapshot(appearance):
+		return false
+	var snapshot := CharacterCustomizationCatalog.sanitized_snapshot(appearance)
+	var local_peer_id: int = (
+		_session.get_local_peer_id() if _session != null else 1
+	)
+	_apply_to_avatar(local_peer_id, snapshot)
+	if _session == null or not _session.is_gameplay_session_active():
+		return true
+	_session.apply_canonical_profile(
+		local_peer_id,
+		_preferences.display_name,
+		snapshot,
+	)
+	if _session.is_host():
+		_broadcast_appearance_preview_to_supported_peers(
+			local_peer_id,
+			snapshot,
+		)
+	elif _session.supports_server_capability(
+		NetworkProtocol.APPEARANCE_PREVIEW_CAPABILITY
+	):
+		var request: Dictionary = {
+			"request_id": _new_id(),
+			"session_id": _session.get_session_id(),
+			"appearance": snapshot.duplicate(true),
+			"sender_fingerprint": _session.get_local_identity_fingerprint(),
+		}
+		request["sender_signature"] = _session.sign_local_action(
+			"appearance_preview",
+			NetworkProfileProtocol.appearance_preview_signature_fields(request),
+		)
+		submit_appearance_preview.rpc_id(1, request)
+	return true
+
+
+func restore_persisted_appearance() -> void:
+	preview_appearance(_appearance_store.get_snapshot())
+
+
 func request_name_check(display_name: String) -> String:
 	var request_id := _new_id()
 	_latest_check_id = request_id
@@ -200,6 +241,40 @@ func submit_profile_apply(data: Dictionary) -> void:
 	_process_apply_request(sender_id, data)
 
 
+@rpc("any_peer", "call_remote", "reliable", NetworkProfileProtocol.RELIABLE_CHANNEL)
+func submit_appearance_preview(data: Dictionary) -> void:
+	var sender_id := multiplayer.get_remote_sender_id()
+	if (
+		not _session.is_host()
+		or not _session.is_authenticated_peer(sender_id)
+		or not NetworkProfileProtocol.valid_appearance_preview_request(data)
+		or str(data["session_id"]) != _session.get_session_id()
+	):
+		return
+	var record := _session.get_peer_record(sender_id)
+	if (
+		record == null
+		or record.identity_fingerprint != str(data["sender_fingerprint"])
+		or not _session.verify_peer_action(
+			sender_id,
+			"appearance_preview",
+			NetworkProfileProtocol.appearance_preview_signature_fields(data),
+			data["sender_signature"],
+		)
+	):
+		return
+	var appearance := CharacterCustomizationCatalog.sanitized_snapshot(
+		data["appearance"]
+	)
+	_session.apply_canonical_profile(
+		sender_id,
+		record.display_name,
+		appearance,
+	)
+	_apply_to_avatar(sender_id, appearance)
+	_broadcast_appearance_preview_to_supported_peers(sender_id, appearance)
+
+
 func _process_apply_request(peer_id: int, data: Dictionary) -> void:
 	var display_name: String = str(data["display_name"]).strip_edges()
 	var conflict: bool = _name_conflicts(peer_id, display_name)
@@ -256,7 +331,7 @@ func confirm_profile_saved(request_id: String) -> void:
 	_apply_to_avatar(sender_id, appearance)
 	broadcast_profile_snapshot.rpc(
 		sender_id,
-		name,
+		display_name,
 		appearance,
 		pending.get("authorization", {}),
 	)
@@ -344,6 +419,8 @@ func _apply_local_result(
 	_pending_voice_ids.erase(request_id)
 	_pending_speech_speed_ids.erase(request_id)
 	_pending_call_ids.erase(request_id)
+	if _session != null:
+		_session.set_local_appearance_snapshot(_appearance_store.get_snapshot())
 	if _session != null and _session.is_gameplay_session_active():
 		if _session.is_host():
 			_session.apply_canonical_profile(
@@ -408,6 +485,48 @@ func broadcast_profile_snapshot(
 	profile_snapshot_changed.emit(peer_id, display_name, appearance.duplicate(true))
 
 
+@rpc("authority", "call_remote", "reliable", NetworkProfileProtocol.RELIABLE_CHANNEL)
+func broadcast_appearance_preview(
+	peer_id: int,
+	appearance: Dictionary,
+) -> void:
+	if not CharacterCustomizationCatalog.validate_snapshot(appearance):
+		return
+	var record := _session.get_peer_record(peer_id)
+	if record == null:
+		return
+	var snapshot := CharacterCustomizationCatalog.sanitized_snapshot(appearance)
+	_session.apply_canonical_profile(peer_id, record.display_name, snapshot)
+	_apply_to_avatar(peer_id, snapshot)
+	profile_snapshot_changed.emit(
+		peer_id,
+		record.display_name,
+		snapshot.duplicate(true),
+	)
+
+
+func _broadcast_appearance_preview_to_supported_peers(
+	peer_id: int,
+	appearance: Dictionary,
+) -> void:
+	if _session == null or not _session.is_host():
+		return
+	for recipient_id: int in _session.get_authenticated_peer_ids():
+		if (
+			recipient_id == _session.get_local_peer_id()
+			or not _session.peer_supports_capability(
+				recipient_id,
+				NetworkProtocol.APPEARANCE_PREVIEW_CAPABILITY,
+			)
+		):
+			continue
+		broadcast_appearance_preview.rpc_id(
+			recipient_id,
+			peer_id,
+			appearance,
+		)
+
+
 func _on_peer_authenticated(peer_id: int, _display_name: String) -> void:
 	if not _session.is_host():
 		return
@@ -422,9 +541,19 @@ func _on_peer_authenticated(peer_id: int, _display_name: String) -> void:
 			record.appearance_snapshot,
 			record.profile_authorization,
 		)
+		if _session.peer_supports_capability(
+			peer_id,
+			NetworkProtocol.APPEARANCE_PREVIEW_CAPABILITY,
+		):
+			broadcast_appearance_preview.rpc_id(
+				peer_id,
+				existing_id,
+				record.appearance_snapshot,
+			)
 
 
 func _on_join_authenticated() -> void:
+	_session.set_local_appearance_snapshot(_appearance_store.get_snapshot())
 	_apply_to_avatar(
 		_session.get_local_peer_id(), _appearance_store.get_snapshot()
 	)
@@ -474,6 +603,8 @@ func _on_session_state_changed(state: NetworkSession.State) -> void:
 		_host_pending_apply.clear()
 		_latest_check_id = ""
 		_latest_check_name = ""
+		_session.set_local_appearance_snapshot(_appearance_store.get_snapshot())
+		_apply_to_avatar(1, _appearance_store.get_snapshot())
 
 
 func _emit_conflict_result(data: Dictionary) -> void:

@@ -559,6 +559,7 @@ func supports_server_capability(capability: StringName) -> bool:
 			NetworkProtocol.WORLD_TIME_CAPABILITY,
 			NetworkProtocol.WORLD_WEATHER_CAPABILITY,
 			NetworkProtocol.WORLD_SPAWN_CAPABILITY,
+			NetworkProtocol.APPEARANCE_PREVIEW_CAPABILITY,
 			"chat_v1",
 			"mail_v1",
 			"profile_v1",

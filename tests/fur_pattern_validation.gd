@@ -331,7 +331,18 @@ func _validate_fur_color_ui(snapshot: Dictionary) -> void:
 		))
 	var picker_style := picker.get_theme_stylebox("normal") as StyleBoxFlat
 	assert(picker_style != null and picker_style.corner_radius_top_left == 14)
-	assert(picker_popup.min_size == ProfilePage.FUR_COLOR_PICKER_POPUP_SIZE)
+	var picker_window_size: Vector2i = profile_page.get_window().size
+	var expected_picker_size := Vector2i(
+		mini(
+			ProfilePage.FUR_COLOR_PICKER_POPUP_SIZE.x,
+			maxi(picker_window_size.x - 32, 420),
+		),
+		mini(
+			ProfilePage.FUR_COLOR_PICKER_POPUP_SIZE.y,
+			maxi(picker_window_size.y - 32, 340),
+		),
+	)
+	assert(picker_popup.min_size == expected_picker_size)
 	assert(picker_popup.theme.default_font == UtilityPageStyle.TuffyFont)
 	var popup_style := picker_popup.get_theme_stylebox(
 		"panel"
@@ -341,11 +352,17 @@ func _validate_fur_color_ui(snapshot: Dictionary) -> void:
 	assert(popup_style.corner_radius_top_left == 20)
 	assert(
 		picker_control.get_theme_constant("sv_width")
-		== ProfilePage.FUR_COLOR_PICKER_SV_SIZE.x
+		== mini(
+			ProfilePage.FUR_COLOR_PICKER_SV_SIZE.x,
+			expected_picker_size.x - 110,
+		)
 	)
 	assert(
 		picker_control.get_theme_constant("sv_height")
-		== ProfilePage.FUR_COLOR_PICKER_SV_SIZE.y
+		== mini(
+			ProfilePage.FUR_COLOR_PICKER_SV_SIZE.y,
+			expected_picker_size.y - 180,
+		)
 	)
 	assert(not picker_control.edit_alpha)
 	assert(not picker_control.edit_intensity)

@@ -2,6 +2,7 @@ class_name ProfilePage
 extends Control
 
 const CHECK_DEBOUNCE_SECONDS: float = 0.4
+const APPEARANCE_PREVIEW_INTERVAL_SECONDS: float = 0.08
 const OPTION_GRID_COLUMNS: int = 6
 const FUR_PALETTE_GRID_COLUMNS: int = 10
 const FUR_PATTERN_GRID_COLUMNS: int = 4
@@ -27,6 +28,13 @@ const VoiceProfilesType = preload(
 )
 const VOICE_CATEGORY_ID: String = "voice"
 
+enum ControllerZone {
+	ACCOUNT,
+	CATEGORIES,
+	OPTIONS,
+	COLOR_PICKER,
+}
+
 var _service: NetworkProfileService
 var _experience: PlayerExperience
 var _draft_name: String = ""
@@ -49,14 +57,18 @@ var _suggestions: HBoxContainer
 var _category_list: VBoxContainer
 var _option_list: VBoxContainer
 var _preview: ProfilePreview
+var _customize_button: Button
 var _apply_button: Button
 var _revert_button: Button
+var _defaults_button: Button
+var _reset_view_button: Button
 var _discard_confirmation: PanelContainer
 var _confirmation_label: Label
 var _confirmation_confirm: Button
 var _keep_editing_button: Button
 var _confirmation_action: String = ""
 var _debounce: Timer
+var _appearance_preview_timer: Timer
 var _experience_level: Label
 var _experience_progress: ProgressBar
 var _experience_value: Label
@@ -76,6 +88,13 @@ var _fur_color_channel_buttons: Dictionary[String, Button] = {}
 var _fur_color_channel_swatches: Dictionary[String, Panel] = {}
 var _fur_custom_color_display: Panel
 var _fur_custom_color_label: Label
+var _controller_mapping_manager: ControllerMappingManagerType
+var _controller_zone: ControllerZone = ControllerZone.ACCOUNT
+var _controller_option_depth: int = 0
+var _active_color_picker_button: ColorPickerButton
+var _active_color_picker_return_depth: int = 0
+var _profile_active: bool = false
+var _profile_interactive: bool = false
 
 
 func _ready() -> void:
@@ -86,10 +105,17 @@ func _ready() -> void:
 	_debounce.wait_time = CHECK_DEBOUNCE_SECONDS
 	_debounce.timeout.connect(_request_conflict_check)
 	add_child(_debounce)
+	_appearance_preview_timer = Timer.new()
+	_appearance_preview_timer.one_shot = true
+	_appearance_preview_timer.wait_time = APPEARANCE_PREVIEW_INTERVAL_SECONDS
+	_appearance_preview_timer.timeout.connect(_publish_draft_appearance)
+	add_child(_appearance_preview_timer)
 
 
 func _exit_tree() -> void:
 	_cancel_feature_preview_requests()
+	if _service != null:
+		_service.restore_persisted_appearance()
 
 
 func setup(
@@ -127,6 +153,7 @@ func setup(
 func setup_controller_mapping(
 	mapping_manager: ControllerMappingManagerType,
 ) -> void:
+	_controller_mapping_manager = mapping_manager
 	if _preview != null:
 		_preview.setup_controller_mapping(mapping_manager)
 
@@ -137,6 +164,7 @@ func set_world_pixel_size(pixel_size: int) -> void:
 
 
 func activate() -> void:
+	_profile_active = true
 	visible = true
 	if _service != null:
 		_load_persisted()
@@ -145,8 +173,12 @@ func activate() -> void:
 
 
 func deactivate() -> void:
+	_profile_active = false
 	visible = false
 	_debounce.stop()
+	_appearance_preview_timer.stop()
+	if _service != null:
+		_service.restore_persisted_appearance()
 	_cancel_feature_preview_requests()
 	if _voice_preview_tween != null and _voice_preview_tween.is_valid():
 		_voice_preview_tween.kill()
@@ -154,16 +186,24 @@ func deactivate() -> void:
 
 
 func set_interactive(interactive: bool) -> void:
+	_profile_interactive = interactive and _profile_active
 	mouse_filter = (
-		Control.MOUSE_FILTER_PASS if interactive else Control.MOUSE_FILTER_IGNORE
+		Control.MOUSE_FILTER_PASS
+		if _profile_interactive else Control.MOUSE_FILTER_IGNORE
 	)
+	_apply_controller_zone_focus()
+
+
+func reset_controller_zone() -> void:
+	_controller_zone = ControllerZone.ACCOUNT
+	_controller_option_depth = 0
+	_apply_controller_zone_focus()
+	call_deferred("_focus_controller_zone")
 
 
 func consume_escape() -> bool:
 	if _discard_confirmation.visible:
-		_discard_confirmation.visible = false
-		_confirmation_action = ""
-		_name_edit.grab_focus()
+		_close_discard_confirmation()
 		return true
 	if _name_edit.has_focus():
 		_name_edit.release_focus()
@@ -172,6 +212,257 @@ func consume_escape() -> bool:
 		_show_confirmation("discard")
 		return true
 	return false
+
+
+func handle_controller_input(event: InputEvent) -> bool:
+	if not _profile_active or not _profile_interactive:
+		return false
+	if event.is_action_pressed("ui_cancel"):
+		if _discard_confirmation.visible:
+			_close_discard_confirmation()
+			return true
+		match _controller_zone:
+			ControllerZone.COLOR_PICKER:
+				_close_controller_color_picker()
+			ControllerZone.OPTIONS:
+				if _controller_option_depth > 0:
+					_controller_option_depth -= 1
+					_apply_controller_zone_focus()
+					call_deferred("_focus_controller_zone")
+				else:
+					_controller_zone = ControllerZone.CATEGORIES
+					_apply_controller_zone_focus()
+					call_deferred("_focus_controller_zone")
+			ControllerZone.CATEGORIES:
+				_controller_zone = ControllerZone.ACCOUNT
+				_apply_controller_zone_focus()
+				call_deferred("_focus_controller_zone")
+			ControllerZone.ACCOUNT:
+				return false
+		return true
+	if _controller_zone == ControllerZone.ACCOUNT:
+		return false
+	if (
+		_controller_zone == ControllerZone.CATEGORIES
+		and event.is_action_pressed("ui_accept")
+	):
+		var focused_category := get_viewport().gui_get_focus_owner() as Button
+		if focused_category != null and _category_list.is_ancestor_of(
+			focused_category
+		):
+			focused_category.pressed.emit()
+		_controller_zone = ControllerZone.OPTIONS
+		_controller_option_depth = 0
+		_apply_controller_zone_focus.call_deferred()
+		_focus_controller_zone.call_deferred()
+		return true
+	if (
+		_controller_zone == ControllerZone.OPTIONS
+		and event.is_action_pressed("ui_accept")
+	):
+		var groups: Array = _controller_option_groups()
+		if _controller_option_depth < groups.size() - 1:
+			var focused_option := get_viewport().gui_get_focus_owner() as BaseButton
+			_controller_option_depth += 1
+			if focused_option != null:
+				focused_option.pressed.emit()
+			_apply_controller_zone_focus.call_deferred()
+			_focus_controller_zone.call_deferred()
+			return true
+	return false
+
+
+func _process(delta: float) -> void:
+	if (
+		not _profile_active
+		or not _profile_interactive
+	):
+		return
+	var right_stick := Vector2(
+		_controller_mapping_manager.get_role_axis(
+			ControllerMappingManagerType.ROLE_RIGHT_STICK_X
+		)
+		if _controller_mapping_manager != null
+		else Input.get_joy_axis(0, JOY_AXIS_RIGHT_X),
+		_controller_mapping_manager.get_role_axis(
+			ControllerMappingManagerType.ROLE_RIGHT_STICK_Y
+		)
+		if _controller_mapping_manager != null
+		else Input.get_joy_axis(0, JOY_AXIS_RIGHT_Y),
+	)
+	if right_stick.length() < 0.16:
+		return
+	if _controller_zone == ControllerZone.COLOR_PICKER:
+		_adjust_controller_color_gamut(right_stick, delta)
+	else:
+		_preview.apply_controller_orbit(right_stick, delta)
+
+
+func _apply_controller_zone_focus() -> void:
+	if not is_node_ready():
+		return
+	var account_controls: Array[Control] = _account_controller_controls()
+	var category_controls: Array[Control] = _controls_under(_category_list)
+	var option_groups: Array = _controller_option_groups()
+	var all_option_controls: Array[Control] = []
+	for group_value: Variant in option_groups:
+		var group := group_value as Array
+		for item: Variant in group:
+			var control := item as Control
+			if control != null and control not in all_option_controls:
+				all_option_controls.append(control)
+	for control: Control in account_controls + category_controls + all_option_controls:
+		control.focus_mode = Control.FOCUS_NONE
+	for control: Control in [_confirmation_confirm, _keep_editing_button]:
+		if control != null:
+			control.focus_mode = Control.FOCUS_NONE
+	if _preview != null:
+		_preview.focus_mode = Control.FOCUS_NONE
+	if _reset_view_button != null:
+		_reset_view_button.focus_mode = Control.FOCUS_NONE
+	if not _profile_interactive:
+		return
+	if _discard_confirmation != null and _discard_confirmation.visible:
+		var confirmation_controls: Array[Control] = [
+			_confirmation_confirm,
+			_keep_editing_button,
+		]
+		for control: Control in confirmation_controls:
+			control.focus_mode = Control.FOCUS_ALL
+		ControllerFocusNavigation.configure_spatial_neighbors(
+			confirmation_controls
+		)
+		return
+	var active_controls: Array[Control] = []
+	match _controller_zone:
+		ControllerZone.ACCOUNT:
+			active_controls = account_controls
+		ControllerZone.CATEGORIES:
+			active_controls = category_controls
+		ControllerZone.OPTIONS:
+			if not option_groups.is_empty():
+				_controller_option_depth = clampi(
+					_controller_option_depth,
+					0,
+					option_groups.size() - 1,
+				)
+				for item: Variant in option_groups[_controller_option_depth]:
+					var control := item as Control
+					if control != null:
+						active_controls.append(control)
+		ControllerZone.COLOR_PICKER:
+			active_controls = _color_picker_controller_controls()
+	for control: Control in active_controls:
+		var button := control as BaseButton
+		control.focus_mode = (
+			Control.FOCUS_ALL
+			if button == null or not button.disabled
+			else Control.FOCUS_NONE
+		)
+	ControllerFocusNavigation.configure_spatial_neighbors(active_controls)
+
+
+func _focus_controller_zone() -> void:
+	if not _profile_interactive:
+		return
+	var controls: Array[Control] = []
+	match _controller_zone:
+		ControllerZone.ACCOUNT:
+			controls = _account_controller_controls()
+		ControllerZone.CATEGORIES:
+			controls = _controls_under(_category_list)
+		ControllerZone.OPTIONS:
+			var groups: Array = _controller_option_groups()
+			if not groups.is_empty():
+				for item: Variant in groups[clampi(
+					_controller_option_depth, 0, groups.size() - 1
+				)]:
+					var option_control := item as Control
+					if option_control != null:
+						controls.append(option_control)
+		ControllerZone.COLOR_PICKER:
+			controls = _color_picker_controller_controls()
+	for control: Control in controls:
+		var button := control as BaseButton
+		if button != null and button.button_pressed:
+			button.grab_focus()
+			return
+	for control: Control in controls:
+		if control.focus_mode != Control.FOCUS_NONE:
+			control.grab_focus()
+			return
+
+
+func _account_controller_controls() -> Array[Control]:
+	var controls: Array[Control] = []
+	for control: Control in [
+		_name_edit,
+		_customize_button,
+		_apply_button,
+		_revert_button,
+		_defaults_button,
+	]:
+		if control != null and control.is_visible_in_tree():
+			controls.append(control)
+	for control: Control in _controls_under(_suggestions):
+		if control not in controls:
+			controls.append(control)
+	return controls
+
+
+func _controller_option_groups() -> Array:
+	var groups: Array = []
+	if _option_list == null:
+		return groups
+	if _category_id != "fur_pattern":
+		groups.append(_controls_under(_option_list))
+		return groups
+	var section_tabs := _option_list.find_child(
+		"FurSectionTabs", true, false
+	) as Node
+	groups.append(_controls_under(section_tabs))
+	if _active_fur_section == FUR_SECTION_PATTERNS:
+		groups.append(_controls_under(_option_list.find_child(
+			"FurPatternPartTabs", true, false
+		)))
+		groups.append(_controls_under(_option_list.find_child(
+			"FurPatternGrid", true, false
+		)))
+	else:
+		groups.append(_controls_under(_option_list.find_child(
+			"FurColorChannelGrid", true, false
+		)))
+		var palette_controls: Array[Control] = _controls_under(
+			_option_list.find_child("FurPaletteGrid", true, false)
+		)
+		var custom_picker := _option_list.find_child(
+			"FurCustomColorPicker", true, false
+		) as Control
+		if custom_picker != null:
+			palette_controls.append(custom_picker)
+		groups.append(palette_controls)
+	return groups
+
+
+func _controls_under(root: Node) -> Array[Control]:
+	var controls: Array[Control] = []
+	if root == null:
+		return controls
+	_collect_controller_controls(root, controls)
+	return controls
+
+
+func _collect_controller_controls(
+	root: Node,
+	output: Array[Control],
+) -> void:
+	for child: Node in root.get_children():
+		var control := child as Control
+		if control != null and not control.is_visible_in_tree():
+			continue
+		if control is BaseButton or control is Slider or control is LineEdit:
+			output.append(control)
+		_collect_controller_controls(child, output)
 
 
 func has_unsaved_changes() -> bool:
@@ -295,6 +586,12 @@ func _build_ui() -> void:
 	actions.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	actions.add_theme_constant_override("separation", 7)
 	account_row.add_child(actions)
+	_customize_button = Button.new()
+	_customize_button.text = "customize"
+	_customize_button.custom_minimum_size.x = 96.0
+	UtilityPageStyle.apply_compact_ocean_button(_customize_button)
+	_customize_button.pressed.connect(_enter_controller_customization)
+	actions.add_child(_customize_button)
 	_apply_button = Button.new()
 	_apply_button.text = "apply"
 	_apply_button.custom_minimum_size.x = 72.0
@@ -307,12 +604,12 @@ func _build_ui() -> void:
 	UtilityPageStyle.apply_compact_ocean_button(_revert_button)
 	_revert_button.pressed.connect(_revert)
 	actions.add_child(_revert_button)
-	var defaults_button := Button.new()
-	defaults_button.text = "defaults"
-	defaults_button.custom_minimum_size.x = 82.0
-	UtilityPageStyle.apply_compact_ocean_button(defaults_button)
-	defaults_button.pressed.connect(_show_confirmation.bind("defaults"))
-	actions.add_child(defaults_button)
+	_defaults_button = Button.new()
+	_defaults_button.text = "defaults"
+	_defaults_button.custom_minimum_size.x = 82.0
+	UtilityPageStyle.apply_compact_ocean_button(_defaults_button)
+	_defaults_button.pressed.connect(_show_confirmation.bind("defaults"))
+	actions.add_child(_defaults_button)
 
 	var body_panel := PanelContainer.new()
 	body_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -377,16 +674,17 @@ func _build_ui() -> void:
 	_preview.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	preview_layer.add_child(_preview)
 	_preview.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	var reset_view := Button.new()
-	reset_view.text = "↶"
-	reset_view.tooltip_text = "reset view"
-	reset_view.custom_minimum_size = Vector2(36.0, 36.0)
-	reset_view.position = Vector2(-8.0, -8.0)
-	reset_view.z_index = 2
-	reset_view.pressed.connect(_preview.reset_view)
-	UtilityPageStyle.apply_compact_ocean_button(reset_view)
-	reset_view.add_theme_font_size_override("font_size", 22)
-	preview_layer.add_child(reset_view)
+	_reset_view_button = Button.new()
+	_reset_view_button.text = "↶"
+	_reset_view_button.tooltip_text = "reset view"
+	_reset_view_button.custom_minimum_size = Vector2(36.0, 36.0)
+	_reset_view_button.position = Vector2(-8.0, -8.0)
+	_reset_view_button.z_index = 2
+	_reset_view_button.focus_mode = Control.FOCUS_NONE
+	_reset_view_button.pressed.connect(_preview.reset_view)
+	UtilityPageStyle.apply_compact_ocean_button(_reset_view_button)
+	_reset_view_button.add_theme_font_size_override("font_size", 22)
+	preview_layer.add_child(_reset_view_button)
 
 	_discard_confirmation = PanelContainer.new()
 	_discard_confirmation.visible = false
@@ -414,14 +712,20 @@ func _build_ui() -> void:
 	confirm_buttons.add_child(_confirmation_confirm)
 	_keep_editing_button = Button.new()
 	_keep_editing_button.text = "keep editing"
-	_keep_editing_button.pressed.connect(func() -> void:
-		_discard_confirmation.visible = false
-		_name_edit.grab_focus()
-	)
+	_keep_editing_button.pressed.connect(_close_discard_confirmation)
 	UtilityPageStyle.apply_ocean_button(_keep_editing_button)
 	confirm_buttons.add_child(_keep_editing_button)
 
 	_build_categories()
+
+
+func _enter_controller_customization() -> void:
+	if not _profile_active or not _profile_interactive:
+		return
+	_controller_zone = ControllerZone.CATEGORIES
+	_controller_option_depth = 0
+	_apply_controller_zone_focus()
+	call_deferred("_focus_controller_zone")
 
 
 func _build_categories() -> void:
@@ -461,7 +765,9 @@ func _refresh_options() -> void:
 	_fur_custom_color_display = null
 	_fur_custom_color_label = null
 	for child: Node in _option_list.get_children():
+		_option_list.remove_child(child)
 		child.queue_free()
+	_refresh_controller_zone_after_options.call_deferred()
 	if _category_id == VOICE_CATEGORY_ID:
 		_build_voice_options()
 		return
@@ -994,6 +1300,7 @@ func _resize_feature_preview_image(image: Image, max_dimension: int) -> void:
 
 func _build_fur_options(options: Array) -> void:
 	var section_tabs := HBoxContainer.new()
+	section_tabs.name = "FurSectionTabs"
 	section_tabs.add_theme_constant_override("separation", 8)
 	_option_list.add_child(section_tabs)
 	for section_id: String in [FUR_SECTION_PATTERNS, FUR_SECTION_COLORS]:
@@ -1075,6 +1382,7 @@ func _build_fur_pattern_options() -> void:
 	pattern_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
 	pattern_margin.add_child(pattern_scroll)
 	var pattern_grid := GridContainer.new()
+	pattern_grid.name = "FurPatternGrid"
 	pattern_grid.columns = FUR_PATTERN_GRID_COLUMNS
 	pattern_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	pattern_grid.add_theme_constant_override("h_separation", 8)
@@ -1270,6 +1578,7 @@ func _build_fur_palette(
 	custom_picker.tooltip_text = "Choose a custom color for channel %d." % (
 		CharacterCustomizationCatalog.FUR_COLOR_IDS.find(category_id) + 1
 	)
+	custom_picker.set_meta(&"fur_color_category_id", category_id)
 	custom_picker.color_changed.connect(
 		_select_custom_fur_color.bind(category_id)
 	)
@@ -1341,6 +1650,7 @@ func _select_custom_fur_color(color: Color, category_id: String) -> void:
 	)
 	_update_fur_custom_color_display(color)
 	_preview.apply_appearance_profile(_draft_appearance)
+	_queue_draft_appearance_preview()
 	_dirty = _draft_differs()
 	_refresh_actions()
 
@@ -1417,8 +1727,7 @@ func _theme_fur_color_picker_popup(button: ColorPickerButton) -> void:
 	var picker: ColorPicker = button.get_picker()
 	popup.accessibility_name = "custom fur color picker"
 	popup.theme = GameTheme
-	popup.min_size = FUR_COLOR_PICKER_POPUP_SIZE
-	popup.size = FUR_COLOR_PICKER_POPUP_SIZE
+	_fit_color_picker_popup(button)
 	var popup_style := UtilityPageStyle.rounded_style(
 		UtilityPageStyle.OCEAN_PANEL_DEEP,
 		20,
@@ -1428,19 +1737,119 @@ func _theme_fur_color_picker_popup(button: ColorPickerButton) -> void:
 	popup_style.content_margin_right = 24.0
 	popup_style.content_margin_bottom = 24.0
 	popup.add_theme_stylebox_override("panel", popup_style)
-	picker.custom_minimum_size = Vector2(
-		FUR_COLOR_PICKER_POPUP_SIZE.x - 48,
-		FUR_COLOR_PICKER_POPUP_SIZE.y - 48,
-	)
 	picker.edit_alpha = false
 	picker.edit_intensity = false
 	picker.can_add_swatches = false
 	picker.presets_visible = false
 	picker.add_theme_constant_override("margin", 16)
-	picker.add_theme_constant_override("sv_width", FUR_COLOR_PICKER_SV_SIZE.x)
-	picker.add_theme_constant_override("sv_height", FUR_COLOR_PICKER_SV_SIZE.y)
 	picker.add_theme_constant_override("h_width", 38)
 	picker.add_theme_constant_override("label_width", 28)
+	if not popup.about_to_popup.is_connected(
+		_on_controller_color_picker_opened.bind(button)
+	):
+		popup.about_to_popup.connect(
+			_on_controller_color_picker_opened.bind(button)
+		)
+	if not popup.popup_hide.is_connected(
+		_on_controller_color_picker_closed.bind(button)
+	):
+		popup.popup_hide.connect(
+			_on_controller_color_picker_closed.bind(button)
+		)
+
+
+func _fit_color_picker_popup(button: ColorPickerButton) -> void:
+	var popup: PopupPanel = button.get_popup()
+	var picker: ColorPicker = button.get_picker()
+	var window_size: Vector2i = get_window().size
+	var available := Vector2i(
+		maxi(window_size.x - 32, 420),
+		maxi(window_size.y - 32, 340),
+	)
+	var target := Vector2i(
+		mini(FUR_COLOR_PICKER_POPUP_SIZE.x, available.x),
+		mini(FUR_COLOR_PICKER_POPUP_SIZE.y, available.y),
+	)
+	popup.min_size = target
+	popup.size = target
+	picker.custom_minimum_size = Vector2(
+		target.x - 48,
+		target.y - 48,
+	)
+	picker.add_theme_constant_override(
+		"sv_width",
+		mini(FUR_COLOR_PICKER_SV_SIZE.x, target.x - 110),
+	)
+	picker.add_theme_constant_override(
+		"sv_height",
+		mini(FUR_COLOR_PICKER_SV_SIZE.y, target.y - 180),
+	)
+
+
+func _on_controller_color_picker_opened(button: ColorPickerButton) -> void:
+	_active_color_picker_button = button
+	_active_color_picker_return_depth = _controller_option_depth
+	_controller_zone = ControllerZone.COLOR_PICKER
+	_fit_color_picker_popup(button)
+	_apply_controller_zone_focus.call_deferred()
+	_focus_controller_zone.call_deferred()
+
+
+func _on_controller_color_picker_closed(button: ColorPickerButton) -> void:
+	if _active_color_picker_button != button:
+		return
+	_active_color_picker_button = null
+	_controller_zone = ControllerZone.OPTIONS
+	_controller_option_depth = _active_color_picker_return_depth
+	_apply_controller_zone_focus.call_deferred()
+	_focus_controller_zone.call_deferred()
+
+
+func _close_controller_color_picker() -> void:
+	if _active_color_picker_button != null:
+		_active_color_picker_button.get_popup().hide()
+	else:
+		_controller_zone = ControllerZone.OPTIONS
+		_controller_option_depth = _active_color_picker_return_depth
+		_apply_controller_zone_focus()
+		call_deferred("_focus_controller_zone")
+
+
+func _color_picker_controller_controls() -> Array[Control]:
+	if _active_color_picker_button == null:
+		return []
+	return _controls_under(_active_color_picker_button.get_picker())
+
+
+func _adjust_controller_color_gamut(stick: Vector2, delta: float) -> void:
+	if _active_color_picker_button == null:
+		return
+	var color: Color = _active_color_picker_button.color
+	var saturation: float = clampf(color.s + stick.x * delta * 0.72, 0.0, 1.0)
+	var value: float = clampf(color.v - stick.y * delta * 0.72, 0.0, 1.0)
+	var adjusted := Color.from_hsv(color.h, saturation, value, 1.0)
+	_active_color_picker_button.color = adjusted
+	var category_id := str(_active_color_picker_button.get_meta(
+		&"fur_color_category_id",
+		_active_fur_color_id,
+	))
+	_select_custom_fur_color(adjusted, category_id)
+
+
+func _refresh_controller_zone_after_options() -> void:
+	if _controller_zone != ControllerZone.OPTIONS:
+		return
+	var groups: Array = _controller_option_groups()
+	if groups.is_empty():
+		_controller_zone = ControllerZone.CATEGORIES
+	else:
+		_controller_option_depth = clampi(
+			_controller_option_depth,
+			0,
+			groups.size() - 1,
+		)
+	_apply_controller_zone_focus()
+	_focus_controller_zone()
 
 
 func _update_fur_custom_color_display(color: Color) -> void:
@@ -1465,6 +1874,7 @@ func _update_fur_custom_color_display(color: Color) -> void:
 func _select_option(category_id: String, option_id: String) -> void:
 	_draft_appearance[category_id] = option_id
 	_preview.apply_appearance_profile(_draft_appearance)
+	_queue_draft_appearance_preview()
 	_dirty = _draft_differs()
 	_refresh_options()
 	_refresh_actions()
@@ -1479,6 +1889,7 @@ func _select_scale(value: float) -> void:
 	)
 	_update_scale_value_label(resolved_scale)
 	_preview.apply_appearance_profile(_draft_appearance)
+	_queue_draft_appearance_preview()
 	_dirty = _draft_differs()
 	_refresh_actions()
 
@@ -1532,6 +1943,7 @@ func _on_conflict_result(
 	)
 	UtilityPageStyle.apply_compact_ocean_button(anyway)
 	_suggestions.add_child(anyway)
+	_apply_controller_zone_focus()
 
 
 func _on_experience_changed(_total_experience: int, _level: int) -> void:
@@ -1607,6 +2019,8 @@ func _load_persisted() -> void:
 	)
 	_name_edit.text = _draft_name
 	_preview.apply_appearance_profile(_draft_appearance)
+	_appearance_preview_timer.stop()
+	_service.preview_appearance(_persisted_appearance)
 	_dirty = false
 	_allow_duplicate = false
 	_name_status.text = ""
@@ -1633,7 +2047,15 @@ func _show_confirmation(action: String) -> void:
 	else:
 		_confirmation_label.text = "Discard unsaved profile changes?"
 		_confirmation_confirm.text = "discard changes"
+	_apply_controller_zone_focus()
 	_keep_editing_button.grab_focus()
+
+
+func _close_discard_confirmation() -> void:
+	_discard_confirmation.visible = false
+	_confirmation_action = ""
+	_apply_controller_zone_focus()
+	call_deferred("_focus_controller_zone")
 
 
 func _confirm_pending_action() -> void:
@@ -1644,12 +2066,30 @@ func _confirm_pending_action() -> void:
 		_draft_speech_speed_id = VoiceProfilesType.DEFAULT_SPEED_ID
 		_draft_call_id = VoiceProfilesType.DEFAULT_CALL_ID
 		_preview.apply_appearance_profile(_draft_appearance)
+		_queue_draft_appearance_preview()
 		_dirty = _draft_differs()
 		_refresh_options()
 		_refresh_actions()
 	else:
 		_confirm_discard()
 	_confirmation_action = ""
+	_apply_controller_zone_focus()
+	call_deferred("_focus_controller_zone")
+
+
+func _queue_draft_appearance_preview() -> void:
+	if _service == null or _appearance_preview_timer == null:
+		return
+	# Throttle continuous controls such as the custom color picker instead of
+	# debouncing them. Remote players should see an in-progress drag, while the
+	# reliable channel remains capped at one current snapshot per interval.
+	if _appearance_preview_timer.is_stopped():
+		_appearance_preview_timer.start()
+
+
+func _publish_draft_appearance() -> void:
+	if _service != null:
+		_service.preview_appearance(_draft_appearance)
 
 
 func _draft_differs() -> bool:
@@ -1672,4 +2112,6 @@ func _refresh_actions() -> void:
 
 func _clear_suggestions() -> void:
 	for child: Node in _suggestions.get_children():
+		_suggestions.remove_child(child)
 		child.queue_free()
+	_apply_controller_zone_focus()

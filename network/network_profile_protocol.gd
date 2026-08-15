@@ -41,6 +41,21 @@ static func valid_apply_request(data: Variant) -> bool:
 	)
 
 
+static func valid_appearance_preview_request(data: Variant) -> bool:
+	return (
+		typeof(data) == TYPE_DICTIONARY
+		and valid_request_id(data.get("request_id"))
+		and typeof(data.get("session_id")) == TYPE_STRING
+		and not str(data.get("session_id", "")).is_empty()
+		and typeof(data.get("appearance")) == TYPE_DICTIONARY
+		and valid_snapshot(data["appearance"])
+		and NetworkIdentityCrypto.valid_fingerprint(
+			data.get("sender_fingerprint")
+		)
+		and typeof(data.get("sender_signature")) == TYPE_PACKED_BYTE_ARRAY
+	)
+
+
 static func signature_fields(data: Dictionary) -> Array:
 	var appearance: Dictionary = data.get("appearance", {})
 	var result: Array = [
@@ -53,4 +68,17 @@ static func signature_fields(data: Dictionary) -> Array:
 		CharacterCustomizationCatalog.appearance_signature_values(appearance)
 	)
 	result.append(bool(data.get("use_anyway", false)))
+	return result
+
+
+static func appearance_preview_signature_fields(data: Dictionary) -> Array:
+	var appearance: Dictionary = data.get("appearance", {})
+	var result: Array = [
+		str(data.get("session_id", "")),
+		str(data.get("request_id", "")),
+		str(data.get("sender_fingerprint", "")),
+	]
+	result.append_array(
+		CharacterCustomizationCatalog.appearance_signature_values(appearance)
+	)
 	return result

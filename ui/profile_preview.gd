@@ -60,7 +60,7 @@ func set_world_pixel_size(pixel_size: int) -> void:
 
 
 func _ready() -> void:
-	focus_mode = Control.FOCUS_ALL
+	focus_mode = Control.FOCUS_NONE
 	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	gui_input.connect(_on_gui_input)
 	resized.connect(_refresh_pixelation_filter)
@@ -91,20 +91,18 @@ func reset_view() -> void:
 	_apply_camera_orbit()
 
 
+func apply_controller_orbit(stick: Vector2, delta: float) -> void:
+	if absf(stick.x) > 0.1:
+		_rotate(stick.x * keyboard_speed * delta)
+	if absf(stick.y) > 0.1:
+		_zoom_preview(stick.y * CAMERA_ZOOM_STEP * 4.0 * delta)
+
+
 func _process(delta: float) -> void:
 	_sync_world_lighting()
 	if not has_focus():
 		return
 	var axis := Input.get_axis("ui_left", "ui_right")
-	var right_stick: float = (
-		_controller_mapping_manager.get_role_axis(
-			ControllerMappingManagerType.ROLE_RIGHT_STICK_X
-		)
-		if _controller_mapping_manager != null
-		else Input.get_joy_axis(0, JOY_AXIS_RIGHT_X)
-	)
-	if absf(right_stick) > 0.2:
-		axis = right_stick
 	if absf(axis) > 0.1:
 		_rotate(axis * keyboard_speed * delta)
 
@@ -113,18 +111,15 @@ func _on_gui_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.shift_pressed:
 		if event.button_index == MOUSE_BUTTON_WHEEL_UP and event.pressed:
 			_zoom_preview(-CAMERA_ZOOM_STEP)
-			grab_focus()
 			accept_event()
 			return
 		if event.button_index == MOUSE_BUTTON_WHEEL_DOWN and event.pressed:
 			_zoom_preview(CAMERA_ZOOM_STEP)
-			grab_focus()
 			accept_event()
 			return
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT:
 		_dragging = event.pressed
 		if event.pressed:
-			grab_focus()
 			accept_event()
 	elif event is InputEventMouseMotion and _dragging:
 		_rotate(event.relative.x * drag_sensitivity)
