@@ -13,7 +13,6 @@ var solid_surface_mask: int = 1
 var query_radius: float = 0.08
 var ray_start_height: float = 100.0
 var ray_length: float = 240.0
-var water_occlusion_tolerance: float = 0.04
 var arc_sample_spacing: float = 0.3
 
 var _water_query_shape: CylinderShape3D = CylinderShape3D.new()
@@ -52,9 +51,9 @@ func resolve_surface(
 		var solid_is_above_water: bool = false
 		if not solid_hit.is_empty():
 			var solid_position: Vector3 = solid_hit["position"]
-			solid_is_above_water = (
-				solid_position.y >= water_height - water_occlusion_tolerance
-			)
+			# The water body's authored height is the exact shoreline authority:
+			# submerged terrain is fishable and terrain at or above it is dry.
+			solid_is_above_water = solid_position.y >= water_height
 		if not solid_is_above_water:
 			sample.has_surface = true
 			sample.position = Vector3(

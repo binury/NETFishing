@@ -51,6 +51,8 @@ func _validate_resolver_layers() -> void:
 	_add_water_region(world, Vector3(0.0, 2.0, 0.0), Vector2(8.0, 8.0), PondPool)
 	_add_solid_box(world, Vector3(1.0, 1.0, 1.0), Vector3(2.0, 2.25, 0.0))
 	_add_solid_box(world, Vector3(1.0, 1.0, 1.0), Vector3(-2.0, 6.0, 0.0))
+	_add_solid_box(world, Vector3(1.0, 1.0, 1.0), Vector3(0.0, 1.49, 2.0))
+	_add_solid_box(world, Vector3(1.0, 1.0, 1.0), Vector3(0.0, 1.5, -2.0))
 	_add_water_region(world, Vector3(10.0, 5.0, 0.0), Vector2(6.0, 6.0), PondPool)
 	_add_water_region(world, Vector3(20.0, 3.0, 0.0), Vector2(6.0, 6.0), null)
 	await physics_frame
@@ -73,6 +75,21 @@ func _validate_resolver_layers() -> void:
 	)
 	assert(water_under_overhang.is_fishable())
 	assert(is_equal_approx(water_under_overhang.position.y, 2.0))
+	var shallow_water: FishingSurfaceSampleType = resolver.resolve_surface(
+		space_state,
+		Vector3(0.0, 2.0, 2.0),
+		4.0,
+		0.04,
+	)
+	assert(shallow_water.is_fishable())
+	var exact_shore_contact: FishingSurfaceSampleType = resolver.resolve_surface(
+		space_state,
+		Vector3(0.0, 2.0, -2.0),
+		4.0,
+		0.04,
+	)
+	assert(exact_shore_contact.has_surface)
+	assert(not exact_shore_contact.is_fishable())
 
 	var covered_water: FishingSurfaceSampleType = resolver.resolve_surface(
 		space_state,
@@ -158,38 +175,44 @@ func _validate_portable_water_body() -> void:
 	water_body.queue_free()
 	await process_frame
 
+	var mesh_derived_body := WaterBodyScene.instantiate() as WaterBodyAuthoring
+	mesh_derived_body.position = Vector3(-4.0, 3.0, 6.0)
+	mesh_derived_body.derive_coverage_from_visual_mesh = true
+	mesh_derived_body.fishing_depth = 3.0
+	mesh_derived_body.fish_pool = PondPool
+	var derived_visual := mesh_derived_body.get_node(
+		"VisualWater"
+	) as MeshInstance3D
+	var derived_mesh := derived_visual.mesh as PlaneMesh
+	derived_mesh.size = Vector2(18.0, 11.0)
+	root.add_child(mesh_derived_body)
+	await process_frame
+
+	var derived_shape_node := mesh_derived_body.get_node(
+		"FishingRegion/Shape"
+	) as CollisionShape3D
+	var derived_shape := derived_shape_node.shape as BoxShape3D
+	assert(derived_shape.size.is_equal_approx(Vector3(18.0, 3.0, 11.0)))
+	assert(derived_shape_node.position.is_equal_approx(Vector3(0.0, -1.5, 0.0)))
+	assert(derived_mesh.size.is_equal_approx(Vector2(18.0, 11.0)))
+
+	mesh_derived_body.queue_free()
+	await process_frame
+
 
 func _validate_starter_region_surfaces() -> void:
 	var region := StarterRegionScene.instantiate() as Node3D
 	root.add_child(region)
+	var ocean_body := region.get_node(
+		"WaterBodies/Ocean"
+	) as WaterBodyAuthoring
+	assert(ocean_body != null)
+	assert(ocean_body.derive_coverage_from_visual_mesh)
+	assert(not ocean_body.manage_recovery_coverage)
 	var ocean_region := region.get_node(
 		"WaterBodies/Ocean/FishingRegions/OceanFishingRegion"
 	) as FishableWaterRegionType
-	var minimum_x: float = INF
-	var maximum_x: float = -INF
-	var minimum_z: float = INF
-	var maximum_z: float = -INF
-	for child: Node in ocean_region.get_children():
-		var shape_node := child as CollisionShape3D
-		assert(shape_node != null and shape_node.shape is BoxShape3D)
-		var box := shape_node.shape as BoxShape3D
-		assert(is_equal_approx(box.size.y, 2.0))
-		minimum_x = minf(minimum_x, shape_node.position.x - box.size.x * 0.5)
-		maximum_x = maxf(maximum_x, shape_node.position.x + box.size.x * 0.5)
-		minimum_z = minf(minimum_z, shape_node.position.z - box.size.z * 0.5)
-		maximum_z = maxf(maximum_z, shape_node.position.z + box.size.z * 0.5)
-	var ocean_footprint := Vector2(
-		maximum_x - minimum_x,
-		maximum_z - minimum_z,
-	)
-	assert(is_equal_approx(
-		ocean_footprint.x * ocean_footprint.y,
-		12840.0,
-	))
-	assert(is_equal_approx(
-		ocean_footprint.x / 107.0,
-		ocean_footprint.y / 80.0,
-	))
+	assert(ocean_region.get_child_count() == 1)
 	var fishing_spot := FishingSpotScene.instantiate() as FishingSpotType
 	root.add_child(fishing_spot)
 	await physics_frame
@@ -207,6 +230,27 @@ func _validate_starter_region_surfaces() -> void:
 	)
 	assert(ocean.is_fishable())
 	assert(is_equal_approx(ocean.position.y, -0.45))
+	var ocean_visual := region.get_node(
+		"WaterBodies/Ocean/VisualWater"
+	) as MeshInstance3D
+	assert(ocean_visual != null)
+	assert(is_equal_approx(ocean_visual.global_position.y, ocean.position.y))
+	assert(not ocean_visual.is_processing())
+	var ocean_shapes := region.get_node(
+		"WaterBodies/Ocean/FishingRegions/OceanFishingRegion"
+	).get_children()
+	assert(ocean_shapes.size() == 1)
+	var ocean_shape := ocean_shapes[0] as CollisionShape3D
+	assert(ocean_shape != null)
+	var ocean_box := ocean_shape.shape as BoxShape3D
+	assert(ocean_box != null)
+	var ocean_mesh := ocean_visual.mesh as PlaneMesh
+	assert(ocean_mesh != null)
+	assert(ocean_box.size.is_equal_approx(Vector3(
+		ocean_mesh.size.x,
+		2.0,
+		ocean_mesh.size.y,
+	)))
 	var expanded_ocean: FishingSurfaceSampleType = (
 		fishing_spot.resolve_fishing_surface(
 			Vector3(72.0, -0.45, 0.0),

@@ -181,8 +181,11 @@ node names, pool filenames, coordinates, or water height.
 Select `WaterBodies/Pond` to move or resize the pond. Its transform is the
 authoritative surface position; surface size and fishing/recovery coverage are
 owned together. Select `WaterBodies/Ocean` to move the surrounding water as one
-feature. Its explicit visual, fishing, and recovery lobes remain local to that
-root.
+feature. Its fishing coverage is derived from the visible water mesh and the
+terrain collision determines the shoreline. New or revised land meshes do not
+require hand-authored fishing exclusions. Recovery volumes remain explicit so
+they can follow the playable world bounds rather than the horizon-sized visual
+ocean.
 
 Placed-feature ownership:
 

@@ -12,7 +12,6 @@
 [ext_resource type="Material" path="res://world/materials/stylized_water.tres" id="13_water"]
 [ext_resource type="ArrayMesh" path="res://world/generated/shorelines/starter_ocean_shoreline.tres" id="17_ocean_shoreline"]
 [ext_resource type="Material" path="res://world/materials/stylized_water_fresh.tres" id="19_fresh_water"]
-[ext_resource type="Script" path="res://world/water_surface_motion.gd" id="20_surface_motion"]
 [ext_resource type="Script" path="res://world/water/shoreline_ribbon_baker.gd" id="21_shoreline_baker"]
 [ext_resource type="Script" path="res://world/water/shoreline_ribbon_config.gd" id="22_shoreline_config"]
 
@@ -35,25 +34,9 @@ size = Vector3(16.1, 4.8, 12.3675)
 resource_local_to_scene = true
 size = Vector2(10000, 10000)
 
-[sub_resource type="BoxShape3D" id="OceanWestShape"]
+[sub_resource type="BoxShape3D" id="OceanFishingShape"]
 resource_local_to_scene = true
-size = Vector3(20.820662814, 2, 97.979589711)
-
-[sub_resource type="BoxShape3D" id="OceanEastShape"]
-resource_local_to_scene = true
-size = Vector3(51.439284598, 2, 97.979589711)
-
-[sub_resource type="BoxShape3D" id="OceanNorthShape"]
-resource_local_to_scene = true
-size = Vector3(58.787753827, 2, 22.045407685)
-
-[sub_resource type="BoxShape3D" id="OceanSouthShape"]
-resource_local_to_scene = true
-size = Vector3(58.787753827, 2, 22.045407685)
-
-[sub_resource type="BoxShape3D" id="OceanCenterShape"]
-resource_local_to_scene = true
-size = Vector3(58.787753827, 2, 53.888774341)
+size = Vector3(10000, 2, 10000)
 
 [sub_resource type="BoxShape3D" id="OceanWestRecoveryShape"]
 resource_local_to_scene = true
@@ -161,11 +144,20 @@ shape = SubResource("PondRecoveryShape")
 
 [node name="Ocean" type="Node3D" parent="WaterBodies" unique_id=552655799]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 12, -0.45, 0)
+script = ExtResource("10_water_body")
+derive_coverage_from_visual_mesh = true
+water_material = ExtResource("13_water")
+fishing_depth = 2.0
+fish_pool = ExtResource("4_pool")
+water_type = 1
+location_tags = Array[StringName]([&"coast", &"ocean"])
+manage_recovery_coverage = false
+fishing_shape_path = NodePath("FishingRegions/OceanFishingRegion/Shape")
+fishing_region_path = NodePath("FishingRegions/OceanFishingRegion")
 
 [node name="VisualWater" type="MeshInstance3D" parent="WaterBodies/Ocean" unique_id=1176408937]
 material_override = ExtResource("13_water")
 mesh = SubResource("OceanWaterMesh")
-script = ExtResource("20_surface_motion")
 
 [node name="FishingRegions" type="Node3D" parent="WaterBodies/Ocean" unique_id=205598473]
 
@@ -179,25 +171,9 @@ water_type = 1
 fish_pool = ExtResource("4_pool")
 surface_height_mode = 1
 
-[node name="WestShape" type="CollisionShape3D" parent="WaterBodies/Ocean/FishingRegions/OceanFishingRegion" unique_id=357406062]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -55.613519213, -1, 0)
-shape = SubResource("OceanWestShape")
-
-[node name="EastShape" type="CollisionShape3D" parent="WaterBodies/Ocean/FishingRegions/OceanFishingRegion" unique_id=772224738]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 39.30420832, -1, 0)
-shape = SubResource("OceanEastShape")
-
-[node name="NorthShape" type="CollisionShape3D" parent="WaterBodies/Ocean/FishingRegions/OceanFishingRegion" unique_id=646147646]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -15.809310892, -1, 37.967091013)
-shape = SubResource("OceanNorthShape")
-
-[node name="SouthShape" type="CollisionShape3D" parent="WaterBodies/Ocean/FishingRegions/OceanFishingRegion" unique_id=894083854]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -15.809310892, -1, -37.967091013)
-shape = SubResource("OceanSouthShape")
-
-[node name="CenterShape" type="CollisionShape3D" parent="WaterBodies/Ocean/FishingRegions/OceanFishingRegion"]
-position = Vector3(-15.809310892, -1, 0)
-shape = SubResource("OceanCenterShape")
+[node name="Shape" type="CollisionShape3D" parent="WaterBodies/Ocean/FishingRegions/OceanFishingRegion" unique_id=357406062]
+position = Vector3(0, -1, 0)
+shape = SubResource("OceanFishingShape")
 
 [node name="RecoveryRegions" type="Node3D" parent="WaterBodies/Ocean" unique_id=463706703]
 

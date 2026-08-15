@@ -93,7 +93,7 @@ enum FishingState {
 @export_range(1.0, 200.0, 1.0) var preview_ray_start_height: float = 100.0
 @export_range(1.0, 400.0, 1.0) var preview_surface_ray_length: float = 240.0
 @export_range(0.01, 1.0, 0.01) var preview_marker_vertical_offset: float = 0.06
-@export_range(0.0, 0.5, 0.01) var water_occlusion_tolerance: float = 0.04
+@export_range(0.0, 0.5, 0.01) var solid_probe_clearance: float = 0.04
 @export_range(0.01, 0.5, 0.01) var solid_bobber_clearance: float = 0.13
 
 @export_category("Withdrawal")
@@ -1457,7 +1457,6 @@ func _configure_surface_resolver() -> void:
 	_surface_resolver.query_radius = fishable_query_radius
 	_surface_resolver.ray_start_height = preview_ray_start_height
 	_surface_resolver.ray_length = preview_surface_ray_length
-	_surface_resolver.water_occlusion_tolerance = water_occlusion_tolerance
 
 
 func resolve_fishing_surface(
@@ -1479,7 +1478,7 @@ func resolve_fishing_surface(
 		get_world_3d().direct_space_state,
 		target,
 		resolved_reference_y,
-		water_occlusion_tolerance,
+		solid_probe_clearance,
 	)
 
 
