@@ -11,6 +11,22 @@ save migrations may continue to change before a stable release.
 NETfishing is developed and published by **Woofmeow**, the independent team of
 co-owners publicly credited as Voyager and Endeavour.
 
+## Installing release builds
+
+Download and extract the archive for your platform from the official release
+page, then run NETfishing from the extracted platform folder.
+
+### macOS
+
+Current macOS builds are not signed or notarized. macOS may block the first
+launch because it cannot verify the developer. Control-click the NETfishing
+application, choose **Open**, then confirm **Open**. If that option is not
+available, attempt to open the application once, then use **System Settings →
+Privacy & Security → Open Anyway**.
+
+Only bypass this warning for a NETfishing build downloaded from an official
+project release.
+
 ## Requirements
 
 - Godot 4.7.x with the GL Compatibility renderer
