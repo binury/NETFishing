@@ -27,6 +27,7 @@ func _validate_catalog_statuses() -> void:
 	assert(brown.catch_data.logbook_section == FishData.LogbookSection.SHELLFISH)
 	assert(brown.population == 2)
 	assert(is_equal_approx(brown.charge_duration, 2.0))
+	_validate_quality_behavior(brown)
 	assert(is_equal_approx(brown.capture_respawn_min_seconds, 480.0))
 	assert(is_equal_approx(brown.capture_respawn_max_seconds, 720.0))
 	assert(is_equal_approx(brown.scare_respawn_min_seconds, 45.0))
@@ -61,6 +62,57 @@ func _validate_catalog_statuses() -> void:
 	var scared_delay: float = brown.get_respawn_delay(&"scared", rng)
 	assert(captured_delay >= 480.0 and captured_delay <= 720.0)
 	assert(scared_delay >= 45.0 and scared_delay <= 90.0)
+
+
+func _validate_quality_behavior(entry: GatherableData) -> void:
+	var prior_speed: float = -1.0
+	var prior_scare_radius: float = -1.0
+	for quality: int in FishQuality.TIER_COUNT:
+		var movement_speed: float = entry.get_movement_speed_for_quality(
+			quality
+		)
+		var scare_radius: float = entry.get_scare_radius_for_quality(quality)
+		assert(movement_speed > prior_speed)
+		assert(scare_radius > prior_scare_radius)
+		prior_speed = movement_speed
+		prior_scare_radius = scare_radius
+	assert(
+		is_equal_approx(
+			entry.get_movement_speed_for_quality(FishQuality.Tier.BORING),
+			entry.movement_speed,
+		)
+	)
+	assert(
+		is_equal_approx(
+			entry.get_movement_speed_for_quality(FishQuality.Tier.SHINY),
+			entry.movement_speed * 2.0,
+		)
+	)
+	assert(
+		is_equal_approx(
+			entry.get_scare_radius_for_quality(FishQuality.Tier.SHINY),
+			entry.scare_radius * 1.7,
+		)
+	)
+	var service := NetworkWorldSpawnService.new()
+	var spawned_catch := service.call(
+		"_create_catch_for_state",
+		entry,
+		{"quality": FishQuality.Tier.EXCEPTIONAL},
+	) as FishCatch
+	assert(spawned_catch != null and spawned_catch.is_valid())
+	assert(spawned_catch.quality == FishQuality.Tier.EXCEPTIONAL)
+	assert(
+		spawned_catch.sale_value
+		== FishQuality.apply_sale_value(
+			entry.catch_data.get_sale_value_for_weight(
+				spawned_catch.weight_lb
+			),
+			FishQuality.Tier.EXCEPTIONAL,
+		)
+	)
+	spawned_catch = null
+	service.free()
 
 
 func _validate_envelopes() -> void:

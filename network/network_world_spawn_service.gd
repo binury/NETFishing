@@ -5,6 +5,7 @@ const FishCatchType = preload("res://fish/fish_catch.gd")
 const FishDataType = preload("res://fish/fish_data.gd")
 const FishExperienceType = preload("res://fish/fish_experience.gd")
 const FishPoolType = preload("res://fish/fish_pool.gd")
+const FishQualityType = preload("res://fish/fish_quality.gd")
 const FishSelectorType = preload("res://fish/fish_selector.gd")
 const GatherableCatalogType = preload("res://gathering/gatherable_catalog.gd")
 const GatherableDataType = preload("res://gathering/gatherable_data.gd")
@@ -278,6 +279,7 @@ func _spawn_entity(entry: GatherableDataType) -> void:
 	var position: Vector3 = _sample_surface_position(entry)
 	if not position.is_finite():
 		return
+	var quality: int = FishQualityType.roll(_rng)
 	var entity_id: String = _new_id("world")
 	var state: Dictionary = {
 		"entity_id": entity_id,
@@ -286,6 +288,7 @@ func _spawn_entity(entry: GatherableDataType) -> void:
 		"position": position,
 		"target": _sample_surface_position(entry, position, entry.roam_radius),
 		"yaw": _rng.randf_range(-PI, PI),
+		"quality": quality,
 		"revision": 1,
 		"locked": false,
 	}
@@ -308,6 +311,7 @@ func _update_host_entities(delta: float) -> void:
 		var entry := state.get("data") as GatherableDataType
 		if entry == null:
 			continue
+		var quality: int = _get_state_quality(state)
 		var position: Vector3 = state["position"]
 		var target: Vector3 = state["target"]
 		var horizontal_delta := Vector3(
@@ -331,7 +335,7 @@ func _update_host_entities(delta: float) -> void:
 			)
 		if not horizontal_delta.is_zero_approx():
 			var step: float = minf(
-				entry.movement_speed * delta,
+				entry.get_movement_speed_for_quality(quality) * delta,
 				horizontal_delta.length(),
 			)
 			var direction: Vector3 = horizontal_delta.normalized()
@@ -345,12 +349,17 @@ func _update_host_entities(delta: float) -> void:
 			state["yaw"] = atan2(-direction.x, -direction.z)
 		state["position"] = position
 		_entities[entity_id] = state
-		if _should_scare(entry, position):
+		if _should_scare(entry, position, quality):
 			_despawn_entity(entity_id, &"scared", true, true)
 
 
-func _should_scare(entry: GatherableDataType, position: Vector3) -> bool:
-	var radius_squared: float = entry.scare_radius * entry.scare_radius
+func _should_scare(
+	entry: GatherableDataType,
+	position: Vector3,
+	quality: int,
+) -> bool:
+	var scare_radius: float = entry.get_scare_radius_for_quality(quality)
+	var radius_squared: float = scare_radius * scare_radius
 	for peer_id: int in _spawn_service.get_peer_ids():
 		var avatar: Player = _spawn_service.get_avatar(peer_id)
 		if (
@@ -571,9 +580,7 @@ func _handle_interaction_finish(peer_id: int, data: Dictionary) -> void:
 	if not error.is_empty():
 		_send_interaction_result(peer_id, request_id, false, error)
 		return
-	var selector := FishSelectorType.new()
-	selector.begin_roll()
-	var fish_catch: FishCatch = selector.create_catch(entry.catch_data)
+	var fish_catch: FishCatch = _create_catch_for_state(entry, state)
 	if fish_catch == null or not fish_catch.is_valid():
 		_send_interaction_result(peer_id, request_id, false, "The catch could not be recorded.")
 		return
@@ -598,6 +605,35 @@ func _handle_interaction_finish(peer_id: int, data: Dictionary) -> void:
 		_handle_local_capacity_probe(probe)
 	else:
 		receive_capacity_probe.rpc_id(peer_id, probe)
+
+
+func _create_catch_for_state(
+	entry: GatherableDataType,
+	state: Dictionary,
+) -> FishCatch:
+	var selector := FishSelectorType.new()
+	selector.begin_roll()
+	var fish_catch: FishCatch = selector.create_catch(entry.catch_data)
+	if fish_catch == null:
+		return null
+	var quality: int = _get_state_quality(state)
+	fish_catch.quality = quality
+	fish_catch.sale_value = FishQualityType.apply_sale_value(
+		entry.catch_data.get_sale_value_for_weight(fish_catch.weight_lb),
+		quality,
+	)
+	return fish_catch
+
+
+func _get_state_quality(state: Dictionary) -> int:
+	var quality: int = int(
+		state.get("quality", FishQualityType.Tier.BORING)
+	)
+	return (
+		quality
+		if FishQualityType.is_valid(quality)
+		else FishQualityType.Tier.BORING
+	)
 
 
 @rpc(

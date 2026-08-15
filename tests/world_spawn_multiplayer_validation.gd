@@ -28,7 +28,7 @@ func _run_host() -> void:
 	assert(session.start_dedicated_host(TEST_PORT, 8, "127.0.0.1"))
 	assert(session.set_host_open(true))
 	await _wait_for_population(service)
-	_validate_population(service)
+	_validate_population(service, true)
 
 	var remote_peer_id: int = 0
 	var join_deadline: int = Time.get_ticks_msec() + 20000
@@ -51,7 +51,7 @@ func _run_host() -> void:
 	):
 		await process_frame
 	assert(not session.is_authenticated_peer(remote_peer_id))
-	_validate_population(service)
+	_validate_population(service, true)
 	_validate_respawn_budget(service)
 	print("World spawn multiplayer host validation: PASS")
 	session.disconnect_session("")
@@ -82,7 +82,7 @@ func _run_client() -> void:
 		NetworkProtocol.WORLD_SPAWN_CAPABILITY
 	))
 	await _wait_for_population(service)
-	_validate_population(service)
+	_validate_population(service, false)
 	print("World spawn multiplayer client validation: PASS")
 	session.disconnect_session("")
 	main.queue_free()
@@ -101,7 +101,7 @@ func _wait_for_population(service: Node) -> void:
 	assert(false, "Timed out waiting for the world spawn population.")
 
 
-func _validate_population(service: Node) -> void:
+func _validate_population(service: Node, expect_authoritative_state: bool) -> void:
 	var entities: Dictionary = service.get("_entities")
 	var presentations: Dictionary = service.get("_presentations")
 	assert(entities.size() == EXPECTED_POPULATION)
@@ -112,6 +112,13 @@ func _validate_population(service: Node) -> void:
 		assert(typeof(position) == TYPE_VECTOR3)
 		assert((position as Vector3).is_finite())
 		assert((position as Vector3).y > 0.08)
+		if expect_authoritative_state:
+			var quality: int = int(state.get("quality", -1))
+			assert(FishQuality.is_valid(quality))
+			var entry := state.get("data") as GatherableData
+			assert(entry != null)
+			assert(entry.get_movement_speed_for_quality(quality) > 0.0)
+			assert(entry.get_scare_radius_for_quality(quality) > 0.0)
 
 
 func _validate_respawn_budget(service: Node) -> void:
