@@ -1,0 +1,55 @@
+[gd_scene load_steps=7 format=3]
+
+[sub_resource type="StandardMaterial3D" id="HandleMaterial"]
+albedo_color = Color(0.25, 0.13, 0.055, 1)
+roughness = 0.9
+
+[sub_resource type="CylinderMesh" id="HandleMesh"]
+material = SubResource("HandleMaterial")
+top_radius = 0.025
+bottom_radius = 0.035
+height = 1.25
+
+[sub_resource type="StandardMaterial3D" id="HoopMaterial"]
+albedo_color = Color(0.34, 0.39, 0.4, 1)
+metallic = 0.25
+roughness = 0.65
+
+[sub_resource type="TorusMesh" id="HoopMesh"]
+material = SubResource("HoopMaterial")
+inner_radius = 0.24
+outer_radius = 0.29
+rings = 12
+ring_segments = 18
+
+[sub_resource type="StandardMaterial3D" id="NetMaterial"]
+transparency = 1
+albedo_color = Color(0.65, 0.78, 0.75, 0.42)
+shading_mode = 0
+cull_mode = 2
+
+[sub_resource type="CylinderMesh" id="NetMesh"]
+material = SubResource("NetMaterial")
+top_radius = 0.24
+bottom_radius = 0.08
+height = 0.34
+radial_segments = 12
+rings = 1
+
+[node name="NetAttachment" type="BoneAttachment3D"]
+bone_name = "rod_socket"
+
+[node name="CatchingNet" type="Node3D" parent="."]
+visible = false
+
+[node name="Handle" type="MeshInstance3D" parent="CatchingNet"]
+position = Vector3(0, 0.55, 0)
+mesh = SubResource("HandleMesh")
+
+[node name="Hoop" type="MeshInstance3D" parent="CatchingNet"]
+position = Vector3(0, 1.17, 0)
+mesh = SubResource("HoopMesh")
+
+[node name="Bag" type="MeshInstance3D" parent="CatchingNet"]
+position = Vector3(0, 1.0, 0)
+mesh = SubResource("NetMesh")

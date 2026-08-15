@@ -24,6 +24,17 @@ enum Rarity {
 	LEGENDARY,
 }
 
+enum CollectionMethod {
+	FISHING,
+	NET,
+	DIGGING,
+}
+
+enum LogbookSection {
+	AUTOMATIC,
+	SHELLFISH,
+}
+
 @export var id: StringName
 @export var display_name: String
 @export_category("Developer Catalog")
@@ -32,6 +43,9 @@ enum Rarity {
 @export_range(1, 999999, 1) var catalog_number: int = 1
 @export var collection_group: StringName
 @export_multiline var logbook_fact: String
+@export var collection_method: CollectionMethod = CollectionMethod.FISHING
+@export var logbook_section: LogbookSection = LogbookSection.AUTOMATIC
+@export var habitat_label: String = ""
 @export_category("Fishing")
 @export_flags("Fresh Water", "Salt Water")
 var allowed_water_types: int = WaterType.ALL_FISHABLE_MASK
@@ -53,9 +67,12 @@ var allowed_water_types: int = WaterType.ALL_FISHABLE_MASK
 
 
 func is_selectable() -> bool:
+	return active and is_valid_catalog_entry()
+
+
+func is_valid_catalog_entry() -> bool:
 	return (
-		active
-		and not id.is_empty()
+		not id.is_empty()
 		and base_catch_weight > 0.0
 		and catch_profile != null
 		and weight_min_lb > 0.0
@@ -67,6 +84,16 @@ func is_selectable() -> bool:
 		and sell_value_max >= sell_value_min
 		and sell_value_curve > 0.0
 	)
+
+
+func is_fishable() -> bool:
+	return is_selectable() and collection_method == CollectionMethod.FISHING
+
+
+func get_habitat_label() -> String:
+	if not habitat_label.strip_edges().is_empty():
+		return habitat_label.strip_edges().to_lower()
+	return WaterType.label(get_primary_water_type()).to_lower()
 
 
 func is_allowed_in_water(type: WaterType.Type) -> bool:

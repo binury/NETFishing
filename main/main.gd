@@ -25,6 +25,7 @@ const ItemCatalogType = preload("res://items/item_catalog.gd")
 const ArtShopStockType = preload("res://economy/art_shop_stock.gd")
 const ItemDataType = preload("res://items/item_data.gd")
 const FishingRodDataType = preload("res://items/fishing_rod_data.gd")
+const FishingShopStockType = preload("res://economy/fishing_shop_stock.gd")
 const FishingShopType = preload("res://ui/fishing_shop.gd")
 const FishingShopInteractionType = preload(
 	"res://world/fishing_shop_interaction.gd"
@@ -100,6 +101,15 @@ const NetworkWorldWeatherServiceType = preload(
 const RainAmbienceType = preload("res://world/rain_ambience.gd")
 const PlayerJobServiceType = preload("res://jobs/player_job_service.gd")
 const NetworkJobServiceType = preload("res://network/network_job_service.gd")
+const GatherableCatalogType = preload(
+	"res://gathering/gatherable_catalog.gd"
+)
+const GatheringControllerType = preload(
+	"res://gathering/gathering_controller.gd"
+)
+const NetworkWorldSpawnServiceType = preload(
+	"res://network/network_world_spawn_service.gd"
+)
 
 const TITLE_MUSIC_SILENCE_DB: float = -80.0
 const TIME_CROSSING_EPSILON_HOURS: float = 0.000001
@@ -111,6 +121,7 @@ const SHOP_PATTERN_SCALE: float = 1.75
 @export var pelican_buyer_profile: FishBuyerProfileType
 @export var main_shop_buyer_profile: FishBuyerProfileType
 @export var item_catalog: ItemCatalogType
+@export var gatherable_catalog: GatherableCatalogType
 @export_category("Title Music")
 @export_range(-40.0, 0.0, 0.5) var title_music_volume_db: float = -6.0
 @export_range(0.0, 10.0, 0.05) var title_music_fade_out_seconds: float = 5.0
@@ -150,6 +161,12 @@ const SHOP_PATTERN_SCALE: float = 1.75
 )
 @onready var _player_jobs: PlayerJobServiceType = %PlayerJobService
 @onready var _network_jobs: NetworkJobServiceType = %NetworkJobService
+@onready var _network_world_spawns: NetworkWorldSpawnServiceType = (
+	%NetworkWorldSpawnService
+)
+@onready var _gathering_controller: GatheringControllerType = (
+	%GatheringController
+)
 @onready var _data_root: PlayerDataRoot = %PlayerDataRoot
 @onready var _identity_backups: IdentityBackupService = %IdentityBackupService
 @onready var _network_profile: NetworkProfilePreferencesType = (
@@ -191,6 +208,7 @@ const SHOP_PATTERN_SCALE: float = 1.75
 )
 @onready var _players_root: Node3D = $Players
 @onready var _surface_drawings_root: Node3D = $SurfaceDrawings
+@onready var _world_gatherables_root: Node3D = $WorldGatherables
 @onready var _title_background: ColorRect = %TitleBackground
 @onready var _player_menu_backdrop: ColorRect = %PlayerMenuBackdrop
 @onready var _shop_backdrop: ColorRect = %ShopBackdrop
@@ -541,6 +559,33 @@ func _initialize_application(dedicated: bool) -> void:
 		_player.item_effects,
 		_save_manager,
 		_asset_reservations
+	)
+	_network_world_spawns.setup(
+		_network_session,
+		_player_spawn_service,
+		_test_world,
+		_world_gatherables_root,
+		gatherable_catalog,
+		fish_catalog,
+		_player.inventory,
+		_player.collection_log,
+		_player.cooler_capacity,
+		_player.experience,
+		_save_manager,
+		_network_item_use,
+	)
+	_gathering_controller.setup(
+		_player,
+		_player.bag,
+		_player.hotbar,
+		_fishing_spot,
+		_network_world_spawns,
+	)
+	_network_world_spawns.local_capture_received.connect(
+		_fishing_spot.present_external_catch
+	)
+	_gathering_controller.status_changed.connect(
+		_fishing_spot.report_external_status
 	)
 	_network_fish_showcase.setup(
 		_network_session,
@@ -1326,6 +1371,7 @@ func _set_gameplay_active(active: bool) -> void:
 	_player.set_camera_input_enabled(active)
 	_player.set_camera_active(active)
 	_fishing_spot.set_gameplay_input_enabled(active)
+	_gathering_controller.set_gameplay_input_enabled(active)
 	_water_recovery.set_recovery_enabled(active)
 	_game_ui.set_gameplay_ui_enabled(active)
 	_save_manager.set_autosave_enabled(active)
@@ -1775,6 +1821,12 @@ func _on_active_hotbar_item_changed(
 		and item.is_available()
 		and _player.bag.owns_item(item_id)
 	)
+	var active_is_catching_net: bool = (
+		item_id == FishingShopStockType.CRAB_NET_ID
+		and item != null
+		and item.is_available()
+		and _player.bag.owns_item(item_id)
+	)
 	_player.set_active_fishing_rod(
 		item as FishingRodDataType if active_is_rod else null,
 		true,
@@ -1783,6 +1835,7 @@ func _on_active_hotbar_item_changed(
 		item.icon if item != null else null,
 		active_is_art_kit,
 	)
+	_player.set_active_catching_net(active_is_catching_net)
 	_game_ui.set_surface_drawing_hotbar_selected(active_is_art_kit)
 	_network_item_use.submit_local_equipped(item_id, active_is_rod or (
 		item != null and _player.bag.owns_item(item_id)

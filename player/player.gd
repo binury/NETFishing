@@ -31,6 +31,7 @@ const ControllerMappingManagerType = preload(
 const FishingRodAttachmentScene = preload(
 	"res://player/fishing_rod_attachment.tscn"
 )
+const NetAttachmentScene = preload("res://player/net_attachment.tscn")
 const FishingRodDataType = preload("res://items/fishing_rod_data.gd")
 const HeldItemAttachmentScene = preload(
 	"res://player/held_item_attachment.tscn"
@@ -382,6 +383,7 @@ var _remote_recovery_visual_origin: Vector3
 var _remote_recovery_elapsed: float = 0.0
 var _target_zoom: float = 5.0
 var _showcase_rod_visibility: bool = true
+var _showcase_net_visibility: bool = false
 var _remote_presentation_visible := true
 var _showcase_rod_state_stored: bool = false
 var _showcase_visual_rotation: Vector3
@@ -445,12 +447,14 @@ var _fishing_visual_phase: FishingVisualPhase = FishingVisualPhase.NONE
 var _fishing_after_release_pending: bool = false
 var _retract_animation_completed: bool = true
 var _fishing_rod: Node3D
+var _catching_net: Node3D
 var _fishing_rod_tip: Marker3D
 var _fishing_rod_model_mount: Node3D
 var _fishing_rod_fallback_visual: GeometryInstance3D
 var _custom_fishing_rod_visual: Node3D
 var _active_fishing_rod_id: StringName
 var _active_item_is_rod: bool = false
+var _active_item_is_net: bool = false
 var _controller_mapping_manager: ControllerMappingManagerType
 var _sprint_dust_landing_ready: bool = false
 var _sprint_dust_airborne: bool = false
@@ -475,6 +479,7 @@ func _ready() -> void:
 		bag.contents_changed.connect(_on_bag_contents_changed)
 	_apply_presented_appearance()
 	_initialize_fishing_rod()
+	_initialize_catching_net()
 	_target_zoom = clampf(_spring_arm.spring_length, minimum_zoom, maximum_zoom)
 	_spring_arm.spring_length = _target_zoom
 	_camera.current = local_control_enabled
@@ -588,6 +593,23 @@ func _initialize_fishing_rod() -> void:
 	_fishing_rod_fallback_visual = attachment.get_node(
 		"FishingRod/FallbackRodMesh"
 	) as GeometryInstance3D
+
+
+func _initialize_catching_net() -> void:
+	var skeleton := get_node_or_null(
+		"Visuals/CharacterRig/CharacterRig/Skeleton3D"
+	) as Skeleton3D
+	if skeleton == null:
+		push_error("Player character skeleton is unavailable for the net.")
+		return
+	var attachment := NetAttachmentScene.instantiate() as BoneAttachment3D
+	if attachment == null:
+		push_error("Catching net attachment could not be instantiated.")
+		return
+	skeleton.add_child(attachment)
+	_catching_net = attachment.get_node("CatchingNet") as Node3D
+	if _catching_net != null:
+		_catching_net.visible = false
 
 
 func _initialize_held_item_attachment() -> void:
@@ -1765,6 +1787,19 @@ func is_local_control_enabled() -> bool:
 	return local_control_enabled
 
 
+func is_sneaking() -> bool:
+	if local_control_enabled:
+		return (
+			_is_movement_input_enabled()
+			and Input.is_action_pressed("sneak")
+		)
+	return _network_sneak
+
+
+func is_moving_horizontally() -> bool:
+	return Vector2(velocity.x, velocity.z).length_squared() > 0.01
+
+
 func set_movement_enabled(enabled: bool) -> void:
 	_movement_enabled = enabled
 	if not enabled:
@@ -1921,6 +1956,18 @@ func set_active_fishing_rod(
 	set_active_item_is_rod(rod != null and rod.is_available(), animate_transition)
 
 
+func set_active_catching_net(should_show: bool) -> void:
+	_active_item_is_net = should_show
+	if _catching_net == null:
+		return
+	if _showcase_rod_state_stored:
+		_showcase_net_visibility = should_show
+		return
+	_catching_net.visible = (
+		should_show and not _has_held_show_item() and not _showcase_animation_active
+	)
+
+
 func _apply_fishing_rod_model(rod: FishingRodDataType) -> void:
 	var next_id: StringName = rod.item_id if rod != null else StringName()
 	if next_id == _active_fishing_rod_id:
@@ -1983,6 +2030,12 @@ func _apply_active_rod_visibility() -> void:
 		_showcase_rod_visibility = _active_item_is_rod
 		return
 	_fishing_rod.visible = _active_item_is_rod
+	if _catching_net != null:
+		_catching_net.visible = (
+			_active_item_is_net
+			and not _has_held_show_item()
+			and not _showcase_animation_active
+		)
 
 
 func set_active_art_kit(icon: Texture2D, should_show: bool) -> void:
@@ -2011,6 +2064,8 @@ func set_active_art_kit(icon: Texture2D, should_show: bool) -> void:
 	if not previous_show_pose:
 		_held_art_kit_display.visible = false
 	_fishing_rod.visible = false
+	if _catching_net != null:
+		_catching_net.visible = false
 	if item_changed:
 		_begin_pocket_visual(
 			PocketVisualTarget.ART_KIT,
@@ -2059,6 +2114,8 @@ func set_held_fish(
 	if not previous_show_pose:
 		_held_fish_display.visible = false
 	_fishing_rod.visible = false
+	if _catching_net != null:
+		_catching_net.visible = false
 	if item_changed:
 		_begin_pocket_visual(
 			PocketVisualTarget.HELD_FISH,
@@ -2283,8 +2340,13 @@ func begin_catch_showcase(fish_catch: FishCatchType) -> void:
 	_turn_showcase_toward_position(showcase_camera_position)
 	if not _showcase_rod_state_stored:
 		_showcase_rod_visibility = _fishing_rod.visible
+		_showcase_net_visibility = (
+			_catching_net.visible if _catching_net != null else false
+		)
 		_showcase_rod_state_stored = true
 	_fishing_rod.visible = false
+	if _catching_net != null:
+		_catching_net.visible = false
 	_catch_sprite.texture = fish_catch.fish.display_texture
 	_catch_display.scale = (
 		Vector3.ONE
@@ -2302,8 +2364,13 @@ func begin_remote_catch_showcase(fish_catch: FishCatchType) -> void:
 	_showcase_animation_active = true
 	set_fishing_visual(false)
 	_showcase_rod_visibility = _fishing_rod.visible
+	_showcase_net_visibility = (
+		_catching_net.visible if _catching_net != null else false
+	)
 	_showcase_rod_state_stored = true
 	_fishing_rod.visible = false
+	if _catching_net != null:
+		_catching_net.visible = false
 	_catch_sprite.texture = fish_catch.fish.display_texture
 	_catch_display.scale = (
 		Vector3.ONE
@@ -2343,7 +2410,10 @@ func end_catch_showcase(
 	_catch_sprite.texture = null
 	if _showcase_rod_state_stored:
 		_fishing_rod.visible = _showcase_rod_visibility
+		if _catching_net != null:
+			_catching_net.visible = _showcase_net_visibility
 	_showcase_rod_visibility = true
+	_showcase_net_visibility = false
 	_showcase_rod_state_stored = false
 	if (
 		not _showcase_visual_rotation_stored

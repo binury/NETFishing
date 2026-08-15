@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="GatherableData" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://gathering/gatherable_data.gd" id="1_data"]
+[ext_resource type="Resource" path="res://fish/species/crab_blue/crab_blue.tres" id="2_catch"]
+
+[resource]
+script = ExtResource("1_data")
+type_id = &"crab_blue"
+catch_data = ExtResource("2_catch")
+required_tool_id = &"crab_net"
+surface_materials = Array[StringName]([&"sand"])
+minimum_surface_y = -0.8
+population = 4

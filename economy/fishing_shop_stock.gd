@@ -10,6 +10,7 @@ const WORM_MAX_STACK: int = 10
 const FISH_FINDER_ID: StringName = &"fish_finder"
 const MAGNET_ID: StringName = &"magnet"
 const BATTERIES_ID: StringName = &"batteries"
+const CRAB_NET_ID: StringName = &"crab_net"
 
 const ITEM_PRICES: Dictionary[StringName, int] = {
 	&"worms": 1,
@@ -26,6 +27,7 @@ const ITEM_PRICES: Dictionary[StringName, int] = {
 	FISH_FINDER_ID: 500,
 	MAGNET_ID: 250,
 	BATTERIES_ID: 15,
+	CRAB_NET_ID: 50,
 }
 const BAIT_UNLOCK_PRICES: Dictionary[StringName, int] = {
 	&"snails": 400,
@@ -46,6 +48,7 @@ const ITEM_ORDER: Array[StringName] = [
 	&"the_standby",
 	FISH_FINDER_ID,
 	MAGNET_ID,
+	CRAB_NET_ID,
 	&"coffee",
 	&"energy_drink",
 	&"snack",
@@ -108,6 +111,7 @@ static func is_permanent_unlock(
 			item.is_lure()
 			or item_id == FISH_FINDER_ID
 			or item_id == MAGNET_ID
+			or item_id == CRAB_NET_ID
 			or item is FishingRodDataType
 		)
 	)

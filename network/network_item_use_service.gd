@@ -4,6 +4,7 @@ extends Node
 const FishingRodDataType = preload("res://items/fishing_rod_data.gd")
 
 const ArtShopStockType = preload("res://economy/art_shop_stock.gd")
+const FishingShopStockType = preload("res://economy/fishing_shop_stock.gd")
 
 const MAX_LEDGER_ENTRIES: int = 64
 
@@ -292,6 +293,13 @@ func get_effects_for_peer(peer_id: int) -> PlayerItemEffects:
 	return avatar.item_effects if avatar != null else null
 
 
+func get_equipped_item_id(peer_id: int) -> StringName:
+	var state: Dictionary = _equipped_states.get(peer_id, {})
+	if state.is_empty() or not bool(state.get("owns_item", false)):
+		return StringName()
+	return StringName(str(state.get("item_id", "")))
+
+
 func submit_local_equipped(item_id: StringName, owns_item: bool) -> void:
 	if _session == null or not _session.is_gameplay_session_active():
 		return
@@ -376,6 +384,10 @@ func _apply_equipped(data: Dictionary) -> void:
 		avatar.set_active_art_kit(
 			item.icon if item != null else null,
 			item_id == ArtShopStockType.ART_KIT_ITEM_ID and bool(data["owns_item"]),
+		)
+		avatar.set_active_catching_net(
+			item_id == FishingShopStockType.CRAB_NET_ID
+			and bool(data["owns_item"]),
 		)
 	equipped_state_changed.emit(
 		peer_id, StringName(str(data["item_id"])), int(data["category"])

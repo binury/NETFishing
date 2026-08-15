@@ -42,6 +42,7 @@ const FishingSurfaceResolverType = preload(
 	"res://fishing/fishing_surface_resolver.gd"
 )
 const ArtShopStockType = preload("res://economy/art_shop_stock.gd")
+const FishingShopStockType = preload("res://economy/fishing_shop_stock.gd")
 const WorldTimeServiceType = preload("res://world/world_time_service.gd")
 const WorldWeatherServiceType = preload(
 	"res://world/world_weather_service.gd"
@@ -504,6 +505,13 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if not event.is_action("fish_primary"):
 		return
+	var selected_item: ItemDataType = _get_active_item()
+	if (
+		state == FishingState.READY
+		and selected_item != null
+		and selected_item.item_id == FishingShopStockType.CRAB_NET_ID
+	):
+		return
 	if event.is_pressed():
 		match state:
 			FishingState.READY:
@@ -735,6 +743,36 @@ func is_returning() -> bool:
 func refresh_active_item_status() -> void:
 	if state == FishingState.READY and has_active_fishing_rod():
 		status_changed.emit("")
+
+
+func report_external_status(message: String) -> void:
+	status_changed.emit(message)
+
+
+func present_external_catch(fish_catch: FishCatchType) -> bool:
+	if (
+		fish_catch == null
+		or not fish_catch.is_valid()
+		or state != FishingState.READY
+		or _local_player == null
+	):
+		return false
+	_active_player = _local_player
+	_pending_catch = fish_catch
+	_active_player.set_movement_enabled(false)
+	state = FishingState.SHOWING_CATCH
+	_showcase_ready = true
+	_showcase_outcome_completed = true
+	_put_away_press_armed = false
+	_active_player.begin_catch_showcase(fish_catch)
+	showcase_changed.emit(
+		fish_catch.fish.display_name,
+		fish_catch.fish.get_rarity_name(),
+		fish_catch.weight_lb,
+		fish_catch.quality,
+		true,
+	)
+	return true
 
 
 func _update_cast_charge(delta: float) -> void:

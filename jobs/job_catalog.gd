@@ -90,7 +90,7 @@ static func generate_daily_jobs(
 		))
 	var species: Array[FishDataType] = []
 	for fish: FishDataType in candidates:
-		if fish != null and fish.is_selectable():
+		if fish != null and fish.is_fishable():
 			species.append(fish)
 	if not species.is_empty():
 		species.sort_custom(

@@ -61,6 +61,16 @@ func get_saltwater_shoreline_mesh() -> MeshInstance3D:
 	return _starter_island.get_saltwater_shoreline_mesh()
 
 
+func get_spawn_surface_triangles(
+	material_names: Array[StringName],
+	minimum_global_y: float,
+) -> Array[PackedVector3Array]:
+	return _starter_island.get_spawn_surface_triangles(
+		material_names,
+		minimum_global_y,
+	)
+
+
 func _get_regions() -> Array[WorldRegion]:
 	var regions: Array[WorldRegion] = []
 	for child: Node in _regions_root.get_children():

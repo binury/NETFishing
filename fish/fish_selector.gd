@@ -46,7 +46,7 @@ func select_fish(
 	var weights: Array[float] = []
 	var total_weight: float = 0.0
 	for fish: FishDataType in pool.candidates:
-		if fish == null or not fish.is_selectable():
+		if fish == null or not fish.is_fishable():
 			continue
 		if not fish.is_allowed_in_water(context.water_type):
 			continue

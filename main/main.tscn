@@ -57,6 +57,9 @@
 [ext_resource type="Script" uid="uid://c80x8jkdnx0xy" path="res://settings/controller_mapping_manager.gd" id="56_controller_mapping"]
 [ext_resource type="Script" uid="uid://d0jv8n2nfqia0" path="res://network/discovery_client.gd" id="57_discovery"]
 [ext_resource type="AudioStream" uid="uid://c4y8puv0n6xk8" path="res://audio/music/world/craft.mp3" id="dusk_music"]
+[ext_resource type="Resource" path="res://gathering/catalog/gatherable_catalog.tres" id="58_gatherable_catalog"]
+[ext_resource type="Script" path="res://network/network_world_spawn_service.gd" id="59_world_spawns"]
+[ext_resource type="Script" path="res://gathering/gathering_controller.gd" id="60_gathering_controller"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_title_water_native"]
 shader = ExtResource("40_title_water")
@@ -142,6 +145,7 @@ fish_catalog = ExtResource("6_pool")
 pelican_buyer_profile = ExtResource("7_pelicans")
 main_shop_buyer_profile = ExtResource("12_main_shop")
 item_catalog = ExtResource("11_items")
+gatherable_catalog = ExtResource("58_gatherable_catalog")
 
 [node name="TitleBackgroundLayer" type="CanvasLayer" parent="." unique_id=1690754702]
 unique_name_in_owner = true
@@ -283,6 +287,10 @@ script = ExtResource("24_network_item")
 unique_name_in_owner = true
 script = ExtResource("45_fish_showcase")
 
+[node name="NetworkWorldSpawnService" type="Node" parent="."]
+unique_name_in_owner = true
+script = ExtResource("59_world_spawns")
+
 [node name="NetworkSurfaceDrawingService" type="Node" parent="." unique_id=80122665]
 unique_name_in_owner = true
 script = ExtResource("46_surface_drawing")
@@ -377,6 +385,12 @@ unique_name_in_owner = true
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3.3999481, 12.07081)
 
 [node name="SurfaceDrawings" type="Node3D" parent="." unique_id=234671307]
+
+[node name="WorldGatherables" type="Node3D" parent="."]
+
+[node name="GatheringController" type="Node3D" parent="."]
+unique_name_in_owner = true
+script = ExtResource("60_gathering_controller")
 
 [node name="FishingSpot" parent="." unique_id=1461328864 instance=ExtResource("4_spot")]
 unique_name_in_owner = true

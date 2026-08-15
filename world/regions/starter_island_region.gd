@@ -60,6 +60,89 @@ func get_saltwater_shoreline_mesh() -> MeshInstance3D:
 	return get_node_or_null(^"ShorelineRibbons/Ocean") as MeshInstance3D
 
 
+func get_spawn_surface_triangles(
+	material_names: Array[StringName],
+	minimum_global_y: float,
+	minimum_up_dot: float = 0.6,
+) -> Array[PackedVector3Array]:
+	var triangles: Array[PackedVector3Array] = []
+	if material_names.is_empty():
+		return triangles
+	var terrain_root: Node = get_node_or_null(terrain_visual_root_path)
+	if terrain_root == null:
+		return triangles
+	for mesh_instance: MeshInstance3D in _collect_terrain_mesh_instances(
+		terrain_root
+	):
+		var mesh: Mesh = mesh_instance.mesh
+		if mesh == null:
+			continue
+		for surface_index: int in mesh.get_surface_count():
+			var material: Material = mesh_instance.get_active_material(
+				surface_index
+			)
+			if material == null or not material_names.has(
+				StringName(material.resource_name)
+			):
+				continue
+			var arrays: Array = mesh.surface_get_arrays(surface_index)
+			if arrays.size() <= Mesh.ARRAY_INDEX:
+				continue
+			var vertices := arrays[Mesh.ARRAY_VERTEX] as PackedVector3Array
+			var indices := arrays[Mesh.ARRAY_INDEX] as PackedInt32Array
+			if vertices.is_empty():
+				continue
+			if indices.is_empty():
+				for vertex_index: int in range(0, vertices.size() - 2, 3):
+					_append_spawn_triangle(
+						triangles,
+						mesh_instance,
+						vertices[vertex_index],
+						vertices[vertex_index + 1],
+						vertices[vertex_index + 2],
+						minimum_global_y,
+						minimum_up_dot,
+					)
+			else:
+				for index_offset: int in range(0, indices.size() - 2, 3):
+					_append_spawn_triangle(
+						triangles,
+						mesh_instance,
+						vertices[indices[index_offset]],
+						vertices[indices[index_offset + 1]],
+						vertices[indices[index_offset + 2]],
+						minimum_global_y,
+						minimum_up_dot,
+					)
+	return triangles
+
+
+func _append_spawn_triangle(
+	result: Array[PackedVector3Array],
+	mesh_instance: MeshInstance3D,
+	local_a: Vector3,
+	local_b: Vector3,
+	local_c: Vector3,
+	minimum_global_y: float,
+	minimum_up_dot: float,
+) -> void:
+	var a: Vector3 = mesh_instance.to_global(local_a)
+	var b: Vector3 = mesh_instance.to_global(local_b)
+	var c: Vector3 = mesh_instance.to_global(local_c)
+	if (
+		a.y <= minimum_global_y
+		or b.y <= minimum_global_y
+		or c.y <= minimum_global_y
+	):
+		return
+	var cross: Vector3 = (b - a).cross(c - a)
+	if cross.length_squared() <= 0.0000001:
+		return
+	if absf(cross.normalized().dot(Vector3.UP)) < minimum_up_dot:
+		return
+	result.append(PackedVector3Array([a, b, c]))
+
+
 func has_terrain_collision() -> bool:
 	var collision_shape: CollisionShape3D = (
 		get_node_or_null(terrain_collision_shape_path) as CollisionShape3D

@@ -24,6 +24,7 @@ readonly -a QUICK_TESTS=(
 	"tests/terrain_blender_material_validation.gd"
 	"tests/texture_sampling_validation.gd"
 	"tests/world_time_validation.gd"
+	"tests/world_spawn_protocol_validation.gd"
 	"tests/world_weather_validation.gd"
 )
 
@@ -41,6 +42,7 @@ readonly -a HOST_TESTS=(
 	"tests/economy_regression_validation.gd"
 	"tests/fish_hotbar_showcase_validation.gd"
 	"tests/fishing_authority_validation.gd"
+	"tests/gathering_showcase_validation.gd"
 	"tests/job_system_validation.gd"
 	"tests/surface_drawing_runtime_validation.gd"
 )
@@ -54,6 +56,7 @@ readonly -a NETWORK_TESTS=(
 	"tests/operator_multiplayer_validation.gd"
 	"tests/surface_drawing_multiplayer_validation.gd"
 	"tests/world_time_multiplayer_validation.gd"
+	"tests/world_spawn_multiplayer_validation.gd"
 )
 
 cleanup() {

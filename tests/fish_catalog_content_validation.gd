@@ -121,7 +121,7 @@ func _validate_weight_based_display_scale() -> void:
 
 
 func _validate_catalog_and_pools() -> void:
-	assert(Catalog.candidates.size() == 313)
+	assert(Catalog.candidates.size() == 314)
 	assert(PondPool.candidates.size() == 19)
 	assert(OceanPool.candidates.size() == 34)
 	var active_count: int = 0
@@ -142,7 +142,7 @@ func _validate_catalog_and_pools() -> void:
 			inactive_count += 1
 			assert(not fish.is_selectable())
 			assert(fish.display_texture == null)
-	assert(active_count == 53)
+	assert(active_count == 54)
 	assert(inactive_count == 260)
 	var inactive_fish: FishDataType = Catalog.get_fish_by_id(&"bowfin")
 	assert(inactive_fish != null and not inactive_fish.active)
@@ -173,14 +173,20 @@ func _validate_catalog_and_pools() -> void:
 		assert(OceanPool.get_fish_by_id(fish_id) == null)
 		assert(fresh_fish.is_allowed_in_water(WaterType.Type.FRESH_WATER))
 		assert(not fresh_fish.is_allowed_in_water(WaterType.Type.SALT_WATER))
-		assert(LogbookCatalog.category_for(fresh_fish) == WaterType.Type.FRESH_WATER)
+		assert(
+			LogbookCatalog.category_for(fresh_fish)
+			== LogbookCatalog.Category.FRESH_WATER
+		)
 	for fish_id: StringName in SALT_WATER_IDS:
 		var salt_fish: FishDataType = Catalog.get_fish_by_id(fish_id)
 		assert(OceanPool.get_fish_by_id(fish_id) == salt_fish)
 		assert(PondPool.get_fish_by_id(fish_id) == null)
 		assert(salt_fish.is_allowed_in_water(WaterType.Type.SALT_WATER))
 		assert(not salt_fish.is_allowed_in_water(WaterType.Type.FRESH_WATER))
-		assert(LogbookCatalog.category_for(salt_fish) == WaterType.Type.SALT_WATER)
+		assert(
+			LogbookCatalog.category_for(salt_fish)
+			== LogbookCatalog.Category.SALT_WATER
+		)
 	for fish_id: StringName in CATFISH_IDS:
 		var fish: FishDataType = Catalog.get_fish_by_id(fish_id)
 		assert(fish != null)
@@ -188,13 +194,19 @@ func _validate_catalog_and_pools() -> void:
 		assert(PondPool.get_fish_by_id(fish_id) == fish)
 		assert(OceanPool.get_fish_by_id(fish_id) == null)
 		assert(fish.availability.allowed_location_tags == [&"starter_pond"])
-		assert(LogbookCatalog.category_for(fish) == WaterType.Type.FRESH_WATER)
+		assert(
+			LogbookCatalog.category_for(fish)
+			== LogbookCatalog.Category.FRESH_WATER
+		)
 	for fish_id: StringName in NEW_FRESH_WATER_IDS:
 		var fish: FishDataType = Catalog.get_fish_by_id(fish_id)
 		assert(fish != null and fish.is_selectable())
 		assert(PondPool.get_fish_by_id(fish_id) == fish)
 		assert(OceanPool.get_fish_by_id(fish_id) == null)
-		assert(LogbookCatalog.category_for(fish) == WaterType.Type.FRESH_WATER)
+		assert(
+			LogbookCatalog.category_for(fish)
+			== LogbookCatalog.Category.FRESH_WATER
+		)
 
 	var expected_values: Dictionary[StringName, Array] = {
 		&"catfish_blue": [1, 1.25, 3.0, 12.0, 6, 9],

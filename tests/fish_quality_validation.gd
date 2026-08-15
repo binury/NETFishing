@@ -25,7 +25,7 @@ func _run() -> void:
 	_validate_mail_round_trip()
 	_validate_collection_mastery()
 	_validate_version_four_migration()
-	assert(NetworkProtocol.PROTOCOL_VERSION == 4)
+	assert(NetworkProtocol.PROTOCOL_VERSION == 5)
 	assert(NetworkProtocol.ENET_CHANNEL_COUNT == 10)
 	assert(NetworkProtocol.FISH_QUALITY_CAPABILITY == "fish_quality_v1")
 	print("Fish quality validation: PASS")

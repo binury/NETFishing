@@ -267,6 +267,7 @@ func _register_player_host() -> void:
 			NetworkProtocol.WORLD_TIME_CAPABILITY,
 			NetworkProtocol.WORLD_WEATHER_CAPABILITY,
 			NetworkProtocol.JOBS_CAPABILITY,
+			NetworkProtocol.WORLD_SPAWN_CAPABILITY,
 		]),
 	)
 	_registry.update_appearance(1, _local_appearance_snapshot)
@@ -555,6 +556,7 @@ func supports_server_capability(capability: StringName) -> bool:
 			NetworkProtocol.SURFACE_DRAWING_CAPABILITY,
 			NetworkProtocol.WORLD_TIME_CAPABILITY,
 			NetworkProtocol.WORLD_WEATHER_CAPABILITY,
+			NetworkProtocol.WORLD_SPAWN_CAPABILITY,
 			"chat_v1",
 			"mail_v1",
 			"profile_v1",

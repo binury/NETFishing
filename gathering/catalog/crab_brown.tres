@@ -1,0 +1,26 @@
+[gd_resource type="Resource" script_class="GatherableData" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://gathering/gatherable_data.gd" id="1_data"]
+[ext_resource type="Resource" path="res://fish/species/crab_brown/crab_brown.tres" id="2_catch"]
+
+[resource]
+script = ExtResource("1_data")
+type_id = &"crab_brown"
+catch_data = ExtResource("2_catch")
+required_tool_id = &"crab_net"
+surface_materials = Array[StringName]([&"sand"])
+minimum_surface_y = 0.08
+population = 2
+movement_speed = 0.35
+roam_radius = 3.5
+scare_radius = 2.8
+capture_radius = 0.7
+interaction_range = 2.6
+charge_duration = 2.0
+sprite_pixel_size = 0.001
+sprite_tilt_degrees = -45.0
+capture_respawn_min_seconds = 480.0
+capture_respawn_max_seconds = 720.0
+scare_respawn_min_seconds = 45.0
+scare_respawn_max_seconds = 90.0
+minimum_respawn_spacing_seconds = 180.0

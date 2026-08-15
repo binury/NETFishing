@@ -181,7 +181,7 @@ func _run() -> void:
 	var invalid_state: Dictionary = valid_state.duplicate(true)
 	invalid_state["display_scale"] = 1000.0
 	assert(not NetworkFishShowcaseProtocol.validate_state(invalid_state))
-	assert(NetworkProtocol.PROTOCOL_VERSION == 4)
+	assert(NetworkProtocol.PROTOCOL_VERSION == 5)
 	assert(NetworkProtocol.ENET_CHANNEL_COUNT == 10)
 	assert(
 		NetworkProtocol.FISH_QUALITY_CAPABILITY

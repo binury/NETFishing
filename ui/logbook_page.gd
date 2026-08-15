@@ -50,7 +50,9 @@ const DETAIL_BOTTOM_INSET: float = 35.0
 var _collection_log: CollectionLogType
 var _inventory: FishInventoryType
 var _catalog: FishPoolType
-var _category: WaterType.Type = WaterType.Type.FRESH_WATER
+var _category: LogbookCatalog.Category = (
+	LogbookCatalog.Category.FRESH_WATER
+)
 var _selected_id: StringName
 var _selected_entry_key: StringName
 var _active: bool = false
@@ -186,13 +188,14 @@ func _build_interface() -> void:
 	tabs.mouse_filter = Control.MOUSE_FILTER_PASS
 	tabs.add_theme_constant_override("separation", 6)
 	stack.add_child(tabs)
-	for category: WaterType.Type in [
-		WaterType.Type.FRESH_WATER,
-		WaterType.Type.SALT_WATER,
-		WaterType.Type.OTHER,
+	for category: LogbookCatalog.Category in [
+		LogbookCatalog.Category.FRESH_WATER,
+		LogbookCatalog.Category.SALT_WATER,
+		LogbookCatalog.Category.OTHER,
+		LogbookCatalog.Category.SHELLFISH,
 	]:
 		var tab := OrganizerTabType.new()
-		tab.custom_minimum_size = Vector2(124, 38)
+		tab.custom_minimum_size = Vector2(90, 38)
 		tab.toggle_mode = true
 		tab.text = LogbookCatalog.category_label(category)
 		tab.palette_index = int(category)
@@ -518,7 +521,7 @@ func _add_entry_content(
 	content.add_child(name_label)
 
 
-func _select_category(category: WaterType.Type) -> void:
+func _select_category(category: LogbookCatalog.Category) -> void:
 	if category == _category:
 		return
 	_category = category
@@ -717,7 +720,12 @@ func _build_known_details(fish: FishDataType) -> void:
 	facts_column.size_flags_stretch_ratio = 1.0
 	facts_column.add_theme_constant_override("separation", 6)
 	summary_columns.add_child(facts_column)
-	var facts_heading := _field_label("fish facts", 16)
+	var facts_heading := _field_label(
+		"shellfish facts"
+		if fish.logbook_section == FishDataType.LogbookSection.SHELLFISH
+		else "fish facts",
+		16,
+	)
 	facts_column.add_child(facts_heading)
 	var facts := _label(LogbookCatalog.facts_for(fish), 16)
 	facts.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -745,8 +753,12 @@ func _build_known_details(fish: FishDataType) -> void:
 	)
 	_add_detail_row(
 		left_stats,
-		"body of water",
-		WaterType.label(fish.get_primary_water_type()).to_lower(),
+		(
+			"habitat"
+			if fish.logbook_section == FishDataType.LogbookSection.SHELLFISH
+			else "body of water"
+		),
+		fish.get_habitat_label(),
 	)
 	_add_detail_row(
 		left_stats,

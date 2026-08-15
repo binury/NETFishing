@@ -40,9 +40,9 @@ func _run() -> void:
 
 
 func _validate_catalog() -> void:
-	assert(CatalogResource.candidates.size() == 313)
+	assert(CatalogResource.candidates.size() == 314)
 	var ordered := LogbookCatalog.ordered_species(CatalogResource.candidates)
-	assert(ordered.size() == 53)
+	assert(ordered.size() == 54)
 	var previous_number: int = 0
 	var catalog_numbers: Dictionary[int, bool] = {}
 	for fish: FishDataType in CatalogResource.candidates:
@@ -62,7 +62,7 @@ func _validate_catalog() -> void:
 		assert(LogbookCatalog.catalog_number(fish) == fish.catalog_number)
 		previous_number = fish.catalog_number
 	assert(
-		LogbookCatalog.empty_state(WaterType.Type.SALT_WATER)
+		LogbookCatalog.empty_state(LogbookCatalog.Category.SALT_WATER)
 		== "No saltwater catches cataloged yet."
 	)
 
@@ -78,7 +78,9 @@ func _validate_page() -> void:
 	page.setup(collection, inventory, CatalogResource)
 	page.activate()
 	await process_frame
-	assert(page.get("_category") == WaterType.Type.FRESH_WATER)
+	assert(
+		page.get("_category") == LogbookCatalog.Category.FRESH_WATER
+	)
 	assert((page.get("_catalog_grid") as GridContainer).columns == 4)
 	var initial_detail_body := page.get("_detail_body") as VBoxContainer
 	assert(not initial_detail_body.get_parent() is ScrollContainer)
@@ -89,14 +91,17 @@ func _validate_page() -> void:
 
 	var shared_material: Material
 	var silhouette_count: int = 0
-	for category: WaterType.Type in [
-		WaterType.Type.FRESH_WATER,
-		WaterType.Type.SALT_WATER,
+	for category: LogbookCatalog.Category in [
+		LogbookCatalog.Category.FRESH_WATER,
+		LogbookCatalog.Category.SALT_WATER,
 	]:
 		page.call("_select_category", category)
 		await create_timer(0.25).timeout
 		var entries: Dictionary = page.get("_entry_buttons")
-		assert(entries.size() == (19 if category == WaterType.Type.FRESH_WATER else 34))
+		assert(
+			entries.size()
+			== (19 if category == LogbookCatalog.Category.FRESH_WATER else 34)
+		)
 		for fish: FishDataType in LogbookCatalog.ordered_species(
 			CatalogResource.candidates
 		):
@@ -148,14 +153,20 @@ func _validate_page() -> void:
 				)
 	assert(silhouette_count == 53)
 
-	page.call("_select_category", WaterType.Type.OTHER)
+	page.call("_select_category", LogbookCatalog.Category.SHELLFISH)
+	await create_timer(0.25).timeout
+	assert((page.get("_entry_buttons") as Dictionary).size() == 1)
+	assert(
+		(page.get("_entry_buttons") as Dictionary).has(&"unknown_3906")
+	)
+	page.call("_select_category", LogbookCatalog.Category.OTHER)
 	await create_timer(0.25).timeout
 	assert((page.get("_entry_buttons") as Dictionary).is_empty())
 	assert(
 		(page.get("_empty_state") as Label).text
 		== "No entries available."
 	)
-	page.call("_select_category", WaterType.Type.FRESH_WATER)
+	page.call("_select_category", LogbookCatalog.Category.FRESH_WATER)
 	await create_timer(0.25).timeout
 
 	var bluegill = CatalogResource.get_fish_by_id(&"bluegill")
