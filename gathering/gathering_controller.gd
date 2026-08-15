@@ -151,9 +151,6 @@ func _unhandled_input(event: InputEvent) -> void:
 		)
 	else:
 		_service.cancel_local_interaction(_request_id)
-		status_changed.emit(
-			"Sneak close, pull the net all the way back, and line up the marker."
-		)
 	_reset_charge_state()
 	get_viewport().set_input_as_handled()
 

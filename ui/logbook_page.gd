@@ -38,7 +38,10 @@ const SCROLL_DOWN_TEXTURE: Texture2D = preload(
 const LOGBOOK_ARTWORK_SOURCE_SIZE := Vector2(512.0, 247.0)
 const LEFT_PAGE_CONTENT_RECT := Rect2(56.0, 26.0, 190.0, 198.0)
 const RIGHT_PAGE_CONTENT_RECT := Rect2(267.0, 26.0, 210.0, 198.0)
-const LOGBOOK_TAB_LEFT_INSET: float = 122.0
+const LOGBOOK_TAB_LEFT_INSET: float = 92.0
+const LOGBOOK_TAB_SIZE := Vector2(108.0, 38.0)
+const LOGBOOK_TAB_SEPARATION: float = 6.0
+const LOGBOOK_TAB_TEXT_SIDE_INSET: float = 10.0
 const PAGE_CONTENT_SCALE: float = 0.97
 const CATALOG_PORTRAIT_SIZE := Vector2(78.0, 36.0)
 const CATALOG_ENTRY_SIZE := Vector2(92.0, 92.0)
@@ -67,6 +70,7 @@ var _snapping_catalog_scroll: bool = false
 var _catalog_scroll_snap_timer: Timer
 
 var _category_tabs: Array[Button] = []
+var _category_tab_categories: Array[LogbookCatalog.Category] = []
 var _catalog_scroll: ScrollContainer
 var _catalog_grid: GridContainer
 var _catalog_scroll_up_indicator: TextureRect
@@ -163,7 +167,9 @@ func focus_initial() -> void:
 		var first := _entry_buttons.values().front() as Button
 		first.grab_focus()
 	else:
-		_category_tabs[int(_category)].grab_focus()
+		var category_tab_index: int = _category_tab_categories.find(_category)
+		if category_tab_index >= 0:
+			_category_tabs[category_tab_index].grab_focus()
 
 
 func _build_interface() -> void:
@@ -183,19 +189,26 @@ func _build_interface() -> void:
 	var tabs := HBoxContainer.new()
 	# Align the first flange with the authored left paper edge.
 	tabs.position = Vector2(LOGBOOK_TAB_LEFT_INSET, 37.0)
-	tabs.size = Vector2(384.0, 38.0)
-	tabs.z_index = 10
-	tabs.mouse_filter = Control.MOUSE_FILTER_PASS
-	tabs.add_theme_constant_override("separation", 6)
-	stack.add_child(tabs)
-	for category: LogbookCatalog.Category in [
+	var category_order: Array[LogbookCatalog.Category] = [
 		LogbookCatalog.Category.FRESH_WATER,
 		LogbookCatalog.Category.SALT_WATER,
-		LogbookCatalog.Category.OTHER,
 		LogbookCatalog.Category.SHELLFISH,
-	]:
+		LogbookCatalog.Category.OTHER,
+	]
+	tabs.size = Vector2(
+		LOGBOOK_TAB_SIZE.x * float(category_order.size())
+		+ LOGBOOK_TAB_SEPARATION * float(category_order.size() - 1),
+		LOGBOOK_TAB_SIZE.y,
+	)
+	tabs.z_index = 10
+	tabs.mouse_filter = Control.MOUSE_FILTER_PASS
+	tabs.add_theme_constant_override(
+		"separation", roundi(LOGBOOK_TAB_SEPARATION)
+	)
+	stack.add_child(tabs)
+	for category: LogbookCatalog.Category in category_order:
 		var tab := OrganizerTabType.new()
-		tab.custom_minimum_size = Vector2(90, 38)
+		tab.custom_minimum_size = LOGBOOK_TAB_SIZE
 		tab.toggle_mode = true
 		tab.text = LogbookCatalog.category_label(category)
 		tab.palette_index = int(category)
@@ -203,6 +216,7 @@ func _build_interface() -> void:
 		tab.pressed.connect(_select_category.bind(category))
 		tabs.add_child(tab)
 		_category_tabs.append(tab)
+		_category_tab_categories.append(category)
 	_configure_category_focus()
 
 	var book := Control.new()
@@ -529,7 +543,7 @@ func _select_category(category: LogbookCatalog.Category) -> void:
 	_selected_entry_key = StringName()
 	for index: int in _category_tabs.size():
 		(_category_tabs[index] as OrganizerTabType).set_selected(
-			index == int(_category)
+			_category_tab_categories[index] == _category
 		)
 	_begin_category_transition()
 

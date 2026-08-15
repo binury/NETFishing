@@ -82,6 +82,34 @@ func _validate_page() -> void:
 		page.get("_category") == LogbookCatalog.Category.FRESH_WATER
 	)
 	assert((page.get("_catalog_grid") as GridContainer).columns == 4)
+	var category_tabs: Array = page.get("_category_tabs") as Array
+	var category_tab_categories: Array = (
+		page.get("_category_tab_categories") as Array
+	)
+	assert(category_tab_categories == [
+		LogbookCatalog.Category.FRESH_WATER,
+		LogbookCatalog.Category.SALT_WATER,
+		LogbookCatalog.Category.SHELLFISH,
+		LogbookCatalog.Category.OTHER,
+	])
+	assert(category_tabs.size() == category_tab_categories.size())
+	for tab_node: Variant in category_tabs:
+		var category_tab := tab_node as Button
+		assert(category_tab.size == LogbookPage.LOGBOOK_TAB_SIZE)
+		var text_width: float = UtilityPageStyle.TuffyFont.get_string_size(
+			category_tab.text,
+			HORIZONTAL_ALIGNMENT_LEFT,
+			-1.0,
+			OrganizerTab.FONT_SIZE,
+		).x
+		assert(
+			text_width + LogbookPage.LOGBOOK_TAB_TEXT_SIDE_INSET * 2.0
+			<= category_tab.size.x
+		)
+	assert(
+		(category_tabs[0] as Button).get_parent().position.x
+		== LogbookPage.LOGBOOK_TAB_LEFT_INSET
+	)
 	var initial_detail_body := page.get("_detail_body") as VBoxContainer
 	assert(not initial_detail_body.get_parent() is ScrollContainer)
 	assert(

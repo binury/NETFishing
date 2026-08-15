@@ -46,7 +46,6 @@ func setup(
 
 func activate() -> void:
 	_refresh()
-	UtilityPageStyle.animate_in(self)
 	_focus_first()
 
 
@@ -82,7 +81,6 @@ func _build() -> void:
 	tab_row.add_child(_count_label)
 	_build_host_settings(root)
 	var scroll := ScrollContainer.new()
-	scroll.custom_minimum_size = Vector2(0, 310)
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	root.add_child(scroll)

@@ -37,8 +37,31 @@ const ART_KIT_MARKER_ICON: Texture2D = preload(
 const ART_KIT_MARKER_SHADER: Shader = preload(
 	"res://ui/art_kit_marker_icon.gdshader"
 )
+const ART_UPGRADE_ICONS: Dictionary[StringName, Texture2D] = {
+	&"brush_2x": preload(
+		"res://items/icons/art/art_kit_marker_tip_thin.png"
+	),
+	&"brush_3x": preload(
+		"res://items/icons/art/art_kit_marker_tip_mid.png"
+	),
+	&"brush_4x": preload(
+		"res://items/icons/art/art_kit_marker_tip_thick.png"
+	),
+	&"grid_32x": preload(
+		"res://items/icons/art/art_kit_grid_medium_light.png"
+	),
+	&"grid_64x": preload(
+		"res://items/icons/art/art_kit_grid_large_light.png"
+	),
+	&"grid_128x": preload(
+		"res://items/icons/art/art_kit_grid_xl_light.png"
+	),
+}
 const CURRENCY_ICON: Texture2D = preload(
 	"res://items/icons/shop/32_currency.png"
+)
+const LOCKED_ITEM_ICON: Texture2D = preload(
+	"res://ui/icons/pictograms/lock_light.png"
 )
 
 signal menu_visibility_changed(is_open: bool)
@@ -75,7 +98,7 @@ const SHOP_SECTION_LABELS: Array[String] = [
 const SUPPLY_ICON_GRID_COLUMNS: int = 9
 const SUPPLY_ICON_TILE_SIZE := Vector2(72.0, 72.0)
 const SUPPLY_ICON_HOST_SIZE := Vector2(72.0, 84.0)
-const SUPPLY_ICON_GRID_SEPARATION: int = 8
+const SHOP_SLOT_SEPARATION: int = 28
 const SUPPLY_PRICE_COLOR := Color("c3dfe6")
 const SUPPLY_PRICE_FONT_SIZE: int = 15
 const SUPPLY_PRICE_Y: float = 60.0
@@ -83,10 +106,15 @@ const SUPPLY_PRICE_HEIGHT: float = 24.0
 const SUPPLY_PRICE_HORIZONTAL_PADDING: float = 12.0
 const SUPPLY_PRICE_ICON_SIZE: float = 18.0
 const SUPPLY_PRICE_ICON_GAP: float = 3.0
+const BAIT_SUPPLY_BADGE_Y: float = (
+	UtilityPageStyleType.SUPPLY_BADGE_EDGE_MARGIN
+)
+const LOCKED_ITEM_ICON_SIZE := Vector2(48.0, 48.0)
+const LOCKED_ITEM_ICON_ALPHA: float = 0.75
 const ROD_CARD_TILE_SIZE := Vector2(144.0, 144.0)
 const ROD_CARD_HOST_SIZE := Vector2(152.0, 198.0)
 const ROD_CAROUSEL_HEIGHT: float = 206.0
-const ROD_CAROUSEL_SEPARATION: int = 12
+const ROD_CAROUSEL_SEPARATION: int = SHOP_SLOT_SEPARATION
 const ROD_CAROUSEL_STEP: float = 328.0
 const ROD_PRICE_Y: float = 128.0
 const ROD_PRICE_HEIGHT: float = 30.0
@@ -680,6 +708,8 @@ func _refresh_supplies() -> void:
 				current_stock_grid = _add_stock_icon_grid()
 				current_stock_group = stock_group
 		var button := Button.new()
+		button.name = "Supply_%s" % str(item_id)
+		button.set_meta(&"item_id", item_id)
 		button.custom_minimum_size = Vector2(195, 54)
 		button.icon = item.icon if item.icon != null else FALLBACK_SUPPLY_ICON
 		button.expand_icon = true
@@ -709,6 +739,11 @@ func _refresh_supplies() -> void:
 		)
 		var item_tooltip_text: String = item.description
 		if bait_topoff:
+			var unit_price: int = FishingShopStockType.get_price(item_id)
+			var unit_price_description: String = (
+				"%d fish coin%s per bait piece"
+				% [unit_price, "" if unit_price == 1 else "s"]
+			)
 			if use_icon_tile:
 				button.custom_minimum_size = SUPPLY_ICON_TILE_SIZE
 				button.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
@@ -725,17 +760,15 @@ func _refresh_supplies() -> void:
 					]
 				)
 			item_tooltip_text = (
-				"%s\nunlock and fill to %d/%d\n%s" % [
+				"%s\nunlock and fill\n%s\n%s" % [
 					item.display_name,
-					item.max_stack,
-					item.max_stack,
+					unit_price_description,
 					item.description,
 				]
 				if not bait_unlocked
-				else "%s\n%d/%d owned\n%s" % [
+				else "%s\n%s\n%s" % [
 					item.display_name,
-					owned,
-					item.max_stack,
+					unit_price_description,
 					item.description,
 				]
 			)
@@ -773,14 +806,32 @@ func _refresh_supplies() -> void:
 			else item_tooltip_text
 		)
 		UtilityPageStyleType.apply_ocean_button(button)
+		if permanent_unlock or bait_topoff:
+			_add_unlock_state_icon(
+				button,
+				bait_unlocked if bait_topoff else owned > 0,
+				(
+					SUPPLY_ICON_TILE_SIZE
+					if use_icon_tile
+					else button.custom_minimum_size
+				),
+			)
+		if bait_topoff and bait_unlocked:
+			UtilityPageStyleType.add_supply_quantity_badge(
+				button,
+				owned,
+				item.max_stack,
+				&"SupplyQuantityBadge",
+				BAIT_SUPPLY_BADGE_Y,
+			)
 		button.pressed.connect(_purchase_supply.bind(item_id))
 		if current_stock_grid != null:
 			_add_supply_icon_tile(
 				current_stock_grid,
 				button,
 				(
-					total_cost
-					if bait_topoff and not bait_unlocked
+					maxi(total_cost, 0)
+					if bait_topoff
 					else FishingShopStockType.get_price(item_id)
 				),
 			)
@@ -836,10 +887,10 @@ func _add_stock_icon_grid() -> GridContainer:
 	grid.columns = SUPPLY_ICON_GRID_COLUMNS
 	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	grid.add_theme_constant_override(
-		"h_separation", SUPPLY_ICON_GRID_SEPARATION
+		"h_separation", SHOP_SLOT_SEPARATION
 	)
 	grid.add_theme_constant_override(
-		"v_separation", SUPPLY_ICON_GRID_SEPARATION
+		"v_separation", SHOP_SLOT_SEPARATION
 	)
 	_supplies_list.add_child(grid)
 	return grid
@@ -919,6 +970,9 @@ func _add_rod_card(parent: HBoxContainer, rod: FishingRodDataType) -> void:
 	button.expand_icon = true
 	button.alignment = HORIZONTAL_ALIGNMENT_CENTER
 	button.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	_add_unlock_state_icon(
+		button, owned, ROD_CARD_TILE_SIZE, ROD_PRICE_Y
+	)
 	button.disabled = (
 		owned
 		or level_locked
@@ -999,6 +1053,7 @@ func _add_art_kit_button(parent: GridContainer) -> void:
 		],
 	)
 	_configure_supply_icon_tile(button, item.icon)
+	_add_unlock_state_icon(button, owned, SUPPLY_ICON_TILE_SIZE)
 	_add_supply_icon_tile(
 		parent,
 		button,
@@ -1035,16 +1090,23 @@ func _add_art_upgrade_button(
 			ArtShopStockType.get_description(product_id),
 		],
 	)
+	button.accessibility_name = ArtShopStockType.get_display_name(product_id)
+	button.set_meta(&"art_product_id", product_id)
 	var marker_color_id: StringName = (
 		PlayerArtUnlocksType.color_id_for_product(product_id)
 	)
 	if marker_color_id.is_empty():
-		_configure_supply_icon_tile(button, FALLBACK_SUPPLY_ICON)
+		var upgrade_icon: Texture2D = ART_UPGRADE_ICONS.get(
+			product_id,
+			FALLBACK_SUPPLY_ICON,
+		)
+		_configure_supply_icon_tile(button, upgrade_icon)
 	else:
 		_configure_marker_icon_tile(
 			button,
 			SurfaceDrawingPalette.get_color(marker_color_id),
 		)
+	_add_unlock_state_icon(button, unlocked, SUPPLY_ICON_TILE_SIZE)
 	_add_supply_icon_tile(
 		parent,
 		button,
@@ -1107,6 +1169,32 @@ func _configure_marker_icon_tile(
 	marker_material.set_shader_parameter("marker_color", marker_color)
 	icon.material = marker_material
 	icon.texture = ART_KIT_MARKER_ICON
+	button.add_child(icon)
+
+
+func _add_unlock_state_icon(
+	button: Button,
+	unlocked: bool,
+	tile_size: Vector2,
+	price_bubble_y: float = SUPPLY_PRICE_Y,
+) -> void:
+	if unlocked:
+		return
+	var icon := TextureRect.new()
+	icon.name = "UnlockStateIcon"
+	icon.texture = LOCKED_ITEM_ICON
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	icon.z_index = 3
+	icon.set_meta(&"unlocked", false)
+	icon.size = LOCKED_ITEM_ICON_SIZE
+	icon.position = Vector2(
+		(tile_size.x - LOCKED_ITEM_ICON_SIZE.x) * 0.5,
+		(price_bubble_y - LOCKED_ITEM_ICON_SIZE.y) * 0.5,
+	)
+	icon.modulate.a = LOCKED_ITEM_ICON_ALPHA
 	button.add_child(icon)
 
 
@@ -1353,23 +1441,50 @@ func _on_network_purchase_finished(
 	_request_id: String,
 	accepted: bool,
 	message: String,
-	_product_id: StringName,
-	_category: int,
-	_quantity: int,
+	product_id: StringName,
+	category: int,
+	quantity: int,
 	total_cost: int,
 ) -> void:
 	_transaction_in_progress = false
 	if not visible:
 		return
 	_set_feedback(
-		(
-			"Purchase complete • %s spent."
-			% CurrencyPresentation.bbcode_amount(total_cost, 18)
+		_purchase_success_feedback(
+			product_id,
+			category,
+			quantity,
+			total_cost,
 		)
 		if accepted
 		else message
 	)
 	_refresh_all()
+
+
+func _purchase_success_feedback(
+	product_id: StringName,
+	category: int,
+	quantity: int,
+	total_cost: int,
+) -> String:
+	if (
+		category == NetworkShopProtocol.ProductCategory.SUPPLY
+		and FishingShopStockType.is_bait_topoff(product_id)
+	):
+		var item: ItemDataType = _item_catalog.get_item_by_id(product_id)
+		var item_name: String = (
+			item.display_name if item != null else str(product_id).capitalize()
+		)
+		return "Bait Restocked\n%s spent on %d %s" % [
+			CurrencyPresentation.bbcode_amount(total_cost, 18),
+			quantity,
+			item_name,
+		]
+	return (
+		"Purchase complete • %s spent."
+		% CurrencyPresentation.bbcode_amount(total_cost, 18)
+	)
 
 
 func _set_feedback(message: String) -> void:

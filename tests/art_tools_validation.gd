@@ -399,6 +399,33 @@ func _run() -> void:
 	assert(hide_button.button_group.allow_unpress)
 	assert(brush_option.item_count == 4)
 	assert(grid_option.item_count == 4)
+	var expected_brush_icons: Array[String] = [
+		"art_kit_marker_tip_fine.png",
+		"art_kit_marker_tip_thin.png",
+		"art_kit_marker_tip_mid.png",
+		"art_kit_marker_tip_thick.png",
+	]
+	var expected_grid_icons: Array[String] = [
+		"art_kit_grid_small_light.png",
+		"art_kit_grid_medium_light.png",
+		"art_kit_grid_large_light.png",
+		"art_kit_grid_xl_light.png",
+	]
+	for index: int in 4:
+		assert(brush_option.get_item_text(index).is_empty())
+		assert(grid_option.get_item_text(index).is_empty())
+		assert(brush_option.get_item_icon(index) != null)
+		assert(grid_option.get_item_icon(index) != null)
+		assert(
+			brush_option.get_item_icon(index).resource_path.ends_with(
+				expected_brush_icons[index]
+			)
+		)
+		assert(
+			grid_option.get_item_icon(index).resource_path.ends_with(
+				expected_grid_icons[index]
+			)
+		)
 	assert(not brush_option.get_popup().is_item_disabled(0))
 	assert(brush_option.get_popup().is_item_disabled(1))
 	assert(not grid_option.get_popup().is_item_disabled(0))

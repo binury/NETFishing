@@ -141,7 +141,6 @@ var _shop_animalese_voice: AnimaleseVoiceType
 var _shop_npc_player_in_range: bool = false
 var _shop_npc_spoken_for_current_visit: bool = false
 var _shop_npc_next_speech_msec: int = 0
-@onready var _effect_status: Label = %EffectStatus
 @onready var _chat_ui: ChatUIType = %ChatUI
 @onready var _emote_radial_menu: EmoteRadialMenuType = %EmoteRadialMenu
 @onready var _quick_radial_menu: QuickRadialMenuType = %QuickRadialMenu
@@ -174,7 +173,6 @@ var _system_menu_open: bool = false
 var _shop_open: bool = false
 var _chat_input_open: bool = false
 var _player_menu_hotbar_visible: bool = false
-var _item_effects: PlayerItemEffectsType
 var _main_shop_buyer: FishBuyerProfileType
 var _shop_interaction: ShopInteractionType
 var _surface_drawing: NetworkSurfaceDrawingService
@@ -304,7 +302,6 @@ func setup(
 	_item_catalog = item_catalog
 	_settings_manager = settings_manager
 	_fishing_spot = fishing_spot
-	_item_effects = item_effects
 	_experience = experience
 	if (
 		_player != null
@@ -339,7 +336,8 @@ func setup(
 		_experience.experience_awarded.connect(_on_experience_awarded)
 	_chat_ui.setup(
 		network_chat_service, network_session, spawn_service, player,
-		fishing_spot, settings_manager, world_time, world_weather, item_effects
+		fishing_spot, settings_manager, world_time, world_weather, item_effects,
+		item_catalog,
 	)
 	_title_settings_panel.setup_network_profile(
 		network_profile, network_session
@@ -1195,31 +1193,6 @@ func _process(delta: float) -> void:
 	_update_virtual_mouse(delta)
 	_update_controller_menu_scroll(delta)
 	_update_experience_bubble_position()
-	if _item_effects == null or not _gameplay_ui_enabled:
-		_effect_status.hide()
-		return
-	var parts: Array[String] = []
-	for item_id: StringName in [
-		PlayerItemEffectsType.COFFEE_ID,
-		PlayerItemEffectsType.ENERGY_DRINK_ID,
-		PlayerItemEffectsType.SNACK_ID,
-		PlayerItemEffectsType.FISH_FINDER_ID,
-	]:
-		var remaining: float = _item_effects.get_remaining(item_id)
-		if remaining <= 0.0:
-			continue
-		var label: String = {
-			PlayerItemEffectsType.COFFEE_ID: "coffee",
-			PlayerItemEffectsType.ENERGY_DRINK_ID: "energy",
-			PlayerItemEffectsType.SNACK_ID: "snack",
-			PlayerItemEffectsType.FISH_FINDER_ID: "finder",
-		}.get(item_id, "")
-		parts.append(
-			"%s %d:%02d"
-			% [label, floori(remaining / 60.0), int(remaining) % 60]
-		)
-	_effect_status.text = "  ".join(parts)
-	_effect_status.visible = not parts.is_empty()
 
 
 func _update_controller_menu_scroll(delta: float) -> void:
@@ -1363,14 +1336,6 @@ func _apply_active_bait_indicator_style() -> void:
 		&"icon_pressed_color",
 	]:
 		_active_bait_button.add_theme_color_override(state, Color.WHITE)
-	var badge_style := StyleBoxFlat.new()
-	badge_style.bg_color = Color("0b5558")
-	badge_style.set_corner_radius_all(12)
-	badge_style.anti_aliasing = false
-	_active_bait_quantity_badge.add_theme_stylebox_override(
-		"panel",
-		badge_style,
-	)
 
 
 func _refresh_active_bait_indicator() -> void:
@@ -1399,14 +1364,16 @@ func _refresh_active_bait_indicator() -> void:
 		if _bag != null
 		else 0
 	)
-	_active_bait_quantity.text = str(quantity)
-	_active_bait_quantity.add_theme_font_size_override(
-		"font_size",
-		13 if quantity >= 100 else 15,
+	UtilityPageStyle.configure_supply_quantity_badge(
+		_active_bait_quantity_badge,
+		_active_bait_quantity,
+		quantity,
+		item.max_stack,
 	)
-	_active_bait_button.tooltip_text = "%s ×%d" % [
+	_active_bait_button.tooltip_text = "%s • %d/%d" % [
 		item.display_name,
 		quantity,
+		item.max_stack,
 	]
 
 

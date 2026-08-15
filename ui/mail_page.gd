@@ -86,7 +86,6 @@ func setup(
 
 func activate() -> void:
 	_show_inbox()
-	UtilityPageStyle.animate_in(self)
 	call_deferred("_focus_first")
 
 
@@ -217,7 +216,7 @@ func _build_compose() -> Control:
 	_attachment_kind = OptionButton.new()
 	_attachment_kind.position = Vector2(688, 48)
 	_attachment_kind.size = Vector2(280, 46)
-	for label: String in ["No gift", "Currency", "Fish", "Consumable"]:
+	for label: String in ["No gift", "Currency", "Fish", "Item"]:
 		_attachment_kind.add_item(label)
 	_attachment_kind.item_selected.connect(_refresh_attachment_choices)
 	page.add_child(_attachment_kind)
@@ -770,7 +769,7 @@ func _attachment_text(attachment: Dictionary) -> String:
 				StringName(str(attachment.get("item_id", "")))
 			)
 			return "%s ×%d" % [
-				item.display_name if item != null else "Consumable",
+				item.display_name if item != null else "Item",
 				int(attachment.get("quantity", 0)),
 			]
 	return "Invalid gift."

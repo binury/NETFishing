@@ -11,6 +11,12 @@ const ENERGY_DRINK_ID: StringName = &"energy_drink"
 const SNACK_ID: StringName = &"snack"
 const FISH_FINDER_ID: StringName = &"fish_finder"
 const BATTERIES_ID: StringName = &"batteries"
+const EFFECT_IDS: Array[StringName] = [
+	COFFEE_ID,
+	ENERGY_DRINK_ID,
+	SNACK_ID,
+	FISH_FINDER_ID,
+]
 const FISH_FINDER_DEAD_MESSAGE: String = "hmm... batteries are dead..."
 const COFFEE_DURATION: float = 90.0
 const ENERGY_DRINK_DURATION: float = 90.0
@@ -98,6 +104,10 @@ func restore_remaining(snapshot: Dictionary[StringName, float]) -> void:
 
 func get_remaining_snapshot() -> Dictionary[StringName, float]:
 	return _remaining.duplicate()
+
+
+func get_registered_effect_ids() -> Array[StringName]:
+	return EFFECT_IDS.duplicate()
 
 
 func get_effect_duration(item_id: StringName) -> float:

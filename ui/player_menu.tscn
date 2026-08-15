@@ -79,7 +79,7 @@ z_index = 40
 layout_mode = 0
 offset_left = 150.0
 offset_top = 136.0
-offset_right = 534.0
+offset_right = 664.0
 offset_bottom = 174.0
 mouse_filter = 1
 theme_override_constants/separation = 6
@@ -100,6 +100,16 @@ layout_mode = 2
 toggle_mode = true
 button_group = null
 text = "Equipment"
+script = ExtResource("23_organizer_tab")
+palette_index = 2
+
+[node name="ItemsSubTab" type="Button" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/InventorySubTabs"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(124, 38)
+layout_mode = 2
+toggle_mode = true
+button_group = null
+text = "Items"
 script = ExtResource("23_organizer_tab")
 palette_index = 2
 
@@ -485,30 +495,6 @@ offset_right = 1280.0
 offset_bottom = 720.0
 mouse_filter = 1
 
-[node name="BagFilterTabs" type="HBoxContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/BagPage"]
-unique_name_in_owner = true
-z_index = 55
-layout_mode = 0
-offset_left = 122.0
-offset_top = 166.0
-offset_right = 442.0
-offset_bottom = 206.0
-theme_override_constants/separation = 8
-
-[node name="EquipmentFilter" type="Button" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/BagPage/BagFilterTabs"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(150, 40)
-layout_mode = 2
-toggle_mode = true
-text = "Equipment"
-
-[node name="ConsumablesFilter" type="Button" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/BagPage/BagFilterTabs"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(150, 40)
-layout_mode = 2
-toggle_mode = true
-text = "Consumables"
-
 [node name="BagOuterWall" type="PanelContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/BagPage"]
 unique_name_in_owner = true
 z_index = 50
@@ -532,7 +518,7 @@ layout_mode = 2
 [node name="BagInnerMargin" type="MarginContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/BagPage/BagOuterWall/BagOuterMargin/BagInnerLiner"]
 layout_mode = 2
 theme_override_constants/margin_left = 18
-theme_override_constants/margin_top = 58
+theme_override_constants/margin_top = 18
 theme_override_constants/margin_right = 18
 theme_override_constants/margin_bottom = 18
 
@@ -646,44 +632,111 @@ theme_override_constants/margin_bottom = 20
 
 [node name="Layout" type="VBoxContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/TackleBoxPage/TackleMainPanel/Margin"]
 layout_mode = 2
-theme_override_constants/separation = 14
-
-[node name="TackleFilterTabs" type="HBoxContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/TackleBoxPage/TackleMainPanel/Margin/Layout"]
-unique_name_in_owner = true
-layout_mode = 2
 theme_override_constants/separation = 8
 
-[node name="BaitFilter" type="Button" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/TackleBoxPage/TackleMainPanel/Margin/Layout/TackleFilterTabs"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(150, 40)
-layout_mode = 2
-toggle_mode = true
-text = "Bait"
-
-[node name="LuresFilter" type="Button" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/TackleBoxPage/TackleMainPanel/Margin/Layout/TackleFilterTabs"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(150, 40)
-layout_mode = 2
-toggle_mode = true
-text = "Lures"
-
-[node name="TackleScroll" type="ScrollContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/TackleBoxPage/TackleMainPanel/Margin/Layout"]
+[node name="TackleColumns" type="HBoxContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/TackleBoxPage/TackleMainPanel/Margin/Layout"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_vertical = 3
-horizontal_scroll_mode = 0
+theme_override_constants/separation = 18
 
-[node name="TackleItemList" type="VBoxContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/TackleBoxPage/TackleMainPanel/Margin/Layout/TackleScroll"]
-unique_name_in_owner = true
+[node name="BaitColumn" type="VBoxContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/TackleBoxPage/TackleMainPanel/Margin/Layout/TackleColumns"]
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/separation = 8
 
-[node name="TackleEmpty" type="Label" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/TackleBoxPage/TackleMainPanel/Margin/Layout"]
+[node name="BaitHeading" type="Label" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/TackleBoxPage/TackleMainPanel/Margin/Layout/TackleColumns/BaitColumn"]
 unique_name_in_owner = true
 layout_mode = 2
+theme_override_font_sizes/font_size = 26
+text = "bait"
+horizontal_alignment = 1
+
+[node name="BaitBody" type="Control" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/TackleBoxPage/TackleMainPanel/Margin/Layout/TackleColumns/BaitColumn"]
+layout_mode = 2
 size_flags_vertical = 3
+
+[node name="BaitScroll" type="ScrollContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/TackleBoxPage/TackleMainPanel/Margin/Layout/TackleColumns/BaitColumn/BaitBody"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+horizontal_scroll_mode = 0
+
+[node name="BaitItemList" type="GridContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/TackleBoxPage/TackleMainPanel/Margin/Layout/TackleColumns/BaitColumn/BaitBody/BaitScroll"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/h_separation = 28
+theme_override_constants/v_separation = 12
+columns = 3
+
+[node name="BaitEmpty" type="Label" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/TackleBoxPage/TackleMainPanel/Margin/Layout/TackleColumns/BaitColumn/BaitBody"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
 text = "No bait collected."
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="TackleDivider" type="ColorRect" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/TackleBoxPage/TackleMainPanel/Margin/Layout/TackleColumns"]
+custom_minimum_size = Vector2(2, 0)
+layout_mode = 2
+mouse_filter = 2
+color = Color(0.204, 0.482, 0.553, 0.65)
+
+[node name="LureColumn" type="VBoxContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/TackleBoxPage/TackleMainPanel/Margin/Layout/TackleColumns"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 8
+
+[node name="LureHeading" type="Label" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/TackleBoxPage/TackleMainPanel/Margin/Layout/TackleColumns/LureColumn"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 26
+text = "lures"
+horizontal_alignment = 1
+
+[node name="LureBody" type="Control" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/TackleBoxPage/TackleMainPanel/Margin/Layout/TackleColumns/LureColumn"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="LureScroll" type="ScrollContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/TackleBoxPage/TackleMainPanel/Margin/Layout/TackleColumns/LureColumn/LureBody"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+horizontal_scroll_mode = 0
+
+[node name="LureItemList" type="GridContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/TackleBoxPage/TackleMainPanel/Margin/Layout/TackleColumns/LureColumn/LureBody/LureScroll"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/h_separation = 28
+theme_override_constants/v_separation = 12
+columns = 3
+
+[node name="LureEmpty" type="Label" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/TackleBoxPage/TackleMainPanel/Margin/Layout/TackleColumns/LureColumn/LureBody"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+text = "No lures collected."
 horizontal_alignment = 1
 vertical_alignment = 1
 

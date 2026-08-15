@@ -570,6 +570,53 @@ func _test_fishing_shop_sale_ui(
 		and shop_backdrop != null
 		and ui_viewport != null
 	)
+	var item_catalog := main.get("item_catalog") as ItemCatalog
+	var worms: ItemData = item_catalog.get_item_by_id(&"worms")
+	assert(worms != null and worms.max_stack == 10)
+	if player.bag.get_quantity(worms.item_id) == 0:
+		assert(player.bag.add_item(worms.item_id, 4))
+	assert(player.equip_bait(worms))
+	await process_frame
+	var expected_bait_supply := UtilityPageStyle.supply_quantity_text(
+		player.bag.get_quantity(worms.item_id),
+		worms.max_stack,
+	)
+	var hud_bait_quantity := game_ui.get_node(
+		"%ActiveBaitQuantity"
+	) as Label
+	assert(hud_bait_quantity.text == expected_bait_supply)
+	var hud_bait_badge := hud_bait_quantity.get_parent() as Panel
+	assert(
+		is_equal_approx(
+			hud_bait_badge.rotation_degrees,
+			UtilityPageStyle.SUPPLY_BADGE_ROTATION_DEGREES,
+		)
+	)
+	player_menu.call("_refresh_tackle_box")
+	await process_frame
+	var tackle_bait_button: Button
+	for child: Node in player_menu.get_node("%BaitItemList").get_children():
+		var candidate := child as Button
+		if (
+			candidate != null
+			and candidate.get_meta(&"controller_tackle_item_id", StringName())
+			== worms.item_id
+		):
+			tackle_bait_button = candidate
+			break
+	assert(tackle_bait_button != null)
+	var tackle_quantity := tackle_bait_button.get_node(
+		"QuantityBadge/Quantity"
+	) as Label
+	assert(tackle_quantity.text == expected_bait_supply)
+	assert(tackle_bait_button.tooltip_text.contains(expected_bait_supply))
+	var tackle_badge := tackle_quantity.get_parent() as Panel
+	assert(
+		is_equal_approx(
+			tackle_badge.rotation_degrees,
+			UtilityPageStyle.SUPPLY_BADGE_ROTATION_DEGREES,
+		)
+	)
 	player.global_position = interaction.global_position
 	for _frame: int in 4:
 		await physics_frame
@@ -596,6 +643,14 @@ func _test_fishing_shop_sale_ui(
 	assert(shop_panel_style.corner_radius_top_left == 24)
 	var upgrade_grid := shop.get_node("%UpgradeGrid") as GridContainer
 	assert(upgrade_grid != null and upgrade_grid.columns == 3)
+	assert(
+		upgrade_grid.get_theme_constant("h_separation")
+		== FishingShop.SHOP_SLOT_SEPARATION
+	)
+	assert(
+		upgrade_grid.get_theme_constant("v_separation")
+		== FishingShop.SHOP_SLOT_SEPARATION
+	)
 	assert((shop.get_node("%Upgrades") as Control).visible)
 	assert(not (shop.get_node("%Supplies") as Control).visible)
 	for upgrade_name: String in [
@@ -638,6 +693,89 @@ func _test_fishing_shop_sale_ui(
 	assert(sell_mode != null and sell_mode.text == "Sell Fish")
 	var equipment_tab := shop_tabs[3] as Button
 	assert(equipment_tab != null and equipment_tab.text == "Equipment")
+	var supplies_list := shop.get_node("%SuppliesList") as VBoxContainer
+	var bait_tab := shop_tabs[1] as Button
+	assert(bait_tab != null and bait_tab.text == "Bait and Lures")
+	await _activate_pointer_control(bait_tab, ui_viewport)
+	await process_frame
+	var worms_button := supplies_list.find_child(
+		"Supply_worms", true, false
+	) as Button
+	var snails_button := supplies_list.find_child(
+		"Supply_snails", true, false
+	) as Button
+	assert(worms_button != null and snails_button != null)
+	var bait_grid := worms_button.get_parent().get_parent() as GridContainer
+	assert(bait_grid != null)
+	assert(
+		bait_grid.get_theme_constant("h_separation")
+		== FishingShop.SHOP_SLOT_SEPARATION
+	)
+	assert(
+		bait_grid.get_theme_constant("v_separation")
+		== FishingShop.SHOP_SLOT_SEPARATION
+	)
+	var shop_bait_quantity := worms_button.get_node(
+		"SupplyQuantityBadge/Quantity"
+	) as Label
+	assert(shop_bait_quantity.text == expected_bait_supply)
+	var shop_bait_badge := shop_bait_quantity.get_parent() as Panel
+	assert(shop_bait_badge.position.y == FishingShop.BAIT_SUPPLY_BADGE_Y)
+	assert(
+		is_equal_approx(
+			shop_bait_badge.rotation_degrees,
+			UtilityPageStyle.SUPPLY_BADGE_ROTATION_DEGREES,
+		)
+	)
+	assert(
+		shop_bait_badge.position.y + shop_bait_badge.size.y
+		<= FishingShop.SUPPLY_PRICE_Y
+	)
+	var worms_unit_price: int = FishingShopStock.get_price(worms.item_id)
+	assert(
+		worms_button.tooltip_text.contains(
+			"%d fish coin%s per bait piece" % [
+				worms_unit_price,
+				"" if worms_unit_price == 1 else "s",
+			]
+		)
+	)
+	assert(not worms_button.tooltip_text.contains("owned"))
+	var worms_restock_quantity: int = FishingShopStock.get_purchase_quantity(
+		worms.item_id,
+		player.bag.get_quantity(worms.item_id),
+		worms.max_stack,
+	)
+	var worms_restock_cost: int = FishingShopStock.get_purchase_cost(
+		worms.item_id,
+		worms_restock_quantity,
+		player.bag.is_bait_unlocked(worms.item_id),
+	)
+	var worms_price := worms_button.get_parent().get_node(
+		"PriceBubble/CurrencyAmount/Price"
+	) as Label
+	assert(worms_price.text == str(maxi(worms_restock_cost, 0)))
+	var bait_receipt: String = shop.call(
+		"_purchase_success_feedback",
+		worms.item_id,
+		NetworkShopProtocol.ProductCategory.SUPPLY,
+		maxi(worms_restock_quantity, 1),
+		maxi(worms_restock_cost, worms_unit_price),
+	)
+	assert(bait_receipt.begins_with("Bait Restocked\n"))
+	assert(bait_receipt.contains(CurrencyPresentation.ICON_PATH))
+	assert(bait_receipt.contains(" spent on "))
+	assert(bait_receipt.ends_with(" worms"))
+	assert(snails_button.get_node_or_null("SupplyQuantityBadge") == null)
+	assert(worms_button.get_node_or_null("UnlockStateIcon") == null)
+	var snails_lock_icon := snails_button.get_node(
+		"UnlockStateIcon"
+	) as TextureRect
+	assert(not bool(snails_lock_icon.get_meta(&"unlocked")))
+	assert(snails_lock_icon.texture.resource_path.ends_with(
+		"/lock_light.png"
+	))
+	assert(is_equal_approx(snails_lock_icon.modulate.a, 0.75))
 	await _activate_pointer_control(equipment_tab, ui_viewport)
 	await process_frame
 	var equipment_sections: Array[String] = []
@@ -645,17 +783,21 @@ func _test_fishing_shop_sale_ui(
 		if child is Label:
 			equipment_sections.append((child as Label).text)
 	assert(equipment_sections == ["rods", "equipment"])
-	var supplies_list := shop.get_node("%SuppliesList") as VBoxContainer
 	var rod_carousel := supplies_list.get_node("RodCarousel") as HBoxContainer
 	assert(rod_carousel != null)
 	var rod_cards := rod_carousel.get_node("RodScroll/RodCards") as HBoxContainer
 	assert(rod_cards != null and rod_cards.get_child_count() == 1)
+	assert(
+		rod_cards.get_theme_constant("separation")
+		== FishingShop.SHOP_SLOT_SEPARATION
+	)
 	var basic_rod_button := rod_cards.find_child(
 		"Rod_basic_fishing_rod", true, false
 	) as Button
 	assert(basic_rod_button != null)
 	assert(basic_rod_button.custom_minimum_size == Vector2(144.0, 144.0))
 	assert(basic_rod_button.icon != null and basic_rod_button.disabled)
+	assert(basic_rod_button.get_node_or_null("UnlockStateIcon") == null)
 	assert(rod_cards.find_child("Rod_aurora_rod", true, false) == null)
 	await _activate_pointer_control(art_supplies_tab, ui_viewport)
 	await process_frame
@@ -681,6 +823,42 @@ func _test_fishing_shop_sale_ui(
 			marker_material.get_shader_parameter("marker_color")
 			== SurfaceDrawingPalette.get_color(color_id)
 		)
+	var expected_art_upgrade_icons: Dictionary[StringName, String] = {
+		&"brush_2x": "art_kit_marker_tip_thin.png",
+		&"brush_3x": "art_kit_marker_tip_mid.png",
+		&"brush_4x": "art_kit_marker_tip_thick.png",
+		&"grid_32x": "art_kit_grid_medium_light.png",
+		&"grid_64x": "art_kit_grid_large_light.png",
+		&"grid_128x": "art_kit_grid_xl_light.png",
+	}
+	var found_art_upgrade_icons: int = 0
+	for upgrade_node: Node in shop.find_children("*", "Button", true, false):
+		var upgrade_button := upgrade_node as Button
+		if not upgrade_button.has_meta(&"art_product_id"):
+			continue
+		var product_id := StringName(
+			str(upgrade_button.get_meta(&"art_product_id"))
+		)
+		if not expected_art_upgrade_icons.has(product_id):
+			continue
+		found_art_upgrade_icons += 1
+		assert(upgrade_button.text.is_empty())
+		assert(upgrade_button.icon != null)
+		var product_unlocked: bool = (
+			player.art_unlocks.owns_product(product_id)
+		)
+		var state_icon := upgrade_button.get_node_or_null(
+			"UnlockStateIcon"
+		) as TextureRect
+		assert((state_icon == null) == product_unlocked)
+		if state_icon != null:
+			assert(state_icon.texture.resource_path.ends_with("/lock_light.png"))
+		assert(
+			upgrade_button.icon.resource_path.ends_with(
+				expected_art_upgrade_icons[product_id]
+			)
+		)
+	assert(found_art_upgrade_icons == expected_art_upgrade_icons.size())
 	var price_bubbles := shop.find_children(
 		"PriceBubble", "PanelContainer", true, false
 	)

@@ -11,6 +11,18 @@ const MARKER_MODE_SHADER: Shader = preload(
 const GRID_MODE_ICON: Texture2D = preload(
 	"res://items/icons/art/art_kit_grid_light.png"
 )
+const BRUSH_SIZE_ICONS: Dictionary[int, Texture2D] = {
+	1: preload("res://items/icons/art/art_kit_marker_tip_fine.png"),
+	2: preload("res://items/icons/art/art_kit_marker_tip_thin.png"),
+	3: preload("res://items/icons/art/art_kit_marker_tip_mid.png"),
+	4: preload("res://items/icons/art/art_kit_marker_tip_thick.png"),
+}
+const GRID_SIZE_ICONS: Dictionary[int, Texture2D] = {
+	16: preload("res://items/icons/art/art_kit_grid_small_light.png"),
+	32: preload("res://items/icons/art/art_kit_grid_medium_light.png"),
+	64: preload("res://items/icons/art/art_kit_grid_large_light.png"),
+	128: preload("res://items/icons/art/art_kit_grid_xl_light.png"),
+}
 const TOOLBAR_WIDTH: float = 510.0
 const TOOLBAR_HEIGHT: float = 373.0
 const COLOR_RAIL_WIDTH: float = 46.0
@@ -41,6 +53,12 @@ func _ready() -> void:
 	UtilityPageStyleType.apply_ocean_button(_mode_button)
 	UtilityPageStyleType.apply_ocean_button(_brush_option)
 	UtilityPageStyleType.apply_ocean_button(_grid_option)
+	for size_option: OptionButton in [_brush_option, _grid_option]:
+		size_option.expand_icon = true
+		size_option.add_theme_constant_override("icon_max_width", 40)
+		size_option.get_popup().add_theme_constant_override(
+			"icon_max_width", 40
+		)
 	for button: Button in _action_buttons():
 		UtilityPageStyleType.apply_ocean_button(button)
 		button.custom_minimum_size = Vector2(48, 44)
@@ -188,10 +206,26 @@ func owns_pointer_event(event: InputEvent) -> bool:
 func _build_options() -> void:
 	_brush_option.clear()
 	for brush_size: int in PlayerArtUnlocks.BRUSH_SIZES:
-		_brush_option.add_item("%d×" % brush_size, brush_size)
+		_brush_option.add_icon_item(
+			BRUSH_SIZE_ICONS[brush_size],
+			"",
+			brush_size,
+		)
+		_brush_option.set_item_tooltip(
+			_brush_option.item_count - 1,
+			"%d× marker size" % brush_size,
+		)
 	_grid_option.clear()
 	for grid_size: int in PlayerArtUnlocks.GRID_SIZES:
-		_grid_option.add_item("%d×" % grid_size, grid_size)
+		_grid_option.add_icon_item(
+			GRID_SIZE_ICONS[grid_size],
+			"",
+			grid_size,
+		)
+		_grid_option.set_item_tooltip(
+			_grid_option.item_count - 1,
+			"%d×%d grid" % [grid_size, grid_size],
+		)
 	for child: Node in _color_list.get_children():
 		child.queue_free()
 	_color_buttons.clear()

@@ -27,10 +27,95 @@ const LIGHT_TEXT: Color = Color("f5eed9")
 const DISABLED_TEXT: Color = Color(0.33, 0.36, 0.35, 0.72)
 const MOTION_TWEEN_META: StringName = &"utility_page_motion_tween"
 const LAPTOP_RECT: Rect2 = Rect2(66.0, 132.0, 1148.0, 520.0)
+const SUPPLY_BADGE_MIN_WIDTH: float = 46.0
+const SUPPLY_BADGE_HEIGHT: float = 24.0
+const SUPPLY_BADGE_EDGE_MARGIN: float = 3.0
+const SUPPLY_BADGE_X_OFFSET: float = 18.0
+const SUPPLY_BADGE_ROTATION_DEGREES: float = 15.0
+const SUPPLY_BADGE_HORIZONTAL_PADDING: float = 10.0
+const SUPPLY_BADGE_FONT_SIZE: int = 13
+const SUPPLY_BADGE_COLOR: Color = Color("0b5558")
+const SUPPLY_BADGE_TEXT_COLOR: Color = Color("e7f5f4")
 
 
 static func apply_page(root: Control) -> void:
 	root.add_theme_font_override("font", TuffyFont)
+
+
+static func supply_quantity_text(current: int, total: int) -> String:
+	return "%d/%d" % [maxi(current, 0), maxi(total, 0)]
+
+
+static func add_supply_quantity_badge(
+	parent: Control,
+	current: int,
+	total: int,
+	badge_name: StringName = &"SupplyQuantityBadge",
+	top_margin: float = SUPPLY_BADGE_EDGE_MARGIN,
+) -> Panel:
+	var badge := Panel.new()
+	badge.name = badge_name
+	badge.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	badge.z_index = 3
+	parent.add_child(badge)
+	var quantity_label := Label.new()
+	quantity_label.name = "Quantity"
+	quantity_label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	quantity_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	quantity_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	quantity_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	badge.add_child(quantity_label)
+	configure_supply_quantity_badge(
+		badge, quantity_label, current, total, top_margin
+	)
+	return badge
+
+
+static func configure_supply_quantity_badge(
+	badge: Panel,
+	quantity_label: Label,
+	current: int,
+	total: int,
+	top_margin: float = SUPPLY_BADGE_EDGE_MARGIN,
+) -> void:
+	var supply_text := supply_quantity_text(current, total)
+	var text_width: float = TuffyFont.get_string_size(
+		supply_text,
+		HORIZONTAL_ALIGNMENT_LEFT,
+		-1.0,
+		SUPPLY_BADGE_FONT_SIZE,
+	).x
+	var badge_width: float = maxf(
+		SUPPLY_BADGE_MIN_WIDTH,
+		ceilf(text_width + SUPPLY_BADGE_HORIZONTAL_PADDING),
+	)
+	badge.offset_left = (
+		-badge_width - SUPPLY_BADGE_EDGE_MARGIN + SUPPLY_BADGE_X_OFFSET
+	)
+	badge.offset_top = top_margin
+	badge.offset_right = -SUPPLY_BADGE_EDGE_MARGIN + SUPPLY_BADGE_X_OFFSET
+	badge.offset_bottom = top_margin + SUPPLY_BADGE_HEIGHT
+	badge.pivot_offset = Vector2(
+		badge_width * 0.5,
+		SUPPLY_BADGE_HEIGHT * 0.5,
+	)
+	badge.rotation_degrees = SUPPLY_BADGE_ROTATION_DEGREES
+	var badge_style := rounded_style(
+		SUPPLY_BADGE_COLOR,
+		roundi(SUPPLY_BADGE_HEIGHT * 0.5),
+	)
+	badge_style.anti_aliasing = false
+	badge.add_theme_stylebox_override("panel", badge_style)
+	quantity_label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	quantity_label.text = supply_text
+	quantity_label.add_theme_font_override("font", TuffyFont)
+	quantity_label.add_theme_font_size_override(
+		"font_size", SUPPLY_BADGE_FONT_SIZE
+	)
+	quantity_label.add_theme_color_override(
+		"font_color", SUPPLY_BADGE_TEXT_COLOR
+	)
 
 
 static func rounded_style(color: Color, radius: int) -> StyleBoxFlat:
@@ -46,6 +131,7 @@ static func build_laptop_screen(
 	laptop_rect: Rect2 = LAPTOP_RECT,
 ) -> MarginContainer:
 	var laptop := PanelContainer.new()
+	laptop.name = "UtilityMainBox"
 	laptop.position = laptop_rect.position
 	laptop.size = laptop_rect.size
 	laptop.add_theme_stylebox_override(
@@ -53,12 +139,21 @@ static func build_laptop_screen(
 	)
 	root.add_child(laptop)
 
+	# Page-specific minimum sizes must not resize the shared outer artwork.
+	# Keep the shell in a fixed Control so every utility page retains the same
+	# canonical rectangle even as its internal controls evolve.
+	var fixed_layout := Control.new()
+	fixed_layout.name = "UtilityMainBoxLayout"
+	fixed_layout.clip_contents = true
+	laptop.add_child(fixed_layout)
+
 	var shell_margin := MarginContainer.new()
+	shell_margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	shell_margin.add_theme_constant_override("margin_left", 20)
 	shell_margin.add_theme_constant_override("margin_top", 18)
 	shell_margin.add_theme_constant_override("margin_right", 20)
 	shell_margin.add_theme_constant_override("margin_bottom", 24)
-	laptop.add_child(shell_margin)
+	fixed_layout.add_child(shell_margin)
 
 	var screen := PanelContainer.new()
 	screen.add_theme_stylebox_override(

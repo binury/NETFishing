@@ -115,11 +115,6 @@ enum BagView {
 	CONSUMABLES,
 }
 
-enum TackleView {
-	BAIT,
-	LURES,
-}
-
 enum SortMode {
 	CATCH_ORDER,
 	NAME,
@@ -150,10 +145,9 @@ const INVENTORY_NOTEPAD_POSITION := Vector2(
 	INVENTORY_MAIN_POSITION.y,
 )
 const INVENTORY_NOTEPAD_SIZE := Vector2(278.0, 484.0)
-const INVENTORY_HEADER_INSET := Vector2(24.0, 20.0)
-const INVENTORY_HEADER_HEIGHT := 40.0
 const INVENTORY_MAIN_CORNER_RADIUS: int = 58
 const INVENTORY_INNER_CORNER_RADIUS: int = 45
+const TACKLE_GRID_COLUMNS: int = 3
 const SALE_CONFIRMATION_SIZE := Vector2(520.0, 190.0)
 
 @onready var _navigation_cluster: BubbleClusterType = %NavigationCluster
@@ -198,18 +192,18 @@ const SALE_CONFIRMATION_SIZE := Vector2(520.0, 190.0)
 @onready var _inventory_sub_tabs: HBoxContainer = %InventorySubTabs
 @onready var _cooler_sub_tab: Button = %CoolerSubTab
 @onready var _bag_sub_tab: Button = %BagSubTab
+@onready var _items_sub_tab: Button = %ItemsSubTab
 @onready var _tackle_sub_tab: Button = %TackleSubTab
-@onready var _bag_filter_tabs: HBoxContainer = %BagFilterTabs
-@onready var _equipment_filter: Button = %EquipmentFilter
-@onready var _consumables_filter: Button = %ConsumablesFilter
 @onready var _tackle_main_panel: PanelContainer = %TackleMainPanel
 @onready var _tackle_detail_panel: PanelContainer = %TackleDetailPanel
-@onready var _bait_filter: Button = %BaitFilter
-@onready var _lures_filter: Button = %LuresFilter
-@onready var _tackle_empty: Label = %TackleEmpty
+@onready var _bait_heading: Label = %BaitHeading
+@onready var _lure_heading: Label = %LureHeading
+@onready var _bait_empty: Label = %BaitEmpty
+@onready var _lure_empty: Label = %LureEmpty
 @onready var _tackle_detail_text: Label = %TackleDetailText
 @onready var _tackle_equip_button: NotepadInkActionType = %TackleEquipButton
-@onready var _tackle_item_list: VBoxContainer = %TackleItemList
+@onready var _bait_item_list: GridContainer = %BaitItemList
+@onready var _lure_item_list: GridContainer = %LureItemList
 @onready var _bag_outer_wall: PanelContainer = %BagOuterWall
 @onready var _bag_inner_liner: PanelContainer = %BagInnerLiner
 @onready var _bag_scroll: ScrollContainer = %BagScroll
@@ -312,8 +306,8 @@ var _cooler_capacity: PlayerCoolerCapacityType
 var _current_section: Section = Section.COOLER
 var _last_inventory_section: Section = Section.COOLER
 var _bag_view: BagView = BagView.EQUIPMENT
-var _tackle_view: TackleView = TackleView.BAIT
 var _selected_tackle_item_id: StringName
+var _tackle_item_buttons: Dictionary[StringName, Button] = {}
 var _controller_ownership: ControllerOwnership = ControllerOwnership.ITEM_LIST
 var _controller_source_section: Section = Section.COOLER
 var _controller_source_identity: StringName
@@ -377,18 +371,11 @@ func _ready() -> void:
 	_cooler_original_index = _cooler_page.get_index()
 	_confirmation_original_parent = _sale_confirmation.get_parent()
 	_confirmation_original_index = _sale_confirmation.get_index()
-	_inventory_sub_tabs.move_child(_tackle_sub_tab, 1)
-	_inventory_sub_tabs.move_child(_bag_sub_tab, 2)
 	_inventory_tab.pressed.connect(_show_last_inventory_section)
 	_cooler_sub_tab.pressed.connect(_show_section.bind(Section.COOLER))
-	_bag_sub_tab.pressed.connect(_show_section.bind(Section.BAG))
+	_bag_sub_tab.pressed.connect(_show_bag_view.bind(BagView.EQUIPMENT))
+	_items_sub_tab.pressed.connect(_show_bag_view.bind(BagView.CONSUMABLES))
 	_tackle_sub_tab.pressed.connect(_show_section.bind(Section.TACKLE_BOX))
-	_equipment_filter.pressed.connect(_set_bag_view.bind(BagView.EQUIPMENT))
-	_consumables_filter.pressed.connect(
-		_set_bag_view.bind(BagView.CONSUMABLES)
-	)
-	_bait_filter.pressed.connect(_set_tackle_view.bind(TackleView.BAIT))
-	_lures_filter.pressed.connect(_set_tackle_view.bind(TackleView.LURES))
 	_tackle_equip_button.pressed.connect(_toggle_active_tackle)
 	_logbook_tab.pressed.connect(
 		_show_section.bind(Section.LOGBOOK)
@@ -434,7 +421,6 @@ func _ready() -> void:
 	# Keep the exposed tab hitboxes above the full-page roots. The individual
 	# main panels retain a higher z-index and cover the tab bodies below y=166.
 	_inventory_sub_tabs.move_to_front()
-	_bag_filter_tabs.move_to_front()
 	_apply_cooler_control_styles()
 	_apply_cooler_wall_styles()
 	_apply_cooler_notepad_style()
@@ -947,17 +933,7 @@ func _restore_controller_item_focus(
 	elif section == Section.BAG:
 		target = _bag_item_nodes.get(identity) as BagItemSpriteType
 	elif section == Section.TACKLE_BOX:
-		for child: Node in _tackle_item_list.get_children():
-			var button := child as BaseButton
-			if (
-				button != null
-				and button.has_meta(&"controller_tackle_item_id")
-				and StringName(str(button.get_meta(
-					&"controller_tackle_item_id"
-				))) == identity
-			):
-				target = button
-				break
+		target = _tackle_item_buttons.get(identity) as Button
 	if (
 		target != null
 		and is_instance_valid(target)
@@ -1087,23 +1063,14 @@ func _handle_controller_secondary_switch(event: InputEvent) -> bool:
 	):
 		return true
 	if _is_inventory_section(_current_section):
+		var inventory_index: int = _get_inventory_tab_index()
 		if (
-			(direction > 0 and _current_section == Section.BAG)
-			or (direction < 0 and _current_section == Section.COOLER)
+			(direction > 0 and inventory_index == 3)
+			or (direction < 0 and inventory_index == 0)
 		):
 			_begin_controller_hotbar_management()
 			return true
-		var inventory_sections: Array[Section] = [
-			Section.COOLER,
-			Section.TACKLE_BOX,
-			Section.BAG,
-		]
-		var inventory_index: int = inventory_sections.find(_current_section)
-		_show_section(inventory_sections[wrapi(
-			inventory_index + direction,
-			0,
-			inventory_sections.size(),
-		)])
+		_show_inventory_tab(inventory_index + direction)
 		return true
 	_cycle_visible_secondary_tabs(direction)
 	return true
@@ -1129,13 +1096,31 @@ func _begin_controller_hotbar_management() -> void:
 
 func _cycle_from_controller_hotbar_management(direction: int) -> void:
 	_release_controller_ownership(false, false)
-	var target_section: Section = (
-		Section.COOLER if direction > 0 else Section.BAG
-	)
-	if target_section == _current_section:
+	var target_index: int = 0 if direction > 0 else 3
+	if target_index == _get_inventory_tab_index():
 		call_deferred("_focus_current_section")
 	else:
-		_show_section(target_section)
+		_show_inventory_tab(target_index)
+
+
+func _get_inventory_tab_index() -> int:
+	if _current_section == Section.COOLER:
+		return 0
+	if _current_section == Section.BAG:
+		return 2 if _bag_view == BagView.CONSUMABLES else 1
+	return 3
+
+
+func _show_inventory_tab(index: int) -> void:
+	match clampi(index, 0, 3):
+		0:
+			_show_section(Section.COOLER)
+		1:
+			_show_bag_view(BagView.EQUIPMENT)
+		2:
+			_show_bag_view(BagView.CONSUMABLES)
+		_:
+			_show_section(Section.TACKLE_BOX)
 
 
 func _cycle_visible_secondary_tabs(direction: int) -> bool:
@@ -1575,7 +1560,9 @@ func _show_section_immediate(section: Section) -> void:
 	if section != Section.BAG:
 		_close_bag_detail()
 	else:
-		_update_bag_detail()
+		# BagView can change while entering from another Inventory page. Rebuild
+		# the filtered contents here so the visible list always matches its tab.
+		_refresh_bag()
 	_refresh_tackle_box()
 	if section != Section.LOGBOOK:
 		_cancel_logbook_page_transition(true)
@@ -1600,7 +1587,12 @@ func _show_section_immediate(section: Section) -> void:
 		_players_page.deactivate()
 	_inventory_tab.button_pressed = _is_inventory_section(section)
 	_cooler_sub_tab.set_selected(section == Section.COOLER)
-	_bag_sub_tab.set_selected(section == Section.BAG)
+	_bag_sub_tab.set_selected(
+		section == Section.BAG and _bag_view == BagView.EQUIPMENT
+	)
+	_items_sub_tab.set_selected(
+		section == Section.BAG and _bag_view == BagView.CONSUMABLES
+	)
 	_tackle_sub_tab.set_selected(section == Section.TACKLE_BOX)
 	_refresh_inventory_organizer_tabs()
 	_logbook_tab.button_pressed = section == Section.LOGBOOK
@@ -1622,8 +1614,9 @@ func _is_inventory_section(section: Section) -> bool:
 func _refresh_inventory_organizer_tabs() -> void:
 	for tab: OrganizerTabType in [
 		_cooler_sub_tab,
-		_tackle_sub_tab,
 		_bag_sub_tab,
+		_items_sub_tab,
+		_tackle_sub_tab,
 	]:
 		tab.refresh_state()
 
@@ -1633,8 +1626,9 @@ func _animate_inventory_tab_entry() -> void:
 		return
 	var tabs: Array[OrganizerTabType] = [
 		_cooler_sub_tab,
-		_tackle_sub_tab,
 		_bag_sub_tab,
+		_items_sub_tab,
+		_tackle_sub_tab,
 	]
 	for index: int in tabs.size():
 		tabs[index].animate_entrance(float(index) * 0.025)
@@ -1643,8 +1637,9 @@ func _animate_inventory_tab_entry() -> void:
 func _settle_inventory_tabs_for_close() -> void:
 	for tab: OrganizerTabType in [
 		_cooler_sub_tab,
-		_tackle_sub_tab,
 		_bag_sub_tab,
+		_items_sub_tab,
+		_tackle_sub_tab,
 	]:
 		tab.settle_for_close()
 
@@ -1779,8 +1774,9 @@ func _reserve_visible_secondary_navigation() -> void:
 		call_deferred("_focus_current_section")
 	var inventory_tabs: Array[Button] = [
 		_cooler_sub_tab,
-		_tackle_sub_tab,
 		_bag_sub_tab,
+		_items_sub_tab,
+		_tackle_sub_tab,
 	]
 	for index: int in inventory_tabs.size():
 		var tab: Button = inventory_tabs[index]
@@ -1794,9 +1790,7 @@ func _reserve_visible_secondary_navigation() -> void:
 	_inventory_tab.focus_neighbor_bottom = _inventory_tab.get_path_to(
 		_inventory_tab_for_section(_last_inventory_section)
 	)
-	_tackle_sub_tab.focus_neighbor_bottom = _tackle_sub_tab.get_path_to(
-		_bait_filter
-	)
+	_configure_tackle_item_focus()
 
 
 func _inventory_tab_for_section(section: Section) -> Button:
@@ -1804,7 +1798,11 @@ func _inventory_tab_for_section(section: Section) -> Button:
 		Section.COOLER:
 			return _cooler_sub_tab
 		Section.BAG:
-			return _bag_sub_tab
+			return (
+				_items_sub_tab
+				if _bag_view == BagView.CONSUMABLES
+				else _bag_sub_tab
+			)
 		_:
 			return _tackle_sub_tab
 
@@ -1847,7 +1845,7 @@ func _configure_active_page_focus() -> void:
 		Section.BAG:
 			_configure_bag_item_focus()
 		Section.TACKLE_BOX:
-			_bait_filter.grab_focus()
+			_configure_tackle_item_focus()
 		Section.LOGBOOK:
 			_catalog_logbook.focus_initial()
 		Section.NET:
@@ -1859,13 +1857,6 @@ func _configure_active_page_focus() -> void:
 
 
 func _apply_inventory_styles() -> void:
-	for button: Button in [
-		_equipment_filter,
-		_consumables_filter,
-		_bait_filter,
-		_lures_filter,
-	]:
-		UtilityPageStyle.apply_ocean_button(button)
 	for panel: PanelContainer in [_tackle_main_panel]:
 		var panel_style := UtilityPageStyle.panel_style()
 		panel_style.set_corner_radius_all(INVENTORY_MAIN_CORNER_RADIUS)
@@ -1873,7 +1864,12 @@ func _apply_inventory_styles() -> void:
 			"panel",
 			panel_style,
 		)
-	for label: Label in [_tackle_empty]:
+	for label: Label in [
+		_bait_heading,
+		_lure_heading,
+		_bait_empty,
+		_lure_empty,
+	]:
 		label.add_theme_font_override("font", UtilityPageStyle.TuffyFont)
 		label.add_theme_color_override(
 			"font_color",
@@ -1895,124 +1891,180 @@ func _apply_inventory_styles() -> void:
 	UtilityPageStyle.apply_ocean_button(_cancel_sale_button)
 
 
-func _set_bag_view(view: BagView) -> void:
+func _show_bag_view(view: BagView) -> void:
+	if (
+		_transitioning
+		or _page_transitioning
+		or _sale_confirmation.visible
+		or get_viewport().gui_is_dragging()
+	):
+		return
+	if _current_section != Section.BAG:
+		_bag_view = view
+		_selected_bag_item_id = StringName()
+		_show_section(Section.BAG)
+		return
 	if _bag_view == view:
 		return
+	_release_controller_ownership(false, true)
 	_bag_view = view
 	_selected_bag_item_id = StringName()
 	_refresh_bag()
-
-
-func _set_tackle_view(view: TackleView) -> void:
-	_tackle_view = view
-	_selected_tackle_item_id = StringName()
-	_refresh_tackle_box()
+	_bag_sub_tab.set_selected(view == BagView.EQUIPMENT)
+	_items_sub_tab.set_selected(view == BagView.CONSUMABLES)
+	_refresh_inventory_organizer_tabs()
+	_reserve_visible_secondary_navigation()
+	_set_content_interactive(true)
+	call_deferred("_focus_current_section")
 
 
 func _refresh_tackle_box() -> void:
 	if not is_node_ready():
 		return
-	_bait_filter.button_pressed = _tackle_view == TackleView.BAIT
-	_lures_filter.button_pressed = _tackle_view == TackleView.LURES
-	for child: Node in _tackle_item_list.get_children():
-		child.queue_free()
-	var matching_items: Array[OwnedItemType] = []
+	for item_list: GridContainer in [_bait_item_list, _lure_item_list]:
+		for child: Node in item_list.get_children():
+			child.queue_free()
+	_tackle_item_buttons.clear()
+	var bait_items: Array[OwnedItemType] = []
+	var lure_items: Array[OwnedItemType] = []
 	if _bag != null and _item_catalog != null:
-		var available_items: Array[OwnedItemType] = (
-			_bag.get_unlocked_bait_items()
-			if _tackle_view == TackleView.BAIT
-			else _bag.get_all_items()
-		)
-		for owned: OwnedItemType in available_items:
+		for owned: OwnedItemType in _bag.get_unlocked_bait_items():
 			var item: ItemDataType = _item_catalog.get_item_by_id(
 				owned.item_id
 			)
-			if item == null:
-				continue
-			if (
-				_tackle_view == TackleView.BAIT
-				and item.category == ItemDataType.Category.BAIT
-			):
-				matching_items.append(owned)
-			elif (
-				_tackle_view == TackleView.LURES
-				and item.category == ItemDataType.Category.LURE
-			):
-				matching_items.append(owned)
-	matching_items.sort_custom(_sort_bag_items)
-	for owned: OwnedItemType in matching_items:
+			if item != null and item.category == ItemDataType.Category.BAIT:
+				bait_items.append(owned)
+		for owned: OwnedItemType in _bag.get_all_items():
+			var item: ItemDataType = _item_catalog.get_item_by_id(
+				owned.item_id
+			)
+			if item != null and item.category == ItemDataType.Category.LURE:
+				lure_items.append(owned)
+	bait_items.sort_custom(_sort_bag_items)
+	lure_items.sort_custom(_sort_bag_items)
+	_populate_tackle_column(bait_items, _bait_item_list)
+	_populate_tackle_column(lure_items, _lure_item_list)
+	if (
+		not _selected_tackle_item_id.is_empty()
+		and not _tackle_item_buttons.has(_selected_tackle_item_id)
+	):
+		_selected_tackle_item_id = StringName()
+	_bait_empty.visible = bait_items.is_empty()
+	_lure_empty.visible = lure_items.is_empty()
+	_configure_tackle_item_focus()
+	_update_tackle_detail()
+	_apply_tackle_interactivity(_tackle_is_interactive())
+
+
+func _populate_tackle_column(
+	owned_items: Array[OwnedItemType],
+	item_list: GridContainer,
+) -> void:
+	for owned: OwnedItemType in owned_items:
 		var item: ItemDataType = _item_catalog.get_item_by_id(owned.item_id)
-		var row := Button.new()
-		row.icon = item.icon
-		row.tooltip_text = (
-			"%s ×%d" % [item.display_name, owned.quantity]
+		if item == null:
+			continue
+		var button := Button.new()
+		button.icon = item.icon
+		button.tooltip_text = (
+			"%s • %d/%d" % [
+				item.display_name,
+				owned.quantity,
+				item.max_stack,
+			]
 			if item.is_bait()
 			else item.display_name
 		)
-		var compact_tackle_item: bool = item.is_bait() or item.is_lure()
-		if compact_tackle_item:
-			row.custom_minimum_size = Vector2(72, 72)
-			row.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-			row.expand_icon = item.icon != null
-			row.alignment = HORIZONTAL_ALIGNMENT_CENTER
-			row.text = "" if item.icon != null else item.display_name
-			if item.icon == null:
-				row.add_theme_font_size_override("font_size", 12)
-		else:
-			row.text = "%s  ×%d" % [item.display_name, owned.quantity]
-			row.alignment = HORIZONTAL_ALIGNMENT_LEFT
-		row.toggle_mode = true
-		row.set_meta(&"controller_tackle_item_id", owned.item_id)
-		row.button_pressed = owned.item_id == _selected_tackle_item_id
-		if compact_tackle_item:
-			_apply_tackle_bait_button_style(row)
-			if item.is_bait():
-				_add_tackle_quantity_badge(row, owned.quantity)
-		else:
-			UtilityPageStyle.apply_ocean_button(row)
-		row.pressed.connect(_select_tackle_item.bind(owned.item_id))
-		_tackle_item_list.add_child(row)
-	_tackle_empty.text = (
-		"No bait collected."
-		if _tackle_view == TackleView.BAIT
-		else "No lures collected."
-	)
-	_tackle_empty.visible = matching_items.is_empty()
-	_update_tackle_detail()
+		button.custom_minimum_size = Vector2(72, 72)
+		button.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+		button.expand_icon = item.icon != null
+		button.alignment = HORIZONTAL_ALIGNMENT_CENTER
+		button.text = "" if item.icon != null else item.display_name
+		if item.icon == null:
+			button.add_theme_font_size_override("font_size", 12)
+		button.toggle_mode = true
+		button.set_meta(&"controller_tackle_item_id", owned.item_id)
+		button.button_pressed = owned.item_id == _selected_tackle_item_id
+		_apply_tackle_bait_button_style(button)
+		if item.is_bait():
+			UtilityPageStyle.add_supply_quantity_badge(
+				button,
+				owned.quantity,
+				item.max_stack,
+				&"QuantityBadge",
+			)
+		button.pressed.connect(_select_tackle_item.bind(owned.item_id))
+		item_list.add_child(button)
+		_tackle_item_buttons[owned.item_id] = button
 
 
-func _add_tackle_quantity_badge(row: Button, quantity: int) -> void:
-	var badge := Panel.new()
-	badge.name = "QuantityBadge"
-	badge.anchor_left = 1.0
-	badge.anchor_right = 1.0
-	badge.offset_left = -27.0
-	badge.offset_top = 3.0
-	badge.offset_right = -3.0
-	badge.offset_bottom = 27.0
-	badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	badge.z_index = 2
-	var badge_style := StyleBoxFlat.new()
-	badge_style.bg_color = Color("0b5558")
-	badge_style.set_corner_radius_all(12)
-	badge_style.anti_aliasing = false
-	badge.add_theme_stylebox_override("panel", badge_style)
-	row.add_child(badge)
-	var quantity_label := Label.new()
-	quantity_label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	quantity_label.offset_left = 1.0
-	quantity_label.offset_right = 1.0
-	quantity_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	quantity_label.text = str(quantity)
-	quantity_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	quantity_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	quantity_label.add_theme_font_override("font", UtilityPageStyle.TuffyFont)
-	quantity_label.add_theme_font_size_override(
-		"font_size",
-		13 if quantity >= 100 else 15,
+func _configure_tackle_item_focus() -> void:
+	if not is_node_ready():
+		return
+	var bait_buttons: Array[Button] = _get_tackle_column_buttons(
+		_bait_item_list
 	)
-	quantity_label.add_theme_color_override("font_color", Color("e7f5f4"))
-	badge.add_child(quantity_label)
+	var lure_buttons: Array[Button] = _get_tackle_column_buttons(
+		_lure_item_list
+	)
+	var first_button: Button = (
+		bait_buttons.front()
+		if not bait_buttons.is_empty()
+		else (lure_buttons.front() if not lure_buttons.is_empty() else null)
+	)
+	_tackle_sub_tab.focus_neighbor_bottom = (
+		_tackle_sub_tab.get_path_to(first_button)
+		if first_button != null
+		else NodePath()
+	)
+	_configure_tackle_column_focus(bait_buttons, lure_buttons, true)
+	_configure_tackle_column_focus(lure_buttons, bait_buttons, false)
+
+
+func _get_tackle_column_buttons(item_list: GridContainer) -> Array[Button]:
+	var buttons: Array[Button] = []
+	for child: Node in item_list.get_children():
+		var button := child as Button
+		if button != null and not button.is_queued_for_deletion():
+			buttons.append(button)
+	return buttons
+
+
+func _configure_tackle_column_focus(
+	buttons: Array[Button],
+	other_buttons: Array[Button],
+	is_left_column: bool,
+) -> void:
+	for index: int in buttons.size():
+		var button: Button = buttons[index]
+		var column: int = index % TACKLE_GRID_COLUMNS
+		var row: int = floori(float(index) / float(TACKLE_GRID_COLUMNS))
+		var left_target: Button = button
+		var right_target: Button = button
+		if column > 0:
+			left_target = buttons[index - 1]
+		elif not is_left_column and not other_buttons.is_empty():
+			left_target = other_buttons[mini(
+				row * TACKLE_GRID_COLUMNS + TACKLE_GRID_COLUMNS - 1,
+				other_buttons.size() - 1,
+			)]
+		if column < TACKLE_GRID_COLUMNS - 1 and index + 1 < buttons.size():
+			right_target = buttons[index + 1]
+		elif is_left_column and not other_buttons.is_empty():
+			right_target = other_buttons[mini(
+				row * TACKLE_GRID_COLUMNS,
+				other_buttons.size() - 1,
+			)]
+		button.focus_neighbor_left = button.get_path_to(left_target)
+		button.focus_neighbor_right = button.get_path_to(right_target)
+		button.focus_neighbor_top = (
+			button.get_path_to(_tackle_sub_tab)
+			if index < TACKLE_GRID_COLUMNS
+			else button.get_path_to(buttons[index - TACKLE_GRID_COLUMNS])
+		)
+		button.focus_neighbor_bottom = button.get_path_to(
+			buttons[mini(index + TACKLE_GRID_COLUMNS, buttons.size() - 1)]
+		)
 
 
 func _apply_tackle_bait_button_style(button: Button) -> void:
@@ -2045,7 +2097,10 @@ func _apply_tackle_bait_button_style(button: Button) -> void:
 
 func _select_tackle_item(item_id: StringName) -> void:
 	_selected_tackle_item_id = item_id
-	_refresh_tackle_box()
+	for candidate_id: StringName in _tackle_item_buttons:
+		var button: Button = _tackle_item_buttons[candidate_id]
+		button.button_pressed = candidate_id == item_id
+	_update_tackle_detail()
 
 
 func _update_tackle_detail() -> void:
@@ -2057,11 +2112,8 @@ func _update_tackle_detail() -> void:
 	if item == null:
 		_tackle_equip_button.visible = false
 		_tackle_equip_button.persistent_mark = false
-		_tackle_detail_text.text = (
-			"Select bait for details."
-			if _tackle_view == TackleView.BAIT
-			else "Select a lure for details."
-		)
+		_tackle_detail_text.text = "Select bait or a lure for details."
+		_apply_tackle_interactivity(_tackle_is_interactive())
 		return
 	_tackle_equip_button.visible = item.is_bait() or item.is_lure()
 	var quantity: int = _bag.get_quantity(item.item_id) if _bag != null else 0
@@ -2073,7 +2125,7 @@ func _update_tackle_detail() -> void:
 				break
 	var detail_lines: Array[String] = [item.display_name, ""]
 	if item.is_bait():
-		detail_lines.append("quantity: %d" % quantity)
+		detail_lines.append("quantity: %d/%d" % [quantity, item.max_stack])
 	if assigned_slot >= 0:
 		detail_lines.append("hotbar slot %d" % (assigned_slot + 1))
 	detail_lines.append("")
@@ -2096,6 +2148,42 @@ func _update_tackle_detail() -> void:
 		_tackle_equip_button.persistent_mark = is_equipped
 		_tackle_equip_button.disabled = quantity <= 0
 		_tackle_equip_button.refresh_ink_state()
+	_apply_tackle_interactivity(_tackle_is_interactive())
+
+
+func _tackle_is_interactive() -> bool:
+	return (
+		visible
+		and _current_section == Section.TACKLE_BOX
+		and not _transitioning
+		and not _page_transitioning
+		and not _sale_confirmation.visible
+	)
+
+
+func _apply_tackle_interactivity(interactive: bool) -> void:
+	for button: Button in _tackle_item_buttons.values():
+		button.focus_mode = (
+			Control.FOCUS_ALL if interactive else Control.FOCUS_NONE
+		)
+		button.mouse_filter = (
+			Control.MOUSE_FILTER_STOP
+			if interactive
+			else Control.MOUSE_FILTER_IGNORE
+		)
+	var action_interactive: bool = (
+		interactive
+		and _tackle_equip_button.visible
+		and not _tackle_equip_button.disabled
+	)
+	_tackle_equip_button.focus_mode = (
+		Control.FOCUS_ALL if action_interactive else Control.FOCUS_NONE
+	)
+	_tackle_equip_button.mouse_filter = (
+		Control.MOUSE_FILTER_STOP
+		if action_interactive
+		else Control.MOUSE_FILTER_IGNORE
+	)
 
 
 func _toggle_active_tackle() -> void:
@@ -2489,10 +2577,6 @@ func _update_shell_layout() -> void:
 	_tackle_rest_position = Vector2.ZERO
 	_bag_outer_wall.position = INVENTORY_MAIN_POSITION
 	_bag_outer_wall.size = INVENTORY_MAIN_SIZE
-	_bag_filter_tabs.position = (
-		INVENTORY_MAIN_POSITION + INVENTORY_HEADER_INSET
-	)
-	_bag_filter_tabs.size = Vector2(320.0, INVENTORY_HEADER_HEIGHT)
 	_bag_host.custom_minimum_size = (
 		Vector2(520.0, 152.0) if compact else Vector2(788.0, 358.0)
 	)
@@ -2932,7 +3016,10 @@ func _set_content_interactive(interactive: bool) -> void:
 		else Control.MOUSE_FILTER_IGNORE
 	)
 	for tab: Button in [
-		_cooler_sub_tab, _bag_sub_tab, _tackle_sub_tab,
+		_cooler_sub_tab,
+		_bag_sub_tab,
+		_items_sub_tab,
+		_tackle_sub_tab,
 	]:
 		var tab_interactive: bool = (
 			interactive and _is_inventory_section(_current_section)
@@ -3014,6 +3101,10 @@ func _set_content_interactive(interactive: bool) -> void:
 			if bag_interactive
 			else Control.MOUSE_FILTER_IGNORE
 		)
+	var tackle_interactive: bool = (
+		interactive and _current_section == Section.TACKLE_BOX
+	)
+	_apply_tackle_interactivity(tackle_interactive)
 
 
 func _cancel_presentation_tween() -> void:
@@ -3117,9 +3208,9 @@ func _on_hotbar_changed() -> void:
 func _refresh_bag() -> void:
 	if not is_node_ready():
 		return
-	var owned_items: Array[OwnedItemType] = (
-		_bag.get_all_items() if _bag != null else []
-	)
+	var owned_items: Array[OwnedItemType] = []
+	if _bag != null:
+		owned_items = _bag.get_all_items()
 	var filtered_items: Array[OwnedItemType] = []
 	for owned: OwnedItemType in owned_items:
 		var item: ItemDataType = (
@@ -3145,16 +3236,12 @@ func _refresh_bag() -> void:
 	owned_items = filtered_items
 	owned_items.sort_custom(_sort_bag_items)
 	_sorted_bag_items = owned_items
-	_equipment_filter.button_pressed = _bag_view == BagView.EQUIPMENT
-	_consumables_filter.button_pressed = (
-		_bag_view == BagView.CONSUMABLES
-	)
 	_bag_empty.visible = owned_items.is_empty()
 	_bag_empty_state.visible = owned_items.is_empty()
 	_bag_empty_state.text = (
 		"No equipment in your Bag."
 		if _bag_view == BagView.EQUIPMENT
-		else "No consumables in your Bag."
+		else "No items in your Bag."
 	)
 	if (
 		not _selected_bag_item_id.is_empty()
@@ -3209,7 +3296,7 @@ func _sync_bag_item_nodes(owned_items: Array[OwnedItemType]) -> void:
 			continue
 		var removed := _bag_item_nodes[item_id] as BagItemSpriteType
 		_bag_item_nodes.erase(item_id)
-		_release_focus_from(removed, _bag_sub_tab)
+		_release_focus_from(removed, _active_bag_tab())
 		removed.queue_free()
 	_layout_bag_items()
 	_configure_bag_item_focus()
@@ -3270,6 +3357,7 @@ func _layout_bag_items() -> void:
 func _configure_bag_item_focus() -> void:
 	if _current_section != Section.BAG:
 		return
+	var active_tab: Button = _active_bag_tab()
 	var controls: Array[BagItemSpriteType] = []
 	for owned: OwnedItemType in _sorted_bag_items:
 		var item_node := _bag_item_nodes.get(
@@ -3278,9 +3366,9 @@ func _configure_bag_item_focus() -> void:
 		if item_node != null:
 			controls.append(item_node)
 	if controls.is_empty():
-		_bag_sub_tab.focus_neighbor_bottom = NodePath()
+		active_tab.focus_neighbor_bottom = NodePath()
 		return
-	_bag_sub_tab.focus_neighbor_bottom = _bag_sub_tab.get_path_to(
+	active_tab.focus_neighbor_bottom = active_tab.get_path_to(
 		controls.front()
 	)
 	for index: int in controls.size():
@@ -3296,13 +3384,21 @@ func _configure_bag_item_focus() -> void:
 			controls[right_index]
 		)
 		control.focus_neighbor_top = (
-			control.get_path_to(_bag_sub_tab)
+			control.get_path_to(active_tab)
 			if index < 3
 			else control.get_path_to(controls[index - 3])
 		)
 		control.focus_neighbor_bottom = control.get_path_to(
 			controls[mini(index + 3, controls.size() - 1)]
 		)
+
+
+func _active_bag_tab() -> Button:
+	return (
+		_items_sub_tab
+		if _bag_view == BagView.CONSUMABLES
+		else _bag_sub_tab
+	)
 
 
 func _sort_bag_items(a: OwnedItemType, b: OwnedItemType) -> bool:
@@ -3355,7 +3451,7 @@ func _update_bag_detail() -> void:
 	_bag_detail_data.text = (
 		"%s\nquantity: %d\n%s\n%s\n%s"
 		% [
-			item.get_category_name(),
+			_item_category_display_name(item),
 			quantity,
 			item_state,
 			hotbar_assignment,
@@ -3374,7 +3470,7 @@ func _update_bag_detail() -> void:
 	_bag_sprite_detail_data.text = (
 		"%s • quantity: %d\n%s • %s\n%s"
 		% [
-			item.get_category_name(),
+			_item_category_display_name(item),
 			quantity,
 			item_state,
 			hotbar_assignment,
@@ -3386,6 +3482,12 @@ func _update_bag_detail() -> void:
 	_bag_detail_constellation.visible = (
 		_current_section == Section.BAG
 	)
+
+
+func _item_category_display_name(item: ItemDataType) -> String:
+	if item.category == ItemDataType.Category.CONSUMABLE:
+		return "item"
+	return item.get_category_name()
 
 
 func _close_bag_detail() -> void:

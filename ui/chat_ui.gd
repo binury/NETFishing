@@ -36,10 +36,12 @@ const CLOCK_FONT_SIZE: int = 27
 const CLOCK_EDGE_MARGIN: float = 10.0
 const WEATHER_ICON_SIZE := Vector2(51.0, 51.0)
 const WEATHER_ICON_GAP: float = 6.0
-const FISH_FINDER_EFFECT_ICON_SIZE := Vector2(18.0, 18.0)
-const FISH_FINDER_EFFECT_ICON: Texture2D = preload(
-	"res://items/icons/consumables/64_consumable_fishfinder.png"
-)
+const STATUS_EFFECT_ICON_SIZE := Vector2(40.0, 40.0)
+const STATUS_EFFECT_TOP_GAP: float = 6.0
+const STATUS_EFFECT_ICON_GAP: int = 4
+const STATUS_EFFECT_WARNING_RATIO: float = 0.10
+const STATUS_EFFECT_PULSE_PERIOD: float = 1.0
+const STATUS_EFFECT_PULSE_MIN_ALPHA: float = 0.25
 const CHAT_SHOW_ICON: Texture2D = preload(
 	"res://ui/icons/pictograms/arrow_light_right_more.png"
 )
@@ -57,6 +59,8 @@ const WorldWeatherServiceType = preload(
 	"res://world/world_weather_service.gd"
 )
 const WeatherIconType = preload("res://ui/weather_icon.gd")
+const ItemCatalogType = preload("res://items/item_catalog.gd")
+const ItemDataType = preload("res://items/item_data.gd")
 
 const TypewriterRevealType = preload("res://ui/typewriter_reveal.gd")
 const AnimaleseVoiceType = preload("res://ui/animalese_voice.gd")
@@ -92,7 +96,8 @@ var _animalese_voice: AnimaleseVoiceType
 var _clock_panel: PanelContainer
 var _clock_label: Label
 var _weather_icon: WeatherIconType
-var _fish_finder_effect_icon: TextureRect
+var _status_effect_column: VBoxContainer
+var _status_effect_icons: Dictionary[StringName, TextureRect] = {}
 var _speech: Dictionary[int, Dictionary] = {}
 var _draft_save_timer: Timer
 var _opacity_tween: Tween
@@ -117,6 +122,7 @@ var _mobile_mode: bool = false
 var _world_time: WorldTimeServiceType
 var _world_weather: WorldWeatherServiceType
 var _item_effects: PlayerItemEffects
+var _item_catalog: ItemCatalogType
 
 
 func _ready() -> void:
@@ -137,6 +143,7 @@ func setup(
 	world_time: WorldTimeServiceType,
 	world_weather: WorldWeatherServiceType,
 	item_effects: PlayerItemEffects,
+	item_catalog: ItemCatalogType,
 ) -> void:
 	_service = service
 	_session = session
@@ -147,6 +154,8 @@ func setup(
 	_world_time = world_time
 	_world_weather = world_weather
 	_item_effects = item_effects
+	_item_catalog = item_catalog
+	_rebuild_status_effect_icons()
 	if (
 		_fishing_spot != null
 		and not _fishing_spot.local_speech_requested.is_connected(
@@ -193,6 +202,77 @@ func setup(
 		false,
 	)
 	_refresh_history()
+
+
+func _rebuild_status_effect_icons() -> void:
+	for child: Node in _status_effect_column.get_children():
+		_status_effect_column.remove_child(child)
+		child.queue_free()
+	_status_effect_icons.clear()
+	if _item_effects == null or _item_catalog == null:
+		_status_effect_column.hide()
+		return
+	for item_id: StringName in _item_effects.get_registered_effect_ids():
+		var item: ItemDataType = _item_catalog.get_item_by_id(item_id)
+		if item == null or item.icon == null:
+			continue
+		var icon := TextureRect.new()
+		icon.name = "StatusEffect_%s" % String(item_id)
+		icon.texture = item.icon
+		icon.custom_minimum_size = STATUS_EFFECT_ICON_SIZE
+		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		icon.hide()
+		_status_effect_column.add_child(icon)
+		_status_effect_icons[item_id] = icon
+	var icon_count: int = _status_effect_icons.size()
+	_status_effect_column.size = Vector2(
+		STATUS_EFFECT_ICON_SIZE.x,
+		STATUS_EFFECT_ICON_SIZE.y * icon_count
+		+ STATUS_EFFECT_ICON_GAP * maxi(icon_count - 1, 0),
+	)
+
+
+func _update_status_effect_icons() -> void:
+	if _status_effect_column == null:
+		return
+	var has_active_effect: bool = false
+	for item_id: StringName in _status_effect_icons:
+		var icon: TextureRect = _status_effect_icons[item_id]
+		var remaining: float = (
+			_item_effects.get_remaining(item_id)
+			if _item_effects != null
+			else 0.0
+		)
+		icon.visible = remaining > 0.0
+		icon.modulate = Color.WHITE
+		if remaining <= 0.0:
+			continue
+		has_active_effect = true
+		var warning_duration: float = (
+			_item_effects.get_effect_duration(item_id)
+			* STATUS_EFFECT_WARNING_RATIO
+		)
+		if warning_duration <= 0.0 or remaining > warning_duration:
+			continue
+		var warning_elapsed: float = maxf(
+			warning_duration - remaining, 0.0
+		)
+		var pulse_phase: float = (
+			fmod(warning_elapsed, STATUS_EFFECT_PULSE_PERIOD)
+			/ STATUS_EFFECT_PULSE_PERIOD
+		)
+		var pulse_weight: float = 0.5 + 0.5 * cos(pulse_phase * TAU)
+		icon.modulate.a = lerpf(
+			STATUS_EFFECT_PULSE_MIN_ALPHA, 1.0, pulse_weight
+		)
+	_status_effect_column.visible = (
+		has_active_effect
+		and _available
+		and (not _hud_hidden or _opened)
+	)
 
 
 func open_chat() -> void:
@@ -359,6 +439,7 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _process(_delta: float) -> void:
 	_refresh_visibility()
+	_update_status_effect_icons()
 	_update_panel_opacity()
 	_update_speech()
 
@@ -391,15 +472,13 @@ func _build_ui() -> void:
 		"font_color", UtilityPageStyle.OCEAN_TEXT_PRIMARY
 	)
 	_clock_panel.add_child(_clock_label)
-	_fish_finder_effect_icon = TextureRect.new()
-	_fish_finder_effect_icon.name = "FishFinderEffectIcon"
-	_fish_finder_effect_icon.texture = FISH_FINDER_EFFECT_ICON
-	_fish_finder_effect_icon.size = FISH_FINDER_EFFECT_ICON_SIZE
-	_fish_finder_effect_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	_fish_finder_effect_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	_fish_finder_effect_icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	_fish_finder_effect_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(_fish_finder_effect_icon)
+	_status_effect_column = VBoxContainer.new()
+	_status_effect_column.name = "StatusEffectColumn"
+	_status_effect_column.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_status_effect_column.add_theme_constant_override(
+		"separation", STATUS_EFFECT_ICON_GAP
+	)
+	add_child(_status_effect_column)
 	_weather_icon = WeatherIconType.new()
 	_weather_icon.name = "WorldWeatherIcon"
 	_weather_icon.size = WEATHER_ICON_SIZE
@@ -968,7 +1047,7 @@ func _refresh_visibility() -> void:
 		_panel.hide()
 		_clock_panel.hide()
 		_weather_icon.hide()
-		_fish_finder_effect_icon.hide()
+		_status_effect_column.hide()
 		_collapse_button.hide()
 		_height_button.hide()
 		_unread_indicator.hide()
@@ -978,7 +1057,7 @@ func _refresh_visibility() -> void:
 		_panel.hide()
 		_clock_panel.hide()
 		_weather_icon.hide()
-		_fish_finder_effect_icon.hide()
+		_status_effect_column.hide()
 		_collapse_button.hide()
 		_height_button.hide()
 		_unread_indicator.hide()
@@ -986,10 +1065,6 @@ func _refresh_visibility() -> void:
 		return
 	_clock_panel.show()
 	_weather_icon.show()
-	_fish_finder_effect_icon.visible = (
-		_item_effects != null
-		and _item_effects.is_active(PlayerItemEffects.FISH_FINDER_ID)
-	)
 	_collapse_button.show()
 	var collapsed := _presentation_state == PresentationState.COLLAPSED
 	_panel.show()
@@ -1365,10 +1440,10 @@ func _layout_presentation(animate: bool) -> void:
 		clock_x,
 		CLOCK_EDGE_MARGIN,
 	)
-	var fish_finder_effect_position := Vector2(
+	var status_effect_column_position := Vector2(
 		clock_position.x
-		+ (CLOCK_SIZE.x - FISH_FINDER_EFFECT_ICON_SIZE.x) * 0.5,
-		clock_position.y + CLOCK_SIZE.y + 2.0,
+		+ (CLOCK_SIZE.x - STATUS_EFFECT_ICON_SIZE.x) * 0.5,
+		clock_position.y + CLOCK_SIZE.y + STATUS_EFFECT_TOP_GAP,
 	)
 	var weather_icon_x: float = (
 		clock_position.x - WEATHER_ICON_GAP - WEATHER_ICON_SIZE.x
@@ -1393,8 +1468,7 @@ func _layout_presentation(animate: bool) -> void:
 		_panel.size = target_size
 		_clock_panel.position = clock_position
 		_clock_panel.size = CLOCK_SIZE
-		_fish_finder_effect_icon.position = fish_finder_effect_position
-		_fish_finder_effect_icon.size = FISH_FINDER_EFFECT_ICON_SIZE
+		_status_effect_column.position = status_effect_column_position
 		_weather_icon.position = weather_icon_position
 		_weather_icon.size = WEATHER_ICON_SIZE
 		_collapse_button.position = collapse_position
@@ -1416,9 +1490,9 @@ func _layout_presentation(animate: bool) -> void:
 		UIMotion.CHAT_RESIZE_DURATION,
 	).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	_height_tween.tween_property(
-		_fish_finder_effect_icon,
+		_status_effect_column,
 		"position",
-		fish_finder_effect_position,
+		status_effect_column_position,
 		UIMotion.CHAT_RESIZE_DURATION,
 	).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	_height_tween.tween_property(

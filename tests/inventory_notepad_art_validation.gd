@@ -58,6 +58,7 @@ func _run() -> void:
 		))
 	_validate_shared_inventory_geometry(player_menu)
 	_validate_inventory_layering(player_menu)
+	_validate_tackle_to_items_transition(player_menu)
 	_validate_cooler_notepad_typography(player_menu)
 	_validate_resolution_matrix()
 	await _capture_inventory_pages(player_menu)
@@ -102,6 +103,15 @@ func _apply_stage_layout(stage: Control, display_size: Vector2) -> void:
 
 func _validate_shared_inventory_geometry(player_menu: PlayerMenu) -> void:
 	for node_name: StringName in [
+		&"CoolerOuterWall",
+		&"BagOuterWall",
+		&"TackleMainPanel",
+	]:
+		var main_panel := player_menu.get_node("%%%s" % node_name) as Control
+		assert(main_panel != null)
+		assert(main_panel.position.is_equal_approx(INVENTORY_PANEL_RECT.position))
+		assert(main_panel.size.is_equal_approx(INVENTORY_PANEL_RECT.size))
+	for node_name: StringName in [
 		&"DetailConstellation",
 		&"BagDetailConstellation",
 		&"TackleDetailPanel",
@@ -113,17 +123,24 @@ func _validate_shared_inventory_geometry(player_menu: PlayerMenu) -> void:
 
 
 func _validate_inventory_layering(player_menu: PlayerMenu) -> void:
-	var bag_filters := player_menu.get_node("%BagFilterTabs") as Control
 	var bag_panel := player_menu.get_node("%BagOuterWall") as Control
 	var sale_confirmation := player_menu.get_node("%SaleConfirmation") as Control
 	var cooler_panel := player_menu.get_node("%CoolerOuterWall") as Control
 	var tackle_panel := player_menu.get_node("%TackleMainPanel") as Control
-	assert(bag_filters != null)
+	var inventory_tabs := player_menu.get_node("%InventorySubTabs") as Control
+	var items_tab := player_menu.get_node("%ItemsSubTab") as Button
+	var bait_list := player_menu.get_node("%BaitItemList") as GridContainer
+	var lure_list := player_menu.get_node("%LureItemList") as GridContainer
 	assert(bag_panel != null)
 	assert(sale_confirmation != null)
 	assert(cooler_panel != null)
 	assert(tackle_panel != null)
-	assert(bag_filters.z_index > bag_panel.z_index)
+	assert(inventory_tabs != null)
+	assert(items_tab != null and items_tab.text == "Items")
+	assert(bait_list != null and bait_list.columns == 3)
+	assert(lure_list != null and lure_list.columns == 3)
+	assert(bait_list.get_theme_constant("h_separation") == 28)
+	assert(lure_list.get_theme_constant("h_separation") == 28)
 	assert(sale_confirmation.z_index > cooler_panel.z_index)
 	assert(sale_confirmation.z_index > tackle_panel.z_index)
 	# The contextual Hotbar uses z=90 while the Player Menu is open.
@@ -138,6 +155,28 @@ func _validate_inventory_layering(player_menu: PlayerMenu) -> void:
 		confirmation_style.bg_color.is_equal_approx(
 			UtilityPageStyle.OCEAN_PANEL_DEEP
 		)
+	)
+
+
+func _validate_tackle_to_items_transition(player_menu: PlayerMenu) -> void:
+	var empty_state := player_menu.get_node("%BagEmptyState") as Label
+	player_menu.set("_bag_view", PlayerMenu.BagView.EQUIPMENT)
+	player_menu.call("_refresh_bag")
+	assert(empty_state.text == "No equipment in your Bag.")
+	player_menu.call(
+		"_show_section_immediate", PlayerMenu.Section.TACKLE_BOX
+	)
+	player_menu.call("_show_bag_view", PlayerMenu.BagView.CONSUMABLES)
+	assert(
+		player_menu.get("_current_section") == PlayerMenu.Section.BAG
+	)
+	assert(
+		player_menu.get("_bag_view") == PlayerMenu.BagView.CONSUMABLES
+	)
+	assert(empty_state.text == "No items in your Bag.")
+	player_menu.call("_cancel_page_tween")
+	player_menu.call(
+		"_show_section_immediate", PlayerMenu.Section.COOLER
 	)
 
 
@@ -276,10 +315,10 @@ func _capture_inventory_pages(player_menu: PlayerMenu) -> void:
 	player_menu.visible = true
 	var sections: Array[PlayerMenu.Section] = [
 		PlayerMenu.Section.COOLER,
-		PlayerMenu.Section.TACKLE_BOX,
 		PlayerMenu.Section.BAG,
+		PlayerMenu.Section.TACKLE_BOX,
 	]
-	var suffixes: Array[String] = ["cooler", "tackle", "equipment"]
+	var suffixes: Array[String] = ["cooler", "equipment", "tackle"]
 	for index: int in sections.size():
 		player_menu.call("_show_section_immediate", sections[index])
 		await process_frame

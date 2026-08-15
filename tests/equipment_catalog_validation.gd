@@ -16,6 +16,25 @@ func _initialize() -> void:
 	var shop := FishingShopType.new()
 	assert(shop.call("_unlock_status", false) == "locked")
 	assert(shop.call("_unlock_status", true) == "unlocked")
+	var locked_button := Button.new()
+	shop.call(
+		"_add_unlock_state_icon", locked_button, false, Vector2(72.0, 72.0)
+	)
+	var locked_icon := locked_button.get_node(
+		"UnlockStateIcon"
+	) as TextureRect
+	assert(locked_icon.texture.resource_path.ends_with("/lock_light.png"))
+	assert(locked_icon.size == Vector2(48.0, 48.0))
+	assert(locked_icon.position == Vector2(12.0, 6.0))
+	assert(is_equal_approx(locked_icon.modulate.a, 0.75))
+	assert(not bool(locked_icon.get_meta(&"unlocked")))
+	locked_button.free()
+	var unlocked_button := Button.new()
+	shop.call(
+		"_add_unlock_state_icon", unlocked_button, true, Vector2(72.0, 72.0)
+	)
+	assert(unlocked_button.get_node_or_null("UnlockStateIcon") == null)
+	unlocked_button.free()
 	shop.free()
 
 	var magnet: ItemDataType = ItemCatalogResource.get_available_item_by_id(
@@ -30,6 +49,12 @@ func _initialize() -> void:
 	assert(FishingShopStockType.get_price(&"magnet") == 250)
 	assert(FishingShopStockType.get_stock_item_ids().has(&"magnet"))
 	assert(FishingShopStockType.is_permanent_unlock(&"magnet", magnet))
+	var crab_net: ItemDataType = ItemCatalogResource.get_available_item_by_id(
+		&"crab_net"
+	)
+	assert(crab_net != null)
+	assert(crab_net.icon != null)
+	assert(crab_net.icon.resource_path.ends_with("/equipment/temp_net.png"))
 
 	var wallet := PlayerWalletType.new()
 	wallet.current_balance = 250

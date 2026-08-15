@@ -43,6 +43,9 @@ func _run() -> void:
 	var hotbar := game_ui.get_node(
 		"UIRoot/CanonicalStage/Hotbar"
 	) as HotbarUI
+	assert(game_ui.get_node_or_null(
+		"UIRoot/CanonicalStage/GameplayTransientHUD/EffectStatus"
+	) == null)
 	var screen_fade := game_ui.get_node("UIRoot/ScreenFade") as Control
 	var title_screen := game_ui.get_node("UIRoot/TitleScreen") as TitleScreen
 	var title_content_stage := title_screen.get_node(
@@ -154,9 +157,13 @@ func _run() -> void:
 		assert(presenter.size.is_equal_approx(Vector2(expected_viewport_size)))
 		var chat_panel := chat_ui.get_node("ChatPanel") as Control
 		var clock_panel := chat_ui.get_node("WorldClockPanel") as Control
+		var status_effect_column := chat_ui.get_node(
+			"StatusEffectColumn"
+		) as Control
 		var weather_icon := chat_ui.get_node("WorldWeatherIcon") as Control
 		assert(chat_panel != null)
 		assert(clock_panel != null)
+		assert(status_effect_column != null)
 		assert(weather_icon != null)
 		assert(chat_panel.visible)
 		assert(is_equal_approx(chat_panel.position.x, 0.0))
@@ -168,6 +175,17 @@ func _run() -> void:
 			ChatUI.CLOCK_EDGE_MARGIN,
 			ChatUI.CLOCK_EDGE_MARGIN,
 		)))
+		assert(is_equal_approx(
+			status_effect_column.position.x,
+			clock_panel.position.x
+			+ (ChatUI.CLOCK_SIZE.x - ChatUI.STATUS_EFFECT_ICON_SIZE.x) * 0.5,
+		))
+		assert(is_equal_approx(
+			status_effect_column.position.y,
+			clock_panel.position.y
+			+ ChatUI.CLOCK_SIZE.y
+			+ ChatUI.STATUS_EFFECT_TOP_GAP,
+		))
 		assert(is_equal_approx(
 			weather_icon.position.y, ChatUI.CLOCK_EDGE_MARGIN
 		))
