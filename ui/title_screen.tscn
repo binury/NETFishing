@@ -1,4 +1,4 @@
-[gd_scene load_steps=19 format=3]
+[gd_scene load_steps=21 format=3]
 
 [ext_resource type="Script" path="res://ui/title_screen.gd" id="1_script"]
 [ext_resource type="Theme" path="res://ui/game_theme.tres" id="2_theme"]
@@ -15,6 +15,8 @@
 [ext_resource type="Texture2D" path="res://ui/icons/pictograms/settings_dark.png" id="13_settings_dark"]
 [ext_resource type="Texture2D" path="res://ui/icons/pictograms/x_dark.png" id="14_x_dark"]
 [ext_resource type="PackedScene" path="res://ui/title_credits_page.tscn" id="15_credits_page"]
+[ext_resource type="Texture2D" path="res://ui/icons/main_menu/continue.png" id="16_continue"]
+[ext_resource type="Texture2D" path="res://ui/icons/main_menu/new_game.png" id="17_new_game"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_title_water"]
 shader = ExtResource("4_water_shader")
@@ -261,7 +263,10 @@ offset_left = 123.0
 offset_top = 86.0
 offset_right = 307.0
 offset_bottom = 264.0
-text = "continue"
+texture_filter = 1
+icon = ExtResource("16_continue")
+tooltip_text = "continue"
+accessibility_name = "continue"
 script = ExtResource("7_bubble_button")
 profile = ExtResource("9_bubble_profile")
 neutral_size = Vector2(184, 178)
@@ -281,13 +286,16 @@ offset_left = 42.0
 offset_top = 4.0
 offset_right = 170.0
 offset_bottom = 126.0
+texture_filter = 1
+icon = ExtResource("17_new_game")
+tooltip_text = "new game"
+accessibility_name = "new game"
 script = ExtResource("7_bubble_button")
 profile = ExtResource("9_bubble_profile")
 neutral_size = Vector2(128, 122)
 desktop_anchor = Vector2(106, 65)
 compact_anchor = Vector2(106, 68)
 compact_minimum_size = Vector2(84, 84)
-label_control_path = NodePath("NewGameLabel")
 minimum_font_size = 15
 maximum_font_size = 23
 horizontal_amplitude = 2.3
@@ -296,21 +304,6 @@ motion_period = 6.3
 motion_phase = 1.2
 deformation_amplitude = 0.018
 deformation_period = 5.9
-
-[node name="NewGameLabel" type="Label" parent="ResponsiveTitleStage/TitlePresentationScaleRoot/Center/MainContent/ButtonCenter/BubbleLayoutSlot/BubbleMotionRoot/BubbleField/NewGameButton"]
-unique_name_in_owner = true
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-mouse_filter = 2
-theme_override_colors/font_color = Color(0.035, 0.145, 0.22, 1)
-theme_override_constants/line_spacing = -3
-text = "new game"
-horizontal_alignment = 1
-vertical_alignment = 1
 
 [node name="SettingsButton" type="Button" parent="ResponsiveTitleStage/TitlePresentationScaleRoot/Center/MainContent/ButtonCenter/BubbleLayoutSlot/BubbleMotionRoot/BubbleField"]
 unique_name_in_owner = true

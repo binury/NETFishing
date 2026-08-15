@@ -107,7 +107,6 @@ enum ConfirmationAction {
 @onready var _delete_button: BubbleButtonType = %DeleteSaveButton
 @onready var _quit_button: BubbleButtonType = %QuitButton
 @onready var _join_game_button: BubbleButtonType = %JoinGameButton
-@onready var _new_game_label: Label = %NewGameLabel
 @onready var _delete_save_label: Label = %DeleteSaveLabel
 @onready var _feedback_label: RichTextLabel = %FeedbackLabel
 @onready var _confirmation_page: TitleConfirmationBubblePageType = (
@@ -434,7 +433,6 @@ func _update_title_layout() -> void:
 	)
 	if not _title_settings_transition_active:
 		call_deferred("_capture_title_bubble_rest_position")
-	_new_game_label.text = "new\ngame" if compact_layout else "new game"
 	_delete_save_label.text = (
 		"delete\nsave" if compact_layout else "delete save"
 	)

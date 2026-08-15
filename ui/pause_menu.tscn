@@ -13,7 +13,7 @@
 [ext_resource type="Texture2D" path="res://ui/icons/pictograms/online_dark.png" id="11_online_dark"]
 [ext_resource type="Texture2D" path="res://ui/icons/pictograms/save_dark.png" id="12_save_dark"]
 [ext_resource type="Texture2D" path="res://ui/icons/pictograms/settings_dark.png" id="13_settings_dark"]
-[ext_resource type="Texture2D" path="res://ui/icons/pictograms/undo_dark.png" id="14_undo_dark"]
+[ext_resource type="Texture2D" path="res://ui/icons/main_menu/continue.png" id="14_continue"]
 [ext_resource type="Texture2D" path="res://ui/icons/pictograms/x_dark.png" id="15_x_dark"]
 
 [node name="PauseMenu" type="Control"]
@@ -93,7 +93,7 @@ compact_reference_size = Vector2(608, 448)
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 0)
 texture_filter = 1
-icon = ExtResource("14_undo_dark")
+icon = ExtResource("14_continue")
 tooltip_text = "return to game"
 accessibility_name = "return to game"
 neutral_size = Vector2(174, 164)
