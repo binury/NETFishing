@@ -284,6 +284,7 @@ func _run() -> void:
 	start_button.button_index = JOY_BUTTON_START
 	start_button.pressed = true
 	assert(bool(main.call("_is_pause_open_request", start_button)))
+	await _validate_pause_browser_transition(game_ui, player)
 	var player_menu := game_ui.get_node("%PlayerMenu") as PlayerMenu
 	player_menu.open_section(PlayerMenu.Section.PROFILE)
 	for _frame: int in 12:
@@ -565,3 +566,68 @@ func _run() -> void:
 		await process_frame
 	await create_timer(0.1).timeout
 	quit()
+
+
+func _validate_pause_browser_transition(
+	game_ui: GameUI,
+	player: Player,
+) -> void:
+	var pause_menu := game_ui.get_pause_menu()
+	var root_page := pause_menu.get_node("%RootPage") as Control
+	var join_page := pause_menu.get_node("%JoinGamePage") as JoinGamePage
+	pause_menu.open_menu()
+	while bool(pause_menu.get("_root_transition_active")):
+		await process_frame
+	assert(pause_menu.visible and root_page.visible)
+	assert(not bool(player.call("_is_movement_input_enabled")))
+
+	pause_menu.call("_open_join_game")
+	while not join_page.visible:
+		await process_frame
+	assert(bool(pause_menu.get("_root_transition_active")))
+	pause_menu.call("_close_join_game")
+	assert(not join_page.visible)
+	# This is the issue #73 input: Escape arrives while the root is returning.
+	assert(pause_menu.handle_escape())
+	while bool(pause_menu.get("_root_transition_active")):
+		await process_frame
+	assert(pause_menu.visible and root_page.visible)
+	assert(not bool(player.call("_is_movement_input_enabled")))
+
+	assert(pause_menu.handle_escape())
+	while pause_menu.visible:
+		await process_frame
+	assert(player.is_movement_enabled())
+
+	# Fishing can complete while pause owns local input. Closing pause must only
+	# release its own lock, not restore the stale movement value from open time.
+	player.set_movement_enabled(false)
+	pause_menu.open_menu()
+	while bool(pause_menu.get("_root_transition_active")):
+		await process_frame
+	assert(not bool(player.call("_is_movement_input_enabled")))
+	player.set_movement_enabled(true)
+	assert(player.is_movement_enabled())
+	assert(not bool(player.call("_is_movement_input_enabled")))
+	pause_menu.close_menu(PauseMenu.CloseReason.USER_RETURN)
+	assert(player.is_movement_enabled())
+	assert(bool(player.call("_is_movement_input_enabled")))
+
+	# Opening pause during a right-click camera drag must not snapshot and later
+	# restore the drag's transient captured mouse mode after the drag is cancelled.
+	assert(
+		pause_menu.call(
+			"_get_restorable_mouse_mode",
+			Input.MOUSE_MODE_CAPTURED,
+		) == Input.MOUSE_MODE_VISIBLE
+	)
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	player.call("_set_camera_dragging", true)
+	assert(bool(player.get("_camera_dragging")))
+	pause_menu.open_menu()
+	while bool(pause_menu.get("_root_transition_active")):
+		await process_frame
+	assert(not bool(player.get("_camera_dragging")))
+	assert(Input.mouse_mode == Input.MOUSE_MODE_VISIBLE)
+	pause_menu.close_menu(PauseMenu.CloseReason.USER_RETURN)
+	assert(Input.mouse_mode == Input.MOUSE_MODE_VISIBLE)

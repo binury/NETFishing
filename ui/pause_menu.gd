@@ -63,10 +63,7 @@ var _settings_manager: SettingsManagerType
 var _fishing_spot: FishingSpotType
 var _network_session: NetworkSessionType
 var _saved_servers: SavedServerStoreType
-var _prior_movement_enabled: bool = true
-var _prior_camera_enabled: bool = true
 var _prior_mouse_mode: Input.MouseMode = Input.MOUSE_MODE_VISIBLE
-var _control_snapshot_stored: bool = false
 var _mouse_snapshot_stored: bool = false
 var _confirmation_action: ConfirmationAction = ConfirmationAction.NONE
 var _action_in_progress: bool = false
@@ -128,13 +125,11 @@ func setup(
 func open_menu() -> void:
 	if visible or _player == null:
 		return
-	_prior_movement_enabled = _player.is_movement_enabled()
-	_prior_camera_enabled = _player.is_camera_input_enabled()
-	_prior_mouse_mode = Input.mouse_mode
-	_control_snapshot_stored = true
+	# Suppression ends an active right-click camera drag and restores its prior
+	# mouse mode. Snapshot only after that transient capture has been released.
+	_player.set_local_input_suppressed(INPUT_OWNER, true)
+	_prior_mouse_mode = _get_restorable_mouse_mode(Input.mouse_mode)
 	_mouse_snapshot_stored = true
-	_player.set_movement_enabled(false)
-	_player.set_camera_input_enabled(false)
 	_fishing_spot.set_local_menu_input_suppressed(INPUT_OWNER, true)
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	_feedback.text = ""
@@ -452,8 +447,9 @@ func report_reset_failure() -> void:
 
 
 func _begin_root_entry(flurry_already_emitted: bool) -> void:
-	if _root_transition_active:
-		return
+	# Child pages become interactive before the root page has completely left.
+	# If one closes during that overlap, reverse the active root transition
+	# instead of dropping the navigation request and leaving every page hidden.
 	_root_transition_generation += 1
 	_root_transition_active = true
 	if not flurry_already_emitted:
@@ -530,15 +526,20 @@ func _finish_close(reason: CloseReason, restore_controls: bool) -> void:
 	_action_in_progress = false
 	_transition_flurry.clear_flurries()
 	hide()
+	if _player != null and is_instance_valid(_player):
+		# Pause owns only its input suppression. Gameplay systems such as fishing
+		# remain free to change their underlying movement state while it is open.
+		_player.set_local_input_suppressed(INPUT_OWNER, false)
+		if not restore_controls:
+			# The caller is transferring control to title/session or recovery logic.
+			# Preserve the previous no-input handoff until that system takes over.
+			_player.set_movement_enabled(false)
+			_player.set_camera_input_enabled(false)
 	if _fishing_spot != null and is_instance_valid(_fishing_spot):
 		_fishing_spot.set_local_menu_input_suppressed(INPUT_OWNER, false)
 	var current_viewport: Viewport = get_viewport()
 	if current_viewport != null:
 		current_viewport.gui_release_focus()
-	if restore_controls:
-		_restore_controls()
-	else:
-		_control_snapshot_stored = false
 	_apply_mouse_close_policy(reason)
 	menu_visibility_changed.emit(false)
 
@@ -555,13 +556,10 @@ func _update_responsive_pause_stage() -> void:
 	_presentation_scale_root.position = Vector2.ZERO
 
 
-func _restore_controls() -> void:
-	if not _control_snapshot_stored:
-		return
-	if _player != null and is_instance_valid(_player):
-		_player.set_movement_enabled(_prior_movement_enabled)
-		_player.set_camera_input_enabled(_prior_camera_enabled)
-	_control_snapshot_stored = false
+func _get_restorable_mouse_mode(mouse_mode: Input.MouseMode) -> Input.MouseMode:
+	if mouse_mode == Input.MOUSE_MODE_CAPTURED:
+		return Input.MOUSE_MODE_VISIBLE
+	return mouse_mode
 
 
 func _apply_mouse_close_policy(reason: CloseReason) -> void:
