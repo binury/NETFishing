@@ -218,10 +218,13 @@ static func _set_fur_mesh(
 	var mesh_instance := skeleton.get_node_or_null(mesh_name) as MeshInstance3D
 	if mesh_instance == null:
 		return
+	var style_field := (
+		CharacterCustomizationCatalog.fur_style_field_for_component(mesh_name)
+	)
 	var style_id := CharacterCustomizationCatalog.canonical_option_id(
-		CharacterCustomizationCatalog.FUR_STYLE_ID,
+		style_field,
 		str(snapshot.get(
-			CharacterCustomizationCatalog.FUR_STYLE_ID,
+			style_field,
 			CharacterCustomizationCatalog.DEFAULT_FUR_STYLE,
 		)),
 	)

@@ -7,7 +7,7 @@ const FishCatalog: FishPool = preload("res://fish/pools/fish_catalog.tres")
 
 
 func _initialize() -> void:
-	assert(NetworkProtocol.PROTOCOL_VERSION == 5)
+	assert(NetworkProtocol.PROTOCOL_VERSION == 6)
 	assert(
 		NetworkWorldSpawnProtocol.CAPABILITY
 		== NetworkProtocol.WORLD_SPAWN_CAPABILITY

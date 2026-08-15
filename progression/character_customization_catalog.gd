@@ -20,6 +20,10 @@ const SNAPSHOT_IDS: PackedStringArray = [
 	"scale",
 	"fur_pattern",
 	"fur_style",
+	"fur_style_arms",
+	"fur_style_head",
+	"fur_style_ears",
+	"fur_style_tail",
 	"fur_color_2",
 	"fur_color_3",
 	"fur_color_4",
@@ -47,6 +51,24 @@ const MAX_CHARACTER_SCALE: float = 1.5
 const DEFAULT_CHARACTER_SCALE: float = 1.0
 const CHARACTER_SCALE_STEP: float = 0.05
 const FUR_STYLE_ID: String = "fur_style"
+const FUR_STYLE_ARMS_ID: String = "fur_style_arms"
+const FUR_STYLE_HEAD_ID: String = "fur_style_head"
+const FUR_STYLE_EARS_ID: String = "fur_style_ears"
+const FUR_STYLE_TAIL_ID: String = "fur_style_tail"
+const FUR_STYLE_IDS: PackedStringArray = [
+	FUR_STYLE_ID,
+	FUR_STYLE_ARMS_ID,
+	FUR_STYLE_HEAD_ID,
+	FUR_STYLE_EARS_ID,
+	FUR_STYLE_TAIL_ID,
+]
+const FUR_STYLE_LABELS: Dictionary = {
+	FUR_STYLE_ID: "body",
+	FUR_STYLE_ARMS_ID: "arms",
+	FUR_STYLE_HEAD_ID: "head",
+	FUR_STYLE_EARS_ID: "ears",
+	FUR_STYLE_TAIL_ID: "tail",
+}
 const FUR_COLOR_IDS: PackedStringArray = [
 	"fur_pattern",
 	"fur_color_2",
@@ -56,10 +78,14 @@ const FUR_COLOR_IDS: PackedStringArray = [
 const FUR_COLOR_LABELS: Dictionary = {
 	"fur_pattern": "primary",
 	"fur_color_2": "secondary",
-	"fur_color_3": "accent",
-	"fur_color_4": "detail",
+	"fur_color_3": "tertiary",
+	"fur_color_4": "quaternary",
 }
+const CUSTOM_FUR_COLOR_PREFIX: String = "custom_"
 const DEFAULT_FUR_STYLE: String = "solid"
+const FUR_PATTERN_ASSET_ROOT: String = (
+	"res://art/exported/characters/patterns"
+)
 const FEATURE_TEXTURE_CACHE_LIMIT: int = 24
 
 const FEATURE_CATEGORIES: PackedStringArray = ["eyes", "nose", "mouth"]
@@ -117,53 +143,6 @@ const OPTIONS: Dictionary = {
 	"fur_color_2": FUR_COLOR_OPTIONS,
 	"fur_color_3": FUR_COLOR_OPTIONS,
 	"fur_color_4": FUR_COLOR_OPTIONS,
-	"fur_style": [
-		{"id": "solid", "label": "solid"},
-		{
-			"id": "spots_bengal",
-			"label": "bengal spots",
-			"textures": {
-				"body_main": (
-					"res://art/exported/characters/patterns/"
-					+ "bengal/body_main_bengal.png"
-				),
-				"body_arms": (
-					"res://art/exported/characters/patterns/"
-					+ "bengal/body_arms_bengal.png"
-				),
-				"head_round": (
-					"res://art/exported/characters/patterns/"
-					+ "bengal/head_round_bengal.png"
-				),
-			},
-		},
-		{
-			"id": "fox",
-			"label": "fox",
-			"textures": {
-				"body_main": (
-					"res://art/exported/characters/patterns/"
-					+ "fox/body_main_fox.png"
-				),
-				"body_arms": (
-					"res://art/exported/characters/patterns/"
-					+ "fox/body_arms_fox.png"
-				),
-				"head_pointy": (
-					"res://art/exported/characters/patterns/"
-					+ "fox/head_pointy_fox.png"
-				),
-				"head_round": (
-					"res://art/exported/characters/patterns/"
-					+ "fox/head_round_fox.png"
-				),
-				"tails_fox": (
-					"res://art/exported/characters/patterns/"
-					+ "fox/tails_fox_fox.png"
-				),
-			},
-		},
-	],
 	"ears": [
 		{"id": "none", "label": "none"},
 		{"id": "antlers_round", "label": "antlers"},
@@ -196,7 +175,7 @@ const OPTIONS: Dictionary = {
 const LEGACY_OPTION_ALIASES: Dictionary = {
 	"species": {"default": "round"},
 	"fur_pattern": {"solid": "white"},
-	"fur_style": {"bengal": "spots_bengal"},
+	"fur_style": {"spots_bengal": "bengal"},
 	"ears": {"default": "none"},
 	"tail": {"default": "none"},
 	"eyes": {"default": "simple_shine"},
@@ -209,6 +188,9 @@ static var _feature_options: Dictionary = {}
 static var _feature_resource_paths: Dictionary = {}
 static var _feature_textures: Dictionary = {}
 static var _feature_texture_cache_order: Array[String] = []
+static var _fur_pattern_assets_ready: bool = false
+static var _fur_pattern_options: Array = []
+static var _fur_pattern_resource_paths: Dictionary = {}
 static var _fur_pattern_textures: Dictionary = {}
 
 
@@ -219,6 +201,10 @@ static func default_snapshot() -> Dictionary:
 		"scale": DEFAULT_CHARACTER_SCALE,
 		"fur_pattern": "white",
 		"fur_style": DEFAULT_FUR_STYLE,
+		"fur_style_arms": DEFAULT_FUR_STYLE,
+		"fur_style_head": DEFAULT_FUR_STYLE,
+		"fur_style_ears": DEFAULT_FUR_STYLE,
+		"fur_style_tail": DEFAULT_FUR_STYLE,
 		"fur_color_2": "cream",
 		"fur_color_3": "brown",
 		"fur_color_4": "red",
@@ -249,6 +235,9 @@ static func options_for(category_id: String) -> Array:
 	if category_id in FEATURE_CATEGORIES:
 		_ensure_feature_assets()
 		return _feature_options.get(category_id, []) as Array
+	if category_id in FUR_STYLE_IDS:
+		_ensure_fur_pattern_assets()
+		return _fur_pattern_options
 	return OPTIONS.get(category_id, [])
 
 
@@ -386,6 +375,98 @@ static func refresh_feature_assets() -> void:
 	_ensure_feature_assets()
 
 
+static func refresh_fur_pattern_assets() -> void:
+	_fur_pattern_assets_ready = false
+	_fur_pattern_options.clear()
+	_fur_pattern_resource_paths.clear()
+	_fur_pattern_textures.clear()
+	_ensure_fur_pattern_assets()
+
+
+static func _ensure_fur_pattern_assets() -> void:
+	if _fur_pattern_assets_ready:
+		return
+	_fur_pattern_assets_ready = true
+	_fur_pattern_options = [{"id": DEFAULT_FUR_STYLE, "label": "solid"}]
+	var root_directory := DirAccess.open(FUR_PATTERN_ASSET_ROOT)
+	if root_directory == null:
+		return
+	var directory_names := root_directory.get_directories()
+	directory_names.sort()
+	for directory_name: String in directory_names:
+		var pattern_id := _normalized_asset_id(directory_name)
+		if pattern_id.is_empty() or pattern_id == DEFAULT_FUR_STYLE:
+			continue
+		var pattern_directory_path := FUR_PATTERN_ASSET_ROOT.path_join(
+			directory_name
+		)
+		var pattern_directory := DirAccess.open(pattern_directory_path)
+		if pattern_directory == null:
+			continue
+		var file_names := pattern_directory.get_files()
+		file_names.sort()
+		var canonical_files: Dictionary = {}
+		var found_pattern_texture := false
+		for file_name: String in file_names:
+			var canonical_file_name := _canonical_feature_filename(file_name)
+			if (
+				canonical_file_name.is_empty()
+				or canonical_files.has(canonical_file_name)
+			):
+				continue
+			canonical_files[canonical_file_name] = true
+			var file_base_name := canonical_file_name.get_basename().to_lower()
+			var pattern_suffix := "_" + pattern_id
+			if not file_base_name.ends_with(pattern_suffix):
+				continue
+			var component_id := file_base_name.substr(
+				0,
+				file_base_name.length() - pattern_suffix.length(),
+			)
+			component_id = _normalized_asset_id(component_id)
+			if component_id.is_empty():
+				continue
+			var resource_path := pattern_directory_path.path_join(
+				canonical_file_name
+			)
+			if not ResourceLoader.exists(resource_path, "Texture2D"):
+				push_warning(
+					"Ignoring fur mask without a loadable texture: "
+					+ resource_path
+				)
+				continue
+			_fur_pattern_resource_paths[
+				_fur_pattern_cache_id(pattern_id, component_id)
+			] = resource_path
+			found_pattern_texture = true
+		if found_pattern_texture:
+			_fur_pattern_options.append({
+				"id": pattern_id,
+				"label": pattern_id.replace("_", " "),
+			})
+
+
+static func _normalized_asset_id(value: String) -> String:
+	var result := value.to_lower()
+	result = result.replace("-", "_")
+	result = result.replace(" ", "_")
+	result = result.replace(".", "_")
+	while result.contains("__"):
+		result = result.replace("__", "_")
+	while result.begins_with("_"):
+		result = result.substr(1)
+	while result.ends_with("_"):
+		result = result.substr(0, result.length() - 1)
+	return result
+
+
+static func _fur_pattern_cache_id(
+	pattern_id: String,
+	component_id: String,
+) -> String:
+	return "%s:%s" % [pattern_id, component_id]
+
+
 static func _ensure_feature_assets() -> void:
 	if _feature_assets_ready:
 		return
@@ -473,6 +554,8 @@ static func category_label(category_id: String) -> String:
 
 static func is_valid_option(category_id: String, option_id: String) -> bool:
 	option_id = canonical_option_id(category_id, option_id)
+	if category_id in FUR_COLOR_IDS and is_custom_fur_color_id(option_id):
+		return true
 	for option: Dictionary in options_for(category_id):
 		if str(option.get("id", "")) == option_id:
 			return true
@@ -480,44 +563,149 @@ static func is_valid_option(category_id: String, option_id: String) -> bool:
 
 
 static func canonical_option_id(category_id: String, option_id: String) -> String:
-	var aliases: Dictionary = LEGACY_OPTION_ALIASES.get(category_id, {})
+	if (
+		category_id in FUR_COLOR_IDS
+		and option_id.to_lower().begins_with(CUSTOM_FUR_COLOR_PREFIX)
+	):
+		return option_id.to_lower()
+	var alias_category_id := (
+		FUR_STYLE_ID if category_id in FUR_STYLE_IDS else category_id
+	)
+	var aliases: Dictionary = LEGACY_OPTION_ALIASES.get(alias_category_id, {})
 	return str(aliases.get(option_id, option_id))
 
 
 static func option_color(category_id: String, option_id: String) -> Color:
 	var canonical_id: String = canonical_option_id(category_id, option_id)
+	if category_id in FUR_COLOR_IDS and is_custom_fur_color_id(canonical_id):
+		return Color(canonical_id.trim_prefix(CUSTOM_FUR_COLOR_PREFIX))
 	for option: Dictionary in options_for(category_id):
 		if str(option.get("id", "")) == canonical_id:
 			return option.get("color", Color.WHITE) as Color
 	return Color.WHITE
 
 
+static func custom_fur_color_id(color: Color) -> String:
+	var opaque_color := Color(color.r, color.g, color.b, 1.0)
+	return CUSTOM_FUR_COLOR_PREFIX + opaque_color.to_html(false)
+
+
+static func is_custom_fur_color_id(option_id: String) -> bool:
+	var canonical_id := option_id.to_lower()
+	if (
+		canonical_id.length() != CUSTOM_FUR_COLOR_PREFIX.length() + 6
+		or not canonical_id.begins_with(CUSTOM_FUR_COLOR_PREFIX)
+	):
+		return false
+	var hex_value := canonical_id.trim_prefix(CUSTOM_FUR_COLOR_PREFIX)
+	for character_index: int in range(hex_value.length()):
+		if hex_value[character_index] not in "0123456789abcdef":
+			return false
+	return true
+
+
 static func fur_color_label(category_id: String) -> String:
 	return str(FUR_COLOR_LABELS.get(category_id, category_id))
+
+
+static func fur_style_label(category_id: String) -> String:
+	return str(FUR_STYLE_LABELS.get(category_id, category_id))
+
+
+static func fur_style_field_for_component(component_id: String) -> String:
+	if component_id == "body_arms":
+		return FUR_STYLE_ARMS_ID
+	if component_id.begins_with("head_"):
+		return FUR_STYLE_HEAD_ID
+	if component_id.begins_with("ears_"):
+		return FUR_STYLE_EARS_ID
+	if component_id.begins_with("tails_"):
+		return FUR_STYLE_TAIL_ID
+	return FUR_STYLE_ID
+
+
+static func fur_component_for_style_field(
+	category_id: String,
+	snapshot: Dictionary,
+) -> String:
+	match category_id:
+		FUR_STYLE_ID:
+			return "body_main"
+		FUR_STYLE_ARMS_ID:
+			return "body_arms"
+		FUR_STYLE_HEAD_ID:
+			var species_id := canonical_option_id(
+				"species", str(snapshot.get("species", "round"))
+			)
+			return "head_pointy" if species_id == "pointy" else "head_round"
+		FUR_STYLE_EARS_ID:
+			var ears_id := canonical_option_id(
+				"ears", str(snapshot.get("ears", "none"))
+			)
+			return "" if ears_id == "none" else "ears_" + ears_id
+		FUR_STYLE_TAIL_ID:
+			var tail_id := canonical_option_id(
+				"tail", str(snapshot.get("tail", "none"))
+			)
+			return "" if tail_id == "none" else "tails_" + tail_id
+	return ""
+
+
+static func fur_pattern_options_for_field(
+	category_id: String,
+	snapshot: Dictionary,
+) -> Array:
+	if category_id not in FUR_STYLE_IDS:
+		return []
+	_ensure_fur_pattern_assets()
+	var component_id := fur_component_for_style_field(category_id, snapshot)
+	var result: Array = []
+	for option: Dictionary in _fur_pattern_options:
+		var pattern_id := str(option.get("id", ""))
+		if (
+			pattern_id == DEFAULT_FUR_STYLE
+			or (
+				not component_id.is_empty()
+				and _fur_pattern_resource_paths.has(
+					_fur_pattern_cache_id(pattern_id, component_id)
+				)
+			)
+		):
+			result.append(option)
+	return result
 
 
 static func fur_pattern_texture(
 	option_id: String,
 	component_id: String = "body_main",
 ) -> Texture2D:
+	_ensure_fur_pattern_assets()
 	var canonical_id := canonical_option_id(FUR_STYLE_ID, option_id)
 	if canonical_id == DEFAULT_FUR_STYLE:
 		return null
-	var cache_id := "%s:%s" % [canonical_id, component_id]
+	var cache_id := _fur_pattern_cache_id(canonical_id, component_id)
 	if _fur_pattern_textures.has(cache_id):
 		return _fur_pattern_textures[cache_id] as Texture2D
-	for option: Dictionary in options_for(FUR_STYLE_ID):
-		if str(option.get("id", "")) != canonical_id:
-			continue
-		var textures := option.get("textures", {}) as Dictionary
-		var resource_path := str(textures.get(component_id, ""))
-		if resource_path.is_empty():
-			return null
-		var texture := ResourceLoader.load(resource_path) as Texture2D
-		if texture != null:
-			_fur_pattern_textures[cache_id] = texture
-		return texture
-	return null
+	var resource_path := str(_fur_pattern_resource_paths.get(cache_id, ""))
+	if resource_path.is_empty():
+		return null
+	var texture := ResourceLoader.load(resource_path, "Texture2D") as Texture2D
+	if texture != null:
+		_fur_pattern_textures[cache_id] = texture
+	return texture
+
+
+static func appearance_signature_values(snapshot: Dictionary) -> Array:
+	var result: Array = []
+	for category_id: String in SNAPSHOT_IDS:
+		if category_id == SCALE_CATEGORY_ID:
+			result.append(character_scale_percent(snapshot.get(
+				category_id,
+				DEFAULT_CHARACTER_SCALE,
+			)))
+		else:
+			result.append(str(snapshot.get(category_id, "")))
+	return result
 
 
 static func validate_snapshot(value: Variant) -> bool:
@@ -550,8 +738,15 @@ static func sanitized_snapshot(value: Variant) -> Dictionary:
 				snapshot.get(category_id, DEFAULT_CHARACTER_SCALE)
 			)
 			continue
+		var raw_option: Variant = snapshot.get(category_id, "")
+		if (
+			category_id in FUR_STYLE_IDS
+			and category_id != FUR_STYLE_ID
+			and not snapshot.has(category_id)
+		):
+			raw_option = snapshot.get(FUR_STYLE_ID, DEFAULT_FUR_STYLE)
 		var option_id: String = canonical_option_id(
-			category_id, str(snapshot.get(category_id, ""))
+			category_id, str(raw_option)
 		)
 		if is_valid_option(category_id, option_id):
 			result[category_id] = option_id

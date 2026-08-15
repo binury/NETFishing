@@ -1,7 +1,7 @@
 class_name NetworkProtocol
 extends RefCounted
 
-const PROTOCOL_VERSION: int = 5
+const PROTOCOL_VERSION: int = 6
 const GAME_BUILD: String = "prealpha"
 const MAX_GAME_VERSION_LENGTH: int = 64
 const MAX_DISPLAY_NAME_LENGTH: int = 24
@@ -256,30 +256,17 @@ static func validate_client_hello(data: Variant) -> String:
 
 static func client_profile_fields(data: Dictionary) -> Array:
 	var appearance: Dictionary = data.get("cosmetic_snapshot", {})
-	return [
+	var result: Array = [
 		str(data.get("game_version", "")),
 		str(data.get("client_nonce", "")),
 		str(data.get("identity_fingerprint", "")),
 		str(data.get("local_profile_id", "")),
 		str(data.get("display_name", "")),
-		str(appearance.get("species", "")),
-		CharacterCustomizationCatalog.character_scale_percent(
-			appearance.get(
-				CharacterCustomizationCatalog.SCALE_CATEGORY_ID,
-				CharacterCustomizationCatalog.DEFAULT_CHARACTER_SCALE,
-			)
-		),
-		str(appearance.get("fur_pattern", "")),
-		str(appearance.get("fur_style", "")),
-		str(appearance.get("fur_color_2", "")),
-		str(appearance.get("fur_color_3", "")),
-		str(appearance.get("fur_color_4", "")),
-		str(appearance.get("ears", "")),
-		str(appearance.get("eyes", "")),
-		str(appearance.get("nose", "")),
-		str(appearance.get("mouth", "")),
-		str(appearance.get("tail", "")),
 	]
+	result.append_array(
+		CharacterCustomizationCatalog.appearance_signature_values(appearance)
+	)
+	return result
 
 
 static func make_server_hello(

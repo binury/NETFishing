@@ -176,11 +176,19 @@ authored `mesh_style.png` filenames.
 | Bengal spots, body and arms | `body_arms_bengal.png` | `art/exported/characters/patterns/bengal/body_arms_bengal.png` | `fa90bd4e74b0b770ce97bf69d069676f5d4bd1f5d649f89e09638a66b61a8470` |
 | Bengal spots, main body | `body_main_bengal.png` | `art/exported/characters/patterns/bengal/body_main_bengal.png` | `8662fa198220cfdbe0aa83bdeeef7b855e20124d74f8481467f750d32b67ee8b` |
 | Bengal spots, round head | `head_round_bengal.png` | `art/exported/characters/patterns/bengal/head_round_bengal.png` | `f397ed8d152e3fda8181757a2bbd01925b7b8c2c4362f515d91c7f0fbf3ddfb6` |
+| Calico, main body | `body_main_calico.png` | `art/exported/characters/patterns/calico/body_main_calico.png` | `25b2389ee729a6bafafbe6b5440541b18f3c5db2808ca8d49c2d5c4d012d390c` |
 | Fox, body and arms | `body_arms_fox.png` | `art/exported/characters/patterns/fox/body_arms_fox.png` | `9930808718f31d84b415902f1ba55ac2a508bb2ac127300e793d73a8a013022d` |
 | Fox, main body | `body_main_fox.png` | `art/exported/characters/patterns/fox/body_main_fox.png` | `c65e4390173b8c31c9396edd053f940f0f809e47e01d18042cd7babc712dde9d` |
+| Fox, short pointy ears | `ears_pointy_short_fox.png` | `art/exported/characters/patterns/fox/ears_pointy_short_fox.png` | `13cb35192d25c0136df287434fa056ce990698fc47dc50445c941f92a4ff42fb` |
 | Fox, pointy head | `head_pointy_fox.png` | `art/exported/characters/patterns/fox/head_pointy_fox.png` | `71a9d2383e62884dbd3981460fcd985b18805fa907f61ffb16dce08ff9418ddf` |
-| Fox, round head | `head_round_fox.png` | `art/exported/characters/patterns/fox/head_round_fox.png` | `86dd7af8a2346faf67359ad668a117a74e2408676137d6b0626403cfcf2aba73` |
+| Fox, round head | `head_round_fox.png` | `art/exported/characters/patterns/fox/head_round_fox.png` | `1ac3d503bc1e47a5ae3c1a8af719c9d1be06aab2d6d4d30c179c2a021fe7d34d` |
 | Fox tail | `tails_fox_fox.png` | `art/exported/characters/patterns/fox/tails_fox_fox.png` | `72da9673f038e2c3bb8aca19ed99932085fa3b162cab95366901c4e97153dd3e` |
+| Paws, body and arms | `body_arms_paws.png` | `art/exported/characters/patterns/paws/body_arms_paws.png` | `38f31ecf7045510501bdd08cbc243065c2fadec481462671dd22b13e8a196e66` |
+| Paws, main body | `body_main_paws.png` | `art/exported/characters/patterns/paws/body_main_paws.png` | `d52012d4a1ea3ed544582be714469ed8fec148ccd59417dda21e89c18509321b` |
+| Stripes, main body | `body_main_stripes.png` | `art/exported/characters/patterns/stripes/body_main_stripes.png` | `4b1e5b412a7af3e6acd0a5bfb1b6ffd6e0814850a311fc8cc3061419a8f23555` |
+| Tiger, main body | `body_main_tiger.png` | `art/exported/characters/patterns/tiger/body_main_tiger.png` | `64b6f47871802e72ba6fe15577f14949a760c6d44bb962bfbbdcddc991b2105b` |
+| Tiger, round head | `head_round_tiger.png` | `art/exported/characters/patterns/tiger/head_round_tiger.png` | `6af27056b9827391a73b4ea6f3736b308fa93a03127570f90cc4d3701afd3d80` |
+| Tummy, main body | `body_main_tummy.png` | `art/exported/characters/patterns/tummy/body_main_tummy.png` | `dad404614c3feae4082537c02556781ea46c664327e0dc4528804f76619af86a` |
 
 ### Tekgator shop icon contribution record
 

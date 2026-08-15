@@ -43,27 +43,14 @@ static func valid_apply_request(data: Variant) -> bool:
 
 static func signature_fields(data: Dictionary) -> Array:
 	var appearance: Dictionary = data.get("appearance", {})
-	return [
+	var result: Array = [
 		str(data.get("session_id", "")),
 		str(data.get("request_id", "")),
 		str(data.get("sender_fingerprint", "")),
 		str(data.get("display_name", "")),
-		str(appearance.get("species", "")),
-		CharacterCustomizationCatalog.character_scale_percent(
-			appearance.get(
-				CharacterCustomizationCatalog.SCALE_CATEGORY_ID,
-				CharacterCustomizationCatalog.DEFAULT_CHARACTER_SCALE,
-			)
-		),
-		str(appearance.get("fur_pattern", "")),
-		str(appearance.get("fur_style", "")),
-		str(appearance.get("fur_color_2", "")),
-		str(appearance.get("fur_color_3", "")),
-		str(appearance.get("fur_color_4", "")),
-		str(appearance.get("ears", "")),
-		str(appearance.get("eyes", "")),
-		str(appearance.get("nose", "")),
-		str(appearance.get("mouth", "")),
-		str(appearance.get("tail", "")),
-		bool(data.get("use_anyway", false)),
 	]
+	result.append_array(
+		CharacterCustomizationCatalog.appearance_signature_values(appearance)
+	)
+	result.append(bool(data.get("use_anyway", false)))
+	return result
