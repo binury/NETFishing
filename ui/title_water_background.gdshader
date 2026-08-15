@@ -10,30 +10,52 @@ uniform float wave_speed : hint_range(0.0, 0.5, 0.01) = 0.10;
 uniform float wave_scale : hint_range(0.5, 8.0, 0.1) = 2.4;
 uniform float wave_strength : hint_range(0.0, 0.05, 0.001) = 0.012;
 uniform float caustic_strength : hint_range(0.0, 0.08, 0.001) = 0.018;
+uniform bool animation_enabled = true;
 
 void fragment() {
 	vec2 grid_size = max(virtual_pixel_density, vec2(1.0));
 	vec2 pixel_uv = (floor(UV * grid_size) + vec2(0.5)) / grid_size;
-	float motion = TIME * wave_speed;
-
-	float broad_wave = sin(
-		pixel_uv.x * wave_scale + motion
-	);
-	float secondary_wave = sin(
-		pixel_uv.x * 1.1 + pixel_uv.y * 1.6 - motion * 0.65
-	);
-	float movement_falloff = 1.0 - pixel_uv.y * 0.75;
-	float depth_displacement = (
-		(broad_wave * 0.65 + secondary_wave * 0.35)
-		* wave_strength
-		* movement_falloff
-	);
-	float continuous_depth = clamp(
-		pixel_uv.y
-		+ depth_displacement,
-		0.0,
-		1.0
-	);
+	float continuous_depth = pixel_uv.y;
+	float caustic_level = 0.0;
+	if (animation_enabled) {
+		float motion = TIME * wave_speed;
+		float broad_wave = sin(
+			pixel_uv.x * wave_scale + motion
+		);
+		float secondary_wave = sin(
+			pixel_uv.x * 1.1 + pixel_uv.y * 1.6 - motion * 0.65
+		);
+		float movement_falloff = 1.0 - pixel_uv.y * 0.75;
+		float depth_displacement = (
+			(broad_wave * 0.65 + secondary_wave * 0.35)
+			* wave_strength
+			* movement_falloff
+		);
+		continuous_depth = clamp(
+			pixel_uv.y
+			+ depth_displacement,
+			0.0,
+			1.0
+		);
+		float caustic_wave = clamp(
+			(
+				sin(
+					pixel_uv.x * 4.0
+					+ pixel_uv.y * 1.2
+					+ motion * 0.7
+				)
+				* sin(
+					pixel_uv.x * 1.7
+					- pixel_uv.y * 2.2
+					- motion * 0.55
+				)
+				- 0.25
+			) / 0.75,
+			0.0,
+			1.0
+		);
+		caustic_level = floor(caustic_wave * 3.0) / 3.0;
+	}
 	float depth_steps = max(2.0, floor(color_step_count));
 	float band_index = floor(
 		continuous_depth * (depth_steps - 1.0) + 0.5
@@ -60,26 +82,6 @@ void fragment() {
 		);
 	}
 
-	float caustic_wave = clamp(
-		(
-		sin(
-			pixel_uv.x * 4.0
-			+ pixel_uv.y * 1.2
-			+ motion * 0.7
-		)
-		* sin(
-			pixel_uv.x * 1.7
-			- pixel_uv.y * 2.2
-			- motion * 0.55
-		)
-		- 0.25
-		) / 0.75,
-		0.0,
-		1.0
-	);
-	float caustic_level = floor(
-		caustic_wave * 3.0
-	) / 3.0;
 	float upper_water_mask = 1.0 - smoothstep(
 		0.18,
 		0.34,

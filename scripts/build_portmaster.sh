@@ -144,6 +144,11 @@ PortMaster launches use the light performance profile by default. Put the word
 \`normal\` in \`netfishing/conf/performance_profile\` to opt a capable device
 into the normal rendering profile. See \`netfishing/licenses/\` for bundled
 credits and license information.
+
+## Controls
+
+NETfishing reads the handheld controller directly. PortMaster's system
+force-quit chord remains available; this is Start+Select on most devices.
 EOF
 
 (
@@ -163,14 +168,26 @@ if [[ "${TOP_LEVELS}" != "${EXPECTED_TOP_LEVELS}" ]]; then
 fi
 grep -q '"version": 4' "${STAGE_ROOT}/port.json"
 grep -q '"name": "netfishing.zip"' "${STAGE_ROOT}/port.json"
+grep -q '"rtr": true' "${STAGE_ROOT}/port.json"
 grep -q '^# PORTMASTER: netfishing.zip, NETfishing.sh$' \
   "${STAGE_ROOT}/NETfishing.sh"
 grep -Fq 'PROFILE_PATH="$CONFDIR/performance_profile"' \
   "${STAGE_ROOT}/NETfishing.sh"
 grep -Fq 'NETFISHING_PERFORMANCE_PROFILE=light' \
   "${STAGE_ROOT}/NETfishing.sh"
-if grep -q 'GPTOKEYB' "${STAGE_ROOT}/NETfishing.sh"; then
-  echo "GPTOKEYB must not be enabled for NETfishing." >&2
+grep -Fq '$GPTOKEYB "NETfishing.aarch64" &' \
+  "${STAGE_ROOT}/NETfishing.sh"
+grep -Fq 'pm_platform_helper "$GAME_EXECUTABLE"' \
+  "${STAGE_ROOT}/NETfishing.sh"
+grep -Fq 'pm_finish' "${STAGE_ROOT}/NETfishing.sh"
+if [[ "$(grep -Ec '^[[:space:]]*\$GPTOKEYB[[:space:]]' \
+  "${STAGE_ROOT}/NETfishing.sh")" -ne 1 ]]; then
+  echo "NETfishing must start exactly one GPTOKEYB exit handler." >&2
+  exit 1
+fi
+if grep -Eq '\$GPTOKEYB.*[[:space:]]-c([[:space:]]|$)' \
+  "${STAGE_ROOT}/NETfishing.sh"; then
+  echo "GPTOKEYB controller mappings must not be enabled for NETfishing." >&2
   exit 1
 fi
 if unzip -Z1 "${ARCHIVE}" | grep -E \

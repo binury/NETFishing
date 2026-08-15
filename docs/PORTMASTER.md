@@ -15,13 +15,17 @@ directory. The templates in `scripts/portmaster/` are authoritative.
 
 ## Release contract
 
-- `port.json` uses schema version 4 and names `netfishing.zip`.
+- `port.json` uses schema version 4, names `netfishing.zip`, and marks the
+  self-contained package ready to run.
 - `NETfishing.sh` starts with `# PORTMASTER: netfishing.zip, NETfishing.sh`.
 - The executable is `netfishing/NETfishing.aarch64`.
 - The package declares AArch64, two analog sticks, GLIBC 2.28, and
   `weston_pkg_0.2.squashfs`.
-- The launcher must not start GPTOKEYB. Godot and NETfishing's controller
-  mapping manager handle controller input directly.
+- The launcher starts GPTOKEYB in exit-only mode without a `-c` mapping file.
+  PortMaster therefore owns only its device-specific force-quit chord while
+  Godot and NETfishing's controller mapping manager handle gameplay input.
+- The launcher calls `pm_platform_helper` for the game executable after
+  starting GPTOKEYB and calls `pm_finish` after the game exits.
 - Persistent device data remains under `netfishing/conf/data`,
   `netfishing/conf/config`, and `netfishing/conf/cache`.
 - The archive must not contain `conf/`, saves, identities, logs, source files,
@@ -69,11 +73,14 @@ Before upgrading an existing installation, preserve
 `/mnt/mmc/ports/netfishing/conf/` on the device. After installation:
 
 1. Confirm the installed executable and PCK hashes match the staged release.
-2. Confirm the installed launcher contains the canonical PortMaster header and
-   does not contain `GPTOKEYB`.
+2. Confirm the installed launcher contains the canonical PortMaster header,
+   starts GPTOKEYB without a `-c` mapping file, and calls
+   `pm_platform_helper` for the game executable.
 3. Confirm `conf/` was not replaced or removed.
 4. Launch the installed port through the normal muOS menu.
 5. Verify the displayed game version and controller face-button mapping.
+6. Verify PortMaster's force-quit chord exits the game. This is Start+Select on
+   most devices.
 
 Installing the public PortMaster catalog entry can still install an older
 catalog build until the upstream `netfishing.zip` is updated. A local release
@@ -127,6 +134,11 @@ as `SDL_GAMECONTROLLERCONFIG` in the game command after Weston initializes;
 Weston sources PortMaster's control file internally and otherwise restores the
 SDL2 value.
 
+Do not pass a `.gptk` controller mapping to GPTOKEYB. Its exit-only process
+must retain PortMaster's controller configuration, while the verified Godot
+mapping remains scoped to the game command. This prevents duplicate or
+translated gameplay events while preserving the system force-quit chord.
+
 Do not call `Input.add_joy_mapping(..., true)` for a recognized connected muOS
 controller. Updating this virtual controller after connection can stop Godot
 from delivering its standardized controller events until restart.
@@ -162,7 +174,9 @@ also:
 - disables the additional full-screen world-pixelation pass;
 - replaces animated depth-aware water shaders with opaque, per-vertex water;
 - disables ocean surface motion;
-- reduces rain to 256 particles simulated at 15 FPS; and
+- disables foliage wind;
+- keeps the title water and full-window menu patterns static;
+- reduces rain to 128 particles simulated at 12 FPS; and
 - replaces procedural sky clouds and 81 moving local cloud patches with one
   flat cloud ceiling.
 

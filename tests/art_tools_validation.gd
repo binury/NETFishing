@@ -216,8 +216,7 @@ func _run() -> void:
 	) as EmoteRadialMenu
 	assert(quick_menu != null and emote_menu != null)
 	assert(QuickRadialMenu.ACTIONS.size() == QuickRadialMenu.SECTOR_COUNT)
-	assert(QuickRadialMenu.ACTIONS.has(&"freecam"))
-	assert(QuickRadialMenu.ACTIONS.has(&"hud"))
+	assert(QuickRadialMenu.ACTIONS == [&"chat", &"freecam", &"hud"])
 	game_ui.call("_on_quick_action_selected", &"freecam")
 	assert(player.is_free_camera_active())
 	var free_camera := player.get_active_gameplay_camera()
@@ -544,10 +543,6 @@ func _run() -> void:
 	await process_frame
 	assert(player.hotbar.get_selected_slot() == 1)
 	assert(not service.is_active() and not toolbar.visible)
-	game_ui.call("_on_quick_action_selected", &"paint")
-	await process_frame
-	assert(player.hotbar.get_selected_slot() == 0)
-	assert(service.is_active() and toolbar.visible)
 
 	print("Art tools validation: PASS")
 	var session := main.get_node("%NetworkSession") as NetworkSession

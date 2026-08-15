@@ -20,7 +20,7 @@
       "simulation"
     ],
     "image": {},
-    "rtr": false,
+    "rtr": true,
     "exp": false,
     "runtime": [
       "weston_pkg_0.2.squashfs"

@@ -122,7 +122,6 @@ const SHOP_ANIMALESE_VOICE_ID: String = "natural"
 const SHOP_ANIMALESE_BASE_PITCH: float = 1.08
 const SHOP_SPEECH_CHARACTERS_PER_SECOND: float = 28.0
 const SHOP_NPC_SPEECH_COOLDOWN_MILLISECONDS: int = 5000
-const ART_KIT_ITEM_ID: StringName = &"art_kit"
 
 
 @onready var _canonical_stage: Control = %CanonicalStage
@@ -612,20 +611,6 @@ func _on_emote_selected(emote_id: StringName) -> void:
 
 func _on_quick_action_selected(action_id: StringName) -> void:
 	match action_id:
-		&"stuff":
-			_player_menu.open_section(PlayerMenuType.Section.COOLER)
-		&"logbook":
-			_player_menu.open_section(PlayerMenuType.Section.LOGBOOK)
-		&"fishnet":
-			_player_menu.open_section(PlayerMenuType.Section.NET)
-		&"mail":
-			_player_menu.open_section(PlayerMenuType.Section.MAIL)
-		&"profile":
-			_player_menu.open_section(PlayerMenuType.Section.PROFILE)
-		&"online":
-			_player_menu.open_section(PlayerMenuType.Section.PLAYERS)
-		&"paint":
-			_select_art_kit_hotbar_slot()
 		&"chat":
 			_chat_ui.open_chat()
 		&"freecam":
@@ -1114,15 +1099,6 @@ static func get_virtual_mouse_window_bounds(window_size: Vector2) -> Rect2:
 		maxf(window_size.y - cursor_margin.y * 2.0, 0.0),
 	)
 	return Rect2(cursor_margin, bounds_size)
-
-
-func _select_art_kit_hotbar_slot() -> void:
-	if _hotbar == null:
-		return
-	for slot_index: int in range(PlayerHotbarType.SLOT_COUNT):
-		if _hotbar.get_item_id(slot_index) == ART_KIT_ITEM_ID:
-			_hotbar.select_slot(slot_index)
-			return
 
 
 func set_surface_drawing_hotbar_selected(is_selected: bool) -> void:

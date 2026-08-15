@@ -47,10 +47,13 @@ var fishing_shop_path: NodePath = (
 @export_range(0.0, 0.4, 0.005) var foliage_wind_strength: float = 0.36
 @export_range(0.0, 4.0, 0.05) var foliage_wind_speed: float = 0.9
 
+var _foliage_wind_enabled: bool = false
+
+
 func _ready() -> void:
 	if rebuild_terrain_collision_on_ready or not has_terrain_collision():
 		_build_terrain_collision()
-	_apply_foliage_wind()
+	_set_foliage_wind_enabled(true)
 	if Engine.is_editor_hint():
 		update_configuration_warnings()
 
@@ -69,6 +72,7 @@ func get_saltwater_shoreline_mesh() -> MeshInstance3D:
 
 
 func set_light_performance_profile(enabled: bool) -> void:
+	_set_foliage_wind_enabled(not enabled)
 	var pond := get_node_or_null(
 		^"WaterBodies/Pond/VisualWater"
 	) as MeshInstance3D
@@ -93,9 +97,10 @@ func set_light_performance_profile(enabled: bool) -> void:
 			if enabled
 			else NORMAL_SALT_WATER_MATERIAL
 		)
-		var surface_motion := ocean as WaterSurfaceMotion
-		if surface_motion != null:
-			surface_motion.set_motion_enabled(not enabled)
+
+
+func is_foliage_wind_enabled() -> bool:
+	return _foliage_wind_enabled
 
 
 func _create_light_water_material(
@@ -254,14 +259,33 @@ func _collect_terrain_mesh_instances(root: Node) -> Array[MeshInstance3D]:
 	return mesh_instances
 
 
-func _apply_foliage_wind() -> void:
+func _set_foliage_wind_enabled(enabled: bool) -> void:
+	_foliage_wind_enabled = enabled
 	var terrain_root: Node = get_node_or_null(terrain_visual_root_path)
 	if terrain_root == null:
 		return
 	for mesh_instance: MeshInstance3D in _collect_terrain_mesh_instances(
 		terrain_root
 	):
-		_apply_foliage_wind_to_mesh(mesh_instance)
+		if enabled:
+			_apply_foliage_wind_to_mesh(mesh_instance)
+		else:
+			_remove_foliage_wind_from_mesh(mesh_instance)
+
+
+func _remove_foliage_wind_from_mesh(mesh_instance: MeshInstance3D) -> void:
+	if mesh_instance.mesh == null:
+		return
+	for surface_index: int in mesh_instance.mesh.get_surface_count():
+		var override_material: Material = (
+			mesh_instance.get_surface_override_material(surface_index)
+		)
+		var shader_material := override_material as ShaderMaterial
+		if (
+			shader_material != null
+			and shader_material.shader == FOLIAGE_WIND_SHADER
+		):
+			mesh_instance.set_surface_override_material(surface_index, null)
 
 
 func _apply_foliage_wind_to_mesh(mesh_instance: MeshInstance3D) -> void:

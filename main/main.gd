@@ -259,6 +259,9 @@ func _ready() -> void:
 	_test_world.set_light_performance_profile(
 		_performance_profile.is_light()
 	)
+	_configure_presentation_performance_profile(
+		_performance_profile.is_light()
+	)
 	DisplayServer.window_set_title("NETfishing")
 	_rain_ambience = RainAmbienceType.new()
 	_rain_ambience.name = "RainAmbience"
@@ -268,28 +271,6 @@ func _ready() -> void:
 		_player,
 		_test_world.get_saltwater_shoreline_mesh(),
 	)
-	var menu_pattern_material := (
-		_player_menu_backdrop.material as ShaderMaterial
-	)
-	if menu_pattern_material != null:
-		menu_pattern_material.set_shader_parameter(
-			"display_scale",
-			PLAYER_MENU_PATTERN_SCALE,
-		)
-		menu_pattern_material.set_shader_parameter(
-			"scroll_velocity_pixels",
-			PLAYER_MENU_PATTERN_SCROLL_VELOCITY,
-		)
-	var shop_pattern_material := _shop_backdrop.material as ShaderMaterial
-	if shop_pattern_material != null:
-		shop_pattern_material.set_shader_parameter(
-			"display_scale",
-			SHOP_PATTERN_SCALE,
-		)
-		shop_pattern_material.set_shader_parameter(
-			"scroll_velocity_pixels",
-			PLAYER_MENU_PATTERN_SCROLL_VELOCITY,
-		)
 	get_window().size_changed.connect(_resize_native_overlays)
 	_resize_native_overlays()
 	if not _settings_manager.settings_changed.is_connected(
@@ -303,6 +284,53 @@ func _ready() -> void:
 		_initialize_after_data_root()
 		return
 	_show_data_root_setup()
+
+
+func _configure_presentation_performance_profile(light_profile: bool) -> void:
+	var title_water_material := _title_background.material as ShaderMaterial
+	if title_water_material != null:
+		title_water_material.set_shader_parameter(
+			"animation_enabled",
+			not light_profile,
+		)
+	var menu_pattern_material := (
+		_player_menu_backdrop.material as ShaderMaterial
+	)
+	if menu_pattern_material != null:
+		menu_pattern_material.set_shader_parameter(
+			"animation_enabled",
+			not light_profile,
+		)
+		menu_pattern_material.set_shader_parameter(
+			"display_scale",
+			PLAYER_MENU_PATTERN_SCALE,
+		)
+		menu_pattern_material.set_shader_parameter(
+			"scroll_velocity_pixels",
+			(
+				Vector2.ZERO
+				if light_profile
+				else PLAYER_MENU_PATTERN_SCROLL_VELOCITY
+			),
+		)
+	var shop_pattern_material := _shop_backdrop.material as ShaderMaterial
+	if shop_pattern_material != null:
+		shop_pattern_material.set_shader_parameter(
+			"animation_enabled",
+			not light_profile,
+		)
+		shop_pattern_material.set_shader_parameter(
+			"display_scale",
+			SHOP_PATTERN_SCALE,
+		)
+		shop_pattern_material.set_shader_parameter(
+			"scroll_velocity_pixels",
+			(
+				Vector2.ZERO
+				if light_profile
+				else PLAYER_MENU_PATTERN_SCROLL_VELOCITY
+			),
+		)
 
 
 func _is_dedicated_server_runtime() -> bool:

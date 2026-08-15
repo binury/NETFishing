@@ -16,30 +16,16 @@ const ControllerMappingManagerType = preload(
 	"res://settings/controller_mapping_manager.gd"
 )
 const ACTIONS: Array[StringName] = [
-	&"stuff",
-	&"logbook",
-	&"fishnet",
-	&"mail",
-	&"profile",
-	&"online",
-	&"paint",
 	&"chat",
 	&"freecam",
 	&"hud",
 ]
 const LABELS: Array[String] = [
-	"stuff",
-	"logbook",
-	"fishnet",
-	"mail",
-	"profile",
-	"online",
-	"paint",
 	"chat",
 	"freecam",
 	"hide hud",
 ]
-const SECTOR_COUNT: int = 10
+const SECTOR_COUNT: int = 3
 
 var _buttons: Array[BubbleButton] = []
 var _is_open: bool = false

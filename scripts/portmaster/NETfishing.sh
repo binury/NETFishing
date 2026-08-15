@@ -117,6 +117,12 @@ case "$PERFORMANCE_PROFILE" in
 		;;
 esac
 
+# Keep NETfishing's native controller input separate from PortMaster's exit
+# handling. Without a -c mapping file, GPTOKEYB only watches for the
+# device-specific force-quit chord and does not inject gameplay inputs.
+$GPTOKEYB "NETfishing.aarch64" &
+pm_platform_helper "$GAME_EXECUTABLE"
+
 $ESUDO env CRUSTY_RESOLUTION="${DISPLAY_WIDTH}x${DISPLAY_HEIGHT}" \
 	"$WESTON_DIR/westonwrap.sh" headless noop kiosk crusty_x11egl \
 	XDG_DATA_HOME="$CONFDIR/data" \

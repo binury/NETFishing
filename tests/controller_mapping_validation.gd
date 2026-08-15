@@ -211,12 +211,17 @@ func _validate_portmaster_launcher() -> String:
 		"leftstick:b9",
 		"rightstick:b12",
 		"netfishing_controllerconfig=\"$GODOT_MUOS_MAPPING\"",
+		"$GPTOKEYB \"NETfishing.aarch64\" &",
+		"pm_platform_helper \"$GAME_EXECUTABLE\"",
 		"SDL_GAMECONTROLLERCONFIG=\"$netfishing_controllerconfig\" \\",
+		"pm_finish",
 	]:
 		if expected_fragment not in launcher:
 			return "PortMaster launcher omitted " + expected_fragment
 	if "$'\\n'" in launcher:
 		return "PortMaster launcher appends mappings across a Weston-unsafe newline"
+	if "$GPTOKEYB \"NETfishing.aarch64\" -c" in launcher:
+		return "PortMaster launcher injects duplicate GPTOKEYB gameplay mappings"
 	return ""
 
 
