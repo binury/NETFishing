@@ -11,6 +11,7 @@ readonly RUN_ROOT="$(mktemp -d -t netfishing-validations.XXXXXX)"
 readonly -a QUICK_TESTS=(
 	"tests/android_readiness_validation.gd"
 	"tests/dedicated_server_config_validation.gd"
+	"tests/exported_decal_hotfix_validation.gd"
 	"tests/fish_catalog_content_validation.gd"
 	"tests/fish_quality_validation.gd"
 	"tests/fishing_audio_validation.gd"

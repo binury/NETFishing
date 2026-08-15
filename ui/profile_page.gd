@@ -6,6 +6,9 @@ const OPTION_GRID_COLUMNS: int = 6
 const FUR_PALETTE_GRID_COLUMNS: int = 10
 const FUR_CHANNEL_ICON_SIZE: int = 20
 const FEATURE_DRAWER_ANIMATION_SECONDS: float = 0.16
+const FEATURE_PREVIEW_SCAN_MAX_SIZE: int = 256
+const FEATURE_PREVIEW_TEXTURE_MAX_SIZE: int = 128
+const FEATURE_PREVIEW_PADDING: int = 3
 const ControllerMappingManagerType = preload(
 	"res://settings/controller_mapping_manager.gd"
 )
@@ -50,6 +53,9 @@ var _experience_level: Label
 var _experience_progress: ProgressBar
 var _experience_value: Label
 var _feature_preview_cache: Dictionary = {}
+var _feature_preview_requests: Array[Dictionary] = []
+var _feature_preview_generation: int = 0
+var _feature_preview_worker_active: bool = false
 var _fur_swatch_icon_cache: Dictionary = {}
 var _expanded_feature_drawers: Dictionary = {}
 var _feature_drawer_animation_key: String = ""
@@ -67,6 +73,10 @@ func _ready() -> void:
 	_debounce.wait_time = CHECK_DEBOUNCE_SECONDS
 	_debounce.timeout.connect(_request_conflict_check)
 	add_child(_debounce)
+
+
+func _exit_tree() -> void:
+	_cancel_feature_preview_requests()
 
 
 func setup(
@@ -125,6 +135,7 @@ func activate() -> void:
 func deactivate() -> void:
 	visible = false
 	_debounce.stop()
+	_cancel_feature_preview_requests()
 	if _voice_preview_tween != null and _voice_preview_tween.is_valid():
 		_voice_preview_tween.kill()
 	_preview.reset_view()
@@ -428,6 +439,7 @@ func _select_category(category_id: String) -> void:
 
 
 func _refresh_options() -> void:
+	_cancel_feature_preview_requests()
 	for child: Node in _option_list.get_children():
 		child.queue_free()
 	var title := Label.new()
@@ -801,7 +813,6 @@ func _build_feature_option_button(
 		button.add_theme_font_size_override("font_size", 28)
 	else:
 		var preview := TextureRect.new()
-		preview.texture = _feature_preview_texture(_category_id, option_id)
 		preview.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		preview.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		preview.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -815,6 +826,13 @@ func _build_feature_option_button(
 		preview.size = Vector2(preview_width, preview_height)
 		preview.position = Vector2((84.0 - preview_width) * 0.5, 7.0)
 		button.add_child(preview)
+		var cached_preview := _cached_feature_preview_texture(
+			_category_id, option_id
+		)
+		if cached_preview != null:
+			preview.texture = cached_preview
+		else:
+			_queue_feature_preview(preview, _category_id, option_id)
 	if is_representative and has_variants:
 		var indicator := Label.new()
 		indicator.text = "<" if is_expanded else ">"
@@ -858,31 +876,112 @@ func _animate_feature_drawer_button(button: Button) -> void:
 	).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 
 
-func _feature_preview_texture(
+func _cached_feature_preview_texture(
 	category_id: String,
 	option_id: String,
 ) -> Texture2D:
 	var cache_key := "%s:%s" % [category_id, option_id]
-	if _feature_preview_cache.has(cache_key):
-		return _feature_preview_cache[cache_key] as Texture2D
-	var source := CharacterCustomizationCatalog.texture_for(
+	return _feature_preview_cache.get(cache_key) as Texture2D
+
+
+func _queue_feature_preview(
+	target: TextureRect,
+	category_id: String,
+	option_id: String,
+) -> void:
+	_feature_preview_requests.append({
+		"generation": _feature_preview_generation,
+		"target": weakref(target),
+		"category_id": category_id,
+		"option_id": option_id,
+	})
+	if _feature_preview_worker_active:
+		return
+	_feature_preview_worker_active = true
+	_process_feature_preview_requests.call_deferred()
+
+
+func _cancel_feature_preview_requests() -> void:
+	_feature_preview_generation += 1
+	_feature_preview_requests.clear()
+
+
+func _process_feature_preview_requests() -> void:
+	while not _feature_preview_requests.is_empty():
+		var request: Dictionary = _feature_preview_requests.pop_front()
+		await get_tree().process_frame
+		if int(request.get("generation", -1)) != _feature_preview_generation:
+			continue
+		var target_reference := request.get("target") as WeakRef
+		if target_reference == null:
+			continue
+		var target := target_reference.get_ref() as TextureRect
+		if target == null or not is_instance_valid(target):
+			continue
+		var category_id := str(request.get("category_id", ""))
+		var option_id := str(request.get("option_id", ""))
+		var preview := _cached_feature_preview_texture(category_id, option_id)
+		if preview == null:
+			preview = _create_feature_preview_texture(category_id, option_id)
+		if (
+			preview != null
+			and int(request.get("generation", -1)) == _feature_preview_generation
+			and is_instance_valid(target)
+		):
+			target.texture = preview
+	_feature_preview_worker_active = false
+
+
+func _create_feature_preview_texture(
+	category_id: String,
+	option_id: String,
+) -> Texture2D:
+	var cache_key := "%s:%s" % [category_id, option_id]
+	var resource_path := CharacterCustomizationCatalog.feature_texture_path(
 		category_id, option_id
 	)
+	if resource_path.is_empty():
+		return null
+	var source := ResourceLoader.load(
+		resource_path,
+		"Texture2D",
+		ResourceLoader.CACHE_MODE_IGNORE,
+	) as Texture2D
 	if source == null:
 		return null
 	var image := source.get_image()
+	if image == null or image.is_empty():
+		return null
+	if image.is_compressed() and image.decompress() != OK:
+		return null
+	_resize_feature_preview_image(image, FEATURE_PREVIEW_SCAN_MAX_SIZE)
 	var used := image.get_used_rect()
 	if used.size.x <= 0 or used.size.y <= 0:
-		_feature_preview_cache[cache_key] = source
-		return source
-	var padding := 12
-	used.position -= Vector2i(padding, padding)
-	used.size += Vector2i(padding * 2, padding * 2)
+		return null
+	used.position -= Vector2i(FEATURE_PREVIEW_PADDING, FEATURE_PREVIEW_PADDING)
+	used.size += Vector2i(
+		FEATURE_PREVIEW_PADDING * 2,
+		FEATURE_PREVIEW_PADDING * 2,
+	)
 	used = used.intersection(Rect2i(Vector2i.ZERO, image.get_size()))
 	var cropped := image.get_region(used)
+	_resize_feature_preview_image(cropped, FEATURE_PREVIEW_TEXTURE_MAX_SIZE)
 	var preview := ImageTexture.create_from_image(cropped)
 	_feature_preview_cache[cache_key] = preview
 	return preview
+
+
+func _resize_feature_preview_image(image: Image, max_dimension: int) -> void:
+	var source_size := image.get_size()
+	var largest_dimension := maxi(source_size.x, source_size.y)
+	if largest_dimension <= max_dimension:
+		return
+	var scale := float(max_dimension) / float(largest_dimension)
+	image.resize(
+		maxi(roundi(float(source_size.x) * scale), 1),
+		maxi(roundi(float(source_size.y) * scale), 1),
+		Image.INTERPOLATE_NEAREST,
+	)
 
 
 func _build_fur_color_options(options: Array) -> void:

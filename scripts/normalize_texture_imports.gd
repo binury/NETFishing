@@ -27,6 +27,10 @@ const DEFAULT_PROFILE: Dictionary = {
 		"detect_3d/compress_to": 0,
 	},
 }
+const FACIAL_FEATURE_IMPORT_PATH: String = (
+	"art/exported/characters/faces/"
+)
+const FACIAL_FEATURE_SIZE_LIMIT: int = 512
 
 var apply_changes: bool = false
 var verbose: bool = false
@@ -86,11 +90,11 @@ func _parse_args() -> void:
 				quit(1)
 				return
 			i += 1
-				roots.append(args[i])
-				i += 1
-			elif arg.begins_with("--root="):
-				roots.append(arg.trim_prefix("--root="))
-				i += 1
+			roots.append(args[i])
+			i += 1
+		elif arg.begins_with("--root="):
+			roots.append(arg.trim_prefix("--root="))
+			i += 1
 		else:
 			printerr("Unknown argument: ", arg)
 			should_exit = true
@@ -147,6 +151,8 @@ func _handle_import_file(import_path: String) -> void:
 		var section_data: Dictionary = DEFAULT_PROFILE[section_name]
 		for section_key: String in section_data.keys():
 			var desired: Variant = section_data[section_key]
+			if section_key == "process/size_limit":
+				desired = _size_limit_for(import_path)
 			var existing: Variant = null
 			if cfg.has_section(section_name) and cfg.has_section_key(section_name, section_key):
 				existing = cfg.get_value(section_name, section_key)
@@ -172,6 +178,13 @@ func _handle_import_file(import_path: String) -> void:
 		_print("Would update: %s" % import_path)
 
 	updated += 1
+
+
+func _size_limit_for(import_path: String) -> int:
+	var normalized_path := import_path.replace("\\", "/")
+	if FACIAL_FEATURE_IMPORT_PATH in normalized_path:
+		return FACIAL_FEATURE_SIZE_LIMIT
+	return int(DEFAULT_PROFILE["params"]["process/size_limit"])
 
 
 func print_summary() -> void:

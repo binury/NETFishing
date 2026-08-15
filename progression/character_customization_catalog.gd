@@ -60,6 +60,7 @@ const FUR_COLOR_LABELS: Dictionary = {
 	"fur_color_4": "detail",
 }
 const DEFAULT_FUR_STYLE: String = "solid"
+const FEATURE_TEXTURE_CACHE_LIMIT: int = 24
 
 const FEATURE_CATEGORIES: PackedStringArray = ["eyes", "nose", "mouth"]
 const FEATURE_ASSET_ROOTS: Dictionary = {
@@ -205,7 +206,9 @@ const LEGACY_OPTION_ALIASES: Dictionary = {
 
 static var _feature_assets_ready: bool = false
 static var _feature_options: Dictionary = {}
+static var _feature_resource_paths: Dictionary = {}
 static var _feature_textures: Dictionary = {}
+static var _feature_texture_cache_order: Array[String] = []
 static var _fur_pattern_textures: Dictionary = {}
 
 
@@ -330,14 +333,56 @@ static func texture_for(category_id: String, option_id: String) -> Texture2D:
 		return null
 	_ensure_feature_assets()
 	var canonical_id := canonical_option_id(category_id, option_id)
-	var textures: Dictionary = _feature_textures.get(category_id, {}) as Dictionary
-	return textures.get(canonical_id) as Texture2D
+	var cache_id := "%s:%s" % [category_id, canonical_id]
+	if _feature_textures.has(cache_id):
+		_touch_feature_texture(cache_id)
+		return _feature_textures[cache_id] as Texture2D
+	var resource_path := feature_texture_path(category_id, canonical_id)
+	if resource_path.is_empty():
+		return null
+	var texture := ResourceLoader.load(
+		resource_path,
+		"Texture2D",
+		ResourceLoader.CACHE_MODE_IGNORE,
+	) as Texture2D
+	if texture == null:
+		return null
+	_feature_textures[cache_id] = texture
+	_touch_feature_texture(cache_id)
+	_trim_feature_texture_cache()
+	return texture
+
+
+static func feature_texture_path(category_id: String, option_id: String) -> String:
+	if category_id not in FEATURE_CATEGORIES:
+		return ""
+	_ensure_feature_assets()
+	var canonical_id := canonical_option_id(category_id, option_id)
+	var paths: Dictionary = (
+		_feature_resource_paths.get(category_id, {}) as Dictionary
+	)
+	return str(paths.get(canonical_id, ""))
+
+
+static func _touch_feature_texture(cache_id: String) -> void:
+	var existing_index := _feature_texture_cache_order.find(cache_id)
+	if existing_index >= 0:
+		_feature_texture_cache_order.remove_at(existing_index)
+	_feature_texture_cache_order.append(cache_id)
+
+
+static func _trim_feature_texture_cache() -> void:
+	while _feature_texture_cache_order.size() > FEATURE_TEXTURE_CACHE_LIMIT:
+		var oldest_id: String = str(_feature_texture_cache_order.pop_front())
+		_feature_textures.erase(oldest_id)
 
 
 static func refresh_feature_assets() -> void:
 	_feature_assets_ready = false
 	_feature_options.clear()
+	_feature_resource_paths.clear()
 	_feature_textures.clear()
+	_feature_texture_cache_order.clear()
 	_ensure_feature_assets()
 
 
@@ -347,7 +392,7 @@ static func _ensure_feature_assets() -> void:
 	_feature_assets_ready = true
 	for category_id: String in FEATURE_CATEGORIES:
 		var options: Array = [{"id": "none", "label": "none"}]
-		var textures: Dictionary = {}
+		var resource_paths: Dictionary = {}
 		var root_path := str(FEATURE_ASSET_ROOTS[category_id])
 		var directory := DirAccess.open(root_path)
 		if directory != null:
@@ -365,24 +410,23 @@ static func _ensure_feature_assets() -> void:
 				var option_id := _feature_id_from_filename(
 					category_id, normalized_file_name
 				)
-				if option_id.is_empty() or textures.has(option_id):
+				if option_id.is_empty() or resource_paths.has(option_id):
 					continue
 				var resource_path := root_path.path_join(normalized_file_name)
-				var texture := ResourceLoader.load(resource_path) as Texture2D
-				if texture == null:
+				if not ResourceLoader.exists(resource_path, "Texture2D"):
 					push_warning(
 						"Ignoring facial feature without a loadable texture: "
 						+ resource_path
 					)
 					continue
-				textures[option_id] = texture
+				resource_paths[option_id] = resource_path
 				options.append({
 					"id": option_id,
 					"label": _feature_label(option_id),
 				})
 
 		_feature_options[category_id] = options
-		_feature_textures[category_id] = textures
+		_feature_resource_paths[category_id] = resource_paths
 
 
 static func _canonical_feature_filename(file_name: String) -> String:

@@ -5,6 +5,7 @@ const FEATURE_ASSET_ROOTS: Dictionary = {
 	"mouth": "res://art/exported/characters/faces/mouth",
 	"nose": "res://art/exported/characters/faces/noses",
 }
+const FACIAL_FEATURE_SIZE_LIMIT: int = 512
 
 
 func _initialize() -> void:
@@ -12,6 +13,8 @@ func _initialize() -> void:
 
 
 func _run() -> void:
+	CharacterCustomizationCatalog.refresh_feature_assets()
+	assert(CharacterCustomizationCatalog._feature_textures.is_empty())
 	assert(
 		CharacterCustomizationCatalog._canonical_feature_filename(
 			"eyes_alligator_eyes.png"
@@ -33,6 +36,7 @@ func _run() -> void:
 		).is_empty()
 	)
 
+	var load_candidates: Array[Dictionary] = []
 	for category_id: String in FEATURE_ASSET_ROOTS:
 		var options := CharacterCustomizationCatalog.options_for(category_id)
 		var expected_ids: Dictionary = _feature_ids_on_disk(category_id)
@@ -43,20 +47,102 @@ func _run() -> void:
 			assert(not seen_ids.has(option_id))
 			seen_ids[option_id] = true
 			if option_id != "none":
-				assert(
-					CharacterCustomizationCatalog.texture_for(
+				var texture_path := (
+					CharacterCustomizationCatalog.feature_texture_path(
 						category_id, option_id
-					) != null
+					)
 				)
+				assert(not texture_path.is_empty())
+				assert(ResourceLoader.exists(texture_path, "Texture2D"))
+				_validate_feature_import(texture_path)
+				load_candidates.append({
+					"category_id": category_id,
+					"option_id": option_id,
+				})
 		for expected_id: String in expected_ids:
 			assert(seen_ids.has(expected_id))
+	assert(CharacterCustomizationCatalog._feature_textures.is_empty())
+	assert(
+		load_candidates.size()
+		> CharacterCustomizationCatalog.FEATURE_TEXTURE_CACHE_LIMIT
+	)
+	for candidate_index: int in range(
+		CharacterCustomizationCatalog.FEATURE_TEXTURE_CACHE_LIMIT + 1
+	):
+		var candidate: Dictionary = load_candidates[candidate_index]
+		assert(CharacterCustomizationCatalog.texture_for(
+			str(candidate["category_id"]),
+			str(candidate["option_id"]),
+		) != null)
+	assert(
+		CharacterCustomizationCatalog._feature_textures.size()
+		== CharacterCustomizationCatalog.FEATURE_TEXTURE_CACHE_LIMIT
+	)
 	for mouth_id: String in ["open_ah", "open_oh", "open_smile"]:
 		assert(CharacterCustomizationCatalog.texture_for(
 			"mouth", mouth_id
 		) != null)
+	assert(
+		CharacterCustomizationCatalog._feature_textures.size()
+		<= CharacterCustomizationCatalog.FEATURE_TEXTURE_CACHE_LIMIT
+	)
+
+	_validate_linux_arm64_texture_format()
+	await _validate_incremental_profile_previews()
 
 	print("Exported decal hotfix validation: PASS")
 	quit()
+
+
+func _validate_feature_import(texture_path: String) -> void:
+	var import_config := ConfigFile.new()
+	assert(import_config.load(texture_path + ".import") == OK)
+	assert(int(import_config.get_value("params", "compress/mode", -1)) == 2)
+	assert(not bool(import_config.get_value(
+		"params", "mipmaps/generate", true
+	)))
+	assert(int(import_config.get_value(
+		"params", "process/size_limit", 0
+	)) == FACIAL_FEATURE_SIZE_LIMIT)
+	assert(int(import_config.get_value(
+		"params", "detect_3d/compress_to", -1
+	)) == 0)
+
+
+func _validate_linux_arm64_texture_format() -> void:
+	var export_config := ConfigFile.new()
+	assert(export_config.load("res://export_presets.cfg") == OK)
+	assert(not bool(export_config.get_value(
+		"preset.3.options", "texture_format/s3tc_bptc", true
+	)))
+	assert(bool(export_config.get_value(
+		"preset.3.options", "texture_format/etc2_astc", false
+	)))
+
+
+func _validate_incremental_profile_previews() -> void:
+	var profile_page := ProfilePage.new()
+	root.add_child(profile_page)
+	await process_frame
+	for category_id: String in CharacterCustomizationCatalog.FEATURE_CATEGORIES:
+		var cached_before: int = (
+			(profile_page.get("_feature_preview_cache") as Dictionary).size()
+		)
+		profile_page.call("_select_category", category_id)
+		var initial_requests: int = (
+			(profile_page.get("_feature_preview_requests") as Array).size()
+		)
+		assert(initial_requests > 3)
+		for _frame: int in 4:
+			await process_frame
+		var cached_after: int = (
+			(profile_page.get("_feature_preview_cache") as Dictionary).size()
+		)
+		assert(cached_after > cached_before)
+		assert(cached_after - cached_before < initial_requests)
+	profile_page.queue_free()
+	for _frame: int in 8:
+		await process_frame
 
 
 func _feature_ids_on_disk(category_id: String) -> Dictionary:

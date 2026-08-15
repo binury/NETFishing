@@ -265,6 +265,12 @@ snapshots, so do not casually rename them. Preserve the established RGBA
 transparent canvas. Restart a development build after adding an image; rebuild
 exports to package new `res://` files.
 
+The tracked import policy keeps these facial-feature textures at a maximum
+runtime size of 512×512, uses VRAM compression, and does not generate mipmaps.
+The source PNGs remain unchanged. Run the texture import normalizer shown below
+after adding facial artwork so low-memory builds do not retain full-resolution
+copies of the entire customization catalog.
+
 ### Texture sampling
 
 NETfishing artwork always uses nearest-neighbor sampling. Do not enable linear,
