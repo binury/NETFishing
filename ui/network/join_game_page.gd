@@ -2,6 +2,7 @@ class_name JoinGamePage
 extends Control
 
 signal join_requested(endpoint: String)
+signal join_confirmation_requested(endpoint: String)
 signal back_requested
 
 enum Mode {
@@ -63,6 +64,8 @@ var _editing_entry_id: String = ""
 var _name_entry_active: bool = false
 var _delete_armed: bool = false
 var _connection_error_latched: bool = false
+var _pending_confirmation_endpoint: String = ""
+var _pending_confirmation_room: Dictionary = {}
 
 
 func _ready() -> void:
@@ -189,6 +192,11 @@ func open_page(preserved_endpoint: String = "") -> void:
 
 
 func close_page() -> void:
+	cancel_pending_join_confirmation()
+	hide_for_join_confirmation()
+
+
+func hide_for_join_confirmation() -> void:
 	_clear_edit_state()
 	_discovery_refresh_timer.stop()
 	hide()
@@ -204,6 +212,28 @@ func get_endpoint_text() -> String:
 func set_status(message: String) -> void:
 	_connection_error_latched = true
 	_set_status(_friendly_connection_message(message), true)
+
+
+func cancel_pending_join_confirmation() -> void:
+	_pending_confirmation_endpoint = ""
+	_pending_confirmation_room.clear()
+
+
+func confirm_pending_join() -> bool:
+	if _pending_confirmation_endpoint.is_empty():
+		_set_status("No server is waiting to be joined.", true)
+		return false
+	var endpoint_text: String = _pending_confirmation_endpoint
+	var room: Dictionary = _pending_confirmation_room.duplicate(true)
+	cancel_pending_join_confirmation()
+	if not room.is_empty():
+		if _discovery == null or not _discovery.prepare_public_join(room):
+			_set_status("Could not prepare the public connection.", true)
+			return false
+		return true
+	_set_status("Connecting…")
+	join_requested.emit(endpoint_text)
+	return true
 
 
 func _set_mode(mode: Mode, clear_connection_error: bool = true) -> void:
@@ -236,6 +266,7 @@ func _request_join() -> void:
 	]:
 		_network_session.reset_failure()
 	var endpoint_text: String = _address.text
+	var discovery_room: Dictionary = {}
 	if _mode == Mode.DISCOVER:
 		var room: Dictionary = _selected_discovery_room()
 		if _discovery != null and _discovery.is_own_room(room):
@@ -244,14 +275,25 @@ func _request_join() -> void:
 		if _discovery_room_is_full(room):
 			_set_status("That room is full.", true)
 			return
-		if _discovery == null or not _discovery.prepare_public_join(room):
+		if _discovery == null:
 			_set_status("Could not prepare the public connection.", true)
-		return
+			return
+		endpoint_text = _discovery.room_endpoint(room)
+		discovery_room = room.duplicate(true)
 	elif _mode != Mode.DIRECT and _selected_entry != null:
 		endpoint_text = _selected_entry.normalized_endpoint
 	var endpoint: ConnectionEndpoint = EndpointParser.parse(endpoint_text)
 	if not endpoint.is_valid():
 		_set_status(endpoint.error_message, true)
+		return
+	if _gameplay_context:
+		_pending_confirmation_endpoint = endpoint.normalized_display
+		_pending_confirmation_room = discovery_room
+		join_confirmation_requested.emit(endpoint.normalized_display)
+		return
+	if not discovery_room.is_empty():
+		if not _discovery.prepare_public_join(discovery_room):
+			_set_status("Could not prepare the public connection.", true)
 		return
 	_set_status("Connecting…")
 	_address.text = endpoint.normalized_display

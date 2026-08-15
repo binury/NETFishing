@@ -60,13 +60,17 @@ readonly -a NETWORK_TESTS=(
 	"tests/world_spawn_multiplayer_validation.gd"
 )
 
+readonly SESSION_SWITCH_NETWORK_TEST="tests/session_switch_multiplayer_validation.gd"
+
 cleanup() {
 	rm -rf -- "${RUN_ROOT}"
 }
 trap cleanup EXIT INT TERM
 
 usage() {
-	printf 'Usage: %s {quick|full|host|network|all|--list}\n' "$0"
+	printf \
+		'Usage: %s {quick|full|host|network|session-switch|all|--list}\n' \
+		"$0"
 }
 
 prepare_root() {
@@ -169,6 +173,85 @@ run_network_test() {
 	fi
 }
 
+run_session_switch_network_test() {
+	local script="${SESSION_SWITCH_NETWORK_TEST}"
+	local name="${script#tests/}"
+	name="${name%.gd}"
+	local first_root second_root client_root
+	local first_pid second_pid first_status second_status client_status
+	local both_hosts_ready=0
+	first_root="$(prepare_root "${name}-first-host")"
+	second_root="$(prepare_root "${name}-second-host")"
+	client_root="$(prepare_root "${name}-client")"
+	printf '\n==> %s (two hosts + client)\n' "${script}"
+	XDG_DATA_HOME="${first_root}/data" \
+	XDG_CONFIG_HOME="${first_root}/config" \
+	XDG_CACHE_HOME="${first_root}/cache" \
+	timeout "${TEST_TIMEOUT_SECONDS}s" "${GODOT_BIN}" \
+		--headless --path "${PROJECT_ROOT}" --script "${script}" -- first_host \
+		>"${first_root}/output.log" 2>&1 &
+	first_pid=$!
+	XDG_DATA_HOME="${second_root}/data" \
+	XDG_CONFIG_HOME="${second_root}/config" \
+	XDG_CACHE_HOME="${second_root}/cache" \
+	timeout "${TEST_TIMEOUT_SECONDS}s" "${GODOT_BIN}" \
+		--headless --path "${PROJECT_ROOT}" --script "${script}" -- second_host \
+		>"${second_root}/output.log" 2>&1 &
+	second_pid=$!
+	for _attempt in {1..100}; do
+		if ! kill -0 "${first_pid}" 2>/dev/null \
+			|| ! kill -0 "${second_pid}" 2>/dev/null; then
+			break
+		fi
+		if ! command -v ss >/dev/null 2>&1; then
+			sleep 2
+			both_hosts_ready=1
+			break
+		fi
+		if ss -H -lun "sport = :18142" | grep -q . \
+			&& ss -H -lun "sport = :18143" | grep -q .; then
+			both_hosts_ready=1
+			break
+		fi
+		sleep 0.1
+	done
+	if ((both_hosts_ready == 0)); then
+		kill "${first_pid}" "${second_pid}" 2>/dev/null || true
+		wait "${first_pid}" 2>/dev/null || true
+		wait "${second_pid}" 2>/dev/null || true
+		printf '%s\n' '-- first host output --'
+		sed -n '1,240p' "${first_root}/output.log"
+		printf '%s\n' '-- second host output --'
+		sed -n '1,240p' "${second_root}/output.log"
+		printf '%s\n' 'error: session-switch hosts did not become ready' >&2
+		return 1
+	fi
+	set +e
+	XDG_DATA_HOME="${client_root}/data" \
+	XDG_CONFIG_HOME="${client_root}/config" \
+	XDG_CACHE_HOME="${client_root}/cache" \
+	timeout "${TEST_TIMEOUT_SECONDS}s" "${GODOT_BIN}" \
+		--headless --path "${PROJECT_ROOT}" --script "${script}" -- client \
+		>"${client_root}/output.log" 2>&1
+	client_status=$?
+	wait "${first_pid}"
+	first_status=$?
+	wait "${second_pid}"
+	second_status=$?
+	set -e
+	printf '%s\n' '-- first host output --'
+	sed -n '1,240p' "${first_root}/output.log"
+	printf '%s\n' '-- second host output --'
+	sed -n '1,240p' "${second_root}/output.log"
+	printf '%s\n' '-- client output --'
+	sed -n '1,240p' "${client_root}/output.log"
+	if ((first_status != 0 || second_status != 0 || client_status != 0)); then
+		printf 'error: hosts exited %d/%d; client exited %d\n' \
+			"${first_status}" "${second_status}" "${client_status}" >&2
+		return 1
+	fi
+}
+
 run_quick() {
 	local test_script
 	for test_script in "${QUICK_TESTS[@]}"; do
@@ -196,6 +279,7 @@ run_network() {
 	for test_script in "${NETWORK_TESTS[@]}"; do
 		run_network_test "${test_script}"
 	done
+	run_session_switch_network_test
 }
 
 list_tests() {
@@ -207,6 +291,8 @@ list_tests() {
 	printf '  %s\n' "${HOST_TESTS[@]}"
 	printf '%s\n' 'Paired network tests:'
 	printf '  %s\n' "${NETWORK_TESTS[@]}"
+	printf '%s\n' 'Two-host session-switch network test:'
+	printf '  %s\n' "${SESSION_SWITCH_NETWORK_TEST}"
 }
 
 case "${1:-}" in
@@ -221,6 +307,9 @@ case "${1:-}" in
 		;;
 	network)
 		run_network
+		;;
+	session-switch)
+		run_session_switch_network_test
 		;;
 	all)
 		run_full

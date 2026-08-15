@@ -73,7 +73,7 @@ var _action_in_progress: bool = false
 var _root_transition_active: bool = false
 var _root_transition_generation: int = 0
 var _closing_menu: bool = false
-var _pending_join_endpoint: String = ""
+var _confirmation_returns_to_join_game: bool = false
 
 
 func _ready() -> void:
@@ -92,7 +92,10 @@ func _ready() -> void:
 	_settings_panel.navigation_transition_started.connect(
 		_emit_transition_flurry
 	)
-	_join_game_page.join_requested.connect(_on_join_game_requested)
+	_join_game_page.join_requested.connect(_on_confirmed_join_requested)
+	_join_game_page.join_confirmation_requested.connect(
+		_on_join_confirmation_requested
+	)
 	_join_game_page.back_requested.connect(_close_join_game)
 	_confirmation_page.hide_page()
 	resized.connect(_update_responsive_pause_stage)
@@ -139,6 +142,7 @@ func open_menu() -> void:
 	_join_game_page.close_page()
 	_confirmation_page.hide_page()
 	_confirmation_action = ConfirmationAction.NONE
+	_confirmation_returns_to_join_game = false
 	_action_in_progress = false
 	_root_page.hide_page()
 	show()
@@ -238,20 +242,29 @@ func _close_join_game() -> void:
 	_begin_root_entry(true)
 
 
-func _on_join_game_requested(endpoint: String) -> void:
+func _on_join_confirmation_requested(_endpoint: String) -> void:
 	if _action_in_progress or _root_transition_active:
+		_join_game_page.cancel_pending_join_confirmation()
 		return
-	_pending_join_endpoint = endpoint
-	_open_confirmation(
-		ConfirmationAction.JOIN_ANOTHER,
-		"join another game?",
+	_confirmation_action = ConfirmationAction.JOIN_ANOTHER
+	_confirmation_returns_to_join_game = true
+	_confirmation_page.configure(
 		(
-			"your progression will be saved first. "
-			+ "current players will be disconnected if you are hosting."
+			"join another game?\n\n"
+			+ "your progression will be saved first. current players will be "
+			+ "disconnected if you are hosting."
 		),
 		"save and join",
-		false
+		"cancel",
+		BubbleConfirmationPageType.InitialFocus.CONFIRM,
 	)
+	_join_game_page.hide_for_join_confirmation()
+	_emit_transition_flurry()
+	_show_confirmation()
+
+
+func _on_confirmed_join_requested(endpoint: String) -> void:
+	join_game_requested.emit(endpoint)
 
 
 func report_network_error(message: String) -> void:
@@ -340,6 +353,7 @@ func _open_confirmation(
 ) -> void:
 	if _action_in_progress or _root_transition_active:
 		return
+	_confirmation_returns_to_join_game = false
 	_confirmation_action = action
 	_confirmation_page.configure(
 		"%s\n\n%s" % [title, message],
@@ -380,6 +394,11 @@ func _close_confirmation() -> void:
 
 
 func _finish_confirmation_cancel() -> void:
+	if _confirmation_returns_to_join_game:
+		_confirmation_returns_to_join_game = false
+		_join_game_page.cancel_pending_join_confirmation()
+		_join_game_page.open_page()
+		return
 	_begin_root_entry(true)
 
 
@@ -414,9 +433,9 @@ func _finish_confirmation_accept(action: ConfirmationAction) -> void:
 		ConfirmationAction.QUIT_ANYWAY:
 			quit_requested.emit()
 		ConfirmationAction.JOIN_ANOTHER:
-			_join_game_page.close_page()
-			join_game_requested.emit(_pending_join_endpoint)
-			_pending_join_endpoint = ""
+			_confirmation_returns_to_join_game = false
+			_join_game_page.open_page()
+			_join_game_page.confirm_pending_join()
 		_:
 			_action_in_progress = false
 			_begin_root_entry(false)
@@ -507,6 +526,7 @@ func _finish_close(reason: CloseReason, restore_controls: bool) -> void:
 	_root_page.hide_page()
 	_confirmation_page.hide_page()
 	_confirmation_action = ConfirmationAction.NONE
+	_confirmation_returns_to_join_game = false
 	_action_in_progress = false
 	_transition_flurry.clear_flurries()
 	hide()
