@@ -39,6 +39,9 @@ const PixelationResetOverlayType = preload(
 const WorldPixelationPostprocessType = preload(
 	"res://main/world_pixelation_postprocess.gd"
 )
+const RuntimePerformanceProfileType = preload(
+	"res://main/runtime_performance_profile.gd"
+)
 const NetworkSessionType = preload("res://network/network_session.gd")
 const DiscoveryClientType = preload("res://network/discovery_client.gd")
 const DedicatedServerConfigType = preload(
@@ -235,6 +238,7 @@ var _data_folder_dialog: FileDialog
 var _data_folder_picker_generation: int = 0
 var _restore_data_setup_after_picker: bool = false
 var _application_initialized := false
+var _performance_profile: RuntimePerformanceProfileType
 var _pending_existing_root_path := ""
 var _local_recovery_attempt_id: String = ""
 var _dedicated_runtime: bool = false
@@ -244,10 +248,17 @@ var _rain_ambience: RainAmbienceType
 
 
 func _ready() -> void:
+	_performance_profile = RuntimePerformanceProfileType.from_environment()
 	_dedicated_runtime = _is_dedicated_server_runtime()
 	if _dedicated_runtime:
 		call_deferred("_start_dedicated_server")
 		return
+	_world_pixelation.set_light_performance_profile(
+		_performance_profile.is_light()
+	)
+	_test_world.set_light_performance_profile(
+		_performance_profile.is_light()
+	)
 	DisplayServer.window_set_title("NETfishing")
 	_rain_ambience = RainAmbienceType.new()
 	_rain_ambience.name = "RainAmbience"
@@ -441,6 +452,7 @@ func _initialize_application(dedicated: bool) -> void:
 			_world_weather,
 			_player,
 			Callable(_player, "get_active_gameplay_camera"),
+			_performance_profile.is_light(),
 		)
 		if not _world_time.natural_time_advanced.is_connected(
 			_on_natural_time_advanced
@@ -1324,9 +1336,7 @@ func _apply_world_pixelation(pixel_size: int) -> void:
 	var root_viewport: Viewport = get_viewport()
 	root_viewport.scaling_3d_mode = Viewport.SCALING_3D_MODE_NEAREST
 	root_viewport.scaling_3d_scale = (
-		0.75
-		if OS.get_environment("NETFISHING_LOW_END") == "1"
-		else 1.0
+		_performance_profile.get_world_render_scale()
 	)
 	root_viewport.msaa_3d = Viewport.MSAA_DISABLED
 	root_viewport.screen_space_aa = Viewport.SCREEN_SPACE_AA_DISABLED

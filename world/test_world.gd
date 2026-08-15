@@ -50,6 +50,10 @@ func get_sun() -> DirectionalLight3D:
 	return _sun
 
 
+func set_light_performance_profile(enabled: bool) -> void:
+	_starter_island.set_light_performance_profile(enabled)
+
+
 func get_fishable_water_regions() -> Array[FishableWaterRegion]:
 	var waters: Array[FishableWaterRegion] = []
 	for region: WorldRegion in _get_regions():

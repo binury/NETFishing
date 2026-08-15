@@ -140,7 +140,10 @@ The package requires an ARM64 device, two analog sticks, GLIBC 2.28 or newer,
 and the \`weston_pkg_0.2\` runtime.
 
 Save data and device-local configuration remain under \`netfishing/conf/\`.
-See \`netfishing/licenses/\` for bundled credits and license information.
+PortMaster launches use the light performance profile by default. Put the word
+\`normal\` in \`netfishing/conf/performance_profile\` to opt a capable device
+into the normal rendering profile. See \`netfishing/licenses/\` for bundled
+credits and license information.
 EOF
 
 (
@@ -161,6 +164,10 @@ fi
 grep -q '"version": 4' "${STAGE_ROOT}/port.json"
 grep -q '"name": "netfishing.zip"' "${STAGE_ROOT}/port.json"
 grep -q '^# PORTMASTER: netfishing.zip, NETfishing.sh$' \
+  "${STAGE_ROOT}/NETfishing.sh"
+grep -Fq 'PROFILE_PATH="$CONFDIR/performance_profile"' \
+  "${STAGE_ROOT}/NETfishing.sh"
+grep -Fq 'NETFISHING_PERFORMANCE_PROFILE=light' \
   "${STAGE_ROOT}/NETfishing.sh"
 if grep -q 'GPTOKEYB' "${STAGE_ROOT}/NETfishing.sh"; then
   echo "GPTOKEYB must not be enabled for NETfishing." >&2

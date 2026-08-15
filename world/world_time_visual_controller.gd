@@ -2,6 +2,7 @@ class_name WorldTimeVisualController
 extends Node
 
 const UPDATE_INTERVAL_SECONDS: float = 0.1
+const LIGHT_UPDATE_INTERVAL_SECONDS: float = 0.25
 const SUN_YAW_DEGREES: float = -32.0
 const WEATHER_TRANSITION_SECONDS: float = 10.0
 const RAIN_EMITTER_OFFSET := Vector3(0.0, 7.0, 0.0)
@@ -11,6 +12,8 @@ const RAIN_VISIBILITY_AABB := AABB(
 	Vector3(27.0, 12.0, 27.0),
 )
 const RAIN_PARTICLE_AMOUNT: int = 2240
+const LIGHT_RAIN_PARTICLE_AMOUNT: int = 256
+const LIGHT_RAIN_FIXED_FPS: int = 15
 const RAIN_VELOCITY_MIN: float = 16.0
 const RAIN_VELOCITY_MAX: float = 20.0
 const RAIN_DROP_SIZE := Vector3(0.014, 0.34, 0.014)
@@ -92,6 +95,7 @@ var _weather_to: WorldWeatherService.Weather = (
 	WorldWeatherService.Weather.SUNNY
 )
 var _weather_transition: float = 1.0
+var _light_performance_profile: bool = false
 
 
 func setup(
@@ -101,6 +105,7 @@ func setup(
 	weather_service: WorldWeatherService = null,
 	rain_target: Node3D = null,
 	rain_camera_provider: Callable = Callable(),
+	light_performance_profile: bool = false,
 ) -> void:
 	_time_service = time_service
 	_weather_service = weather_service
@@ -108,6 +113,7 @@ func setup(
 	_sun = sun
 	_rain_target = rain_target
 	_rain_camera_provider = rain_camera_provider
+	_light_performance_profile = light_performance_profile
 	if not _prepare_runtime_environment():
 		set_process(false)
 		return
@@ -135,7 +141,12 @@ func _process(delta: float) -> void:
 			1.0,
 		)
 	_elapsed += delta
-	if _elapsed < UPDATE_INTERVAL_SECONDS:
+	var update_interval: float = (
+		LIGHT_UPDATE_INTERVAL_SECONDS
+		if _light_performance_profile
+		else UPDATE_INTERVAL_SECONDS
+	)
+	if _elapsed < update_interval:
 		return
 	_elapsed = 0.0
 	_apply_time(_time_service.get_time_hours())
@@ -187,10 +198,16 @@ func _prepare_runtime_environment() -> bool:
 func _prepare_rain() -> void:
 	_rain = GPUParticles3D.new()
 	_rain.name = "LocalRain"
-	_rain.amount = RAIN_PARTICLE_AMOUNT
+	_rain.amount = (
+		LIGHT_RAIN_PARTICLE_AMOUNT
+		if _light_performance_profile
+		else RAIN_PARTICLE_AMOUNT
+	)
 	_rain.amount_ratio = 0.0
 	_rain.lifetime = 1.25
-	_rain.fixed_fps = 30
+	_rain.fixed_fps = (
+		LIGHT_RAIN_FIXED_FPS if _light_performance_profile else 30
+	)
 	_rain.local_coords = false
 	_rain.visibility_aabb = RAIN_VISIBILITY_AABB
 	var process_material := ParticleProcessMaterial.new()
@@ -220,7 +237,7 @@ func _prepare_storm_clouds() -> void:
 	_storm_clouds = LocalStormCloudLayerType.new()
 	_storm_clouds.name = "LocalStormClouds"
 	add_child(_storm_clouds)
-	_storm_clouds.setup(_rain_target)
+	_storm_clouds.setup(_rain_target, _light_performance_profile)
 
 
 func _apply_time(time_hours: float) -> void:
@@ -259,6 +276,33 @@ func _apply_time(time_hours: float) -> void:
 	var fog_color: Color = _blended_color(
 		NIGHT_FOG, DAY_FOG, WARM_FOG, daylight, warmth
 	)
+	if _light_performance_profile:
+		var simple_cloud_color := _blended_color(
+			NIGHT_CLOUD_SHADOW,
+			DAY_CLOUD_SHADOW,
+			WARM_CLOUD_SHADOW,
+			daylight,
+			warmth,
+		)
+		var simple_overcast: float = _weather_value(
+			0.0,
+			0.55,
+			0.82,
+			0.0,
+		)
+		sky_top = sky_top.lerp(simple_cloud_color, simple_overcast)
+		sky_horizon = sky_horizon.lerp(
+			simple_cloud_color.lightened(0.08),
+			simple_overcast,
+		)
+		ground_bottom = ground_bottom.lerp(
+			simple_cloud_color.darkened(0.12),
+			simple_overcast * 0.65,
+		)
+		ground_horizon = ground_horizon.lerp(
+			simple_cloud_color,
+			simple_overcast * 0.75,
+		)
 	var foggy_fog_amount: float = _weather_value(0.0, 0.0, 0.0, 1.0)
 	var rain_fog_amount: float = _weather_value(0.0, 0.0, 1.0, 0.0)
 	var fog_daylight_amount: float = daylight * foggy_fog_amount
@@ -399,6 +443,8 @@ func _apply_water_environment(
 	foggy_horizon_occlusion: float,
 	fog_render_color: Color,
 ) -> void:
+	if _light_performance_profile:
+		return
 	var water_tint := _blended_color(
 		NIGHT_WATER_TINT,
 		Color.WHITE,
@@ -561,6 +607,15 @@ func _apply_sky_clouds(daylight: float, warmth: float) -> void:
 		daylight,
 		warmth,
 	)
+	if _light_performance_profile:
+		_sky_material.set_shader_parameter("cloud_coverage", 0.0)
+		_sky_material.set_shader_parameter("cloud_opacity", 0.0)
+		if _storm_clouds != null:
+			_storm_clouds.set_storm_amount(
+				_weather_value(0.0, 0.42, 0.88, 0.0),
+				lower_cloud_color,
+			)
+		return
 	_sky_material.set_shader_parameter(
 		"cloud_coverage",
 		_weather_value(0.0, 0.58, 0.985, 0.0),

@@ -30,6 +30,7 @@ readonly -a QUICK_TESTS=(
 
 readonly -a RUNTIME_TESTS=(
 	"tests/inventory_notepad_art_validation.gd"
+	"tests/light_performance_profile_validation.gd"
 	"tests/logbook_runtime_validation.gd"
 	"tests/player_experience_ui_validation.gd"
 	"tests/title_credits_validation.gd"

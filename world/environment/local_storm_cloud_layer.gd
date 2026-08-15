@@ -13,6 +13,9 @@ const DISTANCE_FADE_START: float = 240.0
 const DISTANCE_FADE_END: float = 300.0
 const WRAP_RADIUS: float = FIELD_HALF_EXTENT
 const MAXIMUM_OPACITY: float = 1.0
+const LIGHT_CEILING_SIZE: float = 520.0
+const LIGHT_CEILING_ALTITUDE: float = 20.0
+const LIGHT_MAXIMUM_OPACITY: float = 0.72
 const BASE_VELOCITY := Vector2(0.825, -0.45)
 const BODY_OUTLINE: Array[Vector2] = [
 	Vector2(-6.9, -0.8),
@@ -50,14 +53,25 @@ var _target: Node3D
 var _material: ShaderMaterial
 var _multimesh: MultiMesh
 var _cloud_mesh: MultiMeshInstance3D
+var _light_cloud_mesh: MeshInstance3D
+var _light_material: StandardMaterial3D
 var _drift_offset := Vector2.ZERO
 var _storm_amount: float = 0.0
+var _light_performance_profile: bool = false
 
 
-func setup(target: Node3D) -> void:
+func setup(
+	target: Node3D,
+	light_performance_profile: bool = false,
+) -> void:
 	_target = target
-	_build_cloud_field()
-	_update_cloud_transforms()
+	_light_performance_profile = light_performance_profile
+	if _light_performance_profile:
+		_build_light_cloud_ceiling()
+		_update_light_position()
+	else:
+		_build_cloud_field()
+		_update_cloud_transforms()
 	set_process(true)
 
 
@@ -65,8 +79,19 @@ func set_storm_amount(amount: float, color: Color) -> void:
 	_storm_amount = clampf(amount, 0.0, 1.0)
 	var should_be_visible: bool = _storm_amount > 0.001
 	if should_be_visible and not visible:
-		_update_cloud_transforms()
+		if _light_performance_profile:
+			_update_light_position()
+		else:
+			_update_cloud_transforms()
 	visible = should_be_visible
+	if _light_performance_profile:
+		if _light_material != null:
+			var light_color: Color = color
+			light_color.a = (
+				_storm_amount * LIGHT_MAXIMUM_OPACITY
+			)
+			_light_material.albedo_color = light_color
+		return
 	if _material == null:
 		return
 	_material.set_shader_parameter("weather_opacity", _storm_amount)
@@ -78,11 +103,18 @@ func get_storm_amount() -> float:
 
 
 func get_patch_count() -> int:
-	return GRID_AXIS_COUNT * GRID_AXIS_COUNT
+	return (
+		1
+		if _light_performance_profile
+		else GRID_AXIS_COUNT * GRID_AXIS_COUNT
+	)
 
 
 func _process(delta: float) -> void:
 	if not visible or _target == null or not is_instance_valid(_target):
+		return
+	if _light_performance_profile:
+		_update_light_position()
 		return
 	_drift_offset += BASE_VELOCITY * delta
 	_drift_offset = Vector2(
@@ -126,6 +158,37 @@ func _build_cloud_field() -> void:
 	_cloud_mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(_cloud_mesh)
 	visible = false
+
+
+func _build_light_cloud_ceiling() -> void:
+	_light_material = StandardMaterial3D.new()
+	_light_material.resource_name = "light_cloud_ceiling"
+	_light_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	_light_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	_light_material.cull_mode = BaseMaterial3D.CULL_DISABLED
+	_light_material.albedo_color = Color(0.22, 0.25, 0.26, 0.0)
+	var ceiling_mesh := PlaneMesh.new()
+	ceiling_mesh.size = Vector2.ONE * LIGHT_CEILING_SIZE
+	ceiling_mesh.material = _light_material
+	_light_cloud_mesh = MeshInstance3D.new()
+	_light_cloud_mesh.name = "CloudCeiling"
+	_light_cloud_mesh.position.y = LIGHT_CEILING_ALTITUDE
+	_light_cloud_mesh.mesh = ceiling_mesh
+	_light_cloud_mesh.cast_shadow = (
+		GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	)
+	add_child(_light_cloud_mesh)
+	visible = false
+
+
+func _update_light_position() -> void:
+	if _target == null or not is_instance_valid(_target):
+		return
+	global_position = Vector3(
+		_target.global_position.x,
+		0.0,
+		_target.global_position.z,
+	)
 
 
 func _build_cloud_body_mesh() -> ArrayMesh:

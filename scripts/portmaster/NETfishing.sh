@@ -78,17 +78,36 @@ fi
 
 NETFISHING_GODOT_OPTIONS=()
 NETFISHING_GAME_ENVIRONMENT=()
-DEVICE_COMPATIBILITY=""
-if [[ -r /proc/device-tree/compatible ]]; then
-	DEVICE_COMPATIBILITY="$(tr '\0' ' ' </proc/device-tree/compatible)"
-elif [[ -r /sys/firmware/devicetree/base/compatible ]]; then
-	DEVICE_COMPATIBILITY="$(
-		tr '\0' ' ' </sys/firmware/devicetree/base/compatible
-	)"
+PERFORMANCE_PROFILE="${NETFISHING_PERFORMANCE_PROFILE:-}"
+PROFILE_PATH="$CONFDIR/performance_profile"
+if [[ -z "$PERFORMANCE_PROFILE" && -r "$PROFILE_PATH" ]]; then
+	IFS= read -r PERFORMANCE_PROFILE < "$PROFILE_PATH" || true
+	PERFORMANCE_PROFILE="${PERFORMANCE_PROFILE%$'\r'}"
 fi
-case "$DEVICE_COMPATIBILITY" in
-	*allwinner,h616*|*sun50iw9p1*|*allwinner,sun50i-h700*)
-		NETFISHING_GAME_ENVIRONMENT+=("NETFISHING_LOW_END=1")
+case "$PERFORMANCE_PROFILE" in
+	normal)
+		NETFISHING_GAME_ENVIRONMENT+=(
+			"NETFISHING_PERFORMANCE_PROFILE=normal"
+		)
+		;;
+	light|"")
+		NETFISHING_GAME_ENVIRONMENT+=(
+			"NETFISHING_PERFORMANCE_PROFILE=light"
+			"NETFISHING_LOW_END=1"
+		)
+		NETFISHING_GODOT_OPTIONS+=(
+			--single-window
+			--disable-vsync
+			--max-fps 30
+			--audio-output-latency 40
+		)
+		;;
+	*)
+		echo "Unknown performance profile '$PERFORMANCE_PROFILE'; using light." >&2
+		NETFISHING_GAME_ENVIRONMENT+=(
+			"NETFISHING_PERFORMANCE_PROFILE=light"
+			"NETFISHING_LOW_END=1"
+		)
 		NETFISHING_GODOT_OPTIONS+=(
 			--single-window
 			--disable-vsync

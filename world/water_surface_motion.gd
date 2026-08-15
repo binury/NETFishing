@@ -35,6 +35,12 @@ func _process(_delta: float) -> void:
 	)
 
 
+func set_motion_enabled(enabled: bool) -> void:
+	set_process(enabled and amplitude > 0.0)
+	if not enabled:
+		position.y = _base_height
+
+
 static func get_default_height_offset() -> float:
 	return calculate_height_offset(
 		_current_time_seconds(),

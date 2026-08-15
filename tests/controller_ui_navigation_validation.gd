@@ -61,8 +61,12 @@ func _validate_low_end_profile_contract() -> void:
 	var launcher: String = FileAccess.get_file_as_string(
 		"res://scripts/portmaster/NETfishing.sh"
 	)
-	assert(launcher.contains("allwinner,h616"))
-	assert(launcher.contains("sun50iw9p1"))
+	assert(launcher.contains("NETFISHING_PERFORMANCE_PROFILE:-"))
+	assert(launcher.contains("$CONFDIR/performance_profile"))
+	assert(launcher.contains("normal)"))
+	assert(launcher.contains("light|\"\")"))
+	assert(launcher.contains("NETFISHING_PERFORMANCE_PROFILE=normal"))
+	assert(launcher.contains("NETFISHING_PERFORMANCE_PROFILE=light"))
 	assert(launcher.contains("NETFISHING_LOW_END=1"))
 	assert(launcher.contains("--max-fps 30"))
 	assert(launcher.contains("--audio-output-latency 40"))

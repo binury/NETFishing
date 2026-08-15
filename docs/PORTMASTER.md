@@ -140,30 +140,52 @@ following in the installed game:
 - A single button never cancels auto-map.
 - Holding both bumpers together for 1.25 seconds cancels auto-map.
 
-## Low-end performance profile
+## PortMaster performance profile
 
-The launcher keeps the normal game profile on unknown and stronger hardware.
-It enables the low-end profile only when the Linux device tree reports one of
-the identifiers used by Allwinner H616/H700 XX handhelds:
+Every PortMaster launch defaults to the light performance profile, regardless
+of device family. This reflects the low-end hardware that makes up most of the
+PortMaster ecosystem and keeps the canonical package conservative by default.
 
-- `allwinner,h616`
-- `sun50iw9p1`
-- `allwinner,sun50i-h700`
-
-The low-end profile passes these Godot options:
+The light profile passes these Godot options:
 
 - `--single-window`
 - `--disable-vsync`
 - `--max-fps 30`
 - `--audio-output-latency 40`
 
-It also passes `NETFISHING_LOW_END=1`. The game renders the 3D world at 75%
-linear resolution with nearest-neighbor scaling, reducing 3D pixel work by
-about 44% while the separately rendered UI retains its canonical resolution.
+It also passes `NETFISHING_PERFORMANCE_PROFILE=light` and
+`NETFISHING_LOW_END=1`. The game renders the 3D world at 50% linear resolution
+with nearest-neighbor scaling, reducing 3D pixel work by 75% while the
+separately rendered UI retains its canonical resolution. The light profile
+also:
 
-Do not use Godot's low processor mode for this profile. It reduces idle CPU
-usage by sleeping between updates and is not a game-performance optimization.
+- disables the additional full-screen world-pixelation pass;
+- replaces animated depth-aware water shaders with opaque, per-vertex water;
+- disables ocean surface motion;
+- reduces rain to 256 particles simulated at 15 FPS; and
+- replaces procedural sky clouds and 81 moving local cloud patches with one
+  flat cloud ceiling.
 
-Before adding a device family, record its exact NUL-separated device-tree
-`compatible` value from hardware. Do not infer detection from a retail product
-name alone.
+The normal profile retains the full visual presentation.
+
+To opt a capable device into the normal profile, create the persistent file
+`netfishing/conf/performance_profile` containing exactly:
+
+```text
+normal
+```
+
+On a typical muOS installation, the full path is:
+
+```text
+/mnt/mmc/ports/netfishing/conf/performance_profile
+```
+
+Set the file to `light`, or remove it, to restore the default. An externally
+provided `NETFISHING_PERFORMANCE_PROFILE=normal` or `light` environment value
+takes precedence over the persistent file. Invalid values safely fall back to
+the light profile and are reported in `netfishing/log.txt`.
+
+Do not use Godot's low processor mode for the light profile. It reduces idle
+CPU usage by sleeping between updates and is not a game-performance
+optimization.

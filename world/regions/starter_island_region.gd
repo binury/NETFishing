@@ -13,6 +13,14 @@ const FOLIAGE_MATERIAL_NAMES: Array[StringName] = [
 	&"leaf_light",
 	&"leaf_dark",
 ]
+const NORMAL_SALT_WATER_MATERIAL: Material = preload(
+	"res://world/materials/stylized_water.tres"
+)
+const NORMAL_FRESH_WATER_MATERIAL: Material = preload(
+	"res://world/materials/stylized_water_fresh.tres"
+)
+const LIGHT_SALT_WATER_COLOR := Color(0.11, 0.345, 0.435)
+const LIGHT_FRESH_WATER_COLOR := Color(0.18, 0.46, 0.50)
 
 @export_group("Owned Nodes")
 @export_node_path("MeshInstance3D")
@@ -58,6 +66,48 @@ func get_fishing_shop() -> FishingShopInteractionType:
 
 func get_saltwater_shoreline_mesh() -> MeshInstance3D:
 	return get_node_or_null(^"ShorelineRibbons/Ocean") as MeshInstance3D
+
+
+func set_light_performance_profile(enabled: bool) -> void:
+	var pond := get_node_or_null(
+		^"WaterBodies/Pond/VisualWater"
+	) as MeshInstance3D
+	var ocean := get_node_or_null(
+		^"WaterBodies/Ocean/VisualWater"
+	) as MeshInstance3D
+	if pond != null:
+		pond.material_override = (
+			_create_light_water_material(
+				LIGHT_FRESH_WATER_COLOR,
+				&"light_fresh_water",
+			)
+			if enabled
+			else NORMAL_FRESH_WATER_MATERIAL
+		)
+	if ocean != null:
+		ocean.material_override = (
+			_create_light_water_material(
+				LIGHT_SALT_WATER_COLOR,
+				&"light_salt_water",
+			)
+			if enabled
+			else NORMAL_SALT_WATER_MATERIAL
+		)
+		var surface_motion := ocean as WaterSurfaceMotion
+		if surface_motion != null:
+			surface_motion.set_motion_enabled(not enabled)
+
+
+func _create_light_water_material(
+	color: Color,
+	material_name: StringName,
+) -> StandardMaterial3D:
+	var material := StandardMaterial3D.new()
+	material.resource_name = str(material_name)
+	material.albedo_color = color
+	material.roughness = 1.0
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_PER_VERTEX
+	return material
 
 
 func get_spawn_surface_triangles(

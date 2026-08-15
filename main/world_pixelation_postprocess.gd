@@ -5,6 +5,7 @@ extends CanvasLayer
 
 var _pixel_size: int = PlayerSettings.DEFAULT_WORLD_PIXEL_SIZE
 var _gameplay_active: bool = false
+var _light_performance_profile: bool = false
 
 
 func _ready() -> void:
@@ -26,6 +27,15 @@ func set_gameplay_active(active: bool) -> void:
 	_refresh_grid()
 
 
+func set_light_performance_profile(enabled: bool) -> void:
+	_light_performance_profile = enabled
+	_refresh_grid()
+
+
+func is_light_performance_profile() -> bool:
+	return _light_performance_profile
+
+
 func get_grid_size() -> Vector2i:
 	return PlayerSettings.get_world_grid_size(
 		_pixel_size,
@@ -38,6 +48,7 @@ func _refresh_grid() -> void:
 		return
 	var effect_enabled: bool = (
 		_gameplay_active
+		and not _light_performance_profile
 		and _pixel_size != PlayerSettings.MIN_WORLD_PIXEL_SIZE
 	)
 	_screen_grid.visible = effect_enabled
