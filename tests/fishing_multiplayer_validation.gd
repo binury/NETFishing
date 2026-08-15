@@ -146,6 +146,17 @@ func _run_host() -> void:
 	):
 		await process_frame
 	assert(remote_animation_player.current_animation == &"retract_sit")
+	var retract_completion_deadline: int = Time.get_ticks_msec() + 5000
+	while (
+		Time.get_ticks_msec() < retract_completion_deadline
+		and not remote_avatar.is_retract_visual_complete()
+	):
+		await process_frame
+	assert(remote_avatar.is_retract_visual_complete())
+	# Give the client that owns the same presentation a frame boundary to finish
+	# local cleanup before the host intentionally tears down this test session.
+	for _frame: int in 4:
+		await physics_frame
 
 	print("Fishing multiplayer host validation: PASS")
 	session.disconnect_session("")

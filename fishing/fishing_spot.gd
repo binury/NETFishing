@@ -385,6 +385,24 @@ func set_gameplay_input_enabled(enabled: bool) -> void:
 	if not enabled:
 		_local_menu_input_owners.clear()
 		_stop_reeling_audio()
+		# FishingSpot survives session and gameplay transitions. Restore the
+		# player's canonical movement state before input is disabled so a cast
+		# lock cannot follow that player into the next session.
+		reset_transient_state()
+
+
+func reset_transient_state(restore_movement: bool = true) -> void:
+	var local_state_was_active: bool = (
+		state != FishingState.READY or _active_player != null
+	)
+	if local_state_was_active and _active_player == null and _local_player != null:
+		_local_player.set_fighting_visual(false)
+		_local_player.set_fishing_visual(false)
+		_local_player.end_catch_showcase(Callable(), true)
+		if restore_movement:
+			_local_player.set_movement_enabled(true)
+	_finalize_attempt_cleanup("", restore_movement)
+	_new_cast_press_armed = not Input.is_action_pressed("fish_primary")
 
 
 func configure_accessibility_auto_click(
@@ -1339,13 +1357,17 @@ func _cleanup_attempt(
 	_finalize_attempt_cleanup(cooldown_message)
 
 
-func _finalize_attempt_cleanup(cooldown_message: String) -> void:
+func _finalize_attempt_cleanup(
+	cooldown_message: String,
+	restore_movement: bool = true,
+) -> void:
 	_showcase_restore_generation += 1
 	if _active_player != null:
 		_active_player.set_fighting_visual(false)
 		_active_player.set_fishing_visual(false)
 		_active_player.end_catch_showcase()
-		_active_player.set_movement_enabled(true)
+		if restore_movement:
+			_active_player.set_movement_enabled(true)
 	_active_player = null
 	_state_time_remaining = 0.0
 	_cast_charge = 0.0
@@ -1839,6 +1861,7 @@ func _on_network_session_state_changed(state_value: NetworkSession.State) -> voi
 	]:
 		_stop_fight_audio()
 		_stop_reeling_audio()
+		reset_transient_state()
 
 
 func _start_fight_audio() -> void:

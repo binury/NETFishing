@@ -176,6 +176,31 @@ func _run() -> void:
 	assert(fishing_status.text.is_empty())
 	assert(not fishing_status.visible)
 	assert(not fishing_panel.visible)
+	var reset_test_deadline: int = Time.get_ticks_msec() + 3000
+	while (
+		Time.get_ticks_msec() < reset_test_deadline
+		and fishing_spot.state != FishingSpotType.FishingState.READY
+	):
+		await process_frame
+	assert(fishing_spot.state == FishingSpotType.FishingState.READY)
+
+	# Leaving a session during the cast presentation must release every local
+	# action and equipment lock. This is the same cleanup path used by an
+	# in-game server switch or a lost connection.
+	fishing_spot.call("_begin_aiming", player)
+	fishing_spot.set("_cast_charge", 0.32)
+	fishing_spot.call("_update_cast_charge", 0.0)
+	fishing_spot.call("_confirm_cast")
+	assert(fishing_spot.state == FishingSpotType.FishingState.CASTING)
+	assert(not player.is_movement_enabled())
+	fishing_spot.call(
+		"_on_network_session_state_changed",
+		NetworkSession.State.DISCONNECTING,
+	)
+	assert(fishing_spot.state == FishingSpotType.FishingState.READY)
+	assert(player.is_movement_enabled())
+	assert(fishing_spot.can_change_hotbar_selection())
+	assert(fishing_spot.can_open_fishing_shop())
 
 	print("Fishing authority validation: PASS")
 	session.disconnect_session("")
