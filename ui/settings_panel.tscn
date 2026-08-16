@@ -30,9 +30,10 @@ theme_override_constants/margin_bottom = 18
 
 [node name="Layout" type="VBoxContainer" parent="MainPanel/OuterMargin"]
 layout_mode = 2
-theme_override_constants/separation = 8
+theme_override_constants/separation = -26
 
 [node name="Heading" type="Label" parent="MainPanel/OuterMargin/Layout"]
+custom_minimum_size = Vector2(0, 66)
 layout_mode = 2
 theme_override_font_sizes/font_size = 30
 text = "settings"
@@ -90,7 +91,7 @@ palette_index = 1
 
 [node name="ContentPanel" type="PanelContainer" parent="MainPanel/OuterMargin/Layout"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 440)
+custom_minimum_size = Vector2(0, 474)
 layout_mode = 2
 size_flags_vertical = 3
 
@@ -610,7 +611,15 @@ size_flags_horizontal = 3
 focus_mode = 2
 text = "import host identity"
 
-[node name="SettingsFeedback" type="Label" parent="MainPanel/OuterMargin/Layout"]
+[node name="FooterGroup" type="MarginContainer" parent="MainPanel/OuterMargin/Layout"]
+layout_mode = 2
+theme_override_constants/margin_top = 34
+
+[node name="FooterLayout" type="VBoxContainer" parent="MainPanel/OuterMargin/Layout/FooterGroup"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="SettingsFeedback" type="Label" parent="MainPanel/OuterMargin/Layout/FooterGroup/FooterLayout"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 24)
 layout_mode = 2
@@ -619,19 +628,19 @@ horizontal_alignment = 1
 vertical_alignment = 1
 text_overrun_behavior = 3
 
-[node name="Footer" type="HBoxContainer" parent="MainPanel/OuterMargin/Layout"]
+[node name="Footer" type="HBoxContainer" parent="MainPanel/OuterMargin/Layout/FooterGroup/FooterLayout"]
 layout_mode = 2
 theme_override_constants/separation = 12
 alignment = 2
 
-[node name="ApplySettingsButton" type="Button" parent="MainPanel/OuterMargin/Layout/Footer"]
+[node name="ApplySettingsButton" type="Button" parent="MainPanel/OuterMargin/Layout/FooterGroup/FooterLayout/Footer"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(180, 44)
 layout_mode = 2
 focus_mode = 2
 text = "apply"
 
-[node name="SettingsBackButton" type="Button" parent="MainPanel/OuterMargin/Layout/Footer"]
+[node name="SettingsBackButton" type="Button" parent="MainPanel/OuterMargin/Layout/FooterGroup/FooterLayout/Footer"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(180, 44)
 layout_mode = 2

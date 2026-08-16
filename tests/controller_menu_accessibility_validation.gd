@@ -172,12 +172,97 @@ func _validate_data_settings_navigation() -> void:
 	root.add_child(panel)
 	await process_frame
 	panel.show()
-	panel.call("_select_page", &"data", false)
 	for _frame: int in 2:
 		await process_frame
+	var data_tab := panel.get_node("%DataTab") as Button
+	var open_data_folder := panel.get_node("%OpenDataFolder") as Button
+	var content_panel := panel.get_node("%ContentPanel") as PanelContainer
+	var tab_overlap: float = (
+		data_tab.get_global_rect().end.y
+		- content_panel.get_global_rect().position.y
+	)
+	_expect(
+		is_equal_approx(tab_overlap, data_tab.size.y * 0.5),
+		"Settings content does not cover the lower half of its organizer tabs.",
+	)
+	var open_activation := {"count": 0}
+	open_data_folder.pressed.connect(func() -> void:
+		open_activation["count"] = int(open_activation["count"]) + 1
+	)
+	data_tab.grab_focus()
+	var accept_press := InputEventAction.new()
+	accept_press.action = &"ui_accept"
+	accept_press.pressed = true
+	Input.parse_input_event(accept_press)
+	await process_frame
+	var accept_release := InputEventAction.new()
+	accept_release.action = &"ui_accept"
+	accept_release.pressed = false
+	Input.parse_input_event(accept_release)
+	for _frame: int in 2:
+		await process_frame
+	_expect(
+		panel.get_active_page_id() == &"data",
+		"Selecting the Data tab did not open the Data page.",
+	)
+	_expect(
+		int(open_activation["count"]) == 0,
+		"Selecting the Data tab also activated Open Data Folder.",
+	)
+	_expect(
+		root.gui_get_focus_owner() == data_tab,
+		"Selecting the Data tab transferred focus into its actions.",
+	)
+	var test_data_root := PlayerDataRoot.new()
+	root.add_child(test_data_root)
+	test_data_root.root_path = "/tmp/netfishing-controller-data"
+	panel.set("_data_root", test_data_root)
+	open_data_folder.grab_focus()
+	_expect(
+		root.gui_get_focus_owner() == open_data_folder,
+		"Open Data Folder did not accept controller focus.",
+	)
+	_expect(
+		not open_data_folder.disabled,
+		"Open Data Folder is unexpectedly disabled.",
+	)
+	var action_press := InputEventAction.new()
+	action_press.action = &"ui_accept"
+	action_press.pressed = true
+	Input.parse_input_event(action_press)
+	await process_frame
+	var action_release := InputEventAction.new()
+	action_release.action = &"ui_accept"
+	action_release.pressed = false
+	Input.parse_input_event(action_release)
+	for _frame: int in 2:
+		await process_frame
+	_expect(
+		int(open_activation["count"]) == 1,
+		(
+			"Explicitly accepting Open Data Folder pressed it %d times."
+			% int(open_activation["count"])
+		),
+	)
+	var confirmations: Array[Node] = panel.find_children(
+		"*", "ConfirmationDialog", true, false
+	)
+	_expect(
+		confirmations.size() == 1
+		and (confirmations.front() as ConfirmationDialog).visible,
+		"Explicitly accepting Open Data Folder did not request confirmation.",
+	)
+	if not confirmations.is_empty():
+		var confirmation := confirmations.front() as ConfirmationDialog
+		_expect(
+			confirmation.gui_get_focus_owner()
+				== confirmation.get_cancel_button(),
+			"Open Data Folder confirmation did not default to Cancel.",
+		)
+		confirmation.queue_free()
 	var controls: Array[Control] = [
-		panel.get_node("%DataTab") as Control,
-		panel.get_node("%OpenDataFolder") as Control,
+		data_tab,
+		open_data_folder,
 		panel.get_node("%ChangeDataFolder") as Control,
 		panel.get_node("%CopyPlayerFingerprint") as Control,
 		panel.get_node("%ExportPlayerIdentity") as Control,
@@ -199,6 +284,7 @@ func _validate_data_settings_navigation() -> void:
 		"Settings children still contain bubble controls.",
 	)
 	panel.queue_free()
+	test_data_root.queue_free()
 	await process_frame
 
 

@@ -235,7 +235,7 @@ func _connect_controls() -> void:
 	)
 	%ControllerMapping.pressed.connect(_open_controller_mapping)
 	%KeyboardMapping.pressed.connect(_open_keyboard_mouse_mapping)
-	%OpenDataFolder.pressed.connect(_open_data_folder)
+	%OpenDataFolder.pressed.connect(_confirm_open_data_folder)
 	%ChangeDataFolder.pressed.connect(_choose_data_folder)
 	%ExportPlayerIdentity.pressed.connect(
 		_choose_identity_export.bind("player")
@@ -633,6 +633,32 @@ func _refresh_data_page() -> void:
 func _open_data_folder() -> void:
 	if _data_root == null or not _data_root.open_folder():
 		_feedback.text = "could not open the data folder."
+
+
+func _confirm_open_data_folder() -> void:
+	if _data_root == null:
+		_feedback.text = "the data folder is unavailable."
+		return
+	var dialog := ConfirmationDialog.new()
+	dialog.title = "open data folder?"
+	dialog.ok_button_text = "open folder"
+	dialog.cancel_button_text = "cancel"
+	dialog.dialog_text = (
+		"open this folder outside NETfishing?\n\n" + _data_root.root_path
+	)
+	dialog.confirmed.connect(func() -> void:
+		_open_data_folder()
+		dialog.queue_free()
+	)
+	dialog.canceled.connect(dialog.queue_free)
+	if _interface_fonts != null:
+		_interface_fonts.apply_utility_theme(dialog)
+	add_child(dialog)
+	dialog.popup_centered(Vector2i(620, 300))
+	_configure_confirmation_dialog.call_deferred(
+		dialog,
+		dialog.get_cancel_button(),
+	)
 
 
 func _copy_player_fingerprint() -> void:
