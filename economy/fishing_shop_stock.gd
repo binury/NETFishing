@@ -64,6 +64,10 @@ static func get_stock_item_ids() -> Array[StringName]:
 	return ITEM_ORDER.duplicate()
 
 
+static func get_stock_order_index(item_id: StringName) -> int:
+	return ITEM_ORDER.find(item_id)
+
+
 static func get_rod_stock(
 	catalog: ItemCatalogType,
 ) -> Array[FishingRodDataType]:

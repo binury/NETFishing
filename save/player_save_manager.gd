@@ -793,6 +793,11 @@ func _build_load_snapshot(save_data: Dictionary) -> LoadSnapshot:
 		var owned := OwnedItemType.new()
 		owned.item_id = item_id
 		owned.quantity = quantity
+		owned.storage_slot = _read_integer(
+			item_record.get("storage_slot", -1),
+			-1,
+			PlayerBagType.MAX_STORAGE_SLOT_INDEX,
+		)
 		seen_items[item_id] = true
 		snapshot.bag_items.append(owned)
 

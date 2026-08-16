@@ -9,6 +9,9 @@ const FishQualityType = preload("res://fish/fish_quality.gd")
 const FishBuyerProfileType = preload("res://economy/fish_buyer_profile.gd")
 const FishSaleResultType = preload("res://economy/fish_sale_result.gd")
 const FishSaleServiceType = preload("res://economy/fish_sale_service.gd")
+const FishingShopStockType = preload(
+	"res://economy/fishing_shop_stock.gd"
+)
 const NetworkSessionType = preload("res://network/network_session.gd")
 const FishInventoryType = preload("res://inventory/fish_inventory.gd")
 const InventoryNotepadType = preload(
@@ -71,6 +74,9 @@ const BagItemSpriteType = preload(
 )
 const BagItemSpriteScene = preload(
 	"res://ui/components/bubble_menu/bag_item_sprite.tscn"
+)
+const BagStorageSlotType = preload(
+	"res://ui/components/bubble_menu/bag_storage_slot.gd"
 )
 const LogbookEntryType = preload(
 	"res://ui/components/bubble_menu/logbook_entry.gd"
@@ -140,6 +146,7 @@ enum ControllerOwnership {
 	SORT_FILTER,
 	HOTBAR_MANAGEMENT,
 	HOTBAR_PLACEMENT,
+	STORAGE_PLACEMENT,
 	PAGE_CONTENT,
 }
 
@@ -154,6 +161,8 @@ const INVENTORY_NOTEPAD_SIZE := Vector2(278.0, 484.0)
 const INVENTORY_MAIN_CORNER_RADIUS: int = 58
 const INVENTORY_INNER_CORNER_RADIUS: int = 45
 const TACKLE_GRID_COLUMNS: int = 3
+const BAG_STORAGE_COLUMNS: int = 5
+const BAG_STORAGE_MINIMUM_SLOTS: int = 15
 const SALE_CONFIRMATION_SIZE := Vector2(520.0, 190.0)
 const CONTROLLER_PICKUP_HOLD_SECONDS: float = 0.42
 
@@ -325,7 +334,9 @@ var _controller_hotbar_assignment_kind: PlayerHotbarType.AssignmentKind = (
 	PlayerHotbarType.AssignmentKind.EMPTY
 )
 var _controller_hotbar_identity: StringName
+var _controller_storage_identity: StringName
 var _controller_previous_hotbar_slot: int = 0
+var _controller_previous_storage_slot: int = 0
 var _controller_accept_held: bool = false
 var _controller_accept_hold_elapsed: float = 0.0
 var _content_interactive_enabled: bool = false
@@ -367,7 +378,7 @@ var _fish_nodes: Dictionary[StringName, CoolerFishSpriteType] = {}
 var _cooler_slot_nodes: Array[Panel] = []
 var _sorted_catches: Array[FishCatchType] = []
 var _bag_item_nodes: Dictionary[StringName, BagItemSpriteType] = {}
-var _bag_slot_nodes: Array[Panel] = []
+var _bag_slot_nodes: Array[BagStorageSlotType] = []
 var _sorted_bag_items: Array[OwnedItemType] = []
 var _bag_drag_active: bool = false
 var _motion_elapsed: float = 0.0
@@ -693,15 +704,44 @@ func _handle_controller_ownership_input(event: InputEvent) -> bool:
 			return true
 		return false
 	if _controller_ownership == ControllerOwnership.HOTBAR_MANAGEMENT:
+		if event.is_action_pressed("ui_up"):
+			_release_controller_ownership(true, false)
+			return true
 		if accept_pressed:
 			if _hotbar != null:
 				_hotbar.clear_slot(_hotbar.get_selected_slot())
 			return true
 		return false
 	if _controller_ownership == ControllerOwnership.HOTBAR_PLACEMENT:
+		if event.is_action_pressed("ui_up"):
+			if _return_controller_hotbar_placement_to_storage():
+				return true
+			_release_controller_ownership(true, true)
+			return true
 		if accept_pressed:
 			_confirm_controller_hotbar_placement()
 			return true
+		return false
+	if _controller_ownership == ControllerOwnership.STORAGE_PLACEMENT:
+		if accept_pressed:
+			_confirm_controller_storage_placement()
+			return true
+		if accept_event:
+			return true
+		if (
+			event.is_action_pressed("ui_down")
+			and _controller_storage_focus_is_on_last_row()
+		):
+			var focused_slot := (
+				get_viewport().gui_get_focus_owner() as BagStorageSlotType
+			)
+			if focused_slot != null:
+				_controller_previous_storage_slot = (
+					focused_slot.storage_slot_index
+				)
+			return _begin_controller_hotbar_placement_for_item(
+				_controller_storage_identity
+			)
 		return false
 	if _controller_ownership == ControllerOwnership.NOTEPAD_ACTIONS:
 		return false
@@ -886,13 +926,26 @@ func _controller_focus_is_on_last_inventory_row() -> bool:
 		var item_node := focus_owner as BagItemSpriteType
 		if item_node == null:
 			return false
-		var item_index: int = _sorted_bag_items.find_custom(
-			func(owned: OwnedItemType) -> bool:
-				return owned.item_id == item_node.item_id
+		if _bag == null:
+			var legacy_index: int = _sorted_bag_items.find_custom(
+				func(owned: OwnedItemType) -> bool:
+					return owned.item_id == item_node.item_id
+			)
+			return (
+				legacy_index >= 0
+				and legacy_index + BAG_STORAGE_COLUMNS
+				>= _sorted_bag_items.size()
+			)
+		var item_slot: int = (
+			_bag.get_storage_slot(item_node.item_id)
 		)
+		var maximum_slot: int = -1
+		for owned: OwnedItemType in _sorted_bag_items:
+			maximum_slot = maxi(maximum_slot, owned.storage_slot)
 		return (
-			item_index >= 0
-			and item_index + 3 >= _sorted_bag_items.size()
+			item_slot >= 0
+			and item_slot / BAG_STORAGE_COLUMNS
+			>= maximum_slot / BAG_STORAGE_COLUMNS
 		)
 	return false
 
@@ -956,6 +1009,28 @@ func _try_begin_controller_hotbar_placement() -> bool:
 		identity = item_node.item_id
 	else:
 		return false
+	return _begin_controller_hotbar_placement(assignment_kind, identity)
+
+
+func _begin_controller_hotbar_placement_for_item(item_id: StringName) -> bool:
+	var item: ItemDataType = (
+		_item_catalog.get_item_by_id(item_id)
+		if _item_catalog != null else null
+	)
+	if item == null or not item.hotbar_allowed:
+		return true
+	return _begin_controller_hotbar_placement(
+		PlayerHotbarType.AssignmentKind.ITEM,
+		item_id,
+	)
+
+
+func _begin_controller_hotbar_placement(
+	assignment_kind: PlayerHotbarType.AssignmentKind,
+	identity: StringName,
+) -> bool:
+	if _hotbar == null or identity.is_empty():
+		return false
 	_controller_source_section = _current_section
 	_controller_source_identity = identity
 	_controller_hotbar_assignment_kind = assignment_kind
@@ -975,6 +1050,53 @@ func _try_begin_controller_hotbar_placement() -> bool:
 		initial_slot,
 	)
 	return true
+
+
+func _try_begin_controller_storage_placement() -> bool:
+	if _current_section != Section.BAG or _bag == null:
+		return false
+	var item_node := get_viewport().gui_get_focus_owner() as BagItemSpriteType
+	if item_node == null or item_node.item_id.is_empty():
+		return false
+	var source_slot: int = _bag.get_storage_slot(item_node.item_id)
+	if source_slot < 0 or source_slot >= _bag_slot_nodes.size():
+		return false
+	_controller_source_section = Section.BAG
+	_controller_source_identity = item_node.item_id
+	_controller_storage_identity = item_node.item_id
+	_controller_ownership = ControllerOwnership.STORAGE_PLACEMENT
+	_apply_inventory_controller_zone_focus_modes()
+	_configure_bag_storage_slot_focus()
+	_bag_slot_nodes[source_slot].call_deferred("grab_focus")
+	return true
+
+
+func _confirm_controller_storage_placement() -> void:
+	if (
+		_controller_ownership != ControllerOwnership.STORAGE_PLACEMENT
+		or _bag == null
+		or _controller_storage_identity.is_empty()
+	):
+		return
+	var slot := get_viewport().gui_get_focus_owner() as BagStorageSlotType
+	if slot == null or slot.storage_slot_index < 0:
+		return
+	var moved: bool = _bag.move_item_to_storage_slot(
+		_controller_storage_identity,
+		slot.storage_slot_index,
+	)
+	if moved:
+		_release_controller_ownership(true, false)
+
+
+func _controller_storage_focus_is_on_last_row() -> bool:
+	var slot := get_viewport().gui_get_focus_owner() as BagStorageSlotType
+	if slot == null:
+		return false
+	return (
+		slot.storage_slot_index / BAG_STORAGE_COLUMNS
+		>= (_bag_slot_nodes.size() - 1) / BAG_STORAGE_COLUMNS
+	)
 
 
 func _find_controller_hotbar_assignment(
@@ -1023,6 +1145,31 @@ func _confirm_controller_hotbar_placement() -> void:
 		_release_controller_ownership(true, false)
 
 
+func _return_controller_hotbar_placement_to_storage() -> bool:
+	if (
+		_controller_ownership != ControllerOwnership.HOTBAR_PLACEMENT
+		or _controller_source_section != Section.BAG
+		or _controller_storage_identity.is_empty()
+		or _bag_slot_nodes.is_empty()
+	):
+		return false
+	if _hotbar != null:
+		_hotbar.select_slot(_controller_previous_hotbar_slot)
+	controller_hotbar_placement_ended.emit()
+	_controller_ownership = ControllerOwnership.STORAGE_PLACEMENT
+	_controller_hotbar_assignment_kind = PlayerHotbarType.AssignmentKind.EMPTY
+	_controller_hotbar_identity = StringName()
+	_apply_inventory_controller_zone_focus_modes()
+	_configure_bag_storage_slot_focus()
+	var target_index: int = clampi(
+		_controller_previous_storage_slot,
+		0,
+		_bag_slot_nodes.size() - 1,
+	)
+	_bag_slot_nodes[target_index].call_deferred("grab_focus")
+	return true
+
+
 func _release_controller_ownership(
 	restore_source_focus: bool,
 	restore_previous_hotbar_slot: bool,
@@ -1037,6 +1184,7 @@ func _release_controller_ownership(
 	_controller_source_identity = StringName()
 	_controller_hotbar_assignment_kind = PlayerHotbarType.AssignmentKind.EMPTY
 	_controller_hotbar_identity = StringName()
+	_controller_storage_identity = StringName()
 	_apply_inventory_controller_zone_focus_modes()
 	if prior_ownership == ControllerOwnership.HOTBAR_PLACEMENT:
 		if restore_previous_hotbar_slot and _hotbar != null:
@@ -1320,6 +1468,8 @@ func _consume_player_menu_back() -> bool:
 				_release_controller_ownership(true, false)
 			ControllerOwnership.HOTBAR_PLACEMENT:
 				_release_controller_ownership(true, true)
+			ControllerOwnership.STORAGE_PLACEMENT:
+				_release_controller_ownership(true, false)
 			ControllerOwnership.ITEM_LIST:
 				_enter_inventory_tabs_zone()
 			ControllerOwnership.INVENTORY_TABS:
@@ -1773,7 +1923,10 @@ func _process(delta: float) -> void:
 				>= CONTROLLER_PICKUP_HOLD_SECONDS
 			):
 				_cancel_controller_accept_hold()
-				_try_begin_controller_hotbar_placement()
+				if _current_section == Section.BAG:
+					_try_begin_controller_storage_placement()
+				else:
+					_try_begin_controller_hotbar_placement()
 		_motion_elapsed += delta
 		if visible:
 			_navigation_cluster.advance_motion(delta)
@@ -1907,6 +2060,11 @@ func _apply_inventory_controller_zone_focus_modes() -> void:
 		regular_active
 		and _controller_ownership == ControllerOwnership.SORT_FILTER
 	)
+	var storage_active: bool = (
+		regular_active
+		and _current_section == Section.BAG
+		and _controller_ownership == ControllerOwnership.STORAGE_PLACEMENT
+	)
 	for sort_control: Control in [
 		_cooler_sort_option,
 		_cooler_sort_direction,
@@ -1951,6 +2109,27 @@ func _apply_inventory_controller_zone_focus_modes() -> void:
 				and not _bag_drag_active
 			)
 			else Control.FOCUS_NONE
+		)
+		item_node.modulate.a = (
+			0.24
+			if (
+				storage_active
+				and item_node.item_id == _controller_storage_identity
+			)
+			else 1.0
+		)
+	for slot: BagStorageSlotType in _bag_slot_nodes:
+		if not is_instance_valid(slot):
+			continue
+		slot.focus_mode = (
+			Control.FOCUS_ALL if storage_active else Control.FOCUS_NONE
+		)
+		var preview_active: bool = (
+			storage_active and slot.has_focus()
+		)
+		slot.set_placement_preview(
+			_controller_storage_texture(),
+			preview_active,
 		)
 	for button: Button in _tackle_item_buttons.values():
 		button.focus_mode = (
@@ -2124,8 +2303,8 @@ func _refresh_tackle_box() -> void:
 			)
 			if item != null and item.category == ItemDataType.Category.LURE:
 				lure_items.append(owned)
-	bait_items.sort_custom(_sort_bag_items)
-	lure_items.sort_custom(_sort_bag_items)
+	bait_items.sort_custom(_sort_tackle_items)
+	lure_items.sort_custom(_sort_tackle_items)
 	_populate_tackle_column(bait_items, _bait_item_list)
 	_populate_tackle_column(lure_items, _lure_item_list)
 	if (
@@ -3411,10 +3590,10 @@ func _refresh_bag() -> void:
 		):
 			filtered_items.append(owned)
 	owned_items = filtered_items
-	owned_items.sort_custom(_sort_bag_items)
+	owned_items.sort_custom(_sort_bag_storage_items)
 	_sorted_bag_items = owned_items
-	_bag_empty.visible = owned_items.is_empty()
-	_bag_empty_state.visible = owned_items.is_empty()
+	_bag_empty.visible = false
+	_bag_empty_state.visible = false
 	_bag_empty_state.text = (
 		"No equipment in your Bag."
 		if _bag_view == BagView.EQUIPMENT
@@ -3462,9 +3641,9 @@ func _sync_bag_item_nodes(owned_items: Array[OwnedItemType]) -> void:
 			0.97 + float(identity_hash % 7) * 0.01,
 		)
 		item_node.tooltip_text = (
-			"drag to a hotbar slot."
+			"drag to another storage slot or the hotbar."
 			if item.hotbar_allowed
-			else "this item cannot be assigned to the hotbar."
+			else "drag to another storage slot."
 		)
 		item_node.disabled = false
 		item_node.set_selected(item.item_id == _selected_bag_item_id)
@@ -3482,63 +3661,104 @@ func _sync_bag_item_nodes(owned_items: Array[OwnedItemType]) -> void:
 func _layout_bag_items() -> void:
 	if not is_node_ready():
 		return
-	_bag_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	var columns: int = 3
+	_bag_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	var columns: int = BAG_STORAGE_COLUMNS
 	var cell_size := (
-		Vector2(166.0, 72.0)
+		Vector2(102.0, 48.0)
 		if _compact_layout
-		else Vector2(246.0, 154.0)
+		else Vector2(154.0, 110.0)
+	)
+	var slot_size := (
+		Vector2(90.0, 40.0)
+		if _compact_layout
+		else Vector2(140.0, 96.0)
 	)
 	var item_size := (
-		Vector2(86.0, 62.0)
+		Vector2(78.0, 36.0)
 		if _compact_layout
-		else Vector2(138.0, 102.0)
+		else Vector2(122.0, 82.0)
 	)
 	var origin := (
-		Vector2(16.0, 4.0)
+		Vector2(5.0, 4.0)
 		if _compact_layout
-		else Vector2(54.0, 44.0)
+		else Vector2(10.0, 9.0)
 	)
-	_bag_item_field.custom_minimum_size = (
-		Vector2(520.0, 140.0)
-		if _compact_layout
-		else Vector2(820.0, 240.0)
+	var highest_slot: int = -1
+	for owned: OwnedItemType in _sorted_bag_items:
+		highest_slot = maxi(highest_slot, owned.storage_slot)
+	var slot_count: int = maxi(
+		BAG_STORAGE_MINIMUM_SLOTS,
+		highest_slot + 1,
 	)
-	_sync_inventory_slot_visuals(
-		_bag_item_field,
-		_bag_slot_nodes,
-		maxi(9, _sorted_bag_items.size()),
+	slot_count = ceili(float(slot_count) / float(columns)) * columns
+	var required_rows: int = ceili(float(slot_count) / float(columns))
+	var content_size := Vector2(
+		520.0 if _compact_layout else 788.0,
+		maxf(
+			152.0 if _compact_layout else 358.0,
+			origin.y * 2.0 + float(required_rows) * cell_size.y,
+		),
+	)
+	_bag_host.custom_minimum_size = content_size
+	_bag_item_field.custom_minimum_size = content_size
+	_sync_bag_storage_slots(
+		slot_count,
 		columns,
 		cell_size,
-		item_size,
+		slot_size,
 		origin,
-		18.0,
 	)
-	for index: int in _sorted_bag_items.size():
-		var owned: OwnedItemType = _sorted_bag_items[index]
+	for owned: OwnedItemType in _sorted_bag_items:
 		var item_node := _bag_item_nodes.get(
 			owned.item_id
 		) as BagItemSpriteType
-		if item_node == null:
+		if item_node == null or owned.storage_slot < 0:
 			continue
-		var identity_hash: int = absi(String(owned.item_id).hash())
-		var column: int = index % columns
-		var row: int = floori(float(index) / float(columns))
-		var stable_offset := Vector2(
-			float(identity_hash % 13) - 6.0,
-			float(floori(float(identity_hash) / 19.0) % 11) - 5.0,
+		var column: int = owned.storage_slot % columns
+		var row: int = floori(float(owned.storage_slot) / float(columns))
+		var slot_position := origin + Vector2(
+			float(column) * cell_size.x,
+			float(row) * cell_size.y,
 		)
-		var lane_offset: float = 18.0 if row % 2 == 1 else 0.0
 		item_node.custom_minimum_size = item_size
 		item_node.size = item_size
 		item_node.position = (
-			origin
-			+ Vector2(
-				float(column) * cell_size.x + lane_offset,
-				float(row) * cell_size.y,
-			)
-			+ stable_offset
+			slot_position + (slot_size - item_size) * 0.5
 		)
+		item_node.z_index = 1
+
+
+func _sync_bag_storage_slots(
+	slot_count: int,
+	columns: int,
+	cell_size: Vector2,
+	slot_size: Vector2,
+	origin: Vector2,
+) -> void:
+	for slot: BagStorageSlotType in _bag_slot_nodes:
+		if is_instance_valid(slot):
+			slot.queue_free()
+	_bag_slot_nodes.clear()
+	for slot_index: int in slot_count:
+		var row: int = floori(float(slot_index) / float(columns))
+		var column: int = slot_index % columns
+		var slot := BagStorageSlotType.new()
+		slot.configure(slot_index)
+		slot.size = slot_size
+		slot.custom_minimum_size = slot_size
+		slot.position = origin + Vector2(
+			float(column) * cell_size.x,
+			float(row) * cell_size.y,
+		)
+		slot.bag_item_dropped.connect(_on_bag_item_dropped)
+		slot.pressed.connect(_on_bag_storage_slot_pressed.bind(slot))
+		slot.focus_entered.connect(
+			_on_bag_storage_slot_focus_entered.bind(slot)
+		)
+		_bag_item_field.add_child(slot)
+		_bag_item_field.move_child(slot, 0)
+		_bag_slot_nodes.append(slot)
+	_configure_bag_storage_slot_focus()
 
 
 func _sync_inventory_slot_visuals(
@@ -3596,30 +3816,44 @@ func _configure_bag_item_focus() -> void:
 	active_tab.focus_neighbor_bottom = active_tab.get_path_to(
 		controls.front()
 	)
-	for index: int in controls.size():
-		var control: BagItemSpriteType = controls[index]
-		var column: int = index % 3
+	ControllerFocusNavigationType.configure_spatial_neighbors(controls)
+
+
+func _configure_bag_storage_slot_focus() -> void:
+	for index: int in _bag_slot_nodes.size():
+		var slot: BagStorageSlotType = _bag_slot_nodes[index]
+		if not is_instance_valid(slot):
+			continue
+		var column: int = index % BAG_STORAGE_COLUMNS
 		var left_index: int = index - 1 if column > 0 else index
 		var right_index: int = (
 			index + 1
-			if column < 2 and index + 1 < controls.size()
+			if (
+				column < BAG_STORAGE_COLUMNS - 1
+				and index + 1 < _bag_slot_nodes.size()
+			)
 			else index
 		)
-		control.focus_neighbor_left = control.get_path_to(
-			controls[left_index]
+		var top_index: int = (
+			index - BAG_STORAGE_COLUMNS
+			if index >= BAG_STORAGE_COLUMNS else index
 		)
-		control.focus_neighbor_right = control.get_path_to(
-			controls[right_index]
+		var bottom_index: int = (
+			index + BAG_STORAGE_COLUMNS
+			if index + BAG_STORAGE_COLUMNS < _bag_slot_nodes.size()
+			else index
 		)
-		control.focus_neighbor_top = (
-			control.get_path_to(control)
-			if index < 3
-			else control.get_path_to(controls[index - 3])
+		slot.focus_neighbor_left = slot.get_path_to(
+			_bag_slot_nodes[left_index]
 		)
-		control.focus_neighbor_bottom = control.get_path_to(
-			controls[index + 3]
-			if index + 3 < controls.size()
-			else control
+		slot.focus_neighbor_right = slot.get_path_to(
+			_bag_slot_nodes[right_index]
+		)
+		slot.focus_neighbor_top = slot.get_path_to(
+			_bag_slot_nodes[top_index]
+		)
+		slot.focus_neighbor_bottom = slot.get_path_to(
+			_bag_slot_nodes[bottom_index]
 		)
 
 
@@ -3641,6 +3875,28 @@ func _sort_bag_items(a: OwnedItemType, b: OwnedItemType) -> bool:
 	if item_a.category != item_b.category:
 		return item_a.category < item_b.category
 	return item_a.display_name.naturalnocasecmp_to(item_b.display_name) < 0
+
+
+func _sort_bag_storage_items(a: OwnedItemType, b: OwnedItemType) -> bool:
+	if a.storage_slot >= 0 and b.storage_slot >= 0:
+		return a.storage_slot < b.storage_slot
+	if a.storage_slot >= 0:
+		return true
+	if b.storage_slot >= 0:
+		return false
+	return _sort_bag_items(a, b)
+
+
+func _sort_tackle_items(a: OwnedItemType, b: OwnedItemType) -> bool:
+	var order_a := FishingShopStockType.get_stock_order_index(a.item_id)
+	var order_b := FishingShopStockType.get_stock_order_index(b.item_id)
+	if order_a >= 0 and order_b >= 0 and order_a != order_b:
+		return order_a < order_b
+	if order_a >= 0 and order_b < 0:
+		return true
+	if order_b >= 0 and order_a < 0:
+		return false
+	return _sort_bag_items(a, b)
 
 
 func _select_bag_item(item_id: StringName) -> void:
@@ -3743,6 +3999,42 @@ func _on_bag_drag_started() -> void:
 	_set_content_interactive(false)
 
 
+func _on_bag_item_dropped(item_id: StringName, slot_index: int) -> void:
+	if _bag == null or item_id.is_empty() or slot_index < 0:
+		return
+	if _bag.move_item_to_storage_slot(item_id, slot_index):
+		_select_bag_item(item_id)
+
+
+func _on_bag_storage_slot_pressed(slot: BagStorageSlotType) -> void:
+	if (
+		_controller_ownership == ControllerOwnership.STORAGE_PLACEMENT
+		and slot != null
+	):
+		_confirm_controller_storage_placement()
+
+
+func _on_bag_storage_slot_focus_entered(slot: BagStorageSlotType) -> void:
+	if _controller_ownership != ControllerOwnership.STORAGE_PLACEMENT:
+		return
+	var texture := _controller_storage_texture()
+	for candidate: BagStorageSlotType in _bag_slot_nodes:
+		if is_instance_valid(candidate):
+			candidate.set_placement_preview(texture, candidate == slot)
+
+
+func _controller_storage_texture() -> Texture2D:
+	var item: ItemDataType = (
+		_item_catalog.get_item_by_id(_controller_storage_identity)
+		if (
+			_item_catalog != null
+			and not _controller_storage_identity.is_empty()
+		)
+		else null
+	)
+	return item.icon if item != null else null
+
+
 func _on_bag_drag_finished() -> void:
 	_bag_drag_active = false
 	if visible and _current_section == Section.BAG:
@@ -3838,6 +4130,9 @@ func _sync_cooler_fish_nodes(catches: Array[FishCatchType]) -> void:
 			fish_node.set_meta("new_cooler_fish", true)
 			fish_node.pressed.connect(
 				_on_catch_card_pressed.bind(fish_catch.catch_id)
+			)
+			fish_node.focus_entered.connect(
+				_on_catch_card_focused.bind(fish_catch.catch_id)
 			)
 		var identity_hash: int = absi(String(fish_catch.catch_id).hash())
 		fish_node.configure(
@@ -4065,6 +4360,24 @@ func _on_catch_card_pressed(catch_id: StringName) -> void:
 	)
 	_set_transaction_feedback("")
 	_refresh_inventory()
+
+
+func _on_catch_card_focused(catch_id: StringName) -> void:
+	if _inventory == null or _inventory.get_catch(catch_id) == null:
+		return
+	_fish_selection.focus_only(catch_id)
+	for visible_catch: FishCatchType in _sorted_catches:
+		var fish_node := _fish_nodes.get(
+			visible_catch.catch_id
+		) as CoolerFishSpriteType
+		if fish_node == null:
+			continue
+		fish_node.set_item_state(
+			_fish_selection.is_selected(visible_catch.catch_id),
+			visible_catch.catch_id == catch_id,
+			visible_catch.is_favorited,
+		)
+	_update_inventory_detail(_inventory.get_catch(catch_id))
 
 
 func _on_fish_field_gui_input(event: InputEvent) -> void:

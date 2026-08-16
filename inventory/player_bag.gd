@@ -6,6 +6,14 @@ const ItemDataType = preload("res://items/item_data.gd")
 const OwnedItemType = preload("res://items/owned_item.gd")
 
 const DEFAULT_UNLOCKED_BAIT_IDS: Array[StringName] = [&"worms"]
+const MIN_STORAGE_SLOT_COUNT: int = 15
+const MAX_STORAGE_SLOT_INDEX: int = 254
+
+enum StorageGroup {
+	NONE,
+	EQUIPMENT,
+	ITEMS,
+}
 
 signal contents_changed
 
@@ -31,6 +39,7 @@ func add_item(item_id: StringName, quantity: int = 1) -> bool:
 		var owned := OwnedItemType.new()
 		owned.item_id = item_id
 		owned.quantity = quantity
+		owned.storage_slot = _first_available_storage_slot(item, _items)
 		_items.append(owned)
 	if item.is_bait() and not _unlocked_bait_ids.has(item_id):
 		_unlocked_bait_ids.append(item_id)
@@ -92,6 +101,42 @@ func get_all_items() -> Array[OwnedItemType]:
 	return result
 
 
+func get_storage_slot(item_id: StringName) -> int:
+	var owned: OwnedItemType = get_owned_item(item_id)
+	return owned.storage_slot if owned != null else -1
+
+
+func move_item_to_storage_slot(item_id: StringName, target_slot: int) -> bool:
+	if target_slot < 0 or target_slot > MAX_STORAGE_SLOT_INDEX:
+		return false
+	var owned: OwnedItemType = get_owned_item(item_id)
+	var item: ItemDataType = _resolve_valid_item(item_id)
+	var group: StorageGroup = _storage_group_for_item(item)
+	if owned == null or group == StorageGroup.NONE:
+		return false
+	if owned.storage_slot == target_slot:
+		return true
+	var displaced: OwnedItemType
+	for candidate: OwnedItemType in _items:
+		if candidate == null or candidate == owned:
+			continue
+		var candidate_item: ItemDataType = _resolve_valid_item(
+			candidate.item_id
+		)
+		if (
+			_storage_group_for_item(candidate_item) == group
+			and candidate.storage_slot == target_slot
+		):
+			displaced = candidate
+			break
+	var previous_slot: int = owned.storage_slot
+	owned.storage_slot = target_slot
+	if displaced != null:
+		displaced.storage_slot = previous_slot
+	contents_changed.emit()
+	return true
+
+
 func get_unlocked_bait_ids() -> Array[StringName]:
 	return _unlocked_bait_ids.duplicate()
 
@@ -146,9 +191,78 @@ func replace_all_items(items: Array[OwnedItemType]) -> bool:
 			return false
 		seen[owned.item_id] = true
 		validated.append(owned.duplicate_record())
+	_normalize_storage_slots(validated)
 	_items = validated
 	contents_changed.emit()
 	return true
+
+
+func _normalize_storage_slots(items: Array[OwnedItemType]) -> void:
+	var occupied: Dictionary[String, bool] = {}
+	for owned: OwnedItemType in items:
+		var item: ItemDataType = _resolve_valid_item(owned.item_id)
+		var group: StorageGroup = _storage_group_for_item(item)
+		if group == StorageGroup.NONE:
+			owned.storage_slot = -1
+			continue
+		var key := _storage_slot_key(group, owned.storage_slot)
+		if (
+			owned.storage_slot < 0
+			or owned.storage_slot > MAX_STORAGE_SLOT_INDEX
+			or occupied.has(key)
+		):
+			owned.storage_slot = -1
+			continue
+		occupied[key] = true
+	for owned: OwnedItemType in items:
+		if owned.storage_slot >= 0:
+			continue
+		var item: ItemDataType = _resolve_valid_item(owned.item_id)
+		var group: StorageGroup = _storage_group_for_item(item)
+		if group == StorageGroup.NONE:
+			continue
+		for slot_index: int in range(MAX_STORAGE_SLOT_INDEX + 1):
+			var key := _storage_slot_key(group, slot_index)
+			if occupied.has(key):
+				continue
+			owned.storage_slot = slot_index
+			occupied[key] = true
+			break
+
+
+func _first_available_storage_slot(
+	item: ItemDataType,
+	items: Array[OwnedItemType],
+) -> int:
+	var group: StorageGroup = _storage_group_for_item(item)
+	if group == StorageGroup.NONE:
+		return -1
+	var occupied: Dictionary[int, bool] = {}
+	for owned: OwnedItemType in items:
+		var owned_item: ItemDataType = _resolve_valid_item(owned.item_id)
+		if (
+			_storage_group_for_item(owned_item) == group
+			and owned.storage_slot >= 0
+		):
+			occupied[owned.storage_slot] = true
+	for slot_index: int in range(MAX_STORAGE_SLOT_INDEX + 1):
+		if not occupied.has(slot_index):
+			return slot_index
+	return -1
+
+
+func _storage_group_for_item(item: ItemDataType) -> StorageGroup:
+	if item == null or item.is_bait() or item.is_lure():
+		return StorageGroup.NONE
+	return (
+		StorageGroup.ITEMS
+		if item.category == ItemDataType.Category.CONSUMABLE
+		else StorageGroup.EQUIPMENT
+	)
+
+
+func _storage_slot_key(group: StorageGroup, slot_index: int) -> String:
+	return "%d:%d" % [int(group), slot_index]
 
 
 func _resolve_valid_item(item_id: StringName) -> ItemDataType:
