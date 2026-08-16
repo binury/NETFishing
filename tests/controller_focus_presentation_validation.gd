@@ -12,6 +12,7 @@ func _initialize() -> void:
 
 
 func _run() -> void:
+	root.size = Vector2i(1280, 720)
 	var stage := Control.new()
 	stage.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	root.add_child(stage)
@@ -19,14 +20,20 @@ func _run() -> void:
 	stage.add_child(presentation)
 	var standard_button := Button.new()
 	standard_button.text = "standard"
+	standard_button.position = Vector2(80.0, 60.0)
 	standard_button.custom_minimum_size = Vector2(120.0, 60.0)
+	var normal_style := _button_style(Color("123f4e"))
+	var old_focus_style := _button_style(Color("238697"))
+	standard_button.add_theme_stylebox_override("normal", normal_style)
+	standard_button.add_theme_stylebox_override("focus", old_focus_style)
 	stage.add_child(standard_button)
-	var authored_selector := Button.new()
-	authored_selector.text = "authored selector"
-	authored_selector.position = Vector2(140.0, 0.0)
-	authored_selector.custom_minimum_size = Vector2(160.0, 60.0)
-	authored_selector.set_meta(&"controller_focus_inversion_disabled", true)
-	stage.add_child(authored_selector)
+	var second_button := Button.new()
+	second_button.text = "second"
+	second_button.position = Vector2(260.0, 60.0)
+	second_button.custom_minimum_size = Vector2(120.0, 60.0)
+	# Legacy opt-outs must not prevent the new universal cursor from appearing.
+	second_button.set_meta(&"controller_focus_inversion_disabled", true)
+	stage.add_child(second_button)
 	await process_frame
 
 	var controller_event := InputEventJoypadButton.new()
@@ -35,42 +42,198 @@ func _run() -> void:
 	presentation._input(controller_event)
 	standard_button.grab_focus()
 	await process_frame
+	var focus_arrow := presentation.get("_focus_arrow") as TextureRect
+	_expect(focus_arrow != null, "controller focus arrow was not created")
+	_expect(focus_arrow.visible, "controller focus arrow is not visible")
 	_expect(
-		standard_button.material != null,
-		"ordinary controller focus receives inversion",
+		focus_arrow.texture == FocusPresentationType.FOCUS_ARROW_TEXTURE,
+		"controller focus arrow uses the wrong artwork",
 	)
+	_expect(
+		is_equal_approx(
+			focus_arrow.rotation_degrees,
+			FocusPresentationType.FOCUS_ARROW_ROTATION_DEGREES,
+		),
+		"controller focus arrow does not point toward five o'clock",
+	)
+	_expect(
+		standard_button.material == null,
+		"controller focus still applies material inversion",
+	)
+	_expect(
+		standard_button.get_theme_stylebox("focus") == normal_style,
+		"native focus highlighting was not neutralized",
+	)
+	_expect(
+		_arrow_marks_top_left(focus_arrow, standard_button.get_global_rect()),
+		"controller focus arrow is not in the control's top-left corner",
+	)
+	stage.scale = Vector2.ONE * 0.5
+	await process_frame
+	_expect(
+		focus_arrow.size.is_equal_approx(
+			FocusPresentationType.FOCUS_ARROW_SIZE * 0.5
+		),
+		"controller focus arrow does not follow canonical UI stage scale",
+	)
+	_expect(
+		_arrow_marks_top_left(focus_arrow, standard_button.get_global_rect()),
+		"scaled controller focus arrow left its control's top-left corner",
+	)
+	stage.scale = Vector2.ONE
+	await process_frame
+
+	second_button.grab_focus()
+	await process_frame
+	_expect(
+		focus_arrow.visible,
+		"legacy inversion metadata incorrectly hides the focus arrow",
+	)
+	_expect(
+		_arrow_marks_top_left(focus_arrow, second_button.get_global_rect()),
+		"controller focus arrow did not follow the focused control",
+	)
+
 	var pointer_motion := InputEventMouseMotion.new()
 	pointer_motion.position = Vector2(4.0, 4.0)
 	presentation._input(pointer_motion)
 	await process_frame
 	_expect(
-		standard_button.material == null,
-		"mouse motion clears controller focus presentation",
+		not focus_arrow.visible,
+		"mouse motion does not clear controller focus presentation",
+	)
+	_expect(
+		standard_button.get_theme_stylebox("focus") == old_focus_style,
+		"native theme overrides were not restored after controller use",
 	)
 	presentation._input(controller_event)
 
-	authored_selector.grab_focus()
+	var item_list := ItemList.new()
+	item_list.position = Vector2(80.0, 160.0)
+	item_list.size = Vector2(240.0, 150.0)
+	item_list.max_columns = 1
+	for index: int in 4:
+		item_list.add_item("list item %d" % index)
+	stage.add_child(item_list)
+	await process_frame
+	item_list.select(0)
+	item_list.grab_focus()
+	await process_frame
+	var first_item_arrow_y: float = focus_arrow.position.y
+	item_list.select(2)
 	await process_frame
 	_expect(
-		standard_button.material == null,
-		"inversion clears when focus moves",
+		focus_arrow.position.y > first_item_arrow_y,
+		"focus arrow does not follow the selected ItemList row",
 	)
 	_expect(
-		authored_selector.material == null,
-		"authored selector backgrounds opt out of inversion",
+		item_list.get_theme_stylebox("selected") is StyleBoxEmpty,
+		"ItemList still draws a selected-row cursor highlight",
+	)
+	_expect(
+		item_list.get_theme_color("font_selected_color")
+		== item_list.get_theme_color("font_color"),
+		"ItemList still recolors the selected-row cursor text",
 	)
 
-	standard_button.grab_focus()
+	var tree := Tree.new()
+	tree.position = Vector2(700.0, 160.0)
+	tree.size = Vector2(240.0, 150.0)
+	tree.hide_root = true
+	var tree_root: TreeItem = tree.create_item()
+	var first_tree_item: TreeItem = tree.create_item(tree_root)
+	first_tree_item.set_text(0, "first folder")
+	var second_tree_item: TreeItem = tree.create_item(tree_root)
+	second_tree_item.set_text(0, "second folder")
+	stage.add_child(tree)
 	await process_frame
-	standard_button.focus_mode = Control.FOCUS_NONE
+	first_tree_item.select(0)
+	tree.grab_focus()
+	await process_frame
+	var first_tree_arrow_y: float = focus_arrow.position.y
+	second_tree_item.select(0)
 	await process_frame
 	_expect(
-		standard_button.material == null,
-		"inversion clears when a focused control is defocused",
+		focus_arrow.position.y > first_tree_arrow_y,
+		"focus arrow does not follow the selected Tree row",
 	)
+
+	var popup := PopupMenu.new()
+	for index: int in 5:
+		popup.add_item("popup item %d" % index)
+	root.add_child(popup)
+	popup.popup(Rect2i(500, 300, 0, 0))
+	popup.set_focused_item(0)
+	for _frame: int in 2:
+		await process_frame
+	_expect(
+		presentation.get("_focused_popup") == popup,
+		"focus arrow did not enter an open PopupMenu",
+	)
+	_expect(
+		presentation.get("_focus_layer").custom_viewport == popup,
+		"focus arrow is not rendered inside the PopupMenu viewport",
+	)
+	_expect(
+		popup.get_theme_stylebox("hover") is StyleBoxEmpty,
+		"PopupMenu still draws its native focus highlight",
+	)
+	_expect(
+		_arrow_marks_top_left(
+			focus_arrow,
+			presentation.call("_popup_focus_target_rect", popup) as Rect2,
+		),
+		"focus arrow does not mark the focused PopupMenu item",
+	)
+	var first_popup_arrow_y: float = focus_arrow.position.y
+	popup.set_focused_item(2)
+	await process_frame
+	_expect(
+		focus_arrow.position.y > first_popup_arrow_y,
+		"focus arrow does not follow PopupMenu item navigation",
+	)
+	popup.hide()
+	popup.queue_free()
+	await process_frame
+	item_list.grab_focus()
+	await process_frame
+
+	var dialog := FileDialog.new()
+	dialog.file_mode = FileDialog.FILE_MODE_OPEN_DIR
+	dialog.access = FileDialog.ACCESS_FILESYSTEM
+	dialog.size = Vector2i(720, 480)
+	root.add_child(dialog)
+	dialog.popup_centered()
+	for _frame: int in 2:
+		await process_frame
+	var dialog_cancel := dialog.get_cancel_button()
+	dialog_cancel.grab_focus()
+	for _frame: int in 2:
+		await process_frame
+	_expect(
+		focus_arrow.visible,
+		"focus arrow is hidden for an embedded dialog control",
+	)
+	_expect(
+		presentation.get("_focus_layer").custom_viewport
+		== dialog_cancel.get_viewport(),
+		"focus arrow is not rendered inside the dialog viewport",
+	)
+	_expect(
+		_arrow_marks_top_left(
+			focus_arrow,
+			presentation.call("_focus_target_rect", dialog_cancel) as Rect2,
+		),
+		"focus arrow does not follow an embedded dialog control",
+	)
+	dialog.hide()
+	dialog.queue_free()
+	await process_frame
+	item_list.grab_focus()
+	await process_frame
 
 	var scroll := ScrollContainer.new()
-	scroll.position = Vector2(0.0, 80.0)
+	scroll.position = Vector2(420.0, 160.0)
 	scroll.size = Vector2(180.0, 90.0)
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	stage.add_child(scroll)
@@ -86,15 +249,29 @@ func _run() -> void:
 		last_scroll_button = scroll_button
 	await process_frame
 	last_scroll_button.grab_focus()
-	await process_frame
-	await process_frame
+	for _frame: int in 2:
+		await process_frame
 	_expect(
 		scroll.scroll_vertical > 0,
-		"controller focus scrolls an off-screen selection into view",
+		"controller focus does not reveal an off-screen selection",
 	)
 	_expect(
 		root.gui_get_focus_owner() == last_scroll_button,
-		"scroll following preserves the selected controller control",
+		"scroll following does not preserve the focused control",
+	)
+	_expect(
+		_arrow_marks_top_left(
+			focus_arrow,
+			last_scroll_button.get_global_rect(),
+		),
+		"focus arrow does not follow a scrolled control",
+	)
+
+	last_scroll_button.focus_mode = Control.FOCUS_NONE
+	await process_frame
+	_expect(
+		not focus_arrow.visible,
+		"focus arrow remains after its control becomes unfocusable",
 	)
 
 	stage.queue_free()
@@ -105,6 +282,30 @@ func _run() -> void:
 	for failure: String in _failures:
 		push_error(failure)
 	quit(1)
+
+
+func _button_style(color: Color) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = color
+	style.set_corner_radius_all(8)
+	return style
+
+
+func _arrow_marks_top_left(arrow: Control, target: Rect2) -> bool:
+	var arrow_pivot: Vector2 = arrow.position + arrow.size * 0.5
+	var arrow_scale: Vector2 = arrow.size / FocusPresentationType.FOCUS_ARROW_SIZE
+	var tip_from_pivot: Vector2 = (
+		(FocusPresentationType.FOCUS_ARROW_TIP_UV - Vector2.ONE * 0.5)
+		* arrow.size
+	).rotated(deg_to_rad(
+		FocusPresentationType.FOCUS_ARROW_ROTATION_DEGREES
+	))
+	var actual_tip: Vector2 = arrow_pivot + tip_from_pivot
+	var expected_tip: Vector2 = (
+		target.position
+		+ FocusPresentationType.FOCUS_ARROW_TARGET_OVERLAP * arrow_scale
+	)
+	return actual_tip.distance_to(expected_tip) <= 0.5
 
 
 func _expect(condition: bool, message: String) -> void:

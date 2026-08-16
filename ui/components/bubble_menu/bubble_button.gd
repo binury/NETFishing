@@ -28,14 +28,11 @@ var neutral_position: Vector2 = Vector2.ZERO
 var presented_size: Vector2 = Vector2.ZERO
 var emphasis: float = 0.0
 var _hovered: bool = false
-var _focused: bool = false
 
 
 func _ready() -> void:
 	mouse_entered.connect(_set_hovered.bind(true))
 	mouse_exited.connect(_set_hovered.bind(false))
-	focus_entered.connect(_set_focused.bind(true))
-	focus_exited.connect(_set_focused.bind(false))
 	resized.connect(_update_pivot)
 	_update_pivot()
 	apply_profile()
@@ -151,7 +148,7 @@ func _apply_icon_presentation(bubble_size: Vector2) -> void:
 
 
 func advance_emphasis(delta: float) -> void:
-	var target: float = 1.0 if _hovered or _focused else 0.0
+	var target: float = 1.0 if _hovered else 0.0
 	emphasis = move_toward(
 		emphasis,
 		target,
@@ -233,10 +230,6 @@ func _set_hovered(value: bool) -> void:
 	_hovered = value
 
 
-func _set_focused(value: bool) -> void:
-	_focused = value
-
-
 func _update_pivot() -> void:
 	pivot_offset = size * 0.5
 
@@ -247,12 +240,12 @@ func apply_profile() -> void:
 	add_theme_stylebox_override("normal", profile.make_normal_style())
 	var hover_style: StyleBoxFlat = profile.make_hover_style()
 	add_theme_stylebox_override("hover", hover_style)
-	add_theme_stylebox_override("focus", hover_style)
+	add_theme_stylebox_override("focus", profile.make_normal_style())
 	add_theme_stylebox_override("pressed", profile.make_pressed_style())
 	add_theme_stylebox_override("disabled", profile.make_disabled_style())
 	add_theme_color_override("font_color", profile.text_color)
 	add_theme_color_override("font_hover_color", profile.text_hover_color)
-	add_theme_color_override("font_focus_color", profile.text_hover_color)
+	add_theme_color_override("font_focus_color", profile.text_color)
 	add_theme_color_override("font_pressed_color", profile.text_pressed_color)
 	add_theme_color_override("font_disabled_color", profile.text_disabled_color)
 	var label_control: Control = get_label_control()

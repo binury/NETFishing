@@ -34,7 +34,6 @@ var _items: Array[String] = []
 var _item_ids: Array[int] = []
 var _selected_index: int = 0
 var _hovered: bool = false
-var _focused: bool = false
 var _opened_with_mouse: bool = false
 
 
@@ -43,8 +42,6 @@ func _ready() -> void:
 	_apply_outline_geometry()
 	mouse_entered.connect(_set_hovered.bind(true))
 	mouse_exited.connect(_set_hovered.bind(false))
-	focus_entered.connect(_set_focused.bind(true))
-	focus_exited.connect(_set_focused.bind(false))
 	gui_input.connect(_on_display_gui_input)
 	for index: int in _choice_buttons.size():
 		var button: Button = _choice_buttons[index]
@@ -202,15 +199,10 @@ func _set_hovered(value: bool) -> void:
 	_refresh_ink()
 
 
-func _set_focused(value: bool) -> void:
-	_focused = value
-	_refresh_ink()
-
-
 func _refresh_ink() -> void:
 	if is_node_ready():
 		_ink_outline.set_mark_strength(
-			0.88 if (_hovered or _focused) and not disabled else 0.0
+			0.88 if _hovered and not disabled else 0.0
 		)
 
 
@@ -246,9 +238,9 @@ func _apply_paper_style() -> void:
 		for state: StringName in [
 			&"hover",
 			&"pressed",
-			&"focus",
 		]:
 			button.add_theme_stylebox_override(state, hover)
+		button.add_theme_stylebox_override("focus", empty)
 		button.add_theme_color_override("font_color", ink_color)
 		button.add_theme_color_override(
 			"font_hover_color",
@@ -256,7 +248,7 @@ func _apply_paper_style() -> void:
 		)
 		button.add_theme_color_override(
 			"font_focus_color",
-			ink_color.darkened(0.08),
+			ink_color,
 		)
 		button.add_theme_color_override(
 			"font_pressed_color",

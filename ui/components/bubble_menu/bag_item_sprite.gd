@@ -20,8 +20,6 @@ var _dragging: bool = false
 func _ready() -> void:
 	mouse_entered.connect(_set_hovered.bind(true))
 	mouse_exited.connect(_set_hovered.bind(false))
-	focus_entered.connect(_refresh_style)
-	focus_exited.connect(_refresh_style)
 	resized.connect(_update_visual_pivot)
 	_update_visual_pivot()
 	_apply_quantity_style()
@@ -60,7 +58,7 @@ func advance_presentation(elapsed: float, motion_enabled: bool) -> void:
 	) * 0.014
 	_visual_root.position = Vector2(0.0, bob)
 	_visual_root.rotation = tilt
-	var emphasis: float = 1.04 if _hovered or has_focus() else 1.0
+	var emphasis: float = 1.04 if _hovered else 1.0
 	_visual_root.scale = Vector2.ONE * _depth_scale * emphasis
 
 
@@ -103,9 +101,7 @@ func _refresh_style() -> void:
 	)
 	if _selected:
 		style.bg_color = UtilityPageStyle.OCEAN_SELECTED
-	if has_focus():
-		style.bg_color = UtilityPageStyle.OCEAN_BUTTON_HOVER
-	elif _hovered:
+	if _hovered:
 		style.bg_color = Color(UtilityPageStyle.OCEAN_PANEL_MID, 0.88)
 	style.set_border_width_all(0)
 	style.set_corner_radius_all(64)

@@ -569,7 +569,6 @@ func _refresh_catalog() -> void:
 
 func _make_entry(fish: FishDataType, discovered: bool) -> Button:
 	var entry := Button.new()
-	entry.set_meta(&"controller_focus_inversion_disabled", true)
 	entry.custom_minimum_size = CATALOG_ENTRY_SIZE
 	entry.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	entry.size_flags_vertical = Control.SIZE_SHRINK_CENTER

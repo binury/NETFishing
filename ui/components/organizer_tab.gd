@@ -29,7 +29,6 @@ var _selected: bool = false
 
 func _ready() -> void:
 	toggle_mode = true
-	set_meta(&"controller_focus_inversion_disabled", true)
 	_selected = button_pressed
 	add_theme_font_override("font", UtilityPageStyle.TuffyFont)
 	add_theme_font_size_override("font_size", FONT_SIZE)
@@ -43,8 +42,6 @@ func _ready() -> void:
 		add_theme_color_override(color_name, Color.TRANSPARENT)
 	mouse_entered.connect(_set_hovered.bind(true))
 	mouse_exited.connect(_set_hovered.bind(false))
-	focus_entered.connect(refresh_state)
-	focus_exited.connect(refresh_state)
 	toggled.connect(_on_toggled)
 	_apply_empty_styles()
 	call_deferred("_initialize_motion")
@@ -113,7 +110,7 @@ func _set_hovered(hovered: bool) -> void:
 func _target_y() -> float:
 	if button_pressed:
 		return SELECTED_SETTLE_Y
-	if _hovered or has_focus():
+	if _hovered:
 		return HOVER_SETTLE_Y
 	return INACTIVE_SETTLE_Y
 
@@ -139,8 +136,6 @@ func _draw() -> void:
 	)
 	if disabled:
 		base_color = base_color.lerp(Color("8a978f"), 0.62)
-	elif has_focus():
-		base_color = base_color.lightened(0.12)
 	elif _hovered:
 		base_color = base_color.lightened(0.08)
 	var width: float = size.x

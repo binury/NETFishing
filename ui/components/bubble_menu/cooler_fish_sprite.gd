@@ -19,10 +19,7 @@ var _quality_color := Color.WHITE
 
 
 func _ready() -> void:
-	set_meta(&"controller_focus_inversion_disabled", true)
 	resized.connect(_update_visual_pivot)
-	focus_entered.connect(_refresh_style)
-	focus_exited.connect(_refresh_style)
 	mouse_entered.connect(func() -> void:
 		_hovered = true
 		_refresh_style()
@@ -108,7 +105,7 @@ func advance_presentation(delta: float, elapsed: float) -> void:
 	var interaction_lift: float = 0.0
 	if _batch_selected:
 		interaction_lift += 3.0
-	if _focused_catch or has_focus():
+	if _focused_catch:
 		interaction_lift += 1.5
 	elif _hovered:
 		interaction_lift += 0.8
@@ -117,7 +114,7 @@ func advance_presentation(delta: float, elapsed: float) -> void:
 	var emphasis: float = 1.0
 	if _batch_selected:
 		emphasis += 0.085
-	if _focused_catch or has_focus():
+	if _focused_catch:
 		emphasis += 0.035
 	elif _hovered:
 		emphasis += 0.045
@@ -154,7 +151,7 @@ func _refresh_style() -> void:
 	var circle_visible: bool = (
 		_batch_selected
 		or _hovered
-		or has_focus()
+		or _focused_catch
 	)
 	var base_style: StyleBox = idle
 	if circle_visible:
@@ -168,7 +165,7 @@ func _refresh_style() -> void:
 		base_style,
 	)
 	add_theme_stylebox_override("hover", selected if _batch_selected else hover)
-	add_theme_stylebox_override("focus", selected)
+	add_theme_stylebox_override("focus", base_style)
 	add_theme_stylebox_override("pressed", selected)
 
 
