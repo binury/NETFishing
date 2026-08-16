@@ -17,6 +17,7 @@ const TRIGGER_PRESS_THRESHOLD: float = 0.55
 const TRIGGER_RELEASE_THRESHOLD: float = 0.25
 const CARET_BLINK_INTERVAL: float = 0.5
 const CARET_GLYPH: String = "▌"
+const PREVIEW_TEXT_COLOR: Color = Color(0.025, 0.12, 0.17, 1.0)
 
 signal text_submitted(value: String)
 
@@ -35,10 +36,11 @@ var _buffer: String = ""
 var _buffer_caret: int = 0
 var _caret_blink_elapsed: float = 0.0
 var _caret_visible: bool = true
-var _preview: Label
+var _preview: RichTextLabel
 var _page_buttons: Array[Button] = []
 var _keys_host: VBoxContainer
 var _key_buttons: Array[Button] = []
+var _last_focused_key: WeakRef
 var _caret_left_button: Button
 var _caret_right_button: Button
 var _backspace_button: Button
@@ -67,6 +69,7 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	if not visible:
 		return
+	_recover_key_focus()
 	_caret_blink_elapsed += delta
 	if _caret_blink_elapsed < CARET_BLINK_INTERVAL:
 		return
@@ -89,7 +92,9 @@ func is_enabled() -> bool:
 
 
 func is_open() -> bool:
-	return visible
+	# Native Android text entry must block the same underlying menu and gameplay
+	# shortcuts as the custom controller keyboard.
+	return visible or _native_text_entry_is_active()
 
 
 func setup_controller_mapping(
@@ -103,17 +108,21 @@ func request_for_focused_control() -> bool:
 
 
 func request_for_control(control: Control = null) -> bool:
-	if (
-		not _is_available_for_controller()
-		or visible
-		or not _can_edit(control)
-	):
+	if visible or not _can_edit(control):
+		return false
+	if _uses_native_virtual_keyboard():
+		_open_native_keyboard_for(control)
+		return true
+	if not _is_available_for_controller():
 		return false
 	_open_for(control)
 	return true
 
 
 func _input(event: InputEvent) -> void:
+	if _uses_native_virtual_keyboard():
+		_handle_native_keyboard_input(event)
+		return
 	if not _is_available_for_controller():
 		return
 	if visible:
@@ -207,6 +216,29 @@ func _is_available_for_controller() -> bool:
 	)
 
 
+func _uses_native_virtual_keyboard() -> bool:
+	return should_use_native_virtual_keyboard(
+		_enabled,
+		DisplayServer.has_feature(DisplayServer.FEATURE_VIRTUAL_KEYBOARD),
+		OS.get_name(),
+	)
+
+
+static func should_use_native_virtual_keyboard(
+	preference_enabled: bool,
+	native_virtual_keyboard_available: bool,
+	platform_name: String = "",
+) -> bool:
+	var resolved_platform: String = (
+		OS.get_name() if platform_name.is_empty() else platform_name
+	)
+	return (
+		not preference_enabled
+		and native_virtual_keyboard_available
+		and resolved_platform == "Android"
+	)
+
+
 static func should_enable_for_controller(
 	preference_enabled: bool,
 	native_virtual_keyboard_available: bool,
@@ -223,6 +255,89 @@ static func should_enable_for_controller(
 		or resolved_platform != "Android"
 		or not native_virtual_keyboard_available
 	)
+
+
+func _native_text_entry_is_active() -> bool:
+	if not _uses_native_virtual_keyboard():
+		return false
+	var focused: Control = get_viewport().gui_get_focus_owner()
+	return (
+		_can_edit(focused)
+		and bool(focused.get("virtual_keyboard_enabled"))
+	)
+
+
+func _handle_native_keyboard_input(event: InputEvent) -> void:
+	var focused: Control = get_viewport().gui_get_focus_owner()
+	var native_entry_active: bool = (
+		_can_edit(focused)
+		and bool(focused.get("virtual_keyboard_enabled"))
+	)
+	var joy_button := event as InputEventJoypadButton
+	if joy_button != null and joy_button.pressed:
+		if (
+			native_entry_active
+			and _event_matches_role(
+				event,
+				ControllerMappingManagerType.ROLE_B,
+				JOY_BUTTON_B,
+			)
+		):
+			_close_native_keyboard(focused)
+			get_viewport().set_input_as_handled()
+			return
+		if (
+			_event_matches_role(
+				event,
+				ControllerMappingManagerType.ROLE_A,
+				JOY_BUTTON_A,
+			)
+			and _can_edit(focused)
+		):
+			_open_native_keyboard_for(focused)
+			get_viewport().set_input_as_handled()
+		return
+	var key_event := event as InputEventKey
+	if key_event == null or not key_event.pressed or not native_entry_active:
+		return
+	if key_event.keycode == KEY_ESCAPE:
+		_close_native_keyboard(focused)
+		get_viewport().set_input_as_handled()
+		return
+	if key_event.keycode in [KEY_ENTER, KEY_KP_ENTER]:
+		return
+	# Android delivers IME edits after this input phase. Reassert the same field
+	# afterward in case a page refresh tried to move focus while its text changed.
+	_preserve_native_text_focus.call_deferred(focused)
+
+
+func _open_native_keyboard_for(control: Control) -> void:
+	if not _can_edit(control):
+		return
+	control.set("virtual_keyboard_enabled", true)
+	if control.has_focus():
+		control.release_focus()
+	control.call_deferred("grab_focus")
+
+
+func _close_native_keyboard(control: Control) -> void:
+	if is_instance_valid(control) and control.has_focus():
+		control.release_focus()
+	DisplayServer.virtual_keyboard_hide()
+
+
+func _preserve_native_text_focus(control: Control) -> void:
+	if (
+		not _uses_native_virtual_keyboard()
+		or not is_instance_valid(control)
+		or not _can_edit(control)
+		or not control.is_inside_tree()
+		or not control.is_visible_in_tree()
+		or not bool(control.get("virtual_keyboard_enabled"))
+	):
+		return
+	if not control.has_focus():
+		control.grab_focus()
 
 
 func _can_edit(control: Control) -> bool:
@@ -243,6 +358,7 @@ func _open_for(control: Control) -> void:
 	_buffer_caret = _buffer.length()
 	_set_target_caret(_buffer_caret)
 	_page = Page.LOWER
+	_last_focused_key = null
 	_attach_to_target_window(control)
 	show()
 	_reset_caret_blink()
@@ -263,6 +379,7 @@ func _close_keyboard(restore_focus: bool) -> void:
 	get_viewport().gui_release_focus()
 	_restore_portable_host()
 	_target = null
+	_last_focused_key = null
 	if restore_focus and is_instance_valid(prior_target):
 		prior_target.grab_focus()
 
@@ -444,8 +561,15 @@ func _refresh_preview() -> void:
 	if _target is LineEdit and (_target as LineEdit).secret:
 		displayed_text = "*".repeat(_buffer.length())
 	var caret: int = clampi(_get_caret_column(), 0, displayed_text.length())
-	var caret_glyph: String = CARET_GLYPH if _caret_visible else ""
-	_preview.text = displayed_text.insert(caret, caret_glyph)
+	var caret_color: Color = PREVIEW_TEXT_COLOR
+	if not _caret_visible:
+		caret_color.a = 0.0
+	_preview.clear()
+	_preview.add_text(displayed_text.substr(0, caret))
+	_preview.push_color(caret_color)
+	_preview.add_text(CARET_GLYPH)
+	_preview.pop()
+	_preview.add_text(displayed_text.substr(caret))
 
 
 func _controller_direction(event: InputEvent) -> Vector2:
@@ -465,8 +589,9 @@ func _move_key_focus(direction: Vector2) -> void:
 		return
 	var focused: Control = get_viewport().gui_get_focus_owner()
 	if focused == null or not is_ancestor_of(focused):
-		_focus_first_key()
-		return
+		focused = _recover_key_focus()
+		if focused == null:
+			return
 	var neighbor_path := NodePath()
 	if direction == Vector2.UP:
 		neighbor_path = focused.focus_neighbor_top
@@ -486,20 +611,42 @@ func _move_key_focus(direction: Vector2) -> void:
 func _activate_focused_key() -> void:
 	var focused: Control = get_viewport().gui_get_focus_owner()
 	if focused == null or not is_ancestor_of(focused):
-		_focus_first_key()
-		focused = get_viewport().gui_get_focus_owner()
+		focused = _recover_key_focus()
 	var button := focused as BaseButton
 	if button != null and not button.disabled:
 		button.pressed.emit()
 
 
-func _focus_first_key() -> void:
-	if not _key_buttons.is_empty():
-		_key_buttons[0].grab_focus()
+func _remember_key_focus(control: Control) -> void:
+	if visible and control != null and is_ancestor_of(control):
+		_last_focused_key = weakref(control)
+
+
+func _recover_key_focus() -> Control:
+	var focused: Control = get_viewport().gui_get_focus_owner()
+	if focused != null and is_ancestor_of(focused):
+		return focused
+	var remembered: Control = null
+	if _last_focused_key != null:
+		remembered = _last_focused_key.get_ref() as Control
+	if (
+		remembered == null
+		or not is_instance_valid(remembered)
+		or not remembered.is_inside_tree()
+		or not remembered.is_visible_in_tree()
+		or remembered.focus_mode == Control.FOCUS_NONE
+	):
+		remembered = (
+			_key_buttons.front() if not _key_buttons.is_empty() else null
+		)
+	if remembered != null:
+		remembered.grab_focus()
+	return remembered
 
 
 func _set_page(page_index: int) -> void:
 	_page = page_index as Page
+	_last_focused_key = null
 	_rebuild_keys()
 
 
@@ -606,13 +753,17 @@ func _build_interface() -> void:
 		_make_style(Color(0.82, 0.94, 0.95, 1.0), 10, 2)
 	)
 	layout.add_child(preview_panel)
-	_preview = Label.new()
-	_preview.add_theme_color_override("font_color", Color(0.025, 0.12, 0.17, 1.0))
-	_preview.add_theme_font_size_override("font_size", 30)
-	_preview.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	_preview = RichTextLabel.new()
+	_preview.bbcode_enabled = true
+	_preview.fit_content = false
+	_preview.scroll_active = false
+	_preview.autowrap_mode = TextServer.AUTOWRAP_OFF
+	_preview.add_theme_color_override("default_color", PREVIEW_TEXT_COLOR)
+	_preview.add_theme_font_size_override("normal_font_size", 30)
 	_preview.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_preview.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	_preview.clip_contents = true
 	_preview.add_theme_constant_override("outline_size", 0)
+	_preview.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	preview_panel.add_child(_preview)
 	var page_row := HBoxContainer.new()
 	page_row.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -687,6 +838,7 @@ func _make_button(label: String, minimum_size: Vector2) -> Button:
 		"pressed",
 		_make_style(Color(0.44, 0.72, 0.77, 1.0), 10, 3)
 	)
+	button.focus_entered.connect(_remember_key_focus.bind(button))
 	return button
 
 
