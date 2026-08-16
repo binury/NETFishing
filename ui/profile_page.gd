@@ -1616,7 +1616,9 @@ func _build_fur_palette(
 	custom_picker.color_changed.connect(
 		_select_custom_fur_color.bind(category_id)
 	)
-	custom_picker.popup_closed.connect(_refresh_options)
+	# Custom colors update the channel, preview, and actions live. Rebuilding the
+	# option tree from popup_closed destroys this button and its native popup
+	# while Godot is still dispatching the hide operation, which can crash.
 	UtilityPageStyle.apply_compact_ocean_button(custom_picker)
 	_round_fur_color_picker_button(custom_picker)
 	_theme_fur_color_picker_popup(custom_picker)

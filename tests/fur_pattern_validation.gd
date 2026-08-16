@@ -384,6 +384,19 @@ func _validate_fur_color_ui(snapshot: Dictionary) -> void:
 		"panel"
 	) as StyleBoxFlat
 	assert(first_swatch_style.bg_color.is_equal_approx(live_custom_color))
+	picker_popup.popup_centered()
+	for _frame: int in 2:
+		await process_frame
+	picker_popup.hide()
+	for _frame: int in 3:
+		await process_frame
+	assert(is_instance_valid(picker))
+	assert(picker.is_inside_tree())
+	assert(
+		profile_page.find_child(
+			"FurCustomColorPicker", true, false
+		) == picker
+	)
 	profile_page.free()
 	await process_frame
 
