@@ -3,6 +3,9 @@ extends SceneTree
 const FocusPresentationType = preload(
 	"res://ui/controller_focus_presentation.gd"
 )
+const FishBatchSelectionType = preload(
+	"res://ui/fish_batch_selection.gd"
+)
 
 var _failures: Array[String] = []
 
@@ -12,6 +15,7 @@ func _initialize() -> void:
 
 
 func _run() -> void:
+	_validate_controller_cooler_focus()
 	root.size = Vector2i(1280, 720)
 	var stage := Control.new()
 	stage.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -23,8 +27,10 @@ func _run() -> void:
 	standard_button.position = Vector2(80.0, 60.0)
 	standard_button.custom_minimum_size = Vector2(120.0, 60.0)
 	var normal_style := _button_style(Color("123f4e"))
+	var old_hover_style := _button_style(Color("58c6d4"))
 	var old_focus_style := _button_style(Color("238697"))
 	standard_button.add_theme_stylebox_override("normal", normal_style)
+	standard_button.add_theme_stylebox_override("hover", old_hover_style)
 	standard_button.add_theme_stylebox_override("focus", old_focus_style)
 	stage.add_child(standard_button)
 	var second_button := Button.new()
@@ -82,6 +88,22 @@ func _run() -> void:
 	)
 	stage.scale = Vector2.ONE
 	await process_frame
+	var hover_motion := InputEventMouseMotion.new()
+	hover_motion.position = standard_button.get_global_rect().get_center()
+	hover_motion.global_position = hover_motion.position
+	root.push_input(hover_motion, true)
+	await process_frame
+	_expect(
+		root.gui_get_hovered_control() == standard_button,
+		"the pointer did not reach the hover-suppression test button",
+	)
+	presentation._input(controller_event)
+	standard_button.grab_focus()
+	await process_frame
+	_expect(
+		standard_button.get_theme_stylebox("hover") == normal_style,
+		"controller use leaves a stale mouse-hover highlight visible",
+	)
 
 	second_button.grab_focus()
 	await process_frame
@@ -105,6 +127,10 @@ func _run() -> void:
 	_expect(
 		standard_button.get_theme_stylebox("focus") == old_focus_style,
 		"native theme overrides were not restored after controller use",
+	)
+	_expect(
+		standard_button.get_theme_stylebox("hover") == old_hover_style,
+		"mouse hover styling was not restored after controller use",
 	)
 	presentation._input(controller_event)
 
@@ -282,6 +308,21 @@ func _run() -> void:
 	for failure: String in _failures:
 		push_error(failure)
 	quit(1)
+
+
+func _validate_controller_cooler_focus() -> void:
+	var selection := FishBatchSelectionType.new()
+	selection.set_visible_order([&"first", &"second"])
+	selection.select_only(&"first")
+	selection.focus_only(&"second")
+	_expect(
+		selection.get_focused_id() == &"second",
+		"cooler focus does not follow controller navigation",
+	)
+	_expect(
+		selection.get_selected_ids() == [&"first"],
+		"moving cooler focus unexpectedly changes the selected catch set",
+	)
 
 
 func _button_style(color: Color) -> StyleBoxFlat:

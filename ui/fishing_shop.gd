@@ -93,6 +93,11 @@ enum ShopSection {
 	SELL_FISH,
 }
 
+enum ControllerZone {
+	TABS,
+	CONTENT,
+}
+
 const SHOP_SECTION_LABELS: Array[String] = [
 	"Upgrades",
 	"Bait and Lures",
@@ -175,6 +180,7 @@ var _cooler_modal_open: bool = false
 var _shop_section: ShopSection = ShopSection.UPGRADES
 var _shop_tabs: Array[OrganizerTab] = []
 var _controller_mapping_manager: ControllerMappingManagerType
+var _controller_zone: ControllerZone = ControllerZone.TABS
 
 
 func _ready() -> void:
@@ -204,6 +210,40 @@ func _input(event: InputEvent) -> void:
 	var button_event := event as InputEventJoypadButton
 	if button_event == null:
 		return
+	var uses_accept: bool = (
+		_controller_mapping_manager.event_matches_role(
+			event,
+			ControllerMappingManagerType.ROLE_A,
+		)
+		if _controller_mapping_manager != null
+		else button_event.button_index == JOY_BUTTON_A
+	)
+	var uses_cancel: bool = (
+		_controller_mapping_manager.event_matches_role(
+			event,
+			ControllerMappingManagerType.ROLE_B,
+		)
+		if _controller_mapping_manager != null
+		else button_event.button_index == JOY_BUTTON_B
+	)
+	if uses_cancel:
+		get_viewport().set_input_as_handled()
+		if not button_event.pressed:
+			return
+		if _controller_zone == ControllerZone.CONTENT:
+			_enter_shop_tabs_zone()
+		else:
+			close_shop()
+		return
+	if uses_accept:
+		get_viewport().set_input_as_handled()
+		if not button_event.pressed or _transaction_in_progress:
+			return
+		if _controller_zone == ControllerZone.TABS:
+			_enter_shop_content_zone()
+		else:
+			_activate_focused_shop_control()
+		return
 	var uses_left_bumper: bool = (
 		_controller_mapping_manager.event_uses_role(
 			event,
@@ -226,12 +266,69 @@ func _input(event: InputEvent) -> void:
 	if not button_event.pressed or _transaction_in_progress:
 		return
 	var direction: int = -1 if uses_left_bumper else 1
+	var current_section: int = _focused_shop_tab_index()
+	if current_section < 0:
+		current_section = int(_shop_section)
 	var next_section: int = wrapi(
-		int(_shop_section) + direction,
+		current_section + direction,
 		0,
 		ShopSection.size(),
 	)
-	_select_shop_section(next_section, true)
+	if _controller_zone == ControllerZone.TABS:
+		_focus_shop_tab(next_section)
+	else:
+		_select_shop_section(next_section, true)
+
+
+func _enter_shop_tabs_zone() -> void:
+	_controller_zone = ControllerZone.TABS
+	_apply_shop_controller_zone_focus_modes()
+	_configure_controller_focus()
+	_focus_shop_tab(int(_shop_section))
+
+
+func _enter_shop_content_zone() -> void:
+	var section_index: int = _focused_shop_tab_index()
+	if section_index < 0:
+		section_index = int(_shop_section)
+	_controller_zone = ControllerZone.CONTENT
+	_select_shop_section(section_index, true)
+
+
+func _activate_focused_shop_control() -> bool:
+	var focused := get_viewport().gui_get_focus_owner() as BaseButton
+	if (
+		focused == null
+		or focused.disabled
+		or _is_shop_tab(focused)
+		or not focused.is_visible_in_tree()
+	):
+		return false
+	focused.pressed.emit()
+	return true
+
+
+func _focused_shop_tab_index() -> int:
+	var focused: Control = get_viewport().gui_get_focus_owner()
+	for tab_index: int in _shop_tabs.size():
+		if _shop_tabs[tab_index] == focused:
+			return tab_index
+	return -1
+
+
+func _is_shop_tab(control: Control) -> bool:
+	for tab: OrganizerTab in _shop_tabs:
+		if tab == control:
+			return true
+	return false
+
+
+func _focus_shop_tab(section_index: int) -> void:
+	if section_index < 0 or section_index >= _shop_tabs.size():
+		return
+	var tab: OrganizerTab = _shop_tabs[section_index]
+	if tab.focus_mode != Control.FOCUS_NONE and not tab.disabled:
+		tab.call_deferred("grab_focus")
 
 
 func _request_shop_cooler() -> bool:
@@ -249,10 +346,15 @@ func _focus_shop_section() -> void:
 	_set_feedback("")
 	_configure_controller_focus()
 	if _shop_section == ShopSection.UPGRADES:
-		_reel_purchase.grab_focus()
-		return
+		for upgrade_button: Button in [
+			_reel_purchase,
+			_barrier_purchase,
+			_cooler_purchase,
+		]:
+			if not upgrade_button.disabled:
+				upgrade_button.grab_focus()
+				return
 	if _shop_section == ShopSection.SELL_FISH:
-		_shop_tabs[int(ShopSection.SELL_FISH)].grab_focus()
 		return
 	for child: Node in _supplies_list.find_children(
 		"*", "Button", true, false
@@ -261,9 +363,9 @@ func _focus_shop_section() -> void:
 		if stock_button != null and not stock_button.disabled:
 			stock_button.grab_focus()
 			return
-	var section_index: int = int(_shop_section)
-	if section_index >= 0 and section_index < _shop_tabs.size():
-		_shop_tabs[section_index].grab_focus()
+	var close_button := %CloseButton as Button
+	if close_button.focus_mode != Control.FOCUS_NONE:
+		close_button.grab_focus()
 
 
 func _build_shop_tabs() -> void:
@@ -293,6 +395,8 @@ func _build_shop_tabs() -> void:
 func _select_shop_section(section_index: int, focus_content: bool) -> void:
 	if _closing:
 		return
+	if focus_content:
+		_controller_zone = ControllerZone.CONTENT
 	if section_index == int(_shop_section):
 		if section_index != ShopSection.SELL_FISH:
 			var showing_upgrades := section_index == ShopSection.UPGRADES
@@ -325,9 +429,34 @@ func _select_shop_section(section_index: int, focus_content: bool) -> void:
 func _configure_controller_focus() -> void:
 	if not visible or _cooler_page_active:
 		return
+	_apply_shop_controller_zone_focus_modes()
 	var candidates: Array[Control] = []
 	_collect_controller_focusables(self, candidates)
 	ControllerFocusNavigationType.configure_spatial_neighbors(candidates)
+
+
+func _apply_shop_controller_zone_focus_modes() -> void:
+	var tabs_active: bool = _controller_zone == ControllerZone.TABS
+	for tab: OrganizerTab in _shop_tabs:
+		tab.focus_mode = (
+			Control.FOCUS_ALL if tabs_active else Control.FOCUS_NONE
+		)
+	var content_focus_mode := (
+		Control.FOCUS_NONE if tabs_active else Control.FOCUS_ALL
+	)
+	for content_root: Control in [_upgrades_content, _supplies_content]:
+		_set_descendant_button_focus_mode(content_root, content_focus_mode)
+	(%CloseButton as Button).focus_mode = content_focus_mode
+
+
+func _set_descendant_button_focus_mode(
+	root_control: Control,
+	focus_mode: Control.FocusMode,
+) -> void:
+	for child: Node in root_control.find_children("*", "BaseButton", true, false):
+		var button := child as BaseButton
+		if button != null:
+			button.focus_mode = focus_mode
 
 
 func _collect_controller_focusables(
@@ -488,10 +617,11 @@ func open_shop() -> bool:
 	deactivate_shop_cooler_page()
 	show()
 	_shop_tab_bar.show()
+	_controller_zone = ControllerZone.TABS
 	_select_shop_section(ShopSection.UPGRADES, false)
 	_refresh_all()
 	call_deferred("_configure_controller_focus")
-	_reel_purchase.grab_focus()
+	_focus_shop_tab(int(ShopSection.UPGRADES))
 	menu_visibility_changed.emit(true)
 	return true
 
@@ -751,6 +881,7 @@ func _refresh_supplies() -> void:
 		_supplies_list.remove_child(child)
 		child.queue_free()
 	if _shop_section in [ShopSection.UPGRADES, ShopSection.SELL_FISH]:
+		call_deferred("_configure_controller_focus")
 		return
 	_stock_title.text = SHOP_SECTION_LABELS[int(_shop_section)]
 	var stock_item_ids: Array[StringName] = (
@@ -934,6 +1065,7 @@ func _refresh_supplies() -> void:
 		var canvas_grid := _add_stock_icon_grid()
 		for product_id: StringName in ArtShopStockType.GRID_PRODUCTS:
 			_add_art_upgrade_button(product_id, canvas_grid)
+	call_deferred("_configure_controller_focus")
 
 
 func _item_belongs_in_current_section(item: ItemDataType) -> bool:

@@ -131,6 +131,7 @@ var _pending_identity_operation := ""
 var _pending_identity_type := ""
 var _pending_identity_path := ""
 var _pending_import_data: Dictionary = {}
+var _active_adjustment_group: Dictionary = {}
 
 
 func _ready() -> void:
@@ -293,6 +294,56 @@ func setup_data_and_identity(
 	_refresh_data_page()
 
 
+func _input(event: InputEvent) -> void:
+	if not visible or is_input_mapping_capturing():
+		return
+	var mouse_button := event as InputEventMouseButton
+	if (
+		mouse_button != null
+		and mouse_button.pressed
+		and not _active_adjustment_group.is_empty()
+	):
+		_exit_adjustment_zone(false)
+		return
+	var button := event as InputEventJoypadButton
+	if button == null or not button.pressed:
+		return
+	if (
+		not _active_adjustment_group.is_empty()
+		and _event_matches_controller_role(
+			event,
+			ControllerMappingManagerType.ROLE_B,
+			&"ui_cancel",
+			JOY_BUTTON_B,
+		)
+	):
+		_exit_adjustment_zone(true)
+		get_viewport().set_input_as_handled()
+		return
+	if not _event_matches_controller_role(
+		event,
+		ControllerMappingManagerType.ROLE_A,
+		&"ui_accept",
+		JOY_BUTTON_A,
+	):
+		return
+	if _active_adjustment_group.is_empty():
+		var group: Dictionary = _adjustment_group_for_control(
+			get_viewport().gui_get_focus_owner()
+		)
+		if group.is_empty():
+			return
+		_enter_adjustment_zone(group)
+		get_viewport().set_input_as_handled()
+		return
+	var focused := get_viewport().gui_get_focus_owner() as BaseButton
+	var decrease := _active_adjustment_group.get("decrease") as BaseButton
+	var increase := _active_adjustment_group.get("increase") as BaseButton
+	if focused == decrease or focused == increase:
+		focused.pressed.emit()
+	get_viewport().set_input_as_handled()
+
+
 func open_panel(
 	settings_manager: SettingsManagerType,
 	presentation_mode: PresentationMode = PresentationMode.GAMEPLAY_MODAL,
@@ -370,6 +421,9 @@ func _finish_panel_close(applied_result: bool) -> void:
 
 
 func handle_back() -> void:
+	if not _active_adjustment_group.is_empty():
+		_exit_adjustment_zone(true)
+		return
 	if (
 		_keyboard_mouse_mapping_panel != null
 		and _keyboard_mouse_mapping_panel.is_open()
@@ -440,7 +494,103 @@ func _push_page(page_id: StringName) -> void:
 		or get_active_page_id() == page_id
 	):
 		return
+	_exit_adjustment_zone(false)
 	_start_page_transition(page_id, true)
+
+
+func _adjustment_group_for_control(control: Control) -> Dictionary:
+	for group: Dictionary in _adjustment_groups():
+		if group.get("parent") as Control == control:
+			return group
+	return {}
+
+
+func _adjustment_groups() -> Array[Dictionary]:
+	return [
+		{
+			"page": _controls_page,
+			"parent": _mouse_value,
+			"decrease": %MouseDecrease,
+			"increase": %MouseIncrease,
+		},
+		{
+			"page": _controls_page,
+			"parent": _controller_value,
+			"decrease": %ControllerDecrease,
+			"increase": %ControllerIncrease,
+		},
+		{
+			"page": _accessibility_page,
+			"parent": _auto_click_interval,
+			"decrease": %IntervalDecrease,
+			"increase": %IntervalIncrease,
+		},
+	]
+
+
+func _enter_adjustment_zone(group: Dictionary) -> void:
+	var page := group.get("page") as SettingsBubblePage
+	var parent := group.get("parent") as Control
+	var decrease := group.get("decrease") as Control
+	var increase := group.get("increase") as Control
+	if page == null or parent == null or decrease == null or increase == null:
+		return
+	_active_adjustment_group = group
+	var controls: Array[Control] = [decrease, parent, increase]
+	page.set_controller_focus_scope(controls)
+	_set_adjustment_neighbors(decrease, parent, increase)
+	parent.grab_focus()
+
+
+func _exit_adjustment_zone(restore_parent_focus: bool) -> void:
+	if _active_adjustment_group.is_empty():
+		return
+	var page := _active_adjustment_group.get("page") as SettingsBubblePage
+	var parent := _active_adjustment_group.get("parent") as Control
+	var decrease := _active_adjustment_group.get("decrease") as Control
+	var increase := _active_adjustment_group.get("increase") as Control
+	_active_adjustment_group.clear()
+	for control: Control in [decrease, increase]:
+		if control != null:
+			control.focus_mode = Control.FOCUS_NONE
+	if page != null:
+		page.restore_controller_focus_scope()
+	if restore_parent_focus and parent != null:
+		parent.call_deferred("grab_focus")
+
+
+func _set_adjustment_neighbors(
+	decrease: Control,
+	parent: Control,
+	increase: Control,
+) -> void:
+	decrease.focus_neighbor_left = decrease.get_path_to(decrease)
+	decrease.focus_neighbor_right = decrease.get_path_to(parent)
+	parent.focus_neighbor_left = parent.get_path_to(decrease)
+	parent.focus_neighbor_right = parent.get_path_to(increase)
+	increase.focus_neighbor_left = increase.get_path_to(parent)
+	increase.focus_neighbor_right = increase.get_path_to(increase)
+	for control: Control in [decrease, parent, increase]:
+		control.focus_neighbor_top = control.get_path_to(control)
+		control.focus_neighbor_bottom = control.get_path_to(control)
+
+
+func _event_matches_controller_role(
+	event: InputEvent,
+	role: StringName,
+	action: StringName,
+	fallback_button: JoyButton,
+) -> bool:
+	if _controller_mapping_manager != null:
+		return _controller_mapping_manager.event_matches_role(event, role)
+	var button := event as InputEventJoypadButton
+	return (
+		button != null
+		and (
+			button.button_index == fallback_button
+			or event.is_action_pressed(action)
+		)
+	)
 
 
 func _start_page_transition(page_id: StringName, push_page: bool) -> void:

@@ -11,6 +11,9 @@ const ControllerFocusPresentationType = preload(
 const ControllerFocusRecoveryType = preload(
 	"res://ui/controller_focus_recovery.gd"
 )
+const ControllerMappingManagerType = preload(
+	"res://settings/controller_mapping_manager.gd"
+)
 const OnScreenKeyboardType = preload("res://ui/on_screen_keyboard.gd")
 
 signal effective_pixel_size_changed(
@@ -58,6 +61,12 @@ func _ready() -> void:
 
 func set_on_screen_keyboard_enabled(enabled: bool) -> void:
 	_on_screen_keyboard.set_enabled(enabled)
+
+
+func setup_controller_mapping(
+	mapping_manager: ControllerMappingManagerType,
+) -> void:
+	_on_screen_keyboard.setup_controller_mapping(mapping_manager)
 
 
 func set_pixel_size(pixel_size: int) -> void:

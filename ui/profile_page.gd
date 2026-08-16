@@ -219,6 +219,8 @@ func consume_escape() -> bool:
 func handle_controller_input(event: InputEvent) -> bool:
 	if not _profile_active or not _profile_interactive:
 		return false
+	if event is InputEventJoypadButton or event is InputEventJoypadMotion:
+		_ensure_controller_zone_focus()
 	var cancel_pressed := _event_matches_controller_press(
 		event,
 		&"ui_cancel",
@@ -395,23 +397,7 @@ func _apply_controller_zone_focus() -> void:
 func _focus_controller_zone() -> void:
 	if not _profile_interactive:
 		return
-	var controls: Array[Control] = []
-	match _controller_zone:
-		ControllerZone.ACCOUNT:
-			controls = _account_controller_controls()
-		ControllerZone.CATEGORIES:
-			controls = _controls_under(_category_list)
-		ControllerZone.OPTIONS:
-			var groups: Array = _controller_option_groups()
-			if not groups.is_empty():
-				for item: Variant in groups[clampi(
-					_controller_option_depth, 0, groups.size() - 1
-				)]:
-					var option_control := item as Control
-					if option_control != null:
-						controls.append(option_control)
-		ControllerZone.COLOR_PICKER:
-			controls = _color_picker_controller_controls()
+	var controls: Array[Control] = _active_controller_zone_controls()
 	for control: Control in controls:
 		var button := control as BaseButton
 		if (
@@ -427,6 +413,55 @@ func _focus_controller_zone() -> void:
 		if control.focus_mode != Control.FOCUS_NONE:
 			control.grab_focus()
 			return
+
+
+func _ensure_controller_zone_focus() -> void:
+	var controls: Array[Control] = _active_controller_zone_controls()
+	if controls.is_empty():
+		if _controller_zone == ControllerZone.OPTIONS:
+			_controller_zone = ControllerZone.CATEGORIES
+			_controller_option_depth = 0
+			controls = _active_controller_zone_controls()
+		if controls.is_empty():
+			return
+	var focused: Control = get_viewport().gui_get_focus_owner()
+	if (
+		focused != null
+		and focused in controls
+		and focused.is_visible_in_tree()
+		and focused.focus_mode != Control.FOCUS_NONE
+	):
+		return
+	_apply_controller_zone_focus()
+	_focus_controller_zone()
+
+
+func _active_controller_zone_controls() -> Array[Control]:
+	if (
+		_discard_confirmation != null
+		and _discard_confirmation.visible
+	):
+		return [_confirmation_confirm, _keep_editing_button]
+	match _controller_zone:
+		ControllerZone.ACCOUNT:
+			return _account_controller_controls()
+		ControllerZone.CATEGORIES:
+			return _controls_under(_category_list)
+		ControllerZone.OPTIONS:
+			var groups: Array = _controller_option_groups()
+			if groups.is_empty():
+				return []
+			var controls: Array[Control] = []
+			for item: Variant in groups[clampi(
+				_controller_option_depth, 0, groups.size() - 1
+			)]:
+				var option_control := item as Control
+				if option_control != null:
+					controls.append(option_control)
+			return controls
+		ControllerZone.COLOR_PICKER:
+			return _color_picker_controller_controls()
+	return []
 
 
 func _account_controller_controls() -> Array[Control]:
@@ -451,21 +486,23 @@ func _controller_option_groups() -> Array:
 	if _option_list == null:
 		return groups
 	if _category_id != "fur_pattern":
-		groups.append(_controls_under(_option_list))
+		var option_controls: Array[Control] = _controls_under(_option_list)
+		if not option_controls.is_empty():
+			groups.append(option_controls)
 		return groups
 	var section_tabs := _option_list.find_child(
 		"FurSectionTabs", true, false
 	) as Node
-	groups.append(_controls_under(section_tabs))
+	_append_controller_group(groups, _controls_under(section_tabs))
 	if _active_fur_section == FUR_SECTION_PATTERNS:
-		groups.append(_controls_under(_option_list.find_child(
+		_append_controller_group(groups, _controls_under(_option_list.find_child(
 			"FurPatternPartTabs", true, false
 		)))
-		groups.append(_controls_under(_option_list.find_child(
+		_append_controller_group(groups, _controls_under(_option_list.find_child(
 			"FurPatternGrid", true, false
 		)))
 	else:
-		groups.append(_controls_under(_option_list.find_child(
+		_append_controller_group(groups, _controls_under(_option_list.find_child(
 			"FurColorChannelGrid", true, false
 		)))
 		var palette_controls: Array[Control] = _controls_under(
@@ -476,8 +513,13 @@ func _controller_option_groups() -> Array:
 		) as Control
 		if custom_picker != null:
 			palette_controls.append(custom_picker)
-		groups.append(palette_controls)
+		_append_controller_group(groups, palette_controls)
 	return groups
+
+
+func _append_controller_group(groups: Array, controls: Array[Control]) -> void:
+	if not controls.is_empty():
+		groups.append(controls)
 
 
 func _controls_under(root: Node) -> Array[Control]:

@@ -422,7 +422,6 @@ func _test_player_menu_sale(
 	) as SubViewport
 	assert(sell_action.visible and not sell_action.disabled)
 	assert(sell_action.mouse_filter == Control.MOUSE_FILTER_STOP)
-	assert(sell_action.focus_mode == Control.FOCUS_ALL)
 	assert(ui_viewport != null)
 	await _activate_pointer_control(sell_action, ui_viewport)
 	await process_frame
@@ -632,7 +631,8 @@ func _test_fishing_shop_sale_ui(
 	}))
 	var balance_before: int = player.wallet.get_balance()
 	assert(shop.open_shop())
-	await process_frame
+	for _frame: int in 2:
+		await process_frame
 	assert(shop_backdrop.visible)
 	assert(shop_backdrop.material is ShaderMaterial)
 	assert(shop.has_node("InputBlocker") and not shop.has_node("Dimmer"))

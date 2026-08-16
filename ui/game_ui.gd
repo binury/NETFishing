@@ -456,6 +456,10 @@ func setup(
 
 
 func _input(event: InputEvent) -> void:
+	# The on-screen keyboard owns controller input while it is open. Its
+	# overlay is processed before the UI beneath it and consumes the event.
+	if is_controller_text_entry_open():
+		return
 	if _handle_virtual_mouse_input(event):
 		get_viewport().set_input_as_handled()
 		return
@@ -476,6 +480,8 @@ func _input(event: InputEvent) -> void:
 	):
 		return
 	if event.is_action_pressed("character_call") and _can_use_character_call():
+		if _character_call_yields_to_world_interaction(event):
+			return
 		_network_chat_service.send_local_character_call(
 			_network_profile.call_id
 		)
@@ -551,6 +557,19 @@ func _can_use_character_call() -> bool:
 		and not _virtual_mouse_active
 		and _network_chat_service != null
 		and _network_profile != null
+	)
+
+
+func _character_call_yields_to_world_interaction(
+	event: InputEvent,
+) -> bool:
+	return (
+		event.is_action_pressed("interact")
+		and _shop_interaction != null
+		and _shop_interaction.is_local_player_in_range()
+		and _fishing_spot != null
+		and _fishing_spot.can_open_fishing_shop()
+		and not _fishing_shop.visible
 	)
 
 

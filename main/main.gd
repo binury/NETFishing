@@ -770,6 +770,7 @@ func _initialize_application(dedicated: bool) -> void:
 		_interface_fonts,
 	)
 	_game_ui.setup_controller_mapping(_controller_mapping_manager)
+	_ui_pixelation.setup_controller_mapping(_controller_mapping_manager)
 	_game_ui.setup_keyboard_mouse_mapping(_keyboard_mouse_mapping_manager)
 	_data_root.conflict_detected.connect(_on_portable_conflict)
 	_data_root.status_changed.connect(_on_data_root_status)
@@ -1224,6 +1225,10 @@ func _configure_popup_dialog(
 
 
 func _input(event: InputEvent) -> void:
+	# Do not let controller aliases close or manipulate the world/menu behind
+	# the modal on-screen keyboard. The keyboard consumes the event itself.
+	if _game_ui.is_controller_text_entry_open():
+		return
 	if _handle_data_root_controller_input(event):
 		get_viewport().set_input_as_handled()
 		return

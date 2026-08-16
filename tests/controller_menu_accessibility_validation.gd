@@ -43,6 +43,7 @@ func _run() -> void:
 	root.size = Vector2i(1280, 720)
 	await _validate_join_game_navigation()
 	await _validate_data_settings_navigation()
+	await _validate_settings_adjustment_navigation()
 	await _validate_mail_navigation()
 	await _validate_profile_confirmation_focus()
 	await _validate_profile_voice_navigation()
@@ -192,6 +193,65 @@ func _validate_data_settings_navigation() -> void:
 			% control.name,
 		)
 	_assert_directionally_reachable(controls.front(), controls)
+	panel.queue_free()
+	await process_frame
+
+
+func _validate_settings_adjustment_navigation() -> void:
+	var panel := SettingsPanelScene.instantiate() as SettingsPanel
+	root.add_child(panel)
+	await process_frame
+	panel.show()
+	var sound_page := panel.get_node("%SoundPage") as SettingsBubblePage
+	sound_page.show_page(false)
+	for _frame: int in 2:
+		await process_frame
+	var environment := panel.get_node("%EnvironmentVolumeSlider") as HSlider
+	var sound_back := panel.get_node("%SoundBackButton") as Button
+	_assert_neighbor(
+		environment,
+		&"focus_neighbor_bottom",
+		sound_back,
+	)
+	_assert_neighbor(sound_back, &"focus_neighbor_top", environment)
+	sound_page.hide_page()
+
+	var controls_page := panel.get_node("%ControlsPage") as SettingsBubblePage
+	controls_page.show_page(false)
+	for _frame: int in 2:
+		await process_frame
+	var parent := panel.get_node("%MouseValue") as Button
+	var decrease := panel.get_node("%MouseDecrease") as Button
+	var increase := panel.get_node("%MouseIncrease") as Button
+	_expect(
+		decrease.focus_mode == Control.FOCUS_NONE
+		and increase.focus_mode == Control.FOCUS_NONE,
+		"Sensitivity adjustment bubbles are reachable before their parent.",
+	)
+	parent.grab_focus()
+	var accept := InputEventJoypadButton.new()
+	accept.button_index = JOY_BUTTON_A
+	accept.pressed = true
+	panel.call("_input", accept)
+	_expect(
+		decrease.focus_mode == Control.FOCUS_ALL
+		and increase.focus_mode == Control.FOCUS_ALL,
+		"Selecting a sensitivity parent did not enter its adjustment zone.",
+	)
+	_assert_neighbor(parent, &"focus_neighbor_left", decrease)
+	_assert_neighbor(parent, &"focus_neighbor_right", increase)
+	panel.handle_back()
+	for _frame: int in 2:
+		await process_frame
+	_expect(
+		decrease.focus_mode == Control.FOCUS_NONE
+		and increase.focus_mode == Control.FOCUS_NONE,
+		"Leaving an adjustment zone did not hide its child controls.",
+	)
+	_expect(
+		root.gui_get_focus_owner() == parent,
+		"Leaving an adjustment zone did not restore its parent focus.",
+	)
 	panel.queue_free()
 	await process_frame
 
@@ -363,6 +423,31 @@ func _validate_profile_confirmation_focus() -> void:
 	_expect(
 		root.gui_get_focus_owner() in option_controls,
 		"Selecting an appearance feature did not focus its options.",
+	)
+	var rebuilt_option := root.gui_get_focus_owner() as BaseButton
+	if rebuilt_option != null:
+		rebuilt_option.pressed.emit()
+		for _frame: int in 3:
+			await process_frame
+		option_groups = page.call("_controller_option_groups")
+		option_controls.clear()
+		if not option_groups.is_empty():
+			for item: Variant in option_groups.front():
+				var option_control := item as Control
+				if option_control != null:
+					option_controls.append(option_control)
+		_expect(
+			root.gui_get_focus_owner() in option_controls,
+			"Rebuilding appearance options dropped controller focus.",
+		)
+	root.gui_release_focus()
+	var controller_down := InputEventJoypadButton.new()
+	controller_down.button_index = JOY_BUTTON_DPAD_DOWN
+	controller_down.pressed = true
+	page.call("handle_controller_input", controller_down)
+	_expect(
+		root.gui_get_focus_owner() in option_controls,
+		"Appearance options did not recover a lost controller focus owner.",
 	)
 	var cancel_options := InputEventAction.new()
 	cancel_options.action = &"ui_cancel"
@@ -774,7 +859,7 @@ func _validate_inventory_tab_zone_transitions() -> void:
 	)
 
 	# Add three representative equipment entries so entering the content zone
-	# exercises the real three-column directional layout.
+	# exercises the real five-column directional layout.
 	var item_field := menu.get_node("%BagItemField") as Control
 	var bag_nodes: Dictionary = menu.get("_bag_item_nodes")
 	var owned_items: Array[OwnedItemType] = []
@@ -943,6 +1028,32 @@ func _validate_inventory_tab_zone_transitions() -> void:
 	_expect(
 		management_requests[0] == 1,
 		"Equipment-to-hotbar navigation did not open hotbar management.",
+	)
+	var up := InputEventAction.new()
+	up.action = &"ui_up"
+	up.pressed = true
+	_expect(
+		bool(menu.call("_handle_controller_ownership_input", up)),
+		"Up from hotbar management was not consumed.",
+	)
+	_expect(
+		menu.get("_controller_ownership")
+		== PlayerMenuType.ControllerOwnership.ITEM_LIST,
+		"Up from hotbar management did not return to Inventory contents.",
+	)
+	for _frame: int in 2:
+		await process_frame
+	_expect(
+		root.gui_get_focus_owner() == hotbar_source,
+		"Up from hotbar management did not restore the source item focus.",
+	)
+	_expect(
+		bool(menu.call("_handle_controller_ownership_input", down)),
+		"Inventory contents could not re-enter hotbar management.",
+	)
+	_expect(
+		management_requests[0] == 2,
+		"Re-entering the hotbar did not reopen hotbar management.",
 	)
 	_expect(
 		bool(menu.call("_handle_controller_ownership_input", accept)),

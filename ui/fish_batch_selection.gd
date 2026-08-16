@@ -67,6 +67,12 @@ func select_only(catch_id: StringName) -> void:
 	_anchor_id = catch_id
 
 
+func focus_only(catch_id: StringName) -> void:
+	if catch_id.is_empty() or not _visible_ids.has(catch_id):
+		return
+	_focused_id = catch_id
+
+
 func clear() -> void:
 	_selected_ids.clear()
 	_focused_id = StringName()

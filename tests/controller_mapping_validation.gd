@@ -104,18 +104,20 @@ func _validate_manager(manager: ControllerMappingManagerType) -> String:
 		return "right-stick click is not assigned to the sneak action"
 	if ControllerMappingManagerType.ROLE_LABELS.get(
 		ControllerMappingManagerType.ROLE_Y, ""
-	) != "character call":
-		return "Y is not presented as the character-call button"
+	) != "interact / character call":
+		return "Y does not present its contextual gameplay actions"
+	if ControllerMappingManagerType.BUTTON_ACTION_ROLES.get(
+		&"interact", &""
+	) != ControllerMappingManagerType.ROLE_Y:
+		return "Y is not assigned to the interact action"
 	if ControllerMappingManagerType.BUTTON_ACTION_ROLES.get(
 		&"character_call", &""
 	) != ControllerMappingManagerType.ROLE_Y:
 		return "Y is not assigned to the character-call action"
-	if ControllerMappingManagerType.BUTTON_ACTION_ROLES.has(&"interact"):
-		return "Y still exposes the obsolete controller interact binding"
 	if not _has_joy_button(&"character_call", JOY_BUTTON_Y):
 		return "character call does not default to Y"
-	if _has_joy_button(&"interact", JOY_BUTTON_Y):
-		return "Y still defaults to interact"
+	if not _has_joy_button(&"interact", JOY_BUTTON_Y):
+		return "interact does not default to Y"
 	if not _has_joy_button(&"sneak", JOY_BUTTON_RIGHT_STICK):
 		return "sneak does not default to right-stick click"
 	var trigger_button := InputEventJoypadButton.new()

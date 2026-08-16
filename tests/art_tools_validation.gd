@@ -221,6 +221,16 @@ func _run() -> void:
 	assert(bool(game_ui.call("_handle_controller_chat_controls", select_button)))
 	assert(chat_ui.is_open())
 	chat_ui.refocus_gameplay()
+	chat_ui.open_chat()
+	assert(chat_ui.is_open())
+	typed_chat_entry.text = "/not-a-real-command"
+	chat_ui.call("_send")
+	assert(not chat_ui.is_open())
+	assert(not typed_chat_entry.has_focus())
+	assert(not bool(chat_ui.get("_input_lock_applied")))
+	assert(chat_status.visible)
+	assert(chat_status.text == "Unknown command: /not-a-real-command")
+	chat_ui.call("_set_status", "")
 	var quick_menu := game_ui.get_node(
 		"%QuickRadialMenu"
 	) as QuickRadialMenu
@@ -695,8 +705,13 @@ func _validate_pause_browser_transition(
 	var drag_motion := InputEventMouseMotion.new()
 	drag_motion.button_mask = MOUSE_BUTTON_MASK_RIGHT
 	drag_motion.relative = Vector2(24.0, -8.0)
+	drag_motion.screen_relative = drag_motion.relative
 	player.call("_input", drag_motion)
 	assert(not is_equal_approx(camera_yaw.rotation.y, yaw_before_drag))
+	await process_frame
+	assert(bool(player.get("_camera_dragging")))
+	if DisplayServer.get_name() != "headless":
+		assert(Input.mouse_mode == Input.MOUSE_MODE_CAPTURED)
 	var drag_release := InputEventMouseButton.new()
 	drag_release.button_index = MOUSE_BUTTON_RIGHT
 	drag_release.button_mask = 0

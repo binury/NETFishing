@@ -24,6 +24,20 @@ const FOCUS_COLOR_REPLACEMENTS: Dictionary[StringName, StringName] = {
 	&"font_selected_color": &"font_color",
 	&"font_hovered_selected_color": &"font_hovered_color",
 }
+const HOVER_STYLE_REPLACEMENTS: Dictionary[StringName, StringName] = {
+	&"hover": &"normal",
+	&"hover_pressed": &"pressed",
+	&"hovered": &"",
+	&"hovered_selected": &"",
+}
+const HOVER_COLOR_REPLACEMENTS: Dictionary[StringName, StringName] = {
+	&"font_hover_color": &"font_color",
+	&"icon_hover_color": &"icon_normal_color",
+	&"font_hover_pressed_color": &"font_pressed_color",
+	&"icon_hover_pressed_color": &"icon_pressed_color",
+	&"font_hovered_color": &"font_color",
+	&"font_hovered_selected_color": &"font_color",
+}
 
 var _controller_active: bool = false
 var _focused_control: Control
@@ -32,6 +46,9 @@ var _popup_scroll_offset: float = 0.0
 var _suppressed_control: Control
 var _original_style_overrides: Dictionary[StringName, Dictionary] = {}
 var _original_color_overrides: Dictionary[StringName, Dictionary] = {}
+var _suppressed_hover_control: Control
+var _original_hover_style_overrides: Dictionary[StringName, Dictionary] = {}
+var _original_hover_color_overrides: Dictionary[StringName, Dictionary] = {}
 var _original_popup_hover_style: Dictionary = {}
 var _original_popup_hover_color: Dictionary = {}
 var _focus_layer: CanvasLayer
@@ -47,6 +64,7 @@ func _ready() -> void:
 
 func _exit_tree() -> void:
 	_clear_focus_presentation()
+	_restore_native_hover_highlight()
 
 
 func _input(event: InputEvent) -> void:
@@ -69,6 +87,7 @@ func _input(event: InputEvent) -> void:
 
 
 func _process(_delta: float) -> void:
+	_update_hover_suppression()
 	if _controller_active:
 		var focused_popup: PopupMenu = _active_focused_popup(get_viewport())
 		if focused_popup != null:
@@ -111,6 +130,7 @@ func _set_controller_active(active: bool) -> void:
 	if _controller_active == active:
 		return
 	_controller_active = active
+	_update_hover_suppression()
 	if _controller_active:
 		var focused_popup: PopupMenu = _active_focused_popup(get_viewport())
 		if focused_popup != null:
@@ -438,6 +458,113 @@ func _suppress_native_focus_highlight(control: Control) -> void:
 			focus_name,
 			control.get_theme_color(replacement_name),
 		)
+
+
+func _update_hover_suppression() -> void:
+	if not _controller_active:
+		_restore_native_hover_highlight()
+		return
+	var hovered: Control = _hover_presentation_control(
+		_hovered_control_in_viewport(get_viewport())
+	)
+	if hovered == _suppressed_hover_control:
+		return
+	_restore_native_hover_highlight()
+	if hovered != null:
+		_suppress_native_hover_highlight(hovered)
+
+
+func _hovered_control_in_viewport(viewport: Viewport) -> Control:
+	var embedded_windows: Array[Window] = viewport.get_embedded_subwindows()
+	for index: int in range(embedded_windows.size() - 1, -1, -1):
+		var window: Window = embedded_windows[index]
+		if not window.visible:
+			continue
+		var nested_hovered: Control = _hovered_control_in_viewport(window)
+		if nested_hovered != null:
+			return nested_hovered
+	return viewport.gui_get_hovered_control()
+
+
+func _hover_presentation_control(control: Control) -> Control:
+	var candidate: Control = control
+	while candidate != null:
+		if (
+			candidate is BaseButton
+			or candidate is ItemList
+			or candidate is Tree
+			or candidate.focus_mode != Control.FOCUS_NONE
+		):
+			return candidate
+		candidate = candidate.get_parent() as Control
+	return null
+
+
+func _suppress_native_hover_highlight(control: Control) -> void:
+	_suppressed_hover_control = control
+	_original_hover_style_overrides.clear()
+	_original_hover_color_overrides.clear()
+	if control.has_method(&"set_controller_focus_presentation_active"):
+		control.call(&"set_controller_focus_presentation_active", true)
+	for hover_name: StringName in HOVER_STYLE_REPLACEMENTS:
+		var replacement_name: StringName = HOVER_STYLE_REPLACEMENTS[hover_name]
+		_original_hover_style_overrides[hover_name] = {
+			"had_override": control.has_theme_stylebox_override(hover_name),
+			"value": control.get_theme_stylebox(hover_name),
+		}
+		var replacement: StyleBox = (
+			StyleBoxEmpty.new()
+			if replacement_name.is_empty()
+			else control.get_theme_stylebox(replacement_name)
+		)
+		control.add_theme_stylebox_override(hover_name, replacement)
+	for hover_name: StringName in HOVER_COLOR_REPLACEMENTS:
+		var replacement_name: StringName = HOVER_COLOR_REPLACEMENTS[hover_name]
+		if not control.has_theme_color(replacement_name):
+			continue
+		_original_hover_color_overrides[hover_name] = {
+			"had_override": control.has_theme_color_override(hover_name),
+			"value": control.get_theme_color(hover_name),
+		}
+		control.add_theme_color_override(
+			hover_name,
+			control.get_theme_color(replacement_name),
+		)
+
+
+func _restore_native_hover_highlight() -> void:
+	if not is_instance_valid(_suppressed_hover_control):
+		_suppressed_hover_control = null
+		_original_hover_style_overrides.clear()
+		_original_hover_color_overrides.clear()
+		return
+	for hover_name: StringName in _original_hover_style_overrides:
+		var state: Dictionary = _original_hover_style_overrides[hover_name]
+		if bool(state.get("had_override", false)):
+			_suppressed_hover_control.add_theme_stylebox_override(
+				hover_name,
+				state.get("value") as StyleBox,
+			)
+		else:
+			_suppressed_hover_control.remove_theme_stylebox_override(hover_name)
+	for hover_name: StringName in _original_hover_color_overrides:
+		var state: Dictionary = _original_hover_color_overrides[hover_name]
+		if bool(state.get("had_override", false)):
+			_suppressed_hover_control.add_theme_color_override(
+				hover_name,
+				state.get("value") as Color,
+			)
+		else:
+			_suppressed_hover_control.remove_theme_color_override(hover_name)
+	if _suppressed_hover_control.has_method(
+		&"set_controller_focus_presentation_active"
+	):
+		_suppressed_hover_control.call(
+			&"set_controller_focus_presentation_active", false
+		)
+	_suppressed_hover_control = null
+	_original_hover_style_overrides.clear()
+	_original_hover_color_overrides.clear()
 
 
 func _suppress_popup_focus_highlight(popup: PopupMenu) -> void:

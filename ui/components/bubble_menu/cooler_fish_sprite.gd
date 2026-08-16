@@ -15,6 +15,7 @@ var _depth_scale: float = 1.0
 var _batch_selected: bool = false
 var _focused_catch: bool = false
 var _hovered: bool = false
+var _controller_focus_presentation_active: bool = false
 var _quality_color := Color.WHITE
 
 
@@ -96,6 +97,11 @@ func set_item_state(
 	_refresh_style()
 
 
+func set_controller_focus_presentation_active(active: bool) -> void:
+	_controller_focus_presentation_active = active
+	_refresh_style()
+
+
 func advance_presentation(delta: float, elapsed: float) -> void:
 	var response: float = 1.0 - exp(-9.0 * delta)
 	_neutral_position = _neutral_position.lerp(_target_position, response)
@@ -107,7 +113,7 @@ func advance_presentation(delta: float, elapsed: float) -> void:
 		interaction_lift += 3.0
 	if _focused_catch:
 		interaction_lift += 1.5
-	elif _hovered:
+	elif _hovered and not _controller_focus_presentation_active:
 		interaction_lift += 0.8
 	_visual_root.position = Vector2(0.0, bob - interaction_lift)
 	_visual_root.rotation = tilt
@@ -116,7 +122,7 @@ func advance_presentation(delta: float, elapsed: float) -> void:
 		emphasis += 0.085
 	if _focused_catch:
 		emphasis += 0.035
-	elif _hovered:
+	elif _hovered and not _controller_focus_presentation_active:
 		emphasis += 0.045
 	_visual_root.scale = Vector2.ONE * _depth_scale * emphasis
 
@@ -150,7 +156,7 @@ func _refresh_style() -> void:
 	)
 	var circle_visible: bool = (
 		_batch_selected
-		or _hovered
+		or (_hovered and not _controller_focus_presentation_active)
 		or _focused_catch
 	)
 	var base_style: StyleBox = idle

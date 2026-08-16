@@ -11,6 +11,7 @@ const ControllerFocusNavigationType = preload(
 @export var focus_paths: Array[NodePath] = []
 @export var initial_focus_path: NodePath
 @export var back_focus_path: NodePath
+@export var back_entry_path: NodePath
 @export var maximum_layout_size: Vector2 = Vector2(720.0, 520.0)
 @export var compact_maximum_layout_size: Vector2 = Vector2.ZERO
 @export var compact_width_threshold: float = 680.0
@@ -146,6 +147,23 @@ func focus_back() -> void:
 		back.grab_focus()
 
 
+func set_controller_focus_scope(controls: Array[Control]) -> void:
+	for focus_control: Control in _focus_controls:
+		focus_control.focus_mode = Control.FOCUS_NONE
+	for control: Control in controls:
+		if control != null and control.is_visible_in_tree():
+			control.focus_mode = Control.FOCUS_ALL
+	ControllerFocusNavigationType.configure_spatial_neighbors(controls)
+
+
+func restore_controller_focus_scope() -> void:
+	if not visible or _is_transitioning:
+		return
+	for focus_control: Control in _focus_controls:
+		focus_control.focus_mode = Control.FOCUS_ALL
+	_configure_focus_navigation()
+
+
 func get_page_id() -> StringName:
 	return page_id
 
@@ -173,13 +191,13 @@ func _update_layout() -> void:
 		_cluster.position = _resting_cluster_position
 	_cluster.size = field_size
 	_cluster.apply_layout(field_size, compact)
-	ControllerFocusNavigationType.configure_spatial_neighbors(_focus_controls)
+	_configure_focus_navigation()
 
 
 func _configure_focus_order() -> void:
 	for bubble: BubbleButton in _bubbles:
 		bubble.focus_mode = Control.FOCUS_NONE
-	ControllerFocusNavigationType.configure_spatial_neighbors(_focus_controls)
+	_configure_focus_navigation()
 
 
 func _set_interactive(interactive: bool) -> void:
@@ -203,16 +221,26 @@ func _set_interactive(interactive: bool) -> void:
 	if interactive:
 		call_deferred("_refresh_focus_navigation")
 	else:
-		ControllerFocusNavigationType.configure_spatial_neighbors(
-			_focus_controls
-		)
+		_configure_focus_navigation()
 
 
 func _refresh_focus_navigation() -> void:
 	if visible and not _is_transitioning:
-		ControllerFocusNavigationType.configure_spatial_neighbors(
-			_focus_controls
-		)
+		_configure_focus_navigation()
+
+
+func _configure_focus_navigation() -> void:
+	ControllerFocusNavigationType.configure_spatial_neighbors(_focus_controls)
+	if back_entry_path.is_empty() or back_focus_path.is_empty():
+		return
+	var entry := get_node_or_null(back_entry_path) as Control
+	var back := get_node_or_null(back_focus_path) as Control
+	if (
+		ControllerFocusNavigationType.is_focusable(entry)
+		and ControllerFocusNavigationType.is_focusable(back)
+	):
+		entry.focus_neighbor_bottom = entry.get_path_to(back)
+		back.focus_neighbor_top = back.get_path_to(entry)
 
 
 func _finish_transition_out(generation: int, completed: Callable) -> void:

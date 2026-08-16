@@ -358,6 +358,7 @@ func _build_interface() -> void:
 	_catalog_scroll.horizontal_scroll_mode = (
 		ScrollContainer.SCROLL_MODE_DISABLED
 	)
+	_catalog_scroll.follow_focus = true
 	_catalog_scroll.scroll_vertical_custom_step = CATALOG_ROW_STEP
 	catalog_scroll_margin.add_child(_catalog_scroll)
 	_catalog_grid = GridContainer.new()

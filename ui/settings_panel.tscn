@@ -425,6 +425,7 @@ bubble_paths = Array[NodePath]([NodePath("BubbleCluster/SoundBackButton")])
 focus_paths = Array[NodePath]([NodePath("Paper/Content/VolumeGrid/MasterVolumeSlider"), NodePath("Paper/Content/VolumeGrid/MusicVolumeSlider"), NodePath("Paper/Content/VolumeGrid/EffectsVolumeSlider"), NodePath("Paper/Content/VolumeGrid/EnvironmentVolumeSlider"), NodePath("BubbleCluster/SoundBackButton")])
 initial_focus_path = NodePath("Paper/Content/VolumeGrid/MasterVolumeSlider")
 back_focus_path = NodePath("BubbleCluster/SoundBackButton")
+back_entry_path = NodePath("Paper/Content/VolumeGrid/EnvironmentVolumeSlider")
 compact_maximum_layout_size = Vector2(544, 400)
 
 [node name="BubbleCluster" type="Control" parent="SoundPage"]
@@ -601,7 +602,7 @@ grow_vertical = 2
 script = ExtResource("3_page")
 page_id = &"controls"
 bubble_paths = Array[NodePath]([NodePath("BubbleCluster/MouseDecrease"), NodePath("BubbleCluster/MouseValue"), NodePath("BubbleCluster/MouseIncrease"), NodePath("BubbleCluster/ControllerDecrease"), NodePath("BubbleCluster/ControllerValue"), NodePath("BubbleCluster/ControllerIncrease"), NodePath("BubbleCluster/InvertYToggle"), NodePath("BubbleCluster/OnScreenKeyboardToggle"), NodePath("BubbleCluster/ControllerMapping"), NodePath("BubbleCluster/KeyboardMapping"), NodePath("BubbleCluster/ControlsBackButton")])
-focus_paths = Array[NodePath]([NodePath("BubbleCluster/MouseDecrease"), NodePath("BubbleCluster/MouseValue"), NodePath("BubbleCluster/MouseIncrease"), NodePath("BubbleCluster/ControllerDecrease"), NodePath("BubbleCluster/ControllerValue"), NodePath("BubbleCluster/ControllerIncrease"), NodePath("BubbleCluster/InvertYToggle"), NodePath("BubbleCluster/OnScreenKeyboardToggle"), NodePath("BubbleCluster/ControllerMapping"), NodePath("BubbleCluster/KeyboardMapping"), NodePath("BubbleCluster/ControlsBackButton")])
+focus_paths = Array[NodePath]([NodePath("BubbleCluster/MouseValue"), NodePath("BubbleCluster/ControllerValue"), NodePath("BubbleCluster/InvertYToggle"), NodePath("BubbleCluster/OnScreenKeyboardToggle"), NodePath("BubbleCluster/ControllerMapping"), NodePath("BubbleCluster/KeyboardMapping"), NodePath("BubbleCluster/ControlsBackButton")])
 initial_focus_path = NodePath("BubbleCluster/MouseValue")
 back_focus_path = NodePath("BubbleCluster/ControlsBackButton")
 
@@ -758,7 +759,7 @@ grow_vertical = 2
 script = ExtResource("3_page")
 page_id = &"accessibility"
 bubble_paths = Array[NodePath]([NodePath("BubbleCluster/AutoClickToggle"), NodePath("BubbleCluster/IntervalDecrease"), NodePath("BubbleCluster/AutoClickIntervalValue"), NodePath("BubbleCluster/IntervalIncrease"), NodePath("BubbleCluster/IntervalHelp"), NodePath("BubbleCluster/AccessibilityBackButton")])
-focus_paths = Array[NodePath]([NodePath("BubbleCluster/AutoClickToggle"), NodePath("BubbleCluster/IntervalDecrease"), NodePath("BubbleCluster/AutoClickIntervalValue"), NodePath("BubbleCluster/IntervalIncrease"), NodePath("BubbleCluster/AccessibilityBackButton")])
+focus_paths = Array[NodePath]([NodePath("BubbleCluster/AutoClickToggle"), NodePath("BubbleCluster/AutoClickIntervalValue"), NodePath("BubbleCluster/AccessibilityBackButton")])
 initial_focus_path = NodePath("BubbleCluster/AutoClickToggle")
 back_focus_path = NodePath("BubbleCluster/AccessibilityBackButton")
 

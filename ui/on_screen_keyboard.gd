@@ -4,6 +4,9 @@ extends Control
 const ControllerFocusNavigationType = preload(
 	"res://ui/controller_focus_navigation.gd"
 )
+const ControllerMappingManagerType = preload(
+	"res://settings/controller_mapping_manager.gd"
+)
 const CHECK_ICON: Texture2D = preload(
 	"res://ui/icons/pictograms/check_mark_dark.png"
 )
@@ -12,6 +15,8 @@ const CHARACTER_FONT_SIZE: int = 34
 const CANONICAL_WINDOW_SIZE: Vector2 = Vector2(1280.0, 720.0)
 const TRIGGER_PRESS_THRESHOLD: float = 0.55
 const TRIGGER_RELEASE_THRESHOLD: float = 0.25
+const CARET_BLINK_INTERVAL: float = 0.5
+const CARET_GLYPH: String = "▌"
 
 signal text_submitted(value: String)
 
@@ -22,10 +27,14 @@ enum Page {
 }
 
 var _enabled: bool = false
+var _controller_mapping_manager: ControllerMappingManagerType
 var _page: Page = Page.LOWER
 var _target: Control
 var _target_virtual_keyboard_enabled: bool = true
 var _buffer: String = ""
+var _buffer_caret: int = 0
+var _caret_blink_elapsed: float = 0.0
+var _caret_visible: bool = true
 var _preview: Label
 var _page_buttons: Array[Button] = []
 var _keys_host: VBoxContainer
@@ -52,6 +61,21 @@ func _ready() -> void:
 	_build_interface()
 	hide()
 	set_process_input(true)
+	set_process(true)
+
+
+func _process(delta: float) -> void:
+	if not visible:
+		return
+	_caret_blink_elapsed += delta
+	if _caret_blink_elapsed < CARET_BLINK_INTERVAL:
+		return
+	_caret_blink_elapsed = fmod(
+		_caret_blink_elapsed,
+		CARET_BLINK_INTERVAL,
+	)
+	_caret_visible = not _caret_visible
+	_refresh_preview()
 
 
 func set_enabled(enabled: bool) -> void:
@@ -66,6 +90,12 @@ func is_enabled() -> bool:
 
 func is_open() -> bool:
 	return visible
+
+
+func setup_controller_mapping(
+	mapping_manager: ControllerMappingManagerType,
+) -> void:
+	_controller_mapping_manager = mapping_manager
 
 
 func request_for_focused_control() -> bool:
@@ -88,23 +118,51 @@ func _input(event: InputEvent) -> void:
 		return
 	if visible:
 		var joy_motion := event as InputEventJoypadMotion
-		if joy_motion != null and _handle_trigger_shortcut(joy_motion):
+		if joy_motion != null:
+			if not _handle_trigger_shortcut(joy_motion):
+				_move_key_focus(_controller_direction(event))
 			get_viewport().set_input_as_handled()
 			return
 		var joy_button := event as InputEventJoypadButton
-		if joy_button != null and joy_button.pressed:
-			if joy_button.button_index == JOY_BUTTON_X:
-				_backspace()
-				get_viewport().set_input_as_handled()
-				return
-			if joy_button.button_index == JOY_BUTTON_LEFT_SHOULDER:
-				_close_keyboard(false)
-				get_viewport().set_input_as_handled()
-				return
-			if joy_button.button_index == JOY_BUTTON_RIGHT_SHOULDER:
-				_set_page(wrapi(int(_page) + 1, 0, Page.size()))
-				get_viewport().set_input_as_handled()
-				return
+		if joy_button != null:
+			if joy_button.pressed:
+				# Resolve the automapper's logical roles before raw button numbers.
+				# Handheld mappings do not necessarily report their labeled A/B/X
+				# buttons using Godot's matching physical button constants.
+				if _event_matches_role(
+					event,
+					ControllerMappingManagerType.ROLE_X,
+					JOY_BUTTON_X,
+				):
+					_backspace()
+				elif _event_matches_role(
+					event,
+					ControllerMappingManagerType.ROLE_LB,
+					JOY_BUTTON_LEFT_SHOULDER,
+				):
+					_set_page(wrapi(int(_page) - 1, 0, Page.size()))
+				elif _event_matches_role(
+					event,
+					ControllerMappingManagerType.ROLE_RB,
+					JOY_BUTTON_RIGHT_SHOULDER,
+				):
+					_set_page(wrapi(int(_page) + 1, 0, Page.size()))
+				elif _event_matches_role(
+					event,
+					ControllerMappingManagerType.ROLE_A,
+					JOY_BUTTON_A,
+				):
+					_activate_focused_key()
+				elif _event_matches_role(
+					event,
+					ControllerMappingManagerType.ROLE_B,
+					JOY_BUTTON_B,
+				):
+					_close_keyboard(true)
+				else:
+					_move_key_focus(_controller_direction(event))
+			get_viewport().set_input_as_handled()
+			return
 		if event.is_action_pressed(&"ui_cancel"):
 			_close_keyboard(true)
 			get_viewport().set_input_as_handled()
@@ -114,13 +172,31 @@ func _input(event: InputEvent) -> void:
 		joy_event == null
 		or not joy_event.pressed
 		or (
-			joy_event.button_index != JOY_BUTTON_A
-			and not event.is_action_pressed(&"ui_accept")
+			not _event_matches_role(
+				event,
+				ControllerMappingManagerType.ROLE_A,
+				JOY_BUTTON_A,
+			)
+			and (
+				_controller_mapping_manager != null
+				or not event.is_action_pressed(&"ui_accept")
+			)
 		)
 	):
 		return
 	if request_for_focused_control():
 		get_viewport().set_input_as_handled()
+
+
+func _event_matches_role(
+	event: InputEvent,
+	role: StringName,
+	fallback_button: JoyButton,
+) -> bool:
+	if _controller_mapping_manager != null:
+		return _controller_mapping_manager.event_matches_role(event, role)
+	var button := event as InputEventJoypadButton
+	return button != null and button.button_index == fallback_button
 
 
 func _is_available_for_controller() -> bool:
@@ -164,9 +240,12 @@ func _open_for(control: Control) -> void:
 	)
 	_target.set("virtual_keyboard_enabled", false)
 	_buffer = str(_target.get("text"))
+	_buffer_caret = _buffer.length()
+	_set_target_caret(_buffer_caret)
 	_page = Page.LOWER
 	_attach_to_target_window(control)
 	show()
+	_reset_caret_blink()
 	_refresh_preview()
 	_rebuild_keys()
 
@@ -179,6 +258,8 @@ func _close_keyboard(restore_focus: bool) -> void:
 			_target_virtual_keyboard_enabled
 		)
 	hide()
+	_left_trigger_pressed = false
+	_right_trigger_pressed = false
 	get_viewport().gui_release_focus()
 	_restore_portable_host()
 	_target = null
@@ -283,15 +364,13 @@ func _move_caret(direction: int) -> void:
 	if not is_instance_valid(_target):
 		_close_keyboard(false)
 		return
-	var caret: int = clampi(
+	_buffer_caret = clampi(
 		_get_caret_column() + direction,
 		0,
 		_buffer.length(),
 	)
-	if _target is LineEdit:
-		(_target as LineEdit).caret_column = caret
-	elif _target is TextEdit:
-		(_target as TextEdit).set_caret_column(caret)
+	_set_target_caret(_buffer_caret)
+	_reset_caret_blink()
 	_refresh_preview()
 
 
@@ -320,26 +399,42 @@ func _handle_trigger_shortcut(event: InputEventJoypadMotion) -> bool:
 
 
 func _get_caret_column() -> int:
-	if _target is LineEdit:
-		return clampi(
-			(_target as LineEdit).caret_column,
-			0,
-			_buffer.length()
-		)
-	return _buffer.length()
+	return clampi(_buffer_caret, 0, _buffer.length())
 
 
 func _set_target_text(caret: int) -> void:
+	_buffer_caret = clampi(caret, 0, _buffer.length())
 	if _target is LineEdit:
 		var line_edit := _target as LineEdit
 		line_edit.text = _buffer
-		line_edit.caret_column = caret
 		line_edit.text_changed.emit(_buffer)
 	elif _target is TextEdit:
 		var text_edit := _target as TextEdit
 		text_edit.text = _buffer
 		text_edit.text_changed.emit()
+	_set_target_caret(_buffer_caret)
+	_reset_caret_blink()
 	_refresh_preview()
+
+
+func _set_target_caret(caret: int) -> void:
+	if _target is LineEdit:
+		(_target as LineEdit).caret_column = caret
+	elif _target is TextEdit:
+		var text_edit := _target as TextEdit
+		var text_before_caret: String = _buffer.substr(0, caret)
+		var caret_line: int = text_before_caret.count("\n")
+		var last_newline: int = text_before_caret.rfind("\n")
+		var caret_column: int = (
+			caret if last_newline < 0 else caret - last_newline - 1
+		)
+		text_edit.set_caret_line(caret_line)
+		text_edit.set_caret_column(caret_column)
+
+
+func _reset_caret_blink() -> void:
+	_caret_blink_elapsed = 0.0
+	_caret_visible = true
 
 
 func _refresh_preview() -> void:
@@ -349,7 +444,58 @@ func _refresh_preview() -> void:
 	if _target is LineEdit and (_target as LineEdit).secret:
 		displayed_text = "*".repeat(_buffer.length())
 	var caret: int = clampi(_get_caret_column(), 0, displayed_text.length())
-	_preview.text = displayed_text.insert(caret, "|")
+	var caret_glyph: String = CARET_GLYPH if _caret_visible else ""
+	_preview.text = displayed_text.insert(caret, caret_glyph)
+
+
+func _controller_direction(event: InputEvent) -> Vector2:
+	if event.is_action_pressed(&"ui_up"):
+		return Vector2.UP
+	if event.is_action_pressed(&"ui_down"):
+		return Vector2.DOWN
+	if event.is_action_pressed(&"ui_left"):
+		return Vector2.LEFT
+	if event.is_action_pressed(&"ui_right"):
+		return Vector2.RIGHT
+	return Vector2.ZERO
+
+
+func _move_key_focus(direction: Vector2) -> void:
+	if direction == Vector2.ZERO:
+		return
+	var focused: Control = get_viewport().gui_get_focus_owner()
+	if focused == null or not is_ancestor_of(focused):
+		_focus_first_key()
+		return
+	var neighbor_path := NodePath()
+	if direction == Vector2.UP:
+		neighbor_path = focused.focus_neighbor_top
+	elif direction == Vector2.DOWN:
+		neighbor_path = focused.focus_neighbor_bottom
+	elif direction == Vector2.LEFT:
+		neighbor_path = focused.focus_neighbor_left
+	elif direction == Vector2.RIGHT:
+		neighbor_path = focused.focus_neighbor_right
+	if neighbor_path.is_empty():
+		return
+	var neighbor := focused.get_node_or_null(neighbor_path) as Control
+	if ControllerFocusNavigationType.is_focusable(neighbor):
+		neighbor.grab_focus()
+
+
+func _activate_focused_key() -> void:
+	var focused: Control = get_viewport().gui_get_focus_owner()
+	if focused == null or not is_ancestor_of(focused):
+		_focus_first_key()
+		focused = get_viewport().gui_get_focus_owner()
+	var button := focused as BaseButton
+	if button != null and not button.disabled:
+		button.pressed.emit()
+
+
+func _focus_first_key() -> void:
+	if not _key_buttons.is_empty():
+		_key_buttons[0].grab_focus()
 
 
 func _set_page(page_index: int) -> void:

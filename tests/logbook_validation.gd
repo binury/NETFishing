@@ -82,6 +82,26 @@ func _validate_page() -> void:
 		page.get("_category") == LogbookCatalog.Category.FRESH_WATER
 	)
 	assert((page.get("_catalog_grid") as GridContainer).columns == 4)
+	var catalog_scroll := page.get("_catalog_scroll") as ScrollContainer
+	assert(catalog_scroll != null and catalog_scroll.follow_focus)
+	page.call(
+		"_set_controller_zone",
+		LogbookPage.ControllerZone.ENTRIES,
+	)
+	for _frame: int in 2:
+		await process_frame
+	var initial_entries: Array = (
+		page.get("_entry_buttons") as Dictionary
+	).values()
+	assert(initial_entries.size() > 4)
+	var final_entry := initial_entries.back() as Button
+	final_entry.grab_focus()
+	for _frame: int in 3:
+		await process_frame
+	assert(catalog_scroll.scroll_vertical > 0)
+	page.reset_controller_zone()
+	for _frame: int in 2:
+		await process_frame
 	var category_tabs: Array = page.get("_category_tabs") as Array
 	var category_tab_categories: Array = (
 		page.get("_category_tab_categories") as Array
