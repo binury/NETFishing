@@ -107,8 +107,8 @@ func _run() -> void:
 		"%ControllerMapping"
 	) as Button
 	var keyboard_bubble := settings_panel.get_node("%KeyboardMapping") as Button
-	assert(controller_bubble.text == "controller\nbinds")
-	assert(keyboard_bubble.text == "keyboard\nbinds")
+	assert(controller_bubble.text == "controller binds")
+	assert(keyboard_bubble.text == "keyboard binds")
 
 	assert(manager.reset_mapping())
 	assert(not manager.has_custom_mapping())

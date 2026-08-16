@@ -99,23 +99,25 @@ func _run() -> void:
 	var settings_panel := game_ui.get(
 		"_pause_settings_panel"
 	) as SettingsPanel
-	var chat_dock_button := settings_panel.get_node("%ChatDock") as BubbleButton
-	var chat_mode_button := settings_panel.get_node("%ChatMode") as BubbleButton
-	var paint_dock_button := settings_panel.get_node("%PaintDock") as BubbleButton
-	assert(chat_dock_button.neutral_size.x == chat_dock_button.neutral_size.y)
-	assert(chat_mode_button.neutral_size.x == chat_mode_button.neutral_size.y)
-	assert(paint_dock_button.neutral_size.x == paint_dock_button.neutral_size.y)
+	var chat_dock_selector := settings_panel.get_node(
+		"%ChatDockSelector"
+	) as OptionButton
+	var chat_mode_selector := settings_panel.get_node(
+		"%ChatModeSelector"
+	) as OptionButton
+	var paint_dock_selector := settings_panel.get_node(
+		"%PaintDockSelector"
+	) as OptionButton
+	assert(chat_dock_selector != null)
+	assert(chat_mode_selector != null)
+	assert(paint_dock_selector != null)
+	assert(chat_dock_selector.custom_minimum_size.x == 300.0)
+	assert(chat_mode_selector.custom_minimum_size.x == 300.0)
+	assert(paint_dock_selector.custom_minimum_size.x == 300.0)
 	assert(
-		chat_dock_button.compact_minimum_size.x
-		== chat_dock_button.compact_minimum_size.y
-	)
-	assert(
-		chat_mode_button.compact_minimum_size.x
-		== chat_mode_button.compact_minimum_size.y
-	)
-	assert(
-		paint_dock_button.compact_minimum_size.x
-		== paint_dock_button.compact_minimum_size.y
+		settings_panel.find_children(
+			"*", "BubbleButton", true, false
+		).is_empty()
 	)
 	assert(not chat_ui.is_docked_right())
 	assert(toolbar.is_docked_right())

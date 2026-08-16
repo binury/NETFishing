@@ -168,15 +168,15 @@ func _validate_join_game_navigation() -> void:
 
 
 func _validate_data_settings_navigation() -> void:
-	var panel := SettingsPanelScene.instantiate() as Control
+	var panel := SettingsPanelScene.instantiate() as SettingsPanel
 	root.add_child(panel)
 	await process_frame
 	panel.show()
-	var data_page := panel.get_node("%DataPage") as SettingsBubblePage
-	data_page.show_page(false)
+	panel.call("_select_page", &"data", false)
 	for _frame: int in 2:
 		await process_frame
 	var controls: Array[Control] = [
+		panel.get_node("%DataTab") as Control,
 		panel.get_node("%OpenDataFolder") as Control,
 		panel.get_node("%ChangeDataFolder") as Control,
 		panel.get_node("%CopyPlayerFingerprint") as Control,
@@ -184,7 +184,8 @@ func _validate_data_settings_navigation() -> void:
 		panel.get_node("%ImportPlayerIdentity") as Control,
 		panel.get_node("%ExportHostIdentity") as Control,
 		panel.get_node("%ImportHostIdentity") as Control,
-		panel.get_node("%DataBackButton") as Control,
+		panel.get_node("%ApplySettingsButton") as Control,
+		panel.get_node("%SettingsBackButton") as Control,
 	]
 	for control: Control in controls:
 		_expect(
@@ -193,6 +194,10 @@ func _validate_data_settings_navigation() -> void:
 			% control.name,
 		)
 	_assert_directionally_reachable(controls.front(), controls)
+	_expect(
+		panel.find_children("*", "BubbleButton", true, false).is_empty(),
+		"Settings children still contain bubble controls.",
+	)
 	panel.queue_free()
 	await process_frame
 
@@ -202,56 +207,48 @@ func _validate_settings_adjustment_navigation() -> void:
 	root.add_child(panel)
 	await process_frame
 	panel.show()
-	var sound_page := panel.get_node("%SoundPage") as SettingsBubblePage
-	sound_page.show_page(false)
+	panel.call("_select_page", &"sound", false)
 	for _frame: int in 2:
 		await process_frame
-	var environment := panel.get_node("%EnvironmentVolumeSlider") as HSlider
-	var sound_back := panel.get_node("%SoundBackButton") as Button
-	_assert_neighbor(
-		environment,
-		&"focus_neighbor_bottom",
-		sound_back,
-	)
-	_assert_neighbor(sound_back, &"focus_neighbor_top", environment)
-	sound_page.hide_page()
-
-	var controls_page := panel.get_node("%ControlsPage") as SettingsBubblePage
-	controls_page.show_page(false)
+	var sound_controls: Array[Control] = [
+		panel.get_node("%SoundTab") as Control,
+		panel.get_node("%MasterVolumeSlider") as Control,
+		panel.get_node("%MusicVolumeSlider") as Control,
+		panel.get_node("%EffectsVolumeSlider") as Control,
+		panel.get_node("%EnvironmentVolumeSlider") as Control,
+		panel.get_node("%ApplySettingsButton") as Control,
+		panel.get_node("%SettingsBackButton") as Control,
+	]
+	_assert_directionally_reachable(sound_controls.front(), sound_controls)
+	panel.call("_select_page", &"controls", false)
 	for _frame: int in 2:
 		await process_frame
-	var parent := panel.get_node("%MouseValue") as Button
-	var decrease := panel.get_node("%MouseDecrease") as Button
-	var increase := panel.get_node("%MouseIncrease") as Button
+	var mouse_slider := panel.get_node("%MouseSensitivitySlider") as HSlider
+	var controller_slider := panel.get_node(
+		"%ControllerSensitivitySlider"
+	) as HSlider
 	_expect(
-		decrease.focus_mode == Control.FOCUS_NONE
-		and increase.focus_mode == Control.FOCUS_NONE,
-		"Sensitivity adjustment bubbles are reachable before their parent.",
-	)
-	parent.grab_focus()
-	var accept := InputEventJoypadButton.new()
-	accept.button_index = JOY_BUTTON_A
-	accept.pressed = true
-	panel.call("_input", accept)
-	_expect(
-		decrease.focus_mode == Control.FOCUS_ALL
-		and increase.focus_mode == Control.FOCUS_ALL,
-		"Selecting a sensitivity parent did not enter its adjustment zone.",
-	)
-	_assert_neighbor(parent, &"focus_neighbor_left", decrease)
-	_assert_neighbor(parent, &"focus_neighbor_right", increase)
-	panel.handle_back()
-	for _frame: int in 2:
-		await process_frame
-	_expect(
-		decrease.focus_mode == Control.FOCUS_NONE
-		and increase.focus_mode == Control.FOCUS_NONE,
-		"Leaving an adjustment zone did not hide its child controls.",
+		mouse_slider.focus_mode == Control.FOCUS_ALL
+		and controller_slider.focus_mode == Control.FOCUS_ALL,
+		"Standard sensitivity sliders are not controller-focusable.",
 	)
 	_expect(
-		root.gui_get_focus_owner() == parent,
-		"Leaving an adjustment zone did not restore its parent focus.",
+		is_equal_approx(mouse_slider.step, 0.0005)
+		and is_equal_approx(controller_slider.step, 0.1),
+		"Sensitivity sliders do not retain their authored increments.",
 	)
+	var control_inputs: Array[Control] = [
+		panel.get_node("%ControlsTab") as Control,
+		mouse_slider,
+		controller_slider,
+		panel.get_node("%InvertYToggle") as Control,
+		panel.get_node("%OnScreenKeyboardToggle") as Control,
+		panel.get_node("%ControllerMapping") as Control,
+		panel.get_node("%KeyboardMapping") as Control,
+		panel.get_node("%ApplySettingsButton") as Control,
+		panel.get_node("%SettingsBackButton") as Control,
+	]
+	_assert_directionally_reachable(control_inputs.front(), control_inputs)
 	panel.queue_free()
 	await process_frame
 

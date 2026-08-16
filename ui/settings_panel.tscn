@@ -1,170 +1,205 @@
-[gd_scene load_steps=9 format=3]
+[gd_scene load_steps=4 format=3]
 
 [ext_resource type="Script" path="res://ui/settings_panel.gd" id="1_panel"]
 [ext_resource type="Theme" path="res://ui/game_theme.tres" id="2_theme"]
-[ext_resource type="Script" path="res://ui/settings/settings_bubble_page.gd" id="3_page"]
-[ext_resource type="PackedScene" path="res://ui/components/bubble_menu/bubble_button.tscn" id="4_bubble"]
-[ext_resource type="Script" path="res://ui/components/bubble_menu/bubble_cluster.gd" id="5_cluster"]
-[ext_resource type="Resource" path="res://ui/components/bubble_menu/bubble_menu_profile.tres" id="6_profile"]
-[ext_resource type="Texture2D" path="res://ui/icons/pictograms/undo_dark.png" id="7_undo_dark"]
-[ext_resource type="Texture2D" path="res://ui/icons/pictograms/check_mark_dark.png" id="8_check_mark_dark"]
+[ext_resource type="Script" path="res://ui/components/organizer_tab.gd" id="3_tab"]
 
 [node name="SettingsPanel" type="Control"]
 visible = false
-custom_minimum_size = Vector2(960, 700)
+custom_minimum_size = Vector2(880, 660)
 layout_mode = 3
 anchors_preset = 0
 theme = ExtResource("2_theme")
 script = ExtResource("1_panel")
 
-[node name="SettingsFeedback" type="Label" parent="."]
+[node name="MainPanel" type="PanelContainer" parent="."]
 unique_name_in_owner = true
 layout_mode = 1
-anchors_preset = 12
+anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_top = -42.0
-offset_bottom = -8.0
 grow_horizontal = 2
-grow_vertical = 0
-mouse_filter = 2
+grow_vertical = 2
+
+[node name="OuterMargin" type="MarginContainer" parent="MainPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 24
+theme_override_constants/margin_top = 18
+theme_override_constants/margin_right = 24
+theme_override_constants/margin_bottom = 18
+
+[node name="Layout" type="VBoxContainer" parent="MainPanel/OuterMargin"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Heading" type="Label" parent="MainPanel/OuterMargin/Layout"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 30
+text = "settings"
 horizontal_alignment = 1
+
+[node name="TabBar" type="HBoxContainer" parent="MainPanel/OuterMargin/Layout"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+theme_override_constants/separation = 8
+alignment = 1
+
+[node name="DisplayTab" type="Button" parent="MainPanel/OuterMargin/Layout/TabBar"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(145, 52)
+layout_mode = 2
+focus_mode = 2
+text = "display"
+script = ExtResource("3_tab")
+
+[node name="SoundTab" type="Button" parent="MainPanel/OuterMargin/Layout/TabBar"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(128, 52)
+layout_mode = 2
+focus_mode = 2
+text = "sound"
+script = ExtResource("3_tab")
+palette_index = 1
+
+[node name="ControlsTab" type="Button" parent="MainPanel/OuterMargin/Layout/TabBar"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(142, 52)
+layout_mode = 2
+focus_mode = 2
+text = "controls"
+script = ExtResource("3_tab")
+palette_index = 2
+
+[node name="AccessibilityTab" type="Button" parent="MainPanel/OuterMargin/Layout/TabBar"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(180, 52)
+layout_mode = 2
+focus_mode = 2
+text = "accessibility"
+script = ExtResource("3_tab")
+
+[node name="DataTab" type="Button" parent="MainPanel/OuterMargin/Layout/TabBar"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(115, 52)
+layout_mode = 2
+focus_mode = 2
+text = "data"
+script = ExtResource("3_tab")
+palette_index = 1
+
+[node name="ContentPanel" type="PanelContainer" parent="MainPanel/OuterMargin/Layout"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 440)
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="ContentMargin" type="MarginContainer" parent="MainPanel/OuterMargin/Layout/ContentPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 28
+theme_override_constants/margin_top = 20
+theme_override_constants/margin_right = 28
+theme_override_constants/margin_bottom = 20
+
+[node name="PageStack" type="Control" parent="MainPanel/OuterMargin/Layout/ContentPanel/ContentMargin"]
+layout_mode = 2
+
+[node name="DisplayPage" type="VBoxContainer" parent="MainPanel/OuterMargin/Layout/ContentPanel/ContentMargin/PageStack"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 12
+
+[node name="Intro" type="Label" parent="MainPanel/OuterMargin/Layout/ContentPanel/ContentMargin/PageStack/DisplayPage"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "presentation"
+
+[node name="Grid" type="GridContainer" parent="MainPanel/OuterMargin/Layout/ContentPanel/ContentMargin/PageStack/DisplayPage"]
+layout_mode = 2
+theme_override_constants/h_separation = 20
+theme_override_constants/v_separation = 10
+columns = 2
+
+[node name="WorldPixelationLabel" type="Label" parent="MainPanel/OuterMargin/Layout/ContentPanel/ContentMargin/PageStack/DisplayPage/Grid"]
+custom_minimum_size = Vector2(260, 48)
+layout_mode = 2
+text = "world pixelation"
 vertical_alignment = 1
 
-[node name="RootPage" type="Control" parent="."]
+[node name="WorldPixelationSelector" type="OptionButton" parent="MainPanel/OuterMargin/Layout/ContentPanel/ContentMargin/PageStack/DisplayPage/Grid"]
 unique_name_in_owner = true
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-script = ExtResource("3_page")
-page_id = &"root"
-bubble_paths = Array[NodePath]([NodePath("BubbleCluster/DisplayCategory"), NodePath("BubbleCluster/SoundCategory"), NodePath("BubbleCluster/ControlsCategory"), NodePath("BubbleCluster/AccessibilityCategory"), NodePath("BubbleCluster/DataCategory"), NodePath("BubbleCluster/ApplySettingsButton"), NodePath("BubbleCluster/RootBackButton")])
-focus_paths = Array[NodePath]([NodePath("BubbleCluster/DisplayCategory"), NodePath("BubbleCluster/SoundCategory"), NodePath("BubbleCluster/ControlsCategory"), NodePath("BubbleCluster/AccessibilityCategory"), NodePath("BubbleCluster/DataCategory"), NodePath("BubbleCluster/ApplySettingsButton"), NodePath("BubbleCluster/RootBackButton")])
-initial_focus_path = NodePath("BubbleCluster/DisplayCategory")
-back_focus_path = NodePath("BubbleCluster/RootBackButton")
-compact_maximum_layout_size = Vector2(544, 400)
+custom_minimum_size = Vector2(300, 48)
+layout_mode = 2
+focus_mode = 2
 
-[node name="BubbleCluster" type="Control" parent="RootPage"]
-layout_mode = 0
-offset_right = 720.0
-offset_bottom = 520.0
-script = ExtResource("5_cluster")
-profile = ExtResource("6_profile")
-desktop_reference_size = Vector2(720, 520)
-compact_reference_size = Vector2(608, 448)
+[node name="UIPixelationLabel" type="Label" parent="MainPanel/OuterMargin/Layout/ContentPanel/ContentMargin/PageStack/DisplayPage/Grid"]
+custom_minimum_size = Vector2(260, 48)
+layout_mode = 2
+text = "ui pixelation"
+vertical_alignment = 1
 
-[node name="DisplayCategory" parent="RootPage/BubbleCluster" instance=ExtResource("4_bubble")]
+[node name="UIPixelationSelector" type="OptionButton" parent="MainPanel/OuterMargin/Layout/ContentPanel/ContentMargin/PageStack/DisplayPage/Grid"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 0)
-offset_left = 135.0
-offset_top = 90.0
-offset_right = 305.0
-offset_bottom = 250.0
-text = "display"
-neutral_size = Vector2(170, 160)
-desktop_anchor = Vector2(280, 180)
-compact_anchor = Vector2(220, 150)
-compact_minimum_size = Vector2(130, 124)
-minimum_font_size = 18
-maximum_font_size = 27
-motion_phase = 0.35
+custom_minimum_size = Vector2(300, 48)
+layout_mode = 2
+focus_mode = 2
 
-[node name="ControlsCategory" parent="RootPage/BubbleCluster" instance=ExtResource("4_bubble")]
+[node name="ChatDockLabel" type="Label" parent="MainPanel/OuterMargin/Layout/ContentPanel/ContentMargin/PageStack/DisplayPage/Grid"]
+custom_minimum_size = Vector2(260, 48)
+layout_mode = 2
+text = "chat dock"
+vertical_alignment = 1
+
+[node name="ChatDockSelector" type="OptionButton" parent="MainPanel/OuterMargin/Layout/ContentPanel/ContentMargin/PageStack/DisplayPage/Grid"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 0)
-offset_left = 377.0
-offset_top = 96.0
-offset_right = 533.0
-offset_bottom = 244.0
-text = "controls"
-neutral_size = Vector2(156, 148)
-desktop_anchor = Vector2(440, 180)
-compact_anchor = Vector2(385, 150)
-compact_minimum_size = Vector2(124, 118)
-minimum_font_size = 17
-maximum_font_size = 25
-motion_phase = 1.45
+custom_minimum_size = Vector2(300, 48)
+layout_mode = 2
+focus_mode = 2
 
-[node name="SoundCategory" parent="RootPage/BubbleCluster" instance=ExtResource("4_bubble")]
+[node name="ChatModeLabel" type="Label" parent="MainPanel/OuterMargin/Layout/ContentPanel/ContentMargin/PageStack/DisplayPage/Grid"]
+custom_minimum_size = Vector2(260, 48)
+layout_mode = 2
+text = "chat mode"
+vertical_alignment = 1
+
+[node name="ChatModeSelector" type="OptionButton" parent="MainPanel/OuterMargin/Layout/ContentPanel/ContentMargin/PageStack/DisplayPage/Grid"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 0)
-text = "sound"
-neutral_size = Vector2(144, 136)
-desktop_anchor = Vector2(100, 180)
-compact_anchor = Vector2(90, 150)
-compact_minimum_size = Vector2(118, 112)
-minimum_font_size = 17
-maximum_font_size = 25
-motion_phase = 2.0
+custom_minimum_size = Vector2(300, 48)
+layout_mode = 2
+focus_mode = 2
 
-[node name="AccessibilityCategory" parent="RootPage/BubbleCluster" instance=ExtResource("4_bubble")]
+[node name="PaintDockLabel" type="Label" parent="MainPanel/OuterMargin/Layout/ContentPanel/ContentMargin/PageStack/DisplayPage/Grid"]
+custom_minimum_size = Vector2(260, 48)
+layout_mode = 2
+text = "art kit dock"
+vertical_alignment = 1
+
+[node name="PaintDockSelector" type="OptionButton" parent="MainPanel/OuterMargin/Layout/ContentPanel/ContentMargin/PageStack/DisplayPage/Grid"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 0)
-offset_left = 240.0
-offset_top = 262.0
-offset_right = 420.0
-offset_bottom = 428.0
-text = "accessibility"
-neutral_size = Vector2(180, 168)
-desktop_anchor = Vector2(367, 328)
-compact_anchor = Vector2(307, 311)
-compact_minimum_size = Vector2(150, 142)
-minimum_font_size = 17
-maximum_font_size = 27
-motion_phase = 2.65
+custom_minimum_size = Vector2(300, 48)
+layout_mode = 2
+focus_mode = 2
 
-[node name="ApplySettingsButton" parent="RootPage/BubbleCluster" instance=ExtResource("4_bubble")]
+[node name="FullscreenLabel" type="Label" parent="MainPanel/OuterMargin/Layout/ContentPanel/ContentMargin/PageStack/DisplayPage/Grid"]
+custom_minimum_size = Vector2(260, 48)
+layout_mode = 2
+text = "fullscreen"
+vertical_alignment = 1
+
+[node name="FullscreenToggle" type="Button" parent="MainPanel/OuterMargin/Layout/ContentPanel/ContentMargin/PageStack/DisplayPage/Grid"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 0)
-offset_left = 474.0
-offset_top = 308.0
-offset_right = 586.0
-offset_bottom = 412.0
-icon = ExtResource("8_check_mark_dark")
-tooltip_text = "apply"
-accessibility_name = "apply"
-neutral_size = Vector2(112, 104)
-desktop_anchor = Vector2(511, 332)
-compact_anchor = Vector2(470, 330)
-compact_minimum_size = Vector2(94, 90)
-minimum_font_size = 15
-maximum_font_size = 19
-motion_phase = 3.7
+custom_minimum_size = Vector2(300, 48)
+layout_mode = 2
+focus_mode = 2
+toggle_mode = true
+text = "off"
 
-[node name="DataCategory" parent="RootPage/BubbleCluster" instance=ExtResource("4_bubble")]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 0)
-text = "data &\nidentity"
-neutral_size = Vector2(140, 132)
-desktop_anchor = Vector2(610, 220)
-compact_anchor = Vector2(540, 205)
-compact_minimum_size = Vector2(116, 108)
-minimum_font_size = 14
-maximum_font_size = 21
-motion_phase = 5.4
-
-[node name="RootBackButton" parent="RootPage/BubbleCluster" instance=ExtResource("4_bubble")]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 0)
-offset_left = 70.0
-offset_top = 343.0
-offset_right = 170.0
-offset_bottom = 437.0
-icon = ExtResource("7_undo_dark")
-tooltip_text = "back"
-accessibility_name = "back"
-neutral_size = Vector2(100, 94)
-desktop_anchor = Vector2(220, 300)
-compact_anchor = Vector2(155, 275)
-compact_minimum_size = Vector2(84, 80)
-minimum_font_size = 14
-maximum_font_size = 17
-motion_phase = 4.8
-
-[node name="DisplayPage" type="Control" parent="."]
+[node name="SoundPage" type="VBoxContainer" parent="MainPanel/OuterMargin/Layout/ContentPanel/ContentMargin/PageStack"]
 unique_name_in_owner = true
 visible = false
 layout_mode = 1
@@ -173,797 +208,432 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-script = ExtResource("3_page")
-page_id = &"display"
-bubble_paths = Array[NodePath]([NodePath("BubbleCluster/WorldValue"), NodePath("BubbleCluster/WorldLegible"), NodePath("BubbleCluster/WorldCute"), NodePath("BubbleCluster/WorldRetro"), NodePath("BubbleCluster/WorldHardcore"), NodePath("BubbleCluster/WorldWtf"), NodePath("BubbleCluster/UIValue"), NodePath("BubbleCluster/UILegible"), NodePath("BubbleCluster/UICute"), NodePath("BubbleCluster/UIRetro"), NodePath("BubbleCluster/UIHardcore"), NodePath("BubbleCluster/UIWtf"), NodePath("BubbleCluster/ChatDock"), NodePath("BubbleCluster/ChatMode"), NodePath("BubbleCluster/PaintDock"), NodePath("BubbleCluster/FullscreenToggle"), NodePath("BubbleCluster/DisplayBackButton")])
-focus_paths = Array[NodePath]([NodePath("BubbleCluster/WorldLegible"), NodePath("BubbleCluster/WorldCute"), NodePath("BubbleCluster/WorldRetro"), NodePath("BubbleCluster/WorldHardcore"), NodePath("BubbleCluster/WorldWtf"), NodePath("BubbleCluster/UILegible"), NodePath("BubbleCluster/UICute"), NodePath("BubbleCluster/UIRetro"), NodePath("BubbleCluster/UIHardcore"), NodePath("BubbleCluster/UIWtf"), NodePath("BubbleCluster/ChatDock"), NodePath("BubbleCluster/ChatMode"), NodePath("BubbleCluster/PaintDock"), NodePath("BubbleCluster/FullscreenToggle"), NodePath("BubbleCluster/DisplayBackButton")])
-initial_focus_path = NodePath("BubbleCluster/WorldRetro")
-back_focus_path = NodePath("BubbleCluster/DisplayBackButton")
-compact_maximum_layout_size = Vector2(544, 400)
+theme_override_constants/separation = 14
 
-[node name="BubbleCluster" type="Control" parent="DisplayPage"]
-layout_mode = 0
-offset_right = 720.0
-offset_bottom = 520.0
-script = ExtResource("5_cluster")
-profile = ExtResource("6_profile")
-desktop_reference_size = Vector2(720, 520)
-compact_reference_size = Vector2(608, 448)
-
-[node name="WorldValue" parent="DisplayPage/BubbleCluster" instance=ExtResource("4_bubble")]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 0)
-mouse_filter = 2
-focus_mode = 0
-text = "world\npixelation\nretro"
-neutral_size = Vector2(140, 130)
-desktop_anchor = Vector2(160, 240)
-compact_anchor = Vector2(175, 210)
-compact_minimum_size = Vector2(118, 110)
-minimum_font_size = 15
-maximum_font_size = 22
-motion_phase = 0.2
-
-[node name="WorldLegible" parent="DisplayPage/BubbleCluster" instance=ExtResource("4_bubble")]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 0)
-toggle_mode = true
-text = "legible"
-neutral_size = Vector2(90, 84)
-desktop_anchor = Vector2(55, 175)
-compact_anchor = Vector2(57, 135)
-compact_minimum_size = Vector2(76, 72)
-minimum_font_size = 12
-maximum_font_size = 15
-motion_phase = 0.8
-
-[node name="WorldCute" parent="DisplayPage/BubbleCluster" instance=ExtResource("4_bubble")]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 0)
-toggle_mode = true
-text = "cute"
-neutral_size = Vector2(82, 78)
-desktop_anchor = Vector2(130, 124)
-compact_anchor = Vector2(145, 78)
-compact_minimum_size = Vector2(70, 68)
-minimum_font_size = 12
-maximum_font_size = 14
-motion_phase = 1.35
-
-[node name="WorldRetro" parent="DisplayPage/BubbleCluster" instance=ExtResource("4_bubble")]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 0)
-toggle_mode = true
-button_pressed = true
-text = "retro"
-neutral_size = Vector2(84, 80)
-desktop_anchor = Vector2(237, 149)
-compact_anchor = Vector2(272, 115)
-compact_minimum_size = Vector2(72, 68)
-minimum_font_size = 12
-maximum_font_size = 14
-motion_phase = 1.9
-
-[node name="WorldHardcore" parent="DisplayPage/BubbleCluster" instance=ExtResource("4_bubble")]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 0)
-toggle_mode = true
-text = "hardcore"
-neutral_size = Vector2(100, 94)
-desktop_anchor = Vector2(288, 240)
-compact_anchor = Vector2(70, 310)
-compact_minimum_size = Vector2(88, 84)
-minimum_font_size = 12
-maximum_font_size = 16
-motion_phase = 2.45
-
-[node name="WorldWtf" parent="DisplayPage/BubbleCluster" instance=ExtResource("4_bubble")]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 0)
-toggle_mode = true
-text = "wtf"
-neutral_size = Vector2(76, 72)
-desktop_anchor = Vector2(225, 337)
-compact_anchor = Vector2(284, 284)
-compact_minimum_size = Vector2(66, 64)
-minimum_font_size = 12
-maximum_font_size = 13
-motion_phase = 3.0
-
-[node name="UIValue" parent="DisplayPage/BubbleCluster" instance=ExtResource("4_bubble")]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 0)
-mouse_filter = 2
-focus_mode = 0
-text = "ui\npixelation\nretro"
-neutral_size = Vector2(140, 130)
-desktop_anchor = Vector2(560, 240)
-compact_anchor = Vector2(545, 210)
-compact_minimum_size = Vector2(118, 110)
-minimum_font_size = 15
-maximum_font_size = 22
-motion_phase = 3.55
-
-[node name="UILegible" parent="DisplayPage/BubbleCluster" instance=ExtResource("4_bubble")]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 0)
-toggle_mode = true
-text = "legible"
-neutral_size = Vector2(90, 84)
-desktop_anchor = Vector2(665, 175)
-compact_anchor = Vector2(663, 135)
-compact_minimum_size = Vector2(76, 72)
-minimum_font_size = 12
-maximum_font_size = 15
-motion_phase = 4.1
-
-[node name="UICute" parent="DisplayPage/BubbleCluster" instance=ExtResource("4_bubble")]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 0)
-toggle_mode = true
-text = "cute"
-neutral_size = Vector2(82, 78)
-desktop_anchor = Vector2(590, 124)
-compact_anchor = Vector2(575, 78)
-compact_minimum_size = Vector2(70, 68)
-minimum_font_size = 12
-maximum_font_size = 14
-motion_phase = 4.65
-
-[node name="UIRetro" parent="DisplayPage/BubbleCluster" instance=ExtResource("4_bubble")]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 0)
-toggle_mode = true
-button_pressed = true
-text = "retro"
-neutral_size = Vector2(84, 80)
-desktop_anchor = Vector2(483, 149)
-compact_anchor = Vector2(448, 115)
-compact_minimum_size = Vector2(72, 68)
-minimum_font_size = 12
-maximum_font_size = 14
-motion_phase = 5.2
-
-[node name="UIHardcore" parent="DisplayPage/BubbleCluster" instance=ExtResource("4_bubble")]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 0)
-toggle_mode = true
-text = "hardcore"
-neutral_size = Vector2(100, 94)
-desktop_anchor = Vector2(432, 240)
-compact_anchor = Vector2(650, 310)
-compact_minimum_size = Vector2(88, 84)
-minimum_font_size = 12
-maximum_font_size = 16
-motion_phase = 5.75
-
-[node name="UIWtf" parent="DisplayPage/BubbleCluster" instance=ExtResource("4_bubble")]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 0)
-toggle_mode = true
-text = "wtf"
-neutral_size = Vector2(76, 72)
-desktop_anchor = Vector2(495, 337)
-compact_anchor = Vector2(436, 284)
-compact_minimum_size = Vector2(66, 64)
-minimum_font_size = 12
-maximum_font_size = 13
-motion_phase = 0.55
-
-[node name="ChatDock" parent="DisplayPage/BubbleCluster" instance=ExtResource("4_bubble")]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 0)
-text = "chat dock\nleft"
-neutral_size = Vector2(96, 96)
-desktop_anchor = Vector2(70, 435)
-compact_anchor = Vector2(55, 378)
-compact_minimum_size = Vector2(82, 82)
-minimum_font_size = 12
-maximum_font_size = 16
-motion_phase = 1.1
-
-[node name="ChatMode" parent="DisplayPage/BubbleCluster" instance=ExtResource("4_bubble")]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 0)
-text = "chat mode\ndesktop"
-neutral_size = Vector2(96, 96)
-desktop_anchor = Vector2(215, 435)
-compact_anchor = Vector2(180, 378)
-compact_minimum_size = Vector2(82, 82)
-minimum_font_size = 12
-maximum_font_size = 16
-motion_phase = 1.4
-
-[node name="PaintDock" parent="DisplayPage/BubbleCluster" instance=ExtResource("4_bubble")]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 0)
-text = "paint dock\nright"
-neutral_size = Vector2(96, 96)
-desktop_anchor = Vector2(360, 435)
-compact_anchor = Vector2(305, 378)
-compact_minimum_size = Vector2(82, 82)
-minimum_font_size = 12
-maximum_font_size = 16
-motion_phase = 1.7
-
-[node name="FullscreenToggle" parent="DisplayPage/BubbleCluster" instance=ExtResource("4_bubble")]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 0)
-text = "fullscreen\noff"
-neutral_size = Vector2(104, 96)
-desktop_anchor = Vector2(505, 435)
-compact_anchor = Vector2(430, 378)
-compact_minimum_size = Vector2(88, 82)
-minimum_font_size = 11
-maximum_font_size = 15
-motion_phase = 1.85
-
-[node name="DisplayBackButton" parent="DisplayPage/BubbleCluster" instance=ExtResource("4_bubble")]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 0)
-text = "back"
-neutral_size = Vector2(96, 90)
-desktop_anchor = Vector2(650, 435)
-compact_anchor = Vector2(555, 378)
-compact_minimum_size = Vector2(82, 78)
-minimum_font_size = 13
-maximum_font_size = 16
-motion_phase = 2.15
-
-[node name="SoundPage" type="Control" parent="."]
-unique_name_in_owner = true
-visible = false
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-script = ExtResource("3_page")
-page_id = &"sound"
-bubble_paths = Array[NodePath]([NodePath("BubbleCluster/SoundBackButton")])
-focus_paths = Array[NodePath]([NodePath("Paper/Content/VolumeGrid/MasterVolumeSlider"), NodePath("Paper/Content/VolumeGrid/MusicVolumeSlider"), NodePath("Paper/Content/VolumeGrid/EffectsVolumeSlider"), NodePath("Paper/Content/VolumeGrid/EnvironmentVolumeSlider"), NodePath("BubbleCluster/SoundBackButton")])
-initial_focus_path = NodePath("Paper/Content/VolumeGrid/MasterVolumeSlider")
-back_focus_path = NodePath("BubbleCluster/SoundBackButton")
-back_entry_path = NodePath("Paper/Content/VolumeGrid/EnvironmentVolumeSlider")
-compact_maximum_layout_size = Vector2(544, 400)
-
-[node name="BubbleCluster" type="Control" parent="SoundPage"]
-layout_mode = 0
-offset_right = 720.0
-offset_bottom = 520.0
-script = ExtResource("5_cluster")
-profile = ExtResource("6_profile")
-desktop_reference_size = Vector2(720, 520)
-compact_reference_size = Vector2(608, 448)
-
-[node name="Paper" type="PanelContainer" parent="SoundPage"]
-layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -310.0
-offset_top = -230.0
-offset_right = 310.0
-offset_bottom = 205.0
-grow_horizontal = 2
-grow_vertical = 2
-z_index = 1
-
-[node name="Content" type="VBoxContainer" parent="SoundPage/Paper"]
+[node name="Intro" type="Label" parent="MainPanel/OuterMargin/Layout/ContentPanel/ContentMargin/PageStack/SoundPage"]
 layout_mode = 2
-theme_override_constants/separation = 18
+theme_override_font_sizes/font_size = 18
+text = "audio mix"
 
-[node name="Heading" type="Label" parent="SoundPage/Paper/Content"]
+[node name="Grid" type="GridContainer" parent="MainPanel/OuterMargin/Layout/ContentPanel/ContentMargin/PageStack/SoundPage"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 28
-text = "sound"
-horizontal_alignment = 1
-
-[node name="Helper" type="Label" parent="SoundPage/Paper/Content"]
-layout_mode = 2
-text = "Adjust the mix. Changes are saved when you apply settings."
-horizontal_alignment = 1
-
-[node name="VolumeGrid" type="GridContainer" parent="SoundPage/Paper/Content"]
-layout_mode = 2
-theme_override_constants/h_separation = 16
+theme_override_constants/h_separation = 18
 theme_override_constants/v_separation = 18
 columns = 3
 
-[node name="MasterLabel" type="Label" parent="SoundPage/Paper/Content/VolumeGrid"]
-custom_minimum_size = Vector2(118, 42)
+[node name="MasterLabel" type="Label" parent="MainPanel/OuterMargin/Layout/ContentPanel/ContentMargin/PageStack/SoundPage/Grid"]
+custom_minimum_size = Vector2(180, 48)
 layout_mode = 2
-theme_override_font_sizes/font_size = 18
 text = "master"
 vertical_alignment = 1
 
-[node name="MasterVolumeSlider" type="HSlider" parent="SoundPage/Paper/Content/VolumeGrid"]
+[node name="MasterVolumeSlider" type="HSlider" parent="MainPanel/OuterMargin/Layout/ContentPanel/ContentMargin/PageStack/SoundPage/Grid"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(350, 42)
+custom_minimum_size = Vector2(390, 48)
 layout_mode = 2
 focus_mode = 2
-tooltip_text = "master volume"
 max_value = 100.0
 step = 1.0
 value = 100.0
 
-[node name="MasterVolumeValue" type="Label" parent="SoundPage/Paper/Content/VolumeGrid"]
+[node name="MasterVolumeValue" type="Label" parent="MainPanel/OuterMargin/Layout/ContentPanel/ContentMargin/PageStack/SoundPage/Grid"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(70, 42)
+custom_minimum_size = Vector2(70, 48)
 layout_mode = 2
-theme_override_font_sizes/font_size = 18
 text = "100%"
 horizontal_alignment = 2
 vertical_alignment = 1
 
-[node name="MusicLabel" type="Label" parent="SoundPage/Paper/Content/VolumeGrid"]
-custom_minimum_size = Vector2(118, 42)
+[node name="MusicLabel" type="Label" parent="MainPanel/OuterMargin/Layout/ContentPanel/ContentMargin/PageStack/SoundPage/Grid"]
+custom_minimum_size = Vector2(180, 48)
 layout_mode = 2
-theme_override_font_sizes/font_size = 18
 text = "music"
 vertical_alignment = 1
 
-[node name="MusicVolumeSlider" type="HSlider" parent="SoundPage/Paper/Content/VolumeGrid"]
+[node name="MusicVolumeSlider" type="HSlider" parent="MainPanel/OuterMargin/Layout/ContentPanel/ContentMargin/PageStack/SoundPage/Grid"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(350, 42)
+custom_minimum_size = Vector2(390, 48)
 layout_mode = 2
 focus_mode = 2
-tooltip_text = "music volume"
 max_value = 100.0
 step = 1.0
 value = 100.0
 
-[node name="MusicVolumeValue" type="Label" parent="SoundPage/Paper/Content/VolumeGrid"]
+[node name="MusicVolumeValue" type="Label" parent="MainPanel/OuterMargin/Layout/ContentPanel/ContentMargin/PageStack/SoundPage/Grid"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(70, 42)
+custom_minimum_size = Vector2(70, 48)
 layout_mode = 2
-theme_override_font_sizes/font_size = 18
 text = "100%"
 horizontal_alignment = 2
 vertical_alignment = 1
 
-[node name="EffectsLabel" type="Label" parent="SoundPage/Paper/Content/VolumeGrid"]
-custom_minimum_size = Vector2(118, 42)
+[node name="EffectsLabel" type="Label" parent="MainPanel/OuterMargin/Layout/ContentPanel/ContentMargin/PageStack/SoundPage/Grid"]
+custom_minimum_size = Vector2(180, 48)
 layout_mode = 2
-theme_override_font_sizes/font_size = 18
 text = "effects"
 vertical_alignment = 1
 
-[node name="EffectsVolumeSlider" type="HSlider" parent="SoundPage/Paper/Content/VolumeGrid"]
+[node name="EffectsVolumeSlider" type="HSlider" parent="MainPanel/OuterMargin/Layout/ContentPanel/ContentMargin/PageStack/SoundPage/Grid"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(350, 42)
+custom_minimum_size = Vector2(390, 48)
 layout_mode = 2
 focus_mode = 2
-tooltip_text = "effects volume"
 max_value = 100.0
 step = 1.0
 value = 100.0
 
-[node name="EffectsVolumeValue" type="Label" parent="SoundPage/Paper/Content/VolumeGrid"]
+[node name="EffectsVolumeValue" type="Label" parent="MainPanel/OuterMargin/Layout/ContentPanel/ContentMargin/PageStack/SoundPage/Grid"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(70, 42)
+custom_minimum_size = Vector2(70, 48)
 layout_mode = 2
-theme_override_font_sizes/font_size = 18
 text = "100%"
 horizontal_alignment = 2
 vertical_alignment = 1
 
-[node name="EnvironmentLabel" type="Label" parent="SoundPage/Paper/Content/VolumeGrid"]
-custom_minimum_size = Vector2(118, 42)
+[node name="EnvironmentLabel" type="Label" parent="MainPanel/OuterMargin/Layout/ContentPanel/ContentMargin/PageStack/SoundPage/Grid"]
+custom_minimum_size = Vector2(180, 48)
 layout_mode = 2
-theme_override_font_sizes/font_size = 18
 text = "environment"
 vertical_alignment = 1
 
-[node name="EnvironmentVolumeSlider" type="HSlider" parent="SoundPage/Paper/Content/VolumeGrid"]
+[node name="EnvironmentVolumeSlider" type="HSlider" parent="MainPanel/OuterMargin/Layout/ContentPanel/ContentMargin/PageStack/SoundPage/Grid"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(350, 42)
+custom_minimum_size = Vector2(390, 48)
 layout_mode = 2
 focus_mode = 2
-tooltip_text = "environment volume"
 max_value = 100.0
 step = 1.0
 value = 100.0
 
-[node name="EnvironmentVolumeValue" type="Label" parent="SoundPage/Paper/Content/VolumeGrid"]
+[node name="EnvironmentVolumeValue" type="Label" parent="MainPanel/OuterMargin/Layout/ContentPanel/ContentMargin/PageStack/SoundPage/Grid"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(70, 42)
+custom_minimum_size = Vector2(70, 48)
 layout_mode = 2
-theme_override_font_sizes/font_size = 18
 text = "100%"
 horizontal_alignment = 2
 vertical_alignment = 1
 
-[node name="SoundBackButton" parent="SoundPage/BubbleCluster" instance=ExtResource("4_bubble")]
-unique_name_in_owner = true
-z_index = 4
-layout_mode = 0
-text = "back"
-neutral_size = Vector2(96, 90)
-desktop_anchor = Vector2(60, 460)
-compact_anchor = Vector2(55, 410)
-compact_minimum_size = Vector2(82, 78)
-minimum_font_size = 13
-maximum_font_size = 16
-motion_phase = 5.0
-
-[node name="ControlsPage" type="Control" parent="."]
-unique_name_in_owner = true
-visible = false
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-script = ExtResource("3_page")
-page_id = &"controls"
-bubble_paths = Array[NodePath]([NodePath("BubbleCluster/MouseDecrease"), NodePath("BubbleCluster/MouseValue"), NodePath("BubbleCluster/MouseIncrease"), NodePath("BubbleCluster/ControllerDecrease"), NodePath("BubbleCluster/ControllerValue"), NodePath("BubbleCluster/ControllerIncrease"), NodePath("BubbleCluster/InvertYToggle"), NodePath("BubbleCluster/OnScreenKeyboardToggle"), NodePath("BubbleCluster/ControllerMapping"), NodePath("BubbleCluster/KeyboardMapping"), NodePath("BubbleCluster/ControlsBackButton")])
-focus_paths = Array[NodePath]([NodePath("BubbleCluster/MouseValue"), NodePath("BubbleCluster/ControllerValue"), NodePath("BubbleCluster/InvertYToggle"), NodePath("BubbleCluster/OnScreenKeyboardToggle"), NodePath("BubbleCluster/ControllerMapping"), NodePath("BubbleCluster/KeyboardMapping"), NodePath("BubbleCluster/ControlsBackButton")])
-initial_focus_path = NodePath("BubbleCluster/MouseValue")
-back_focus_path = NodePath("BubbleCluster/ControlsBackButton")
-
-[node name="BubbleCluster" type="Control" parent="ControlsPage"]
-layout_mode = 0
-offset_right = 720.0
-offset_bottom = 520.0
-script = ExtResource("5_cluster")
-profile = ExtResource("6_profile")
-desktop_reference_size = Vector2(720, 520)
-compact_reference_size = Vector2(608, 448)
-
-[node name="MouseDecrease" parent="ControlsPage/BubbleCluster" instance=ExtResource("4_bubble")]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 0)
-text = "−"
-neutral_size = Vector2(80, 76)
-desktop_anchor = Vector2(75, 140)
-compact_anchor = Vector2(49, 125)
-compact_minimum_size = Vector2(68, 66)
-minimum_font_size = 17
-maximum_font_size = 24
-motion_phase = 0.3
-
-[node name="MouseValue" parent="ControlsPage/BubbleCluster" instance=ExtResource("4_bubble")]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 0)
-text = "mouse\nsensitivity\n0.0050"
-neutral_size = Vector2(190, 180)
-desktop_anchor = Vector2(210, 140)
-compact_anchor = Vector2(200, 125)
-compact_minimum_size = Vector2(160, 152)
-minimum_font_size = 15
-maximum_font_size = 25
-motion_phase = 1.0
-
-[node name="MouseIncrease" parent="ControlsPage/BubbleCluster" instance=ExtResource("4_bubble")]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 0)
-text = "+"
-neutral_size = Vector2(80, 76)
-desktop_anchor = Vector2(345, 140)
-compact_anchor = Vector2(351, 125)
-compact_minimum_size = Vector2(68, 66)
-minimum_font_size = 17
-maximum_font_size = 24
-motion_phase = 1.7
-
-[node name="ControllerDecrease" parent="ControlsPage/BubbleCluster" instance=ExtResource("4_bubble")]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 0)
-text = "−"
-neutral_size = Vector2(80, 76)
-desktop_anchor = Vector2(75, 365)
-compact_anchor = Vector2(49, 340)
-compact_minimum_size = Vector2(68, 66)
-minimum_font_size = 17
-maximum_font_size = 24
-motion_phase = 2.4
-
-[node name="ControllerValue" parent="ControlsPage/BubbleCluster" instance=ExtResource("4_bubble")]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 0)
-text = "controller\nsensitivity\n2.5"
-neutral_size = Vector2(190, 180)
-desktop_anchor = Vector2(210, 365)
-compact_anchor = Vector2(200, 340)
-compact_minimum_size = Vector2(160, 152)
-minimum_font_size = 15
-maximum_font_size = 25
-motion_phase = 3.1
-
-[node name="ControllerIncrease" parent="ControlsPage/BubbleCluster" instance=ExtResource("4_bubble")]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 0)
-text = "+"
-neutral_size = Vector2(80, 76)
-desktop_anchor = Vector2(345, 365)
-compact_anchor = Vector2(351, 340)
-compact_minimum_size = Vector2(68, 66)
-minimum_font_size = 17
-maximum_font_size = 24
-motion_phase = 3.8
-
-[node name="InvertYToggle" parent="ControlsPage/BubbleCluster" instance=ExtResource("4_bubble")]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 0)
-text = "invert\nvertical\ncamera\noff"
-neutral_size = Vector2(176, 170)
-compact_minimum_size = Vector2(170, 164)
-minimum_font_size = 14
-maximum_font_size = 24
-desktop_anchor = Vector2(525, 105)
-compact_anchor = Vector2(485, 95)
-motion_phase = 4.5
-
-[node name="OnScreenKeyboardToggle" parent="ControlsPage/BubbleCluster" instance=ExtResource("4_bubble")]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 0)
-text = "on-screen\nkeyboard\noff"
-neutral_size = Vector2(170, 150)
-compact_minimum_size = Vector2(154, 136)
-minimum_font_size = 14
-maximum_font_size = 22
-desktop_anchor = Vector2(525, 255)
-compact_anchor = Vector2(485, 235)
-motion_phase = 4.7
-
-[node name="ControllerMapping" parent="ControlsPage/BubbleCluster" instance=ExtResource("4_bubble")]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 0)
-text = "controller\nbinds"
-neutral_size = Vector2(130, 108)
-desktop_anchor = Vector2(470, 390)
-compact_anchor = Vector2(425, 350)
-compact_minimum_size = Vector2(116, 98)
-minimum_font_size = 14
-maximum_font_size = 20
-motion_phase = 4.9
-
-[node name="KeyboardMapping" parent="ControlsPage/BubbleCluster" instance=ExtResource("4_bubble")]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 0)
-text = "keyboard\nbinds"
-neutral_size = Vector2(130, 108)
-desktop_anchor = Vector2(610, 380)
-compact_anchor = Vector2(545, 345)
-compact_minimum_size = Vector2(116, 98)
-minimum_font_size = 14
-maximum_font_size = 20
-motion_phase = 5.2
-
-[node name="ControlsBackButton" parent="ControlsPage/BubbleCluster" instance=ExtResource("4_bubble")]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 0)
-text = "back"
-neutral_size = Vector2(100, 94)
-desktop_anchor = Vector2(635, 470)
-compact_anchor = Vector2(555, 420)
-compact_minimum_size = Vector2(84, 80)
-minimum_font_size = 14
-maximum_font_size = 17
-motion_phase = 5.5
-
-[node name="AccessibilityPage" type="Control" parent="."]
-unique_name_in_owner = true
-visible = false
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-script = ExtResource("3_page")
-page_id = &"accessibility"
-bubble_paths = Array[NodePath]([NodePath("BubbleCluster/AutoClickToggle"), NodePath("BubbleCluster/IntervalDecrease"), NodePath("BubbleCluster/AutoClickIntervalValue"), NodePath("BubbleCluster/IntervalIncrease"), NodePath("BubbleCluster/IntervalHelp"), NodePath("BubbleCluster/AccessibilityBackButton")])
-focus_paths = Array[NodePath]([NodePath("BubbleCluster/AutoClickToggle"), NodePath("BubbleCluster/AutoClickIntervalValue"), NodePath("BubbleCluster/AccessibilityBackButton")])
-initial_focus_path = NodePath("BubbleCluster/AutoClickToggle")
-back_focus_path = NodePath("BubbleCluster/AccessibilityBackButton")
-
-[node name="BubbleCluster" type="Control" parent="AccessibilityPage"]
-layout_mode = 0
-offset_right = 720.0
-offset_bottom = 520.0
-script = ExtResource("5_cluster")
-profile = ExtResource("6_profile")
-desktop_reference_size = Vector2(720, 520)
-compact_reference_size = Vector2(608, 448)
-
-[node name="AutoClickToggle" parent="AccessibilityPage/BubbleCluster" instance=ExtResource("4_bubble")]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 0)
-text = "accessibility\nauto-click\noff"
-neutral_size = Vector2(190, 180)
-desktop_anchor = Vector2(200, 195)
-compact_anchor = Vector2(129, 185)
-compact_minimum_size = Vector2(160, 152)
-minimum_font_size = 14
-maximum_font_size = 27
-motion_phase = 0.5
-
-[node name="IntervalDecrease" parent="AccessibilityPage/BubbleCluster" instance=ExtResource("4_bubble")]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 0)
-text = "−"
-neutral_size = Vector2(80, 76)
-desktop_anchor = Vector2(340, 210)
-compact_anchor = Vector2(280, 205)
-compact_minimum_size = Vector2(68, 66)
-minimum_font_size = 17
-maximum_font_size = 24
-motion_phase = 1.4
-
-[node name="AutoClickIntervalValue" parent="AccessibilityPage/BubbleCluster" instance=ExtResource("4_bubble")]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 0)
-text = "auto-click\ninterval\n0.20 s"
-neutral_size = Vector2(190, 180)
-desktop_anchor = Vector2(475, 210)
-compact_anchor = Vector2(431, 205)
-compact_minimum_size = Vector2(160, 152)
-minimum_font_size = 14
-maximum_font_size = 26
-motion_phase = 2.3
-
-[node name="IntervalIncrease" parent="AccessibilityPage/BubbleCluster" instance=ExtResource("4_bubble")]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 0)
-text = "+"
-neutral_size = Vector2(80, 76)
-desktop_anchor = Vector2(610, 210)
-compact_anchor = Vector2(582, 205)
-compact_minimum_size = Vector2(68, 66)
-minimum_font_size = 17
-maximum_font_size = 24
-motion_phase = 3.2
-
-[node name="IntervalHelp" parent="AccessibilityPage/BubbleCluster" instance=ExtResource("4_bubble")]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 0)
-mouse_filter = 2
-focus_mode = 0
-text = "Focus a control\nfor a helpful\npreview."
-neutral_size = Vector2(210, 176)
-desktop_anchor = Vector2(315, 405)
-compact_anchor = Vector2(280, 370)
-compact_minimum_size = Vector2(160, 152)
-minimum_font_size = 13
-maximum_font_size = 22
-motion_phase = 4.1
-
-[node name="AccessibilityBackButton" parent="AccessibilityPage/BubbleCluster" instance=ExtResource("4_bubble")]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 0)
-text = "back"
-neutral_size = Vector2(96, 90)
-desktop_anchor = Vector2(560, 420)
-compact_anchor = Vector2(520, 380)
-compact_minimum_size = Vector2(82, 78)
-minimum_font_size = 13
-maximum_font_size = 16
-motion_phase = 5.0
-
-[node name="DataPage" type="Control" parent="."]
-unique_name_in_owner = true
-visible = false
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-script = ExtResource("3_page")
-page_id = &"data"
-bubble_paths = Array[NodePath]([NodePath("BubbleCluster/DataBackButton")])
-focus_paths = Array[NodePath]([NodePath("Paper/Content/OpenDataFolder"), NodePath("Paper/Content/ChangeDataFolder"), NodePath("Paper/Content/CopyPlayerFingerprint"), NodePath("Paper/Content/IdentityGrid/ExportPlayerIdentity"), NodePath("Paper/Content/IdentityGrid/ImportPlayerIdentity"), NodePath("Paper/Content/IdentityGrid/ExportHostIdentity"), NodePath("Paper/Content/IdentityGrid/ImportHostIdentity"), NodePath("BubbleCluster/DataBackButton")])
-initial_focus_path = NodePath("Paper/Content/OpenDataFolder")
-back_focus_path = NodePath("BubbleCluster/DataBackButton")
-
-[node name="BubbleCluster" type="Control" parent="DataPage"]
-layout_mode = 0
-offset_right = 720.0
-offset_bottom = 520.0
-script = ExtResource("5_cluster")
-profile = ExtResource("6_profile")
-desktop_reference_size = Vector2(720, 520)
-compact_reference_size = Vector2(608, 448)
-
-[node name="Paper" type="PanelContainer" parent="DataPage"]
-layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -330.0
-offset_top = -255.0
-offset_right = 330.0
-offset_bottom = 210.0
-grow_horizontal = 2
-grow_vertical = 2
-z_index = 1
-
-[node name="Content" type="VBoxContainer" parent="DataPage/Paper"]
+[node name="Helper" type="Label" parent="MainPanel/OuterMargin/Layout/ContentPanel/ContentMargin/PageStack/SoundPage"]
 layout_mode = 2
+text = "Changes are previewed immediately and saved when settings are applied."
+autowrap_mode = 2
+
+[node name="ControlsPage" type="VBoxContainer" parent="MainPanel/OuterMargin/Layout/ContentPanel/ContentMargin/PageStack"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 12
+
+[node name="Intro" type="Label" parent="MainPanel/OuterMargin/Layout/ContentPanel/ContentMargin/PageStack/ControlsPage"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "camera and input"
+
+[node name="Grid" type="GridContainer" parent="MainPanel/OuterMargin/Layout/ContentPanel/ContentMargin/PageStack/ControlsPage"]
+layout_mode = 2
+theme_override_constants/h_separation = 18
+theme_override_constants/v_separation = 10
+columns = 3
+
+[node name="MouseLabel" type="Label" parent="MainPanel/OuterMargin/Layout/ContentPanel/ContentMargin/PageStack/ControlsPage/Grid"]
+custom_minimum_size = Vector2(210, 48)
+layout_mode = 2
+text = "mouse sensitivity"
+vertical_alignment = 1
+
+[node name="MouseSensitivitySlider" type="HSlider" parent="MainPanel/OuterMargin/Layout/ContentPanel/ContentMargin/PageStack/ControlsPage/Grid"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(330, 48)
+layout_mode = 2
+focus_mode = 2
+min_value = 0.001
+max_value = 0.012
+step = 0.0005
+value = 0.005
+
+[node name="MouseSensitivityValue" type="Label" parent="MainPanel/OuterMargin/Layout/ContentPanel/ContentMargin/PageStack/ControlsPage/Grid"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(100, 48)
+layout_mode = 2
+text = "0.0050"
+horizontal_alignment = 2
+vertical_alignment = 1
+
+[node name="ControllerLabel" type="Label" parent="MainPanel/OuterMargin/Layout/ContentPanel/ContentMargin/PageStack/ControlsPage/Grid"]
+custom_minimum_size = Vector2(210, 48)
+layout_mode = 2
+text = "controller sensitivity"
+vertical_alignment = 1
+
+[node name="ControllerSensitivitySlider" type="HSlider" parent="MainPanel/OuterMargin/Layout/ContentPanel/ContentMargin/PageStack/ControlsPage/Grid"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(330, 48)
+layout_mode = 2
+focus_mode = 2
+min_value = 0.5
+max_value = 5.0
+step = 0.1
+value = 2.5
+
+[node name="ControllerSensitivityValue" type="Label" parent="MainPanel/OuterMargin/Layout/ContentPanel/ContentMargin/PageStack/ControlsPage/Grid"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(100, 48)
+layout_mode = 2
+text = "2.5"
+horizontal_alignment = 2
+vertical_alignment = 1
+
+[node name="InvertYLabel" type="Label" parent="MainPanel/OuterMargin/Layout/ContentPanel/ContentMargin/PageStack/ControlsPage/Grid"]
+custom_minimum_size = Vector2(210, 48)
+layout_mode = 2
+text = "invert vertical camera"
+vertical_alignment = 1
+
+[node name="InvertYToggle" type="Button" parent="MainPanel/OuterMargin/Layout/ContentPanel/ContentMargin/PageStack/ControlsPage/Grid"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(330, 48)
+layout_mode = 2
+focus_mode = 2
+toggle_mode = true
+text = "off"
+
+[node name="InvertYSpacer" type="Control" parent="MainPanel/OuterMargin/Layout/ContentPanel/ContentMargin/PageStack/ControlsPage/Grid"]
+layout_mode = 2
+
+[node name="KeyboardLabel" type="Label" parent="MainPanel/OuterMargin/Layout/ContentPanel/ContentMargin/PageStack/ControlsPage/Grid"]
+custom_minimum_size = Vector2(210, 48)
+layout_mode = 2
+text = "on-screen keyboard"
+vertical_alignment = 1
+
+[node name="OnScreenKeyboardToggle" type="Button" parent="MainPanel/OuterMargin/Layout/ContentPanel/ContentMargin/PageStack/ControlsPage/Grid"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(330, 48)
+layout_mode = 2
+focus_mode = 2
+toggle_mode = true
+text = "off"
+
+[node name="KeyboardSpacer" type="Control" parent="MainPanel/OuterMargin/Layout/ContentPanel/ContentMargin/PageStack/ControlsPage/Grid"]
+layout_mode = 2
+
+[node name="BindingButtons" type="HBoxContainer" parent="MainPanel/OuterMargin/Layout/ContentPanel/ContentMargin/PageStack/ControlsPage"]
+layout_mode = 2
+theme_override_constants/separation = 16
+alignment = 1
+
+[node name="ControllerMapping" type="Button" parent="MainPanel/OuterMargin/Layout/ContentPanel/ContentMargin/PageStack/ControlsPage/BindingButtons"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(300, 52)
+layout_mode = 2
+focus_mode = 2
+text = "controller binds"
+
+[node name="KeyboardMapping" type="Button" parent="MainPanel/OuterMargin/Layout/ContentPanel/ContentMargin/PageStack/ControlsPage/BindingButtons"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(300, 52)
+layout_mode = 2
+focus_mode = 2
+text = "keyboard binds"
+
+[node name="AccessibilityPage" type="VBoxContainer" parent="MainPanel/OuterMargin/Layout/ContentPanel/ContentMargin/PageStack"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 18
+
+[node name="Intro" type="Label" parent="MainPanel/OuterMargin/Layout/ContentPanel/ContentMargin/PageStack/AccessibilityPage"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "interaction assistance"
+
+[node name="Grid" type="GridContainer" parent="MainPanel/OuterMargin/Layout/ContentPanel/ContentMargin/PageStack/AccessibilityPage"]
+layout_mode = 2
+theme_override_constants/h_separation = 18
+theme_override_constants/v_separation = 18
+columns = 3
+
+[node name="AutoClickLabel" type="Label" parent="MainPanel/OuterMargin/Layout/ContentPanel/ContentMargin/PageStack/AccessibilityPage/Grid"]
+custom_minimum_size = Vector2(210, 52)
+layout_mode = 2
+text = "auto-click"
+vertical_alignment = 1
+
+[node name="AutoClickToggle" type="Button" parent="MainPanel/OuterMargin/Layout/ContentPanel/ContentMargin/PageStack/AccessibilityPage/Grid"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(330, 52)
+layout_mode = 2
+focus_mode = 2
+toggle_mode = true
+text = "off"
+
+[node name="AutoClickSpacer" type="Control" parent="MainPanel/OuterMargin/Layout/ContentPanel/ContentMargin/PageStack/AccessibilityPage/Grid"]
+layout_mode = 2
+
+[node name="IntervalLabel" type="Label" parent="MainPanel/OuterMargin/Layout/ContentPanel/ContentMargin/PageStack/AccessibilityPage/Grid"]
+custom_minimum_size = Vector2(210, 52)
+layout_mode = 2
+text = "auto-click interval"
+vertical_alignment = 1
+
+[node name="AutoClickIntervalSlider" type="HSlider" parent="MainPanel/OuterMargin/Layout/ContentPanel/ContentMargin/PageStack/AccessibilityPage/Grid"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(330, 52)
+layout_mode = 2
+focus_mode = 2
+min_value = 0.1
+max_value = 0.5
+step = 0.01
+value = 0.2
+
+[node name="AutoClickIntervalValue" type="Label" parent="MainPanel/OuterMargin/Layout/ContentPanel/ContentMargin/PageStack/AccessibilityPage/Grid"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(100, 52)
+layout_mode = 2
+text = "0.20 s"
+horizontal_alignment = 2
+vertical_alignment = 1
+
+[node name="IntervalHelp" type="Label" parent="MainPanel/OuterMargin/Layout/ContentPanel/ContentMargin/PageStack/AccessibilityPage"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "While the fishing input is held, lower intervals clear barriers faster."
+autowrap_mode = 2
+
+[node name="DataPage" type="VBoxContainer" parent="MainPanel/OuterMargin/Layout/ContentPanel/ContentMargin/PageStack"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 theme_override_constants/separation = 10
 
-[node name="Heading" type="Label" parent="DataPage/Paper/Content"]
+[node name="DataFolderPath" type="Label" parent="MainPanel/OuterMargin/Layout/ContentPanel/ContentMargin/PageStack/DataPage"]
+unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 28
-text = "Data & Identity"
+text = "Data folder unavailable"
+text_overrun_behavior = 3
+
+[node name="DataStorageMode" type="Label" parent="MainPanel/OuterMargin/Layout/ContentPanel/ContentMargin/PageStack/DataPage"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "storage mode unavailable"
+
+[node name="DataScroll" type="ScrollContainer" parent="MainPanel/OuterMargin/Layout/ContentPanel/ContentMargin/PageStack/DataPage"]
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+follow_focus = true
+
+[node name="DataButtons" type="VBoxContainer" parent="MainPanel/OuterMargin/Layout/ContentPanel/ContentMargin/PageStack/DataPage/DataScroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 8
+
+[node name="FolderRow" type="HBoxContainer" parent="MainPanel/OuterMargin/Layout/ContentPanel/ContentMargin/PageStack/DataPage/DataScroll/DataButtons"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="OpenDataFolder" type="Button" parent="MainPanel/OuterMargin/Layout/ContentPanel/ContentMargin/PageStack/DataPage/DataScroll/DataButtons/FolderRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 2
+text = "open data folder"
+
+[node name="ChangeDataFolder" type="Button" parent="MainPanel/OuterMargin/Layout/ContentPanel/ContentMargin/PageStack/DataPage/DataScroll/DataButtons/FolderRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 2
+text = "change data folder"
+
+[node name="CopyPlayerFingerprint" type="Button" parent="MainPanel/OuterMargin/Layout/ContentPanel/ContentMargin/PageStack/DataPage/DataScroll/DataButtons"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+focus_mode = 2
+text = "copy player fingerprint"
+
+[node name="PlayerIdentityRow" type="HBoxContainer" parent="MainPanel/OuterMargin/Layout/ContentPanel/ContentMargin/PageStack/DataPage/DataScroll/DataButtons"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="ExportPlayerIdentity" type="Button" parent="MainPanel/OuterMargin/Layout/ContentPanel/ContentMargin/PageStack/DataPage/DataScroll/DataButtons/PlayerIdentityRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 2
+text = "export player identity"
+
+[node name="ImportPlayerIdentity" type="Button" parent="MainPanel/OuterMargin/Layout/ContentPanel/ContentMargin/PageStack/DataPage/DataScroll/DataButtons/PlayerIdentityRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 2
+text = "import player identity"
+
+[node name="HostIdentityRow" type="HBoxContainer" parent="MainPanel/OuterMargin/Layout/ContentPanel/ContentMargin/PageStack/DataPage/DataScroll/DataButtons"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="ExportHostIdentity" type="Button" parent="MainPanel/OuterMargin/Layout/ContentPanel/ContentMargin/PageStack/DataPage/DataScroll/DataButtons/HostIdentityRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 2
+text = "export host identity"
+
+[node name="ImportHostIdentity" type="Button" parent="MainPanel/OuterMargin/Layout/ContentPanel/ContentMargin/PageStack/DataPage/DataScroll/DataButtons/HostIdentityRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 2
+text = "import host identity"
+
+[node name="SettingsFeedback" type="Label" parent="MainPanel/OuterMargin/Layout"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 24)
+layout_mode = 2
+mouse_filter = 2
 horizontal_alignment = 1
+vertical_alignment = 1
+text_overrun_behavior = 3
 
-[node name="DataFolderLabel" type="Label" parent="DataPage/Paper/Content"]
+[node name="Footer" type="HBoxContainer" parent="MainPanel/OuterMargin/Layout"]
 layout_mode = 2
-text = "Data Folder:"
+theme_override_constants/separation = 12
+alignment = 2
 
-[node name="DataFolderPath" type="Label" parent="DataPage/Paper/Content"]
+[node name="ApplySettingsButton" type="Button" parent="MainPanel/OuterMargin/Layout/Footer"]
 unique_name_in_owner = true
+custom_minimum_size = Vector2(180, 44)
 layout_mode = 2
-text = "Unavailable"
-autowrap_mode = 2
+focus_mode = 2
+text = "apply"
 
-[node name="DataStorageMode" type="Label" parent="DataPage/Paper/Content"]
+[node name="SettingsBackButton" type="Button" parent="MainPanel/OuterMargin/Layout/Footer"]
 unique_name_in_owner = true
+custom_minimum_size = Vector2(180, 44)
 layout_mode = 2
-text = "Storage Mode: unavailable"
-
-[node name="OpenDataFolder" type="Button" parent="DataPage/Paper/Content"]
-unique_name_in_owner = true
-layout_mode = 2
-text = "Open Data Folder"
-
-[node name="ChangeDataFolder" type="Button" parent="DataPage/Paper/Content"]
-unique_name_in_owner = true
-layout_mode = 2
-text = "Change Data Folder"
-
-[node name="IdentityHelper" type="Label" parent="DataPage/Paper/Content"]
-layout_mode = 2
-text = "Active identity keys stay on this device.\nEncrypted backups can be stored in your synced data folder.\nDo not play the same profile on two devices at the same time."
-autowrap_mode = 2
-
-[node name="CopyPlayerFingerprint" type="Button" parent="DataPage/Paper/Content"]
-unique_name_in_owner = true
-layout_mode = 2
-text = "Copy Player Fingerprint"
-
-[node name="IdentityGrid" type="GridContainer" parent="DataPage/Paper/Content"]
-layout_mode = 2
-columns = 2
-
-[node name="ExportPlayerIdentity" type="Button" parent="DataPage/Paper/Content/IdentityGrid"]
-unique_name_in_owner = true
-layout_mode = 2
-text = "Export Player Identity"
-
-[node name="ImportPlayerIdentity" type="Button" parent="DataPage/Paper/Content/IdentityGrid"]
-unique_name_in_owner = true
-layout_mode = 2
-text = "Import Player Identity"
-
-[node name="ExportHostIdentity" type="Button" parent="DataPage/Paper/Content/IdentityGrid"]
-unique_name_in_owner = true
-layout_mode = 2
-text = "Export Host Identity"
-
-[node name="ImportHostIdentity" type="Button" parent="DataPage/Paper/Content/IdentityGrid"]
-unique_name_in_owner = true
-layout_mode = 2
-text = "Import Host Identity"
-
-[node name="DataBackButton" parent="DataPage/BubbleCluster" instance=ExtResource("4_bubble")]
-unique_name_in_owner = true
-z_index = 4
-layout_mode = 0
+focus_mode = 2
 text = "back"
-neutral_size = Vector2(96, 90)
-desktop_anchor = Vector2(-25, 470)
-compact_anchor = Vector2(-20, 420)
-compact_minimum_size = Vector2(82, 78)
-minimum_font_size = 13
-maximum_font_size = 16
-motion_phase = 5.0
