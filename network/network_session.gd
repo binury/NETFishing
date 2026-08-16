@@ -12,6 +12,7 @@ const SNAPSHOT_INTERVAL: float = 1.0 / 30.0
 const MOVEMENT_SNAPSHOT_BATCH_SIZE: int = 8
 const MOVEMENT_SNAPSHOT_FIELD_COUNT: int = 12
 const MAX_MOVEMENT_INPUT_SEQUENCE: int = 2147483647
+const MAX_MOVEMENT_ONE_WAY_TRANSIT_SECONDS: float = 0.25
 
 signal state_changed(state: State)
 signal status_message_changed(message: String)
@@ -1890,6 +1891,9 @@ func receive_movement_snapshots(encoded_snapshots: Array) -> void:
 	if state != State.JOINED_CLIENT:
 		return
 	var local_peer_id: int = multiplayer.get_unique_id()
+	var estimated_transit_seconds: float = (
+		_estimated_movement_transit_seconds()
+	)
 	for value: Variant in encoded_snapshots:
 		var snapshot: Dictionary = _decode_movement_snapshot(value)
 		if snapshot.is_empty():
@@ -1905,9 +1909,25 @@ func receive_movement_snapshots(encoded_snapshots: Array) -> void:
 				snapshot,
 				_input_sequence,
 				INPUT_INTERVAL,
+				estimated_transit_seconds,
 			)
 		else:
-			avatar.push_network_snapshot(snapshot)
+			avatar.push_network_snapshot(
+				snapshot,
+				estimated_transit_seconds,
+			)
+
+
+func _estimated_movement_transit_seconds() -> float:
+	if state != State.JOINED_CLIENT:
+		return -1.0
+	var round_trip_msec: int = get_peer_rtt_ms(get_local_peer_id())
+	if round_trip_msec < 0:
+		return -1.0
+	return minf(
+		float(round_trip_msec) / 2000.0,
+		MAX_MOVEMENT_ONE_WAY_TRANSIT_SECONDS,
+	)
 
 
 func publish_authoritative_teleport(peer_id: int) -> void:
@@ -2149,6 +2169,11 @@ func _fail(message: String) -> void:
 
 
 func _teardown_peer() -> void:
+	var local_avatar: Player
+	if _spawn_service != null:
+		local_avatar = _spawn_service.get_local_player()
+	if local_avatar != null:
+		local_avatar.reset_network_movement_state()
 	for peer_id: int in _recovery_attempts.keys():
 		remote_recovery_presentation_changed.emit(
 			peer_id, false, _recovery_attempts[peer_id]
@@ -2166,6 +2191,7 @@ func _teardown_peer() -> void:
 		_transport.disconnect_transport()
 	multiplayer.multiplayer_peer = OfflineMultiplayerPeer.new()
 	_connection_deadline = 0.0
+	_input_sequence = 0
 	_input_accumulator = 0.0
 	_snapshot_accumulator = 0.0
 	_server_capabilities = PackedStringArray()

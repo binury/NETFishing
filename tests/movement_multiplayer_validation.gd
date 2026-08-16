@@ -32,7 +32,16 @@ func _validate_latency_smoothing() -> void:
 	await process_frame
 	avatar.set_process(false)
 	avatar.set_physics_process(false)
-	avatar.configure_network_remote(false)
+	_validate_compact_snapshot_encoding()
+	_validate_transit_estimation()
+	_validate_remote_snapshot_smoothing(avatar)
+	_validate_reliable_jump_intent(avatar)
+	_validate_stale_input_expiry(avatar)
+	avatar.queue_free()
+	await process_frame
+
+
+func _validate_compact_snapshot_encoding() -> void:
 	var moving_snapshot: Dictionary = _network_snapshot(
 		Vector3.ZERO,
 		Vector3(4.5, 0.0, 0.0),
@@ -50,21 +59,148 @@ func _validate_latency_smoothing() -> void:
 			encoded_snapshots[0]
 		) == moving_snapshot
 	)
-	avatar.push_network_snapshot(moving_snapshot)
-	for _step: int in 12:
-		avatar.call("_update_network_interpolation", 1.0 / 30.0)
-	assert(avatar.global_position.x > 1.5)
 
+
+func _validate_transit_estimation() -> void:
+	assert(is_equal_approx(
+		Player.resolve_local_prediction_transit_seconds(
+			10,
+			16,
+			1.0 / 30.0,
+			0.075,
+		),
+		0.075,
+	))
+	# Six outstanding 30 Hz inputs span about 200 ms round trip. The fallback
+	# must use only the approximately 100 ms one-way half of that gap.
+	assert(is_equal_approx(
+		Player.resolve_local_prediction_transit_seconds(
+			10,
+			16,
+			1.0 / 30.0,
+			-1.0,
+		),
+		0.1,
+	))
+	assert(is_equal_approx(
+		Player.resolve_local_prediction_transit_seconds(
+			1,
+			100,
+			1.0 / 30.0,
+			-1.0,
+		),
+		Player.LOCAL_PREDICTION_EXTRAPOLATION_LIMIT_SECONDS,
+	))
+
+
+func _validate_remote_snapshot_smoothing(avatar: Player) -> void:
 	avatar.configure_network_remote(false)
-	avatar.global_position = Vector3(1.35, 0.0, 0.0)
+	var moving_snapshot: Dictionary = _network_snapshot(
+		Vector3.ZERO,
+		Vector3(4.5, 0.0, 0.0),
+		1,
+	)
+	avatar.push_network_snapshot(moving_snapshot, 0.1)
+	assert(is_equal_approx(avatar.global_position.x, 0.45))
+	assert(is_equal_approx(
+		float(avatar.get("_network_target_position").x),
+		0.45,
+	))
+	avatar.call("_update_network_interpolation", 0.12)
+	var before_delayed_snapshot: Vector3 = avatar.global_position
+	var delayed_snapshot: Dictionary = _network_snapshot(
+		Vector3(0.54, 0.0, 0.0),
+		Vector3(4.5, 0.0, 0.0),
+		2,
+	)
+	avatar.push_network_snapshot(delayed_snapshot, 0.1)
+	# Snapshot receipt updates the target without teleporting a presented
+	# remote avatar, even after a jittered packet interval.
+	assert(avatar.global_position == before_delayed_snapshot)
+	assert(float(avatar.get("_network_snapshot_jitter")) > 0.0)
+	avatar.call("_update_network_interpolation", 1.0 / 60.0)
+	assert(
+		avatar.global_position.distance_to(before_delayed_snapshot) < 0.12
+	)
+	# Simulate a burst of dropped snapshots. Extrapolation must stop at the
+	# tight limit instead of allowing the remote avatar to run indefinitely.
+	for _step: int in 20:
+		avatar.call("_update_network_interpolation", 1.0 / 30.0)
+	assert(is_equal_approx(
+		float(avatar.get("_network_snapshot_age")),
+		Player.NETWORK_EXTRAPOLATION_LIMIT_SECONDS,
+	))
+	var maximum_extrapolated_x: float = (
+		0.54
+		+ 4.5 * (0.1 + Player.NETWORK_EXTRAPOLATION_LIMIT_SECONDS)
+	)
+	assert(avatar.global_position.x <= maximum_extrapolated_x + 0.1)
+
+	avatar.set_local_control(true)
+	avatar.global_position = Vector3(0.8, 0.0, 0.0)
 	avatar.apply_local_prediction_correction(
 		moving_snapshot,
 		10,
 		1.0 / 30.0,
+		0.1,
 	)
-	assert(avatar.global_position.x > 1.25)
-	avatar.queue_free()
-	await process_frame
+	assert(avatar.global_position.x < 0.8)
+	assert(avatar.global_position.x > 0.7)
+
+
+func _validate_reliable_jump_intent(avatar: Player) -> void:
+	avatar.set_local_control(true)
+	avatar.call("_queue_local_network_jump_intent")
+	var first: Dictionary = avatar.capture_network_input(20)
+	var repeated: Dictionary = avatar.capture_network_input(21)
+	assert(bool(first["jump"]))
+	assert(bool(repeated["jump"]))
+	assert(int(avatar.get("_local_network_jump_intent_sequence")) == 20)
+	avatar.apply_local_prediction_correction(
+		_network_snapshot(avatar.global_position, Vector3.ZERO, 20),
+		21,
+		1.0 / 30.0,
+		0.0,
+	)
+	assert(not bool(avatar.capture_network_input(22)["jump"]))
+
+	avatar.configure_network_remote(true)
+	var first_host_jump: Dictionary = _movement_input(30, false, false)
+	first_host_jump["jump"] = true
+	avatar.apply_authoritative_network_input(first_host_jump)
+	assert(bool(avatar.get("_network_jump_pending")))
+	avatar.set("_network_jump_pending", false)
+	var repeated_host_jump: Dictionary = _movement_input(31, false, false)
+	repeated_host_jump["jump"] = true
+	avatar.apply_authoritative_network_input(repeated_host_jump)
+	assert(not bool(avatar.get("_network_jump_pending")))
+	avatar.apply_authoritative_network_input(
+		_movement_input(32, false, false)
+	)
+	var next_host_jump: Dictionary = _movement_input(33, false, false)
+	next_host_jump["jump"] = true
+	avatar.apply_authoritative_network_input(next_host_jump)
+	assert(bool(avatar.get("_network_jump_pending")))
+	avatar.reset_network_movement_state()
+	assert(not bool(avatar.get("_network_jump_pending")))
+	assert(not bool(avatar.get("_local_network_jump_intent_pending")))
+	assert(int(avatar.get("_last_network_input_sequence")) == 0)
+
+
+func _validate_stale_input_expiry(avatar: Player) -> void:
+	avatar.configure_network_remote(true)
+	avatar.apply_authoritative_network_input(_movement_input(40, true))
+	assert((avatar.get("_network_axis") as Vector2).length_squared() > 0.0)
+	avatar.call(
+		"_update_network_input_freshness",
+		Player.NETWORK_INPUT_STALE_TIMEOUT_SECONDS + 0.01,
+	)
+	assert((avatar.get("_network_axis") as Vector2) == Vector2.ZERO)
+	assert(not bool(avatar.get("_network_sprint")))
+	assert(bool(avatar.get("_network_input_stale")))
+	avatar.apply_authoritative_network_input(_movement_input(41, false))
+	assert(not bool(avatar.get("_network_input_stale")))
+	assert((avatar.get("_network_axis") as Vector2).length_squared() > 0.0)
 
 
 func _network_snapshot(

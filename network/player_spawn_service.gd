@@ -78,6 +78,10 @@ func get_avatar(peer_id: int) -> Player:
 	return _avatars.get(peer_id)
 
 
+func get_local_player() -> Player:
+	return _local_player
+
+
 func set_peer_presentation_visible(peer_id: int, should_be_visible: bool) -> void:
 	var avatar: Player = _avatars.get(peer_id)
 	if avatar != null and is_instance_valid(avatar):

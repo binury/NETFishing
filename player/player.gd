@@ -104,8 +104,15 @@ const CHARACTER_CALL_MOUTH_ID: String = "open_ah"
 const CHARACTER_CALL_MOUTH_DURATION_SECONDS: float = 0.16
 const BASE_REEL_SPEED: float = 0.16
 const LANDING_DUST_MIN_FALL_SPEED: float = 2.5
-const NETWORK_EXTRAPOLATION_LIMIT_SECONDS: float = 0.5
+const NETWORK_EXTRAPOLATION_LIMIT_SECONDS: float = 0.25
+const NETWORK_EXPECTED_SNAPSHOT_INTERVAL_SECONDS: float = 1.0 / 30.0
+const NETWORK_SNAPSHOT_JITTER_LIMIT_SECONDS: float = 0.1
+const NETWORK_SNAPSHOT_JITTER_WEIGHT: float = 0.15
+const NETWORK_REMOTE_SMOOTHING_RATE: float = 12.0
+const NETWORK_REMOTE_JITTER_SMOOTHING_RATE: float = 6.0
+const NETWORK_INPUT_STALE_TIMEOUT_SECONDS: float = 0.25
 const LOCAL_PREDICTION_EXTRAPOLATION_LIMIT_SECONDS: float = 0.25
+const LOCAL_PREDICTION_FALLBACK_TRANSIT_RATIO: float = 0.5
 const LOCAL_PREDICTION_CORRECTION_THRESHOLD: float = 0.12
 const LOCAL_PREDICTION_SNAP_DISTANCE: float = 2.0
 const LOCAL_PREDICTION_CORRECTION_WEIGHT: float = 0.18
@@ -408,6 +415,9 @@ var _network_sprint: bool = false
 var _network_sneak: bool = false
 var _network_slow_walk: bool = false
 var _last_network_input_sequence: int = 0
+var _network_input_age: float = 0.0
+var _network_input_stale: bool = false
+var _network_jump_intent_active: bool = false
 var _network_target_position: Vector3
 var _network_target_velocity: Vector3
 var _network_target_visual_yaw: float = 0.0
@@ -418,6 +428,9 @@ var _network_target_animation_action_sequence: int = 0
 var _network_target_animation_action_elapsed: float = 0.0
 var _network_snapshot_ready: bool = false
 var _network_snapshot_age: float = 0.0
+var _network_snapshot_jitter: float = 0.0
+var _local_network_jump_intent_pending: bool = false
+var _local_network_jump_intent_sequence: int = -1
 var _animation_action_id: StringName = &""
 var _animation_action_sequence: int = 0
 var _animation_action_elapsed: float = 0.0
@@ -648,6 +661,8 @@ func _physics_process(delta: float) -> void:
 	if _network_interpolation_enabled:
 		_update_network_interpolation(delta)
 		return
+	if _network_authoritative_simulation:
+		_update_network_input_freshness(delta)
 	if local_control_enabled and _free_camera_active:
 		_update_free_camera_physics()
 		velocity.x = 0.0
@@ -657,11 +672,21 @@ func _physics_process(delta: float) -> void:
 		move_and_slide()
 		_network_jump_pending = false
 		return
+	var local_jump_pressed: bool = (
+		local_control_enabled
+		and Input.is_action_just_pressed("jump")
+	)
+	if (
+		local_jump_pressed
+		and _is_movement_input_enabled()
+		and not _free_camera_active
+	):
+		_queue_local_network_jump_intent()
 	var jump_requested: bool = (
 		_is_movement_input_enabled()
 		and not _free_camera_active
 		and (
-			(local_control_enabled and Input.is_action_just_pressed("jump"))
+			local_jump_pressed
 			or (_network_authoritative_simulation and _network_jump_pending)
 		)
 	)
@@ -1436,6 +1461,7 @@ func set_local_control(enabled: bool) -> void:
 		_camera.current = enabled
 	if not enabled:
 		_set_camera_dragging(false)
+		_clear_local_network_jump_intent()
 
 
 func set_network_peer_id(peer_id: int) -> void:
@@ -1450,8 +1476,17 @@ func configure_network_remote(authoritative_simulation: bool) -> void:
 	set_local_control(false)
 	_network_authoritative_simulation = authoritative_simulation
 	_network_interpolation_enabled = not authoritative_simulation
+	_network_axis = Vector2.ZERO
+	_network_jump_pending = false
+	_network_sprint = false
+	_network_sneak = false
+	_network_slow_walk = false
+	_network_input_age = 0.0
+	_network_input_stale = false
+	_network_jump_intent_active = false
 	_network_snapshot_ready = false
 	_network_snapshot_age = 0.0
+	_network_snapshot_jitter = 0.0
 	_network_target_grounded = false
 	_network_target_locomotion_state = LocomotionState.IDLE
 	_network_target_animation_action_id = &""
@@ -1460,14 +1495,35 @@ func configure_network_remote(authoritative_simulation: bool) -> void:
 	_camera.current = false
 
 
+func reset_network_movement_state() -> void:
+	_clear_local_network_jump_intent()
+	_network_axis = Vector2.ZERO
+	_network_jump_pending = false
+	_network_sprint = false
+	_network_sneak = false
+	_network_slow_walk = false
+	_network_input_age = 0.0
+	_network_input_stale = false
+	_network_jump_intent_active = false
+	_last_network_input_sequence = 0
+
+
 func capture_network_input(sequence: int) -> Dictionary:
 	if _sitting_intent_pending and _sitting_intent_sequence < 0:
 		_sitting_intent_sequence = sequence
+	if (
+		local_control_enabled
+		and _is_movement_input_enabled()
+		and not _free_camera_active
+		and Input.is_action_just_pressed("jump")
+	):
+		_queue_local_network_jump_intent()
 	if (
 		not _is_movement_input_enabled()
 		or _water_recovery_active
 		or _free_camera_active
 	):
+		_clear_local_network_jump_intent()
 		return {
 			"sequence": sequence,
 			"axis": [0.0, 0.0],
@@ -1488,11 +1544,16 @@ func capture_network_input(sequence: int) -> Dictionary:
 		"move_forward",
 		"move_backward"
 	)
+	if (
+		_local_network_jump_intent_pending
+		and _local_network_jump_intent_sequence < 0
+	):
+		_local_network_jump_intent_sequence = sequence
 	return {
 		"sequence": sequence,
 		"axis": [axis.x, axis.y],
 		"camera_yaw": _camera_yaw.global_rotation.y,
-		"jump": Input.is_action_just_pressed("jump"),
+		"jump": _local_network_jump_intent_pending,
 		"sprint": Input.is_action_pressed("sprint"),
 		"sneak": Input.is_action_pressed("sneak"),
 		"slow_walk": Input.is_action_pressed("slow_walk"),
@@ -1510,9 +1571,14 @@ func apply_authoritative_network_input(data: Dictionary) -> void:
 	if axis.size() != 2:
 		return
 	_last_network_input_sequence = sequence
+	_network_input_age = 0.0
+	_network_input_stale = false
 	_network_axis = Vector2(float(axis[0]), float(axis[1])).limit_length(1.0)
 	_network_camera_yaw = float(data.get("camera_yaw", 0.0))
-	_network_jump_pending = bool(data.get("jump", false))
+	var jump_intent_active: bool = bool(data.get("jump", false))
+	if jump_intent_active and not _network_jump_intent_active:
+		_network_jump_pending = true
+	_network_jump_intent_active = jump_intent_active
 	_network_sprint = bool(data.get("sprint", false))
 	_network_sneak = bool(data.get("sneak", false))
 	_network_slow_walk = bool(data.get("slow_walk", false))
@@ -1546,11 +1612,37 @@ func make_network_snapshot(peer_id: int) -> Dictionary:
 	}
 
 
-func push_network_snapshot(snapshot: Dictionary) -> void:
+func push_network_snapshot(
+	snapshot: Dictionary,
+	estimated_transit_seconds: float = -1.0,
+) -> void:
 	var parsed: Dictionary = _parse_network_snapshot(snapshot)
 	if parsed.is_empty():
 		return
-	_network_target_position = parsed["position"]
+	if _network_snapshot_ready:
+		var arrival_error: float = absf(
+			_network_snapshot_age
+			- NETWORK_EXPECTED_SNAPSHOT_INTERVAL_SECONDS
+		)
+		_network_snapshot_jitter = lerpf(
+			_network_snapshot_jitter,
+			minf(arrival_error, NETWORK_SNAPSHOT_JITTER_LIMIT_SECONDS),
+			NETWORK_SNAPSHOT_JITTER_WEIGHT,
+		)
+	var transit_seconds: float = (
+		clampf(
+			estimated_transit_seconds,
+			0.0,
+			NETWORK_EXTRAPOLATION_LIMIT_SECONDS,
+		)
+		if is_finite(estimated_transit_seconds)
+		and estimated_transit_seconds >= 0.0
+		else 0.0
+	)
+	_network_target_position = (
+		(parsed["position"] as Vector3)
+		+ (parsed["velocity"] as Vector3) * transit_seconds
+	)
 	_network_target_velocity = parsed["velocity"]
 	_network_target_visual_yaw = parsed["visual_yaw"]
 	_apply_network_target_animation_state(parsed["animation_state"])
@@ -1568,6 +1660,7 @@ func apply_local_prediction_correction(
 	snapshot: Dictionary,
 	latest_input_sequence: int = 0,
 	input_interval_seconds: float = 0.0,
+	estimated_transit_seconds: float = -1.0,
 ) -> void:
 	var parsed: Dictionary = _parse_network_snapshot(snapshot)
 	if parsed.is_empty():
@@ -1581,22 +1674,22 @@ func apply_local_prediction_correction(
 	if sitting_intent_acknowledged:
 		_sitting_intent_pending = false
 		_sitting_intent_sequence = -1
+	if (
+		_local_network_jump_intent_pending
+		and _local_network_jump_intent_sequence >= 0
+		and acknowledged_input >= _local_network_jump_intent_sequence
+	):
+		_clear_local_network_jump_intent()
 	if not _sitting_intent_pending:
 		_set_sitting(bool(parsed["sitting"]))
 	var authoritative_position: Vector3 = parsed["position"]
-	if (
-		acknowledged_input > 0
-		and latest_input_sequence > acknowledged_input
-		and input_interval_seconds > 0.0
-	):
-		# The snapshot describes the host's position when an older input was
-		# acknowledged. Project it through the measured input-sequence gap so
-		# ordinary round-trip latency is not mistaken for prediction error.
-		var sequence_gap: int = latest_input_sequence - acknowledged_input
-		var transit_seconds: float = minf(
-			float(sequence_gap) * input_interval_seconds,
-			LOCAL_PREDICTION_EXTRAPOLATION_LIMIT_SECONDS,
-		)
+	var transit_seconds: float = resolve_local_prediction_transit_seconds(
+		acknowledged_input,
+		latest_input_sequence,
+		input_interval_seconds,
+		estimated_transit_seconds,
+	)
+	if transit_seconds > 0.0:
 		authoritative_position += (
 			(parsed["velocity"] as Vector3) * transit_seconds
 		)
@@ -1610,6 +1703,35 @@ func apply_local_prediction_correction(
 			authoritative_position,
 			LOCAL_PREDICTION_CORRECTION_WEIGHT,
 		)
+
+
+static func resolve_local_prediction_transit_seconds(
+	acknowledged_input: int,
+	latest_input_sequence: int,
+	input_interval_seconds: float,
+	estimated_transit_seconds: float,
+) -> float:
+	if is_finite(estimated_transit_seconds) and estimated_transit_seconds >= 0.0:
+		return minf(
+			estimated_transit_seconds,
+			LOCAL_PREDICTION_EXTRAPOLATION_LIMIT_SECONDS,
+		)
+	if (
+		acknowledged_input <= 0
+		or latest_input_sequence <= acknowledged_input
+		or input_interval_seconds <= 0.0
+	):
+		return 0.0
+	# The input gap spans approximately the full round trip: from the input
+	# acknowledged by the host to the newest input at snapshot receipt. Only
+	# half of that interval lies between the host snapshot and the client now.
+	var sequence_gap: int = latest_input_sequence - acknowledged_input
+	return minf(
+		float(sequence_gap)
+		* input_interval_seconds
+		* LOCAL_PREDICTION_FALLBACK_TRANSIT_RATIO,
+		LOCAL_PREDICTION_EXTRAPOLATION_LIMIT_SECONDS,
+	)
 
 
 func apply_network_teleport(snapshot: Dictionary) -> void:
@@ -1807,23 +1929,38 @@ func _apply_network_casting(casting: bool) -> void:
 func _update_network_interpolation(delta: float) -> void:
 	if not _network_snapshot_ready:
 		return
+	var previous_snapshot_age: float = _network_snapshot_age
 	_network_snapshot_age = minf(
 		_network_snapshot_age + delta,
 		NETWORK_EXTRAPOLATION_LIMIT_SECONDS,
+	)
+	var extrapolation_delta: float = (
+		_network_snapshot_age - previous_snapshot_age
 	)
 	var predicted_position: Vector3 = (
 		_network_target_position
 		+ _network_target_velocity * _network_snapshot_age
 	)
 	var projected_position: Vector3 = (
-		global_position + _network_target_velocity * delta
+		global_position + _network_target_velocity * extrapolation_delta
 	)
 	if projected_position.distance_to(predicted_position) > 2.0:
 		global_position = predicted_position
 	else:
+		var jitter_ratio: float = clampf(
+			_network_snapshot_jitter
+			/ NETWORK_SNAPSHOT_JITTER_LIMIT_SECONDS,
+			0.0,
+			1.0,
+		)
+		var smoothing_rate: float = lerpf(
+			NETWORK_REMOTE_SMOOTHING_RATE,
+			NETWORK_REMOTE_JITTER_SMOOTHING_RATE,
+			jitter_ratio,
+		)
 		global_position = projected_position.lerp(
 			predicted_position,
-			1.0 - exp(-10.0 * delta)
+			1.0 - exp(-smoothing_rate * delta)
 		)
 	velocity = _network_target_velocity
 	_visuals.rotation.y = lerp_angle(
@@ -1831,6 +1968,36 @@ func _update_network_interpolation(delta: float) -> void:
 		_network_target_visual_yaw,
 		1.0 - exp(-14.0 * delta)
 	)
+
+
+func _update_network_input_freshness(delta: float) -> void:
+	_network_input_age = minf(
+		_network_input_age + delta,
+		NETWORK_INPUT_STALE_TIMEOUT_SECONDS + 1.0,
+	)
+	if (
+		_network_input_stale
+		or _network_input_age <= NETWORK_INPUT_STALE_TIMEOUT_SECONDS
+	):
+		return
+	_network_input_stale = true
+	_network_axis = Vector2.ZERO
+	_network_jump_pending = false
+	_network_sprint = false
+	_network_sneak = false
+	_network_slow_walk = false
+
+
+func _queue_local_network_jump_intent() -> void:
+	if _local_network_jump_intent_pending:
+		return
+	_local_network_jump_intent_pending = true
+	_local_network_jump_intent_sequence = -1
+
+
+func _clear_local_network_jump_intent() -> void:
+	_local_network_jump_intent_pending = false
+	_local_network_jump_intent_sequence = -1
 
 
 func is_local_control_enabled() -> bool:
