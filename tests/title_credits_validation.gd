@@ -154,6 +154,9 @@ func _run() -> void:
 	var creative_credits := credits_page.get_node(
 		"Paper/Margin/Layout/Columns/CreativeCredits"
 	) as VBoxContainer
+	var audio_credits := credits_page.get_node(
+		"Paper/Margin/Layout/Columns/AdditionalCredits/AudioCredits"
+	) as Label
 	_expect(voyager_name.text == "Voyager", "in-game credits use Voyager")
 	_expect(
 		endeavour_name.text == "Endeavour",
@@ -174,6 +177,14 @@ func _run() -> void:
 	_expect(
 		"shop icon" in tekgator_credit.text.to_lower(),
 		"in-game credits describe Tekgator's shop icon artwork",
+	)
+	_expect(
+		"kat • animalese voice sample" in audio_credits.text,
+		"in-game credits name kat's animalese voice contribution",
+	)
+	_expect(
+		"kim • animalese voice sample" in audio_credits.text,
+		"in-game credits name kim's animalese voice contribution",
 	)
 	_expect(
 		Rect2(Vector2.ZERO, creative_credits.size).encloses(

@@ -13,6 +13,9 @@ const TitleConfirmationScene = preload(
 const MailPageType = preload("res://ui/mail_page.gd")
 const LogbookPageType = preload("res://ui/logbook_page.gd")
 const ProfilePageType = preload("res://ui/profile_page.gd")
+const VoiceProfilesType = preload(
+	"res://player/animalese_voice_profiles.gd"
+)
 const PlayerMenuScene = preload("res://ui/player_menu.tscn")
 const PlayerMenuType = preload("res://ui/player_menu.gd")
 const BagItemSpriteScene = preload(
@@ -42,6 +45,7 @@ func _run() -> void:
 	await _validate_data_settings_navigation()
 	await _validate_mail_navigation()
 	await _validate_profile_confirmation_focus()
+	await _validate_profile_voice_navigation()
 	await _validate_inventory_tab_zone_transitions()
 	await _validate_player_menu_nested_controller_back()
 	await _validate_confirmation_dialog_navigation()
@@ -350,6 +354,138 @@ func _validate_profile_confirmation_focus() -> void:
 		root.gui_get_focus_owner() in categories,
 		"Controller Back did not return to the appearance feature list.",
 	)
+	page.queue_free()
+	await process_frame
+
+
+func _validate_profile_voice_navigation() -> void:
+	var page := ProfilePageType.new() as Control
+	page.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	root.add_child(page)
+	await process_frame
+	page.call("activate")
+	page.call("set_interactive", true)
+	page.call("_select_category", "voice")
+	await process_frame
+	page.set(
+		"_controller_zone",
+		ProfilePageType.ControllerZone.OPTIONS,
+	)
+	page.set("_controller_option_depth", 0)
+	page.call("_apply_controller_zone_focus")
+	page.call("_focus_controller_zone")
+	await process_frame
+	var sample_grid := page.find_child(
+		"VoiceSampleSetGrid", true, false
+	) as GridContainer
+	var pitch_grid := page.find_child(
+		"VoicePitchGrid", true, false
+	) as GridContainer
+	var speed_grid := page.find_child(
+		"VoiceSpeedGrid", true, false
+	) as GridContainer
+	var call_grid := page.find_child(
+		"VoiceCallGrid", true, false
+	) as GridContainer
+	_expect(
+		is_instance_valid(sample_grid)
+		and is_instance_valid(pitch_grid)
+		and is_instance_valid(speed_grid)
+		and is_instance_valid(call_grid),
+		"The voice page is missing a settings section.",
+	)
+	if (
+		not is_instance_valid(sample_grid)
+		or not is_instance_valid(pitch_grid)
+		or not is_instance_valid(speed_grid)
+		or not is_instance_valid(call_grid)
+	):
+		page.queue_free()
+		await process_frame
+		return
+	var sample_buttons: Array[Control] = []
+	for item: Variant in page.call("_controls_under", sample_grid):
+		sample_buttons.append(item as Control)
+	_expect(
+		sample_buttons.size() == 3,
+		"The voice-set row must expose kat, robot, and kim.",
+	)
+	if sample_buttons.size() != 3:
+		page.queue_free()
+		await process_frame
+		return
+	var kat_button := sample_grid.get_node("VoiceSet_kat") as Button
+	var robot_button := sample_grid.get_node("VoiceSet_robot") as Button
+	var kim_button := sample_grid.get_node("VoiceSet_kim") as Button
+	_expect(kat_button.text == "kat", "The default voice set is not labeled kat.")
+	_expect(robot_button.text == "robot", "The tone voice set is not labeled robot.")
+	_expect(kim_button.text == "kim", "The kim voice set is not labeled kim.")
+	_expect(kat_button.button_pressed, "The kat voice set is not selected by default.")
+	var option_controls: Array[Control] = []
+	var option_groups: Array = page.call("_controller_option_groups")
+	for item: Variant in option_groups[0]:
+		option_controls.append(item as Control)
+	_expect(
+		option_controls.size()
+		== (
+			VoiceProfilesType.SAMPLE_SET_OPTIONS.size()
+			+ VoiceProfilesType.OPTIONS.size()
+			+ VoiceProfilesType.SPEED_OPTIONS.size()
+			+ VoiceProfilesType.CALL_OPTIONS.size()
+		),
+		"The controller voice zone does not contain every voice setting.",
+	)
+	_assert_directionally_reachable(kat_button, option_controls)
+	var kat_down := kat_button.get_node_or_null(
+		kat_button.focus_neighbor_bottom
+	) as Control
+	_expect(
+		kat_down != null and pitch_grid.is_ancestor_of(kat_down),
+		"Down from the voice-set row does not enter the pitch row.",
+	)
+	if OS.has_environment("NETFISHING_PROFILE_VOICE_CAPTURE"):
+		await RenderingServer.frame_post_draw
+		var capture := root.get_viewport().get_texture().get_image()
+		_expect(
+			capture.save_png(OS.get_environment(
+				"NETFISHING_PROFILE_VOICE_CAPTURE"
+			)) == OK,
+			"The profile voice-page capture could not be saved.",
+		)
+	robot_button.grab_focus()
+	robot_button.button_pressed = true
+	robot_button.pressed.emit()
+	await process_frame
+	_expect(
+		root.gui_get_focus_owner() == robot_button,
+		"Selecting robot moved controller focus out of the voice-set row.",
+	)
+	_expect(
+		str(page.get("_draft_sample_set_id")) == "robot",
+		"Selecting robot did not update the profile draft.",
+	)
+	kim_button.grab_focus()
+	kim_button.button_pressed = true
+	kim_button.pressed.emit()
+	await process_frame
+	_expect(
+		root.gui_get_focus_owner() == kim_button,
+		"Selecting kim moved controller focus out of the voice-set row.",
+	)
+	_expect(
+		str(page.get("_draft_sample_set_id")) == "kim",
+		"Selecting kim did not update the profile draft.",
+	)
+	var category_controls: Array[Control] = []
+	for item: Variant in page.call(
+		"_controls_under", page.get("_category_list")
+	):
+		category_controls.append(item as Control)
+	for category_control: Control in category_controls:
+		_expect(
+			category_control.focus_mode == Control.FOCUS_NONE,
+			"The voice options zone leaked focus into profile categories.",
+		)
 	page.queue_free()
 	await process_frame
 

@@ -25,6 +25,7 @@ var _pending_apply: Dictionary[String, Dictionary] = {}
 var _pending_voice_ids: Dictionary[String, String] = {}
 var _pending_speech_speed_ids: Dictionary[String, String] = {}
 var _pending_call_ids: Dictionary[String, String] = {}
+var _pending_sample_set_ids: Dictionary[String, String] = {}
 var _host_pending_apply: Dictionary[String, Dictionary] = {}
 var _latest_check_id: String = ""
 var _latest_check_name: String = ""
@@ -68,6 +69,10 @@ func get_persisted_speech_speed_id() -> String:
 
 func get_persisted_call_id() -> String:
 	return _preferences.call_id
+
+
+func get_persisted_sample_set_id() -> String:
+	return _preferences.sample_set_id
 
 
 func get_identity_fingerprint() -> String:
@@ -151,6 +156,7 @@ func apply_profile(
 	voice_id: String = VoiceProfilesType.DEFAULT_ID,
 	speech_speed_id: String = VoiceProfilesType.DEFAULT_SPEED_ID,
 	call_id: String = VoiceProfilesType.DEFAULT_CALL_ID,
+	sample_set_id: String = VoiceProfilesType.DEFAULT_SAMPLE_SET_ID,
 ) -> bool:
 	var clean_name := display_name.strip_edges()
 	if (
@@ -159,6 +165,7 @@ func apply_profile(
 		or not VoiceProfilesType.is_valid(voice_id)
 		or not VoiceProfilesType.is_valid_speed(speech_speed_id)
 		or not VoiceProfilesType.is_valid_call(call_id)
+		or not VoiceProfilesType.is_valid_sample_set(sample_set_id)
 	):
 		apply_finished.emit(false, "Check the player name and appearance choices.")
 		return false
@@ -178,6 +185,7 @@ func apply_profile(
 	_pending_voice_ids[request_id] = voice_id
 	_pending_speech_speed_ids[request_id] = speech_speed_id
 	_pending_call_ids[request_id] = call_id
+	_pending_sample_set_ids[request_id] = sample_set_id
 	if _session == null or not _session.is_gameplay_session_active():
 		_apply_local_result(request_id, true, "", false, PackedStringArray())
 	elif _session.is_host():
@@ -371,6 +379,7 @@ func _apply_local_result(
 		_pending_voice_ids.erase(request_id)
 		_pending_speech_speed_ids.erase(request_id)
 		_pending_call_ids.erase(request_id)
+		_pending_sample_set_ids.erase(request_id)
 		conflict_result.emit(request_id, conflict, suggestions)
 		apply_finished.emit(false, message)
 		return
@@ -378,6 +387,7 @@ func _apply_local_result(
 	var previous_voice_id := _preferences.voice_id
 	var previous_speech_speed_id := _preferences.speech_speed_id
 	var previous_call_id := _preferences.call_id
+	var previous_sample_set_id := _preferences.sample_set_id
 	var requested_voice_id: String = _pending_voice_ids.get(
 		request_id,
 		VoiceProfilesType.DEFAULT_ID,
@@ -390,16 +400,22 @@ func _apply_local_result(
 		request_id,
 		VoiceProfilesType.DEFAULT_CALL_ID,
 	)
+	var requested_sample_set_id: String = _pending_sample_set_ids.get(
+		request_id,
+		VoiceProfilesType.DEFAULT_SAMPLE_SET_ID,
+	)
 	if not _preferences.set_profile_identity(
 		str(request["display_name"]),
 		requested_voice_id,
 		requested_speech_speed_id,
 		requested_call_id,
+		requested_sample_set_id,
 	):
 		_pending_apply.erase(request_id)
 		_pending_voice_ids.erase(request_id)
 		_pending_speech_speed_ids.erase(request_id)
 		_pending_call_ids.erase(request_id)
+		_pending_sample_set_ids.erase(request_id)
 		apply_finished.emit(false, "Profile could not be saved.")
 		return
 	if not _appearance_store.save_snapshot(request["appearance"]):
@@ -408,17 +424,20 @@ func _apply_local_result(
 			previous_voice_id,
 			previous_speech_speed_id,
 			previous_call_id,
+			previous_sample_set_id,
 		)
 		_pending_apply.erase(request_id)
 		_pending_voice_ids.erase(request_id)
 		_pending_speech_speed_ids.erase(request_id)
 		_pending_call_ids.erase(request_id)
+		_pending_sample_set_ids.erase(request_id)
 		apply_finished.emit(false, "Profile could not be saved.")
 		return
 	_pending_apply.erase(request_id)
 	_pending_voice_ids.erase(request_id)
 	_pending_speech_speed_ids.erase(request_id)
 	_pending_call_ids.erase(request_id)
+	_pending_sample_set_ids.erase(request_id)
 	if _session != null:
 		_session.set_local_appearance_snapshot(_appearance_store.get_snapshot())
 	if _session != null and _session.is_gameplay_session_active():
@@ -600,6 +619,7 @@ func _on_session_state_changed(state: NetworkSession.State) -> void:
 		_pending_voice_ids.clear()
 		_pending_speech_speed_ids.clear()
 		_pending_call_ids.clear()
+		_pending_sample_set_ids.clear()
 		_host_pending_apply.clear()
 		_latest_check_id = ""
 		_latest_check_name = ""
@@ -676,6 +696,7 @@ func _apply_local_voice_to_avatar() -> void:
 	var avatar := _spawn_service.get_avatar(local_peer_id)
 	if avatar != null:
 		avatar.apply_animalese_voice_id(_preferences.voice_id)
+		avatar.apply_animalese_sample_set_id(_preferences.sample_set_id)
 
 
 func _new_id() -> String:

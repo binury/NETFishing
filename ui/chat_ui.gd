@@ -836,7 +836,11 @@ func _send() -> void:
 	_send_pending = true
 	_pending_send_body = NetworkChatProtocol.sanitize_body(body)
 	_entry.editable = false
-	if not _service.send_local_message(body):
+	if not _service.send_local_message(
+		body,
+		_player.get_animalese_voice_id(),
+		_player.get_animalese_sample_set_id(),
+	):
 		_send_pending = false
 		_pending_send_body = ""
 		_entry.editable = true
@@ -939,6 +943,12 @@ func _on_message(message: Dictionary) -> void:
 		peer_id,
 		str(message["body"]),
 		str(message.get("sender_fingerprint", "")),
+		VoiceProfilesType.sanitized_id(str(message.get(
+			"voice_id", VoiceProfilesType.DEFAULT_ID
+		))),
+		VoiceProfilesType.sanitized_sample_set_id(str(message.get(
+			"sample_set_id", VoiceProfilesType.DEFAULT_SAMPLE_SET_ID
+		))),
 	)
 
 
@@ -952,6 +962,8 @@ func _show_speech_bubble(
 	peer_id: int,
 	body: String,
 	fingerprint: String,
+	requested_voice_profile_id: String = "",
+	requested_sample_set_id: String = "",
 ) -> void:
 	_on_peer_removed(peer_id)
 	var bubble := PanelContainer.new()
@@ -978,16 +990,31 @@ func _show_speech_bubble(
 	_speech_layer.add_child(bubble)
 	var reveal_seconds := TypewriterRevealType.start(label)
 	var voice_profile_id: String = VoiceProfilesType.DEFAULT_ID
+	var sample_set_id: String = VoiceProfilesType.DEFAULT_SAMPLE_SET_ID
 	var speaker_avatar := _spawn.get_avatar(peer_id)
-	if speaker_avatar != null:
+	if not requested_voice_profile_id.is_empty():
+		voice_profile_id = VoiceProfilesType.sanitized_id(
+			requested_voice_profile_id
+		)
+	elif speaker_avatar != null:
 		voice_profile_id = VoiceProfilesType.sanitized_id(
 			speaker_avatar.get_animalese_voice_id()
+		)
+	if not requested_sample_set_id.is_empty():
+		sample_set_id = VoiceProfilesType.sanitized_sample_set_id(
+			requested_sample_set_id
+		)
+	elif speaker_avatar != null:
+		sample_set_id = VoiceProfilesType.sanitized_sample_set_id(
+			speaker_avatar.get_animalese_sample_set_id()
 		)
 	_animalese_voice.speak_text(
 		label,
 		label.text,
 		str(peer_id),
 		voice_profile_id,
+		-1.0,
+		sample_set_id,
 	)
 	_speech[peer_id] = {
 		"bubble": bubble,

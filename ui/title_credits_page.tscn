@@ -143,7 +143,7 @@ text = "additional audio"
 layout_mode = 2
 theme_override_colors/font_color = Color(0.624, 0.812, 0.824, 1)
 theme_override_font_sizes/font_size = 15
-text = "tosha73 • fishing reel sounds\nkkenny101 • ocean ambience\nqubodup • water impact\nAyton • rain ambience\nivolipa • dog bark\nChristyboy100 • cat meow"
+text = "kat • animalese voice sample\nkim • animalese voice sample\ntosha73 • fishing reel sounds\nkkenny101 • ocean ambience\nqubodup • water impact\nAyton • rain ambience\nivolipa • dog bark\nChristyboy100 • cat meow"
 
 [node name="TechnologySpacer" type="Control" parent="Paper/Margin/Layout/Columns/AdditionalCredits"]
 custom_minimum_size = Vector2(0, 9)

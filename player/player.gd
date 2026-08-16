@@ -37,6 +37,9 @@ const HeldItemAttachmentScene = preload(
 	"res://player/held_item_attachment.tscn"
 )
 const SprintDustTrailType = preload("res://player/sprint_dust_trail.gd")
+const VoiceProfilesType = preload(
+	"res://player/animalese_voice_profiles.gd"
+)
 
 signal retract_visual_finished
 
@@ -124,7 +127,8 @@ const CONTROLLER_ZOOM_TRIGGER_AXIS: JoyAxis = JOY_AXIS_TRIGGER_LEFT
 var appearance_snapshot: Dictionary = (
 	CharacterCustomizationCatalog.default_snapshot()
 )
-var animalese_voice_id: String = "natural"
+var animalese_voice_id: String = VoiceProfilesType.DEFAULT_ID
+var animalese_sample_set_id: String = VoiceProfilesType.DEFAULT_SAMPLE_SET_ID
 var active_bait_id: StringName = StringName()
 var active_lure_id: StringName = StringName()
 signal active_bait_changed(item_id: StringName)
@@ -282,11 +286,21 @@ func _apply_presented_appearance() -> void:
 
 
 func apply_animalese_voice_id(voice_id: String) -> void:
-	animalese_voice_id = voice_id
+	animalese_voice_id = VoiceProfilesType.sanitized_id(voice_id)
 
 
 func get_animalese_voice_id() -> String:
 	return animalese_voice_id
+
+
+func apply_animalese_sample_set_id(sample_set_id: String) -> void:
+	animalese_sample_set_id = VoiceProfilesType.sanitized_sample_set_id(
+		sample_set_id
+	)
+
+
+func get_animalese_sample_set_id() -> String:
+	return animalese_sample_set_id
 
 class ShowcaseCameraSnapshot:
 	extends RefCounted

@@ -9,6 +9,7 @@ readonly TEST_TIMEOUT_SECONDS="${TEST_TIMEOUT_SECONDS:-120}"
 readonly RUN_ROOT="$(mktemp -d -t netfishing-validations.XXXXXX)"
 
 readonly -a QUICK_TESTS=(
+	"scripts/validate_animalese_samples.gd"
 	"tests/android_readiness_validation.gd"
 	"tests/controller_focus_presentation_validation.gd"
 	"tests/controller_focus_recovery_validation.gd"

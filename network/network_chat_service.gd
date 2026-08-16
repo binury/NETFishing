@@ -77,7 +77,11 @@ func is_sender_filtered(fingerprint: String) -> bool:
 	)
 
 
-func send_local_message(body: String) -> bool:
+func send_local_message(
+	body: String,
+	voice_id: String = VoiceProfilesType.DEFAULT_ID,
+	sample_set_id: String = VoiceProfilesType.DEFAULT_SAMPLE_SET_ID,
+) -> bool:
 	if (
 		_session == null
 		or not _session.is_gameplay_session_active()
@@ -99,6 +103,10 @@ func send_local_message(body: String) -> bool:
 		"session_id": _session.get_session_id(),
 		"body": clean,
 		"sender_fingerprint": _session.get_local_identity_fingerprint(),
+		"voice_id": VoiceProfilesType.sanitized_id(voice_id),
+		"sample_set_id": VoiceProfilesType.sanitized_sample_set_id(
+			sample_set_id
+		),
 	}
 	request["sender_signature"] = _session.sign_local_action(
 		"chat_send", NetworkChatProtocol.signature_fields(request)
@@ -482,7 +490,13 @@ func _handle_request(peer_id: int, data: Dictionary) -> void:
 		NetworkChatProtocol.Kind.PLAYER,
 		peer_id,
 		record.display_name,
-		NetworkChatProtocol.sanitize_body(data["body"])
+		NetworkChatProtocol.sanitize_body(data["body"]),
+		VoiceProfilesType.sanitized_id(str(data.get(
+			"voice_id", VoiceProfilesType.DEFAULT_ID
+		))),
+		VoiceProfilesType.sanitized_sample_set_id(str(data.get(
+			"sample_set_id", VoiceProfilesType.DEFAULT_SAMPLE_SET_ID
+		))),
 	)
 	message["request_id"] = request_id
 	message["sender_fingerprint"] = data["sender_fingerprint"]
@@ -499,6 +513,8 @@ func _make_message(
 	peer_id: int,
 	display_name: String,
 	body: String,
+	voice_id: String = VoiceProfilesType.DEFAULT_ID,
+	sample_set_id: String = VoiceProfilesType.DEFAULT_SAMPLE_SET_ID,
 ) -> Dictionary:
 	_sequence += 1
 	var message := {
@@ -511,6 +527,10 @@ func _make_message(
 		"sender_display_name": display_name.left(24),
 		"body": body,
 		"sender_fingerprint": _session.get_host_identity_fingerprint(),
+		"voice_id": VoiceProfilesType.sanitized_id(voice_id),
+		"sample_set_id": VoiceProfilesType.sanitized_sample_set_id(
+			sample_set_id
+		),
 	}
 	if kind == NetworkChatProtocol.Kind.SYSTEM:
 		message["sender_signature"] = _session.sign_host_action(

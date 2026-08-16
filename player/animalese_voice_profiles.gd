@@ -2,9 +2,27 @@ class_name AnimaleseVoiceProfiles
 extends RefCounted
 
 const DEFAULT_ID: String = "natural"
+const DEFAULT_SAMPLE_SET_ID: String = "kat"
 const DEFAULT_SPEED_ID: String = "normal"
 const DEFAULT_CALL_ID: String = "meow"
 const CALL_AUDIO_DIRECTORY: String = "res://sound/dialogue/calls"
+const SAMPLE_SET_OPTIONS: Array[Dictionary] = [
+	{
+		"id": "kat",
+		"label": "kat",
+		"directory": "res://sound/dialogue/animalese/alphanumeric",
+	},
+	{
+		"id": "robot",
+		"label": "robot",
+		"directory": "res://sound/dialogue/animalese/robot",
+	},
+	{
+		"id": "kim",
+		"label": "kim",
+		"directory": "res://sound/dialogue/animalese/kim",
+	},
+]
 const OPTIONS: Array[Dictionary] = [
 	{"id": "tiny", "label": "tiny", "pitch": 1.24},
 	{"id": "bright", "label": "bright", "pitch": 1.10},
@@ -12,6 +30,31 @@ const OPTIONS: Array[Dictionary] = [
 	{"id": "mellow", "label": "mellow", "pitch": 0.89},
 	{"id": "deep", "label": "deep", "pitch": 0.77},
 ]
+
+
+static func is_valid_sample_set(sample_set_id: String) -> bool:
+	for option: Dictionary in SAMPLE_SET_OPTIONS:
+		if str(option.get("id", "")) == sample_set_id:
+			return true
+	return false
+
+
+static func sanitized_sample_set_id(sample_set_id: String) -> String:
+	return (
+		sample_set_id
+		if is_valid_sample_set(sample_set_id)
+		else DEFAULT_SAMPLE_SET_ID
+	)
+
+
+static func sample_directory_for(sample_set_id: String) -> String:
+	var resolved_id := sanitized_sample_set_id(sample_set_id)
+	for option: Dictionary in SAMPLE_SET_OPTIONS:
+		if str(option.get("id", "")) == resolved_id:
+			return str(option.get("directory", ""))
+	return ""
+
+
 const SPEED_OPTIONS: Array[Dictionary] = [
 	{"id": "slow", "label": "slow", "characters_per_second": 20.0},
 	{"id": "relaxed", "label": "relaxed", "characters_per_second": 24.0},

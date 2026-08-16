@@ -292,6 +292,23 @@ godot --headless --path . --script scripts/normalize_texture_imports.gd \
 godot --headless --path . --script tests/texture_sampling_validation.gd
 ```
 
+### Importing animalese voice sets
+
+Animalese clips use one deterministic runtime level and format: -18 dBFS RMS
+with a -3 dBFS peak ceiling, mono, 48 kHz, 16-bit PCM. Import a supplied set
+through the normalization script rather than copying its WAV files directly:
+
+```bash
+scripts/import_animalese_voice.sh /path/to/source_clips sample_set_directory
+```
+
+The source directory may contain lowercase letter, number, and underscore WAV
+filenames. The script converts every top-level WAV and writes the results under
+`sound/dialogue/animalese/sample_set_directory/`. Add a new runtime set to
+`player/animalese_voice_profiles.gd` after import, then run the quick validation
+suite. Keep the untouched submission and its original hashes in the private
+intake record; repository files are normalized derivatives.
+
 ### Bubble menus
 
 Instance `ui/components/bubble_menu/bubble_button.tscn` for each action, or

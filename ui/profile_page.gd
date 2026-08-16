@@ -47,6 +47,8 @@ var _draft_speech_speed_id: String = VoiceProfilesType.DEFAULT_SPEED_ID
 var _persisted_speech_speed_id: String = VoiceProfilesType.DEFAULT_SPEED_ID
 var _draft_call_id: String = VoiceProfilesType.DEFAULT_CALL_ID
 var _persisted_call_id: String = VoiceProfilesType.DEFAULT_CALL_ID
+var _draft_sample_set_id: String = VoiceProfilesType.DEFAULT_SAMPLE_SET_ID
+var _persisted_sample_set_id: String = VoiceProfilesType.DEFAULT_SAMPLE_SET_ID
 var _category_id: String = "species"
 var _dirty: bool = false
 var _allow_duplicate: bool = false
@@ -848,7 +850,10 @@ func _category_label(category_id: String) -> String:
 
 func _build_voice_options() -> void:
 	var description := Label.new()
-	description.text = "Choose how your character sounds in chat."
+	description.text = (
+		"Choose how your character sounds. "
+		+ "Playback speed affects this device only."
+	)
 	description.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	description.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	description.add_theme_font_size_override("font_size", 12)
@@ -856,48 +861,97 @@ func _build_voice_options() -> void:
 		"font_color", UtilityPageStyle.OCEAN_TEXT_SECONDARY
 	)
 	_option_list.add_child(description)
+	var settings_grid := GridContainer.new()
+	settings_grid.name = "VoiceSettingsGrid"
+	settings_grid.columns = 2
+	settings_grid.add_theme_constant_override("h_separation", 10)
+	settings_grid.add_theme_constant_override("v_separation", 8)
+	settings_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_option_list.add_child(settings_grid)
+	var sample_set_title := Label.new()
+	sample_set_title.text = "voice set"
+	sample_set_title.custom_minimum_size.x = 92.0
+	sample_set_title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	sample_set_title.add_theme_font_size_override("font_size", 13)
+	sample_set_title.add_theme_color_override(
+		"font_color", UtilityPageStyle.OCEAN_TEXT_PRIMARY
+	)
+	settings_grid.add_child(sample_set_title)
+	var sample_set_grid := GridContainer.new()
+	sample_set_grid.name = "VoiceSampleSetGrid"
+	sample_set_grid.columns = mini(
+		3,
+		VoiceProfilesType.SAMPLE_SET_OPTIONS.size(),
+	)
+	sample_set_grid.add_theme_constant_override("h_separation", 8)
+	sample_set_grid.add_theme_constant_override("v_separation", 4)
+	sample_set_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	settings_grid.add_child(sample_set_grid)
+	var sample_set_group := ButtonGroup.new()
+	sample_set_group.allow_unpress = false
+	for option: Dictionary in VoiceProfilesType.SAMPLE_SET_OPTIONS:
+		var sample_set_id := str(option.get("id", ""))
+		var sample_set_button := Button.new()
+		sample_set_button.name = "VoiceSet_%s" % sample_set_id
+		sample_set_button.text = str(option.get("label", sample_set_id))
+		sample_set_button.toggle_mode = true
+		sample_set_button.button_group = sample_set_group
+		sample_set_button.custom_minimum_size = Vector2(108.0, 32.0)
+		sample_set_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		sample_set_button.button_pressed = (
+			_draft_sample_set_id == sample_set_id
+		)
+		sample_set_button.pressed.connect(
+			_select_sample_set_option.bind(sample_set_id)
+		)
+		UtilityPageStyle.apply_compact_ocean_button(sample_set_button)
+		sample_set_grid.add_child(sample_set_button)
+	var pitch_title := Label.new()
+	pitch_title.text = "pitch"
+	pitch_title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	pitch_title.add_theme_font_size_override("font_size", 13)
+	pitch_title.add_theme_color_override(
+		"font_color", UtilityPageStyle.OCEAN_TEXT_PRIMARY
+	)
+	settings_grid.add_child(pitch_title)
 	var grid := GridContainer.new()
+	grid.name = "VoicePitchGrid"
 	grid.columns = 3
 	grid.add_theme_constant_override("h_separation", 6)
 	grid.add_theme_constant_override("v_separation", 4)
 	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_option_list.add_child(grid)
+	settings_grid.add_child(grid)
+	var pitch_group := ButtonGroup.new()
+	pitch_group.allow_unpress = false
 	for option: Dictionary in VoiceProfilesType.OPTIONS:
 		var option_id := str(option.get("id", ""))
 		var button := Button.new()
 		button.text = str(option.get("label", option_id))
 		button.toggle_mode = true
+		button.button_group = pitch_group
 		button.custom_minimum_size = Vector2(108.0, 32.0)
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		button.button_pressed = _draft_voice_id == option_id
 		button.pressed.connect(_select_voice_option.bind(option_id))
 		UtilityPageStyle.apply_compact_ocean_button(button)
 		grid.add_child(button)
-	var divider := HSeparator.new()
-	divider.custom_minimum_size.y = 2.0
-	_option_list.add_child(divider)
 	var speed_title := Label.new()
-	speed_title.text = "speech speed"
+	speed_title.text = "playback speed"
+	speed_title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	speed_title.add_theme_font_size_override("font_size", 13)
 	speed_title.add_theme_color_override(
 		"font_color", UtilityPageStyle.OCEAN_TEXT_PRIMARY
 	)
-	_option_list.add_child(speed_title)
-	var speed_description := Label.new()
-	speed_description.text = "Controls chat speech on this device only."
-	speed_description.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	speed_description.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	speed_description.add_theme_font_size_override("font_size", 12)
-	speed_description.add_theme_color_override(
-		"font_color", UtilityPageStyle.OCEAN_TEXT_SECONDARY
-	)
-	_option_list.add_child(speed_description)
+	settings_grid.add_child(speed_title)
 	var speed_grid := GridContainer.new()
+	speed_grid.name = "VoiceSpeedGrid"
 	speed_grid.columns = 3
 	speed_grid.add_theme_constant_override("h_separation", 6)
 	speed_grid.add_theme_constant_override("v_separation", 4)
 	speed_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_option_list.add_child(speed_grid)
+	settings_grid.add_child(speed_grid)
+	var speed_group := ButtonGroup.new()
+	speed_group.allow_unpress = false
 	for option: Dictionary in VoiceProfilesType.SPEED_OPTIONS:
 		var speed_id := str(option.get("id", ""))
 		var speed_button := Button.new()
@@ -906,6 +960,7 @@ func _build_voice_options() -> void:
 			float(option.get("characters_per_second", 28.0))
 		)
 		speed_button.toggle_mode = true
+		speed_button.button_group = speed_group
 		speed_button.custom_minimum_size = Vector2(108.0, 32.0)
 		speed_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		speed_button.button_pressed = _draft_speech_speed_id == speed_id
@@ -914,35 +969,29 @@ func _build_voice_options() -> void:
 		)
 		UtilityPageStyle.apply_compact_ocean_button(speed_button)
 		speed_grid.add_child(speed_button)
-	var call_divider := HSeparator.new()
-	call_divider.custom_minimum_size.y = 2.0
-	_option_list.add_child(call_divider)
 	var call_title := Label.new()
-	call_title.text = "call"
+	call_title.text = "call (G)"
+	call_title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	call_title.add_theme_font_size_override("font_size", 13)
 	call_title.add_theme_color_override(
 		"font_color", UtilityPageStyle.OCEAN_TEXT_PRIMARY
 	)
-	_option_list.add_child(call_title)
-	var call_description := Label.new()
-	call_description.text = "Press G to make this sound."
-	call_description.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	call_description.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	call_description.add_theme_font_size_override("font_size", 12)
-	call_description.add_theme_color_override(
-		"font_color", UtilityPageStyle.OCEAN_TEXT_SECONDARY
-	)
-	_option_list.add_child(call_description)
+	settings_grid.add_child(call_title)
 	var call_grid := GridContainer.new()
+	call_grid.name = "VoiceCallGrid"
 	call_grid.columns = 2
 	call_grid.add_theme_constant_override("h_separation", 8)
 	call_grid.add_theme_constant_override("v_separation", 8)
-	_option_list.add_child(call_grid)
+	call_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	settings_grid.add_child(call_grid)
+	var call_group := ButtonGroup.new()
+	call_group.allow_unpress = false
 	for option: Dictionary in VoiceProfilesType.CALL_OPTIONS:
 		var call_id := str(option.get("id", ""))
 		var call_button := Button.new()
 		call_button.text = str(option.get("label", call_id))
 		call_button.toggle_mode = true
+		call_button.button_group = call_group
 		call_button.custom_minimum_size = Vector2(108.0, 32.0)
 		call_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		call_button.button_pressed = _draft_call_id == call_id
@@ -951,12 +1000,20 @@ func _build_voice_options() -> void:
 		call_grid.add_child(call_button)
 
 
+func _select_sample_set_option(sample_set_id: String) -> void:
+	if not VoiceProfilesType.is_valid_sample_set(sample_set_id):
+		return
+	_draft_sample_set_id = sample_set_id
+	_dirty = _draft_differs()
+	_refresh_actions()
+	_play_voice_preview()
+
+
 func _select_voice_option(voice_id: String) -> void:
 	if not VoiceProfilesType.is_valid(voice_id):
 		return
 	_draft_voice_id = voice_id
 	_dirty = _draft_differs()
-	_refresh_options()
 	_refresh_actions()
 	_play_voice_preview()
 
@@ -966,7 +1023,6 @@ func _select_speech_speed_option(speed_id: String) -> void:
 		return
 	_draft_speech_speed_id = speed_id
 	_dirty = _draft_differs()
-	_refresh_options()
 	_refresh_actions()
 	_play_voice_preview()
 
@@ -976,7 +1032,6 @@ func _select_call_option(call_id: String) -> void:
 		return
 	_draft_call_id = call_id
 	_dirty = _draft_differs()
-	_refresh_options()
 	_refresh_actions()
 
 
@@ -993,6 +1048,7 @@ func _play_voice_preview() -> void:
 		"profile-preview",
 		_draft_voice_id,
 		VoiceProfilesType.speed_for(_draft_speech_speed_id),
+		_draft_sample_set_id,
 	)
 
 
@@ -2025,6 +2081,7 @@ func _apply() -> void:
 		_draft_voice_id,
 		_draft_speech_speed_id,
 		_draft_call_id,
+		_draft_sample_set_id,
 	)
 
 
@@ -2045,11 +2102,13 @@ func _load_persisted() -> void:
 		_service.get_persisted_speech_speed_id()
 	)
 	_persisted_call_id = _service.get_persisted_call_id()
+	_persisted_sample_set_id = _service.get_persisted_sample_set_id()
 	_draft_name = _persisted_name
 	_draft_appearance = _persisted_appearance.duplicate(true)
 	_draft_voice_id = _persisted_voice_id
 	_draft_speech_speed_id = _persisted_speech_speed_id
 	_draft_call_id = _persisted_call_id
+	_draft_sample_set_id = _persisted_sample_set_id
 	TypewriterRevealType.set_characters_per_second(
 		VoiceProfilesType.speed_for(_persisted_speech_speed_id)
 	)
@@ -2101,6 +2160,7 @@ func _confirm_pending_action() -> void:
 		_draft_voice_id = VoiceProfilesType.DEFAULT_ID
 		_draft_speech_speed_id = VoiceProfilesType.DEFAULT_SPEED_ID
 		_draft_call_id = VoiceProfilesType.DEFAULT_CALL_ID
+		_draft_sample_set_id = VoiceProfilesType.DEFAULT_SAMPLE_SET_ID
 		_preview.apply_appearance_profile(_draft_appearance)
 		_queue_draft_appearance_preview()
 		_dirty = _draft_differs()
@@ -2135,6 +2195,7 @@ func _draft_differs() -> bool:
 		or _draft_voice_id != _persisted_voice_id
 		or _draft_speech_speed_id != _persisted_speech_speed_id
 		or _draft_call_id != _persisted_call_id
+		or _draft_sample_set_id != _persisted_sample_set_id
 	)
 
 

@@ -30,6 +30,14 @@ func _run_host() -> void:
 	for _frame: int in 4:
 		await physics_frame
 	assert(session.set_host_open(true))
+	var chat_service := main.get_node(
+		"%NetworkChatService"
+	) as NetworkChatService
+	var voice_messages: Array[Dictionary] = []
+	chat_service.message_received.connect(func(message: Dictionary) -> void:
+		if str(message.get("body", "")) == "voice profile sync":
+			voice_messages.append(message)
+	)
 	var remote_peer_id: int = await _wait_for_remote_peer(session)
 	assert(remote_peer_id > 1)
 	var record := session.get_peer_record(remote_peer_id)
@@ -50,6 +58,15 @@ func _run_host() -> void:
 	assert(avatar != null)
 	assert(avatar.appearance_snapshot == changed)
 	assert(record.display_name != "NetworkProfileService")
+	var voice_message_deadline: int = Time.get_ticks_msec() + 8000
+	while (
+		Time.get_ticks_msec() < voice_message_deadline
+		and voice_messages.is_empty()
+	):
+		await process_frame
+	assert(not voice_messages.is_empty())
+	assert(str(voice_messages[0].get("voice_id", "")) == "deep")
+	assert(str(voice_messages[0].get("sample_set_id", "")) == "kim")
 	var disconnect_deadline: int = Time.get_ticks_msec() + 8000
 	while (
 		Time.get_ticks_msec() < disconnect_deadline
@@ -95,9 +112,10 @@ func _run_client() -> void:
 		service.get_persisted_name(),
 		changed,
 		true,
-		service.get_persisted_voice_id(),
+		"deep",
 		service.get_persisted_speech_speed_id(),
 		service.get_persisted_call_id(),
+		"kim",
 	))
 	var apply_deadline: int = Time.get_ticks_msec() + 8000
 	while Time.get_ticks_msec() < apply_deadline and apply_results.is_empty():
@@ -105,8 +123,35 @@ func _run_client() -> void:
 	assert(not apply_results.is_empty())
 	assert(bool(apply_results[0][0]))
 	assert(service.get_persisted_appearance() == changed)
+	assert(service.get_persisted_voice_id() == "deep")
+	assert(service.get_persisted_sample_set_id() == "kim")
 	assert(Dictionary(session.get("_local_appearance_snapshot")) == changed)
-	await create_timer(0.75).timeout
+	var player := main.get_node("%PlayerSpawnService").get_local_player() as Player
+	assert(player.get_animalese_voice_id() == "deep")
+	assert(player.get_animalese_sample_set_id() == "kim")
+	var chat_service := main.get_node(
+		"%NetworkChatService"
+	) as NetworkChatService
+	var local_confirmations: Array[Dictionary] = []
+	chat_service.local_message_confirmed.connect(
+		func(message: Dictionary) -> void:
+			if str(message.get("body", "")) == "voice profile sync":
+				local_confirmations.append(message)
+	)
+	assert(chat_service.send_local_message(
+		"voice profile sync",
+		service.get_persisted_voice_id(),
+		service.get_persisted_sample_set_id(),
+	))
+	var confirmation_deadline: int = Time.get_ticks_msec() + 8000
+	while (
+		Time.get_ticks_msec() < confirmation_deadline
+		and local_confirmations.is_empty()
+	):
+		await process_frame
+	assert(not local_confirmations.is_empty())
+	assert(str(local_confirmations[0].get("voice_id", "")) == "deep")
+	assert(str(local_confirmations[0].get("sample_set_id", "")) == "kim")
 	print("Profile multiplayer client validation: PASS")
 	await _session_cleanup(main, session)
 

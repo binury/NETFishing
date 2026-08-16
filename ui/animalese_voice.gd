@@ -1,8 +1,7 @@
 class_name AnimaleseVoice
 extends Node
 
-const SAMPLE_DIRECTORY := "res://sound/dialogue/animalese/placeholder"
-const SUPPORTED_CHARACTERS := "abcdefghijklmnopqrstuvwxyz"
+const SUPPORTED_CHARACTERS := "abcdefghijklmnopqrstuvwxyz0123456789"
 const DEFAULT_CHARACTERS_PER_SECOND: float = 28.0
 const POLYPHONY: int = 8
 const VoiceProfilesType = preload(
@@ -13,7 +12,7 @@ const TypewriterRevealType = preload("res://ui/typewriter_reveal.gd")
 var base_pitch: float = 1.0
 var volume_db: float = -13.0
 
-var _samples: Dictionary[String, AudioStream] = {}
+var _sample_sets: Dictionary[String, Dictionary] = {}
 var _player: AudioStreamPlayer
 var _playback: AudioStreamPlaybackPolyphonic
 
@@ -33,12 +32,20 @@ func _ready() -> void:
 	)
 
 
+func _exit_tree() -> void:
+	if _player != null:
+		_player.stop()
+		_player.stream = null
+	_playback = null
+
+
 func speak_text(
 	tween_owner: Node,
 	text: String,
 	voice_key: String,
 	voice_profile_id: String = VoiceProfilesType.DEFAULT_ID,
 	characters_per_second: float = -1.0,
+	sample_set_id: String = VoiceProfilesType.DEFAULT_SAMPLE_SET_ID,
 ) -> Tween:
 	var speech_tween := tween_owner.create_tween()
 	var resolved_characters_per_second := (
@@ -53,6 +60,9 @@ func speak_text(
 	var voice_pitch := (
 		base_pitch * VoiceProfilesType.pitch_for(voice_profile_id)
 	)
+	var resolved_sample_set_id := (
+		VoiceProfilesType.sanitized_sample_set_id(sample_set_id)
+	)
 	for character_index: int in range(text.length()):
 		speech_tween.tween_interval(character_seconds)
 		speech_tween.tween_callback(
@@ -62,23 +72,33 @@ func speak_text(
 				text,
 				voice_key,
 				voice_pitch,
+				resolved_sample_set_id,
 			)
 		)
 	return speech_tween
 
 
 func _load_samples() -> void:
-	for character_index: int in range(SUPPORTED_CHARACTERS.length()):
-		var character := SUPPORTED_CHARACTERS.substr(character_index, 1)
-		_load_sample(character)
-	_load_sample("fallback")
+	for option: Dictionary in VoiceProfilesType.SAMPLE_SET_OPTIONS:
+		var sample_set_id := str(option.get("id", ""))
+		var sample_directory := str(option.get("directory", ""))
+		var samples: Dictionary[String, AudioStream] = {}
+		for character_index: int in range(SUPPORTED_CHARACTERS.length()):
+			var character := SUPPORTED_CHARACTERS.substr(character_index, 1)
+			var sample := _load_sample(sample_directory, character)
+			if sample != null:
+				samples[character] = sample
+		var fallback := _load_sample(sample_directory, "fallback")
+		if fallback != null:
+			samples["fallback"] = fallback
+		_sample_sets[sample_set_id] = samples
 
 
-func _load_sample(sample_name: String) -> void:
-	var sample_path := "%s/%s.wav" % [SAMPLE_DIRECTORY, sample_name]
-	var sample := load(sample_path) as AudioStream
-	if sample != null:
-		_samples[sample_name] = sample
+func _load_sample(sample_directory: String, sample_name: String) -> AudioStream:
+	var sample_path := "%s/%s.wav" % [sample_directory, sample_name]
+	if not ResourceLoader.exists(sample_path, "AudioStreamWAV"):
+		return null
+	return load(sample_path) as AudioStream
 
 
 func _play_character(
@@ -87,16 +107,17 @@ func _play_character(
 	full_text: String,
 	voice_key: String,
 	voice_pitch: float,
+	sample_set_id: String,
 ) -> void:
 	if _playback == null or character.strip_edges().is_empty():
 		return
 	var normalized := character.to_lower()
 	if normalized in [".", ",", "!", "?", ":", ";", "-", "_"]:
 		return
-	var sample_name := (
-		normalized if SUPPORTED_CHARACTERS.contains(normalized) else "fallback"
-	)
-	var sample: AudioStream = _samples.get(sample_name)
+	var samples: Dictionary = _sample_sets.get(sample_set_id, {})
+	var sample := samples.get(normalized) as AudioStream
+	if sample == null:
+		sample = samples.get("fallback") as AudioStream
 	if sample == null:
 		return
 	var speaker_variation := (
