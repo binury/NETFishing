@@ -394,8 +394,11 @@ var _catch_attachment_offset: Vector3 = Vector3(0.0, 0.08, 0.04)
 
 var _gravity: float = float(ProjectSettings.get_setting("physics/3d/default_gravity"))
 var _camera_dragging: bool = false
+var _camera_drag_button_held: bool = false
 var _camera_input_enabled: bool = true
 var _camera_drag_prior_mouse_mode: Input.MouseMode = Input.MOUSE_MODE_VISIBLE
+var _camera_drag_capture_pending: bool = false
+var _camera_drag_generation: int = 0
 var _free_camera_active: bool = false
 var _free_camera_body: CharacterBody3D
 var _free_camera: Camera3D
@@ -819,9 +822,6 @@ func _process(delta: float) -> void:
 				)
 			)
 		return
-
-	if _camera_dragging and not Input.is_action_pressed("camera_drag"):
-		_set_camera_dragging(false)
 
 	if _is_camera_input_enabled():
 		var stick: Vector2 = _get_controller_camera_stick()
@@ -1259,15 +1259,26 @@ func _input(event: InputEvent) -> void:
 		return
 	var mouse_button := event as InputEventMouseButton
 	if mouse_button != null and event.is_action("camera_drag"):
+		_camera_drag_button_held = mouse_button.pressed
 		_set_camera_dragging(mouse_button.pressed)
 		return
 	var mouse_motion := event as InputEventMouseMotion
 	if mouse_motion == null or not _camera_dragging:
 		return
 	if _free_camera_active:
-		_rotate_free_camera(mouse_motion.relative * mouse_sensitivity)
+		_rotate_free_camera(mouse_motion.screen_relative * mouse_sensitivity)
 	else:
-		_rotate_camera(mouse_motion.relative * mouse_sensitivity)
+		_rotate_camera(mouse_motion.screen_relative * mouse_sensitivity)
+	_request_camera_drag_capture()
+
+
+func _notification(what: int) -> void:
+	# A captured pointer can miss its release when the application loses focus.
+	# Normal camera drags are ended by the matching mouse-button event; polling
+	# InputMap here is intentionally avoided because changing mouse mode can
+	# transiently clear the action and release an otherwise active drag.
+	if what == NOTIFICATION_APPLICATION_FOCUS_OUT and _camera_dragging:
+		_set_camera_dragging(false)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -1321,11 +1332,38 @@ func _set_camera_dragging(active: bool) -> void:
 	if _camera_dragging == active:
 		return
 	_camera_dragging = active
+	_camera_drag_generation += 1
+	_camera_drag_capture_pending = false
 	if active:
 		_camera_drag_prior_mouse_mode = Input.mouse_mode
-		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
-	elif Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
-		Input.mouse_mode = _camera_drag_prior_mouse_mode
+	else:
+		_camera_drag_button_held = false
+		if Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
+			Input.mouse_mode = _camera_drag_prior_mouse_mode
+
+
+func _request_camera_drag_capture() -> void:
+	if (
+		_camera_drag_capture_pending
+		or Input.mouse_mode == Input.MOUSE_MODE_CAPTURED
+	):
+		return
+	_camera_drag_capture_pending = true
+	_capture_camera_drag_pointer.call_deferred(_camera_drag_generation)
+
+
+func _capture_camera_drag_pointer(generation: int) -> void:
+	if generation != _camera_drag_generation:
+		return
+	_camera_drag_capture_pending = false
+	if (
+		not _camera_dragging
+		or not local_control_enabled
+		or not _is_camera_input_enabled()
+		or not _camera_drag_button_held
+	):
+		return
+	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
 
 func _get_network_aware_speed() -> float:
