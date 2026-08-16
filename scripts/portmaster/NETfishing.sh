@@ -29,7 +29,9 @@ fi
 
 CONFDIR="$GAMEDIR/conf"
 GAME_EXECUTABLE="$GAMEDIR/NETfishing.aarch64"
+GAME_LAUNCHER="$GAMEDIR/launch-netfishing.sh"
 GPTOKEYB_CONFIG="$GAMEDIR/netfishing.gptk"
+CONTROLLER_MAPPING_FILE="$CONFDIR/cache/controller_mapping.txt"
 WESTON_DIR="/tmp/netfishing-weston"
 WESTON_RUNTIME="weston_pkg_0.2"
 HARBOURMASTER="$controlfolder/harbourmaster"
@@ -76,6 +78,7 @@ elif [ -n "$sdl_controllerconfig" ]; then
 else
 	netfishing_controllerconfig="$GODOT_MUOS_MAPPING"
 fi
+printf '%s\n' "$netfishing_controllerconfig" > "$CONTROLLER_MAPPING_FILE"
 
 NETFISHING_GODOT_OPTIONS=()
 NETFISHING_GAME_ENVIRONMENT=()
@@ -125,15 +128,15 @@ esac
 $GPTOKEYB "NETfishing.aarch64" -c "$GPTOKEYB_CONFIG" &
 pm_platform_helper "$GAME_EXECUTABLE"
 
-$ESUDO env \
-	CRUSTY_RESOLUTION="${DISPLAY_WIDTH}x${DISPLAY_HEIGHT}" \
-	SDL_GAMECONTROLLERCONFIG="$netfishing_controllerconfig" \
+$ESUDO env CRUSTY_RESOLUTION="${DISPLAY_WIDTH}x${DISPLAY_HEIGHT}" \
 	"$WESTON_DIR/westonwrap.sh" headless noop kiosk crusty_x11egl \
 	XDG_DATA_HOME="$CONFDIR/data" \
 	XDG_CONFIG_HOME="$CONFDIR/config" \
 	XDG_CACHE_HOME="$CONFDIR/cache" \
 	GODOT_SILENCE_ROOT_WARNING=1 \
 	"${NETFISHING_GAME_ENVIRONMENT[@]}" \
+	"$GAME_LAUNCHER" \
+	"$CONTROLLER_MAPPING_FILE" \
 	"$GAME_EXECUTABLE" \
 	"${NETFISHING_GODOT_OPTIONS[@]}" \
 	--resolution "${DISPLAY_WIDTH}x${DISPLAY_HEIGHT}" \

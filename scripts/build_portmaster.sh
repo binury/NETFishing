@@ -117,6 +117,8 @@ install -m 0755 "${TEMPLATE_ROOT}/NETfishing.sh" "${STAGE_ROOT}/NETfishing.sh"
 install -m 0644 "${TEMPLATE_ROOT}/port.json" "${GAME_ROOT}/port.json"
 install -m 0644 "${TEMPLATE_ROOT}/netfishing.gptk" \
   "${GAME_ROOT}/netfishing.gptk"
+install -m 0755 "${TEMPLATE_ROOT}/launch-netfishing.sh" \
+  "${GAME_ROOT}/launch-netfishing.sh"
 install -m 0755 "${ARM64_EXECUTABLE}" "${GAME_ROOT}/NETfishing.aarch64"
 install -m 0644 "${ARM64_PCK}" "${GAME_ROOT}/NETfishing.pck"
 install -m 0644 "${TEMPLATE_ROOT}/gameinfo.xml" "${GAME_ROOT}/gameinfo.xml"
@@ -219,19 +221,22 @@ grep -Fq 'PROFILE_PATH="$CONFDIR/performance_profile"' \
   "${STAGE_ROOT}/NETfishing.sh"
 grep -Fq 'NETFISHING_PERFORMANCE_PROFILE=light' \
   "${STAGE_ROOT}/NETfishing.sh"
-readonly CONTROLLER_ENV_LINE="$(
-  grep -nF 'SDL_GAMECONTROLLERCONFIG="$netfishing_controllerconfig"' \
-    "${STAGE_ROOT}/NETfishing.sh" | cut -d: -f1
-)"
-readonly WESTON_LAUNCH_LINE="$(
-  grep -nF '"$WESTON_DIR/westonwrap.sh" headless noop kiosk crusty_x11egl' \
-    "${STAGE_ROOT}/NETfishing.sh" | cut -d: -f1
-)"
-if [[ -z "${CONTROLLER_ENV_LINE}" || -z "${WESTON_LAUNCH_LINE}" || \
-  "${CONTROLLER_ENV_LINE}" -ge "${WESTON_LAUNCH_LINE}" ]]; then
-  echo "SDL_GAMECONTROLLERCONFIG must be exported before westonwrap.sh." >&2
+grep -Fq 'CONTROLLER_MAPPING_FILE="$CONFDIR/cache/controller_mapping.txt"' \
+  "${STAGE_ROOT}/NETfishing.sh"
+grep -Fq 'printf '\''%s\n'\'' "$netfishing_controllerconfig" > "$CONTROLLER_MAPPING_FILE"' \
+  "${STAGE_ROOT}/NETfishing.sh"
+grep -Fq '"$GAME_LAUNCHER"' "${STAGE_ROOT}/NETfishing.sh"
+grep -Fq '"$CONTROLLER_MAPPING_FILE"' "${STAGE_ROOT}/NETfishing.sh"
+if grep -Fq 'SDL_GAMECONTROLLERCONFIG="$netfishing_controllerconfig"' \
+  "${STAGE_ROOT}/NETfishing.sh"; then
+  echo "Raw controller mappings must not be passed through westonwrap.sh." >&2
   exit 1
 fi
+grep -Fq 'SDL_GAMECONTROLLERCONFIG="$(<"$CONTROLLER_MAPPING_FILE")"' \
+  "${GAME_ROOT}/launch-netfishing.sh"
+grep -Fq 'export SDL_GAMECONTROLLERCONFIG' \
+  "${GAME_ROOT}/launch-netfishing.sh"
+grep -Fq 'exec "$@"' "${GAME_ROOT}/launch-netfishing.sh"
 grep -Fq 'GPTOKEYB_CONFIG="$GAMEDIR/netfishing.gptk"' \
   "${STAGE_ROOT}/NETfishing.sh"
 grep -Fq '$GPTOKEYB "NETfishing.aarch64" -c "$GPTOKEYB_CONFIG" &' \

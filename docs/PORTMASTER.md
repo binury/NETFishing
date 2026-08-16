@@ -154,12 +154,18 @@ The device-verified Godot mapping is:
 `scripts/portmaster/NETfishing.sh` must replace the incompatible SDL2 entry
 with the Godot entry when that SDL2 GUID is selected. Do not append the two
 entries with a newline. WestonPack reconstructs the wrapped game command
-through a shell, so values passed in that command can be split into unintended
-commands. Controller names may legally contain spaces, which caused this
-failure with the `GO-Super Gamepad` mapping. Export the single selected
-`SDL_GAMECONTROLLERCONFIG` value through the outer `env` invocation, before
-`westonwrap.sh`, so Weston and the game inherit it without tokenizing the
-mapping text.
+through a shell, so raw mapping values passed in that command can be split into
+unintended commands. Controller names may legally contain spaces, which caused
+this failure with the `GO-Super Gamepad` mapping. The outer Weston environment
+also does not reliably preserve the corrected muOS mapping for the game.
+
+Write the exact selected mapping to `conf/cache/controller_mapping.txt` before
+starting Weston. Weston must launch `launch-netfishing.sh`, which reads that
+file, exports `SDL_GAMECONTROLLERCONFIG`, and immediately replaces itself with
+the game process. This applies the mapping at the same point as the working
+0.10.1 launcher without passing its raw text through WestonPack's command
+reconstruction. Do not move the mapping back to either side of
+`westonwrap.sh`.
 
 Legacy GPTOKEYB builds can load their compiled default keyboard map when no
 `-c` file is supplied. That map translates face buttons, D-pad directions, and
