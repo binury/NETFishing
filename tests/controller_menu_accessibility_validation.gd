@@ -104,6 +104,29 @@ func _validate_join_game_navigation() -> void:
 	var discover_controls: Array[Control] = modes.duplicate()
 	discover_controls.append_array([server_list, refresh, join, back])
 	_assert_directionally_reachable(discover, discover_controls)
+	var rooms: Array[Dictionary] = [
+		{
+			"room_id": "controller-default-room",
+			"room_name": "Controller default room",
+			"current_players": 1,
+			"max_players": 8,
+		},
+		{
+			"room_id": "controller-second-room",
+			"room_name": "Controller second room",
+			"current_players": 2,
+			"max_players": 8,
+		},
+	]
+	page.call("_on_discovery_rooms_updated", rooms)
+	_expect(
+		int(page.get("_selected_discovery_index")) == 0,
+		"Discovery should select its first room as soon as results arrive.",
+	)
+	_expect(
+		server_list.is_selected(0),
+		"Discovery's visible cursor and selected room should agree immediately.",
+	)
 
 	address.show()
 	address.editable = true

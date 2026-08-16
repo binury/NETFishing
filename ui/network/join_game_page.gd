@@ -249,6 +249,8 @@ func _set_mode(mode: Mode, clear_connection_error: bool = true) -> void:
 	_selected_discovery_index = -1
 	_clear_edit_state()
 	_refresh_entries()
+	if mode == Mode.DISCOVER and not _discovery_rooms.is_empty():
+		_select_discovery_index(0)
 	_refresh()
 	if mode == Mode.DISCOVER:
 		_discovery_refresh_timer.start()
@@ -465,10 +467,8 @@ func _cancel_delete() -> void:
 
 func _on_list_item_selected(index: int) -> void:
 	if _mode == Mode.DISCOVER:
-		if index < 0 or index >= _discovery_rooms.size():
+		if not _select_discovery_index(index):
 			return
-		_selected_discovery_index = index
-		_selected_entry = null
 		_refresh()
 		return
 	if index < 0 or index >= _visible_entries.size():
@@ -484,6 +484,15 @@ func _select_entry_id(entry_id: String) -> void:
 			_server_list.select(index)
 			_selected_entry = _visible_entries[index]
 			return
+
+
+func _select_discovery_index(index: int) -> bool:
+	if index < 0 or index >= _discovery_rooms.size():
+		return false
+	_selected_discovery_index = index
+	_selected_entry = null
+	_server_list.select(index)
+	return true
 
 
 func _refresh_entries() -> void:
@@ -906,9 +915,10 @@ func _on_discovery_rooms_updated(rooms: Array[Dictionary]) -> void:
 		if not selected_id.is_empty():
 			for index: int in _discovery_rooms.size():
 				if str(_discovery_rooms[index].get("room_id", "")) == selected_id:
-					_selected_discovery_index = index
-					_server_list.select(index)
+					_select_discovery_index(index)
 					break
+		if _selected_discovery_index < 0 and not _discovery_rooms.is_empty():
+			_select_discovery_index(0)
 		_refresh()
 
 

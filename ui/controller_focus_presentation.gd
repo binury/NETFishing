@@ -3,7 +3,7 @@ extends Node
 
 const CONTROLLER_MOTION_THRESHOLD: float = 0.35
 const FOCUS_ARROW_TEXTURE: Texture2D = preload(
-	"res://ui/icons/pictograms/arrow_light_up_full.png"
+	"res://ui/icons/pictograms/arrow_cursor.png"
 )
 const FOCUS_ARROW_SIZE: Vector2 = Vector2(32.0, 32.0)
 const FOCUS_ARROW_ROTATION_DEGREES: float = 150.0
