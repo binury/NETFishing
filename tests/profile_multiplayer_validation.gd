@@ -1,7 +1,9 @@
 extends SceneTree
 
 const MainScene: PackedScene = preload("res://main/main.tscn")
+const AnimaleseVoiceType = preload("res://ui/animalese_voice.gd")
 const TEST_PORT: int = 18144
+const HOST_VOICE_MESSAGE: String = "remote voice playback"
 
 
 func _initialize() -> void:
@@ -23,8 +25,24 @@ func _run() -> void:
 func _run_host() -> void:
 	var main: Node = await _create_initialized_main()
 	var session := main.get_node("%NetworkSession") as NetworkSession
+	var profile := main.get_node(
+		"%NetworkProfilePreferences"
+	) as NetworkProfilePreferences
+	assert(profile.set_profile_identity(
+		profile.display_name,
+		"deep",
+		profile.speech_speed_id,
+		profile.call_id,
+		"kim",
+	))
 	var save_manager := main.get("_save_manager") as PlayerSaveManager
 	assert(session.start_private_host(TEST_PORT))
+	var local_avatar := main.get_node("%PlayerSpawnService").get_avatar(
+		1
+	) as Player
+	assert(local_avatar != null)
+	assert(local_avatar.get_animalese_voice_id() == "deep")
+	assert(local_avatar.get_animalese_sample_set_id() == "kim")
 	assert(save_manager.initialize_new_game())
 	main.call("_enter_gameplay")
 	for _frame: int in 4:
@@ -58,6 +76,11 @@ func _run_host() -> void:
 	assert(avatar != null)
 	assert(avatar.appearance_snapshot == changed)
 	assert(record.display_name != "NetworkProfileService")
+	assert(chat_service.send_local_message(
+		HOST_VOICE_MESSAGE,
+		profile.voice_id,
+		profile.sample_set_id,
+	))
 	var voice_message_deadline: int = Time.get_ticks_msec() + 8000
 	while (
 		Time.get_ticks_msec() < voice_message_deadline
@@ -80,6 +103,14 @@ func _run_host() -> void:
 
 func _run_client() -> void:
 	var main: Node = await _create_initialized_main()
+	var chat_ui := main.get_node("%GameUI").get_node("%ChatUI") as ChatUI
+	var animalese := chat_ui.get("_animalese_voice") as AnimaleseVoiceType
+	assert(animalese != null)
+	var remote_voice_samples: Array[String] = []
+	animalese.character_sample_played.connect(
+		func(sample_set_id: String, _character: String) -> void:
+			remote_voice_samples.append(sample_set_id)
+	)
 	main.call("_on_title_join_game_requested", "127.0.0.1:%d" % TEST_PORT)
 	var session := main.get_node("%NetworkSession") as NetworkSession
 	var join_deadline: int = Time.get_ticks_msec() + 20000
@@ -132,6 +163,29 @@ func _run_client() -> void:
 	var chat_service := main.get_node(
 		"%NetworkChatService"
 	) as NetworkChatService
+	var host_voice_messages: Array[Dictionary] = []
+	for message: Dictionary in chat_service.get_history():
+		if str(message.get("body", "")) == HOST_VOICE_MESSAGE:
+			host_voice_messages.append(message)
+	var host_voice_deadline: int = Time.get_ticks_msec() + 8000
+	while (
+		Time.get_ticks_msec() < host_voice_deadline
+		and (
+			host_voice_messages.is_empty()
+			or remote_voice_samples.is_empty()
+		)
+	):
+		await process_frame
+		for message: Dictionary in chat_service.get_history():
+			if (
+				str(message.get("body", "")) == HOST_VOICE_MESSAGE
+				and message not in host_voice_messages
+			):
+				host_voice_messages.append(message)
+	assert(not host_voice_messages.is_empty())
+	assert(str(host_voice_messages[0].get("voice_id", "")) == "deep")
+	assert(str(host_voice_messages[0].get("sample_set_id", "")) == "kim")
+	assert(remote_voice_samples.has("kim"))
 	var local_confirmations: Array[Dictionary] = []
 	chat_service.local_message_confirmed.connect(
 		func(message: Dictionary) -> void:

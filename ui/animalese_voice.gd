@@ -1,6 +1,8 @@
 class_name AnimaleseVoice
 extends Node
 
+signal character_sample_played(sample_set_id: String, character: String)
+
 const SUPPORTED_CHARACTERS := "abcdefghijklmnopqrstuvwxyz0123456789"
 const DEFAULT_CHARACTERS_PER_SECOND: float = 28.0
 const POLYPHONY: int = 8
@@ -144,3 +146,4 @@ func _play_character(
 		1.45,
 	)
 	_playback.play_stream(sample, 0.0, volume_db, pitch)
+	character_sample_played.emit(sample_set_id, normalized)

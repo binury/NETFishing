@@ -625,6 +625,15 @@ func _on_session_state_changed(state: NetworkSession.State) -> void:
 		_latest_check_name = ""
 		_session.set_local_appearance_snapshot(_appearance_store.get_snapshot())
 		_apply_to_avatar(1, _appearance_store.get_snapshot())
+		return
+	if state in [
+		NetworkSession.State.PRIVATE_HOST,
+		NetworkSession.State.OPEN_HOST,
+		NetworkSession.State.JOINED_CLIENT,
+	]:
+		var local_peer_id := _session.get_local_peer_id()
+		_apply_to_avatar(local_peer_id, _appearance_store.get_snapshot())
+		_apply_local_voice_to_avatar()
 
 
 func _emit_conflict_result(data: Dictionary) -> void:

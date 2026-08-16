@@ -322,10 +322,11 @@ func set_available(value: bool) -> void:
 	_refresh_visibility()
 
 
-func close_chat() -> void:
+func close_chat(preserve_status: bool = false) -> void:
 	var ownership_was_active: bool = _opened or _input_lock_applied
 	_opened = false
-	_set_status("")
+	if not preserve_status:
+		_set_status("")
 	_entry.virtual_keyboard_enabled = false
 	_entry.release_focus()
 	_entry.hide()
@@ -860,37 +861,46 @@ func _handle_chat_command(body: String) -> bool:
 		"weather":
 			_handle_weather_command(parts)
 		"":
-			_set_status("Enter a command after /.")
+			_show_command_error("Enter a command after /.")
 		_:
-			_set_status("Unknown command: /%s" % command)
+			_show_command_error("Unknown command: /%s" % command)
 	_entry.clear()
 	_flush_draft()
 	return true
 
 
+func _show_command_error(message: String) -> void:
+	_set_status(message)
+	close_chat(true)
+
+
 func _handle_time_command(parts: PackedStringArray) -> void:
 	if parts.size() != 2:
-		_set_status("Usage: /time [dawn, day, dusk, night]")
+		_show_command_error("Usage: /time [dawn, day, dusk, night]")
 		return
 	if _service == null or _world_time == null:
-		_set_status("World time is unavailable.")
+		_show_command_error("World time is unavailable.")
 		return
 	var phase_name := String(parts[1]).to_lower()
 	if phase_name not in ["dawn", "day", "dusk", "night"]:
-		_set_status("Usage: /time [dawn, day, dusk, night]")
+		_show_command_error("Usage: /time [dawn, day, dusk, night]")
 		return
 	if not _service.request_world_time_change(phase_name):
-		_set_status("Only the host or an operator can change world time.")
+		_show_command_error(
+			"Only the host or an operator can change world time."
+		)
 		return
 	close_chat()
 
 
 func _handle_weather_command(parts: PackedStringArray) -> void:
 	if parts.size() != 2:
-		_set_status("Usage: /weather [clear, cloudy, rainy, foggy]")
+		_show_command_error(
+			"Usage: /weather [clear, cloudy, rainy, foggy]"
+		)
 		return
 	if _service == null or _world_weather == null:
-		_set_status("World weather is unavailable.")
+		_show_command_error("World weather is unavailable.")
 		return
 	var weather_name := String(parts[1]).to_lower()
 	match weather_name:
@@ -899,10 +909,14 @@ func _handle_weather_command(parts: PackedStringArray) -> void:
 		"cloudy", "rainy", "foggy":
 			pass
 		_:
-			_set_status("Usage: /weather [clear, cloudy, rainy, foggy]")
+			_show_command_error(
+				"Usage: /weather [clear, cloudy, rainy, foggy]"
+			)
 			return
 	if not _service.request_world_weather_change(weather_name):
-		_set_status("Only the host or an operator can change world weather.")
+		_show_command_error(
+			"Only the host or an operator can change world weather."
+		)
 		return
 	close_chat()
 
@@ -1009,7 +1023,7 @@ func _show_speech_bubble(
 			speaker_avatar.get_animalese_sample_set_id()
 		)
 	_animalese_voice.speak_text(
-		label,
+		_animalese_voice,
 		label.text,
 		str(peer_id),
 		voice_profile_id,
