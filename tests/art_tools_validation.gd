@@ -684,7 +684,26 @@ func _validate_pause_browser_transition(
 		) == Input.MOUSE_MODE_VISIBLE
 	)
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-	player.call("_set_camera_dragging", true)
+	var drag_press := InputEventMouseButton.new()
+	drag_press.button_index = MOUSE_BUTTON_RIGHT
+	drag_press.button_mask = MOUSE_BUTTON_MASK_RIGHT
+	drag_press.pressed = true
+	player.call("_input", drag_press)
+	assert(bool(player.get("_camera_dragging")))
+	var camera_yaw := player.get_node("%CameraYaw") as Node3D
+	var yaw_before_drag: float = camera_yaw.rotation.y
+	var drag_motion := InputEventMouseMotion.new()
+	drag_motion.button_mask = MOUSE_BUTTON_MASK_RIGHT
+	drag_motion.relative = Vector2(24.0, -8.0)
+	player.call("_input", drag_motion)
+	assert(not is_equal_approx(camera_yaw.rotation.y, yaw_before_drag))
+	var drag_release := InputEventMouseButton.new()
+	drag_release.button_index = MOUSE_BUTTON_RIGHT
+	drag_release.button_mask = 0
+	drag_release.pressed = false
+	player.call("_input", drag_release)
+	assert(not bool(player.get("_camera_dragging")))
+	player.call("_input", drag_press)
 	assert(bool(player.get("_camera_dragging")))
 	pause_menu.open_menu()
 	while bool(pause_menu.get("_root_transition_active")):

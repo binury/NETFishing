@@ -20,7 +20,8 @@ func _init() -> void:
 	assert(_has_joypad_button(&"jump", JOY_BUTTON_A))
 	assert(_has_joypad_button(&"ui_accept", JOY_BUTTON_A))
 	assert(_has_joypad_button(&"ui_cancel", JOY_BUTTON_B))
-	assert(_has_joypad_button(&"interact", JOY_BUTTON_Y))
+	assert(not _has_joypad_button(&"interact", JOY_BUTTON_Y))
+	assert(_has_joypad_button(&"character_call", JOY_BUTTON_Y))
 	assert(_has_joypad_button(&"fish_primary", JOY_BUTTON_RIGHT_SHOULDER))
 	assert(not _has_joypad_motion(
 		&"fish_primary", JOY_AXIS_TRIGGER_LEFT, 1.0

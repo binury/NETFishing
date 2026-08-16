@@ -102,6 +102,20 @@ func _validate_manager(manager: ControllerMappingManagerType) -> String:
 		&"sneak", &""
 	) != ControllerMappingManagerType.ROLE_RIGHT_STICK_CLICK:
 		return "right-stick click is not assigned to the sneak action"
+	if ControllerMappingManagerType.ROLE_LABELS.get(
+		ControllerMappingManagerType.ROLE_Y, ""
+	) != "character call":
+		return "Y is not presented as the character-call button"
+	if ControllerMappingManagerType.BUTTON_ACTION_ROLES.get(
+		&"character_call", &""
+	) != ControllerMappingManagerType.ROLE_Y:
+		return "Y is not assigned to the character-call action"
+	if ControllerMappingManagerType.BUTTON_ACTION_ROLES.has(&"interact"):
+		return "Y still exposes the obsolete controller interact binding"
+	if not _has_joy_button(&"character_call", JOY_BUTTON_Y):
+		return "character call does not default to Y"
+	if _has_joy_button(&"interact", JOY_BUTTON_Y):
+		return "Y still defaults to interact"
 	if not _has_joy_button(&"sneak", JOY_BUTTON_RIGHT_STICK):
 		return "sneak does not default to right-stick click"
 	var trigger_button := InputEventJoypadButton.new()
@@ -221,17 +235,32 @@ func _validate_portmaster_launcher() -> String:
 		"leftstick:b9",
 		"rightstick:b12",
 		"netfishing_controllerconfig=\"$GODOT_MUOS_MAPPING\"",
-		"$GPTOKEYB \"NETfishing.aarch64\" &",
+		"GPTOKEYB_CONFIG=\"$GAMEDIR/netfishing.gptk\"",
+		"$GPTOKEYB \"NETfishing.aarch64\" -c \"$GPTOKEYB_CONFIG\" &",
 		"pm_platform_helper \"$GAME_EXECUTABLE\"",
-		"SDL_GAMECONTROLLERCONFIG=\"$netfishing_controllerconfig\" \\",
+		"\"$GAME_LAUNCHER\"",
+		"\"$CONTROLLER_MAPPING_FILE\"",
 		"pm_finish",
 	]:
 		if expected_fragment not in launcher:
 			return "PortMaster launcher omitted " + expected_fragment
 	if "$'\\n'" in launcher:
 		return "PortMaster launcher appends mappings across a Weston-unsafe newline"
-	if "$GPTOKEYB \"NETfishing.aarch64\" -c" in launcher:
-		return "PortMaster launcher injects duplicate GPTOKEYB gameplay mappings"
+	const game_launcher_path: String = (
+		"res://scripts/portmaster/launch-netfishing.sh"
+	)
+	if not FileAccess.file_exists(game_launcher_path):
+		return "PortMaster game launcher wrapper is missing"
+	var game_launcher: String = FileAccess.get_file_as_string(
+		game_launcher_path
+	)
+	for expected_fragment: String in [
+		"SDL_GAMECONTROLLERCONFIG=\"$(<\"$CONTROLLER_MAPPING_FILE\")\"",
+		"export SDL_GAMECONTROLLERCONFIG",
+		"exec \"$@\"",
+	]:
+		if expected_fragment not in game_launcher:
+			return "PortMaster game launcher omitted " + expected_fragment
 	return ""
 
 

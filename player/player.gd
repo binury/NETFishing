@@ -1251,6 +1251,25 @@ func is_sitting() -> bool:
 	return _sitting
 
 
+func _input(event: InputEvent) -> void:
+	# Camera dragging must observe the complete mouse gesture before GUI controls
+	# get a chance to consume one part of it. Do not claim the event here: the
+	# Art Kit still needs the same right-button state to suspend its pointer.
+	if not local_control_enabled or not _is_camera_input_enabled():
+		return
+	var mouse_button := event as InputEventMouseButton
+	if mouse_button != null and event.is_action("camera_drag"):
+		_set_camera_dragging(mouse_button.pressed)
+		return
+	var mouse_motion := event as InputEventMouseMotion
+	if mouse_motion == null or not _camera_dragging:
+		return
+	if _free_camera_active:
+		_rotate_free_camera(mouse_motion.relative * mouse_sensitivity)
+	else:
+		_rotate_camera(mouse_motion.relative * mouse_sensitivity)
+
+
 func _unhandled_input(event: InputEvent) -> void:
 	if not local_control_enabled or not _is_camera_input_enabled():
 		return
@@ -1259,18 +1278,6 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		return
 
-	if event.is_action("camera_drag"):
-		_set_camera_dragging(event.is_pressed())
-		get_viewport().set_input_as_handled()
-		return
-
-	if event is InputEventMouseMotion and _camera_dragging:
-		if _free_camera_active:
-			_rotate_free_camera(event.relative * mouse_sensitivity)
-		else:
-			_rotate_camera(event.relative * mouse_sensitivity)
-		get_viewport().set_input_as_handled()
-		return
 	if _free_camera_active:
 		return
 
