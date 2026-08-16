@@ -8,12 +8,25 @@ readonly TEMPLATE_ROOT="${SCRIPT_DIR}/portmaster"
 readonly GODOT_BIN="${GODOT_BIN:-godot}"
 
 PACKAGE_ONLY=0
-if [[ "${1:-}" == "--package-only" ]]; then
-  PACKAGE_ONLY=1
+HOTFIX=0
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --package-only)
+      PACKAGE_ONLY=1
+      ;;
+    --hotfix)
+      HOTFIX=1
+      ;;
+    *)
+      echo "Usage: $0 [--package-only] [--hotfix]" >&2
+      exit 2
+      ;;
+  esac
   shift
-fi
-if [[ $# -ne 0 ]]; then
-  echo "Usage: $0 [--package-only]" >&2
+done
+if [[ ${HOTFIX} -eq 1 && ${PACKAGE_ONLY} -ne 1 ]]; then
+  echo "PortMaster hotfixes must use an existing pinned ARM64 export." >&2
+  echo "Run this script with both --package-only and --hotfix." >&2
   exit 2
 fi
 
@@ -33,11 +46,30 @@ readonly ARM64_PCK="${ARM64_ROOT}/NETfishing.pck"
 readonly STAGE_ROOT="${RELEASE_ROOT}/portmaster-stage"
 readonly GAME_ROOT="${STAGE_ROOT}/netfishing"
 readonly ARCHIVE="${RELEASE_ROOT}/netfishing.zip"
-readonly LEGACY_ARCHIVE="${RELEASE_ROOT}/netfishing-${RELEASE_TAG}-portmaster-arm64.zip"
+readonly OBSOLETE_VERSIONED_ARCHIVE="${RELEASE_ROOT}/NETfishing-${RELEASE_TAG}-portmaster-arm64.zip"
+readonly OBSOLETE_LOWERCASE_ARCHIVE="${RELEASE_ROOT}/netfishing-${RELEASE_TAG}-portmaster-arm64.zip"
 
 readonly HEAD_COMMIT="$(git -C "${PROJECT_ROOT}" rev-parse HEAD)"
 readonly TAG_COMMIT="$(git -C "${PROJECT_ROOT}" rev-parse "${RELEASE_TAG}^{commit}")"
-if [[ "${HEAD_COMMIT}" != "${TAG_COMMIT}" ]]; then
+if [[ ${HOTFIX} -eq 1 ]]; then
+  if ! git -C "${PROJECT_ROOT}" merge-base --is-ancestor \
+    "${TAG_COMMIT}" "${HEAD_COMMIT}"; then
+    echo "${RELEASE_TAG} is not an ancestor of HEAD. Refusing hotfix package." >&2
+    exit 1
+  fi
+
+  while IFS= read -r changed_path; do
+    case "${changed_path}" in
+      docs/PORTMASTER.md|scripts/build_portmaster.sh|scripts/portmaster/*)
+        ;;
+      *)
+        echo "Hotfix contains a non-PortMaster change: ${changed_path}" >&2
+        exit 1
+        ;;
+    esac
+  done < <(git -C "${PROJECT_ROOT}" diff --name-only \
+    "${TAG_COMMIT}..${HEAD_COMMIT}")
+elif [[ "${HEAD_COMMIT}" != "${TAG_COMMIT}" ]]; then
   echo "HEAD does not match ${RELEASE_TAG}. Refusing to package mutable source." >&2
   exit 1
 fi
@@ -75,11 +107,14 @@ test -s "${ARM64_PCK}"
 file "${ARM64_EXECUTABLE}" | grep -q "ARM aarch64"
 
 rm -rf -- "${STAGE_ROOT}"
-rm -f -- "${ARCHIVE}" "${LEGACY_ARCHIVE}"
+rm -f -- \
+  "${ARCHIVE}" \
+  "${OBSOLETE_VERSIONED_ARCHIVE}" \
+  "${OBSOLETE_LOWERCASE_ARCHIVE}"
 mkdir -p -- "${GAME_ROOT}/licenses"
 
 install -m 0755 "${TEMPLATE_ROOT}/NETfishing.sh" "${STAGE_ROOT}/NETfishing.sh"
-install -m 0644 "${TEMPLATE_ROOT}/port.json" "${STAGE_ROOT}/port.json"
+install -m 0644 "${TEMPLATE_ROOT}/port.json" "${GAME_ROOT}/port.json"
 install -m 0755 "${ARM64_EXECUTABLE}" "${GAME_ROOT}/NETfishing.aarch64"
 install -m 0644 "${ARM64_PCK}" "${GAME_ROOT}/NETfishing.pck"
 install -m 0644 "${TEMPLATE_ROOT}/gameinfo.xml" "${GAME_ROOT}/gameinfo.xml"
@@ -107,7 +142,9 @@ cat >"${GAME_ROOT}/BUILD-INFO.txt" <<EOF
 NETfishing PortMaster ARM64 build
 
 Project version: ${PROJECT_VERSION}
-Source commit: ${TAG_COMMIT}
+Game source commit: ${TAG_COMMIT}
+Packaging source commit: ${HEAD_COMMIT}
+Packaging mode: $([[ ${HOTFIX} -eq 1 ]] && printf 'PortMaster hotfix' || printf 'release')
 Engine/export template: $("${GODOT_BIN}" --version)
 Architecture: AArch64
 Minimum linked GLIBC symbol version: GLIBC_2.28
@@ -125,6 +162,7 @@ NETfishing code is licensed under GPL-3.0-or-later.
 Source repository: https://forge.makearmy.io/woofmeow/netfishing
 Exact source revision: ${TAG_COMMIT}
 Release tag: ${RELEASE_TAG}
+PortMaster packaging revision: ${HEAD_COMMIT}
 EOF
 
 cat >"${GAME_ROOT}/README.md" <<EOF
@@ -153,28 +191,45 @@ EOF
 
 (
   cd "${STAGE_ROOT}"
-  zip -qry "${ARCHIVE}" NETfishing.sh netfishing port.json
+  zip -qry "${ARCHIVE}" NETfishing.sh netfishing
 )
 
 unzip -tq "${ARCHIVE}" >/dev/null
 readonly TOP_LEVELS="$(
   unzip -Z1 "${ARCHIVE}" | cut -d/ -f1 | sort -u
 )"
-readonly EXPECTED_TOP_LEVELS="$(printf '%s\n' NETfishing.sh netfishing port.json)"
+readonly EXPECTED_TOP_LEVELS="$(printf '%s\n' NETfishing.sh netfishing)"
 if [[ "${TOP_LEVELS}" != "${EXPECTED_TOP_LEVELS}" ]]; then
   echo "Unexpected PortMaster archive roots:" >&2
   printf '%s\n' "${TOP_LEVELS}" >&2
   exit 1
 fi
-grep -q '"version": 4' "${STAGE_ROOT}/port.json"
-grep -q '"name": "netfishing.zip"' "${STAGE_ROOT}/port.json"
-grep -q '"rtr": true' "${STAGE_ROOT}/port.json"
+grep -q '"version": 4' "${GAME_ROOT}/port.json"
+grep -q '"name": "netfishing.zip"' "${GAME_ROOT}/port.json"
+grep -q '"rtr": true' "${GAME_ROOT}/port.json"
+if unzip -Z1 "${ARCHIVE}" | grep -qx 'port.json'; then
+  echo "port.json must be inside netfishing/, not at the archive root." >&2
+  exit 1
+fi
 grep -q '^# PORTMASTER: netfishing.zip, NETfishing.sh$' \
   "${STAGE_ROOT}/NETfishing.sh"
 grep -Fq 'PROFILE_PATH="$CONFDIR/performance_profile"' \
   "${STAGE_ROOT}/NETfishing.sh"
 grep -Fq 'NETFISHING_PERFORMANCE_PROFILE=light' \
   "${STAGE_ROOT}/NETfishing.sh"
+readonly CONTROLLER_ENV_LINE="$(
+  grep -nF 'SDL_GAMECONTROLLERCONFIG="$netfishing_controllerconfig"' \
+    "${STAGE_ROOT}/NETfishing.sh" | cut -d: -f1
+)"
+readonly WESTON_LAUNCH_LINE="$(
+  grep -nF '"$WESTON_DIR/westonwrap.sh" headless noop kiosk crusty_x11egl' \
+    "${STAGE_ROOT}/NETfishing.sh" | cut -d: -f1
+)"
+if [[ -z "${CONTROLLER_ENV_LINE}" || -z "${WESTON_LAUNCH_LINE}" || \
+  "${CONTROLLER_ENV_LINE}" -ge "${WESTON_LAUNCH_LINE}" ]]; then
+  echo "SDL_GAMECONTROLLERCONFIG must be exported before westonwrap.sh." >&2
+  exit 1
+fi
 grep -Fq '$GPTOKEYB "NETfishing.aarch64" &' \
   "${STAGE_ROOT}/NETfishing.sh"
 grep -Fq 'pm_platform_helper "$GAME_EXECUTABLE"' \

@@ -7,8 +7,19 @@ version-named generic ZIP. The installer-facing archive must be named
 ```text
 NETfishing.sh
 netfishing/
-port.json
 ```
+
+`port.json` belongs at `netfishing/port.json` in the distributable archive.
+The upstream source-submission layout keeps it beside the launcher and port
+directory, but PortMaster's release builder relocates it into the declared
+port directory. Do not copy the source-submission layout directly into a
+release ZIP.
+
+HarbourMaster's installer also relocates recognized non-script files found at
+an archive root into the detected port directory. That compatibility behavior
+masked NETfishing's former root-level `port.json` during auto-install tests.
+Directly extracting the same archive into `/ports` did not perform the repair.
+Do not rely on installer relocation; build the distributable layout correctly.
 
 Do not derive a release package from an older local `portmaster-stage`
 directory. The templates in `scripts/portmaster/` are authoritative.
@@ -30,9 +41,10 @@ directory. The templates in `scripts/portmaster/` are authoritative.
   `netfishing/conf/config`, and `netfishing/conf/cache`.
 - The archive must not contain `conf/`, saves, identities, logs, source files,
   `.git`, or `.godot` content.
-- Release downloads must publish `netfishing.zip`. A renamed versioned ZIP is
-  not a substitute because HarbourMaster identifies the canonical port by
-  archive name.
+- Release downloads must publish only the canonical `netfishing.zip` for this
+  platform. Do not also publish a byte-identical versioned PortMaster ZIP;
+  HarbourMaster identifies the port by its canonical archive name and the
+  Forgejo release tag already supplies the version.
 
 ## Build
 
@@ -52,6 +64,18 @@ builds/v<project-version>/netfishing.zip
 
 `--package-only` is reserved for repackaging an already validated ARM64 export.
 It does not rebuild game content.
+
+For a packaging-only correction to an already published game release, commit
+only PortMaster launcher, packaging-script, or PortMaster documentation changes
+after the immutable release tag, then run:
+
+```bash
+bash scripts/build_portmaster.sh --package-only --hotfix
+```
+
+The hotfix keeps the game executable and PCK tied to the release tag while
+recording the newer packaging commit separately in `BUILD-INFO.txt`. Replace
+the release's existing `netfishing.zip`; never move the game release tag.
 
 ## Local muOS installation
 
@@ -128,11 +152,13 @@ The device-verified Godot mapping is:
 
 `scripts/portmaster/NETfishing.sh` must replace the incompatible SDL2 entry
 with the Godot entry when that SDL2 GUID is selected. Do not append the two
-entries with a newline: WestonPack evaluates launcher arguments through a
-shell and treats the second line as a command. Pass the single selected mapping
-as `SDL_GAMECONTROLLERCONFIG` in the game command after Weston initializes;
-Weston sources PortMaster's control file internally and otherwise restores the
-SDL2 value.
+entries with a newline. WestonPack reconstructs the wrapped game command
+through a shell, so values passed in that command can be split into unintended
+commands. Controller names may legally contain spaces, which caused this
+failure with the `GO-Super Gamepad` mapping. Export the single selected
+`SDL_GAMECONTROLLERCONFIG` value through the outer `env` invocation, before
+`westonwrap.sh`, so Weston and the game inherit it without tokenizing the
+mapping text.
 
 Do not pass a `.gptk` controller mapping to GPTOKEYB. Its exit-only process
 must retain PortMaster's controller configuration, while the verified Godot

@@ -123,12 +123,13 @@ esac
 $GPTOKEYB "NETfishing.aarch64" &
 pm_platform_helper "$GAME_EXECUTABLE"
 
-$ESUDO env CRUSTY_RESOLUTION="${DISPLAY_WIDTH}x${DISPLAY_HEIGHT}" \
+$ESUDO env \
+	CRUSTY_RESOLUTION="${DISPLAY_WIDTH}x${DISPLAY_HEIGHT}" \
+	SDL_GAMECONTROLLERCONFIG="$netfishing_controllerconfig" \
 	"$WESTON_DIR/westonwrap.sh" headless noop kiosk crusty_x11egl \
 	XDG_DATA_HOME="$CONFDIR/data" \
 	XDG_CONFIG_HOME="$CONFDIR/config" \
 	XDG_CACHE_HOME="$CONFDIR/cache" \
-	SDL_GAMECONTROLLERCONFIG="$netfishing_controllerconfig" \
 	GODOT_SILENCE_ROOT_WARNING=1 \
 	"${NETFISHING_GAME_ENVIRONMENT[@]}" \
 	"$GAME_EXECUTABLE" \
