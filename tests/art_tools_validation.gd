@@ -399,6 +399,35 @@ func _run() -> void:
 	assert(hide_button.button_group.allow_unpress)
 	assert(brush_option.item_count == 4)
 	assert(grid_option.item_count == 4)
+	for pointer_only_control: Control in [
+		brush_option,
+		grid_option,
+		mode_button,
+		eraser_button,
+		undo_button,
+		hide_button,
+		restore_button,
+		finalize_button,
+	]:
+		assert(pointer_only_control.focus_mode == Control.FOCUS_NONE)
+	assert(brush_option.get_popup().unfocusable)
+	assert(grid_option.get_popup().unfocusable)
+	brush_option.get_popup().popup(Rect2i(100, 100, 220, 220))
+	await process_frame
+	game_ui.call("_begin_virtual_mouse", 0)
+	game_ui.call("_update_virtual_cursor_position", Vector2(160.0, 160.0))
+	var brush_popup_cursor := toolbar.get(
+		"_brush_popup_cursor"
+	) as ControllerVirtualCursor
+	assert(brush_popup_cursor != null and brush_popup_cursor.visible)
+	assert(brush_popup_cursor.get_parent() == brush_option.get_popup())
+	assert(brush_popup_cursor.z_index == RenderingServer.CANVAS_ITEM_Z_MAX)
+	assert(not virtual_cursor.visible)
+	brush_option.get_popup().hide()
+	game_ui.call("_update_virtual_cursor_position", Vector2(160.0, 160.0))
+	assert(not brush_popup_cursor.visible)
+	assert(virtual_cursor.visible)
+	game_ui.call("_end_virtual_mouse")
 	var expected_brush_icons: Array[String] = [
 		"art_kit_marker_tip_fine.png",
 		"art_kit_marker_tip_thin.png",
@@ -417,7 +446,9 @@ func _run() -> void:
 		assert(brush_option.get_item_icon(index) != null)
 		assert(grid_option.get_item_icon(index) != null)
 		assert(
-			brush_option.get_item_icon(index).resource_path.ends_with(
+			str(brush_option.get_item_icon(index).get_meta(
+				&"channel_mask_source", ""
+			)).ends_with(
 				expected_brush_icons[index]
 			)
 		)
@@ -432,6 +463,8 @@ func _run() -> void:
 	assert(grid_option.get_popup().is_item_disabled(1))
 	var color_buttons: Dictionary = toolbar.get("_color_buttons")
 	assert(color_buttons.size() == SurfaceDrawingPalette.COLORS.size())
+	for color_button: Button in color_buttons.values():
+		assert(color_button.focus_mode == Control.FOCUS_NONE)
 	assert(not (color_buttons[&"chalk_white"] as Button).disabled)
 	assert((color_buttons[&"ocean_teal"] as Button).disabled)
 
@@ -451,6 +484,8 @@ func _run() -> void:
 	assert(service.get_grid_size() == 128)
 	var marker_mode_material := mode_button.material as ShaderMaterial
 	assert(marker_mode_material != null)
+	assert(brush_option.material == null)
+	assert(grid_option.material == null)
 	assert(
 		marker_mode_material.shader.resource_path.ends_with(
 			"/ui/art_kit_marker_icon.gdshader"

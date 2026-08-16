@@ -296,6 +296,9 @@ func _validate_page() -> void:
 	(page.get("_portrait_overlay_backdrop") as Button).pressed.emit()
 	await process_frame
 	assert(not portrait_overlay.visible)
+	detail_buttons = page.get("_detail_buttons") as Array
+	assert(detail_buttons.size() == 4)
+	facts_detail = detail_buttons[1] as Button
 	facts_detail.pressed.emit()
 	await process_frame
 	var overlay_text := page.get("_portrait_overlay_text") as Label

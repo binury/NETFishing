@@ -484,7 +484,7 @@ script = ExtResource("9_chat")
 
 [node name="ControllerVirtualCursor" type="Control" parent="UIRoot"]
 unique_name_in_owner = true
-z_index = 500
+z_index = 4096
 mouse_filter = 2
 script = ExtResource("13_cursor")
 

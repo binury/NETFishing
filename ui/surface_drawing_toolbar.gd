@@ -2,6 +2,9 @@ class_name SurfaceDrawingToolbar
 extends Control
 
 const UtilityPageStyleType = preload("res://ui/utility_page_style.gd")
+const ControllerVirtualCursorType = preload(
+	"res://ui/controller_virtual_cursor.gd"
+)
 const MARKER_MODE_ICON: Texture2D = preload(
 	"res://items/icons/art/art_kit_marker.png"
 )
@@ -44,6 +47,9 @@ var _unlocks: PlayerArtUnlocks
 var _color_buttons: Dictionary[StringName, Button] = {}
 var _dock_right: bool = true
 var _marker_mode_material: ShaderMaterial
+var _brush_popup_cursor: ControllerVirtualCursorType
+var _grid_popup_cursor: ControllerVirtualCursorType
+var _applied_marker_icon_color: Color = Color(-1.0, -1.0, -1.0, -1.0)
 
 
 func _ready() -> void:
@@ -89,7 +95,13 @@ func _ready() -> void:
 	)
 	_brush_option.item_selected.connect(_select_brush)
 	_grid_option.item_selected.connect(_select_grid)
+	_configure_pointer_only_controls()
+	_brush_popup_cursor = _add_popup_cursor(_brush_option.get_popup())
+	_grid_popup_cursor = _add_popup_cursor(_grid_option.get_popup())
 	_build_options()
+	_apply_marker_color_to_brush_icons(
+		SurfaceDrawingPalette.get_color(SurfaceDrawingPalette.DEFAULT_COLOR_ID)
+	)
 	_apply_dock_side()
 	hide()
 
@@ -203,6 +215,64 @@ func owns_pointer_event(event: InputEvent) -> bool:
 	return false
 
 
+func update_virtual_pointer_overlay(is_pointer_visible: bool) -> bool:
+	var active_popup: PopupMenu
+	var active_cursor: ControllerVirtualCursorType
+	if _brush_option.get_popup().visible:
+		active_popup = _brush_option.get_popup()
+		active_cursor = _brush_popup_cursor
+	elif _grid_option.get_popup().visible:
+		active_popup = _grid_option.get_popup()
+		active_cursor = _grid_popup_cursor
+	for popup_cursor: ControllerVirtualCursorType in [
+		_brush_popup_cursor, _grid_popup_cursor,
+	]:
+		if popup_cursor != null:
+			popup_cursor.visible = (
+				is_pointer_visible and popup_cursor == active_cursor
+			)
+	if not is_pointer_visible or active_popup == null or active_cursor == null:
+		return false
+	active_cursor.set_pointer_position(active_popup.get_mouse_position())
+	return true
+
+
+func hide_virtual_pointer_overlay() -> void:
+	update_virtual_pointer_overlay(false)
+
+
+func _configure_pointer_only_controls() -> void:
+	for control: Control in [
+		_mode_button,
+		_brush_option,
+		_grid_option,
+		_eraser_button,
+		_undo_button,
+		_hide_guide_button,
+		_restore_guide_button,
+		_finalize_guide_button,
+	]:
+		control.focus_mode = Control.FOCUS_NONE
+		control.focus_neighbor_left = NodePath()
+		control.focus_neighbor_top = NodePath()
+		control.focus_neighbor_right = NodePath()
+		control.focus_neighbor_bottom = NodePath()
+		control.focus_next = NodePath()
+		control.focus_previous = NodePath()
+	for popup: PopupMenu in [
+		_brush_option.get_popup(), _grid_option.get_popup(),
+	]:
+		popup.unfocusable = true
+
+
+func _add_popup_cursor(popup: PopupMenu) -> ControllerVirtualCursorType:
+	var cursor := ControllerVirtualCursorType.new()
+	cursor.z_index = RenderingServer.CANVAS_ITEM_Z_MAX
+	cursor.z_as_relative = false
+	popup.add_child(cursor)
+	return cursor
+
+
 func _build_options() -> void:
 	_brush_option.clear()
 	for brush_size: int in PlayerArtUnlocks.BRUSH_SIZES:
@@ -232,12 +302,67 @@ func _build_options() -> void:
 	for color_id: StringName in SurfaceDrawingPalette.get_color_ids():
 		var button := Button.new()
 		button.custom_minimum_size = Vector2(34, 34)
-		button.focus_mode = Control.FOCUS_ALL
+		button.focus_mode = Control.FOCUS_NONE
 		button.tooltip_text = SurfaceDrawingPalette.get_display_name(color_id)
 		button.pressed.connect(_select_color.bind(color_id))
 		_color_list.add_child(button)
 		_color_buttons[color_id] = button
 		_apply_color_button_style(button, color_id, false)
+
+
+func _apply_marker_color_to_brush_icons(marker_color: Color) -> void:
+	if _applied_marker_icon_color.is_equal_approx(marker_color):
+		return
+	_applied_marker_icon_color = marker_color
+	for index: int in range(_brush_option.item_count):
+		var brush_size: int = _brush_option.get_item_id(index)
+		_brush_option.set_item_icon(
+			index,
+			_channel_masked_icon(BRUSH_SIZE_ICONS[brush_size], marker_color),
+		)
+
+
+func _channel_masked_icon(source: Texture2D, marker_color: Color) -> Texture2D:
+	var source_image: Image = source.get_image()
+	if source_image == null or source_image.is_empty():
+		return source
+	var image := source_image.duplicate() as Image
+	if image.is_compressed():
+		if image.decompress() != OK:
+			return source
+	image.convert(Image.FORMAT_RGBA8)
+	for y: int in image.get_height():
+		for x: int in image.get_width():
+			var source_color: Color = image.get_pixel(x, y)
+			var red_dominance: float = (
+				source_color.r - maxf(source_color.g, source_color.b)
+			)
+			var marker_mask: float = smoothstep(0.04, 0.18, red_dominance)
+			image.set_pixel(
+				x,
+				y,
+				Color(
+					lerpf(
+						source_color.r,
+						marker_color.r * source_color.r,
+						marker_mask,
+					),
+					lerpf(
+						source_color.g,
+						marker_color.g * source_color.r,
+						marker_mask,
+					),
+					lerpf(
+						source_color.b,
+						marker_color.b * source_color.r,
+						marker_mask,
+					),
+					source_color.a * marker_color.a,
+				),
+			)
+	var texture := ImageTexture.create_from_image(image)
+	texture.set_meta(&"channel_mask_source", source.resource_path)
+	return texture
 
 
 func _refresh_unlocks() -> void:
@@ -342,11 +467,13 @@ func _on_service_state_changed(
 ) -> void:
 	visible = is_active
 	if not is_active:
+		hide_virtual_pointer_overlay()
 		return
 	_mode_button.icon = (
 		GRID_MODE_ICON if mode_name == "place grid" else MARKER_MODE_ICON
 	)
 	_marker_mode_material.set_shader_parameter("marker_color", color_value)
+	_apply_marker_color_to_brush_icons(color_value)
 	_mode_button.accessibility_name = (
 		"switch to marker mode"
 		if mode_name == "place grid"

@@ -264,8 +264,11 @@ func set_controller_text_entry_request(
 
 
 func request_controller_text_entry_for(control: Control = null) -> bool:
+	var target: Control = control
+	if target == null:
+		target = get_viewport().gui_get_focus_owner()
 	return (
-		bool(_controller_text_entry_request.call(control))
+		bool(_controller_text_entry_request.call(target))
 		if _controller_text_entry_request.is_valid()
 		else false
 	)
@@ -844,9 +847,8 @@ func _begin_virtual_mouse(device_id: int) -> void:
 	_virtual_mouse_window_position = _clamp_virtual_mouse_window_position(
 		Vector2(get_window().size) * 0.5
 	)
-	_controller_virtual_cursor.visible = true
-	_update_virtual_cursor_position(_virtual_mouse_window_position)
 	_emit_virtual_mouse_motion(Vector2.ZERO)
+	_update_virtual_cursor_position(_virtual_mouse_window_position)
 
 
 func _end_virtual_mouse() -> void:
@@ -860,6 +862,7 @@ func _end_virtual_mouse() -> void:
 	_virtual_mouse_trigger_strength = 0.0
 	_virtual_mouse_stick = Vector2.ZERO
 	_controller_virtual_cursor.visible = false
+	_surface_drawing_toolbar.hide_virtual_pointer_overlay()
 	if _fishing_spot != null:
 		_fishing_spot.set_local_menu_input_suppressed(
 			VIRTUAL_MOUSE_INPUT_OWNER,
@@ -884,6 +887,7 @@ func _update_virtual_mouse(delta: float) -> void:
 	var stick: Vector2 = _virtual_mouse_stick
 	var stick_length: float = stick.length()
 	if stick_length <= VIRTUAL_MOUSE_STICK_DEADZONE:
+		_update_virtual_cursor_position(_virtual_mouse_window_position)
 		return
 	var adjusted_strength: float = (
 		(stick_length - VIRTUAL_MOUSE_STICK_DEADZONE)
@@ -902,8 +906,8 @@ func _update_virtual_mouse(delta: float) -> void:
 	_virtual_mouse_window_position = _clamp_virtual_mouse_window_position(
 		_virtual_mouse_window_position + relative_motion
 	)
-	_update_virtual_cursor_position(_virtual_mouse_window_position)
 	_emit_virtual_mouse_motion(relative_motion)
+	_update_virtual_cursor_position(_virtual_mouse_window_position)
 
 
 func _poll_virtual_mouse_controller_state() -> void:
@@ -1082,6 +1086,7 @@ func _set_virtual_mouse_button(button: MouseButton, pressed: bool) -> void:
 	mouse_event.pressed = pressed
 	mouse_event.factor = 1.0
 	_parse_virtual_mouse_event(mouse_event)
+	_update_virtual_cursor_position(_virtual_mouse_window_position)
 
 
 func _emit_virtual_mouse_motion(relative_motion: Vector2) -> void:
@@ -1098,6 +1103,12 @@ func _parse_virtual_mouse_event(event: InputEventMouse) -> void:
 
 
 func _update_virtual_cursor_position(viewport_position: Vector2) -> void:
+	if _surface_drawing_toolbar.update_virtual_pointer_overlay(
+		_virtual_mouse_active
+	):
+		_controller_virtual_cursor.visible = false
+		return
+	_controller_virtual_cursor.visible = _virtual_mouse_active
 	var output_scale: float = UIReferencePresentationType.get_scale(
 		Vector2(get_window().size)
 	)

@@ -100,8 +100,7 @@ func _ready() -> void:
 	_back_button.pressed.connect(_on_back_pressed)
 	_address.text_submitted.connect(func(_value: String) -> void:
 		if _name_entry_active:
-			_name_edit.grab_focus()
-			_name_edit.select_all()
+			_focus_control(_name_edit, true)
 		else:
 			_request_join()
 	)
@@ -190,10 +189,7 @@ func open_page(preserved_endpoint: String = "") -> void:
 	UtilityPageStyle.animate_in(self)
 	_set_mode(_mode, false)
 	if _mode == Mode.DIRECT:
-		_address.grab_focus()
 		_address.select_all()
-	else:
-		_server_list.grab_focus()
 
 
 func close_page() -> void:
@@ -261,10 +257,7 @@ func _set_mode(mode: Mode, clear_connection_error: bool = true) -> void:
 		_discovery_refresh_timer.stop()
 	if not is_visible_in_tree():
 		return
-	if mode == Mode.DIRECT:
-		_address.grab_focus()
-	else:
-		_server_list.grab_focus()
+	_defer_focus_control(_address if mode == Mode.DIRECT else _server_list)
 
 
 func _request_join() -> void:
@@ -365,9 +358,8 @@ func _on_save_pressed() -> void:
 	_name_entry_active = true
 	_name_edit.show()
 	_save_button.text = "save"
-	_name_edit.grab_focus()
-	_name_edit.select_all()
 	_refresh()
+	_defer_focus_control(_name_edit, true)
 
 
 func _commit_name_entry() -> void:
@@ -408,9 +400,8 @@ func _on_edit_pressed() -> void:
 	_name_entry_active = true
 	_name_edit.show()
 	_save_button.text = "save"
-	_name_edit.grab_focus()
-	_name_edit.select_all()
 	_refresh()
+	_defer_focus_control(_name_edit, true)
 
 
 func _on_favorite_pressed() -> void:
@@ -469,7 +460,7 @@ func _confirm_delete() -> void:
 func _cancel_delete() -> void:
 	_delete_armed = false
 	_delete_confirmation.hide_page()
-	_delete_button.grab_focus()
+	_defer_focus_control(_delete_button)
 
 
 func _on_list_item_selected(index: int) -> void:
@@ -762,6 +753,30 @@ func _controller_focus_eligible(control: Control) -> bool:
 	return line_edit == null or line_edit.editable
 
 
+func _focus_control(control: Control, select_all: bool = false) -> void:
+	if (
+		control == null
+		or not is_instance_valid(control)
+		or not control.is_inside_tree()
+		or not control.is_visible_in_tree()
+		or control.focus_mode not in [Control.FOCUS_CLICK, Control.FOCUS_ALL]
+	):
+		return
+	var button := control as BaseButton
+	if button != null and button.disabled:
+		return
+	var line_edit := control as LineEdit
+	if line_edit != null and not line_edit.editable:
+		return
+	control.grab_focus()
+	if select_all and line_edit != null:
+		line_edit.select_all()
+
+
+func _defer_focus_control(control: Control, select_all: bool = false) -> void:
+	_focus_control.call_deferred(control, select_all)
+
+
 func _set_controller_neighbors(
 	control: Control,
 	left: Control,
@@ -787,7 +802,7 @@ func _recover_controller_focus(
 	if owner != null and _delete_confirmation.is_ancestor_of(owner):
 		return
 	if fallback != null:
-		fallback.call_deferred("grab_focus")
+		_defer_focus_control(fallback)
 
 
 func _format_entry_details(entry: SavedServerEntry) -> String:
@@ -978,7 +993,7 @@ func _on_back_pressed() -> void:
 		_clear_edit_state()
 		_refresh()
 		var content: Control = _address if _mode == Mode.DIRECT else _server_list
-		content.call_deferred("grab_focus")
+		_defer_focus_control(content)
 		return
 	if (
 		_network_session != null
