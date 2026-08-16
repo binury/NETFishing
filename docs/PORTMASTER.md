@@ -32,9 +32,10 @@ directory. The templates in `scripts/portmaster/` are authoritative.
 - The executable is `netfishing/NETfishing.aarch64`.
 - The package declares AArch64, two analog sticks, GLIBC 2.28, and
   `weston_pkg_0.2.squashfs`.
-- The launcher starts GPTOKEYB in exit-only mode without a `-c` mapping file.
-  PortMaster therefore owns only its device-specific force-quit chord while
-  Godot and NETfishing's controller mapping manager handle gameplay input.
+- The launcher starts GPTOKEYB with the explicit `netfishing.gptk` no-op map.
+  Every keyboard and mouse binding is disabled, leaving only PortMaster's
+  device-specific force-quit chord while Godot and NETfishing's controller
+  mapping manager handle gameplay input.
 - The launcher calls `pm_platform_helper` for the game executable after
   starting GPTOKEYB and calls `pm_finish` after the game exits.
 - Persistent device data remains under `netfishing/conf/data`,
@@ -98,7 +99,7 @@ Before upgrading an existing installation, preserve
 
 1. Confirm the installed executable and PCK hashes match the staged release.
 2. Confirm the installed launcher contains the canonical PortMaster header,
-   starts GPTOKEYB without a `-c` mapping file, and calls
+   starts GPTOKEYB with `netfishing.gptk`, and calls
    `pm_platform_helper` for the game executable.
 3. Confirm `conf/` was not replaced or removed.
 4. Launch the installed port through the normal muOS menu.
@@ -160,10 +161,12 @@ failure with the `GO-Super Gamepad` mapping. Export the single selected
 `westonwrap.sh`, so Weston and the game inherit it without tokenizing the
 mapping text.
 
-Do not pass a `.gptk` controller mapping to GPTOKEYB. Its exit-only process
-must retain PortMaster's controller configuration, while the verified Godot
-mapping remains scoped to the game command. This prevents duplicate or
-translated gameplay events while preserving the system force-quit chord.
+Legacy GPTOKEYB builds can load their compiled default keyboard map when no
+`-c` file is supplied. That map translates face buttons, D-pad directions, and
+sticks into keyboard or mouse events on top of Godot's native controller input.
+Always pass `netfishing.gptk`, which explicitly unassigns every direct and
+hotkey binding with GPTOKEYB's `\"` value. Do not add gameplay mappings to this
+file. The Start+Select kill chord remains independent of the no-op bindings.
 
 Do not call `Input.add_joy_mapping(..., true)` for a recognized connected muOS
 controller. Updating this virtual controller after connection can stop Godot

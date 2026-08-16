@@ -115,6 +115,8 @@ mkdir -p -- "${GAME_ROOT}/licenses"
 
 install -m 0755 "${TEMPLATE_ROOT}/NETfishing.sh" "${STAGE_ROOT}/NETfishing.sh"
 install -m 0644 "${TEMPLATE_ROOT}/port.json" "${GAME_ROOT}/port.json"
+install -m 0644 "${TEMPLATE_ROOT}/netfishing.gptk" \
+  "${GAME_ROOT}/netfishing.gptk"
 install -m 0755 "${ARM64_EXECUTABLE}" "${GAME_ROOT}/NETfishing.aarch64"
 install -m 0644 "${ARM64_PCK}" "${GAME_ROOT}/NETfishing.pck"
 install -m 0644 "${TEMPLATE_ROOT}/gameinfo.xml" "${GAME_ROOT}/gameinfo.xml"
@@ -230,7 +232,9 @@ if [[ -z "${CONTROLLER_ENV_LINE}" || -z "${WESTON_LAUNCH_LINE}" || \
   echo "SDL_GAMECONTROLLERCONFIG must be exported before westonwrap.sh." >&2
   exit 1
 fi
-grep -Fq '$GPTOKEYB "NETfishing.aarch64" &' \
+grep -Fq 'GPTOKEYB_CONFIG="$GAMEDIR/netfishing.gptk"' \
+  "${STAGE_ROOT}/NETfishing.sh"
+grep -Fq '$GPTOKEYB "NETfishing.aarch64" -c "$GPTOKEYB_CONFIG" &' \
   "${STAGE_ROOT}/NETfishing.sh"
 grep -Fq 'pm_platform_helper "$GAME_EXECUTABLE"' \
   "${STAGE_ROOT}/NETfishing.sh"
@@ -240,9 +244,25 @@ if [[ "$(grep -Ec '^[[:space:]]*\$GPTOKEYB[[:space:]]' \
   echo "NETfishing must start exactly one GPTOKEYB exit handler." >&2
   exit 1
 fi
-if grep -Eq '\$GPTOKEYB.*[[:space:]]-c([[:space:]]|$)' \
-  "${STAGE_ROOT}/NETfishing.sh"; then
-  echo "GPTOKEYB controller mappings must not be enabled for NETfishing." >&2
+readonly GPTOKEYB_NOOP_KEYS=(
+  back guide start
+  a a_hk b b_hk x x_hk y y_hk
+  l1 l1_hk l2 l2_hk l3 r1 r1_hk r2 r2_hk r3
+  up down left right
+  left_analog_up left_analog_down left_analog_left left_analog_right
+  right_analog_up right_analog_down right_analog_left right_analog_right
+)
+for noop_key in "${GPTOKEYB_NOOP_KEYS[@]}"; do
+  if ! grep -Eq \
+    "^[[:space:]]*${noop_key}[[:space:]]*=[[:space:]]*\\\\\"[[:space:]]*$" \
+    "${GAME_ROOT}/netfishing.gptk"; then
+    echo "GPTOKEYB no-op mapping is missing: ${noop_key}" >&2
+    exit 1
+  fi
+done
+if [[ "$(grep -Ec '^[[:space:]]*[a-z0-9_]+[[:space:]]*=' \
+  "${GAME_ROOT}/netfishing.gptk")" -ne "${#GPTOKEYB_NOOP_KEYS[@]}" ]]; then
+  echo "GPTOKEYB no-op mapping contains an unexpected assignment." >&2
   exit 1
 fi
 if unzip -Z1 "${ARCHIVE}" | grep -E \

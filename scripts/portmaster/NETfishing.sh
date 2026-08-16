@@ -29,6 +29,7 @@ fi
 
 CONFDIR="$GAMEDIR/conf"
 GAME_EXECUTABLE="$GAMEDIR/NETfishing.aarch64"
+GPTOKEYB_CONFIG="$GAMEDIR/netfishing.gptk"
 WESTON_DIR="/tmp/netfishing-weston"
 WESTON_RUNTIME="weston_pkg_0.2"
 HARBOURMASTER="$controlfolder/harbourmaster"
@@ -118,9 +119,10 @@ case "$PERFORMANCE_PROFILE" in
 esac
 
 # Keep NETfishing's native controller input separate from PortMaster's exit
-# handling. Without a -c mapping file, GPTOKEYB only watches for the
-# device-specific force-quit chord and does not inject gameplay inputs.
-$GPTOKEYB "NETfishing.aarch64" &
+# handling. Legacy GPTOKEYB builds can load their default keyboard map when no
+# config is supplied, so the explicit no-op map preserves only the
+# device-specific force-quit chord.
+$GPTOKEYB "NETfishing.aarch64" -c "$GPTOKEYB_CONFIG" &
 pm_platform_helper "$GAME_EXECUTABLE"
 
 $ESUDO env \
