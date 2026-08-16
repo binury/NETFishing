@@ -282,7 +282,7 @@ func _validated_profiles(raw_profiles: Dictionary) -> Dictionary:
 			):
 				complete = false
 				break
-		if not complete:
+		if not complete or bindings_have_conflicts(bindings):
 			continue
 		validated[str(key_value)] = {
 			"controller_name": str(
@@ -402,6 +402,8 @@ func replace_active_bindings(bindings: Dictionary) -> bool:
 			return false
 		if not validate_binding(role, binding as Dictionary):
 			return false
+	if bindings_have_conflicts(bindings):
+		return false
 	var previous: Dictionary = _profiles.duplicate(true)
 	_profiles[_active_profile_key] = {
 		"controller_name": _active_controller_name,
@@ -482,6 +484,53 @@ func validate_binding(role: StringName, binding: Dictionary) -> bool:
 		and rest >= -1.0
 		and rest <= 1.0
 	)
+
+
+static func bindings_have_conflicts(bindings: Dictionary) -> bool:
+	for role_index: int in ROLE_ORDER.size():
+		var first_role: StringName = ROLE_ORDER[role_index]
+		var first_value: Variant = bindings.get(str(first_role), {})
+		if typeof(first_value) != TYPE_DICTIONARY:
+			continue
+		for other_index: int in range(role_index + 1, ROLE_ORDER.size()):
+			var second_role: StringName = ROLE_ORDER[other_index]
+			var second_value: Variant = bindings.get(str(second_role), {})
+			if typeof(second_value) != TYPE_DICTIONARY:
+				continue
+			if bindings_conflict(
+				first_role,
+				first_value as Dictionary,
+				second_role,
+				second_value as Dictionary,
+			):
+				return true
+	return false
+
+
+static func bindings_conflict(
+	first_role: StringName,
+	first: Dictionary,
+	second_role: StringName,
+	second: Dictionary,
+) -> bool:
+	var binding_kind: String = str(first.get("kind", ""))
+	if binding_kind != str(second.get("kind", "")):
+		return false
+	if binding_kind == "button":
+		return int(first.get("button", -1)) == int(
+			second.get("button", -1)
+		)
+	if binding_kind != "axis":
+		return false
+	if int(first.get("axis", -1)) != int(second.get("axis", -1)):
+		return false
+	var opposite_trigger_halves: bool = (
+		first_role in TRIGGER_ROLES
+		and second_role in TRIGGER_ROLES
+		and signf(float(first.get("direction", 0.0)))
+			!= signf(float(second.get("direction", 0.0)))
+	)
+	return not opposite_trigger_halves
 
 
 func binding_label(binding: Dictionary) -> String:

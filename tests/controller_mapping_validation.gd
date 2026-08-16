@@ -152,6 +152,10 @@ func _validate_manager(manager: ControllerMappingManagerType) -> String:
 		"kind": "button",
 		"button": int(JOY_BUTTON_X),
 	}
+	custom[str(ControllerMappingManagerType.ROLE_X)] = {
+		"kind": "button",
+		"button": int(JOY_BUTTON_A),
+	}
 	custom[str(ControllerMappingManagerType.ROLE_POINTER_MODIFIER)] = (
 		trigger_binding
 	)
@@ -159,6 +163,41 @@ func _validate_manager(manager: ControllerMappingManagerType) -> String:
 		return "valid custom mapping could not be saved"
 	if not manager.has_custom_mapping():
 		return "saved custom mapping did not become active"
+	var duplicate: Dictionary = custom.duplicate(true)
+	duplicate[str(ControllerMappingManagerType.ROLE_X)] = (
+		duplicate[str(ControllerMappingManagerType.ROLE_A)] as Dictionary
+	).duplicate(true)
+	if manager.replace_active_bindings(duplicate):
+		return "duplicate controller buttons were accepted"
+	var shared_trigger_axis: Dictionary = custom.duplicate(true)
+	shared_trigger_axis[
+		str(ControllerMappingManagerType.ROLE_POINTER_MODIFIER)
+	] = {
+		"kind": "axis",
+		"axis": int(JOY_AXIS_TRIGGER_LEFT),
+		"direction": 1.0,
+		"rest": 0.0,
+	}
+	shared_trigger_axis[
+		str(ControllerMappingManagerType.ROLE_CAMERA_ZOOM)
+	] = {
+		"kind": "axis",
+		"axis": int(JOY_AXIS_TRIGGER_LEFT),
+		"direction": -1.0,
+		"rest": 0.0,
+	}
+	if ControllerMappingManagerType.bindings_have_conflicts(
+		shared_trigger_axis
+	):
+		return "opposite halves of a shared trigger axis conflict"
+	var malformed_profiles: Dictionary = manager._validated_profiles({
+		"name:controller": {
+			"controller_name": "controller",
+			"bindings": duplicate,
+		},
+	})
+	if not malformed_profiles.is_empty():
+		return "a stored controller profile with duplicate buttons was accepted"
 	if _keyboard_event_count(&"jump") != keyboard_events_before:
 		return "controller remapping changed keyboard bindings"
 	var active_button := InputEventJoypadButton.new()
@@ -309,12 +348,6 @@ func _validate_auto_map(manager: ControllerMappingManagerType) -> String:
 			ControllerMappingManagerType.default_bindings()[str(role)]
 			as Dictionary
 		)
-		if role == ControllerMappingManagerType.ROLE_B:
-			binding = (
-				ControllerMappingManagerType.default_bindings()[
-					str(ControllerMappingManagerType.ROLE_A)
-				] as Dictionary
-			)
 		if str(binding.get("kind", "")) == "button":
 			var button := InputEventJoypadButton.new()
 			button.device = manager.get_active_device_id()
@@ -335,24 +368,12 @@ func _validate_auto_map(manager: ControllerMappingManagerType) -> String:
 		ControllerMappingManagerType.ROLE_ORDER.size()
 	):
 		return "manual override list does not expose every mapped role"
-	var conflict_button := panel._binding_buttons.get(
-		ControllerMappingManagerType.ROLE_A
-	) as Button
-	var conflict_style := conflict_button.get_theme_stylebox(
-		&"normal"
-	) as StyleBoxFlat
-	if (
-		conflict_style == null
-		or conflict_style.bg_color
-			!= UtilityPageStyle.OCEAN_DANGER
-	):
-		return "duplicate controller bindings were not marked in red"
-	manager.set_binding(
+	var duplicate_saved: bool = manager.set_binding(
 		ControllerMappingManagerType.ROLE_B,
-		ControllerMappingManagerType.default_bindings()[
-			str(ControllerMappingManagerType.ROLE_B)
-		] as Dictionary,
+		manager.get_binding(ControllerMappingManagerType.ROLE_A),
 	)
+	if duplicate_saved:
+		return "manual mapping accepted a controller button already in use"
 	panel._begin_manual_capture(
 		ControllerMappingManagerType.ROLE_POINTER_MODIFIER
 	)

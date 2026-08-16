@@ -580,24 +580,12 @@ func _bindings_conflict(
 	second_role: StringName,
 	second: Dictionary,
 ) -> bool:
-	var binding_kind: String = str(first.get("kind", ""))
-	if binding_kind != str(second.get("kind", "")):
-		return false
-	if binding_kind == "button":
-		return int(first.get("button", -1)) == int(
-			second.get("button", -1)
-		)
-	if binding_kind != "axis":
-		return false
-	if int(first.get("axis", -1)) != int(second.get("axis", -1)):
-		return false
-	var opposite_trigger_halves: bool = (
-		first_role in ControllerMappingManagerType.TRIGGER_ROLES
-		and second_role in ControllerMappingManagerType.TRIGGER_ROLES
-		and signf(float(first.get("direction", 0.0)))
-			!= signf(float(second.get("direction", 0.0)))
+	return ControllerMappingManagerType.bindings_conflict(
+		first_role,
+		first,
+		second_role,
+		second,
 	)
-	return not opposite_trigger_halves
 
 
 func _apply_binding_button_style(button: Button, has_conflict: bool) -> void:
