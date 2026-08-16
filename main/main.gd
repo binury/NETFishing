@@ -1324,8 +1324,10 @@ func _handle_data_root_controller_input(event: InputEvent) -> bool:
 		else _data_setup_dialog.gui_get_focus_owner()
 	)
 	var focused_button := focused as BaseButton
-	if focused_button != null and not focused_button.disabled:
-		focused_button.pressed.emit()
+	if (
+		focused_button != null
+		and FileDialogControllerNavigation.activate_control(focused_button)
+	):
 		return true
 	if (
 		(focused is LineEdit or focused is TextEdit)

@@ -127,17 +127,26 @@ func _is_available_for_controller() -> bool:
 	return should_enable_for_controller(
 		_enabled,
 		DisplayServer.has_feature(DisplayServer.FEATURE_VIRTUAL_KEYBOARD),
+		OS.get_name(),
 	)
 
 
 static func should_enable_for_controller(
 	preference_enabled: bool,
 	native_virtual_keyboard_available: bool,
+	platform_name: String = "",
 ) -> bool:
-	# A controller user must always have one viable text-entry path. Android
-	# and any future display backend with native support can keep using the
-	# platform keyboard unless the in-game keyboard is explicitly requested.
-	return preference_enabled or not native_virtual_keyboard_available
+	# Desktop display backends can advertise native virtual-keyboard support
+	# without presenting one for controller focus. Only Android delegates to
+	# that platform keyboard by default.
+	var resolved_platform: String = (
+		OS.get_name() if platform_name.is_empty() else platform_name
+	)
+	return (
+		preference_enabled
+		or resolved_platform != "Android"
+		or not native_virtual_keyboard_available
+	)
 
 
 func _can_edit(control: Control) -> bool:
