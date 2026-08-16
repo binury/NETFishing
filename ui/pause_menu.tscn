@@ -76,9 +76,6 @@ focus_paths = Array[NodePath]([NodePath("BubbleCluster/ResumeButton"), NodePath(
 initial_focus_path = NodePath("BubbleCluster/ResumeButton")
 back_focus_path = NodePath("BubbleCluster/ResumeButton")
 maximum_layout_size = Vector2(720, 520)
-compact_maximum_layout_size = Vector2(544, 400)
-compact_width_threshold = 680.0
-compact_height_threshold = 500.0
 
 [node name="BubbleCluster" type="Control" parent="ResponsivePauseStage/PausePresentationScaleRoot/RootPage"]
 layout_mode = 0

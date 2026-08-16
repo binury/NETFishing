@@ -13,9 +13,6 @@ const ControllerFocusNavigationType = preload(
 @export var back_focus_path: NodePath
 @export var back_entry_path: NodePath
 @export var maximum_layout_size: Vector2 = Vector2(720.0, 520.0)
-@export var compact_maximum_layout_size: Vector2 = Vector2.ZERO
-@export var compact_width_threshold: float = 680.0
-@export var compact_height_threshold: float = 500.0
 @export_range(0.0, 128.0, 1.0) var transition_safe_margin: float = 24.0
 
 var _cluster: BubbleCluster
@@ -176,13 +173,9 @@ func _process(delta: float) -> void:
 func _update_layout() -> void:
 	if not is_node_ready() or _cluster == null:
 		return
-	var compact: bool = false
-	var layout_maximum: Vector2 = maximum_layout_size
-	if compact and compact_maximum_layout_size != Vector2.ZERO:
-		layout_maximum = compact_maximum_layout_size
 	var field_size := Vector2(
-		minf(size.x, layout_maximum.x),
-		minf(size.y, layout_maximum.y)
+		minf(size.x, maximum_layout_size.x),
+		minf(size.y, maximum_layout_size.y)
 	)
 	field_size.x = maxf(1.0, field_size.x)
 	field_size.y = maxf(1.0, field_size.y)
@@ -190,7 +183,7 @@ func _update_layout() -> void:
 	if not _is_transitioning:
 		_cluster.position = _resting_cluster_position
 	_cluster.size = field_size
-	_cluster.apply_layout(field_size, compact)
+	_cluster.apply_layout(field_size, false)
 	_configure_focus_navigation()
 
 

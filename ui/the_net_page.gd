@@ -128,8 +128,6 @@ func reset_controller_zone() -> void:
 func handle_controller_input(event: InputEvent) -> bool:
 	if not _active or not _interactive:
 		return false
-	if _handle_controller_scroll(event):
-		return true
 	if event.is_action_pressed("ui_cancel"):
 		if _controller_zone == ControllerZone.CLAIMS:
 			_controller_zone = ControllerZone.TABS
@@ -160,37 +158,10 @@ func handle_controller_input(event: InputEvent) -> bool:
 			return true
 	return false
 
-
-func _handle_controller_scroll(event: InputEvent) -> bool:
-	var motion := event as InputEventJoypadMotion
-	if motion == null or _jobs_scroll == null:
-		return false
-	var uses_right_y: bool = (
-		_controller_mapping_manager.event_uses_role(
-			event,
-			ControllerMappingManager.ROLE_RIGHT_STICK_Y,
-		)
-		if _controller_mapping_manager != null
-		else motion.axis == JOY_AXIS_RIGHT_Y
-	)
-	if not uses_right_y:
-		return false
-	return true
-
-
-func _process(delta: float) -> void:
+func _process(_delta: float) -> void:
 	if _active and _jobs != null:
 		_refresh_label.text = _daily_refresh_text()
 		_refresh_forecast(false)
-		var right_y: float = (
-			_controller_mapping_manager.get_role_axis(
-				ControllerMappingManager.ROLE_RIGHT_STICK_Y
-			)
-			if _controller_mapping_manager != null
-			else Input.get_joy_axis(0, JOY_AXIS_RIGHT_Y)
-		)
-		if _jobs_scroll != null and absf(right_y) >= 0.18:
-			_jobs_scroll.scroll_vertical += roundi(right_y * 320.0 * delta)
 
 
 func _build_laptop() -> void:

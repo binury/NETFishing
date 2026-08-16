@@ -1268,6 +1268,10 @@ func _update_controller_menu_scroll(delta: float) -> void:
 		_controller_mapping_manager == null
 		or _virtual_mouse_active
 		or is_input_mapping_capturing()
+		or (
+			_player_menu.visible
+			and not _player_menu.allows_global_controller_scroll()
+		)
 	):
 		return
 	var stick_y: float = _controller_menu_scroll_axis()

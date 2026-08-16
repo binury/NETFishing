@@ -219,7 +219,12 @@ func consume_escape() -> bool:
 func handle_controller_input(event: InputEvent) -> bool:
 	if not _profile_active or not _profile_interactive:
 		return false
-	if event is InputEventJoypadButton or event is InputEventJoypadMotion:
+	if (
+		event.is_action_pressed(&"ui_up")
+		or event.is_action_pressed(&"ui_down")
+		or event.is_action_pressed(&"ui_left")
+		or event.is_action_pressed(&"ui_right")
+	):
 		_ensure_controller_zone_focus()
 	var cancel_pressed := _event_matches_controller_press(
 		event,

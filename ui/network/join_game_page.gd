@@ -347,7 +347,7 @@ func _on_save_pressed() -> void:
 			true,
 		)
 		_set_mode(Mode.SAVED)
-		_select_entry_id(existing.entry_id)
+		_restore_entry_selection_and_focus(0, existing.entry_id)
 		return
 	_address.text = endpoint.normalized_display
 	_name_edit.text = (
@@ -389,8 +389,7 @@ func _commit_name_entry() -> void:
 	_clear_edit_state()
 	_mode = Mode.SAVED
 	_refresh_entries()
-	_select_entry_id(saved.entry_id)
-	_refresh()
+	_restore_entry_selection_and_focus(0, saved.entry_id)
 
 
 func _on_edit_pressed() -> void:
@@ -412,8 +411,7 @@ func _on_favorite_pressed() -> void:
 	var entry_id: String = _selected_entry.entry_id
 	_saved_servers.set_favorite(entry_id, not _selected_entry.favorite)
 	_refresh_entries()
-	_select_entry_id(entry_id)
-	_refresh()
+	_restore_entry_selection_and_focus(0, entry_id)
 
 
 func _on_delete_pressed() -> void:
@@ -437,10 +435,12 @@ func _confirm_delete() -> void:
 	if _selected_entry == null or not _delete_armed:
 		_cancel_delete()
 		return
+	var removed_index: int = _visible_entries.find(_selected_entry)
+	var selected_id: String = _selected_entry.entry_id
 	var removed: bool = (
-		_saved_servers.remove_recent_entry(_selected_entry.entry_id)
+		_saved_servers.remove_recent_entry(selected_id)
 		if _mode == Mode.RECENT
-		else _saved_servers.remove_saved_entry(_selected_entry.entry_id)
+		else _saved_servers.remove_saved_entry(selected_id)
 	)
 	_set_status(
 		(
@@ -452,11 +452,13 @@ func _confirm_delete() -> void:
 		else "Could not remove the local entry.",
 		not removed,
 	)
-	_selected_entry = null
 	_delete_armed = false
-	_refresh_entries()
-	_refresh()
 	_delete_confirmation.hide_page()
+	_refresh_entries()
+	_restore_entry_selection_and_focus(
+		maxi(removed_index, 0),
+		"" if removed else selected_id,
+	)
 
 
 func _cancel_delete() -> void:
@@ -478,12 +480,51 @@ func _on_list_item_selected(index: int) -> void:
 	_refresh()
 
 
-func _select_entry_id(entry_id: String) -> void:
+func _select_entry_id(entry_id: String) -> bool:
 	for index: int in range(_visible_entries.size()):
 		if _visible_entries[index].entry_id == entry_id:
-			_server_list.select(index)
-			_selected_entry = _visible_entries[index]
-			return
+			return _select_entry_index(index)
+	return false
+
+
+func _select_entry_index(index: int) -> bool:
+	if index < 0 or index >= _visible_entries.size():
+		return false
+	_server_list.select(index)
+	_server_list.ensure_current_is_visible()
+	_selected_entry = _visible_entries[index]
+	return true
+
+
+func _restore_entry_selection_and_focus(
+	preferred_index: int,
+	preferred_id: String = "",
+) -> void:
+	var selected: bool = (
+		not preferred_id.is_empty() and _select_entry_id(preferred_id)
+	)
+	if not selected and not _visible_entries.is_empty():
+		selected = _select_entry_index(
+			clampi(preferred_index, 0, _visible_entries.size() - 1)
+		)
+	if not selected:
+		_selected_entry = null
+		_server_list.deselect_all()
+	_refresh()
+	_defer_focus_control(
+		_server_list if selected else _current_mode_button()
+	)
+
+
+func _current_mode_button() -> Button:
+	match _mode:
+		Mode.DIRECT:
+			return _direct_button
+		Mode.SAVED:
+			return _saved_button
+		Mode.RECENT:
+			return _recent_button
+	return _discover_button
 
 
 func _select_discovery_index(index: int) -> bool:
@@ -1041,10 +1082,18 @@ func _on_peer_count_changed(player_count: int, max_players: int) -> void:
 
 
 func _on_store_changed() -> void:
+	var selected_index: int = _visible_entries.find(_selected_entry)
 	var selected_id: String = (
 		_selected_entry.entry_id if _selected_entry != null else ""
 	)
 	_refresh_entries()
-	if not selected_id.is_empty():
-		_select_entry_id(selected_id)
+	_selected_entry = null
+	if (
+		not selected_id.is_empty()
+		and not _select_entry_id(selected_id)
+		and not _visible_entries.is_empty()
+	):
+		_select_entry_index(
+			clampi(maxi(selected_index, 0), 0, _visible_entries.size() - 1)
+		)
 	_refresh()

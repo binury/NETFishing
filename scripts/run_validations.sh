@@ -13,7 +13,6 @@ readonly -a QUICK_TESTS=(
 	"tests/android_readiness_validation.gd"
 	"tests/camera_drag_validation.gd"
 	"tests/controller_focus_presentation_validation.gd"
-	"tests/controller_focus_recovery_validation.gd"
 	"tests/controller_menu_accessibility_validation.gd"
 	"tests/controller_mapping_validation.gd"
 	"tests/controller_world_interaction_validation.gd"

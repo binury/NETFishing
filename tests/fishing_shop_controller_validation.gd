@@ -32,6 +32,9 @@ func _run() -> void:
 	var accept := InputEventJoypadButton.new()
 	accept.button_index = JOY_BUTTON_A
 	accept.pressed = true
+	var accept_release := InputEventJoypadButton.new()
+	accept_release.button_index = JOY_BUTTON_A
+	accept_release.pressed = false
 	var cancel := InputEventJoypadButton.new()
 	cancel.button_index = JOY_BUTTON_B
 	cancel.pressed = true
@@ -72,7 +75,10 @@ func _run() -> void:
 		))
 		if section_index == FishingShop.ShopSection.BAIT:
 			assert(root.gui_get_focus_owner() == dummy_stock)
-			shop.call("_input", accept)
+			Input.parse_input_event(accept)
+			await process_frame
+			Input.parse_input_event(accept_release)
+			await process_frame
 			assert(activations[0] == 1)
 		shop.call("_input", cancel)
 		for _frame: int in 2:

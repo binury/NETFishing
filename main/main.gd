@@ -1328,20 +1328,13 @@ func _handle_data_root_controller_input(event: InputEvent) -> bool:
 		if picker_visible
 		else _data_setup_dialog.gui_get_focus_owner()
 	)
-	var focused_button := focused as BaseButton
-	if (
-		focused_button != null
-		and FileDialogControllerNavigation.activate_control(focused_button)
-	):
-		return true
 	if (
 		(focused is LineEdit or focused is TextEdit)
 		and _game_ui.request_controller_text_entry_for(focused)
 	):
 		return true
-	if setup_visible:
-		_data_setup_dialog.get_ok_button().pressed.emit()
-		return true
+	# Buttons are activated once through Godot's native ui_accept path. This
+	# handler only owns modal back behavior and controller text entry.
 	return false
 
 

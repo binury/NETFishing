@@ -51,12 +51,6 @@ const BubbleButtonType = preload(
 const BubbleClusterType = preload(
 	"res://ui/components/bubble_menu/bubble_cluster.gd"
 )
-const BubbleContentShellType = preload(
-	"res://ui/components/bubble_menu/bubble_content_shell.gd"
-)
-const BubbleStatusBubbleType = preload(
-	"res://ui/components/bubble_menu/bubble_status_bubble.gd"
-)
 const NotepadInkActionType = preload(
 	"res://ui/components/bubble_menu/notepad_ink_action.gd"
 )
@@ -78,17 +72,7 @@ const BagItemSpriteScene = preload(
 const BagStorageSlotType = preload(
 	"res://ui/components/bubble_menu/bag_storage_slot.gd"
 )
-const LogbookEntryType = preload(
-	"res://ui/components/bubble_menu/logbook_entry.gd"
-)
-const LogbookEntryScene = preload(
-	"res://ui/components/bubble_menu/logbook_entry.tscn"
-)
-
-const LOGBOOK_PAGE_DURATION: float = 0.18
 const DESKTOP_REFERENCE_SIZE := Vector2(1280.0, 720.0)
-const COMPACT_REFERENCE_SIZE := Vector2(640.0, 480.0)
-const COMPACT_HEIGHT_THRESHOLD: float = 560.0
 const NAVIGATION_PRESENTATION_SCALE: float = 0.60
 const NAVIGATION_CANONICAL_POSITION := Vector2(424.0, 44.0)
 const NAVIGATION_SELECTED_SCALE: float = 1.02
@@ -236,18 +220,6 @@ const CONTROLLER_PICKUP_HOLD_SECONDS: float = 0.42
 @onready var _mail_page: MailPage = %MailPage
 @onready var _profile_page: ProfilePage = %ProfilePage
 @onready var _players_page: PlayersPage = %PlayersPage
-@onready var _book_backing: PanelContainer = %BookBacking
-@onready var _book_spread: BoxContainer = %BookSpread
-@onready var _left_page: PanelContainer = %LeftPage
-@onready var _right_page: PanelContainer = %RightPage
-@onready var _left_heading: Label = %LeftHeading
-@onready var _right_heading: Label = %RightHeading
-@onready var _left_entry_field: BoxContainer = %LeftEntryField
-@onready var _right_entry_field: BoxContainer = %RightEntryField
-@onready var _logbook_empty_state: Label = %LogbookEmptyState
-@onready var _logbook_previous: BubbleButtonType = %LogbookPrevious
-@onready var _logbook_next: BubbleButtonType = %LogbookNext
-@onready var _logbook_page_status: BubbleStatusBubbleType = %LogbookPageStatus
 @onready var _inventory_tab: BubbleButtonType = %InventoryTab
 @onready var _logbook_tab: BubbleButtonType = %LogbookTab
 @onready var _the_net_tab: BubbleButtonType = %TheNetTab
@@ -256,42 +228,12 @@ const CONTROLLER_PICKUP_HOLD_SECONDS: float = 0.42
 @onready var _players_tab: BubbleButtonType = %PlayersTab
 @onready var _mail_unread_badge: Label = %MailUnreadBadge
 @onready var _close_button: BubbleButtonType = %CloseButton
-@onready var _content_shell: BubbleContentShellType = %MenuPanel
-@onready var _content_stage: Control = %Content
 @onready var _cooler_scroll: ScrollContainer = %CoolerScroll
 @onready var _cooler_host: Control = %CoolerHost
-@onready var _wallet_balance: CurrencyAmount = %WalletBalance
-@onready var _header: Control = %Header
-@onready var _separator: Control = %Separator
-@onready var _wallet_status: BubbleStatusBubbleType = %WalletStatus
-@onready var _capacity_status: BubbleStatusBubbleType = %CapacityStatus
-@onready var _held_value_status: BubbleStatusBubbleType = %HeldValueStatus
-@onready var _selection_status: BubbleStatusBubbleType = %SelectionStatus
-@onready var _offer_status: BubbleStatusBubbleType = %OfferStatus
-@onready var _inventory_section: Control = %InventorySection
-@onready var _bag_section: Control = %BagSection
-@onready var _bag_empty: Label = %BagEmpty
-@onready var _bag_grid: GridContainer = %BagGrid
-@onready var _bag_list: Control = %BagList
-@onready var _bag_detail: Control = %BagDetail
-@onready var _bag_detail_texture: TextureRect = %BagDetailTexture
-@onready var _bag_detail_name: Label = %BagDetailName
-@onready var _bag_detail_data: Label = %BagDetailData
-@onready var _sort_option: OptionButton = %SortOption
-@onready var _sort_direction: Button = %SortDirection
-@onready var _held_value: CurrencyAmount = %HeldValue
-@onready var _cooler_count: Label = %CoolerCount
-@onready var _inventory_empty: Label = %InventoryEmpty
-@onready var _selection_summary: Label = %SelectionSummary
-@onready var _favorite_button: Button = %FavoriteButton
-@onready var _sell_button: Button = %SellButton
-@onready var _sale_unavailable: Label = %SaleUnavailable
-@onready var _transaction_feedback: RichTextLabel = %TransactionFeedback
 @onready var _sale_confirmation: PanelContainer = %SaleConfirmation
 @onready var _confirmation_message: RichTextLabel = %ConfirmationMessage
 @onready var _confirm_sale_button: Button = %ConfirmSaleButton
 @onready var _cancel_sale_button: Button = %CancelSaleButton
-@onready var _logbook_empty: Label = %LogbookEmpty
 
 var _compact_layout: bool = false
 var _player: PlayerType
@@ -361,8 +303,6 @@ var _transition_generation: int = 0
 var _page_transition_generation: int = 0
 var _transitioning: bool = false
 var _page_transitioning: bool = false
-var _presentation_rest_position: Vector2 = Vector2.ZERO
-var _content_rest_position: Vector2 = Vector2.ZERO
 var _cooler_rest_position: Vector2 = Vector2.ZERO
 var _bag_rest_position: Vector2 = Vector2.ZERO
 var _tackle_rest_position: Vector2 = Vector2.ZERO
@@ -382,12 +322,6 @@ var _bag_slot_nodes: Array[BagStorageSlotType] = []
 var _sorted_bag_items: Array[OwnedItemType] = []
 var _bag_drag_active: bool = false
 var _motion_elapsed: float = 0.0
-var _logbook_species: Array[FishDataType] = []
-var _logbook_current_page: int = 0
-var _logbook_page_count: int = 1
-var _logbook_page_transitioning: bool = false
-var _logbook_page_generation: int = 0
-var _logbook_page_tween: Tween
 
 
 func _ready() -> void:
@@ -410,22 +344,14 @@ func _ready() -> void:
 	_profile_tab.pressed.connect(_show_section.bind(Section.PROFILE))
 	_players_tab.pressed.connect(_show_section.bind(Section.PLAYERS))
 	_close_button.pressed.connect(close_menu)
-	_sort_option.item_selected.connect(_on_sort_selected.bind(_sort_option))
-	_sort_direction.pressed.connect(_on_sort_direction_pressed)
 	_cooler_sort_option.item_selected.connect(_on_cooler_sort_selected)
 	_cooler_sort_direction.pressed.connect(_on_sort_direction_pressed)
-	_favorite_button.pressed.connect(_on_favorite_pressed)
-	_sell_button.pressed.connect(_on_sell_pressed)
 	_favorite_bubble.pressed.connect(_on_favorite_pressed)
 	_sell_bubble.pressed.connect(_on_sell_pressed)
 	_sell_all_bubble.pressed.connect(_on_sell_all_pressed)
 	_confirm_sale_button.pressed.connect(_on_confirm_sale_pressed)
 	_cancel_sale_button.pressed.connect(_close_sale_confirmation)
 	_configure_sale_confirmation_focus()
-	_sort_option.add_item("catch order", SortMode.CATCH_ORDER)
-	_sort_option.add_item("name", SortMode.NAME)
-	_sort_option.add_item("rarity", SortMode.RARITY)
-	_sort_option.select(SortMode.CATCH_ORDER)
 	_cooler_sort_option.add_item("catch order", SortMode.CATCH_ORDER)
 	_cooler_sort_option.add_item("name", SortMode.NAME)
 	_cooler_sort_option.add_item("rarity", SortMode.RARITY)
@@ -446,7 +372,6 @@ func _ready() -> void:
 	# Keep the exposed tab hitboxes above the full-page roots. The individual
 	# main panels retain a higher z-index and cover the tab bodies below y=166.
 	_inventory_sub_tabs.move_to_front()
-	_apply_cooler_control_styles()
 	_apply_cooler_wall_styles()
 	_apply_cooler_notepad_style()
 	_cooler_water_surface.resized.connect(_update_cooler_water_mask)
@@ -624,6 +549,12 @@ func setup_controller_mapping(
 
 func set_profile_preview_world_pixel_size(pixel_size: int) -> void:
 	_profile_page.set_world_pixel_size(pixel_size)
+
+
+func allows_global_controller_scroll() -> bool:
+	# The profile page owns the right stick for preview orbit, zoom, and its
+	# color picker. The shared menu scroller must not interpret that axis too.
+	return _current_section != Section.PROFILE
 
 
 func _input(event: InputEvent) -> void:
@@ -1768,12 +1699,6 @@ func _show_section_immediate(section: Section) -> void:
 	_mail_page.visible = section == Section.MAIL
 	_profile_page.visible = section == Section.PROFILE
 	_players_page.visible = section == Section.PLAYERS
-	_content_shell.visible = false
-	_inventory_section.visible = false
-	_bag_section.visible = false
-	_content_shell.set_background_visible(true)
-	_header.visible = section != Section.COOLER
-	_separator.visible = section != Section.COOLER
 	if section == Section.COOLER:
 		_refresh_inventory()
 	else:
@@ -1787,7 +1712,6 @@ func _show_section_immediate(section: Section) -> void:
 		_refresh_bag()
 	_refresh_tackle_box()
 	if section != Section.LOGBOOK:
-		_cancel_logbook_page_transition(true)
 		_catalog_logbook.deactivate()
 	else:
 		_catalog_logbook.activate()
@@ -1874,12 +1798,9 @@ func _focus_current_section() -> void:
 	if _shop_cooler_context_active:
 		_focus_shop_cooler()
 		return
-	_reserve_main_navigation_for_page_switching()
-	_reserve_visible_secondary_navigation()
-	var navigation_cluster := get_node_or_null("%NavigationCluster") as Control
-	var candidates: Array[Control] = []
-	_collect_focusable_content(self, navigation_cluster, candidates)
+	var candidates: Array[Control] = _inventory_content_focus_candidates()
 	if candidates.is_empty():
+		_enter_inventory_tabs_zone()
 		return
 	ControllerFocusNavigationType.configure_spatial_neighbors(candidates)
 	candidates.sort_custom(func(first: Control, second: Control) -> bool:
@@ -1890,23 +1811,22 @@ func _focus_current_section() -> void:
 	candidates[0].grab_focus()
 
 
-func _collect_focusable_content(
-	root: Node,
-	navigation_cluster: Control,
-	output: Array[Control],
-) -> void:
-	for child: Node in root.get_children():
-		if child == navigation_cluster:
-			continue
-		var control := child as Control
-		if control != null and not control.is_visible_in_tree():
-			continue
-		if (
-			ControllerFocusNavigationType.is_focusable(control)
-			and not control is ScrollBar
-		):
-			output.append(control)
-		_collect_focusable_content(child, navigation_cluster, output)
+func _inventory_content_focus_candidates() -> Array[Control]:
+	var candidates: Array[Control] = []
+	match _current_section:
+		Section.COOLER:
+			for fish_node: CoolerFishSpriteType in _fish_nodes.values():
+				if ControllerFocusNavigationType.is_focusable(fish_node):
+					candidates.append(fish_node)
+		Section.BAG:
+			for item_node: BagItemSpriteType in _bag_item_nodes.values():
+				if ControllerFocusNavigationType.is_focusable(item_node):
+					candidates.append(item_node)
+		Section.TACKLE_BOX:
+			for tackle_button: Button in _tackle_item_buttons.values():
+				if ControllerFocusNavigationType.is_focusable(tackle_button):
+					candidates.append(tackle_button)
+	return candidates
 
 
 func _process(delta: float) -> void:
@@ -2573,35 +2493,6 @@ func _on_active_lure_changed(_item_id: StringName) -> void:
 	_update_tackle_detail()
 
 
-func _apply_cooler_control_styles() -> void:
-	var profile: BubbleMenuProfile = _inventory_tab.profile
-	if profile == null:
-		return
-	_sort_option.add_theme_stylebox_override(
-		"normal",
-		profile.make_normal_style(),
-	)
-	_sort_option.add_theme_stylebox_override(
-		"hover",
-		profile.make_hover_style(),
-	)
-	_sort_option.add_theme_stylebox_override(
-		"focus",
-		profile.make_hover_style(),
-	)
-	_sort_option.add_theme_stylebox_override(
-		"pressed",
-		profile.make_pressed_style(),
-	)
-	_sort_option.add_theme_color_override("font_color", profile.text_color)
-	_sort_option.add_theme_color_override(
-		"font_hover_color",
-		profile.text_hover_color,
-	)
-	_sort_option.add_theme_color_override(
-		"font_focus_color",
-		profile.text_hover_color,
-	)
 func _apply_cooler_wall_styles() -> void:
 	var outer := StyleBoxFlat.new()
 	outer.bg_color = Color(0.76, 0.9, 0.96, 1.0)
@@ -2708,59 +2599,6 @@ func _apply_bag_styles() -> void:
 	inner.set_border_width_all(0)
 	inner.set_corner_radius_all(INVENTORY_INNER_CORNER_RADIUS)
 	_bag_inner_liner.add_theme_stylebox_override("panel", inner)
-func _apply_logbook_styles() -> void:
-	var backing := StyleBoxFlat.new()
-	backing.bg_color = Color(0.54, 0.42, 0.27, 1.0)
-	backing.border_color = Color(0.72, 0.59, 0.39, 1.0)
-	backing.set_border_width_all(6)
-	backing.corner_radius_top_left = 42
-	backing.corner_radius_top_right = 34
-	backing.corner_radius_bottom_right = 46
-	backing.corner_radius_bottom_left = 36
-	_book_backing.add_theme_stylebox_override("panel", backing)
-	var left_paper := StyleBoxFlat.new()
-	left_paper.bg_color = Color(0.95, 0.91, 0.79, 1.0)
-	left_paper.border_color = Color(0.80, 0.70, 0.52, 1.0)
-	left_paper.set_border_width_all(3)
-	left_paper.corner_radius_top_left = 30
-	left_paper.corner_radius_bottom_left = 38
-	left_paper.corner_radius_top_right = 8
-	left_paper.corner_radius_bottom_right = 6
-	_left_page.add_theme_stylebox_override("panel", left_paper)
-	var right_paper := StyleBoxFlat.new()
-	right_paper.bg_color = Color(0.925, 0.875, 0.74, 1.0)
-	right_paper.border_color = Color(0.77, 0.66, 0.48, 1.0)
-	right_paper.set_border_width_all(3)
-	right_paper.corner_radius_top_left = 8
-	right_paper.corner_radius_bottom_left = 6
-	right_paper.corner_radius_top_right = 34
-	right_paper.corner_radius_bottom_right = 40
-	_right_page.add_theme_stylebox_override("panel", right_paper)
-	for label: Label in [_left_heading, _right_heading, _logbook_empty_state]:
-		label.add_theme_color_override(
-			"font_color",
-			Color(0.22, 0.16, 0.09, 1.0),
-		)
-	var page_profile: BubbleMenuProfile = _logbook_previous.profile
-	if page_profile != null:
-		var disabled_style: StyleBoxFlat = page_profile.make_normal_style()
-		disabled_style.bg_color.a = 0.82
-		disabled_style.border_color.a = 0.72
-		for control: BubbleButtonType in [
-			_logbook_previous,
-			_logbook_next,
-		]:
-			control.add_theme_stylebox_override(
-				"disabled",
-				disabled_style.duplicate(),
-			)
-			control.add_theme_color_override(
-				"font_disabled_color",
-				Color(0.035, 0.145, 0.22, 0.68),
-			)
-	_logbook_page_status.set_content("pages", "1 / 1")
-
-
 func _update_navigation_selection() -> void:
 	_set_navigation_target(_current_section)
 
@@ -2790,9 +2628,6 @@ func _update_shell_layout() -> void:
 		_presentation_scale_root.scale = Vector2.ONE
 	_presentation_scale_root.position = Vector2.ZERO
 	_presentation_scale_root.pivot_offset = reference_size * 0.5
-	_content_shell.position = Vector2(14.0, 92.0) if compact else Vector2(42.0, 104.0)
-	_content_shell.size = Vector2(612.0, 286.0) if compact else Vector2(1196.0, 478.0)
-	_presentation_rest_position = _content_shell.position
 	var navigation_size := (
 		Vector2(840.0, 75.0) if compact else Vector2(840.0, 100.0)
 	)
@@ -2982,13 +2817,7 @@ func _update_shell_layout() -> void:
 		520.0 if compact else 800.0,
 		512.0 if compact else 420.0,
 	)
-	_bag_grid.columns = 2 if compact else 3
-	_bag_list.custom_minimum_size.x = 300.0 if compact else 360.0
-	_bag_detail.custom_minimum_size.x = 176.0 if compact else 220.0
-	_content_stage.custom_minimum_size.y = 220.0 if compact else 260.0
-	_content_rest_position = _content_stage.position
 	if not _transitioning:
-		_content_shell.position = _presentation_rest_position
 		_cooler_page.position = _cooler_rest_position
 		_bag_page.position = _bag_rest_position
 		_tackle_box_page.position = _tackle_rest_position
@@ -3005,8 +2834,6 @@ func _update_shell_layout() -> void:
 		_mail_page.modulate.a = 1.0
 		_profile_page.modulate.a = 1.0
 		_players_page.modulate.a = 1.0
-	if not _page_transitioning:
-		_content_stage.position = _content_rest_position
 	_layout_cooler_fish(false)
 	_layout_bag_items()
 
@@ -3177,7 +3004,6 @@ func _finish_close(
 ) -> void:
 	_cancel_presentation_tween()
 	_cancel_page_tween()
-	_cancel_logbook_page_transition(true)
 	_the_net_page.deactivate()
 	_transitioning = false
 	_page_transitioning = false
@@ -3243,7 +3069,6 @@ func _get_section_rest_position(section: Section) -> Vector2:
 
 
 func _begin_page_transition(section: Section) -> void:
-	_cancel_logbook_page_transition(true)
 	_page_transition_generation += 1
 	_cancel_page_tween()
 	_page_transitioning = true
@@ -3354,11 +3179,6 @@ func _set_shell_interactive(interactive: bool) -> void:
 
 func _set_content_interactive(interactive: bool) -> void:
 	_content_interactive_enabled = interactive
-	_content_stage.mouse_filter = (
-		Control.MOUSE_FILTER_PASS
-		if interactive
-		else Control.MOUSE_FILTER_IGNORE
-	)
 	_cooler_page.mouse_filter = (
 		Control.MOUSE_FILTER_PASS
 		if interactive and _current_section == Section.COOLER
@@ -3499,19 +3319,8 @@ func _reset_page_transition_visuals() -> void:
 	_page_outgoing_content_root = null
 
 
-func _on_sort_selected(index: int, source: OptionButton) -> void:
-	var selected_id: int = source.get_item_id(index)
-	if selected_id < SortMode.CATCH_ORDER or selected_id > SortMode.RARITY:
-		return
-	_sort_mode = selected_id as SortMode
-	_sort_option.select(_sort_mode)
-	_cooler_sort_option.select(_sort_mode)
-	_refresh_inventory()
-
-
 func _on_cooler_sort_selected(sort_id: int) -> void:
 	_sort_mode = sort_id as SortMode
-	_sort_option.select(_sort_mode)
 	_cooler_sort_option.select(_sort_mode)
 	_refresh_inventory()
 
@@ -3541,7 +3350,6 @@ func _update_sort_direction_text() -> void:
 				direction_text = (
 					"high to low" if _sort_descending else "low to high"
 				)
-	_sort_direction.text = direction_text
 	_cooler_sort_direction.text = direction_text
 
 
@@ -3592,7 +3400,6 @@ func _refresh_bag() -> void:
 	owned_items = filtered_items
 	owned_items.sort_custom(_sort_bag_storage_items)
 	_sorted_bag_items = owned_items
-	_bag_empty.visible = false
 	_bag_empty_state.visible = false
 	_bag_empty_state.text = (
 		"No equipment in your Bag."
@@ -3932,23 +3739,8 @@ func _update_bag_detail() -> void:
 			item_state = "equippable"
 		elif item.usable:
 			item_state = "usable"
-	_bag_detail_texture.texture = null
-	_bag_detail_name.text = item.display_name if item != null else ""
-	_bag_detail_data.text = (
-		"%s\nquantity: %d\n%s\n%s\n%s"
-		% [
-			_item_category_display_name(item),
-			quantity,
-			item_state,
-			hotbar_assignment,
-			item.description,
-		]
-		if item != null
-		else "select a bag item for details."
-	)
 	_bag_sprite_detail_texture.texture = null
 	if item != null:
-		_bag_detail_texture.texture = item.icon
 		_bag_sprite_detail_texture.texture = item.icon
 	_bag_sprite_detail_name.text = (
 		item.display_name if item != null else ""
@@ -4065,20 +3857,8 @@ func _refresh_economy_summary() -> void:
 		if _inventory != null
 		else 0
 	)
-	_wallet_balance.set_amount(balance)
-	_wallet_status.set_currency_amount("wallet", balance)
 	_notepad_wallet_value.set_amount(balance)
-	_capacity_status.set_content("cooler", "%d / %d" % [
-		_inventory.get_all_catches().size() if _inventory != null else 0,
-		_cooler_capacity.get_capacity() if _cooler_capacity != null else 0,
-	])
 	_notepad_capacity_value.text = "%d / %d" % [
-		_inventory.get_all_catches().size() if _inventory != null else 0,
-		_cooler_capacity.get_capacity() if _cooler_capacity != null else 0,
-	]
-	_held_value_status.set_currency_amount("held value", held_total)
-	_held_value.set_amount(held_total)
-	_cooler_count.text = "%d / %d" % [
 		_inventory.get_all_catches().size() if _inventory != null else 0,
 		_cooler_capacity.get_capacity() if _cooler_capacity != null else 0,
 	]
@@ -4098,7 +3878,6 @@ func _refresh_inventory() -> void:
 				catches.append(fish_catch)
 	catches.sort_custom(_compare_catches)
 	_sorted_catches = catches
-	_inventory_empty.visible = catches.is_empty()
 	var visible_ids: Array[StringName] = []
 	for fish_catch: FishCatchType in catches:
 		visible_ids.append(fish_catch.catch_id)
@@ -4358,7 +4137,6 @@ func _on_catch_card_pressed(catch_id: StringName) -> void:
 		Input.is_key_pressed(KEY_CTRL),
 		Input.is_key_pressed(KEY_SHIFT)
 	)
-	_set_transaction_feedback("")
 	_refresh_inventory()
 
 
@@ -4388,7 +4166,6 @@ func _on_fish_field_gui_input(event: InputEvent) -> void:
 		and not get_viewport().gui_is_dragging()
 	):
 		_fish_selection.clear()
-		_set_transaction_feedback("")
 		_refresh_inventory()
 
 
@@ -4465,8 +4242,6 @@ func _update_inventory_detail(fish_catch: FishCatchType) -> void:
 		_cooler_detail_texture.visible = false
 		_cooler_detail_name.text = "select a fish"
 		_clear_cooler_detail_stats()
-		_favorite_button.disabled = true
-		_favorite_button.text = "favorite"
 		_favorite_bubble.disabled = true
 		_favorite_bubble.text = "favorite"
 		_favorite_bubble.persistent_mark = false
@@ -4511,12 +4286,10 @@ func _update_inventory_detail(fish_catch: FishCatchType) -> void:
 	else:
 		_cooler_offer_label.text = "buyer unavailable"
 		_cooler_offer_value.visible = false
-	_favorite_button.disabled = false
-	_favorite_button.text = (
+	_favorite_bubble.disabled = false
+	_favorite_bubble.text = (
 		"unfavorite" if fish_catch.is_favorited else "favorite"
 	)
-	_favorite_bubble.disabled = false
-	_favorite_bubble.text = _favorite_button.text
 	_favorite_bubble.persistent_mark = fish_catch.is_favorited
 	_favorite_bubble.refresh_ink_state()
 	_detail_constellation.visible = _current_section == Section.COOLER
@@ -4555,28 +4328,19 @@ func _update_sale_summary() -> void:
 		active_buyer.id if active_buyer != null else StringName()
 	)
 	_update_sell_all_action(active_buyer, buyer_id)
-	var offer_label: String = _get_offer_label(active_buyer)
 	var selected_ids: Array[StringName] = _fish_selection.get_selected_ids()
 	var selected_count: int = selected_ids.size()
-	_sell_button.text = (
+	_sell_bubble.text = (
 		"sell fish"
 		if selected_count == 1
 		else "sell %d fish" % selected_count
 	)
-	_sell_bubble.text = _sell_button.text
 	if selected_count == 0:
-		_selection_summary.text = "no fish selected"
-		_selection_status.set_content("selected", "none")
-		_offer_status.set_content(offer_label, "—")
-		_sell_button.text = "sell fish"
-		_sell_button.disabled = true
 		_sell_bubble.disabled = true
 		_sell_bubble.text = "sell fish"
 		_sell_bubble.persistent_mark = false
 		_sell_bubble.refresh_ink_state()
 		_set_cooler_selection_summary_empty()
-		_sale_unavailable.text = ""
-		_sale_unavailable.visible = false
 		return
 	if (
 		_sale_in_progress
@@ -4585,51 +4349,24 @@ func _update_sale_summary() -> void:
 			and _network_sale_service.is_local_sale_pending()
 		)
 	):
-		_selection_summary.text = (
-			"1 fish selected"
-			if selected_count == 1
-			else "%d fish selected" % selected_count
-		)
-		_selection_status.set_content("selected", str(selected_count))
-		_offer_status.set_content(offer_label, "pending")
-		_sell_button.disabled = true
 		_sell_bubble.disabled = true
-		_sale_unavailable.text = "Selling…"
-		_sale_unavailable.visible = true
+		_set_cooler_selection_summary(selected_count, -1)
 		return
 	if (
 		_network_sale_service == null
 		or buyer_id.is_empty()
 		or not _network_sale_service.can_request_sale(buyer_id)
 	):
-		_selection_summary.text = (
-			"1 fish selected"
-			if selected_count == 1
-			else "%d fish selected" % selected_count
-		)
-		_selection_status.set_content("selected", str(selected_count))
-		_offer_status.set_content(offer_label, "unavailable")
-		_sell_button.disabled = true
 		_sell_bubble.disabled = true
 		_sell_bubble.persistent_mark = false
 		_sell_bubble.refresh_ink_state()
-		_sale_unavailable.text = (
-			"Selling is not supported by this server."
-		)
-		_sale_unavailable.visible = true
+		_set_cooler_selection_summary(selected_count, -1)
 		return
 	var preview: FishSaleResultType = (
 		_sale_service.preview_batch(selected_ids, active_buyer)
 		if _sale_service != null and active_buyer != null
 		else null
 	)
-	var count_text: String = (
-		"1 fish selected"
-		if selected_count == 1
-		else "%d fish selected" % selected_count
-	)
-	_selection_summary.text = count_text
-	_selection_status.set_content("selected", str(selected_count))
 	if (
 		preview != null
 		and preview.payout >= 0
@@ -4640,24 +4377,11 @@ func _update_sale_summary() -> void:
 		)
 	):
 		_set_cooler_selection_summary(selected_count, preview.payout)
-		_offer_status.set_currency_amount(offer_label, preview.payout)
 	else:
 		_set_cooler_selection_summary(selected_count, -1)
-		_offer_status.set_content(offer_label, "unavailable")
-	_sell_button.disabled = preview == null or not preview.is_success()
-	_sell_bubble.disabled = _sell_button.disabled
+	_sell_bubble.disabled = preview == null or not preview.is_success()
 	_sell_bubble.persistent_mark = false
 	_sell_bubble.refresh_ink_state()
-	if preview != null and preview.status == FishSaleResultType.Status.FAVORITED:
-		_sale_unavailable.text = (
-			"favorited fish cannot be sold. "
-			+ "remove them from the selection first."
-		)
-	elif preview != null and not preview.is_success():
-		_sale_unavailable.text = preview.get_message()
-	else:
-		_sale_unavailable.text = ""
-	_sale_unavailable.visible = not _sale_unavailable.text.is_empty()
 
 
 func _update_sell_all_action(
@@ -4723,13 +4447,7 @@ func _on_favorite_pressed() -> void:
 		fish_catch.catch_id,
 		not fish_catch.is_favorited
 	):
-		_set_transaction_feedback(
-			"%s %s."
-			% [
-				fish_catch.fish.display_name,
-				"favorited" if fish_catch.is_favorited else "unfavorited",
-			]
-		)
+		_refresh_inventory()
 
 
 func _on_sell_pressed() -> void:
@@ -4739,7 +4457,6 @@ func _on_sell_pressed() -> void:
 func _on_sell_all_pressed() -> void:
 	var catch_ids: Array[StringName] = _get_sell_all_catch_ids()
 	if catch_ids.is_empty():
-		_set_transaction_feedback("No sellable fish in the cooler.")
 		return
 	_begin_sale_confirmation(catch_ids)
 
@@ -4756,16 +4473,12 @@ func _begin_sale_confirmation(catch_ids: Array[StringName]) -> void:
 			and _network_sale_service.is_local_sale_pending()
 		)
 	):
-		_set_transaction_feedback("Selling…")
 		return
 	if (
 		_network_sale_service == null
 		or buyer_id.is_empty()
 		or not _network_sale_service.can_request_sale(buyer_id)
 	):
-		_set_transaction_feedback(
-			"Selling is not supported by this server."
-		)
 		return
 	if (
 		_inventory == null
@@ -4779,12 +4492,6 @@ func _begin_sale_confirmation(catch_ids: Array[StringName]) -> void:
 		active_buyer
 	)
 	if not preview.is_success():
-		_set_transaction_feedback(
-			"favorited fish cannot be sold. "
-			+ "remove them from the selection first."
-			if preview.status == FishSaleResultType.Status.FAVORITED
-			else preview.get_message()
-		)
 		_refresh_inventory()
 		return
 	_confirmation_catch_ids = catch_ids.duplicate()
@@ -4847,7 +4554,7 @@ func _on_confirm_sale_pressed() -> void:
 		and transaction_generation == _menu_generation
 		and (visible or _shop_cooler_context_active)
 	):
-		_set_transaction_feedback("Selling…")
+		_update_sale_summary()
 
 
 func _can_use_shared_world_actions() -> bool:
@@ -4860,16 +4567,15 @@ func _can_use_shared_world_actions() -> bool:
 func _on_network_sale_pending(_request_id: String) -> void:
 	_sale_in_progress = true
 	if visible or _shop_cooler_context_active:
-		_set_transaction_feedback("Selling…")
 		_update_sale_summary()
 
 
 func _on_network_sale_finished(
 	_request_id: String,
 	accepted: bool,
-	message: String,
+	_message: String,
 	catch_ids: Array[StringName],
-	payout: int,
+	_payout: int,
 ) -> void:
 	_sale_in_progress = false
 	if accepted:
@@ -4877,16 +4583,6 @@ func _on_network_sale_finished(
 	if not visible and not _shop_cooler_context_active:
 		return
 	_refresh_all()
-	var feedback_message: String = (
-		"Sale complete • %s received."
-		% CurrencyPresentationType.bbcode_amount(payout, 20)
-		if accepted
-		else message
-	)
-	_set_transaction_feedback(feedback_message)
-	if not accepted:
-		_sale_unavailable.text = feedback_message
-		_sale_unavailable.visible = true
 	if _current_section == Section.COOLER:
 		call_deferred("_restore_inventory_tab_focus")
 
@@ -4939,7 +4635,6 @@ func _revalidate_confirmation() -> void:
 		or _confirmation_buyer.id != _confirmation_buyer_id
 	):
 		_close_sale_confirmation()
-		_set_transaction_feedback("sale selection is no longer available.")
 		return
 	var preview: FishSaleResultType = _sale_service.preview_batch(
 		_confirmation_catch_ids,
@@ -4954,12 +4649,6 @@ func _revalidate_confirmation() -> void:
 		)
 	):
 		_close_sale_confirmation()
-		_set_transaction_feedback(
-			"favorited fish cannot be sold. "
-			+ "remove them from the selection first."
-			if preview.status == FishSaleResultType.Status.FAVORITED
-			else preview.get_message()
-		)
 
 
 func _get_buyer_display_group(
@@ -4972,10 +4661,6 @@ func _get_buyer_display_group(
 	if not buyer.display_name.is_empty():
 		return buyer.display_name
 	return "buyer"
-
-
-func _set_transaction_feedback(message: String) -> void:
-	_transaction_feedback.text = "[center]%s[/center]" % message
 
 
 func _get_active_sale_buyer() -> FishBuyerProfileType:
@@ -4992,108 +4677,6 @@ func _get_offer_label(buyer: FishBuyerProfileType) -> String:
 	if buyer.id == NetworkSaleService.PELICAN_BUYER_ID:
 		return "pelican offer"
 	return "buyer offer"
-
-
-func _refresh_logbook() -> void:
-	if not is_node_ready():
-		return
-	var valid_species: Array[FishDataType] = []
-	if _catalog != null:
-		for fish: FishDataType in _catalog.candidates:
-			if fish != null and fish.active and not fish.id.is_empty():
-				valid_species.append(fish)
-	_logbook_species = valid_species
-	_logbook_empty.visible = valid_species.is_empty()
-	_logbook_empty.text = (
-		"no fish catalog configured."
-		if valid_species.is_empty()
-		else "no species discovered yet."
-	)
-	_logbook_empty_state.visible = valid_species.is_empty()
-	_logbook_empty_state.text = (
-		"no fish catalog configured"
-		if valid_species.is_empty()
-		else ""
-	)
-	_refresh_logbook_page(false)
-
-
-func _refresh_logbook_page(keep_transition_state: bool = true) -> void:
-	if not is_node_ready():
-		return
-	var entries_per_spread: int = 2 if _compact_layout else 4
-	_logbook_page_count = maxi(
-		1,
-		ceili(float(_logbook_species.size()) / float(entries_per_spread)),
-	)
-	_logbook_current_page = clampi(
-		_logbook_current_page,
-		0,
-		_logbook_page_count - 1,
-	)
-	_clear_logbook_entries()
-	var start_index: int = _logbook_current_page * entries_per_spread
-	var end_index: int = mini(
-		start_index + entries_per_spread,
-		_logbook_species.size(),
-	)
-	var visible_species: Array[FishDataType] = []
-	for index: int in range(start_index, end_index):
-		visible_species.append(_logbook_species[index])
-	if _compact_layout:
-		for fish: FishDataType in visible_species:
-			_left_entry_field.add_child(_create_logbook_entry(fish))
-	else:
-		var left_count: int = mini(2, visible_species.size())
-		for index: int in visible_species.size():
-			var destination: BoxContainer = (
-				_left_entry_field
-				if index < left_count
-				else _right_entry_field
-			)
-			destination.add_child(_create_logbook_entry(
-				visible_species[index]
-			))
-	_logbook_page_status.set_content(
-		"pages",
-		"%d / %d" % [_logbook_current_page + 1, _logbook_page_count],
-	)
-	_logbook_page_status.visible = _logbook_page_count > 1
-	_update_logbook_page_control_state(
-		keep_transition_state
-		and visible
-		and _current_section == Section.LOGBOOK
-		and not _transitioning
-		and not _page_transitioning
-		and not _logbook_page_transitioning
-	)
-	_configure_logbook_focus()
-
-
-func _create_logbook_entry(fish: FishDataType) -> LogbookEntryType:
-	var discovered: bool = (
-		_collection_log != null
-		and _collection_log.has_discovered(fish.id)
-	)
-	var entry := LogbookEntryScene.instantiate() as LogbookEntryType
-	entry.set_meta("fish_id", fish.id)
-	entry.configure(
-		fish.display_texture,
-		fish.display_name,
-		fish.get_rarity_name(),
-		_inventory.get_count(fish.id) if _inventory != null else 0,
-		discovered,
-	)
-	entry.apply_compact_layout(_compact_layout)
-	return entry
-
-
-func _clear_logbook_entries() -> void:
-	for field: BoxContainer in [_left_entry_field, _right_entry_field]:
-		for child: Node in field.get_children():
-			_release_focus_from(child, _logbook_tab)
-			field.remove_child(child)
-			child.queue_free()
 
 
 func _release_focus_from(node: Node, fallback: Control) -> void:
@@ -5117,164 +4700,6 @@ func _release_focus_from(node: Node, fallback: Control) -> void:
 		and fallback.focus_mode != Control.FOCUS_NONE
 	):
 		fallback.call_deferred("grab_focus")
-
-
-func _request_logbook_page(direction: int) -> void:
-	if (
-		_current_section != Section.LOGBOOK
-		or _logbook_page_transitioning
-		or _transitioning
-		or _page_transitioning
-	):
-		return
-	var target_page: int = clampi(
-		_logbook_current_page + direction,
-		0,
-		_logbook_page_count - 1,
-	)
-	if target_page == _logbook_current_page:
-		return
-	_logbook_page_generation += 1
-	_logbook_page_transitioning = true
-	_update_logbook_page_control_state(false)
-	var generation: int = _logbook_page_generation
-	var travel: float = -12.0 if direction > 0 else 12.0
-	_logbook_page_tween = create_tween()
-	_logbook_page_tween.tween_property(
-		_book_spread,
-		"modulate:a",
-		0.0,
-		LOGBOOK_PAGE_DURATION * 0.5,
-	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	_logbook_page_tween.parallel().tween_property(
-		_book_spread,
-		"position:x",
-		travel,
-		LOGBOOK_PAGE_DURATION * 0.5,
-	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	_logbook_page_tween.tween_callback(
-		_swap_logbook_page.bind(target_page, travel, generation)
-	)
-	_logbook_page_tween.tween_property(
-		_book_spread,
-		"modulate:a",
-		1.0,
-		LOGBOOK_PAGE_DURATION * 0.5,
-	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	_logbook_page_tween.parallel().tween_property(
-		_book_spread,
-		"position:x",
-		0.0,
-		LOGBOOK_PAGE_DURATION * 0.5,
-	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	_logbook_page_tween.finished.connect(
-		_finish_logbook_page_transition.bind(generation),
-		CONNECT_ONE_SHOT,
-	)
-
-
-func _swap_logbook_page(
-	target_page: int,
-	travel: float,
-	generation: int,
-) -> void:
-	if (
-		generation != _logbook_page_generation
-		or not visible
-		or _current_section != Section.LOGBOOK
-	):
-		return
-	_logbook_current_page = target_page
-	_refresh_logbook_page(false)
-	_book_spread.position.x = -travel
-	_book_spread.modulate.a = 0.0
-
-
-func _finish_logbook_page_transition(generation: int) -> void:
-	if generation != _logbook_page_generation:
-		return
-	_logbook_page_tween = null
-	_logbook_page_transitioning = false
-	_book_spread.position.x = 0.0
-	_book_spread.modulate.a = 1.0
-	_update_logbook_page_control_state(
-		visible and _current_section == Section.LOGBOOK
-	)
-	_configure_logbook_focus()
-	if _logbook_next.visible and not _logbook_next.disabled:
-		_logbook_next.grab_focus()
-	elif _logbook_previous.visible and not _logbook_previous.disabled:
-		_logbook_previous.grab_focus()
-
-
-func _cancel_logbook_page_transition(reset_visuals: bool) -> void:
-	_logbook_page_generation += 1
-	if _logbook_page_tween != null:
-		_logbook_page_tween.kill()
-		_logbook_page_tween = null
-	_logbook_page_transitioning = false
-	if reset_visuals and is_instance_valid(_book_spread):
-		_book_spread.position.x = 0.0
-		_book_spread.modulate.a = 1.0
-
-
-func _update_logbook_page_control_state(interactive: bool) -> void:
-	var has_multiple_pages: bool = _logbook_page_count > 1
-	_logbook_previous.visible = has_multiple_pages
-	_logbook_next.visible = has_multiple_pages
-	_logbook_previous.disabled = (
-		not interactive or _logbook_current_page <= 0
-	)
-	_logbook_next.disabled = (
-		not interactive
-		or _logbook_current_page >= _logbook_page_count - 1
-	)
-	for control: BubbleButtonType in [_logbook_previous, _logbook_next]:
-		control.focus_mode = (
-			Control.FOCUS_ALL
-			if control.visible and not control.disabled
-			else Control.FOCUS_NONE
-		)
-		control.mouse_filter = (
-			Control.MOUSE_FILTER_STOP
-			if control.visible and not control.disabled
-			else Control.MOUSE_FILTER_IGNORE
-		)
-
-
-func _configure_logbook_focus() -> void:
-	if _current_section != Section.LOGBOOK:
-		return
-	_logbook_tab.focus_neighbor_bottom = _logbook_tab.focus_neighbor_right
-	if _logbook_page_count <= 1:
-		return
-	var first_control: BubbleButtonType = (
-		_logbook_previous
-		if not _logbook_previous.disabled
-		else _logbook_next
-	)
-	_logbook_tab.focus_neighbor_bottom = _logbook_tab.get_path_to(
-		first_control
-	)
-	for control: BubbleButtonType in [_logbook_previous, _logbook_next]:
-		control.focus_neighbor_top = control.get_path_to(_logbook_tab)
-		control.focus_neighbor_bottom = control.focus_neighbor_top
-		control.focus_neighbor_left = control.get_path_to(
-			_logbook_previous
-		)
-		control.focus_neighbor_right = control.get_path_to(_logbook_next)
-
-
-func _advance_logbook_page_controls(delta: float) -> void:
-	for control: BubbleButtonType in [_logbook_previous, _logbook_next]:
-		if not control.visible:
-			continue
-		control.advance_emphasis(delta)
-		control.apply_presentation(
-			control.calculate_target(_motion_elapsed, 1.0, 1.0),
-			control.calculate_visual_scale(_motion_elapsed, 1.0),
-			minf(1.0, delta * 10.0),
-		)
 
 
 func _create_texture_frame(

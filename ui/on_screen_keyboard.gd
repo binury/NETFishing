@@ -341,6 +341,13 @@ func _preserve_native_text_focus(control: Control) -> void:
 
 
 func _can_edit(control: Control) -> bool:
+	if (
+		control == null
+		or not is_instance_valid(control)
+		or not control.is_inside_tree()
+		or not control.is_visible_in_tree()
+	):
+		return false
 	if control is LineEdit:
 		return (control as LineEdit).editable
 	if control is TextEdit:

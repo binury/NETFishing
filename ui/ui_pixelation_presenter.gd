@@ -8,9 +8,6 @@ const UIReferencePresentationType = preload(
 const ControllerFocusPresentationType = preload(
 	"res://ui/controller_focus_presentation.gd"
 )
-const ControllerFocusRecoveryType = preload(
-	"res://ui/controller_focus_recovery.gd"
-)
 const ControllerMappingManagerType = preload(
 	"res://settings/controller_mapping_manager.gd"
 )
@@ -50,8 +47,6 @@ func _ready() -> void:
 		Callable(_on_screen_keyboard, "request_for_control"),
 		Callable(_on_screen_keyboard, "is_open"),
 	)
-	var controller_focus_recovery := ControllerFocusRecoveryType.new()
-	_ui_root.add_child(controller_focus_recovery)
 	var controller_focus_presentation := ControllerFocusPresentationType.new()
 	_ui_root.add_child(controller_focus_presentation)
 	var root_viewport: Viewport = get_viewport()

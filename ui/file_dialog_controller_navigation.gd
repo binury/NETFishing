@@ -72,20 +72,6 @@ static func interactive_controls(scope: Window) -> Array[Control]:
 	return controls
 
 
-static func activate_control(control: Control) -> bool:
-	if control == null or not control.is_visible_in_tree():
-		return false
-	var menu_button := control as MenuButton
-	if menu_button != null and not menu_button.disabled:
-		menu_button.show_popup()
-		return true
-	var button := control as BaseButton
-	if button != null and not button.disabled:
-		button.pressed.emit()
-		return true
-	return false
-
-
 static func move_from_item_list(
 	item_list: ItemList,
 	direction: Vector2,

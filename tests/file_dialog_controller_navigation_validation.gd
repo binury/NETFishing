@@ -172,7 +172,15 @@ func _run() -> void:
 		)
 	)
 	assert(dialog.gui_get_focus_owner() == select_button)
-	assert(FileDialogControllerNavigationType.activate_control(sort_button))
+	sort_button.grab_focus()
+	var accept_press := InputEventAction.new()
+	accept_press.action = &"ui_accept"
+	accept_press.pressed = true
+	Input.parse_input_event(accept_press)
+	var accept_release := InputEventAction.new()
+	accept_release.action = &"ui_accept"
+	accept_release.pressed = false
+	Input.parse_input_event(accept_release)
 	await process_frame
 	assert(sort_button.get_popup().visible)
 	sort_button.get_popup().hide()
@@ -283,13 +291,16 @@ func _validate_compact_dialog() -> void:
 	var down_event := InputEventJoypadButton.new()
 	down_event.button_index = JOY_BUTTON_DPAD_DOWN
 	down_event.pressed = true
-	font_controller.call("_input", down_event)
+	var dialog_controller := font_controller.get(
+		"_file_dialog_controller"
+	) as FileDialogController
+	dialog_controller.call("_input", down_event)
 	assert(scope.gui_get_focus_owner() == select_button)
 	path_edit.grab_focus()
 	var accept_event := InputEventJoypadButton.new()
 	accept_event.button_index = JOY_BUTTON_A
 	accept_event.pressed = true
-	font_controller.call("_input", accept_event)
+	dialog_controller.call("_input", accept_event)
 	assert(keyboard.is_open())
 	keyboard.call("_close_keyboard", true)
 	dialog.queue_free()

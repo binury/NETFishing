@@ -85,6 +85,7 @@ unique_name_in_owner = true
 custom_minimum_size = Vector2(115, 52)
 layout_mode = 2
 focus_mode = 2
+focus_neighbor_bottom = NodePath("../../ContentPanel/ContentMargin/PageStack/DataPage/DataScroll/DataButtons/FolderRow/OpenDataFolder")
 text = "data"
 script = ExtResource("3_tab")
 palette_index = 1
@@ -417,6 +418,7 @@ unique_name_in_owner = true
 custom_minimum_size = Vector2(330, 48)
 layout_mode = 2
 focus_mode = 2
+focus_neighbor_bottom = NodePath("../../BindingButtons/ControllerMapping")
 toggle_mode = true
 text = "off"
 
@@ -433,6 +435,8 @@ unique_name_in_owner = true
 custom_minimum_size = Vector2(300, 52)
 layout_mode = 2
 focus_mode = 2
+focus_neighbor_right = NodePath("../KeyboardMapping")
+focus_neighbor_top = NodePath("../../Grid/OnScreenKeyboardToggle")
 text = "controller binds"
 
 [node name="KeyboardMapping" type="Button" parent="MainPanel/OuterMargin/Layout/ContentPanel/ContentMargin/PageStack/ControlsPage/BindingButtons"]
@@ -440,6 +444,8 @@ unique_name_in_owner = true
 custom_minimum_size = Vector2(300, 52)
 layout_mode = 2
 focus_mode = 2
+focus_neighbor_left = NodePath("../ControllerMapping")
+focus_neighbor_top = NodePath("../../Grid/OnScreenKeyboardToggle")
 text = "keyboard binds"
 
 [node name="AccessibilityPage" type="VBoxContainer" parent="MainPanel/OuterMargin/Layout/ContentPanel/ContentMargin/PageStack"]
@@ -554,6 +560,9 @@ custom_minimum_size = Vector2(0, 44)
 layout_mode = 2
 size_flags_horizontal = 3
 focus_mode = 2
+focus_neighbor_right = NodePath("../ChangeDataFolder")
+focus_neighbor_top = NodePath("../../../../../../../../TabBar/DataTab")
+focus_neighbor_bottom = NodePath("../../CopyPlayerFingerprint")
 text = "open data folder"
 
 [node name="ChangeDataFolder" type="Button" parent="MainPanel/OuterMargin/Layout/ContentPanel/ContentMargin/PageStack/DataPage/DataScroll/DataButtons/FolderRow"]
@@ -562,6 +571,9 @@ custom_minimum_size = Vector2(0, 44)
 layout_mode = 2
 size_flags_horizontal = 3
 focus_mode = 2
+focus_neighbor_left = NodePath("../OpenDataFolder")
+focus_neighbor_top = NodePath("../../../../../../../../TabBar/DataTab")
+focus_neighbor_bottom = NodePath("../../CopyPlayerFingerprint")
 text = "change data folder"
 
 [node name="CopyPlayerFingerprint" type="Button" parent="MainPanel/OuterMargin/Layout/ContentPanel/ContentMargin/PageStack/DataPage/DataScroll/DataButtons"]
@@ -569,6 +581,8 @@ unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 44)
 layout_mode = 2
 focus_mode = 2
+focus_neighbor_top = NodePath("../FolderRow/OpenDataFolder")
+focus_neighbor_bottom = NodePath("../PlayerIdentityRow/ExportPlayerIdentity")
 text = "copy player fingerprint"
 
 [node name="PlayerIdentityRow" type="HBoxContainer" parent="MainPanel/OuterMargin/Layout/ContentPanel/ContentMargin/PageStack/DataPage/DataScroll/DataButtons"]
@@ -581,6 +595,9 @@ custom_minimum_size = Vector2(0, 44)
 layout_mode = 2
 size_flags_horizontal = 3
 focus_mode = 2
+focus_neighbor_right = NodePath("../ImportPlayerIdentity")
+focus_neighbor_top = NodePath("../../CopyPlayerFingerprint")
+focus_neighbor_bottom = NodePath("../../HostIdentityRow/ExportHostIdentity")
 text = "export player identity"
 
 [node name="ImportPlayerIdentity" type="Button" parent="MainPanel/OuterMargin/Layout/ContentPanel/ContentMargin/PageStack/DataPage/DataScroll/DataButtons/PlayerIdentityRow"]
@@ -589,6 +606,9 @@ custom_minimum_size = Vector2(0, 44)
 layout_mode = 2
 size_flags_horizontal = 3
 focus_mode = 2
+focus_neighbor_left = NodePath("../ExportPlayerIdentity")
+focus_neighbor_top = NodePath("../../CopyPlayerFingerprint")
+focus_neighbor_bottom = NodePath("../../HostIdentityRow/ImportHostIdentity")
 text = "import player identity"
 
 [node name="HostIdentityRow" type="HBoxContainer" parent="MainPanel/OuterMargin/Layout/ContentPanel/ContentMargin/PageStack/DataPage/DataScroll/DataButtons"]
@@ -601,6 +621,8 @@ custom_minimum_size = Vector2(0, 44)
 layout_mode = 2
 size_flags_horizontal = 3
 focus_mode = 2
+focus_neighbor_right = NodePath("../ImportHostIdentity")
+focus_neighbor_top = NodePath("../../PlayerIdentityRow/ExportPlayerIdentity")
 text = "export host identity"
 
 [node name="ImportHostIdentity" type="Button" parent="MainPanel/OuterMargin/Layout/ContentPanel/ContentMargin/PageStack/DataPage/DataScroll/DataButtons/HostIdentityRow"]
@@ -609,6 +631,8 @@ custom_minimum_size = Vector2(0, 44)
 layout_mode = 2
 size_flags_horizontal = 3
 focus_mode = 2
+focus_neighbor_left = NodePath("../ExportHostIdentity")
+focus_neighbor_top = NodePath("../../PlayerIdentityRow/ImportPlayerIdentity")
 text = "import host identity"
 
 [node name="FooterGroup" type="MarginContainer" parent="MainPanel/OuterMargin/Layout"]

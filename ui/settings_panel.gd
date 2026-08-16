@@ -33,10 +33,6 @@ const KeyboardMouseMappingPanelType = preload(
 const DialogControllerNavigationType = preload(
 	"res://ui/file_dialog_controller_navigation.gd"
 )
-const ControllerFocusNavigationType = preload(
-	"res://ui/controller_focus_navigation.gd"
-)
-
 signal applied
 signal closed
 signal closing
@@ -117,6 +113,10 @@ var _mouse_sensitivity: float = 0.005
 var _controller_sensitivity: float = 2.5
 var _invert_camera_y: bool = false
 var _on_screen_keyboard_enabled: bool = false
+var _chat_dock_right: bool = false
+var _chat_mobile_mode: bool = false
+var _paint_dock_right: bool = true
+var _fullscreen_enabled: bool = false
 var _master_volume: float = 1.0
 var _music_volume: float = 1.0
 var _effects_volume: float = 1.0
@@ -142,6 +142,11 @@ var _pending_identity_operation := ""
 var _pending_identity_type := ""
 var _pending_identity_path := ""
 var _pending_import_data: Dictionary = {}
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_VISIBILITY_CHANGED and not visible:
+		_release_owned_focus()
 
 
 func _ready() -> void:
@@ -235,7 +240,7 @@ func _connect_controls() -> void:
 	)
 	%ControllerMapping.pressed.connect(_open_controller_mapping)
 	%KeyboardMapping.pressed.connect(_open_keyboard_mouse_mapping)
-	%OpenDataFolder.pressed.connect(_confirm_open_data_folder)
+	%OpenDataFolder.pressed.connect(_open_data_folder)
 	%ChangeDataFolder.pressed.connect(_choose_data_folder)
 	%ExportPlayerIdentity.pressed.connect(
 		_choose_identity_export.bind("player")
@@ -348,6 +353,7 @@ func open_panel(
 	animate_gameplay_host_transitions: bool = false,
 ) -> void:
 	_cancel_panel_transition()
+	_release_owned_focus()
 	_presentation_mode = presentation_mode
 	_animate_gameplay_host_transitions = animate_gameplay_host_transitions
 	_settings_manager = settings_manager
@@ -359,7 +365,6 @@ func open_panel(
 	panel_visibility_changed.emit(true)
 	_main_panel.modulate.a = 1.0
 	_main_panel.scale = Vector2.ONE
-	call_deferred("_configure_controller_navigation")
 	call_deferred("_focus_active_tab")
 	if (
 		presentation_mode == PresentationMode.TITLE_EMBEDDED
@@ -472,6 +477,7 @@ func _finish_panel_close(applied_result: bool) -> void:
 		_keyboard_mouse_mapping_panel.close_panel()
 	_main_panel.modulate.a = 1.0
 	_main_panel.scale = Vector2.ONE
+	_release_owned_focus()
 	hide()
 	panel_visibility_changed.emit(false)
 	if applied_result:
@@ -521,6 +527,7 @@ func handle_back() -> void:
 func _select_page(page_id: StringName, focus_tab: bool = true) -> void:
 	if not _pages.has(page_id):
 		return
+	var target_tab: OrganizerTab = _tabs.get(page_id)
 	_active_page_id = page_id
 	for candidate_id: StringName in _pages:
 		_pages[candidate_id].visible = candidate_id == page_id
@@ -530,39 +537,14 @@ func _select_page(page_id: StringName, focus_tab: bool = true) -> void:
 		)
 	if page_id == PAGE_DATA:
 		_refresh_data_page()
-	call_deferred("_configure_controller_navigation")
-	if focus_tab:
-		_tabs[page_id].call_deferred("grab_focus")
+	if focus_tab and target_tab != null:
+		target_tab.grab_focus()
 
 
 func _focus_active_tab() -> void:
 	var tab: OrganizerTab = _tabs.get(_active_page_id)
 	if tab != null:
 		tab.grab_focus()
-
-
-func _configure_controller_navigation() -> void:
-	if not is_node_ready() or not visible:
-		return
-	var controls: Array[Control] = []
-	_collect_focusable_controls(_main_panel, controls)
-	ControllerFocusNavigationType.configure_spatial_neighbors(controls)
-
-
-func _collect_focusable_controls(
-	node: Node,
-	controls: Array[Control],
-) -> void:
-	for child: Node in node.get_children():
-		var control := child as Control
-		if control != null and not control.is_visible_in_tree():
-			continue
-		if (
-			control != null
-			and ControllerFocusNavigationType.is_focusable(control)
-		):
-			controls.append(control)
-		_collect_focusable_controls(child, controls)
 
 
 func _open_controller_mapping() -> void:
@@ -627,38 +609,30 @@ func _refresh_data_page() -> void:
 		"copy player fingerprint · %s"
 		% NetworkIdentityCrypto.compact_suffix(fingerprint)
 	)
-	call_deferred("_configure_controller_navigation")
 
 
 func _open_data_folder() -> void:
-	if _data_root == null or not _data_root.open_folder():
-		_feedback.text = "could not open the data folder."
-
-
-func _confirm_open_data_folder() -> void:
+	if (
+		not is_visible_in_tree()
+		or _active_page_id != PAGE_DATA
+		or not _data_page.is_visible_in_tree()
+		or not %OpenDataFolder.is_visible_in_tree()
+		or get_viewport().gui_get_focus_owner() != %OpenDataFolder
+	):
+		return
 	if _data_root == null:
 		_feedback.text = "the data folder is unavailable."
 		return
-	var dialog := ConfirmationDialog.new()
-	dialog.title = "open data folder?"
-	dialog.ok_button_text = "open folder"
-	dialog.cancel_button_text = "cancel"
-	dialog.dialog_text = (
-		"open this folder outside NETfishing?\n\n" + _data_root.root_path
-	)
-	dialog.confirmed.connect(func() -> void:
-		_open_data_folder()
-		dialog.queue_free()
-	)
-	dialog.canceled.connect(dialog.queue_free)
-	if _interface_fonts != null:
-		_interface_fonts.apply_utility_theme(dialog)
-	add_child(dialog)
-	dialog.popup_centered(Vector2i(620, 300))
-	_configure_confirmation_dialog.call_deferred(
-		dialog,
-		dialog.get_cancel_button(),
-	)
+	if not _data_root.open_folder():
+		_feedback.text = "could not open the data folder."
+
+
+func _release_owned_focus() -> void:
+	if not is_inside_tree():
+		return
+	var focus_owner: Control = get_viewport().gui_get_focus_owner()
+	if focus_owner != null and is_ancestor_of(focus_owner):
+		focus_owner.release_focus()
 
 
 func _copy_player_fingerprint() -> void:
@@ -950,6 +924,10 @@ func _apply_settings() -> void:
 	edited.controller_camera_sensitivity = _controller_sensitivity
 	edited.invert_camera_y = _invert_camera_y
 	edited.on_screen_keyboard_enabled = _on_screen_keyboard_enabled
+	edited.chat_dock_right = _chat_dock_right
+	edited.chat_mobile_mode = _chat_mobile_mode
+	edited.paint_dock_right = _paint_dock_right
+	edited.fullscreen_enabled = _fullscreen_enabled
 	edited.master_volume = _master_volume
 	edited.music_volume = _music_volume
 	edited.effects_volume = _effects_volume
@@ -976,16 +954,20 @@ func _load_controls() -> void:
 	_controller_sensitivity = settings.controller_camera_sensitivity
 	_invert_camera_y = settings.invert_camera_y
 	_on_screen_keyboard_enabled = settings.on_screen_keyboard_enabled
+	_chat_dock_right = settings.chat_dock_right
+	_chat_mobile_mode = settings.chat_mobile_mode
+	_paint_dock_right = settings.paint_dock_right
+	_fullscreen_enabled = settings.fullscreen_enabled
 	_master_volume = settings.master_volume
 	_music_volume = settings.music_volume
 	_effects_volume = settings.effects_volume
 	_environment_volume = settings.environment_volume
 	_world_pixelation.select(settings.world_pixel_size - 1)
 	_ui_pixelation.select(settings.ui_pixel_size - 1)
-	_chat_dock.select(1 if settings.chat_dock_right else 0)
-	_chat_mode.select(1 if settings.chat_mobile_mode else 0)
-	_paint_dock.select(1 if settings.paint_dock_right else 0)
-	_fullscreen_toggle.set_pressed_no_signal(settings.fullscreen_enabled)
+	_chat_dock.select(1 if _chat_dock_right else 0)
+	_chat_mode.select(1 if _chat_mobile_mode else 0)
+	_paint_dock.select(1 if _paint_dock_right else 0)
+	_fullscreen_toggle.set_pressed_no_signal(_fullscreen_enabled)
 	_master_volume_slider.set_value_no_signal(_master_volume * 100.0)
 	_music_volume_slider.set_value_no_signal(_music_volume * 100.0)
 	_effects_volume_slider.set_value_no_signal(_effects_volume * 100.0)
@@ -1084,41 +1066,20 @@ func _set_ui_pixelation(pixel_size: int) -> void:
 
 
 func _on_chat_dock_selected(index: int) -> void:
-	_set_presentation_toggle(
-		&"chat_dock_right",
-		_chat_dock.get_item_id(index) == 1,
-	)
+	_chat_dock_right = _chat_dock.get_item_id(index) == 1
 
 
 func _on_chat_mode_selected(index: int) -> void:
-	_set_presentation_toggle(
-		&"chat_mobile_mode",
-		_chat_mode.get_item_id(index) == 1,
-	)
+	_chat_mobile_mode = _chat_mode.get_item_id(index) == 1
 
 
 func _on_paint_dock_selected(index: int) -> void:
-	_set_presentation_toggle(
-		&"paint_dock_right",
-		_paint_dock.get_item_id(index) == 1,
-	)
+	_paint_dock_right = _paint_dock.get_item_id(index) == 1
 
 
 func _set_fullscreen(enabled: bool) -> void:
-	_set_presentation_toggle(&"fullscreen_enabled", enabled)
+	_fullscreen_enabled = enabled
 	_refresh_value_labels()
-
-
-func _set_presentation_toggle(
-	property_name: StringName,
-	enabled: bool,
-) -> void:
-	if _settings_manager == null:
-		return
-	var edited: PlayerSettings = _settings_manager.current_settings.copy()
-	edited.set(property_name, enabled)
-	if not _settings_manager.apply_settings(edited):
-		_feedback.text = "failed to save display setting."
 
 
 func _on_mouse_sensitivity_changed(value: float) -> void:

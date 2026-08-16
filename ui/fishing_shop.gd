@@ -236,13 +236,15 @@ func _input(event: InputEvent) -> void:
 			close_shop()
 		return
 	if uses_accept:
+		if _controller_zone != ControllerZone.TABS:
+			# Content buttons use Godot's native ui_accept activation. Keeping a
+			# second manual pressed.emit() path here allowed one controller press
+			# to be interpreted by two different owners.
+			return
 		get_viewport().set_input_as_handled()
 		if not button_event.pressed or _transaction_in_progress:
 			return
-		if _controller_zone == ControllerZone.TABS:
-			_enter_shop_content_zone()
-		else:
-			_activate_focused_shop_control()
+		_enter_shop_content_zone()
 		return
 	var uses_left_bumper: bool = (
 		_controller_mapping_manager.event_uses_role(
@@ -293,19 +295,6 @@ func _enter_shop_content_zone() -> void:
 		section_index = int(_shop_section)
 	_controller_zone = ControllerZone.CONTENT
 	_select_shop_section(section_index, true)
-
-
-func _activate_focused_shop_control() -> bool:
-	var focused := get_viewport().gui_get_focus_owner() as BaseButton
-	if (
-		focused == null
-		or focused.disabled
-		or _is_shop_tab(focused)
-		or not focused.is_visible_in_tree()
-	):
-		return false
-	focused.pressed.emit()
-	return true
 
 
 func _focused_shop_tab_index() -> int:
@@ -430,9 +419,32 @@ func _configure_controller_focus() -> void:
 	if not visible or _cooler_page_active:
 		return
 	_apply_shop_controller_zone_focus_modes()
-	var candidates: Array[Control] = []
-	_collect_controller_focusables(self, candidates)
+	var candidates: Array[Control] = _active_shop_controller_controls()
 	ControllerFocusNavigationType.configure_spatial_neighbors(candidates)
+
+
+func _active_shop_controller_controls() -> Array[Control]:
+	var controls: Array[Control] = []
+	if _controller_zone == ControllerZone.TABS:
+		for tab: OrganizerTab in _shop_tabs:
+			if ControllerFocusNavigationType.is_focusable(tab):
+				controls.append(tab)
+		return controls
+	var active_root: Control = (
+		_upgrades_content
+		if _shop_section == ShopSection.UPGRADES
+		else _supplies_content
+	)
+	for node: Node in active_root.find_children(
+		"*", "BaseButton", true, false
+	):
+		var button := node as BaseButton
+		if ControllerFocusNavigationType.is_focusable(button):
+			controls.append(button)
+	var close_button := %CloseButton as Button
+	if ControllerFocusNavigationType.is_focusable(close_button):
+		controls.append(close_button)
+	return controls
 
 
 func _apply_shop_controller_zone_focus_modes() -> void:
@@ -457,22 +469,6 @@ func _set_descendant_button_focus_mode(
 		var button := child as BaseButton
 		if button != null:
 			button.focus_mode = focus_mode
-
-
-func _collect_controller_focusables(
-	root: Node,
-	output: Array[Control],
-) -> void:
-	for child: Node in root.get_children():
-		var control := child as Control
-		if control != null and not control.is_visible_in_tree():
-			continue
-		if (
-			ControllerFocusNavigationType.is_focusable(control)
-			and not control is ScrollBar
-		):
-			output.append(control)
-		_collect_controller_focusables(child, output)
 
 
 func _update_shop_tab_selection() -> void:

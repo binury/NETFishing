@@ -151,7 +151,11 @@ func _validate_player_page_zone_contracts() -> void:
 	var net_source: String = FileAccess.get_file_as_string(
 		"res://ui/the_net_page.gd"
 	)
-	assert(net_source.contains("ROLE_RIGHT_STICK_Y"))
+	var game_ui_source: String = FileAccess.get_file_as_string(
+		"res://ui/game_ui.gd"
+	)
+	assert(not net_source.contains("ROLE_RIGHT_STICK_Y"))
+	assert(game_ui_source.contains("_update_controller_menu_scroll"))
 
 
 func _validate_shop_navigation_contract() -> void:

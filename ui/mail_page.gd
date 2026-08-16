@@ -137,32 +137,96 @@ func handle_controller_input(event: InputEvent) -> bool:
 
 
 func _refresh_controller_navigation() -> void:
-	var controls: Array[Control] = []
-	_collect_visible_controller_controls(self, controls)
-	for control: Control in controls:
+	var active_controls: Array[Control] = _active_controller_controls()
+	for control: Control in _all_controller_controls():
 		var button := control as BaseButton
 		control.focus_mode = (
 			Control.FOCUS_ALL
-			if _interactive and (button == null or not button.disabled)
+			if (
+				_interactive
+				and control in active_controls
+				and control.is_visible_in_tree()
+				and (button == null or not button.disabled)
+			)
 			else Control.FOCUS_NONE
 		)
-	ControllerFocusNavigation.configure_spatial_neighbors(controls)
+	ControllerFocusNavigation.configure_spatial_neighbors(active_controls)
 	if _compose != null and _compose.visible:
 		_configure_compose_controller_navigation()
 	elif _inbox != null and _inbox.visible:
 		_configure_inbox_controller_navigation()
 	elif _letter != null and _letter.visible:
 		_configure_letter_controller_navigation()
-	if not _interactive or controls.is_empty():
+	if not _interactive or active_controls.is_empty():
 		return
 	var focus_owner: Control = get_viewport().gui_get_focus_owner()
 	if focus_owner == null or not is_ancestor_of(focus_owner):
-		controls.sort_custom(func(first: Control, second: Control) -> bool:
-			if not is_equal_approx(first.global_position.y, second.global_position.y):
-				return first.global_position.y < second.global_position.y
-			return first.global_position.x < second.global_position.x
-		)
-		controls.front().grab_focus()
+		active_controls.front().grab_focus()
+
+
+func _active_controller_controls() -> Array[Control]:
+	if _compose != null and _compose.visible:
+		return _compose_controller_controls()
+	if _letter != null and _letter.visible:
+		return _letter_controller_controls()
+	return _inbox_controller_controls()
+
+
+func _all_controller_controls() -> Array[Control]:
+	var controls: Array[Control] = _inbox_controller_controls()
+	controls.append_array(_compose_controller_controls())
+	controls.append_array(_letter_controller_controls())
+	return controls
+
+
+func _inbox_controller_controls() -> Array[Control]:
+	var controls: Array[Control] = []
+	_append_controller_control(controls, _archive_view_button)
+	_append_controller_control(controls, _send_mail_button)
+	if _inbox_list != null:
+		for child: Node in _inbox_list.get_children():
+			_append_controller_control(controls, child as Button)
+	return controls
+
+
+func _compose_controller_controls() -> Array[Control]:
+	var controls: Array[Control] = []
+	for control: Control in [
+		_greeting,
+		_recipient,
+		_attachment_kind,
+		_body,
+		_attachment_choice,
+		_salutation,
+		_amount_minus,
+		_attachment_amount,
+		_amount_plus,
+		_compose_cancel,
+		_send_button,
+	]:
+		_append_controller_control(controls, control)
+	return controls
+
+
+func _letter_controller_controls() -> Array[Control]:
+	var controls: Array[Control] = []
+	for control: Control in [
+		_accept,
+		_decline,
+		_letter_close,
+		_archive,
+		_delete,
+	]:
+		_append_controller_control(controls, control)
+	return controls
+
+
+func _append_controller_control(
+	controls: Array[Control],
+	control: Control,
+) -> void:
+	if control != null and control.is_visible_in_tree():
+		controls.append(control)
 
 
 func _configure_inbox_controller_navigation() -> void:
@@ -356,22 +420,6 @@ func _controller_focus_eligible(control: Control) -> bool:
 		return false
 	var button := control as BaseButton
 	return button == null or not button.disabled
-
-
-func _collect_visible_controller_controls(
-	root: Node,
-	output: Array[Control],
-) -> void:
-	for child: Node in root.get_children():
-		var control := child as Control
-		if control != null and not control.is_visible_in_tree():
-			continue
-		if (
-			control != null
-			and (control is BaseButton or control is LineEdit or control is TextEdit)
-		):
-			output.append(control)
-		_collect_visible_controller_controls(child, output)
 
 
 func _build_ui() -> void:
@@ -1039,12 +1087,6 @@ func _attachment_text(attachment: Dictionary) -> String:
 				int(attachment.get("quantity", 0)),
 			]
 	return "Invalid gift."
-
-
-func _focus_first() -> void:
-	var buttons := _inbox_list.find_children("*", "Button", true, false)
-	if not buttons.is_empty():
-		(buttons.front() as Button).grab_focus()
 
 
 func _style_controls(root: Node) -> void:

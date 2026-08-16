@@ -3,8 +3,6 @@ extends Control
 
 const INPUT_OWNER: StringName = &"game_menu"
 const PAUSE_DESKTOP_REFERENCE_SIZE: Vector2 = Vector2(1280.0, 720.0)
-const PAUSE_COMPACT_REFERENCE_SIZE: Vector2 = Vector2(640.0, 480.0)
-const COMPACT_HEIGHT_THRESHOLD: float = 560.0
 const VISIBILITY_FADE_DURATION: float = 0.55
 const PlayerType = preload("res://player/player.gd")
 const SaveManagerType = preload("res://save/player_save_manager.gd")

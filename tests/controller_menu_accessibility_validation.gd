@@ -44,6 +44,7 @@ func _run() -> void:
 	await _validate_join_game_navigation()
 	await _validate_data_settings_navigation()
 	await _validate_settings_adjustment_navigation()
+	await _validate_settings_presentation_requires_apply()
 	await _validate_mail_navigation()
 	await _validate_profile_confirmation_focus()
 	await _validate_profile_voice_navigation()
@@ -163,6 +164,47 @@ func _validate_join_game_navigation() -> void:
 	)
 	await process_frame
 
+	var saved_entries: Array[SavedServerEntry] = []
+	server_list.clear()
+	for index: int in 3:
+		var entry := SavedServerEntry.new()
+		entry.entry_id = "controller-saved-%d" % index
+		entry.display_name = "Saved server %d" % index
+		saved_entries.append(entry)
+		server_list.add_item(entry.display_name)
+	page.set("_mode", 2)
+	page.set("_visible_entries", saved_entries)
+	server_list.show()
+	page.call("_configure_controller_navigation")
+	page.call("_restore_entry_selection_and_focus", 1)
+	await process_frame
+	_expect(
+		server_list.is_selected(1)
+		and root.gui_get_focus_owner() == server_list,
+		"Saved-server refresh did not restore the same list position.",
+	)
+	saved_entries.remove_at(1)
+	server_list.remove_item(1)
+	page.set("_visible_entries", saved_entries)
+	page.call("_restore_entry_selection_and_focus", 1)
+	await process_frame
+	_expect(
+		server_list.is_selected(1)
+		and (
+			page.get("_selected_entry") as SavedServerEntry
+		).entry_id == "controller-saved-2",
+		"Deleting a saved server did not select the row that replaced it.",
+	)
+	saved_entries.clear()
+	server_list.clear()
+	page.set("_visible_entries", saved_entries)
+	page.call("_restore_entry_selection_and_focus", 0)
+	await process_frame
+	_expect(
+		root.gui_get_focus_owner() == saved,
+		"An empty saved-server list did not return focus to its mode tab.",
+	)
+
 	page.queue_free()
 	await process_frame
 
@@ -190,13 +232,13 @@ func _validate_data_settings_navigation() -> void:
 		open_activation["count"] = int(open_activation["count"]) + 1
 	)
 	data_tab.grab_focus()
-	var accept_press := InputEventAction.new()
-	accept_press.action = &"ui_accept"
+	var accept_press := InputEventJoypadButton.new()
+	accept_press.button_index = JOY_BUTTON_A
 	accept_press.pressed = true
 	Input.parse_input_event(accept_press)
 	await process_frame
-	var accept_release := InputEventAction.new()
-	accept_release.action = &"ui_accept"
+	var accept_release := InputEventJoypadButton.new()
+	accept_release.button_index = JOY_BUTTON_A
 	accept_release.pressed = false
 	Input.parse_input_event(accept_release)
 	for _frame: int in 2:
@@ -213,10 +255,6 @@ func _validate_data_settings_navigation() -> void:
 		root.gui_get_focus_owner() == data_tab,
 		"Selecting the Data tab transferred focus into its actions.",
 	)
-	var test_data_root := PlayerDataRoot.new()
-	root.add_child(test_data_root)
-	test_data_root.root_path = "/tmp/netfishing-controller-data"
-	panel.set("_data_root", test_data_root)
 	open_data_folder.grab_focus()
 	_expect(
 		root.gui_get_focus_owner() == open_data_folder,
@@ -226,13 +264,13 @@ func _validate_data_settings_navigation() -> void:
 		not open_data_folder.disabled,
 		"Open Data Folder is unexpectedly disabled.",
 	)
-	var action_press := InputEventAction.new()
-	action_press.action = &"ui_accept"
+	var action_press := InputEventJoypadButton.new()
+	action_press.button_index = JOY_BUTTON_A
 	action_press.pressed = true
 	Input.parse_input_event(action_press)
 	await process_frame
-	var action_release := InputEventAction.new()
-	action_release.action = &"ui_accept"
+	var action_release := InputEventJoypadButton.new()
+	action_release.button_index = JOY_BUTTON_A
 	action_release.pressed = false
 	Input.parse_input_event(action_release)
 	for _frame: int in 2:
@@ -244,31 +282,27 @@ func _validate_data_settings_navigation() -> void:
 			% int(open_activation["count"])
 		),
 	)
-	var confirmations: Array[Node] = panel.find_children(
-		"*", "ConfirmationDialog", true, false
-	)
 	_expect(
-		confirmations.size() == 1
-		and (confirmations.front() as ConfirmationDialog).visible,
-		"Explicitly accepting Open Data Folder did not request confirmation.",
+		panel.find_children(
+			"*", "ConfirmationDialog", true, false
+		).is_empty(),
+		"Open Data Folder left a controller-activatable dialog behind.",
 	)
-	if not confirmations.is_empty():
-		var confirmation := confirmations.front() as ConfirmationDialog
-		_expect(
-			confirmation.gui_get_focus_owner()
-				== confirmation.get_cancel_button(),
-			"Open Data Folder confirmation did not default to Cancel.",
-		)
-		confirmation.queue_free()
+	var change_data_folder := panel.get_node("%ChangeDataFolder") as Button
+	var copy_fingerprint := panel.get_node("%CopyPlayerFingerprint") as Button
+	var export_player := panel.get_node("%ExportPlayerIdentity") as Button
+	var import_player := panel.get_node("%ImportPlayerIdentity") as Button
+	var export_host := panel.get_node("%ExportHostIdentity") as Button
+	var import_host := panel.get_node("%ImportHostIdentity") as Button
 	var controls: Array[Control] = [
 		data_tab,
 		open_data_folder,
-		panel.get_node("%ChangeDataFolder") as Control,
-		panel.get_node("%CopyPlayerFingerprint") as Control,
-		panel.get_node("%ExportPlayerIdentity") as Control,
-		panel.get_node("%ImportPlayerIdentity") as Control,
-		panel.get_node("%ExportHostIdentity") as Control,
-		panel.get_node("%ImportHostIdentity") as Control,
+		change_data_folder,
+		copy_fingerprint,
+		export_player,
+		import_player,
+		export_host,
+		import_host,
 		panel.get_node("%ApplySettingsButton") as Control,
 		panel.get_node("%SettingsBackButton") as Control,
 	]
@@ -278,13 +312,113 @@ func _validate_data_settings_navigation() -> void:
 			"Data & Identity control %s is not controller-focusable."
 			% control.name,
 		)
+	_assert_neighbor(data_tab, &"focus_neighbor_bottom", open_data_folder)
+	_assert_neighbor(
+		open_data_folder,
+		&"focus_neighbor_right",
+		change_data_folder,
+	)
+	_assert_neighbor(
+		open_data_folder,
+		&"focus_neighbor_bottom",
+		copy_fingerprint,
+	)
+	_assert_neighbor(
+		change_data_folder,
+		&"focus_neighbor_left",
+		open_data_folder,
+	)
+	_assert_neighbor(
+		change_data_folder,
+		&"focus_neighbor_bottom",
+		copy_fingerprint,
+	)
+	_assert_neighbor(
+		copy_fingerprint,
+		&"focus_neighbor_top",
+		open_data_folder,
+	)
+	_assert_neighbor(
+		copy_fingerprint,
+		&"focus_neighbor_bottom",
+		export_player,
+	)
+	_assert_neighbor(export_player, &"focus_neighbor_right", import_player)
+	_assert_neighbor(export_player, &"focus_neighbor_bottom", export_host)
+	_assert_neighbor(import_player, &"focus_neighbor_left", export_player)
+	_assert_neighbor(import_player, &"focus_neighbor_bottom", import_host)
+	_assert_neighbor(export_host, &"focus_neighbor_top", export_player)
+	_assert_neighbor(export_host, &"focus_neighbor_right", import_host)
+	_assert_neighbor(import_host, &"focus_neighbor_top", import_player)
+	_assert_neighbor(import_host, &"focus_neighbor_left", export_host)
 	_assert_directionally_reachable(controls.front(), controls)
+	await process_frame
+	open_data_folder.grab_focus()
+	panel.call("_select_page", &"sound", true)
+	_expect(
+		panel.get_active_page_id() == &"sound",
+		"Settings did not leave the Data page.",
+	)
+	_expect(
+		root.gui_get_focus_owner() == panel.get_node("%SoundTab"),
+		"Leaving Data retained focus on a hidden Data action.",
+	)
+	var sound_down: Control = (
+		(panel.get_node("%SoundTab") as Control).find_valid_focus_neighbor(
+			SIDE_BOTTOM
+		)
+	)
+	_expect(
+		sound_down != null and not panel.get_node("%DataPage").is_ancestor_of(
+			sound_down
+		),
+		"Sound navigation still pointed into the hidden Data page.",
+	)
+	var hidden_data_activation_count: int = int(open_activation["count"])
+	Input.parse_input_event(action_press)
+	await process_frame
+	Input.parse_input_event(action_release)
+	for _frame: int in 2:
+		await process_frame
+	_expect(
+		int(open_activation["count"]) == hidden_data_activation_count,
+		"Controller A activated Open Data Folder from another settings page.",
+	)
+	open_data_folder.pressed.emit()
+	await process_frame
+	_expect(
+		panel.find_children(
+			"*", "ConfirmationDialog", true, false
+		).is_empty(),
+		"A hidden Data action created a folder dialog.",
+	)
+	panel.call("_select_page", &"data", true)
+	await process_frame
+	copy_fingerprint.grab_focus()
+	var feedback := panel.get_node("%SettingsFeedback") as Label
+	feedback.text = "activation boundary intact"
+	open_data_folder.pressed.emit()
+	await process_frame
+	_expect(
+		feedback.text == "activation boundary intact",
+		(
+			"Open Data Folder crossed its activation boundary without owning "
+			+ "controller focus."
+		),
+	)
+	panel.hide()
+	await process_frame
+	var hidden_focus_owner: Control = root.gui_get_focus_owner()
+	_expect(
+		hidden_focus_owner == null
+		or not panel.is_ancestor_of(hidden_focus_owner),
+		"Hiding Settings retained focus on one of its controls.",
+	)
 	_expect(
 		panel.find_children("*", "BubbleButton", true, false).is_empty(),
 		"Settings children still contain bubble controls.",
 	)
 	panel.queue_free()
-	test_data_root.queue_free()
 	await process_frame
 
 
@@ -313,6 +447,11 @@ func _validate_settings_adjustment_navigation() -> void:
 	var controller_slider := panel.get_node(
 		"%ControllerSensitivitySlider"
 	) as HSlider
+	var on_screen_keyboard := panel.get_node(
+		"%OnScreenKeyboardToggle"
+	) as Button
+	var controller_binds := panel.get_node("%ControllerMapping") as Button
+	var keyboard_binds := panel.get_node("%KeyboardMapping") as Button
 	_expect(
 		mouse_slider.focus_mode == Control.FOCUS_ALL
 		and controller_slider.focus_mode == Control.FOCUS_ALL,
@@ -323,19 +462,76 @@ func _validate_settings_adjustment_navigation() -> void:
 		and is_equal_approx(controller_slider.step, 0.1),
 		"Sensitivity sliders do not retain their authored increments.",
 	)
+	_assert_neighbor(
+		on_screen_keyboard,
+		&"focus_neighbor_bottom",
+		controller_binds,
+	)
+	_assert_neighbor(
+		controller_binds,
+		&"focus_neighbor_top",
+		on_screen_keyboard,
+	)
+	_assert_neighbor(
+		controller_binds,
+		&"focus_neighbor_right",
+		keyboard_binds,
+	)
+	_assert_neighbor(
+		keyboard_binds,
+		&"focus_neighbor_top",
+		on_screen_keyboard,
+	)
+	_assert_neighbor(
+		keyboard_binds,
+		&"focus_neighbor_left",
+		controller_binds,
+	)
 	var control_inputs: Array[Control] = [
 		panel.get_node("%ControlsTab") as Control,
 		mouse_slider,
 		controller_slider,
 		panel.get_node("%InvertYToggle") as Control,
-		panel.get_node("%OnScreenKeyboardToggle") as Control,
-		panel.get_node("%ControllerMapping") as Control,
-		panel.get_node("%KeyboardMapping") as Control,
+		on_screen_keyboard,
+		controller_binds,
+		keyboard_binds,
 		panel.get_node("%ApplySettingsButton") as Control,
 		panel.get_node("%SettingsBackButton") as Control,
 	]
 	_assert_directionally_reachable(control_inputs.front(), control_inputs)
 	panel.queue_free()
+	await process_frame
+
+
+func _validate_settings_presentation_requires_apply() -> void:
+	var panel := SettingsPanelScene.instantiate() as SettingsPanel
+	var settings_manager := PlayerSettingsManager.new()
+	root.add_child(settings_manager)
+	root.add_child(panel)
+	await process_frame
+	panel.open_panel(settings_manager)
+	await process_frame
+	var chat_dock := panel.get_node("%ChatDockSelector") as OptionButton
+	var chat_mode := panel.get_node("%ChatModeSelector") as OptionButton
+	var paint_dock := panel.get_node("%PaintDockSelector") as OptionButton
+	chat_dock.select(1)
+	chat_dock.item_selected.emit(1)
+	chat_mode.select(1)
+	chat_mode.item_selected.emit(1)
+	paint_dock.select(0)
+	paint_dock.item_selected.emit(0)
+	_expect(
+		not settings_manager.current_settings.chat_dock_right
+		and not settings_manager.current_settings.chat_mobile_mode
+		and settings_manager.current_settings.paint_dock_right,
+		(
+			"Navigating presentation choices changed saved docking settings "
+			+ "before Apply."
+		),
+	)
+	panel.close_panel(true)
+	panel.queue_free()
+	settings_manager.queue_free()
 	await process_frame
 
 
@@ -1334,13 +1530,8 @@ func _assert_directionally_reachable(
 	var pending: Array[Control] = [start]
 	while not pending.is_empty():
 		var current: Control = pending.pop_front()
-		for path: NodePath in [
-			current.focus_neighbor_left,
-			current.focus_neighbor_right,
-			current.focus_neighbor_top,
-			current.focus_neighbor_bottom,
-		]:
-			var neighbor := current.get_node_or_null(path) as Control
+		for side: Side in [SIDE_LEFT, SIDE_RIGHT, SIDE_TOP, SIDE_BOTTOM]:
+			var neighbor: Control = current.find_valid_focus_neighbor(side)
 			if (
 				neighbor == null
 				or not expected.has(neighbor.get_instance_id())
