@@ -217,7 +217,13 @@ func consume_escape() -> bool:
 func handle_controller_input(event: InputEvent) -> bool:
 	if not _profile_active or not _profile_interactive:
 		return false
-	if event.is_action_pressed("ui_cancel"):
+	var cancel_pressed := _event_matches_controller_press(
+		event,
+		&"ui_cancel",
+		ControllerMappingManagerType.ROLE_B,
+		JOY_BUTTON_B,
+	)
+	if cancel_pressed:
 		if _discard_confirmation.visible:
 			_close_discard_confirmation()
 			return true
@@ -242,9 +248,15 @@ func handle_controller_input(event: InputEvent) -> bool:
 		return true
 	if _controller_zone == ControllerZone.ACCOUNT:
 		return false
+	var accept_pressed := _event_matches_controller_press(
+		event,
+		&"ui_accept",
+		ControllerMappingManagerType.ROLE_A,
+		JOY_BUTTON_A,
+	)
 	if (
 		_controller_zone == ControllerZone.CATEGORIES
-		and event.is_action_pressed("ui_accept")
+		and accept_pressed
 	):
 		var focused_category := get_viewport().gui_get_focus_owner() as Button
 		if focused_category != null and _category_list.is_ancestor_of(
@@ -258,7 +270,7 @@ func handle_controller_input(event: InputEvent) -> bool:
 		return true
 	if (
 		_controller_zone == ControllerZone.OPTIONS
-		and event.is_action_pressed("ui_accept")
+		and accept_pressed
 	):
 		var groups: Array = _controller_option_groups()
 		if _controller_option_depth < groups.size() - 1:
@@ -270,6 +282,22 @@ func handle_controller_input(event: InputEvent) -> bool:
 			_focus_controller_zone.call_deferred()
 			return true
 	return false
+
+
+func _event_matches_controller_press(
+	event: InputEvent,
+	action: StringName,
+	role: StringName,
+	fallback_button: JoyButton,
+) -> bool:
+	if event.is_action_pressed(action):
+		return true
+	var button_event := event as InputEventJoypadButton
+	if button_event == null or not button_event.pressed:
+		return false
+	if _controller_mapping_manager != null:
+		return _controller_mapping_manager.event_matches_role(event, role)
+	return button_event.button_index == fallback_button
 
 
 func _process(delta: float) -> void:
@@ -384,7 +412,13 @@ func _focus_controller_zone() -> void:
 			controls = _color_picker_controller_controls()
 	for control: Control in controls:
 		var button := control as BaseButton
-		if button != null and button.button_pressed:
+		if (
+			button != null
+			and button.button_pressed
+			and button.focus_mode != Control.FOCUS_NONE
+			and button.is_visible_in_tree()
+			and not button.disabled
+		):
 			button.grab_focus()
 			return
 	for control: Control in controls:
@@ -724,7 +758,7 @@ func _enter_controller_customization() -> void:
 		return
 	_controller_zone = ControllerZone.CATEGORIES
 	_controller_option_depth = 0
-	_apply_controller_zone_focus()
+	_apply_controller_zone_focus.call_deferred()
 	call_deferred("_focus_controller_zone")
 
 

@@ -12,6 +12,12 @@ const TitleConfirmationScene = preload(
 )
 const MailPageType = preload("res://ui/mail_page.gd")
 const ProfilePageType = preload("res://ui/profile_page.gd")
+const PlayerMenuScene = preload("res://ui/player_menu.tscn")
+const PlayerMenuType = preload("res://ui/player_menu.gd")
+const PlayersPageType = preload("res://ui/players_page.gd")
+const ControllerMappingManagerType = preload(
+	"res://settings/controller_mapping_manager.gd"
+)
 const DialogControllerNavigationType = preload(
 	"res://ui/file_dialog_controller_navigation.gd"
 )
@@ -29,6 +35,7 @@ func _run() -> void:
 	await _validate_data_settings_navigation()
 	await _validate_mail_navigation()
 	await _validate_profile_confirmation_focus()
+	await _validate_player_menu_nested_controller_back()
 	await _validate_confirmation_dialog_navigation()
 	await _validate_bubble_confirmation_navigation()
 	_validate_mapping_capture_contract()
@@ -273,8 +280,154 @@ func _validate_profile_confirmation_focus() -> void:
 			control.focus_mode == Control.FOCUS_ALL,
 			"Profile account focus was not restored after confirmation.",
 		)
+	page.call("_enter_controller_customization")
+	for _frame: int in 2:
+		await process_frame
+	var categories: Array[Control] = []
+	var category_list := page.get("_category_list") as VBoxContainer
+	for item: Variant in page.call("_controls_under", category_list):
+		categories.append(item as Control)
+	var initial_category_focus := root.gui_get_focus_owner() as Control
+	_expect(
+		initial_category_focus in categories,
+		"Customize did not focus the appearance feature list.",
+	)
+	var down := InputEventAction.new()
+	down.action = &"ui_down"
+	down.pressed = true
+	Input.parse_input_event(down)
+	for _frame: int in 2:
+		await process_frame
+	var next_category_focus := root.gui_get_focus_owner() as Control
+	_expect(
+		next_category_focus in categories,
+		"Moving down dropped focus from the appearance feature list.",
+	)
+	_expect(
+		next_category_focus != initial_category_focus,
+		"Moving down did not advance through appearance features.",
+	)
+	down.pressed = false
+	Input.parse_input_event(down)
+	var accept_event := InputEventAction.new()
+	accept_event.action = &"ui_accept"
+	accept_event.pressed = true
+	_expect(
+		bool(page.call("handle_controller_input", accept_event)),
+		"Appearance feature selection did not consume controller Accept.",
+	)
+	for _frame: int in 3:
+		await process_frame
+	var option_groups: Array = page.call("_controller_option_groups")
+	var option_controls: Array[Control] = []
+	if not option_groups.is_empty():
+		for item: Variant in option_groups.front():
+			var option_control := item as Control
+			if option_control != null:
+				option_controls.append(option_control)
+	_expect(
+		root.gui_get_focus_owner() in option_controls,
+		"Selecting an appearance feature did not focus its options.",
+	)
+	var cancel_options := InputEventAction.new()
+	cancel_options.action = &"ui_cancel"
+	cancel_options.pressed = true
+	_expect(
+		bool(page.call("handle_controller_input", cancel_options)),
+		"Appearance options did not consume controller Back.",
+	)
+	for _frame: int in 2:
+		await process_frame
+	_expect(
+		root.gui_get_focus_owner() in categories,
+		"Controller Back did not return to the appearance feature list.",
+	)
 	page.queue_free()
 	await process_frame
+
+
+func _validate_player_menu_nested_controller_back() -> void:
+	var menu := PlayerMenuScene.instantiate() as Control
+	root.add_child(menu)
+	await process_frame
+	menu.visible = true
+	menu.set("_current_section", PlayerMenuType.Section.PROFILE)
+	var profile_page := menu.get("_profile_page") as Control
+	profile_page.call("activate")
+	profile_page.call("set_interactive", true)
+	profile_page.call("_enter_controller_customization")
+	for _frame: int in 2:
+		await process_frame
+	var categories: Array[Control] = []
+	var category_list := profile_page.get(
+		"_category_list"
+	) as VBoxContainer
+	for item: Variant in profile_page.call(
+		"_controls_under", category_list
+	):
+		categories.append(item as Control)
+	var initial_focus := root.gui_get_focus_owner() as Control
+	menu.call("_reserve_visible_secondary_navigation")
+	await process_frame
+	_expect(
+		root.gui_get_focus_owner() in categories,
+		"Player-menu focus reservation disabled appearance features.",
+	)
+	var down := InputEventAction.new()
+	down.action = &"ui_down"
+	down.pressed = true
+	Input.parse_input_event(down)
+	for _frame: int in 2:
+		await process_frame
+	_expect(
+		root.gui_get_focus_owner() in categories,
+		"Player-menu Down dropped appearance feature focus.",
+	)
+	_expect(
+		root.gui_get_focus_owner() != initial_focus,
+		"Player-menu Down did not advance appearance feature focus.",
+	)
+	down.pressed = false
+	Input.parse_input_event(down)
+
+	var mapping_manager := ControllerMappingManagerType.new()
+	var bindings: Dictionary = ControllerMappingManagerType.default_bindings()
+	bindings[str(ControllerMappingManagerType.ROLE_B)] = {
+		"kind": "button",
+		"button": int(JOY_BUTTON_Y),
+	}
+	mapping_manager.set("_profiles", {
+		"default": {
+			"controller_name": "controller",
+			"bindings": bindings,
+		},
+	})
+	menu.call("setup_controller_mapping", mapping_manager)
+	var players_page := menu.get("_players_page") as Control
+	players_page.set("_active", true)
+	players_page.set("_interactive", true)
+	players_page.set(
+		"_controller_zone", PlayersPageType.ControllerZone.BODY
+	)
+	menu.set("_current_section", PlayerMenuType.Section.PLAYERS)
+	var mapped_back := InputEventJoypadButton.new()
+	mapped_back.device = 0
+	mapped_back.button_index = JOY_BUTTON_Y
+	mapped_back.pressed = true
+	_expect(
+		bool(menu.call(
+			"_handle_controller_ownership_input", mapped_back
+		)),
+		"Player menu did not consume a mapped controller Back press.",
+	)
+	_expect(
+		int(players_page.get("_controller_zone"))
+		== PlayersPageType.ControllerZone.TABS,
+		"Mapped controller Back skipped the previous player-page zone.",
+	)
+	menu.queue_free()
+	await process_frame
+	mapping_manager.free()
 
 
 func _validate_mapping_capture_contract() -> void:

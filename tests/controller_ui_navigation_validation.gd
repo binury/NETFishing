@@ -104,6 +104,12 @@ func _validate_controller_hierarchy_contract() -> void:
 	assert(source.contains("active_tab.call_deferred(\"grab_focus\")"))
 	assert(source.contains("CONTROLLER_PICKUP_HOLD_SECONDS"))
 	assert(source.contains("_reserve_main_navigation_for_page_switching"))
+	assert(source.contains(
+		"if not _is_inventory_section(_current_section):\n\t\treturn"
+	))
+	assert(source.contains(
+		"_dispatch_active_page_controller_input(cancel_event)"
+	))
 	assert(source.contains("configure_spatial_neighbors(candidates)"))
 
 

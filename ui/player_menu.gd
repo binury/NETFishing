@@ -738,19 +738,7 @@ func _handle_controller_ownership_input(event: InputEvent) -> bool:
 
 
 func _handle_active_page_controller_input(event: InputEvent) -> bool:
-	var handled: bool = false
-	match _current_section:
-		Section.LOGBOOK:
-			handled = _catalog_logbook.handle_controller_input(event)
-		Section.NET:
-			handled = _the_net_page.handle_controller_input(event)
-		Section.MAIL:
-			handled = _mail_page.handle_controller_input(event)
-		Section.PROFILE:
-			handled = _profile_page.handle_controller_input(event)
-		Section.PLAYERS:
-			handled = _players_page.handle_controller_input(event)
-	if handled:
+	if _dispatch_active_page_controller_input(event):
 		return true
 	var button_event := event as InputEventJoypadButton
 	if (
@@ -762,8 +750,32 @@ func _handle_active_page_controller_input(event: InputEvent) -> bool:
 			JOY_BUTTON_B,
 		)
 	):
+		# Child pages use ui_cancel for their zone transitions. Retry a mapped
+		# B press as that semantic action before treating it as a request to
+		# close the entire player menu.
+		if not event.is_action_pressed("ui_cancel"):
+			var cancel_event := InputEventAction.new()
+			cancel_event.action = &"ui_cancel"
+			cancel_event.pressed = true
+			if _dispatch_active_page_controller_input(cancel_event):
+				return true
 		close_menu()
 		return true
+	return false
+
+
+func _dispatch_active_page_controller_input(event: InputEvent) -> bool:
+	match _current_section:
+		Section.LOGBOOK:
+			return _catalog_logbook.handle_controller_input(event)
+		Section.NET:
+			return _the_net_page.handle_controller_input(event)
+		Section.MAIL:
+			return _mail_page.handle_controller_input(event)
+		Section.PROFILE:
+			return _profile_page.handle_controller_input(event)
+		Section.PLAYERS:
+			return _players_page.handle_controller_input(event)
 	return false
 
 
@@ -1733,6 +1745,11 @@ func _set_descendant_focus_disabled(root: Node) -> void:
 
 
 func _reserve_visible_secondary_navigation() -> void:
+	# Inventory organizer tabs have dedicated left/right ownership. Other pages
+	# manage their own controller zones, and their toggle buttons are content,
+	# not secondary navigation that should be disabled here.
+	if not _is_inventory_section(_current_section):
+		return
 	var navigation_cluster := get_node_or_null("%NavigationCluster") as Control
 	var grouped_buttons: Dictionary = {}
 	_collect_visible_toggle_buttons(self, navigation_cluster, grouped_buttons)
