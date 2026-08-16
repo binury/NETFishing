@@ -328,6 +328,7 @@ var _controller_hotbar_identity: StringName
 var _controller_previous_hotbar_slot: int = 0
 var _controller_accept_held: bool = false
 var _controller_accept_hold_elapsed: float = 0.0
+var _content_interactive_enabled: bool = false
 var _sort_mode: SortMode = SortMode.CATCH_ORDER
 var _sort_descending: bool = true
 var _fish_selection := FishBatchSelectionType.new()
@@ -671,10 +672,9 @@ func _handle_controller_ownership_input(event: InputEvent) -> bool:
 			JOY_BUTTON_B,
 		)
 	)
+	if cancel_pressed:
+		return _consume_player_menu_back()
 	if _controller_ownership == ControllerOwnership.INVENTORY_TABS:
-		if cancel_pressed:
-			close_menu()
-			return true
 		if accept_pressed:
 			_enter_inventory_content_zone()
 			return true
@@ -684,37 +684,36 @@ func _handle_controller_ownership_input(event: InputEvent) -> bool:
 		if event.is_action_pressed("ui_right"):
 			_switch_inventory_tab_direction(1)
 			return true
+		if (
+			event.is_action_pressed("ui_up")
+			or event.is_action_pressed("ui_down")
+		):
+			# Inventory tabs are a closed controller zone. Content is entered
+			# only by accepting the active tab, never by directional spillover.
+			return true
 		return false
 	if _controller_ownership == ControllerOwnership.HOTBAR_MANAGEMENT:
-		if cancel_pressed:
-			_release_controller_ownership(true, false)
-			return true
 		if accept_pressed:
+			if _hotbar != null:
+				_hotbar.clear_slot(_hotbar.get_selected_slot())
 			return true
 		return false
 	if _controller_ownership == ControllerOwnership.HOTBAR_PLACEMENT:
 		if accept_pressed:
 			_confirm_controller_hotbar_placement()
 			return true
-		if cancel_pressed:
-			_release_controller_ownership(true, true)
-			return true
 		return false
 	if _controller_ownership == ControllerOwnership.NOTEPAD_ACTIONS:
-		if cancel_pressed:
-			_release_controller_ownership(true, false)
-			return true
 		return false
 	if _controller_ownership == ControllerOwnership.SORT_FILTER:
-		if cancel_pressed:
-			_enter_inventory_content_zone()
-			return true
 		return false
 	if _controller_ownership == ControllerOwnership.ITEM_LIST:
-		if cancel_pressed:
+		if (
+			event.is_action_pressed("ui_down")
+			and _controller_focus_is_on_last_inventory_row()
+		):
 			_cancel_controller_accept_hold()
-			_enter_inventory_tabs_zone()
-			return true
+			return _enter_controller_hotbar_management()
 		if _event_matches_controller_role(
 			event,
 			ControllerMappingManagerType.ROLE_SELECT,
@@ -750,17 +749,7 @@ func _handle_active_page_controller_input(event: InputEvent) -> bool:
 			JOY_BUTTON_B,
 		)
 	):
-		# Child pages use ui_cancel for their zone transitions. Retry a mapped
-		# B press as that semantic action before treating it as a request to
-		# close the entire player menu.
-		if not event.is_action_pressed("ui_cancel"):
-			var cancel_event := InputEventAction.new()
-			cancel_event.action = &"ui_cancel"
-			cancel_event.pressed = true
-			if _dispatch_active_page_controller_input(cancel_event):
-				return true
-		close_menu()
-		return true
+		return _consume_player_menu_back()
 	return false
 
 
@@ -842,8 +831,97 @@ func _try_enter_notepad_controller_ownership() -> bool:
 	_controller_source_identity = source_identity
 	_controller_notepad_actions = actions
 	_controller_ownership = ControllerOwnership.NOTEPAD_ACTIONS
-	ControllerFocusNavigationType.configure_spatial_neighbors(actions)
+	_apply_inventory_controller_zone_focus_modes()
+	_configure_controller_notepad_action_focus(actions)
 	actions.front().call_deferred("grab_focus")
+	return true
+
+
+func _configure_controller_notepad_action_focus(
+	actions: Array[BaseButton],
+) -> void:
+	ControllerFocusNavigationType.configure_spatial_neighbors(actions)
+	if actions.is_empty():
+		return
+	var favorite: BaseButton = (
+		_favorite_bubble if _favorite_bubble in actions else null
+	)
+	var sell: BaseButton = _sell_bubble if _sell_bubble in actions else null
+	var sell_all: BaseButton = (
+		_sell_all_bubble if _sell_all_bubble in actions else null
+	)
+	if favorite != null and sell != null:
+		favorite.focus_neighbor_right = favorite.get_path_to(sell)
+		sell.focus_neighbor_left = sell.get_path_to(favorite)
+	if sell_all == null:
+		return
+	for upper_action: BaseButton in [favorite, sell]:
+		if upper_action != null:
+			upper_action.focus_neighbor_bottom = (
+				upper_action.get_path_to(sell_all)
+			)
+	var return_action: BaseButton = sell if sell != null else favorite
+	if return_action != null:
+		sell_all.focus_neighbor_top = sell_all.get_path_to(return_action)
+
+
+func _controller_focus_is_on_last_inventory_row() -> bool:
+	var focus_owner: Control = get_viewport().gui_get_focus_owner()
+	if focus_owner == null:
+		return false
+	if _current_section == Section.COOLER:
+		var fish_node := focus_owner as CoolerFishSpriteType
+		if fish_node == null:
+			return false
+		var fish_index: int = _sorted_catches.find_custom(
+			func(fish_catch: FishCatchType) -> bool:
+				return fish_catch.catch_id == fish_node.catch_id
+		)
+		var fish_columns: int = 3 if _compact_layout else 9
+		return (
+			fish_index >= 0
+			and fish_index + fish_columns >= _sorted_catches.size()
+		)
+	if _current_section == Section.BAG:
+		var item_node := focus_owner as BagItemSpriteType
+		if item_node == null:
+			return false
+		var item_index: int = _sorted_bag_items.find_custom(
+			func(owned: OwnedItemType) -> bool:
+				return owned.item_id == item_node.item_id
+		)
+		return (
+			item_index >= 0
+			and item_index + 3 >= _sorted_bag_items.size()
+		)
+	return false
+
+
+func _enter_controller_hotbar_management() -> bool:
+	if _hotbar == null or _current_section not in [Section.COOLER, Section.BAG]:
+		return false
+	var focus_owner: Control = get_viewport().gui_get_focus_owner()
+	var source_identity: StringName
+	if _current_section == Section.COOLER:
+		var fish_node := focus_owner as CoolerFishSpriteType
+		if fish_node == null:
+			return false
+		source_identity = fish_node.catch_id
+	else:
+		var item_node := focus_owner as BagItemSpriteType
+		if item_node == null:
+			return false
+		source_identity = item_node.item_id
+	if source_identity.is_empty():
+		return false
+	_controller_source_section = _current_section
+	_controller_source_identity = source_identity
+	_controller_previous_hotbar_slot = _hotbar.get_selected_slot()
+	_controller_ownership = ControllerOwnership.HOTBAR_MANAGEMENT
+	_apply_inventory_controller_zone_focus_modes()
+	controller_hotbar_management_requested.emit(
+		_controller_previous_hotbar_slot
+	)
 	return true
 
 
@@ -890,6 +968,7 @@ func _try_begin_controller_hotbar_placement() -> bool:
 	if initial_slot < 0:
 		initial_slot = _controller_previous_hotbar_slot
 	_controller_ownership = ControllerOwnership.HOTBAR_PLACEMENT
+	_apply_inventory_controller_zone_focus_modes()
 	controller_hotbar_placement_requested.emit(
 		assignment_kind,
 		identity,
@@ -958,6 +1037,7 @@ func _release_controller_ownership(
 	_controller_source_identity = StringName()
 	_controller_hotbar_assignment_kind = PlayerHotbarType.AssignmentKind.EMPTY
 	_controller_hotbar_identity = StringName()
+	_apply_inventory_controller_zone_focus_modes()
 	if prior_ownership == ControllerOwnership.HOTBAR_PLACEMENT:
 		if restore_previous_hotbar_slot and _hotbar != null:
 			_hotbar.select_slot(_controller_previous_hotbar_slot)
@@ -1092,6 +1172,7 @@ func _enter_inventory_tabs_zone() -> void:
 		return
 	_cancel_controller_accept_hold()
 	_controller_ownership = ControllerOwnership.INVENTORY_TABS
+	_apply_inventory_controller_zone_focus_modes()
 	var active_tab: Button = _inventory_tab_for_section(_current_section)
 	if (
 		active_tab != null
@@ -1106,6 +1187,7 @@ func _enter_inventory_content_zone() -> void:
 		return
 	_cancel_controller_accept_hold()
 	_controller_ownership = ControllerOwnership.ITEM_LIST
+	_apply_inventory_controller_zone_focus_modes()
 	call_deferred("_focus_current_section")
 
 
@@ -1115,6 +1197,7 @@ func _enter_inventory_sort_zone() -> void:
 	_cancel_controller_accept_hold()
 	_controller_ownership = ControllerOwnership.SORT_FILTER
 	_controller_source_section = _current_section
+	_apply_inventory_controller_zone_focus_modes()
 	var sort_controls: Array[Control] = [
 		_cooler_sort_option,
 		_cooler_sort_direction,
@@ -1142,36 +1225,6 @@ func _reset_controller_zone_for_section() -> void:
 			_profile_page.reset_controller_zone()
 		Section.PLAYERS:
 			_players_page.reset_controller_zone()
-
-
-func _collect_visible_toggle_buttons(
-	root: Node,
-	navigation_cluster: Control,
-	grouped_buttons: Dictionary,
-) -> void:
-	for child: Node in root.get_children():
-		var child_control := child as Control
-		if child_control != null and not child_control.is_visible_in_tree():
-			continue
-		var button := child as BaseButton
-		if (
-			button != null
-			and button.toggle_mode
-			and (
-				navigation_cluster == null
-				or not navigation_cluster.is_ancestor_of(button)
-			)
-		):
-			var group_key: Variant = button.get_parent()
-			if button.button_group != null:
-				group_key = button.button_group
-			if not grouped_buttons.has(group_key):
-				grouped_buttons[group_key] = []
-			var buttons := grouped_buttons[group_key] as Array
-			buttons.append(button)
-		_collect_visible_toggle_buttons(
-			child, navigation_cluster, grouped_buttons
-		)
 
 
 func _handle_direct_page_shortcut(event: InputEvent) -> bool:
@@ -1247,16 +1300,43 @@ func _is_text_input_active() -> bool:
 func consume_escape() -> bool:
 	if not visible:
 		return false
+	return _consume_player_menu_back()
+
+
+func _consume_player_menu_back() -> bool:
 	if _transitioning or _page_transitioning:
 		return true
 	if _sale_confirmation.visible:
 		_close_sale_confirmation()
-	elif _current_section == Section.MAIL and _mail_page.consume_escape():
-		pass
-	elif _current_section == Section.PROFILE and _profile_page.consume_escape():
-		pass
-	else:
-		close_menu()
+		return true
+	_cancel_controller_accept_hold()
+	if _is_inventory_section(_current_section):
+		match _controller_ownership:
+			ControllerOwnership.NOTEPAD_ACTIONS:
+				_release_controller_ownership(true, false)
+			ControllerOwnership.SORT_FILTER:
+				_enter_inventory_content_zone()
+			ControllerOwnership.HOTBAR_MANAGEMENT:
+				_release_controller_ownership(true, false)
+			ControllerOwnership.HOTBAR_PLACEMENT:
+				_release_controller_ownership(true, true)
+			ControllerOwnership.ITEM_LIST:
+				_enter_inventory_tabs_zone()
+			ControllerOwnership.INVENTORY_TABS:
+				close_menu()
+			_:
+				close_menu()
+		return true
+	var cancel_event := InputEventAction.new()
+	cancel_event.action = &"ui_cancel"
+	cancel_event.pressed = true
+	if _dispatch_active_page_controller_input(cancel_event):
+		return true
+	if _current_section == Section.MAIL and _mail_page.consume_escape():
+		return true
+	if _current_section == Section.PROFILE and _profile_page.consume_escape():
+		return true
+	close_menu()
 	return true
 
 
@@ -1510,8 +1590,16 @@ func _show_section(section: Section) -> void:
 		and _profile_page.request_close_confirmation()
 	):
 		return
-	_release_controller_ownership(false, true)
+	var preserve_inventory_tab_zone: bool = (
+		_controller_ownership == ControllerOwnership.INVENTORY_TABS
+		and _is_inventory_section(_current_section)
+		and _is_inventory_section(section)
+	)
+	if not preserve_inventory_tab_zone:
+		_release_controller_ownership(false, true)
 	_begin_page_transition(section)
+	if preserve_inventory_tab_zone:
+		_controller_ownership = ControllerOwnership.INVENTORY_TABS
 
 
 func _show_section_immediate(section: Section) -> void:
@@ -1745,41 +1833,21 @@ func _set_descendant_focus_disabled(root: Node) -> void:
 
 
 func _reserve_visible_secondary_navigation() -> void:
-	# Inventory organizer tabs have dedicated left/right ownership. Other pages
-	# manage their own controller zones, and their toggle buttons are content,
-	# not secondary navigation that should be disabled here.
 	if not _is_inventory_section(_current_section):
 		return
-	var navigation_cluster := get_node_or_null("%NavigationCluster") as Control
-	var grouped_buttons: Dictionary = {}
-	_collect_visible_toggle_buttons(self, navigation_cluster, grouped_buttons)
-	var selected_tabs: Array = []
-	var selected_group_y: float = INF
-	for group_value: Variant in grouped_buttons.keys():
-		var buttons := grouped_buttons[group_value] as Array
-		if buttons.size() < 2:
-			continue
-		var group_y: float = INF
-		for item: Variant in buttons:
-			var button := item as BaseButton
-			group_y = minf(group_y, button.global_position.y)
-		if group_y < selected_group_y:
-			selected_tabs = buttons
-			selected_group_y = group_y
-	var focus_owner: Control = get_viewport().gui_get_focus_owner()
-	var displaced_focus: bool = selected_tabs.has(focus_owner)
-	for item: Variant in selected_tabs:
-		var tab := item as Control
-		tab.focus_mode = Control.FOCUS_NONE
-	if displaced_focus:
-		focus_owner.release_focus()
-		call_deferred("_focus_current_section")
 	var inventory_tabs: Array[Button] = [
 		_cooler_sub_tab,
 		_bag_sub_tab,
 		_items_sub_tab,
 		_tackle_sub_tab,
 	]
+	_set_inventory_tab_focus_enabled(
+		_content_interactive_enabled
+		and visible
+		and not _transitioning
+		and not _page_transitioning
+		and _controller_ownership == ControllerOwnership.INVENTORY_TABS
+	)
 	for index: int in inventory_tabs.size():
 		var tab: Button = inventory_tabs[index]
 		tab.focus_neighbor_left = tab.get_path_to(
@@ -1793,6 +1861,113 @@ func _reserve_visible_secondary_navigation() -> void:
 		_inventory_tab_for_section(_last_inventory_section)
 	)
 	_configure_tackle_item_focus()
+
+
+func _set_inventory_tab_focus_enabled(enabled: bool) -> void:
+	for tab: Button in [
+		_cooler_sub_tab,
+		_bag_sub_tab,
+		_items_sub_tab,
+		_tackle_sub_tab,
+	]:
+		tab.focus_mode = (
+			Control.FOCUS_ALL if enabled else Control.FOCUS_NONE
+		)
+
+
+func _apply_inventory_controller_zone_focus_modes() -> void:
+	if not is_node_ready():
+		return
+	var regular_active: bool = (
+		_content_interactive_enabled
+		and visible
+		and _is_inventory_section(_current_section)
+		and not _transitioning
+		and not _page_transitioning
+		and not _sale_confirmation.visible
+	)
+	var shop_active: bool = (
+		_content_interactive_enabled
+		and _shop_cooler_context_active
+		and _current_section == Section.COOLER
+	)
+	_set_inventory_tab_focus_enabled(
+		regular_active
+		and _controller_ownership == ControllerOwnership.INVENTORY_TABS
+	)
+	var content_active: bool = (
+		regular_active
+		and _controller_ownership == ControllerOwnership.ITEM_LIST
+	)
+	var notepad_active: bool = (
+		regular_active
+		and _controller_ownership == ControllerOwnership.NOTEPAD_ACTIONS
+	)
+	var sort_active: bool = (
+		regular_active
+		and _controller_ownership == ControllerOwnership.SORT_FILTER
+	)
+	for sort_control: Control in [
+		_cooler_sort_option,
+		_cooler_sort_direction,
+	]:
+		sort_control.focus_mode = (
+			Control.FOCUS_ALL
+			if sort_active or shop_active
+			else Control.FOCUS_NONE
+		)
+	for fish_node: CoolerFishSpriteType in _fish_nodes.values():
+		fish_node.focus_mode = (
+			Control.FOCUS_ALL
+			if (
+				shop_active
+				or (
+					content_active
+					and _current_section == Section.COOLER
+				)
+			)
+			else Control.FOCUS_NONE
+		)
+	for action: NotepadInkActionType in [
+		_favorite_bubble,
+		_sell_bubble,
+		_sell_all_bubble,
+	]:
+		action.focus_mode = (
+			Control.FOCUS_ALL
+			if (
+				(shop_active or notepad_active)
+				and _detail_constellation.visible
+				and not action.disabled
+			)
+			else Control.FOCUS_NONE
+		)
+	for item_node: BagItemSpriteType in _bag_item_nodes.values():
+		item_node.focus_mode = (
+			Control.FOCUS_ALL
+			if (
+				content_active
+				and _current_section == Section.BAG
+				and not _bag_drag_active
+			)
+			else Control.FOCUS_NONE
+		)
+	for button: Button in _tackle_item_buttons.values():
+		button.focus_mode = (
+			Control.FOCUS_ALL
+			if content_active and _current_section == Section.TACKLE_BOX
+			else Control.FOCUS_NONE
+		)
+	_tackle_equip_button.focus_mode = (
+		Control.FOCUS_ALL
+		if (
+			notepad_active
+			and _current_section == Section.TACKLE_BOX
+			and _tackle_equip_button.visible
+			and not _tackle_equip_button.disabled
+		)
+		else Control.FOCUS_NONE
+	)
 
 
 func _inventory_tab_for_section(section: Section) -> Button:
@@ -1911,7 +2086,8 @@ func _show_bag_view(view: BagView) -> void:
 	var preserve_tab_zone: bool = (
 		_controller_ownership == ControllerOwnership.INVENTORY_TABS
 	)
-	_release_controller_ownership(false, true)
+	if not preserve_tab_zone:
+		_release_controller_ownership(false, true)
 	_bag_view = view
 	_selected_bag_item_id = StringName()
 	_refresh_bag()
@@ -2171,9 +2347,6 @@ func _tackle_is_interactive() -> bool:
 
 func _apply_tackle_interactivity(interactive: bool) -> void:
 	for button: Button in _tackle_item_buttons.values():
-		button.focus_mode = (
-			Control.FOCUS_ALL if interactive else Control.FOCUS_NONE
-		)
 		button.mouse_filter = (
 			Control.MOUSE_FILTER_STOP
 			if interactive
@@ -2184,14 +2357,12 @@ func _apply_tackle_interactivity(interactive: bool) -> void:
 		and _tackle_equip_button.visible
 		and not _tackle_equip_button.disabled
 	)
-	_tackle_equip_button.focus_mode = (
-		Control.FOCUS_ALL if action_interactive else Control.FOCUS_NONE
-	)
 	_tackle_equip_button.mouse_filter = (
 		Control.MOUSE_FILTER_STOP
 		if action_interactive
 		else Control.MOUSE_FILTER_IGNORE
 	)
+	_apply_inventory_controller_zone_focus_modes()
 
 
 func _toggle_active_tackle() -> void:
@@ -3003,6 +3174,7 @@ func _set_shell_interactive(interactive: bool) -> void:
 
 
 func _set_content_interactive(interactive: bool) -> void:
+	_content_interactive_enabled = interactive
 	_content_stage.mouse_filter = (
 		Control.MOUSE_FILTER_PASS
 		if interactive
@@ -3033,7 +3205,13 @@ func _set_content_interactive(interactive: bool) -> void:
 			interactive and _is_inventory_section(_current_section)
 		)
 		tab.focus_mode = (
-			Control.FOCUS_ALL if tab_interactive else Control.FOCUS_NONE
+			Control.FOCUS_ALL
+			if (
+				tab_interactive
+				and _controller_ownership
+				== ControllerOwnership.INVENTORY_TABS
+			)
+			else Control.FOCUS_NONE
 		)
 		tab.mouse_filter = (
 			Control.MOUSE_FILTER_STOP
@@ -3068,11 +3246,6 @@ func _set_content_interactive(interactive: bool) -> void:
 	_cooler_sort_option.refresh_ink_state()
 	_cooler_sort_direction.refresh_ink_state()
 	for fish_node: CoolerFishSpriteType in _fish_nodes.values():
-		fish_node.focus_mode = (
-			Control.FOCUS_ALL
-			if cooler_interactive
-			else Control.FOCUS_NONE
-		)
 		fish_node.mouse_filter = (
 			Control.MOUSE_FILTER_STOP
 			if cooler_interactive
@@ -3087,11 +3260,6 @@ func _set_content_interactive(interactive: bool) -> void:
 		_sell_all_bubble,
 	]:
 		var action_interactive: bool = detail_interactive and not action.disabled
-		action.focus_mode = (
-			Control.FOCUS_ALL
-			if action_interactive
-			else Control.FOCUS_NONE
-		)
 		action.mouse_filter = (
 			Control.MOUSE_FILTER_STOP
 			if action_interactive
@@ -3104,9 +3272,6 @@ func _set_content_interactive(interactive: bool) -> void:
 		and not _bag_drag_active
 	)
 	for item_node: BagItemSpriteType in _bag_item_nodes.values():
-		item_node.focus_mode = (
-			Control.FOCUS_ALL if bag_interactive else Control.FOCUS_NONE
-		)
 		item_node.mouse_filter = (
 			Control.MOUSE_FILTER_STOP
 			if bag_interactive
@@ -3116,6 +3281,7 @@ func _set_content_interactive(interactive: bool) -> void:
 		interactive and _current_section == Section.TACKLE_BOX
 	)
 	_apply_tackle_interactivity(tackle_interactive)
+	_apply_inventory_controller_zone_focus_modes()
 
 
 func _cancel_presentation_tween() -> void:
@@ -4061,13 +4227,13 @@ func _refresh_cooler_notepad_action_interactivity() -> void:
 		_sell_all_bubble,
 	]:
 		var action_interactive: bool = detail_interactive and not action.disabled
-		if action_interactive:
-			action.focus_mode = Control.FOCUS_ALL
-			action.mouse_filter = Control.MOUSE_FILTER_STOP
-		else:
-			action.focus_mode = Control.FOCUS_NONE
-			action.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		action.mouse_filter = (
+			Control.MOUSE_FILTER_STOP
+			if action_interactive
+			else Control.MOUSE_FILTER_IGNORE
+		)
 		action.refresh_ink_state()
+	_apply_inventory_controller_zone_focus_modes()
 
 
 func _update_sale_summary() -> void:

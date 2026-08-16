@@ -11,10 +11,17 @@ const TitleConfirmationScene = preload(
 	"res://ui/title_confirmation_bubble_page.tscn"
 )
 const MailPageType = preload("res://ui/mail_page.gd")
+const LogbookPageType = preload("res://ui/logbook_page.gd")
 const ProfilePageType = preload("res://ui/profile_page.gd")
 const PlayerMenuScene = preload("res://ui/player_menu.tscn")
 const PlayerMenuType = preload("res://ui/player_menu.gd")
+const BagItemSpriteScene = preload(
+	"res://ui/components/bubble_menu/bag_item_sprite.tscn"
+)
+const OwnedItemType = preload("res://items/owned_item.gd")
+const PlayerHotbarType = preload("res://inventory/player_hotbar.gd")
 const PlayersPageType = preload("res://ui/players_page.gd")
+const TheNetPageType = preload("res://ui/the_net_page.gd")
 const ControllerMappingManagerType = preload(
 	"res://settings/controller_mapping_manager.gd"
 )
@@ -35,6 +42,7 @@ func _run() -> void:
 	await _validate_data_settings_navigation()
 	await _validate_mail_navigation()
 	await _validate_profile_confirmation_focus()
+	await _validate_inventory_tab_zone_transitions()
 	await _validate_player_menu_nested_controller_back()
 	await _validate_confirmation_dialog_navigation()
 	await _validate_bubble_confirmation_navigation()
@@ -389,6 +397,83 @@ func _validate_player_menu_nested_controller_back() -> void:
 	)
 	down.pressed = false
 	Input.parse_input_event(down)
+	_expect(
+		bool(menu.call("consume_escape")),
+		"Global player-menu Back did not consume the Profile category zone.",
+	)
+	_expect(
+		menu.visible,
+		"Global player-menu Back closed Profile from a nested zone.",
+	)
+	_expect(
+		int(profile_page.get("_controller_zone"))
+		== ProfilePageType.ControllerZone.ACCOUNT,
+		"Global player-menu Back did not return Profile to its account zone.",
+	)
+
+	var logbook_page := menu.get("_catalog_logbook") as Control
+	logbook_page.set("_active", true)
+	logbook_page.set("_interactive", true)
+	logbook_page.set(
+		"_controller_zone",
+		LogbookPageType.ControllerZone.DETAILS,
+	)
+	menu.set("_current_section", PlayerMenuType.Section.LOGBOOK)
+	_expect(
+		bool(menu.call("consume_escape")),
+		"Global player-menu Back did not consume the Logbook detail zone.",
+	)
+	_expect(
+		menu.visible,
+		"Global player-menu Back closed Logbook from a nested zone.",
+	)
+	_expect(
+		int(logbook_page.get("_controller_zone"))
+		== LogbookPageType.ControllerZone.ENTRIES,
+		"Global player-menu Back did not return Logbook to creature selection.",
+	)
+
+	var net_page := menu.get("_the_net_page") as Control
+	net_page.set("_active", true)
+	net_page.set("_interactive", true)
+	net_page.set(
+		"_controller_zone",
+		TheNetPageType.ControllerZone.CLAIMS,
+	)
+	menu.set("_current_section", PlayerMenuType.Section.NET)
+	_expect(
+		bool(menu.call("consume_escape")),
+		"Global player-menu Back did not consume the Fishnet claims zone.",
+	)
+	_expect(
+		menu.visible,
+		"Global player-menu Back closed Fishnet from a nested zone.",
+	)
+	_expect(
+		int(net_page.get("_controller_zone"))
+		== TheNetPageType.ControllerZone.TABS,
+		"Global player-menu Back did not return Fishnet to its tabs.",
+	)
+
+	var mail_page := menu.get("_mail_page") as Control
+	mail_page.set("_active", true)
+	mail_page.set("_interactive", true)
+	(mail_page.get("_inbox") as Control).hide()
+	(mail_page.get("_compose") as Control).show()
+	(mail_page.get("_letter") as Control).hide()
+	menu.set("_current_section", PlayerMenuType.Section.MAIL)
+	_expect(
+		bool(menu.call("consume_escape")),
+		"Global player-menu Back did not consume the Mail compose zone.",
+	)
+	_expect(
+		menu.visible,
+		"Global player-menu Back closed Mail while composing.",
+	)
+	_expect(
+		(mail_page.get("_inbox") as Control).visible,
+		"Global player-menu Back did not return Mail to the inbox.",
+	)
 
 	var mapping_manager := ControllerMappingManagerType.new()
 	var bindings: Dictionary = ControllerMappingManagerType.default_bindings()
@@ -410,6 +495,22 @@ func _validate_player_menu_nested_controller_back() -> void:
 		"_controller_zone", PlayersPageType.ControllerZone.BODY
 	)
 	menu.set("_current_section", PlayerMenuType.Section.PLAYERS)
+	_expect(
+		bool(menu.call("consume_escape")),
+		"Global player-menu Back did not consume the Online body zone.",
+	)
+	_expect(
+		menu.visible,
+		"Global player-menu Back closed Online from its body zone.",
+	)
+	_expect(
+		int(players_page.get("_controller_zone"))
+		== PlayersPageType.ControllerZone.TABS,
+		"Global player-menu Back did not return Online to its tabs.",
+	)
+	players_page.set(
+		"_controller_zone", PlayersPageType.ControllerZone.BODY
+	)
 	var mapped_back := InputEventJoypadButton.new()
 	mapped_back.device = 0
 	mapped_back.button_index = JOY_BUTTON_Y
@@ -428,6 +529,303 @@ func _validate_player_menu_nested_controller_back() -> void:
 	menu.queue_free()
 	await process_frame
 	mapping_manager.free()
+
+
+func _validate_inventory_tab_zone_transitions() -> void:
+	var menu := PlayerMenuScene.instantiate() as Control
+	root.add_child(menu)
+	await process_frame
+	menu.visible = true
+	menu.call(
+		"_show_section_immediate",
+		PlayerMenuType.Section.COOLER,
+	)
+	menu.call("_set_content_interactive", true)
+	menu.call("_enter_inventory_tabs_zone")
+	for _frame: int in 2:
+		await process_frame
+	var cooler_tab := menu.get_node("%CoolerSubTab") as Button
+	var equipment_tab := menu.get_node("%BagSubTab") as Button
+	var items_tab := menu.get_node("%ItemsSubTab") as Button
+	_expect(
+		root.gui_get_focus_owner() == cooler_tab,
+		"Inventory tab zone did not begin on the active Cooler tab.",
+	)
+
+	var right := InputEventAction.new()
+	right.action = &"ui_right"
+	right.pressed = true
+	_expect(
+		bool(menu.call("_handle_controller_ownership_input", right)),
+		"Inventory tab zone did not consume controller Right.",
+	)
+	await _wait_for_player_menu_page_transition(menu)
+	_expect(
+		menu.get("_current_section") == PlayerMenuType.Section.BAG,
+		"Controller Right did not switch from Cooler to Equipment.",
+	)
+	_expect(
+		menu.get("_controller_ownership")
+		== PlayerMenuType.ControllerOwnership.INVENTORY_TABS,
+		"Changing Inventory tabs entered the item-content zone without A.",
+	)
+	_expect(
+		root.gui_get_focus_owner() == equipment_tab,
+		"Changing Inventory tabs did not keep focus on the selected tab.",
+	)
+	var down := InputEventAction.new()
+	down.action = &"ui_down"
+	down.pressed = true
+	_expect(
+		bool(menu.call("_handle_controller_ownership_input", down)),
+		"Inventory tab zone did not consume controller Down.",
+	)
+	await process_frame
+	_expect(
+		root.gui_get_focus_owner() == equipment_tab,
+		"Controller Down escaped the Inventory tab zone before A.",
+	)
+
+	_expect(
+		bool(menu.call("_handle_controller_ownership_input", right)),
+		"Equipment-to-Items navigation did not consume controller Right.",
+	)
+	await _wait_for_player_menu_page_transition(menu)
+	_expect(
+		root.gui_get_focus_owner() == items_tab,
+		"Items tab selection did not retain tab focus before A (focus=%s)."
+		% root.gui_get_focus_owner(),
+	)
+	_expect(
+		menu.get("_controller_ownership")
+		== PlayerMenuType.ControllerOwnership.INVENTORY_TABS,
+		"Items tab selection changed controller zones before A.",
+	)
+	var left := InputEventAction.new()
+	left.action = &"ui_left"
+	left.pressed = true
+	_expect(
+		bool(menu.call("_handle_controller_ownership_input", left)),
+		"Items-to-Equipment navigation did not consume controller Left.",
+	)
+	await _wait_for_player_menu_page_transition(menu)
+	_expect(
+		root.gui_get_focus_owner() == equipment_tab,
+		"Returning to Equipment did not retain tab focus before A.",
+	)
+
+	# Add three representative equipment entries so entering the content zone
+	# exercises the real three-column directional layout.
+	var item_field := menu.get_node("%BagItemField") as Control
+	var bag_nodes: Dictionary = menu.get("_bag_item_nodes")
+	var owned_items: Array[OwnedItemType] = []
+	for index: int in 3:
+		var owned := OwnedItemType.new()
+		owned.item_id = StringName("controller_test_item_%d" % index)
+		owned_items.append(owned)
+		var item_node := BagItemSpriteScene.instantiate() as Button
+		item_node.set("item_id", owned.item_id)
+		item_node.position = Vector2(60.0 + float(index) * 180.0, 40.0)
+		item_field.add_child(item_node)
+		bag_nodes[owned.item_id] = item_node
+	menu.set("_sorted_bag_items", owned_items)
+	menu.call("_set_content_interactive", true)
+	menu.call("_configure_bag_item_focus")
+	for item_node: Control in bag_nodes.values():
+		_expect(
+			item_node.focus_mode == Control.FOCUS_NONE,
+			"Equipment content remained focusable while tabs owned the controller.",
+		)
+
+	var accept := InputEventJoypadButton.new()
+	accept.button_index = JOY_BUTTON_A
+	accept.pressed = true
+	_expect(
+		bool(menu.call("_handle_controller_ownership_input", accept)),
+		"Inventory tab zone did not consume controller A.",
+	)
+	_expect(
+		menu.get("_controller_ownership")
+		== PlayerMenuType.ControllerOwnership.ITEM_LIST,
+		"Controller A did not explicitly enter Inventory contents.",
+	)
+	for _frame: int in 2:
+		await process_frame
+	var first_item := bag_nodes[owned_items[0].item_id] as Control
+	var second_item := bag_nodes[owned_items[1].item_id] as Control
+	for item_node: Control in bag_nodes.values():
+		_expect(
+			item_node.focus_mode == Control.FOCUS_ALL,
+			"Accepting Equipment did not enable its content focus zone.",
+		)
+	_expect(
+		root.gui_get_focus_owner() == first_item,
+		"Entering Equipment did not focus its first item.",
+	)
+	_expect(
+		first_item.focus_neighbor_right == first_item.get_path_to(second_item),
+		"Equipment items do not provide horizontal controller navigation.",
+	)
+	Input.parse_input_event(right)
+	for _frame: int in 2:
+		await process_frame
+	_expect(
+		root.gui_get_focus_owner() == second_item,
+		"Controller Right did not move between Equipment items.",
+	)
+	right.pressed = false
+	Input.parse_input_event(right)
+	right.pressed = true
+	_expect(
+		bool(menu.call("consume_escape")),
+		"Global player-menu Back did not consume Equipment contents.",
+	)
+	_expect(
+		menu.visible,
+		"Global player-menu Back closed Inventory from its content zone.",
+	)
+	_expect(
+		menu.get("_controller_ownership")
+		== PlayerMenuType.ControllerOwnership.INVENTORY_TABS,
+		"Global player-menu Back did not return Inventory contents to tabs.",
+	)
+	for _frame: int in 2:
+		await process_frame
+	_expect(
+		bool(menu.call("_handle_controller_ownership_input", accept)),
+		"Inventory tab zone did not re-enter Equipment contents.",
+	)
+	for _frame: int in 2:
+		await process_frame
+
+	var favorite := menu.get_node("%FavoriteBubble") as BaseButton
+	var sell := menu.get_node("%SellBubble") as BaseButton
+	var sell_all := menu.get_node("%SellAllBubble") as BaseButton
+	for action: BaseButton in [favorite, sell, sell_all]:
+		action.disabled = false
+		action.focus_mode = Control.FOCUS_ALL
+	var notepad_actions: Array[BaseButton] = [favorite, sell, sell_all]
+	menu.call(
+		"_configure_controller_notepad_action_focus",
+		notepad_actions,
+	)
+	_expect(
+		sell.get_node(sell.focus_neighbor_bottom) == sell_all,
+		"Sell All is not reachable below Sell Fish in the notepad zone.",
+	)
+	_expect(
+		sell_all.get_node(sell_all.focus_neighbor_top) == sell,
+		"Sell All does not return to the upper notepad actions.",
+	)
+	menu.set(
+		"_controller_ownership",
+		PlayerMenuType.ControllerOwnership.NOTEPAD_ACTIONS,
+	)
+	menu.set("_controller_source_section", PlayerMenuType.Section.BAG)
+	menu.set("_controller_source_identity", owned_items[1].item_id)
+	menu.call("_apply_inventory_controller_zone_focus_modes")
+	_expect(
+		bool(menu.call("consume_escape")),
+		"Global player-menu Back did not consume the Inventory notepad zone.",
+	)
+	_expect(
+		menu.visible,
+		"Global player-menu Back closed Inventory from its notepad zone.",
+	)
+	_expect(
+		menu.get("_controller_ownership")
+		== PlayerMenuType.ControllerOwnership.ITEM_LIST,
+		"Global player-menu Back did not return the notepad to Inventory contents.",
+	)
+	for _frame: int in 2:
+		await process_frame
+
+	var hotbar := PlayerHotbarType.new()
+	menu.set("_hotbar", hotbar)
+	var hotbar_slots: Array[StringName] = []
+	hotbar_slots.resize(PlayerHotbarType.SLOT_COUNT)
+	hotbar_slots.fill(StringName())
+	hotbar.set("_slots", hotbar_slots)
+	var hotbar_fish_slots: Array[StringName] = []
+	hotbar_fish_slots.resize(PlayerHotbarType.SLOT_COUNT)
+	hotbar_fish_slots.fill(StringName())
+	hotbar_fish_slots[0] = &"controller_test_fish"
+	hotbar.set("_fish_slots", hotbar_fish_slots)
+	var management_requests: Array[int] = [0]
+	menu.controller_hotbar_management_requested.connect(
+		func(_initial_slot: int) -> void:
+			management_requests[0] += 1
+	)
+	var hotbar_owned := OwnedItemType.new()
+	hotbar_owned.item_id = &"controller_hotbar_source"
+	var hotbar_source := BagItemSpriteScene.instantiate() as Button
+	hotbar_source.set("item_id", hotbar_owned.item_id)
+	hotbar_source.position = Vector2(60.0, 40.0)
+	item_field.add_child(hotbar_source)
+	bag_nodes[hotbar_owned.item_id] = hotbar_source
+	var hotbar_items: Array[OwnedItemType] = [hotbar_owned]
+	menu.set("_sorted_bag_items", hotbar_items)
+	menu.set(
+		"_controller_ownership",
+		PlayerMenuType.ControllerOwnership.ITEM_LIST,
+	)
+	menu.call("_apply_inventory_controller_zone_focus_modes")
+	menu.call("_configure_bag_item_focus")
+	hotbar_source.grab_focus()
+	_expect(
+		bool(menu.call("_handle_controller_ownership_input", down)),
+		"Down from the final Equipment row did not enter the hotbar zone.",
+	)
+	_expect(
+		menu.get("_controller_ownership")
+		== PlayerMenuType.ControllerOwnership.HOTBAR_MANAGEMENT,
+		"Equipment-to-hotbar navigation did not transfer controller ownership.",
+	)
+	_expect(
+		management_requests[0] == 1,
+		"Equipment-to-hotbar navigation did not open hotbar management.",
+	)
+	_expect(
+		bool(menu.call("_handle_controller_ownership_input", accept)),
+		"Hotbar management did not consume controller A.",
+	)
+	_expect(
+		hotbar.get_fish_catch_id(0).is_empty(),
+		"Controller A did not remove the selected fish hotbar assignment.",
+	)
+	_expect(
+		bool(menu.call("consume_escape")),
+		"Global player-menu Back did not consume hotbar management.",
+	)
+	_expect(
+		menu.visible,
+		"Global player-menu Back closed Inventory from hotbar management.",
+	)
+	_expect(
+		menu.get("_controller_ownership")
+		== PlayerMenuType.ControllerOwnership.ITEM_LIST,
+		"Global player-menu Back did not return the hotbar to Inventory contents.",
+	)
+	for _frame: int in 2:
+		await process_frame
+	hotbar.free()
+	menu.queue_free()
+	await process_frame
+
+
+func _wait_for_player_menu_page_transition(menu: Control) -> void:
+	var frames_waited: int = 0
+	while bool(menu.get("_page_transitioning")) and frames_waited < 120:
+		await process_frame
+		frames_waited += 1
+	# Same-section Equipment/Items changes do not tween, but they restore the
+	# active tab focus with a deferred call just like completed page changes.
+	for _frame: int in 2:
+		await process_frame
+	_expect(
+		not bool(menu.get("_page_transitioning")),
+		"Inventory page transition did not finish within 120 frames.",
+	)
 
 
 func _validate_mapping_capture_contract() -> void:
