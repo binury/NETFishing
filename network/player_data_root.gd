@@ -211,10 +211,6 @@ func storage_mode_text() -> String:
 	}.get(mode, "Unavailable")
 
 
-func open_folder() -> bool:
-	return not root_path.is_empty() and OS.shell_open(root_path) == OK
-
-
 func report_conflict(message: String, conflict_path: String) -> void:
 	error_message = message
 	conflict_detected.emit(message, conflict_path)

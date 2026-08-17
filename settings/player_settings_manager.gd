@@ -6,6 +6,9 @@ const SETTINGS_PATH: String = "user://player_settings.json"
 const TEMP_PATH: String = "user://player_settings.json.tmp"
 const BACKUP_PATH: String = "user://player_settings.json.backup"
 const SILENT_VOLUME_DB: float = -80.0
+const HEADLESS_WRITE_ENVIRONMENT: String = (
+	"NETFISHING_ISOLATED_VALIDATION_STORAGE"
+)
 
 signal settings_changed(settings: PlayerSettings)
 
@@ -197,6 +200,15 @@ func save_chat_preferences() -> bool:
 
 
 func save_now() -> bool:
+	if (
+		OS.has_feature("editor")
+		and DisplayServer.get_name() == "headless"
+		and not OS.has_environment(HEADLESS_WRITE_ENVIRONMENT)
+	):
+		push_error(
+			"Refusing to write player settings from an unisolated headless editor run."
+		)
+		return false
 	if current_settings == null or not current_settings.is_valid():
 		return false
 	var data: Dictionary = {

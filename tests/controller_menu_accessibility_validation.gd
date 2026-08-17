@@ -210,6 +210,25 @@ func _validate_join_game_navigation() -> void:
 
 
 func _validate_data_settings_navigation() -> void:
+	var main_source: String = FileAccess.get_file_as_string("res://main/main.gd")
+	var data_root_source: String = FileAccess.get_file_as_string(
+		"res://network/player_data_root.gd"
+	)
+	var settings_source: String = FileAccess.get_file_as_string(
+		"res://ui/settings_panel.gd"
+	)
+	_expect(
+		not main_source.contains("OS.shell_open")
+		and not main_source.contains(
+			"status_changed.connect(_on_data_root_status)"
+		)
+		and not data_root_source.contains("OS.shell_open")
+		and settings_source.count("OS.shell_open") == 1,
+		(
+			"Opening the data folder is not owned exclusively by the Settings "
+			+ "Data action."
+		),
+	)
 	var panel := SettingsPanelScene.instantiate() as SettingsPanel
 	root.add_child(panel)
 	await process_frame

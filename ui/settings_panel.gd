@@ -623,7 +623,10 @@ func _open_data_folder() -> void:
 	if _data_root == null:
 		_feedback.text = "the data folder is unavailable."
 		return
-	if not _data_root.open_folder():
+	if (
+		_data_root.root_path.is_empty()
+		or OS.shell_open(_data_root.root_path) != OK
+	):
 		_feedback.text = "could not open the data folder."
 
 

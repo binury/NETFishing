@@ -773,7 +773,6 @@ func _initialize_application(dedicated: bool) -> void:
 	_ui_pixelation.setup_controller_mapping(_controller_mapping_manager)
 	_game_ui.setup_keyboard_mouse_mapping(_keyboard_mouse_mapping_manager)
 	_data_root.conflict_detected.connect(_on_portable_conflict)
-	_data_root.status_changed.connect(_on_data_root_status)
 	if (
 		PortableFileGuard.has_syncthing_conflict(
 			_data_root.root_path.path_join("player")
@@ -1103,11 +1102,7 @@ func _on_portable_conflict(message: String, _path: String) -> void:
 	dialog.dialog_text = (
 		message
 		+ "\n\nDo not play the same profile on two devices at the same time."
-	)
-	dialog.add_button("Open Data Folder", false, "open")
-	dialog.custom_action.connect(func(action: StringName) -> void:
-		if action == &"open":
-			_data_root.open_folder()
+		+ "\n\nThe data folder can be opened from Settings > Data."
 	)
 	dialog.confirmed.connect(dialog.queue_free)
 	_game_ui.add_child(dialog)
@@ -1121,11 +1116,8 @@ func _on_data_root_status(message: String) -> void:
 	var dialog: AcceptDialog = AcceptDialog.new()
 	_interface_fonts.apply_utility_theme(dialog)
 	dialog.title = "Synced data needs review"
-	dialog.dialog_text = message
-	dialog.add_button("Open Data Folder", false, "open")
-	dialog.custom_action.connect(func(action: StringName) -> void:
-		if action == &"open":
-			_data_root.open_folder()
+	dialog.dialog_text = (
+		message + "\n\nThe data folder can be opened from Settings > Data."
 	)
 	dialog.confirmed.connect(dialog.queue_free)
 	_game_ui.add_child(dialog)

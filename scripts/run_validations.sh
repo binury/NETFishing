@@ -8,6 +8,8 @@ readonly GODOT_BIN="${GODOT_BIN:-godot}"
 readonly TEST_TIMEOUT_SECONDS="${TEST_TIMEOUT_SECONDS:-120}"
 readonly RUN_ROOT="$(mktemp -d -t netfishing-validations.XXXXXX)"
 
+export NETFISHING_ISOLATED_VALIDATION_STORAGE=1
+
 readonly -a QUICK_TESTS=(
 	"scripts/validate_animalese_samples.gd"
 	"tests/android_readiness_validation.gd"
