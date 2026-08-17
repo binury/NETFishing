@@ -65,6 +65,7 @@ func _run() -> void:
 
 	assert(player.play_net_strike_visual())
 	player.resolve_net_strike_visual(true)
+	player.net_success_contact_pause_duration = 0.05
 	var crab_catch := FishCatch.new()
 	crab_catch.fish = CrabBrown
 	crab_catch.fish_id = CrabBrown.id
@@ -80,6 +81,12 @@ func _run() -> void:
 	assert(not bool(player.get("_showcase_animation_active")))
 	assert(player.get("_pending_net_showcase_catch") == crab_catch)
 	player.call("_on_character_animation_finished", &"strike")
+	assert(StringName(player.get("_animation_action_id")) == &"strike")
+	assert(bool(player.get("_animation_action_paused")))
+	assert(not bool(player.get("_showcase_animation_active")))
+	var contact_pause := player.get("_net_strike_showcase_pause_tween") as Tween
+	assert(contact_pause != null and contact_pause.is_valid())
+	await contact_pause.finished
 	assert(StringName(player.get("_animation_action_id")).is_empty())
 	assert(bool(player.get("_showcase_animation_active")))
 	var catch_display := player.get("_catch_display") as Node3D

@@ -355,6 +355,7 @@ class ShowcaseCameraSnapshot:
 @export_category("Gathering")
 @export_flags_3d_physics var net_impact_collision_mask: int = 1
 @export_range(0.02, 0.5, 0.01) var net_impact_radius: float = 0.16
+@export_range(0.0, 1.0, 0.01) var net_success_contact_pause_duration: float = 0.45
 
 @export_category("Camera")
 @export var mouse_sensitivity: float = 0.005
@@ -508,6 +509,7 @@ var _net_strike_previous_animation_position: float = 0.0
 var _net_strike_contact_held: bool = false
 var _net_strike_result_known: bool = false
 var _net_strike_successful: bool = false
+var _net_strike_showcase_pause_tween: Tween
 var _net_impact_shape := SphereShape3D.new()
 var _pending_net_showcase_catch: FishCatchType
 var _pending_net_showcase_remote: bool = false
@@ -669,6 +671,7 @@ func cancel_net_action_visual() -> void:
 
 
 func _clear_net_strike_state() -> void:
+	_kill_net_strike_showcase_pause()
 	_net_strike_collision_armed = false
 	_net_strike_has_previous_sample = false
 	_net_strike_contact_held = false
@@ -676,6 +679,50 @@ func _clear_net_strike_state() -> void:
 	_net_strike_successful = false
 	if _animation_action_paused:
 		_set_animation_action_paused(false)
+
+
+func _kill_net_strike_showcase_pause() -> void:
+	if (
+		_net_strike_showcase_pause_tween != null
+		and _net_strike_showcase_pause_tween.is_valid()
+	):
+		_net_strike_showcase_pause_tween.kill()
+	_net_strike_showcase_pause_tween = null
+
+
+func _hold_successful_net_strike_before_showcase() -> void:
+	_kill_net_strike_showcase_pause()
+	var strike_animation := _character_animation_player.get_animation(
+		CHARACTER_NET_STRIKE_ANIMATION
+	)
+	if strike_animation != null:
+		_animation_action_elapsed = maxf(
+			strike_animation.length - 0.001,
+			0.0,
+		)
+	_net_strike_collision_armed = false
+	_net_strike_contact_held = false
+	_set_animation_action_paused(true)
+	if net_success_contact_pause_duration <= 0.0:
+		_finish_successful_net_strike_pause()
+		return
+	_net_strike_showcase_pause_tween = create_tween()
+	_net_strike_showcase_pause_tween.tween_interval(
+		net_success_contact_pause_duration
+	)
+	_net_strike_showcase_pause_tween.finished.connect(
+		_finish_successful_net_strike_pause
+	)
+
+
+func _finish_successful_net_strike_pause() -> void:
+	_net_strike_showcase_pause_tween = null
+	if local_control_enabled:
+		if not _net_strike_result_known or not _net_strike_successful:
+			return
+		_clear_net_strike_state()
+		end_animation_action()
+	_begin_pending_net_showcase()
 
 
 func _set_animation_action_paused(paused: bool) -> void:
@@ -1352,9 +1399,7 @@ func _on_character_animation_finished(animation_name: StringName) -> void:
 	if animation_name == CHARACTER_NET_STRIKE_ANIMATION:
 		if local_control_enabled:
 			if _net_strike_result_known and _net_strike_successful:
-				_clear_net_strike_state()
-				end_animation_action()
-				_begin_pending_net_showcase()
+				_hold_successful_net_strike_before_showcase()
 			else:
 				var strike_animation := (
 					_character_animation_player.get_animation(
@@ -1371,7 +1416,7 @@ func _on_character_animation_finished(animation_name: StringName) -> void:
 				_set_animation_action_paused(true)
 			return
 		if _pending_net_showcase_remote:
-			_begin_pending_net_showcase()
+			_hold_successful_net_strike_before_showcase()
 		return
 	if (
 		local_control_enabled
