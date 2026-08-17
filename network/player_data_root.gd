@@ -12,6 +12,7 @@ const LAYOUT_VERSION := 1
 const MANIFEST_FILENAME := "netfishing_data.json"
 const README_FILENAME := "README.txt"
 const ENVIRONMENT_VARIABLE := "NETFISHING_DATA_DIR"
+const CREATE_ENVIRONMENT_VARIABLE := "NETFISHING_CREATE_DATA_DIR"
 const APPLICATION_ID := "netfishing"
 const APP_DATA_PORTABLE_PATH := "user://portable-data"
 const PATH_ALLOWED: StringName = &"allowed"
@@ -48,6 +49,15 @@ func resolve() -> bool:
 		var environment_path: String = OS.get_environment(ENVIRONMENT_VARIABLE)
 		if not environment_path.is_absolute_path():
 			return _fail("NETFISHING_DATA_DIR must be an absolute path.")
+		if (
+			OS.get_environment(CREATE_ENVIRONMENT_VARIABLE) == "1"
+			and not FileAccess.file_exists(
+				environment_path.path_join(MANIFEST_FILENAME)
+			)
+		):
+			var created: Dictionary = create_unbound_root(environment_path)
+			if not bool(created.get("ok", false)):
+				return false
 		return _activate_existing(environment_path, "", false)
 	var bootstrap: Dictionary = _read_json(BOOTSTRAP_PATH, 64 * 1024)
 	if bootstrap.is_empty() and FileAccess.file_exists(BOOTSTRAP_PATH + ".backup"):

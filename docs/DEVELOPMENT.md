@@ -365,7 +365,10 @@ rm -rf -- "$test_root"
 ```
 
 Do not point `NETFISHING_DATA_DIR` at an arbitrary empty directory; it is an
-explicit portable-data override and must identify a valid data root.
+explicit portable-data override and must identify a valid data root. The
+PortMaster launcher is the narrow exception: it also sets
+`NETFISHING_CREATE_DATA_DIR=1`, allowing the game to initialize its known empty
+external save directory on first launch.
 
 Headless tests cannot prove visual alignment, mouse routing, shader appearance,
 controller feel, or resize behavior. Presentation changes require graphical

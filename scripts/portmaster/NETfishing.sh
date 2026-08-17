@@ -28,6 +28,9 @@ if [ ! -d "$GAMEDIR" ] && [ -d "/mnt/mmc/ports/netfishing" ]; then
 fi
 
 CONFDIR="$GAMEDIR/conf"
+PORTS_ROOT="${GAMEDIR%/netfishing}"
+SAVEDIR="$PORTS_ROOT/saves/netfishing"
+DATA_BOOTSTRAP_DIR="$CONFDIR/data/godot/app_userdata/NETFISHING"
 GAME_EXECUTABLE="$GAMEDIR/NETfishing.aarch64"
 GAME_LAUNCHER="$GAMEDIR/launch-netfishing.sh"
 GPTOKEYB_CONFIG="$GAMEDIR/netfishing.gptk"
@@ -41,6 +44,21 @@ fi
 
 mkdir -p "$CONFDIR/data" "$CONFDIR/config" "$CONFDIR/cache" "$WESTON_DIR"
 chmod +x "$GAME_EXECUTABLE"
+
+# New PortMaster installs use a predictable save directory beside the port
+# instead of presenting a folder picker on a small screen. Preserve an
+# established data-root choice when upgrading an existing installation.
+NETFISHING_DATA_ENVIRONMENT=()
+if [ -f "$SAVEDIR/netfishing_data.json" ] || {
+	[ ! -f "$DATA_BOOTSTRAP_DIR/data_root_bootstrap.json" ] &&
+	[ ! -f "$DATA_BOOTSTRAP_DIR/data_root_bootstrap.json.backup" ]
+}; then
+	mkdir -p "$SAVEDIR"
+	NETFISHING_DATA_ENVIRONMENT+=(
+		"NETFISHING_DATA_DIR=$SAVEDIR"
+		"NETFISHING_CREATE_DATA_DIR=1"
+	)
+fi
 
 > "$GAMEDIR/log.txt" && exec > >(tee "$GAMEDIR/log.txt") 2>&1
 
@@ -134,6 +152,7 @@ $ESUDO env CRUSTY_RESOLUTION="${DISPLAY_WIDTH}x${DISPLAY_HEIGHT}" \
 	XDG_CONFIG_HOME="$CONFDIR/config" \
 	XDG_CACHE_HOME="$CONFDIR/cache" \
 	GODOT_SILENCE_ROOT_WARNING=1 \
+	"${NETFISHING_DATA_ENVIRONMENT[@]}" \
 	"${NETFISHING_GAME_ENVIRONMENT[@]}" \
 	"$GAME_LAUNCHER" \
 	"$CONTROLLER_MAPPING_FILE" \

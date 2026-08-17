@@ -181,7 +181,10 @@ Install the complete \`netfishing.zip\` archive with PortMaster or HarbourMaster
 The package requires an ARM64 device, two analog sticks, GLIBC 2.28 or newer,
 and the \`weston_pkg_0.2\` runtime.
 
-Save data and device-local configuration remain under \`netfishing/conf/\`.
+New installations store player data under \`ports/saves/netfishing/\` without
+opening a folder picker. Existing installations preserve their previously
+selected data root. Device-local configuration remains under
+\`netfishing/conf/\`.
 PortMaster launches use the light performance profile by default. Put the word
 \`normal\` in \`netfishing/conf/performance_profile\` to opt a capable device
 into the normal rendering profile. See \`netfishing/licenses/\` for bundled
@@ -222,6 +225,12 @@ grep -Fq 'PROFILE_PATH="$CONFDIR/performance_profile"' \
 grep -Fq 'NETFISHING_PERFORMANCE_PROFILE=light' \
   "${STAGE_ROOT}/NETfishing.sh"
 grep -Fq 'CONTROLLER_MAPPING_FILE="$CONFDIR/cache/controller_mapping.txt"' \
+  "${STAGE_ROOT}/NETfishing.sh"
+grep -Fq 'SAVEDIR="$PORTS_ROOT/saves/netfishing"' \
+  "${STAGE_ROOT}/NETfishing.sh"
+grep -Fq '"NETFISHING_DATA_DIR=$SAVEDIR"' \
+  "${STAGE_ROOT}/NETfishing.sh"
+grep -Fq '"NETFISHING_CREATE_DATA_DIR=1"' \
   "${STAGE_ROOT}/NETfishing.sh"
 grep -Fq 'printf '\''%s\n'\'' "$netfishing_controllerconfig" > "$CONTROLLER_MAPPING_FILE"' \
   "${STAGE_ROOT}/NETfishing.sh"

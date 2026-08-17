@@ -38,8 +38,12 @@ directory. The templates in `scripts/portmaster/` are authoritative.
   mapping manager handle gameplay input.
 - The launcher calls `pm_platform_helper` for the game executable after
   starting GPTOKEYB and calls `pm_finish` after the game exits.
-- Persistent device data remains under `netfishing/conf/data`,
-  `netfishing/conf/config`, and `netfishing/conf/cache`.
+- New installations automatically create player data under
+  `ports/saves/netfishing/` and do not present the in-game folder picker.
+- Existing installations with a selected data root keep that location when
+  upgraded. Device-local data, configuration, and cache remain under
+  `netfishing/conf/data`, `netfishing/conf/config`, and
+  `netfishing/conf/cache`.
 - The archive must not contain `conf/`, saves, identities, logs, source files,
   `.git`, or `.godot` content.
 - Release downloads must publish only the canonical `netfishing.zip` for this
@@ -95,13 +99,15 @@ device directory and run:
 ```
 
 Before upgrading an existing installation, preserve
-`/mnt/mmc/ports/netfishing/conf/` on the device. After installation:
+`/mnt/mmc/ports/netfishing/conf/` and `/mnt/mmc/ports/saves/netfishing/` on the
+device. After installation:
 
 1. Confirm the installed executable and PCK hashes match the staged release.
 2. Confirm the installed launcher contains the canonical PortMaster header,
    starts GPTOKEYB with `netfishing.gptk`, and calls
    `pm_platform_helper` for the game executable.
-3. Confirm `conf/` was not replaced or removed.
+3. Confirm `conf/` and the external save directory were not replaced or
+   removed.
 4. Launch the installed port through the normal muOS menu.
 5. Verify the displayed game version and controller face-button mapping.
 6. Verify PortMaster's force-quit chord exits the game. This is Start+Select on
