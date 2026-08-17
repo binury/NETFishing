@@ -306,9 +306,6 @@ func _handle_native_keyboard_input(event: InputEvent) -> void:
 		return
 	if key_event.keycode in [KEY_ENTER, KEY_KP_ENTER]:
 		return
-	# Android delivers IME edits after this input phase. Reassert the same field
-	# afterward in case a page refresh tried to move focus while its text changed.
-	_preserve_native_text_focus.call_deferred(focused)
 
 
 func _open_native_keyboard_for(control: Control) -> void:
@@ -324,20 +321,6 @@ func _close_native_keyboard(control: Control) -> void:
 	if is_instance_valid(control) and control.has_focus():
 		control.release_focus()
 	DisplayServer.virtual_keyboard_hide()
-
-
-func _preserve_native_text_focus(control: Control) -> void:
-	if (
-		not _uses_native_virtual_keyboard()
-		or not is_instance_valid(control)
-		or not _can_edit(control)
-		or not control.is_inside_tree()
-		or not control.is_visible_in_tree()
-		or not bool(control.get("virtual_keyboard_enabled"))
-	):
-		return
-	if not control.has_focus():
-		control.grab_focus()
 
 
 func _can_edit(control: Control) -> bool:

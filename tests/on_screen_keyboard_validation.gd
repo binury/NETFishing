@@ -299,16 +299,22 @@ func _validate_native_keyboard() -> void:
 	character_event.unicode = 97
 	character_event.pressed = true
 	keyboard.call("_input", character_event)
-	outside_button.grab_focus()
 	await process_frame
 	assert(edit.has_focus())
+	outside_button.grab_focus()
+	await process_frame
+	assert(outside_button.has_focus())
+	edit.grab_focus()
 	var backspace_event := InputEventKey.new()
 	backspace_event.keycode = KEY_BACKSPACE
 	backspace_event.pressed = true
 	keyboard.call("_input", backspace_event)
-	outside_button.grab_focus()
 	await process_frame
 	assert(edit.has_focus())
+	outside_button.grab_focus()
+	await process_frame
+	assert(outside_button.has_focus())
+	edit.grab_focus()
 	var close_event := InputEventJoypadButton.new()
 	close_event.button_index = JOY_BUTTON_B
 	close_event.pressed = true
