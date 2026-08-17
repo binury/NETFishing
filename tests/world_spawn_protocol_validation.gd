@@ -7,9 +7,11 @@ const FishCatalog: FishPool = preload("res://fish/pools/fish_catalog.tres")
 const GatheringControllerType = preload(
 	"res://gathering/gathering_controller.gd"
 )
+const WorldGatherableType = preload("res://gathering/world_gatherable.gd")
 
-const REDUCED_CRAB_PIXEL_SIZE: float = 0.00025
+const CRAB_PIXEL_SIZE: float = 0.0005
 const REDUCED_CATCH_RING_RADIUS: float = 0.175
+const NET_STRIKE_MARKER_DISTANCE: float = 0.85
 
 
 func _initialize() -> void:
@@ -20,6 +22,7 @@ func _initialize() -> void:
 	)
 	assert(NetworkWorldSpawnProtocol.SNAPSHOT_ENTITIES_PER_ENVELOPE <= 4)
 	_validate_catalog_statuses()
+	_validate_billboard_presentation()
 	_validate_envelopes()
 	print("World spawn protocol validation: PASS")
 	quit()
@@ -36,7 +39,7 @@ func _validate_catalog_statuses() -> void:
 	assert(
 		is_equal_approx(
 			brown.sprite_pixel_size,
-			REDUCED_CRAB_PIXEL_SIZE,
+			CRAB_PIXEL_SIZE,
 		)
 	)
 	_validate_quality_behavior(brown)
@@ -46,6 +49,7 @@ func _validate_catalog_statuses() -> void:
 	assert(is_equal_approx(brown.scare_respawn_max_seconds, 90.0))
 	assert(is_equal_approx(brown.minimum_respawn_spacing_seconds, 180.0))
 	assert(brown.required_tool_id == &"crab_net")
+	assert(is_equal_approx(brown.minimum_surface_y, -0.44))
 	assert(FishCatalog.get_fish_by_id(&"crab_brown") == brown.catch_data)
 	assert(not brown.catch_data.is_fishable())
 
@@ -62,7 +66,7 @@ func _validate_catalog_statuses() -> void:
 		assert(
 			is_equal_approx(
 				entry.sprite_pixel_size,
-				REDUCED_CRAB_PIXEL_SIZE,
+				CRAB_PIXEL_SIZE,
 			)
 		)
 		assert(entry.catch_data.collection_method == FishData.CollectionMethod.NET)
@@ -88,7 +92,24 @@ func _validate_catalog_statuses() -> void:
 			REDUCED_CATCH_RING_RADIUS,
 		)
 	)
+	assert(
+		is_equal_approx(
+			gathering_controller.marker_distance,
+			NET_STRIKE_MARKER_DISTANCE,
+		)
+	)
 	gathering_controller.free()
+
+
+func _validate_billboard_presentation() -> void:
+	var gatherable := WorldGatherableType.new()
+	gatherable.call("_ensure_visual")
+	var sprite := gatherable.get_node("GatherableSprite") as Sprite3D
+	assert(sprite != null)
+	assert(sprite.billboard == BaseMaterial3D.BILLBOARD_ENABLED)
+	assert(sprite.texture_filter == BaseMaterial3D.TEXTURE_FILTER_NEAREST)
+	assert(not sprite.shaded)
+	gatherable.free()
 
 
 func _validate_quality_behavior(entry: GatherableData) -> void:

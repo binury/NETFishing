@@ -90,6 +90,7 @@ func _ensure_visual() -> void:
 	_sprite.position.y = REFERENCE_SPRITE_HEIGHT
 	_sprite.shaded = false
 	_sprite.double_sided = true
+	_sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	_sprite.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
 	add_child(_sprite)
 

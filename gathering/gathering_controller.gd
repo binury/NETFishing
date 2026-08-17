@@ -6,10 +6,13 @@ const FishingSpotType = preload("res://fishing/fishing_spot.gd")
 const NetworkWorldSpawnServiceType = preload(
 	"res://network/network_world_spawn_service.gd"
 )
+const MARKER_INVALID_COLOR := Color(1.0, 1.0, 1.0, 1.0)
+const MARKER_VALID_COLOR := Color(0.25, 0.9, 0.36, 1.0)
+const MARKER_DISC_THICKNESS := 0.006
 
 signal status_changed(message: String)
 
-@export_range(0.5, 5.0, 0.05) var marker_distance: float = 1.7
+@export_range(0.5, 5.0, 0.05) var marker_distance: float = 0.85
 @export_range(0.025, 2.0, 0.025) var marker_radius: float = 0.175
 @export_range(0.0, 1.0, 0.01) var marker_surface_offset: float = 0.045
 @export_range(0.0, 2.0, 0.05) var forward_probe_extra_distance: float = 0.6
@@ -296,19 +299,22 @@ func _on_interaction_finished(accepted: bool, message: String) -> void:
 
 func _build_marker() -> void:
 	_marker_invalid_material = StandardMaterial3D.new()
-	_marker_invalid_material.albedo_color = Color(0.86, 0.24, 0.19, 0.9)
+	_marker_invalid_material.albedo_color = MARKER_INVALID_COLOR
 	_marker_invalid_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	_marker_invalid_material.roughness = 1.0
 	_marker_valid_material = StandardMaterial3D.new()
-	_marker_valid_material.albedo_color = Color(0.25, 0.9, 0.36, 0.95)
+	_marker_valid_material.albedo_color = MARKER_VALID_COLOR
 	_marker_valid_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	var ring := TorusMesh.new()
-	ring.inner_radius = marker_radius * 0.78
-	ring.outer_radius = marker_radius
-	ring.rings = 16
-	ring.ring_segments = 24
+	_marker_valid_material.roughness = 1.0
+	var disc := CylinderMesh.new()
+	disc.top_radius = marker_radius
+	disc.bottom_radius = marker_radius
+	disc.height = MARKER_DISC_THICKNESS
+	disc.radial_segments = 32
+	disc.rings = 1
 	_marker = MeshInstance3D.new()
 	_marker.name = "GatheringTargetMarker"
-	_marker.mesh = ring
+	_marker.mesh = disc
 	_marker.material_override = _marker_invalid_material
 	_marker.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	_marker.visible = false

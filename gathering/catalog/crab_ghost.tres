@@ -11,4 +11,4 @@ required_tool_id = &"crab_net"
 surface_materials = Array[StringName]([&"sand"])
 minimum_surface_y = 0.08
 population = 4
-sprite_pixel_size = 0.00025
+sprite_pixel_size = 0.0005
