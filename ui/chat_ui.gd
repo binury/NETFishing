@@ -26,6 +26,9 @@ const SPEECH_BUBBLE_WIDTH: float = 320.0
 const SPEECH_POINTER_HALF_WIDTH: float = 12.0
 const SPEECH_POINTER_HEIGHT: float = 14.0
 const SPEECH_POINTER_OVERLAP: float = 3.0
+const ANIMALESE_FULL_VOLUME_DISTANCE: float = 4.0
+const ANIMALESE_SILENT_DISTANCE: float = 24.0
+const ANIMALESE_SILENT_VOLUME_DB: float = -80.0
 const MOBILE_COMPACT_WIDTH: float = 620.0
 const MOBILE_EXPANDED_WIDTH: float = 820.0
 const MOBILE_COMPACT_HEIGHT: float = 220.0
@@ -1022,14 +1025,17 @@ func _show_speech_bubble(
 		sample_set_id = VoiceProfilesType.sanitized_sample_set_id(
 			speaker_avatar.get_animalese_sample_set_id()
 		)
-	_animalese_voice.speak_text(
-		_animalese_voice,
-		label.text,
-		str(peer_id),
-		voice_profile_id,
-		-1.0,
-		sample_set_id,
-	)
+	var voice_volume_offset_db := _get_voice_volume_offset_db(speaker_avatar)
+	if voice_volume_offset_db > ANIMALESE_SILENT_VOLUME_DB:
+		_animalese_voice.speak_text(
+			_animalese_voice,
+			label.text,
+			str(peer_id),
+			voice_profile_id,
+			-1.0,
+			sample_set_id,
+			voice_volume_offset_db,
+		)
 	_speech[peer_id] = {
 		"bubble": bubble,
 		"pointer": pointer,
@@ -1040,6 +1046,28 @@ func _show_speech_bubble(
 		),
 		"fingerprint": fingerprint,
 	}
+
+
+func _get_voice_volume_offset_db(speaker_avatar: Player) -> float:
+	if speaker_avatar == null or _player == null:
+		return ANIMALESE_SILENT_VOLUME_DB
+	return animalese_volume_offset_db_for_distance(
+		speaker_avatar.global_position.distance_to(_player.global_position)
+	)
+
+
+static func animalese_volume_offset_db_for_distance(distance: float) -> float:
+	if not is_finite(distance) or distance >= ANIMALESE_SILENT_DISTANCE:
+		return ANIMALESE_SILENT_VOLUME_DB
+	if distance <= ANIMALESE_FULL_VOLUME_DISTANCE:
+		return 0.0
+	var distance_weight := inverse_lerp(
+		ANIMALESE_FULL_VOLUME_DISTANCE,
+		ANIMALESE_SILENT_DISTANCE,
+		distance,
+	)
+	var amplitude := pow(1.0 - distance_weight, 2.0)
+	return maxf(linear_to_db(amplitude), ANIMALESE_SILENT_VOLUME_DB)
 
 
 func _on_history(messages: Array) -> void:

@@ -556,7 +556,10 @@ func receive_chat_message(data: Dictionary) -> void:
 	_apply_message(data)
 
 
-func _apply_message(data: Dictionary) -> void:
+func _apply_message(
+	data: Dictionary,
+	emit_live_signals: bool = true,
+) -> void:
 	if (
 		not NetworkChatProtocol.validate_message(data)
 		or str(data["session_id"]) != _session.get_session_id()
@@ -597,7 +600,7 @@ func _apply_message(data: Dictionary) -> void:
 	_history.append(stored_message)
 	while _history.size() > NetworkChatProtocol.MAX_HISTORY:
 		_history.pop_front()
-	if _message_is_visible(stored_message):
+	if emit_live_signals and _message_is_visible(stored_message):
 		message_received.emit(stored_message.duplicate(true))
 		if (
 			kind == NetworkChatProtocol.Kind.PLAYER
@@ -653,7 +656,10 @@ func receive_chat_history(values: Array) -> void:
 	_seen_messages.clear()
 	for value: Variant in values:
 		if NetworkChatProtocol.validate_message(value):
-			_apply_message(value)
+			# Late-join history belongs in the scrollback, but it is not a live
+			# event. In particular, do not recreate speech bubbles or replay
+			# animalese for every stored player message when joining a room.
+			_apply_message(value, false)
 	history_replaced.emit(get_history())
 
 

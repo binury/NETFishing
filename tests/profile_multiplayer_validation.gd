@@ -3,6 +3,7 @@ extends SceneTree
 const MainScene: PackedScene = preload("res://main/main.tscn")
 const AnimaleseVoiceType = preload("res://ui/animalese_voice.gd")
 const TEST_PORT: int = 18144
+const HOST_HISTORY_MESSAGE: String = "silent history replay"
 const HOST_VOICE_MESSAGE: String = "remote voice playback"
 
 
@@ -11,6 +12,7 @@ func _initialize() -> void:
 
 
 func _run() -> void:
+	_validate_voice_distance_attenuation()
 	var arguments: PackedStringArray = OS.get_cmdline_user_args()
 	if arguments.has("host"):
 		await _run_host()
@@ -20,6 +22,24 @@ func _run() -> void:
 		return
 	push_error("Profile multiplayer validation needs host or client mode.")
 	quit(1)
+
+
+func _validate_voice_distance_attenuation() -> void:
+	assert(is_zero_approx(
+		ChatUI.animalese_volume_offset_db_for_distance(0.0)
+	))
+	assert(is_zero_approx(
+		ChatUI.animalese_volume_offset_db_for_distance(4.0)
+	))
+	var middle_distance_volume := (
+		ChatUI.animalese_volume_offset_db_for_distance(14.0)
+	)
+	assert(middle_distance_volume < 0.0)
+	assert(middle_distance_volume > -80.0)
+	assert(is_equal_approx(
+		ChatUI.animalese_volume_offset_db_for_distance(24.0),
+		-80.0,
+	))
 
 
 func _run_host() -> void:
@@ -51,6 +71,11 @@ func _run_host() -> void:
 	var chat_service := main.get_node(
 		"%NetworkChatService"
 	) as NetworkChatService
+	assert(chat_service.send_local_message(
+		HOST_HISTORY_MESSAGE,
+		profile.voice_id,
+		profile.sample_set_id,
+	))
 	var voice_messages: Array[Dictionary] = []
 	chat_service.message_received.connect(func(message: Dictionary) -> void:
 		if str(message.get("body", "")) == "voice profile sync":
@@ -124,6 +149,22 @@ func _run_client() -> void:
 	assert(session.supports_server_capability(
 		NetworkProtocol.APPEARANCE_PREVIEW_CAPABILITY
 	))
+	var chat_service := main.get_node(
+		"%NetworkChatService"
+	) as NetworkChatService
+	var history_deadline: int = Time.get_ticks_msec() + 8000
+	while Time.get_ticks_msec() < history_deadline:
+		if chat_service.get_history().any(
+			func(message: Dictionary) -> bool:
+				return str(message.get("body", "")) == HOST_HISTORY_MESSAGE
+		):
+			break
+		await process_frame
+	assert(chat_service.get_history().any(
+		func(message: Dictionary) -> bool:
+			return str(message.get("body", "")) == HOST_HISTORY_MESSAGE
+	))
+	assert(remote_voice_samples.is_empty())
 	var service := main.get_node(
 		"%NetworkProfileService"
 	) as NetworkProfileService
@@ -160,9 +201,6 @@ func _run_client() -> void:
 	var player := main.get_node("%PlayerSpawnService").get_local_player() as Player
 	assert(player.get_animalese_voice_id() == "deep")
 	assert(player.get_animalese_sample_set_id() == "kim")
-	var chat_service := main.get_node(
-		"%NetworkChatService"
-	) as NetworkChatService
 	var host_voice_messages: Array[Dictionary] = []
 	for message: Dictionary in chat_service.get_history():
 		if str(message.get("body", "")) == HOST_VOICE_MESSAGE:

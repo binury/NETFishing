@@ -48,6 +48,7 @@ func speak_text(
 	voice_profile_id: String = VoiceProfilesType.DEFAULT_ID,
 	characters_per_second: float = -1.0,
 	sample_set_id: String = VoiceProfilesType.DEFAULT_SAMPLE_SET_ID,
+	volume_offset_db: float = 0.0,
 ) -> Tween:
 	var speech_tween := tween_owner.create_tween()
 	var resolved_characters_per_second := (
@@ -75,6 +76,7 @@ func speak_text(
 				voice_key,
 				voice_pitch,
 				resolved_sample_set_id,
+				volume_offset_db,
 			)
 		)
 	return speech_tween
@@ -110,6 +112,7 @@ func _play_character(
 	voice_key: String,
 	voice_pitch: float,
 	sample_set_id: String,
+	volume_offset_db: float,
 ) -> void:
 	if _playback == null or character.strip_edges().is_empty():
 		return
@@ -145,5 +148,10 @@ func _play_character(
 		0.72,
 		1.45,
 	)
-	_playback.play_stream(sample, 0.0, volume_db, pitch)
+	_playback.play_stream(
+		sample,
+		0.0,
+		volume_db + volume_offset_db,
+		pitch,
+	)
 	character_sample_played.emit(sample_set_id, normalized)
