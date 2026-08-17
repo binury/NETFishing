@@ -29,6 +29,9 @@ enum Page {
 
 var _enabled: bool = false
 var _controller_mapping_manager: ControllerMappingManagerType
+var _native_target: Control
+var _native_target_virtual_keyboard_enabled: bool = true
+var _native_target_virtual_keyboard_show_on_focus: bool = true
 var _page: Page = Page.LOWER
 var _target: Control
 var _target_virtual_keyboard_enabled: bool = true
@@ -260,6 +263,8 @@ static func should_enable_for_controller(
 func _native_text_entry_is_active() -> bool:
 	if not _uses_native_virtual_keyboard():
 		return false
+	if _native_session_target() != null:
+		return true
 	var focused: Control = get_viewport().gui_get_focus_owner()
 	return (
 		_can_edit(focused)
@@ -269,21 +274,18 @@ func _native_text_entry_is_active() -> bool:
 
 func _handle_native_keyboard_input(event: InputEvent) -> void:
 	var focused: Control = get_viewport().gui_get_focus_owner()
-	var native_entry_active: bool = (
-		_can_edit(focused)
-		and bool(focused.get("virtual_keyboard_enabled"))
-	)
+	var target: Control = _native_session_target()
 	var joy_button := event as InputEventJoypadButton
 	if joy_button != null and joy_button.pressed:
 		if (
-			native_entry_active
+			target != null
 			and _event_matches_role(
 				event,
 				ControllerMappingManagerType.ROLE_B,
 				JOY_BUTTON_B,
 			)
 		):
-			_close_native_keyboard(focused)
+			_close_native_keyboard()
 			get_viewport().set_input_as_handled()
 			return
 		if (
@@ -298,29 +300,166 @@ func _handle_native_keyboard_input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 		return
 	var key_event := event as InputEventKey
-	if key_event == null or not key_event.pressed or not native_entry_active:
+	if key_event == null or not key_event.pressed:
 		return
-	if key_event.keycode == KEY_ESCAPE:
-		_close_native_keyboard(focused)
+	if (
+		target != null
+		and focused != target
+		and _can_edit(focused)
+		and bool(focused.get("virtual_keyboard_enabled"))
+	):
+		_begin_native_session(focused)
+		target = focused
+	# Touch-focused fields initially use Godot's automatic Android keyboard.
+	# Adopt that keyboard before the first edit is delivered so a transient
+	# Control focus change cannot make LineEdit/TextEdit hide it.
+	if (
+		target == null
+		and _can_edit(focused)
+		and bool(focused.get("virtual_keyboard_enabled"))
+	):
+		_begin_native_session(focused)
+		target = focused
+	if target == null:
+		return
+	if (
+		key_event.keycode == KEY_ESCAPE
+		or event.is_action_pressed(&"ui_cancel")
+	):
+		_close_native_keyboard()
 		get_viewport().set_input_as_handled()
 		return
 	if key_event.keycode in [KEY_ENTER, KEY_KP_ENTER]:
+		_close_native_keyboard.call_deferred()
 		return
+	# Android's hidden EditText delivers edits as key events. Keep their Godot
+	# destination stable even if a menu refresh briefly moved GUI focus.
+	if not target.has_focus():
+		target.grab_focus()
+
+
+func _exit_tree() -> void:
+	_end_native_session(true)
 
 
 func _open_native_keyboard_for(control: Control) -> void:
 	if not _can_edit(control):
 		return
-	control.set("virtual_keyboard_enabled", true)
-	if control.has_focus():
-		control.release_focus()
-	control.call_deferred("grab_focus")
+	_begin_native_session(control)
+	if not control.has_focus():
+		control.grab_focus()
+	_show_native_keyboard_for(control)
 
 
-func _close_native_keyboard(control: Control) -> void:
-	if is_instance_valid(control) and control.has_focus():
-		control.release_focus()
+func _begin_native_session(control: Control) -> void:
+	if _native_target == control:
+		return
+	_end_native_session(false)
+	_native_target = control
+	_native_target_virtual_keyboard_enabled = bool(
+		control.get("virtual_keyboard_enabled")
+	)
+	_native_target_virtual_keyboard_show_on_focus = bool(
+		control.get("virtual_keyboard_show_on_focus")
+	)
+	# The session owns keyboard visibility. Leaving this enabled would make a
+	# Control focus exit call virtual_keyboard_hide() behind our back.
+	control.set("virtual_keyboard_enabled", false)
+	control.set("virtual_keyboard_show_on_focus", false)
+
+
+func _close_native_keyboard() -> void:
+	var target: Control = _native_session_target()
+	_end_native_session(true)
+	if target != null and target.has_focus():
+		target.release_focus()
+
+
+func _end_native_session(hide_keyboard: bool) -> void:
+	var target: Control = _native_target
+	_native_target = null
+	if target != null and is_instance_valid(target):
+		target.set(
+			"virtual_keyboard_enabled",
+			_native_target_virtual_keyboard_enabled,
+		)
+		target.set(
+			"virtual_keyboard_show_on_focus",
+			_native_target_virtual_keyboard_show_on_focus,
+		)
+	if hide_keyboard:
+		_hide_native_keyboard()
+
+
+func _native_session_target() -> Control:
+	if _native_target == null:
+		return null
+	if _can_edit(_native_target):
+		return _native_target
+	_end_native_session(true)
+	return null
+
+
+func _show_native_keyboard_for(control: Control) -> void:
+	var keyboard_type: DisplayServer.VirtualKeyboardType = (
+		DisplayServer.KEYBOARD_TYPE_DEFAULT
+	)
+	var max_length: int = -1
+	var caret_start: int = -1
+	var caret_end: int = -1
+	if control is LineEdit:
+		var line_edit := control as LineEdit
+		keyboard_type = _line_edit_keyboard_type(line_edit)
+		max_length = line_edit.max_length
+		caret_start = line_edit.caret_column
+		if line_edit.has_selection():
+			caret_start = line_edit.get_selection_from_column()
+			caret_end = line_edit.get_selection_to_column()
+	elif control is TextEdit:
+		var text_edit := control as TextEdit
+		keyboard_type = DisplayServer.KEYBOARD_TYPE_MULTILINE
+		caret_start = _text_edit_caret_offset(text_edit)
+	DisplayServer.virtual_keyboard_show(
+		str(control.get("text")),
+		control.get_global_rect(),
+		keyboard_type,
+		max_length,
+		caret_start,
+		caret_end,
+	)
+
+
+func _hide_native_keyboard() -> void:
 	DisplayServer.virtual_keyboard_hide()
+
+
+static func _line_edit_keyboard_type(
+	line_edit: LineEdit,
+) -> DisplayServer.VirtualKeyboardType:
+	match line_edit.virtual_keyboard_type:
+		LineEdit.KEYBOARD_TYPE_MULTILINE:
+			return DisplayServer.KEYBOARD_TYPE_MULTILINE
+		LineEdit.KEYBOARD_TYPE_NUMBER:
+			return DisplayServer.KEYBOARD_TYPE_NUMBER
+		LineEdit.KEYBOARD_TYPE_NUMBER_DECIMAL:
+			return DisplayServer.KEYBOARD_TYPE_NUMBER_DECIMAL
+		LineEdit.KEYBOARD_TYPE_PHONE:
+			return DisplayServer.KEYBOARD_TYPE_PHONE
+		LineEdit.KEYBOARD_TYPE_EMAIL_ADDRESS:
+			return DisplayServer.KEYBOARD_TYPE_EMAIL_ADDRESS
+		LineEdit.KEYBOARD_TYPE_PASSWORD:
+			return DisplayServer.KEYBOARD_TYPE_PASSWORD
+		LineEdit.KEYBOARD_TYPE_URL:
+			return DisplayServer.KEYBOARD_TYPE_URL
+	return DisplayServer.KEYBOARD_TYPE_DEFAULT
+
+
+static func _text_edit_caret_offset(text_edit: TextEdit) -> int:
+	var caret_line: int = text_edit.get_caret_line()
+	var offset: int = 0
+	for line_index: int in caret_line:
+		offset += text_edit.get_line(line_index).length() + 1
+	return offset + text_edit.get_caret_column()
 
 
 func _can_edit(control: Control) -> bool:

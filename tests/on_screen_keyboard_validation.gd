@@ -23,10 +23,20 @@ class ControllerInputProbe:
 
 class NativeKeyboardProbe:
 	extends OnScreenKeyboard
+	var shown_controls: Array[Control] = []
+	var hide_count: int = 0
 
 
 	func _uses_native_virtual_keyboard() -> bool:
 		return true
+
+
+	func _show_native_keyboard_for(control: Control) -> void:
+		shown_controls.append(control)
+
+
+	func _hide_native_keyboard() -> void:
+		hide_count += 1
 
 
 func _initialize() -> void:
@@ -294,41 +304,54 @@ func _validate_native_keyboard() -> void:
 	await process_frame
 	edit.grab_focus()
 	assert(keyboard.is_open())
+	var focus_exit_count: int = 0
+	edit.focus_exited.connect(func() -> void:
+		focus_exit_count += 1
+	)
+	assert(keyboard.request_for_control(edit))
+	assert(edit.has_focus())
+	assert(focus_exit_count == 0)
+	assert(not edit.virtual_keyboard_enabled)
+	assert(not edit.virtual_keyboard_show_on_focus)
+	assert(keyboard.shown_controls == [edit])
 	var character_event := InputEventKey.new()
 	character_event.keycode = KEY_A
 	character_event.unicode = 97
 	character_event.pressed = true
-	keyboard.call("_input", character_event)
+	Input.parse_input_event(character_event)
 	await process_frame
 	assert(edit.has_focus())
+	assert(edit.text == "a")
 	outside_button.grab_focus()
 	await process_frame
 	assert(outside_button.has_focus())
-	edit.grab_focus()
+	assert(keyboard.is_open())
 	var backspace_event := InputEventKey.new()
 	backspace_event.keycode = KEY_BACKSPACE
 	backspace_event.pressed = true
-	keyboard.call("_input", backspace_event)
+	Input.parse_input_event(backspace_event)
 	await process_frame
 	assert(edit.has_focus())
-	outside_button.grab_focus()
-	await process_frame
-	assert(outside_button.has_focus())
-	edit.grab_focus()
+	assert(edit.text.is_empty())
 	var close_event := InputEventJoypadButton.new()
 	close_event.button_index = JOY_BUTTON_B
 	close_event.pressed = true
 	keyboard.call("_input", close_event)
 	assert(not edit.has_focus())
 	assert(not keyboard.is_open())
+	assert(edit.virtual_keyboard_enabled)
+	assert(edit.virtual_keyboard_show_on_focus)
+	assert(keyboard.hide_count == 1)
 	assert(keyboard.request_for_control(edit))
 	await process_frame
 	assert(edit.has_focus())
 	assert(keyboard.is_open())
+	assert(keyboard.shown_controls == [edit, edit])
 	var escape_event := InputEventKey.new()
 	escape_event.keycode = KEY_ESCAPE
 	escape_event.pressed = true
 	keyboard.call("_input", escape_event)
 	assert(not edit.has_focus())
 	assert(not keyboard.is_open())
+	assert(keyboard.hide_count == 2)
 	host.queue_free()
