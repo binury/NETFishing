@@ -6,9 +6,17 @@ const PlayerWalletType = preload("res://economy/player_wallet.gd")
 signal upgrades_changed(reel_speed_level: int, barrier_power_level: int)
 
 const MAX_REEL_SPEED_LEVEL: int = 5
-const MAX_BARRIER_POWER_LEVEL: int = 3
+const MAX_BARRIER_POWER_LEVEL: int = 7
 const REEL_SPEED_COSTS: Array[int] = [50, 125, 300, 650, 1250]
-const BARRIER_POWER_COSTS: Array[int] = [100, 275, 700]
+const BARRIER_POWER_COSTS: Array[int] = [
+	100,
+	275,
+	700,
+	1500,
+	3000,
+	6000,
+	12000,
+]
 
 var _reel_speed_level: int = 0
 var _barrier_power_level: int = 0
@@ -27,7 +35,11 @@ func get_reel_speed_multiplier() -> float:
 
 
 func get_barrier_damage() -> int:
-	return _barrier_power_level + 1
+	return get_barrier_damage_for_level(_barrier_power_level)
+
+
+static func get_barrier_damage_for_level(level: int) -> int:
+	return 1 << clampi(level, 0, MAX_BARRIER_POWER_LEVEL)
 
 
 func get_next_reel_speed_cost() -> int:

@@ -173,12 +173,22 @@ func _validate_barrier_challenge_curve() -> void:
 		FishQualityType.Tier.SHINY
 	).y
 	var base_power_clicks: int = ceili(float(shiny_health) / 1.0)
+	var maximum_barrier_damage: int = (
+		PlayerFishingUpgrades.get_barrier_damage_for_level(
+			PlayerFishingUpgrades.MAX_BARRIER_POWER_LEVEL
+		)
+	)
 	var max_power_clicks: int = ceili(
 		float(shiny_health)
-		/ float(PlayerFishingUpgrades.MAX_BARRIER_POWER_LEVEL + 1)
+		/ float(maximum_barrier_damage)
 	)
 	assert(base_power_clicks == 400)
-	assert(max_power_clicks == 100)
+	assert(maximum_barrier_damage == 128)
+	assert(
+		NetworkFishingProtocol.MAX_BARRIER_DAMAGE
+		== maximum_barrier_damage
+	)
+	assert(max_power_clicks == 4)
 	assert(max_power_clicks < base_power_clicks)
 
 
@@ -190,6 +200,22 @@ func _validate_fight_pacing_and_reel_upgrades() -> void:
 
 	var upgrades := PlayerFishingUpgrades.new()
 	assert(is_equal_approx(upgrades.get_reel_speed_multiplier(), 1.0))
+	assert(
+		PlayerFishingUpgrades.BARRIER_POWER_COSTS.size()
+		== PlayerFishingUpgrades.MAX_BARRIER_POWER_LEVEL
+	)
+	for barrier_level: int in range(
+		PlayerFishingUpgrades.MAX_BARRIER_POWER_LEVEL + 1
+	):
+		assert(upgrades.restore_levels(0, barrier_level))
+		assert(upgrades.get_barrier_damage() == 1 << barrier_level)
+		if barrier_level < PlayerFishingUpgrades.MAX_BARRIER_POWER_LEVEL:
+			assert(
+				upgrades.get_next_barrier_power_cost()
+				== PlayerFishingUpgrades.BARRIER_POWER_COSTS[barrier_level]
+			)
+		else:
+			assert(upgrades.get_next_barrier_power_cost() == -1)
 	assert(
 		upgrades.restore_levels(
 			PlayerFishingUpgrades.MAX_REEL_SPEED_LEVEL,

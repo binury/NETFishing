@@ -847,7 +847,9 @@ func _refresh_upgrades() -> void:
 			"%d damage → %d damage"
 			% [
 				_upgrades.get_barrier_damage(),
-				barrier_level + 2,
+				PlayerFishingUpgradesType.get_barrier_damage_for_level(
+					barrier_level + 1
+				),
 			]
 		)
 		_barrier_cost.set_amount(barrier_cost)
