@@ -4,6 +4,12 @@ const Gatherables: GatherableCatalog = preload(
 	"res://gathering/catalog/gatherable_catalog.tres"
 )
 const FishCatalog: FishPool = preload("res://fish/pools/fish_catalog.tres")
+const GatheringControllerType = preload(
+	"res://gathering/gathering_controller.gd"
+)
+
+const REDUCED_CRAB_PIXEL_SIZE: float = 0.00025
+const REDUCED_CATCH_RING_RADIUS: float = 0.175
 
 
 func _initialize() -> void:
@@ -27,6 +33,12 @@ func _validate_catalog_statuses() -> void:
 	assert(brown.catch_data.logbook_section == FishData.LogbookSection.SHELLFISH)
 	assert(brown.population == 2)
 	assert(is_equal_approx(brown.charge_duration, 2.0))
+	assert(
+		is_equal_approx(
+			brown.sprite_pixel_size,
+			REDUCED_CRAB_PIXEL_SIZE,
+		)
+	)
 	_validate_quality_behavior(brown)
 	assert(is_equal_approx(brown.capture_respawn_min_seconds, 480.0))
 	assert(is_equal_approx(brown.capture_respawn_max_seconds, 720.0))
@@ -47,6 +59,12 @@ func _validate_catalog_statuses() -> void:
 		assert(entry.is_valid())
 		assert(not entry.catch_data.active)
 		assert(not entry.is_available())
+		assert(
+			is_equal_approx(
+				entry.sprite_pixel_size,
+				REDUCED_CRAB_PIXEL_SIZE,
+			)
+		)
 		assert(entry.catch_data.collection_method == FishData.CollectionMethod.NET)
 		assert(
 			entry.catch_data.logbook_section
@@ -62,6 +80,15 @@ func _validate_catalog_statuses() -> void:
 	var scared_delay: float = brown.get_respawn_delay(&"scared", rng)
 	assert(captured_delay >= 480.0 and captured_delay <= 720.0)
 	assert(scared_delay >= 45.0 and scared_delay <= 90.0)
+
+	var gathering_controller := GatheringControllerType.new()
+	assert(
+		is_equal_approx(
+			gathering_controller.marker_radius,
+			REDUCED_CATCH_RING_RADIUS,
+		)
+	)
+	gathering_controller.free()
 
 
 func _validate_quality_behavior(entry: GatherableData) -> void:

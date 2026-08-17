@@ -2,6 +2,8 @@ class_name WorldGatherable
 extends Node3D
 
 const GatherableDataType = preload("res://gathering/gatherable_data.gd")
+const REFERENCE_SPRITE_PIXEL_SIZE: float = 0.001
+const REFERENCE_SPRITE_HEIGHT: float = 0.22
 
 var entity_id: String = ""
 var type_id: StringName
@@ -26,6 +28,11 @@ func configure(
 	if data != null and data.catch_data != null:
 		_sprite.texture = data.catch_data.display_texture
 		_sprite.pixel_size = data.sprite_pixel_size
+		_sprite.position.y = (
+			REFERENCE_SPRITE_HEIGHT
+			* data.sprite_pixel_size
+			/ REFERENCE_SPRITE_PIXEL_SIZE
+		)
 		_sprite.rotation_degrees.x = data.sprite_tilt_degrees
 	apply_network_state(position, yaw, true)
 
@@ -80,7 +87,7 @@ func _ensure_visual() -> void:
 		return
 	_sprite = Sprite3D.new()
 	_sprite.name = "GatherableSprite"
-	_sprite.position.y = 0.22
+	_sprite.position.y = REFERENCE_SPRITE_HEIGHT
 	_sprite.shaded = false
 	_sprite.double_sided = true
 	_sprite.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST

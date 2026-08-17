@@ -32,6 +32,7 @@ const FishingRodAttachmentScene = preload(
 	"res://player/fishing_rod_attachment.tscn"
 )
 const NetAttachmentScene = preload("res://player/net_attachment.tscn")
+const NetAttachmentType = preload("res://player/net_attachment.gd")
 const FishingRodDataType = preload("res://items/fishing_rod_data.gd")
 const HeldItemAttachmentScene = preload(
 	"res://player/held_item_attachment.tscn"
@@ -51,6 +52,8 @@ const CHARACTER_WALKING_ANIMATION: StringName = &"walking"
 const CHARACTER_WALKING_SHOW_ANIMATION: StringName = &"walking_show"
 const CHARACTER_RUNNING_ANIMATION: StringName = &"running"
 const CHARACTER_RUNNING_SHOW_ANIMATION: StringName = &"running_show"
+const CHARACTER_IDLE_SNEAK_ANIMATION: StringName = &"idle_sneak"
+const CHARACTER_SNEAKING_ANIMATION: StringName = &"sneaking"
 const CHARACTER_CASTING_ANIMATION: StringName = &"casting"
 const CHARACTER_CASTING_SIT_ANIMATION: StringName = &"casting_sit"
 const CHARACTER_RELEASE_ANIMATION: StringName = &"release"
@@ -73,10 +76,16 @@ const CHARACTER_FISHING_ANIMATION: StringName = &"fishing"
 const CHARACTER_FISHING_SIT_ANIMATION: StringName = &"fishing_sit"
 const CHARACTER_FIGHTING_ANIMATION: StringName = &"fighting"
 const CHARACTER_FIGHTING_SIT_ANIMATION: StringName = &"fighting_sit"
+const CHARACTER_NET_DRAW_ANIMATION: StringName = &"draw"
+const CHARACTER_NET_STRIKE_ANIMATION: StringName = &"strike"
 # Add future networked emote animation IDs here. The protocol accepts unknown
 # safe IDs so newer clients can extend it, but Player only presents actions
 # explicitly approved by this catalog.
-const NETWORK_ANIMATION_ACTION_IDS: Array[StringName] = []
+const NETWORK_ANIMATION_ACTION_IDS: Array[StringName] = [
+	CHARACTER_CASTING_ANIMATION,
+	CHARACTER_NET_DRAW_ANIMATION,
+	CHARACTER_NET_STRIKE_ANIMATION,
+]
 
 enum FishingVisualPhase {
 	NONE,
@@ -98,6 +107,7 @@ enum LocomotionState {
 	IDLE,
 	WALKING,
 	RUNNING,
+	SNEAKING,
 }
 const FIGHTING_EYES_ID: String = "alligator_eyes"
 const BLINK_EYES_ID: String = "closed"
@@ -342,6 +352,10 @@ class ShowcaseCameraSnapshot:
 @export_range(0.5, 3.0, 0.05) var showcase_camera_target_height: float = 1.45
 @export_range(0.01, 1.0, 0.01) var catch_presentation_base_scale: float = 0.10
 
+@export_category("Gathering")
+@export_flags_3d_physics var net_impact_collision_mask: int = 1
+@export_range(0.02, 0.5, 0.01) var net_impact_radius: float = 0.16
+
 @export_category("Camera")
 @export var mouse_sensitivity: float = 0.005
 @export var controller_camera_speed: float = 2.5
@@ -443,6 +457,7 @@ var _network_target_locomotion_state: LocomotionState = LocomotionState.IDLE
 var _network_target_animation_action_id: StringName = &""
 var _network_target_animation_action_sequence: int = 0
 var _network_target_animation_action_elapsed: float = 0.0
+var _network_target_animation_action_paused: bool = false
 var _network_snapshot_ready: bool = false
 var _network_snapshot_age: float = 0.0
 var _network_snapshot_jitter: float = 0.0
@@ -451,8 +466,10 @@ var _local_network_jump_intent_sequence: int = -1
 var _animation_action_id: StringName = &""
 var _animation_action_sequence: int = 0
 var _animation_action_elapsed: float = 0.0
+var _animation_action_paused: bool = false
 var _presented_animation_action_id: StringName = &""
 var _presented_animation_action_sequence: int = -1
+var _presented_animation_action_paused: bool = false
 var _character_animation_name: StringName = &""
 var _sitting: bool = false
 var _sit_after_landing: bool = false
@@ -483,6 +500,17 @@ var _fishing_after_release_pending: bool = false
 var _retract_animation_completed: bool = true
 var _fishing_rod: Node3D
 var _catching_net: Node3D
+var _catching_net_attachment: NetAttachmentType
+var _net_strike_collision_armed: bool = false
+var _net_strike_has_previous_sample: bool = false
+var _net_strike_previous_position: Vector3
+var _net_strike_previous_animation_position: float = 0.0
+var _net_strike_contact_held: bool = false
+var _net_strike_result_known: bool = false
+var _net_strike_successful: bool = false
+var _net_impact_shape := SphereShape3D.new()
+var _pending_net_showcase_catch: FishCatchType
+var _pending_net_showcase_remote: bool = false
 var _fishing_rod_tip: Marker3D
 var _fishing_rod_model_mount: Node3D
 var _fishing_rod_fallback_visual: GeometryInstance3D
@@ -584,6 +612,141 @@ func end_animation_action() -> void:
 	)
 
 
+func begin_net_draw_visual() -> bool:
+	return begin_animation_action(
+		CHARACTER_NET_DRAW_ANIMATION
+		if is_sneaking()
+		else CHARACTER_CASTING_ANIMATION
+	)
+
+
+func play_net_strike_visual() -> bool:
+	if begin_animation_action(CHARACTER_NET_STRIKE_ANIMATION):
+		_net_strike_collision_armed = local_control_enabled
+		_net_strike_has_previous_sample = false
+		_net_strike_contact_held = false
+		_net_strike_result_known = false
+		_net_strike_successful = false
+		return true
+	cancel_net_action_visual()
+	return false
+
+
+func resolve_net_strike_visual(successful: bool) -> void:
+	if _animation_action_id != CHARACTER_NET_STRIKE_ANIMATION:
+		return
+	_net_strike_result_known = true
+	_net_strike_successful = successful
+	if successful:
+		_net_strike_collision_armed = false
+	if successful and _animation_action_paused:
+		_net_strike_contact_held = false
+		_set_animation_action_paused(false)
+
+
+func is_net_strike_held() -> bool:
+	return (
+		_animation_action_id == CHARACTER_NET_STRIKE_ANIMATION
+		and _net_strike_contact_held
+	)
+
+
+func release_net_strike_hold() -> bool:
+	if not is_net_strike_held():
+		return false
+	cancel_net_action_visual()
+	return true
+
+
+func cancel_net_action_visual() -> void:
+	_clear_net_strike_state()
+	if _animation_action_id in [
+		CHARACTER_CASTING_ANIMATION,
+		CHARACTER_NET_DRAW_ANIMATION,
+		CHARACTER_NET_STRIKE_ANIMATION,
+	]:
+		end_animation_action()
+
+
+func _clear_net_strike_state() -> void:
+	_net_strike_collision_armed = false
+	_net_strike_has_previous_sample = false
+	_net_strike_contact_held = false
+	_net_strike_result_known = false
+	_net_strike_successful = false
+	if _animation_action_paused:
+		_set_animation_action_paused(false)
+
+
+func _set_animation_action_paused(paused: bool) -> void:
+	if _animation_action_id.is_empty() or _animation_action_paused == paused:
+		return
+	_apply_animation_action_state(
+		NetworkPlayerAnimationProtocol.make_action_state(
+			_animation_action_id,
+			_animation_action_sequence,
+			_animation_action_elapsed,
+			paused,
+		)
+	)
+
+
+func _update_net_strike_contact() -> void:
+	if (
+		not local_control_enabled
+		or not _net_strike_collision_armed
+		or _animation_action_paused
+		or _animation_action_id != CHARACTER_NET_STRIKE_ANIMATION
+		or _catching_net_attachment == null
+		or _character_animation_player == null
+		or get_world_3d() == null
+	):
+		return
+	var current_position: Vector3 = (
+		_catching_net_attachment.get_impact_world_position()
+	)
+	var current_animation_position: float = (
+		_character_animation_player.current_animation_position
+	)
+	if not _net_strike_has_previous_sample:
+		_net_strike_previous_position = current_position
+		_net_strike_previous_animation_position = current_animation_position
+		_net_strike_has_previous_sample = true
+		return
+	var motion := current_position - _net_strike_previous_position
+	if motion.length_squared() <= 0.000001:
+		_net_strike_previous_animation_position = current_animation_position
+		return
+	_net_impact_shape.radius = net_impact_radius
+	var query := PhysicsShapeQueryParameters3D.new()
+	query.shape = _net_impact_shape
+	query.transform = Transform3D(
+		Basis.IDENTITY,
+		_net_strike_previous_position,
+	)
+	query.motion = motion
+	query.collision_mask = net_impact_collision_mask
+	query.collide_with_areas = false
+	query.collide_with_bodies = true
+	query.exclude = [get_rid()]
+	var fractions: PackedFloat32Array = (
+		get_world_3d().direct_space_state.cast_motion(query)
+	)
+	if fractions.size() >= 2 and float(fractions[1]) < 1.0:
+		var impact_fraction := clampf(float(fractions[0]), 0.0, 1.0)
+		_animation_action_elapsed = lerpf(
+			_net_strike_previous_animation_position,
+			current_animation_position,
+			impact_fraction,
+		)
+		_net_strike_collision_armed = false
+		_net_strike_contact_held = true
+		_set_animation_action_paused(true)
+		return
+	_net_strike_previous_position = current_position
+	_net_strike_previous_animation_position = current_animation_position
+
+
 func _apply_animation_action_state(action_state: Dictionary) -> void:
 	if not NetworkPlayerAnimationProtocol.validate_action_state(action_state):
 		return
@@ -597,10 +760,13 @@ func _apply_animation_action_state(action_state: Dictionary) -> void:
 	var action_changed: bool = (
 		action_id != _animation_action_id
 		or action_sequence != _animation_action_sequence
+		or bool(action_state.get("paused", false))
+		!= _animation_action_paused
 	)
 	_animation_action_id = action_id
 	_animation_action_sequence = action_sequence
 	_animation_action_elapsed = float(action_state["elapsed"])
+	_animation_action_paused = bool(action_state.get("paused", false))
 	if action_changed:
 		_character_animation_name = &""
 		_update_character_animation()
@@ -637,11 +803,12 @@ func _initialize_catching_net() -> void:
 	if skeleton == null:
 		push_error("Player character skeleton is unavailable for the net.")
 		return
-	var attachment := NetAttachmentScene.instantiate() as BoneAttachment3D
+	var attachment := NetAttachmentScene.instantiate() as NetAttachmentType
 	if attachment == null:
 		push_error("Catching net attachment could not be instantiated.")
 		return
 	skeleton.add_child(attachment)
+	_catching_net_attachment = attachment
 	_catching_net = attachment.get_node("CatchingNet") as Node3D
 	if _catching_net != null:
 		_catching_net.visible = false
@@ -760,6 +927,8 @@ func _physics_process(delta: float) -> void:
 	move_direction.y = 0.0
 	var input_strength: float = minf(input_vector.length(), 1.0)
 	move_direction = move_direction.normalized()
+	if input_strength > 0.05:
+		release_net_strike_hold()
 
 	var speed: float = _get_network_aware_speed()
 	if item_effects != null:
@@ -779,13 +948,14 @@ func _physics_process(delta: float) -> void:
 
 
 func _process(delta: float) -> void:
-	if not _animation_action_id.is_empty():
+	if not _animation_action_id.is_empty() and not _animation_action_paused:
 		_animation_action_elapsed = minf(
 			_animation_action_elapsed + delta,
 			NetworkPlayerAnimationProtocol.MAX_ACTION_ELAPSED_SECONDS,
 		)
 	_update_blink(delta)
 	_update_character_animation()
+	_update_net_strike_contact()
 	_update_sprint_dust(delta)
 	# The hand bone supplies the attachment position, but its animated wrist
 	# rotation should not turn the flat fish/catch artwork edge-on. Keep each
@@ -963,8 +1133,17 @@ func _update_character_animation() -> void:
 	)
 	var is_walking: bool = locomotion_state != LocomotionState.IDLE
 	var is_running: bool = locomotion_state == LocomotionState.RUNNING
+	var is_sneaking_pose: bool = (
+		locomotion_state == LocomotionState.SNEAKING
+	)
+	var is_moving_horizontally: bool = (
+		_is_presented_moving_horizontally()
+	)
 	var animation_action: Dictionary = _get_presented_animation_action()
 	var animation_action_id := StringName(str(animation_action.get("id", "")))
+	var animation_action_paused: bool = bool(
+		animation_action.get("paused", false)
+	)
 	var animation_action_available: bool = (
 		not animation_action_id.is_empty()
 		and supports_network_animation_action(animation_action_id)
@@ -1075,6 +1254,19 @@ func _update_character_animation() -> void:
 				&"sitting",
 				&"idle_loop_sit",
 			]
+	elif is_sneaking_pose:
+		if is_moving_horizontally:
+			requested_animation = [
+				CHARACTER_SNEAKING_ANIMATION,
+				CHARACTER_WALKING_ANIMATION,
+				&"walking_loop",
+			]
+		else:
+			requested_animation = [
+				CHARACTER_IDLE_SNEAK_ANIMATION,
+				CHARACTER_IDLE_ANIMATION,
+				&"idle_loop",
+			]
 	elif is_running and held_show_item_visible:
 		requested_animation = [
 			CHARACTER_RUNNING_SHOW_ANIMATION,
@@ -1124,11 +1316,14 @@ func _update_character_animation() -> void:
 		and (
 			animation_action_id != _presented_animation_action_id
 			or action_sequence != _presented_animation_action_sequence
+			or animation_action_paused
+			!= _presented_animation_action_paused
 		)
 	)
 	if not action_selected:
 		_presented_animation_action_id = &""
 		_presented_animation_action_sequence = -1
+		_presented_animation_action_paused = false
 	if _character_animation_name == next_animation and not action_changed:
 		return
 	_character_animation_player.play(next_animation)
@@ -1136,22 +1331,58 @@ func _update_character_animation() -> void:
 	if action_selected:
 		_presented_animation_action_id = animation_action_id
 		_presented_animation_action_sequence = action_sequence
+		_presented_animation_action_paused = animation_action_paused
 		var elapsed: float = float(animation_action.get("elapsed", 0.0))
 		var animation: Animation = _character_animation_player.get_animation(
 			next_animation
 		)
-		if elapsed > 0.0 and animation != null and animation.length > 0.0:
+		if (
+			(elapsed > 0.0 or animation_action_paused)
+			and animation != null
+			and animation.length > 0.0
+		):
 			_character_animation_player.seek(
 				fposmod(elapsed, animation.length), true
 			)
+		if animation_action_paused:
+			_character_animation_player.pause()
 
 
 func _on_character_animation_finished(animation_name: StringName) -> void:
+	if animation_name == CHARACTER_NET_STRIKE_ANIMATION:
+		if local_control_enabled:
+			if _net_strike_result_known and _net_strike_successful:
+				_clear_net_strike_state()
+				end_animation_action()
+				_begin_pending_net_showcase()
+			else:
+				var strike_animation := (
+					_character_animation_player.get_animation(
+						CHARACTER_NET_STRIKE_ANIMATION
+					)
+				)
+				if strike_animation != null:
+					_animation_action_elapsed = maxf(
+						strike_animation.length - 0.001,
+						0.0,
+					)
+				_net_strike_collision_armed = false
+				_net_strike_contact_held = true
+				_set_animation_action_paused(true)
+			return
+		if _pending_net_showcase_remote:
+			_begin_pending_net_showcase()
+		return
 	if (
 		local_control_enabled
 		and not _animation_action_id.is_empty()
 		and animation_name == _animation_action_id
 	):
+		if animation_name in [
+			CHARACTER_CASTING_ANIMATION,
+			CHARACTER_NET_DRAW_ANIMATION,
+		]:
+			return
 		end_animation_action()
 		return
 	if animation_name in [
@@ -1551,6 +1782,7 @@ func configure_network_remote(authoritative_simulation: bool) -> void:
 	_network_target_animation_action_id = &""
 	_network_target_animation_action_sequence = 0
 	_network_target_animation_action_elapsed = 0.0
+	_network_target_animation_action_paused = false
 	_camera.current = false
 
 
@@ -1665,6 +1897,7 @@ func make_network_snapshot(peer_id: int) -> Dictionary:
 			_animation_action_id,
 			_animation_action_sequence,
 			_animation_action_elapsed,
+			_animation_action_paused,
 		),
 		"sitting": _sitting,
 		"casting": _fishing_visual_phase == FishingVisualPhase.CASTING,
@@ -1876,6 +2109,7 @@ func _make_animation_action_state() -> Dictionary:
 		_animation_action_id,
 		_animation_action_sequence,
 		_animation_action_elapsed,
+		_animation_action_paused,
 	)
 
 
@@ -1890,6 +2124,9 @@ func _apply_network_target_animation_state(state: Dictionary) -> void:
 	_network_target_animation_action_id = StringName(str(action["id"]))
 	_network_target_animation_action_sequence = int(action["sequence"])
 	_network_target_animation_action_elapsed = float(action["elapsed"])
+	_network_target_animation_action_paused = bool(
+		action.get("paused", false)
+	)
 
 
 func _get_authoritative_locomotion_state() -> LocomotionState:
@@ -1898,14 +2135,17 @@ func _get_authoritative_locomotion_state() -> LocomotionState:
 		and _is_movement_input_enabled()
 		and not _water_recovery_active
 		and not _sitting
-		and _network_axis.length_squared() > 0.0025
 	):
+		if _network_sneak:
+			return LocomotionState.SNEAKING
+		if _network_axis.length_squared() <= 0.0025:
+			return LocomotionState.IDLE
 		return (
 			LocomotionState.RUNNING
 			if _network_sprint
 			else LocomotionState.WALKING
 		)
-	return _locomotion_state_from_velocity()
+	return _locomotion_state_from_velocity(is_sneaking())
 
 
 func _get_authoritative_locomotion_id() -> StringName:
@@ -1915,7 +2155,19 @@ func _get_authoritative_locomotion_id() -> StringName:
 func _get_presented_locomotion_state() -> LocomotionState:
 	if _network_interpolation_enabled and _network_snapshot_ready:
 		return _network_target_locomotion_state
-	return _locomotion_state_from_velocity()
+	return _locomotion_state_from_velocity(is_sneaking())
+
+
+func _is_presented_moving_horizontally() -> bool:
+	var presented_velocity: Vector3 = (
+		_network_target_velocity
+		if _network_interpolation_enabled and _network_snapshot_ready
+		else velocity
+	)
+	return Vector2(
+		presented_velocity.x,
+		presented_velocity.z,
+	).length_squared() > 0.0025
 
 
 func _get_presented_animation_action() -> Dictionary:
@@ -1924,15 +2176,23 @@ func _get_presented_animation_action() -> Dictionary:
 			_network_target_animation_action_id,
 			_network_target_animation_action_sequence,
 			minf(
-				_network_target_animation_action_elapsed + _network_snapshot_age,
+				_network_target_animation_action_elapsed
+				+ (
+					0.0
+					if _network_target_animation_action_paused
+					else _network_snapshot_age
+				),
 				NetworkPlayerAnimationProtocol.MAX_ACTION_ELAPSED_SECONDS,
 			),
+			_network_target_animation_action_paused,
 		)
 	return _make_animation_action_state()
 
 
 func _locomotion_id_from_state(state: LocomotionState) -> StringName:
 	match state:
+		LocomotionState.SNEAKING:
+			return NetworkPlayerAnimationProtocol.LOCOMOTION_SNEAKING
 		LocomotionState.WALKING:
 			return NetworkPlayerAnimationProtocol.LOCOMOTION_WALKING
 		LocomotionState.RUNNING:
@@ -1943,6 +2203,8 @@ func _locomotion_id_from_state(state: LocomotionState) -> StringName:
 
 func _locomotion_state_from_id(state_id: StringName) -> LocomotionState:
 	match state_id:
+		NetworkPlayerAnimationProtocol.LOCOMOTION_SNEAKING:
+			return LocomotionState.SNEAKING
 		NetworkPlayerAnimationProtocol.LOCOMOTION_WALKING:
 			return LocomotionState.WALKING
 		NetworkPlayerAnimationProtocol.LOCOMOTION_RUNNING:
@@ -1955,7 +2217,11 @@ static func supports_network_animation_action(action_id: StringName) -> bool:
 	return action_id in NETWORK_ANIMATION_ACTION_IDS
 
 
-func _locomotion_state_from_velocity() -> LocomotionState:
+func _locomotion_state_from_velocity(
+	sneaking: bool = false,
+) -> LocomotionState:
+	if sneaking:
+		return LocomotionState.SNEAKING
 	var horizontal_speed_squared: float = (
 		velocity.x * velocity.x + velocity.z * velocity.z
 	)
@@ -2234,6 +2500,8 @@ func set_active_fishing_rod(
 
 func set_active_catching_net(should_show: bool) -> void:
 	_active_item_is_net = should_show
+	if not should_show:
+		cancel_net_action_visual()
 	if _catching_net == null:
 		return
 	if _showcase_rod_state_stored:
@@ -2602,6 +2870,14 @@ func get_cast_origin_position() -> Vector3:
 func begin_catch_showcase(fish_catch: FishCatchType) -> void:
 	if fish_catch == null or not fish_catch.is_valid():
 		return
+	if _is_net_strike_visual_active():
+		_pending_net_showcase_catch = fish_catch
+		_pending_net_showcase_remote = false
+		return
+	_begin_catch_showcase_now(fish_catch)
+
+
+func _begin_catch_showcase_now(fish_catch: FishCatchType) -> void:
 	if _pocket_visual_target == PocketVisualTarget.CATCH_SHOWCASE:
 		_cancel_pocket_visual()
 	_showcase_animation_active = true
@@ -2636,6 +2912,14 @@ func begin_catch_showcase(fish_catch: FishCatchType) -> void:
 func begin_remote_catch_showcase(fish_catch: FishCatchType) -> void:
 	if local_control_enabled or fish_catch == null or not fish_catch.is_valid():
 		return
+	if _is_net_strike_visual_active():
+		_pending_net_showcase_catch = fish_catch
+		_pending_net_showcase_remote = true
+		return
+	_begin_remote_catch_showcase_now(fish_catch)
+
+
+func _begin_remote_catch_showcase_now(fish_catch: FishCatchType) -> void:
 	end_catch_showcase(Callable(), true)
 	_showcase_animation_active = true
 	set_fishing_visual(false)
@@ -2655,6 +2939,32 @@ func begin_remote_catch_showcase(fish_catch: FishCatchType) -> void:
 	)
 	_catch_display.visible = _catch_sprite.texture != null
 	_update_character_animation()
+
+
+func _is_net_strike_visual_active() -> bool:
+	return (
+		_animation_action_id == CHARACTER_NET_STRIKE_ANIMATION
+		or _network_target_animation_action_id
+		== CHARACTER_NET_STRIKE_ANIMATION
+		or (
+			_character_animation_player != null
+			and _character_animation_player.current_animation
+			== CHARACTER_NET_STRIKE_ANIMATION
+		)
+	)
+
+
+func _begin_pending_net_showcase() -> void:
+	var fish_catch := _pending_net_showcase_catch
+	var remote: bool = _pending_net_showcase_remote
+	_pending_net_showcase_catch = null
+	_pending_net_showcase_remote = false
+	if fish_catch == null or not fish_catch.is_valid():
+		return
+	if remote:
+		_begin_remote_catch_showcase_now(fish_catch)
+	else:
+		_begin_catch_showcase_now(fish_catch)
 
 
 func end_catch_showcase(

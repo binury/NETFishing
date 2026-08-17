@@ -30,7 +30,7 @@ const FishQualityType = preload("res://fish/fish_quality.gd")
 @export_range(0.1, 5.0, 0.05) var capture_radius: float = 0.7
 @export_range(0.1, 10.0, 0.05) var interaction_range: float = 2.6
 @export_range(0.1, 10.0, 0.05) var charge_duration: float = 2.0
-@export_range(0.1, 5.0, 0.01) var sprite_pixel_size: float = 0.001
+@export_range(0.0001, 0.01, 0.00005) var sprite_pixel_size: float = 0.001
 @export_range(-90.0, 90.0, 1.0) var sprite_tilt_degrees: float = -45.0
 @export_category("Respawn Budget")
 @export_range(0.0, 3600.0, 1.0) var capture_respawn_min_seconds: float = 480.0

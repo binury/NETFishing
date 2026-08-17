@@ -21,6 +21,8 @@ independent team Woofmeow.
   arms, ears and tails, and multiple world props and decorative assets,
   including trees and bridges. The contributor requested to be credited as
   `chillnfill`.
+- adamantris: contributor of the original hand-net model and texture artwork;
+  the contributor is credited as `adamantris`.
 - Tekgator: creator of the cooler-capacity, reel-speed, and barrier-power shop
   icons.
 - kat: supplied the original recorded voice sample used for the animalese
@@ -137,6 +139,7 @@ locations only and must never appear in scenes or resources.
 | Fur customization channel maps | `art/exported/characters/patterns/` | Original 2D channel-map artwork by co-owner Endeavour. Exact file hashes are recorded below. |
 | Character base meshes and appendages | `art/source/characters/base/`, `art/exported/characters/base/`, and derived character resources | Original body and arm models and original ear and tail models by chillnfill. Any embedded original 2D artwork is by Endeavour. |
 | World and decorative prop models | `art/source/environment/`, `art/exported/environment/`, and derived world resources | Original prop and decorative models by chillnfill, including trees and bridges. Any embedded original 2D artwork is by Endeavour. |
+| Hand-net model | `art/source/items/equipment/net.blend`, `art/exported/items/equipment/net.glb`, and adjacent exported textures | Original model and texture artwork by adamantris; repository adaptation and rigging by Voyager. |
 | Tuffy font | `ui/fonts/Tuffy_Bold.otf` | Public-domain dedication in `ui/fonts/Tuffy-LICENSE.txt`. |
 | Seattle Avenue font | `ui/fonts/seattle_avenue.otf` | Public-domain font by JLH Fonts; source record and hash in `ui/fonts/Seattle-Avenue-LICENSE.txt`. |
 | Title music | `audio/music/title/as_in_four_wolves.ogg` | Original music composed and owned by co-owner Voyager. |
@@ -171,6 +174,21 @@ https://creativecommons.org/licenses/by/3.0/legalcode.
   current `CONTRIBUTOR-TERMS.md`, retain the original permission record or a
   later written confirmation covering Project use, modification,
   distribution, commercial release, and applicable sublicensing.
+
+### adamantris hand-net contribution record
+
+- Requested credit: `adamantris`.
+- Original contribution: hand-net model and texture artwork.
+- Repository source: `art/source/items/equipment/net.blend`, SHA-256
+  `4608993b2397681029c60eb6a7657e3db311ded99ebb5a461cdf4738c8858b39`.
+- Repository export: `art/exported/items/equipment/net.glb`, SHA-256
+  `d4c2d4903da3817ff9bb82e0404f5e51b74d299abc5bef28c7f6daf6371474fb`.
+- Repository adaptation: reshaping and the generic `net_root`, `net_rim`,
+  `net_mid`, and `net_tip` deformation rig were prepared by Voyager for
+  reuse across gathering activities.
+- Permission record: retain the original submission correspondence or a
+  written confirmation accepting `CONTRIBUTOR-TERMS.md` with the project
+  records.
 
 ### Fur customization channel-map record
 

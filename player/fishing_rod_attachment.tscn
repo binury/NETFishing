@@ -1,4 +1,6 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://player/tool_socket_attachment.gd" id="1_socket"]
 
 [sub_resource type="CylinderMesh" id="FishingRodMesh"]
 top_radius = 0.025
@@ -11,6 +13,8 @@ roughness = 0.8
 
 [node name="FishingRodAttachment" type="BoneAttachment3D"]
 bone_name = "rod_socket"
+script = ExtResource("1_socket")
+aligned_mount_path = NodePath("FishingRod")
 
 [node name="FishingRod" type="Node3D" parent="."]
 

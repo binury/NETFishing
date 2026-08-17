@@ -9,6 +9,7 @@ const MAX_ACTION_ELAPSED_SECONDS: float = 86400.0
 const LOCOMOTION_IDLE: StringName = &"idle"
 const LOCOMOTION_WALKING: StringName = &"walking"
 const LOCOMOTION_RUNNING: StringName = &"running"
+const LOCOMOTION_SNEAKING: StringName = &"sneaking"
 
 
 static func make_state(
@@ -17,13 +18,17 @@ static func make_state(
 	action_id: StringName = &"",
 	action_sequence: int = 0,
 	action_elapsed: float = 0.0,
+	action_paused: bool = false,
 ) -> Dictionary:
 	return {
 		"format_version": FORMAT_VERSION,
 		"locomotion_id": String(locomotion_id),
 		"grounded": grounded,
 		"action": make_action_state(
-			action_id, action_sequence, action_elapsed
+			action_id,
+			action_sequence,
+			action_elapsed,
+			action_paused,
 		),
 	}
 
@@ -32,11 +37,13 @@ static func make_action_state(
 	action_id: StringName = &"",
 	action_sequence: int = 0,
 	action_elapsed: float = 0.0,
+	paused: bool = false,
 ) -> Dictionary:
 	return {
 		"id": String(action_id),
 		"sequence": action_sequence,
 		"elapsed": action_elapsed,
+		"paused": paused,
 	}
 
 
@@ -61,6 +68,7 @@ static func validate_action_state(value: Variant) -> bool:
 		not valid_state_id(action.get("id"), true)
 		or typeof(action.get("sequence")) != TYPE_INT
 		or typeof(action.get("elapsed")) not in [TYPE_FLOAT, TYPE_INT]
+		or typeof(action.get("paused", false)) != TYPE_BOOL
 	):
 		return false
 	var sequence: int = int(action["sequence"])

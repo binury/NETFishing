@@ -241,7 +241,25 @@ func _run_host() -> void:
 	await create_timer(2.5).timeout
 	player.apply_authoritative_network_input(_movement_input(2, false))
 	await create_timer(2.5).timeout
-	player.apply_authoritative_network_input(_movement_input(3, false, false))
+	player.apply_authoritative_network_input(
+		_movement_input(3, false, true, true)
+	)
+	await create_timer(2.0).timeout
+	player.apply_authoritative_network_input(
+		_movement_input(4, false, false, true)
+	)
+	await create_timer(2.0).timeout
+	player.apply_authoritative_network_input(
+		_movement_input(5, false, false, true, &"draw", 1)
+	)
+	await create_timer(1.0).timeout
+	player.apply_authoritative_network_input(
+		_movement_input(6, false, false, true, &"strike", 2)
+	)
+	await create_timer(0.5).timeout
+	player.apply_authoritative_network_input(
+		_movement_input(7, false, false, false, &"", 3)
+	)
 	var disconnect_deadline: int = Time.get_ticks_msec() + 8000
 	while (
 		Time.get_ticks_msec() < disconnect_deadline
@@ -284,16 +302,24 @@ func _run_client() -> void:
 	var sprint_dust := host_avatar.get_node("%SprintDust") as SprintDustTrail
 	var saw_running: bool = false
 	var saw_walking: bool = false
+	var saw_sneaking: bool = false
+	var saw_idle_sneak: bool = false
+	var saw_net_draw: bool = false
+	var saw_net_strike: bool = false
 	var saw_animation_advance: bool = false
 	var saw_dust: bool = false
 	var previous_animation: StringName = &""
 	var previous_animation_position: float = -1.0
-	var observation_deadline: int = Time.get_ticks_msec() + 7000
+	var observation_deadline: int = Time.get_ticks_msec() + 14000
 	while Time.get_ticks_msec() < observation_deadline:
 		await process_frame
 		var current_animation: StringName = animation_player.current_animation
 		saw_running = saw_running or current_animation.begins_with("running")
 		saw_walking = saw_walking or current_animation.begins_with("walking")
+		saw_sneaking = saw_sneaking or current_animation == &"sneaking"
+		saw_idle_sneak = saw_idle_sneak or current_animation == &"idle_sneak"
+		saw_net_draw = saw_net_draw or current_animation == &"draw"
+		saw_net_strike = saw_net_strike or current_animation == &"strike"
 		var current_position: float = (
 			animation_player.current_animation_position
 		)
@@ -306,10 +332,23 @@ func _run_client() -> void:
 		previous_animation = current_animation
 		previous_animation_position = current_position
 		saw_dust = saw_dust or sprint_dust.get_active_puff_count() > 0
-		if saw_running and saw_walking and saw_animation_advance and saw_dust:
+		if (
+			saw_running
+			and saw_walking
+			and saw_sneaking
+			and saw_idle_sneak
+			and saw_net_draw
+			and saw_net_strike
+			and saw_animation_advance
+			and saw_dust
+		):
 			break
 	assert(saw_running)
 	assert(saw_walking)
+	assert(saw_sneaking)
+	assert(saw_idle_sneak)
+	assert(saw_net_draw)
+	assert(saw_net_strike)
 	assert(saw_animation_advance)
 	assert(saw_dust)
 	print("Movement multiplayer client validation: PASS")
@@ -325,6 +364,9 @@ func _movement_input(
 	sequence: int,
 	sprinting: bool,
 	moving: bool = true,
+	sneaking: bool = false,
+	action_id: StringName = &"",
+	action_sequence: int = 0,
 ) -> Dictionary:
 	return {
 		"sequence": sequence,
@@ -332,12 +374,13 @@ func _movement_input(
 		"camera_yaw": 0.0,
 		"jump": false,
 		"sprint": sprinting,
-		"sneak": false,
+		"sneak": sneaking,
 		"slow_walk": false,
 		"sitting": false,
 		"casting": false,
-		"animation_action": (
-			NetworkPlayerAnimationProtocol.make_action_state()
+		"animation_action": NetworkPlayerAnimationProtocol.make_action_state(
+			action_id,
+			action_sequence,
 		),
 	}
 

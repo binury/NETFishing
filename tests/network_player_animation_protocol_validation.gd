@@ -15,11 +15,24 @@ func _initialize() -> void:
 		1.25,
 	)
 	assert(NetworkPlayerAnimationProtocol.validate_state(emote))
+	var paused_action := NetworkPlayerAnimationProtocol.make_action_state(
+		&"strike",
+		18,
+		0.72,
+		true,
+	)
+	assert(NetworkPlayerAnimationProtocol.validate_action_state(paused_action))
+	assert(bool(paused_action["paused"]))
 	var future_locomotion := NetworkPlayerAnimationProtocol.make_state(
 		&"swimming_fast",
 		false,
 	)
 	assert(NetworkPlayerAnimationProtocol.validate_state(future_locomotion))
+	var sneaking := NetworkPlayerAnimationProtocol.make_state(
+		NetworkPlayerAnimationProtocol.LOCOMOTION_SNEAKING,
+		true,
+	)
+	assert(NetworkPlayerAnimationProtocol.validate_state(sneaking))
 	var extra_future_field: Dictionary = emote.duplicate(true)
 	extra_future_field["future_layer"] = {"id": "umbrella"}
 	assert(NetworkPlayerAnimationProtocol.validate_state(extra_future_field))
@@ -45,5 +58,8 @@ func _initialize() -> void:
 		"elapsed": INF,
 	}
 	assert(not NetworkPlayerAnimationProtocol.validate_state(invalid_elapsed))
+	var invalid_paused: Dictionary = emote.duplicate(true)
+	invalid_paused["action"]["paused"] = "yes"
+	assert(not NetworkPlayerAnimationProtocol.validate_state(invalid_paused))
 	print("Network player animation protocol validation: PASS")
 	quit()
