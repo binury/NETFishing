@@ -202,7 +202,7 @@ func _validate_low_end_profile_contract() -> void:
 	assert(asset_profile.contains("fish/species"))
 	assert(asset_profile.contains("art/exported/characters"))
 	assert(builder.contains("--exclude '/audio/ambience/'"))
-	assert(builder.contains("--exclude '/audio/music/'"))
+	assert(not builder.contains("--exclude '/audio/music/'"))
 
 
 func _make_button(

@@ -351,14 +351,12 @@ func _configure_presentation_performance_profile(light_profile: bool) -> void:
 
 
 func _configure_audio_performance_profile(light_profile: bool) -> void:
+	_title_music.stream = _load_optional_audio_stream(TITLE_MUSIC_PATH)
+	_dusk_music.stream = _load_optional_audio_stream(DUSK_MUSIC_PATH)
 	if light_profile:
-		_title_music.stream = null
-		_dusk_music.stream = null
 		_shoreline_ambience.set_audio_enabled(false)
 		_rain_ambience.set_audio_enabled(false)
 		return
-	_title_music.stream = _load_optional_audio_stream(TITLE_MUSIC_PATH)
-	_dusk_music.stream = _load_optional_audio_stream(DUSK_MUSIC_PATH)
 	_shoreline_ambience.set_audio_enabled(true)
 	_rain_ambience.set_audio_enabled(true)
 

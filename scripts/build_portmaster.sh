@@ -112,7 +112,6 @@ if [[ ${PACKAGE_ONLY} -eq 0 ]]; then
     --exclude '/art/exported/system_icons/netfishing_1024.png' \
     --exclude '/art/exported/system_icons/netfishing_1024.png.import' \
     --exclude '/audio/ambience/' \
-    --exclude '/audio/music/' \
     --exclude '/builds/' \
     --exclude '/docs/design/' \
     --exclude '/tests/' \
@@ -183,7 +182,7 @@ Architecture: AArch64
 Minimum linked GLIBC symbol version: GLIBC_2.28
 Rendering method: gl_compatibility
 Texture profile: 128 px maximum; 64 px gameplay catalogs; ETC2 compressed
-Audio profile: 22.05 kHz mono QOA effects; music and ambience omitted
+Audio profile: original music retained; ambience omitted; effects use 22.05 kHz mono QOA
 
 The executable and PCK were exported from the release commit listed above.
 Repository working-tree changes were not included in game content.
@@ -218,9 +217,9 @@ selected data root. Device-local configuration remains under
 \`netfishing/conf/\`.
 PortMaster launches use the light performance profile by default. Put the word
 \`normal\` in \`netfishing/conf/performance_profile\` to opt a capable device
-into the normal rendering profile. PortMaster packages omit music and ambience
-in both profiles. See \`netfishing/licenses/\` for bundled credits and license
-information.
+into the normal rendering profile. PortMaster packages retain title and world
+music while omitting rain and shoreline ambience in both profiles. See
+\`netfishing/licenses/\` for bundled credits and license information.
 
 ## Controls
 

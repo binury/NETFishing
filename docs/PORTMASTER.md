@@ -219,8 +219,7 @@ profile also:
 - keeps the title water and full-window menu patterns static;
 - replaces the animated cooler water and decorative bubbles with flat water;
 - disables decorative title-screen fish and bubbles;
-- omits title music, dusk music, rain ambience, and shoreline ambience from the
-  package while retaining gameplay sound effects, speech, and character calls;
+- retains title and dusk music while omitting rain and shoreline ambience;
 - reduces rain to 48 particles simulated at 8 FPS; and
 - replaces procedural sky clouds and 81 moving local cloud patches with one
   flat cloud ceiling.
@@ -233,10 +232,11 @@ pixels. All remaining raster textures use ETC2 VRAM compression. Short sound
 effects, speech, and calls are imported as 22.05 kHz mono QOA samples. The
 authoritative artwork and the desktop, Android, and macOS imports are not
 modified. Source artwork, design documents, tests, platform-specific icons,
-music, and ambience are omitted from the temporary export project. This
-build-time profile is always present in the PortMaster package; selecting the
-normal runtime profile restores visual effects, but does not restore omitted
-audio or replace the micro textures with desktop-resolution assets.
+and ambience are omitted from the temporary export project. The original
+compressed title and dusk music remain available in both runtime profiles.
+This build-time profile is always present in the PortMaster package; selecting
+the normal runtime profile restores visual effects, but does not restore
+omitted ambience or replace the micro textures with desktop-resolution assets.
 
 The normal profile otherwise retains the full visual presentation.
 

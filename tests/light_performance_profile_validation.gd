@@ -125,8 +125,8 @@ func _validate_main_profile(main: Node) -> void:
 	var player_menu := game_ui.get("_player_menu") as PlayerMenu
 	assert(player_menu != null)
 	assert(not player_menu.is_cooler_water_effect_enabled())
-	assert((main.get_node("%TitleMusic") as AudioStreamPlayer).stream == null)
-	assert((main.get_node("%DuskMusic") as AudioStreamPlayer).stream == null)
+	assert((main.get_node("%TitleMusic") as AudioStreamPlayer).stream != null)
+	assert((main.get_node("%DuskMusic") as AudioStreamPlayer).stream != null)
 	assert(
 		(main.get_node("%WavesAudio") as AudioStreamPlayer).stream == null
 	)
