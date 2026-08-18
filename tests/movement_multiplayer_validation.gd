@@ -2,7 +2,7 @@ extends SceneTree
 
 const MainScene: PackedScene = preload("res://main/main.tscn")
 const PlayerScene: PackedScene = preload("res://player/player.tscn")
-const TEST_PORT: int = 18141
+const TEST_PORT: int = 18171
 
 
 func _initialize() -> void:
@@ -59,6 +59,26 @@ func _validate_compact_snapshot_encoding() -> void:
 			encoded_snapshots[0]
 		) == moving_snapshot
 	)
+	var paused_snapshot: Dictionary = moving_snapshot.duplicate(true)
+	paused_snapshot["animation_state"] = (
+		NetworkPlayerAnimationProtocol.make_state(
+			NetworkPlayerAnimationProtocol.LOCOMOTION_IDLE,
+			true,
+			&"strike",
+			7,
+			0.5,
+			true,
+		)
+	)
+	var paused_encoded: Array = NetworkSession._encode_movement_snapshot(
+		paused_snapshot
+	)
+	assert(paused_encoded.size() == NetworkSession.MOVEMENT_SNAPSHOT_FIELD_COUNT)
+	var paused_decoded: Dictionary = (
+		NetworkSession._decode_movement_snapshot(paused_encoded)
+	)
+	assert(not paused_decoded.is_empty())
+	assert(bool(paused_decoded["animation_state"]["action"]["paused"]))
 
 
 func _validate_transit_estimation() -> void:
@@ -235,6 +255,10 @@ func _run_host() -> void:
 	assert(session.set_host_open(true))
 	var remote_peer_id: int = await _wait_for_remote_peer(session)
 	assert(remote_peer_id > 1)
+	# Authentication completes before the client has necessarily created and
+	# begun observing the host avatar. Give its gameplay scene a bounded moment
+	# to settle before emitting the one-shot locomotion/action sequence.
+	await create_timer(1.0).timeout
 	var player := main.get("_player") as Player
 	player.configure_network_remote(true)
 	player.apply_authoritative_network_input(_movement_input(1, true))
@@ -254,9 +278,9 @@ func _run_host() -> void:
 	)
 	await create_timer(1.0).timeout
 	player.apply_authoritative_network_input(
-		_movement_input(6, false, false, true, &"strike", 2)
+		_movement_input(6, false, false, true, &"strike", 2, true)
 	)
-	await create_timer(0.5).timeout
+	await create_timer(2.0).timeout
 	player.apply_authoritative_network_input(
 		_movement_input(7, false, false, false, &"", 3)
 	)
@@ -294,7 +318,7 @@ func _run_client() -> void:
 	var spawn_service := main.get_node(
 		"%PlayerSpawnService"
 	) as PlayerSpawnService
-	var host_avatar: Player = spawn_service.get_avatar(1)
+	var host_avatar: Player = await _wait_for_avatar(spawn_service, 1)
 	assert(host_avatar != null)
 	var animation_player := host_avatar.get_node(
 		"Visuals/CharacterRig/AnimationPlayer"
@@ -306,11 +330,12 @@ func _run_client() -> void:
 	var saw_idle_sneak: bool = false
 	var saw_net_draw: bool = false
 	var saw_net_strike: bool = false
+	var saw_net_strike_paused: bool = false
 	var saw_animation_advance: bool = false
 	var saw_dust: bool = false
 	var previous_animation: StringName = &""
 	var previous_animation_position: float = -1.0
-	var observation_deadline: int = Time.get_ticks_msec() + 14000
+	var observation_deadline: int = Time.get_ticks_msec() + 18000
 	while Time.get_ticks_msec() < observation_deadline:
 		await process_frame
 		var current_animation: StringName = animation_player.current_animation
@@ -319,7 +344,17 @@ func _run_client() -> void:
 		saw_sneaking = saw_sneaking or current_animation == &"sneaking"
 		saw_idle_sneak = saw_idle_sneak or current_animation == &"idle_sneak"
 		saw_net_draw = saw_net_draw or current_animation == &"draw"
-		saw_net_strike = saw_net_strike or current_animation == &"strike"
+		saw_net_strike = (
+			saw_net_strike
+			or current_animation == &"strike"
+			or animation_player.assigned_animation == &"strike"
+		)
+		saw_net_strike_paused = (
+			saw_net_strike_paused
+			or bool(host_avatar.get(
+				"_network_target_animation_action_paused"
+			))
+		)
 		var current_position: float = (
 			animation_player.current_animation_position
 		)
@@ -339,16 +374,18 @@ func _run_client() -> void:
 			and saw_idle_sneak
 			and saw_net_draw
 			and saw_net_strike
+			and saw_net_strike_paused
 			and saw_animation_advance
 			and saw_dust
-		):
-			break
+			):
+				break
 	assert(saw_running)
 	assert(saw_walking)
 	assert(saw_sneaking)
 	assert(saw_idle_sneak)
 	assert(saw_net_draw)
 	assert(saw_net_strike)
+	assert(saw_net_strike_paused)
 	assert(saw_animation_advance)
 	assert(saw_dust)
 	print("Movement multiplayer client validation: PASS")
@@ -367,6 +404,7 @@ func _movement_input(
 	sneaking: bool = false,
 	action_id: StringName = &"",
 	action_sequence: int = 0,
+	action_paused: bool = false,
 ) -> Dictionary:
 	return {
 		"sequence": sequence,
@@ -381,6 +419,8 @@ func _movement_input(
 		"animation_action": NetworkPlayerAnimationProtocol.make_action_state(
 			action_id,
 			action_sequence,
+			0.0,
+			action_paused,
 		),
 	}
 
@@ -407,3 +447,16 @@ func _wait_for_remote_peer(session: NetworkSession) -> int:
 			if peer_id != session.get_local_peer_id():
 				return peer_id
 	return 0
+
+
+func _wait_for_avatar(
+	spawn_service: PlayerSpawnService,
+	peer_id: int,
+) -> Player:
+	var deadline: int = Time.get_ticks_msec() + 8000
+	while Time.get_ticks_msec() < deadline:
+		await process_frame
+		var avatar := spawn_service.get_avatar(peer_id) as Player
+		if avatar != null:
+			return avatar
+	return null

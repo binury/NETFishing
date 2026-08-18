@@ -15,7 +15,7 @@ const NET_STRIKE_MARKER_DISTANCE: float = 0.85
 
 
 func _initialize() -> void:
-	assert(NetworkProtocol.PROTOCOL_VERSION == 6)
+	assert(NetworkProtocol.PROTOCOL_VERSION == 7)
 	assert(
 		NetworkWorldSpawnProtocol.CAPABILITY
 		== NetworkProtocol.WORLD_SPAWN_CAPABILITY

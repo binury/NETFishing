@@ -10,7 +10,7 @@ const AUTHENTICATION_TIMEOUT_SECONDS: float = 60.0
 const INPUT_INTERVAL: float = 1.0 / 30.0
 const SNAPSHOT_INTERVAL: float = 1.0 / 30.0
 const MOVEMENT_SNAPSHOT_BATCH_SIZE: int = 8
-const MOVEMENT_SNAPSHOT_FIELD_COUNT: int = 12
+const MOVEMENT_SNAPSHOT_FIELD_COUNT: int = 13
 const MAX_MOVEMENT_INPUT_SEQUENCE: int = 2147483647
 const MAX_MOVEMENT_ONE_WAY_TRANSIT_SECONDS: float = 0.25
 
@@ -1837,6 +1837,7 @@ static func _encode_movement_snapshot(snapshot: Dictionary) -> Array:
 		str(action["id"]),
 		int(action["sequence"]),
 		float(action["elapsed"]),
+		bool(action.get("paused", false)),
 		bool(snapshot.get("sitting", false)),
 		bool(snapshot.get("casting", false)),
 	]
@@ -1860,6 +1861,7 @@ static func _decode_movement_snapshot(value: Variant) -> Dictionary:
 		or typeof(fields[9]) not in [TYPE_FLOAT, TYPE_INT]
 		or typeof(fields[10]) != TYPE_BOOL
 		or typeof(fields[11]) != TYPE_BOOL
+		or typeof(fields[12]) != TYPE_BOOL
 	):
 		return {}
 	var position: Vector3 = fields[2]
@@ -1880,9 +1882,10 @@ static func _decode_movement_snapshot(value: Variant) -> Dictionary:
 			StringName(str(fields[7])),
 			int(fields[8]),
 			float(fields[9]),
+			bool(fields[10]),
 		),
-		"sitting": bool(fields[10]),
-		"casting": bool(fields[11]),
+		"sitting": bool(fields[11]),
+		"casting": bool(fields[12]),
 	}
 
 
