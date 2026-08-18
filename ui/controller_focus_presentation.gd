@@ -5,10 +5,13 @@ const CONTROLLER_MOTION_THRESHOLD: float = 0.35
 const FOCUS_ARROW_TEXTURE: Texture2D = preload(
 	"res://ui/icons/pictograms/arrow_cursor.png"
 )
-const FOCUS_ARROW_SIZE: Vector2 = Vector2(32.0, 32.0)
-const FOCUS_ARROW_ROTATION_DEGREES: float = 150.0
-const FOCUS_ARROW_TIP_UV: Vector2 = Vector2(0.5, 0.0)
-const FOCUS_ARROW_TARGET_OVERLAP: Vector2 = Vector2(10.0, 10.0)
+const FOCUS_ARROW_SIZE: Vector2 = Vector2(64.0, 64.0)
+const FOCUS_ARROW_ROTATION_DEGREES: float = 60.0
+const FOCUS_ARROW_TIP_UV: Vector2 = Vector2(0.96875, 0.4453125)
+const FOCUS_ARROW_TARGET_OVERLAP: Vector2 = Vector2(16.0, 16.0)
+const FOCUS_ARROW_BUBBLE_OVERLAP: float = 10.0
+const FOCUS_ARROW_SHADOW_OFFSET: Vector2 = Vector2(-6.0, -3.0)
+const FOCUS_ARROW_SHADOW_COLOR: Color = Color(0.0, 0.035, 0.055, 0.56)
 const FOCUS_ARROW_CANVAS_LAYER: int = 120
 
 const FOCUS_STYLE_REPLACEMENTS: Dictionary[StringName, StringName] = {
@@ -52,6 +55,7 @@ var _original_hover_color_overrides: Dictionary[StringName, Dictionary] = {}
 var _original_popup_hover_style: Dictionary = {}
 var _original_popup_hover_color: Dictionary = {}
 var _focus_layer: CanvasLayer
+var _focus_arrow_shadow: TextureRect
 var _focus_arrow: TextureRect
 
 
@@ -111,19 +115,36 @@ func _build_focus_arrow() -> void:
 	_focus_layer.name = "ControllerFocusArrowLayer"
 	_focus_layer.layer = FOCUS_ARROW_CANVAS_LAYER
 	add_child(_focus_layer)
-	_focus_arrow = TextureRect.new()
-	_focus_arrow.name = "ControllerFocusArrow"
-	_focus_arrow.texture = FOCUS_ARROW_TEXTURE
-	_focus_arrow.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	_focus_arrow.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	_focus_arrow.size = FOCUS_ARROW_SIZE
-	_focus_arrow.pivot_offset = FOCUS_ARROW_SIZE * 0.5
-	_focus_arrow.rotation_degrees = FOCUS_ARROW_ROTATION_DEGREES
-	_focus_arrow.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	_focus_arrow.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_focus_arrow.focus_mode = Control.FOCUS_NONE
-	_focus_arrow.visible = false
+	_focus_arrow_shadow = _make_focus_cursor_texture(
+		"ControllerFocusArrowShadow"
+	)
+	_focus_arrow_shadow.self_modulate = FOCUS_ARROW_SHADOW_COLOR
+	_focus_layer.add_child(_focus_arrow_shadow)
+	_focus_arrow = _make_focus_cursor_texture("ControllerFocusArrow")
 	_focus_layer.add_child(_focus_arrow)
+
+
+func _make_focus_cursor_texture(node_name: String) -> TextureRect:
+	var texture_rect := TextureRect.new()
+	texture_rect.name = node_name
+	texture_rect.texture = FOCUS_ARROW_TEXTURE
+	texture_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	texture_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	texture_rect.size = FOCUS_ARROW_SIZE
+	texture_rect.pivot_offset = FOCUS_ARROW_SIZE * 0.5
+	texture_rect.rotation_degrees = FOCUS_ARROW_ROTATION_DEGREES
+	texture_rect.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	texture_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	texture_rect.focus_mode = Control.FOCUS_NONE
+	texture_rect.visible = false
+	return texture_rect
+
+
+func _set_focus_cursor_visible(is_visible: bool) -> void:
+	if _focus_arrow_shadow != null:
+		_focus_arrow_shadow.visible = is_visible
+	if _focus_arrow != null:
+		_focus_arrow.visible = is_visible
 
 
 func _set_controller_active(active: bool) -> void:
@@ -177,7 +198,7 @@ func _apply_to_focus(control: Control) -> void:
 	_focused_control = control
 	_focus_layer.custom_viewport = control.get_viewport()
 	_suppress_native_focus_highlight(control)
-	_focus_arrow.visible = true
+	_set_focus_cursor_visible(true)
 	_update_arrow_geometry()
 
 
@@ -195,7 +216,7 @@ func _apply_to_popup(popup: PopupMenu) -> void:
 	_popup_scroll_offset = 0.0
 	_focus_layer.custom_viewport = popup
 	_suppress_popup_focus_highlight(popup)
-	_focus_arrow.visible = true
+	_set_focus_cursor_visible(true)
 	_update_arrow_geometry()
 
 
@@ -225,29 +246,71 @@ func _update_arrow_geometry() -> void:
 			)
 		)
 	):
-		if _focus_arrow != null:
-			_focus_arrow.visible = false
+		_set_focus_cursor_visible(false)
 		return
-	var focus_rect: Rect2 = (
-		_popup_focus_target_rect(_focused_popup)
-		if _focused_popup != null
-		else _focus_target_rect(_focused_control)
-	)
 	var presentation_scale: Vector2 = _presentation_canvas_scale()
 	var arrow_size: Vector2 = FOCUS_ARROW_SIZE * presentation_scale
 	_focus_arrow.size = arrow_size
 	_focus_arrow.pivot_offset = arrow_size * 0.5
+	_focus_arrow_shadow.size = arrow_size
+	_focus_arrow_shadow.pivot_offset = arrow_size * 0.5
 	var desired_tip: Vector2 = (
-		focus_rect.position
+		_popup_focus_target_rect(_focused_popup).position
 		+ FOCUS_ARROW_TARGET_OVERLAP * presentation_scale
+		if _focused_popup != null
+		else _focus_target_position(
+			_focused_control,
+			presentation_scale,
+		)
 	)
 	var tip_from_pivot: Vector2 = (
 		(FOCUS_ARROW_TIP_UV - Vector2.ONE * 0.5) * arrow_size
 	).rotated(deg_to_rad(FOCUS_ARROW_ROTATION_DEGREES))
-	_focus_arrow.position = (
+	var arrow_position: Vector2 = (
 		desired_tip - arrow_size * 0.5 - tip_from_pivot
 	)
-	_focus_arrow.visible = true
+	_focus_arrow.position = arrow_position
+	_focus_arrow_shadow.position = (
+		arrow_position
+		+ FOCUS_ARROW_SHADOW_OFFSET * presentation_scale
+	)
+	_set_focus_cursor_visible(true)
+
+
+func _focus_target_position(
+	control: Control,
+	presentation_scale: Vector2,
+) -> Vector2:
+	if control is BubbleButton or control is CoolerFishSprite:
+		return _bubble_focus_target_position(control)
+	return (
+		_focus_target_rect(control).position
+		+ FOCUS_ARROW_TARGET_OVERLAP * presentation_scale
+	)
+
+
+func _bubble_focus_target_position(control: Control) -> Vector2:
+	var direction := Vector2.RIGHT.rotated(
+		deg_to_rad(FOCUS_ARROW_ROTATION_DEGREES)
+	)
+	var radius: Vector2 = control.size * 0.5
+	var safe_radius := Vector2(
+		maxf(radius.x, 0.001),
+		maxf(radius.y, 0.001),
+	)
+	var boundary_distance: float = 1.0 / sqrt(
+		pow(direction.x / safe_radius.x, 2.0)
+		+ pow(direction.y / safe_radius.y, 2.0)
+	)
+	var local_tip: Vector2 = (
+		radius
+		- direction * boundary_distance
+		+ direction * FOCUS_ARROW_BUBBLE_OVERLAP
+	)
+	return _rect_in_presentation_viewport(
+		control,
+		Rect2(local_tip, Vector2.ZERO),
+	).position
 
 
 func _presentation_canvas_scale() -> Vector2:
@@ -643,5 +706,4 @@ func _clear_focus_presentation() -> void:
 	_popup_scroll_offset = 0.0
 	if _focus_layer != null:
 		_focus_layer.custom_viewport = get_viewport()
-	if _focus_arrow != null:
-		_focus_arrow.visible = false
+	_set_focus_cursor_visible(false)

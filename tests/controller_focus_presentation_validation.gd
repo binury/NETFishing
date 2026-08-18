@@ -49,11 +49,25 @@ func _run() -> void:
 	standard_button.grab_focus()
 	await process_frame
 	var focus_arrow := presentation.get("_focus_arrow") as TextureRect
+	var focus_shadow := presentation.get("_focus_arrow_shadow") as TextureRect
 	_expect(focus_arrow != null, "controller focus arrow was not created")
+	_expect(focus_shadow != null, "controller focus shadow was not created")
 	_expect(focus_arrow.visible, "controller focus arrow is not visible")
+	_expect(focus_shadow.visible, "controller focus shadow is not visible")
 	_expect(
 		focus_arrow.texture == FocusPresentationType.FOCUS_ARROW_TEXTURE,
 		"controller focus arrow uses the wrong artwork",
+	)
+	_expect(
+		focus_shadow.texture == focus_arrow.texture,
+		"controller focus shadow does not follow the cursor silhouette",
+	)
+	_expect(
+		focus_shadow.position.is_equal_approx(
+			focus_arrow.position
+			+ FocusPresentationType.FOCUS_ARROW_SHADOW_OFFSET
+		),
+		"controller focus shadow uses the wrong offset",
 	)
 	_expect(
 		is_equal_approx(
@@ -115,6 +129,18 @@ func _run() -> void:
 		_arrow_marks_top_left(focus_arrow, second_button.get_global_rect()),
 		"controller focus arrow did not follow the focused control",
 	)
+	var bubble_button := BubbleButton.new()
+	bubble_button.text = "bubble"
+	bubble_button.position = Vector2(440.0, 60.0)
+	bubble_button.size = Vector2(120.0, 120.0)
+	stage.add_child(bubble_button)
+	await process_frame
+	bubble_button.grab_focus()
+	await process_frame
+	_expect(
+		_arrow_overlaps_bubble_edge(focus_arrow, bubble_button),
+		"controller focus arrow does not meet the visible bubble edge",
+	)
 
 	var pointer_motion := InputEventMouseMotion.new()
 	pointer_motion.position = Vector2(4.0, 4.0)
@@ -123,6 +149,10 @@ func _run() -> void:
 	_expect(
 		not focus_arrow.visible,
 		"mouse motion does not clear controller focus presentation",
+	)
+	_expect(
+		not focus_shadow.visible,
+		"mouse motion leaves the controller focus shadow visible",
 	)
 	_expect(
 		standard_button.get_theme_stylebox("focus") == old_focus_style,
@@ -347,6 +377,27 @@ func _arrow_marks_top_left(arrow: Control, target: Rect2) -> bool:
 		+ FocusPresentationType.FOCUS_ARROW_TARGET_OVERLAP * arrow_scale
 	)
 	return actual_tip.distance_to(expected_tip) <= 0.5
+
+
+func _arrow_overlaps_bubble_edge(
+	arrow: Control,
+	bubble: BubbleButton,
+) -> bool:
+	var arrow_pivot: Vector2 = arrow.position + arrow.size * 0.5
+	var tip_from_pivot: Vector2 = (
+		(FocusPresentationType.FOCUS_ARROW_TIP_UV - Vector2.ONE * 0.5)
+		* arrow.size
+	).rotated(deg_to_rad(
+		FocusPresentationType.FOCUS_ARROW_ROTATION_DEGREES
+	))
+	var actual_tip: Vector2 = arrow_pivot + tip_from_pivot
+	var local_tip: Vector2 = (
+		bubble.get_global_transform_with_canvas().affine_inverse()
+		* actual_tip
+	)
+	var radius: Vector2 = bubble.size * 0.5
+	var normalized: Vector2 = (local_tip - radius) / radius
+	return normalized.length() >= 0.75 and normalized.length() <= 1.0
 
 
 func _expect(condition: bool, message: String) -> void:
