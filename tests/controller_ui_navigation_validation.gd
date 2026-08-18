@@ -20,6 +20,7 @@ func _run() -> void:
 	_validate_controller_hierarchy_contract()
 	_validate_player_page_zone_contracts()
 	_validate_shop_navigation_contract()
+	_validate_settings_navigation_contract()
 	_validate_four_by_three_centering()
 	_validate_low_end_profile_contract()
 	print("Controller UI navigation validation: PASS")
@@ -165,6 +166,71 @@ func _validate_shop_navigation_contract() -> void:
 	assert(source.contains("ROLE_LB"))
 	assert(source.contains("ROLE_RB"))
 	assert(source.contains("_configure_controller_focus"))
+
+
+func _validate_settings_navigation_contract() -> void:
+	var settings_scene := load("res://ui/settings_panel.tscn") as PackedScene
+	var settings := settings_scene.instantiate() as SettingsPanel
+	root.add_child(settings)
+	var accessibility_tab := settings.get_node(
+		"%AccessibilityTab"
+	) as Button
+	var auto_click_toggle := settings.get_node("%AutoClickToggle") as Button
+	var interval_slider := settings.get_node(
+		"%AutoClickIntervalSlider"
+	) as HSlider
+	var apply_button := settings.get_node("%ApplySettingsButton") as Button
+	var back_button := settings.get_node("%SettingsBackButton") as Button
+	assert(
+		accessibility_tab.get_node(accessibility_tab.focus_neighbor_bottom)
+		== auto_click_toggle
+	)
+	assert(
+		auto_click_toggle.get_node(auto_click_toggle.focus_neighbor_bottom)
+		== interval_slider
+	)
+	assert(
+		interval_slider.get_node(interval_slider.focus_neighbor_top)
+		== auto_click_toggle
+	)
+	assert(
+		interval_slider.get_node(interval_slider.focus_neighbor_bottom)
+		== apply_button
+	)
+	assert(apply_button.get_node(apply_button.focus_neighbor_right) == back_button)
+	var reset_scene := load(
+		"res://ui/pixelation_reset_overlay.tscn"
+	) as PackedScene
+	var reset_overlay := reset_scene.instantiate() as PixelationResetOverlay
+	root.add_child(reset_overlay)
+	settings.show()
+	reset_overlay.set_settings_open(true)
+	var reset_focus_requested: Array[bool] = [false]
+	settings.crisp_reset_focus_requested.connect(func() -> void:
+		reset_focus_requested[0] = true
+	)
+	settings.crisp_reset_focus_requested.connect(
+		reset_overlay.focus_reset_button
+	)
+	var focus_reset_event := InputEventAction.new()
+	focus_reset_event.action = &"ui_right"
+	focus_reset_event.pressed = true
+	settings.call("_on_back_button_gui_input", focus_reset_event)
+	assert(reset_focus_requested[0])
+	assert(
+		root.gui_get_focus_owner()
+		== reset_overlay.get_node("%ResetPixelationButton")
+	)
+	reset_overlay.return_to_settings_requested.connect(
+		settings.focus_back_button
+	)
+	var return_event := InputEventAction.new()
+	return_event.action = &"ui_left"
+	return_event.pressed = true
+	reset_overlay.call("_on_reset_button_gui_input", return_event)
+	assert(root.gui_get_focus_owner() == back_button)
+	reset_overlay.queue_free()
+	settings.queue_free()
 
 
 func _validate_four_by_three_centering() -> void:

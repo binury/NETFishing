@@ -206,6 +206,7 @@ func _populate_option_buttons() -> void:
 func _connect_controls() -> void:
 	_apply_button.pressed.connect(_apply_settings)
 	_back_button.pressed.connect(close_panel)
+	_back_button.gui_input.connect(_on_back_button_gui_input)
 	_world_pixelation.item_selected.connect(
 		_on_world_pixelation_selected
 	)
@@ -255,6 +256,16 @@ func _connect_controls() -> void:
 	%ImportHostIdentity.pressed.connect(
 		_choose_identity_import.bind("host")
 	)
+
+
+func _on_back_button_gui_input(event: InputEvent) -> void:
+	if (
+		event.is_action_pressed("ui_right")
+		or event.is_action_pressed("ui_down")
+		or event.is_action_pressed("ui_focus_next")
+	):
+		crisp_reset_focus_requested.emit()
+		get_viewport().set_input_as_handled()
 
 
 func _configure_style() -> void:

@@ -63,7 +63,8 @@ func focus_reset_button() -> void:
 
 func _on_reset_button_gui_input(event: InputEvent) -> void:
 	if (
-		event.is_action_pressed("ui_up")
+		event.is_action_pressed("ui_left")
+		or event.is_action_pressed("ui_up")
 		or event.is_action_pressed("ui_focus_prev")
 	):
 		return_to_settings_requested.emit()
