@@ -118,6 +118,10 @@ const NetworkWorldSpawnServiceType = preload(
 )
 
 const TITLE_MUSIC_SILENCE_DB: float = -80.0
+const TITLE_MUSIC_PATH: String = (
+	"res://audio/music/title/as_in_four_wolves.ogg"
+)
+const DUSK_MUSIC_PATH: String = "res://audio/music/world/craft.mp3"
 const TIME_CROSSING_EPSILON_HOURS: float = 0.000001
 const PLAYER_MENU_PATTERN_SCALE: float = 0.85
 const PLAYER_MENU_PATTERN_SCROLL_VELOCITY := Vector2(-7.0, -5.0)
@@ -273,6 +277,7 @@ func _ready() -> void:
 	_rain_ambience.name = "RainAmbience"
 	add_child(_rain_ambience)
 	_rain_ambience.configure(_world_weather)
+	_configure_audio_performance_profile(_performance_profile.is_light())
 	_shoreline_ambience.configure(
 		_player,
 		_test_world.get_saltwater_shoreline_mesh(),
@@ -297,6 +302,8 @@ func _ready() -> void:
 
 
 func _configure_presentation_performance_profile(light_profile: bool) -> void:
+	_game_ui.get_title_screen().set_minimal_presentation(light_profile)
+	_game_ui.set_light_performance_profile(light_profile)
 	var title_water_material := _title_background.material as ShaderMaterial
 	if title_water_material != null:
 		title_water_material.set_shader_parameter(
@@ -341,6 +348,25 @@ func _configure_presentation_performance_profile(light_profile: bool) -> void:
 				else PLAYER_MENU_PATTERN_SCROLL_VELOCITY
 			),
 		)
+
+
+func _configure_audio_performance_profile(light_profile: bool) -> void:
+	if light_profile:
+		_title_music.stream = null
+		_dusk_music.stream = null
+		_shoreline_ambience.set_audio_enabled(false)
+		_rain_ambience.set_audio_enabled(false)
+		return
+	_title_music.stream = _load_optional_audio_stream(TITLE_MUSIC_PATH)
+	_dusk_music.stream = _load_optional_audio_stream(DUSK_MUSIC_PATH)
+	_shoreline_ambience.set_audio_enabled(true)
+	_rain_ambience.set_audio_enabled(true)
+
+
+func _load_optional_audio_stream(path: String) -> AudioStream:
+	if not ResourceLoader.exists(path, "AudioStream"):
+		return null
+	return load(path) as AudioStream
 
 
 func _is_dedicated_server_runtime() -> bool:
@@ -1488,7 +1514,8 @@ func _on_natural_time_advanced(advanced_hours: float) -> void:
 		)
 	):
 		_dusk_music_played_for_natural_day = true
-		_dusk_music.play(0.0)
+		if _dusk_music.stream != null:
+			_dusk_music.play(0.0)
 
 
 static func _natural_interval_crosses_hour(
@@ -1956,6 +1983,8 @@ func _on_quit_requested() -> void:
 func _show_title_music(restart_from_beginning: bool = false) -> void:
 	_title_music_requested = true
 	_replace_title_music_transition()
+	if _title_music.stream == null:
+		return
 	if restart_from_beginning:
 		_title_music.stop()
 	_title_music.volume_db = title_music_volume_db

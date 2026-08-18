@@ -155,6 +155,7 @@ var _decorative_bubbles: Array[TextureRect] = []
 var _decorative_bubble_tweens: Dictionary[int, Tween] = {}
 var _transition_bubble_ids: Dictionary[int, bool] = {}
 var _pending_cluster_bubbles: int = 0
+var _minimal_presentation: bool = false
 var _awaiting_start_input: bool = false
 var _start_prompt_elapsed: float = 0.0
 var _navigation_focus_active: bool = false
@@ -258,6 +259,14 @@ func setup(
 	_decorative_presentation_ready = true
 	_start_decorative_presentation()
 	_begin_title_entry()
+
+
+func set_minimal_presentation(enabled: bool) -> void:
+	_minimal_presentation = enabled
+	if _minimal_presentation:
+		_stop_decorative_presentation()
+	elif visible:
+		_start_decorative_presentation()
 
 
 func reopen() -> void:
@@ -1513,6 +1522,7 @@ func _start_decorative_presentation() -> void:
 		not _decorative_presentation_ready
 		or not visible
 		or _decorative_presentation_active
+		or _minimal_presentation
 	):
 		return
 	_decorative_generation += 1
@@ -1977,7 +1987,11 @@ func _get_idle_decorative_bubble_count() -> int:
 
 
 func _emit_navigation_bubble_flurry() -> void:
-	if not _decorative_presentation_active or not visible:
+	if (
+		_minimal_presentation
+		or not _decorative_presentation_active
+		or not visible
+	):
 		return
 	var bubble_count: int = _decorative_rng.randi_range(
 		TRANSITION_BUBBLE_COUNT_MIN,

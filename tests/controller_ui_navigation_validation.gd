@@ -187,6 +187,22 @@ func _validate_low_end_profile_contract() -> void:
 	assert(launcher.contains("NETFISHING_LOW_END=1"))
 	assert(launcher.contains("--max-fps 30"))
 	assert(launcher.contains("--audio-output-latency 40"))
+	var builder: String = FileAccess.get_file_as_string(
+		"res://scripts/build_portmaster.sh"
+	)
+	assert(builder.contains("prepare_portmaster_assets.sh"))
+	assert(builder.contains("netfishing-portmaster-export"))
+	var asset_profile: String = FileAccess.get_file_as_string(
+		"res://scripts/prepare_portmaster_assets.sh"
+	)
+	assert(asset_profile.contains("GENERAL_TEXTURE_LIMIT=128"))
+	assert(asset_profile.contains("GAMEPLAY_TEXTURE_LIMIT=64"))
+	assert(asset_profile.contains("AUDIO_SAMPLE_RATE=22050"))
+	assert(asset_profile.contains("compress/mode=2"))
+	assert(asset_profile.contains("fish/species"))
+	assert(asset_profile.contains("art/exported/characters"))
+	assert(builder.contains("--exclude '/audio/ambience/'"))
+	assert(builder.contains("--exclude '/audio/music/'"))
 
 
 func _make_button(

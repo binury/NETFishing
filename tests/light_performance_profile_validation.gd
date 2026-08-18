@@ -63,14 +63,14 @@ func _validate_profile_resolution() -> void:
 	assert(not normal.is_light())
 	assert(is_equal_approx(normal.get_world_render_scale(), 1.0))
 	assert(light.is_light())
-	assert(is_equal_approx(light.get_world_render_scale(), 0.5))
+	assert(is_equal_approx(light.get_world_render_scale(), 0.375))
 	assert(legacy.is_light())
 
 
 func _validate_main_profile(main: Node) -> void:
 	var profile: RuntimePerformanceProfile = main.get("_performance_profile")
 	assert(profile != null and profile.is_light())
-	assert(is_equal_approx(root.scaling_3d_scale, 0.5))
+	assert(is_equal_approx(root.scaling_3d_scale, 0.375))
 	var pixelation: Node = main.get_node("%WorldPixelationPostprocess")
 	assert(bool(pixelation.call("is_light_performance_profile")))
 	pixelation.call("set_gameplay_active", true)
@@ -118,6 +118,21 @@ func _validate_main_profile(main: Node) -> void:
 				"scroll_velocity_pixels"
 			) == Vector2.ZERO
 		)
+	var game_ui := main.get_node("%GameUI") as GameUI
+	var title_screen := game_ui.get_title_screen()
+	assert(title_screen != null)
+	assert(not title_screen.is_decorative_presentation_active())
+	var player_menu := game_ui.get("_player_menu") as PlayerMenu
+	assert(player_menu != null)
+	assert(not player_menu.is_cooler_water_effect_enabled())
+	assert((main.get_node("%TitleMusic") as AudioStreamPlayer).stream == null)
+	assert((main.get_node("%DuskMusic") as AudioStreamPlayer).stream == null)
+	assert(
+		(main.get_node("%WavesAudio") as AudioStreamPlayer).stream == null
+	)
+	assert(
+		(main.get_node("RainAmbience") as AudioStreamPlayer).stream == null
+	)
 
 
 func _validate_normal_profile(main: Node) -> void:
@@ -141,6 +156,10 @@ func _validate_normal_profile(main: Node) -> void:
 	assert(_count_foliage_wind_overrides(
 		island.get_node("Terrain/Visual")
 	) > 0)
+	var game_ui := main.get_node("%GameUI") as GameUI
+	var player_menu := game_ui.get("_player_menu") as PlayerMenu
+	assert(player_menu != null)
+	assert(player_menu.is_cooler_water_effect_enabled())
 
 	var title_background := main.get_node("%TitleBackground") as ColorRect
 	var title_material := title_background.material as ShaderMaterial
@@ -167,6 +186,14 @@ func _validate_normal_profile(main: Node) -> void:
 	var rain := visuals.get_node("LocalRain") as GPUParticles3D
 	assert(rain.amount == WorldTimeVisualController.RAIN_PARTICLE_AMOUNT)
 	assert(rain.fixed_fps == 30)
+	assert((main.get_node("%TitleMusic") as AudioStreamPlayer).stream != null)
+	assert((main.get_node("%DuskMusic") as AudioStreamPlayer).stream != null)
+	assert(
+		(main.get_node("%WavesAudio") as AudioStreamPlayer).stream != null
+	)
+	assert(
+		(main.get_node("RainAmbience") as AudioStreamPlayer).stream != null
+	)
 
 
 func _validate_ocean_fishing_coverage(
@@ -222,8 +249,8 @@ func _validate_minimal_weather(main: Node) -> void:
 	var rain := visuals.get_node("LocalRain") as GPUParticles3D
 	assert(rain.amount == WorldTimeVisualController.LIGHT_RAIN_PARTICLE_AMOUNT)
 	assert(rain.fixed_fps == WorldTimeVisualController.LIGHT_RAIN_FIXED_FPS)
-	assert(rain.amount == 128)
-	assert(rain.fixed_fps == 12)
+	assert(rain.amount == 48)
+	assert(rain.fixed_fps == 8)
 	var clouds := visuals.get_node("LocalStormClouds") as LocalStormCloudLayer
 	assert(clouds.get_patch_count() == 1)
 	var ceiling := clouds.get_node("CloudCeiling") as MeshInstance3D

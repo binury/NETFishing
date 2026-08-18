@@ -35,6 +35,8 @@ func _run() -> void:
 	root.add_child(controller)
 	await process_frame
 	assert(runtime_audio.bus == &"Environment")
+	assert(runtime_audio.stream == null)
+	controller.set_audio_enabled(true)
 	assert(controller.near_distance < controller.far_distance)
 	assert(controller.near_volume_db > controller.far_volume_db)
 	var runtime_waves := runtime_audio.stream as AudioStreamWAV

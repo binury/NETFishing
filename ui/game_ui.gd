@@ -1723,6 +1723,10 @@ func get_title_screen() -> TitleScreenType:
 	return _title_screen
 
 
+func set_light_performance_profile(light_profile: bool) -> void:
+	_player_menu.set_light_performance_profile(light_profile)
+
+
 func set_effective_ui_pixel_size(pixel_size: int) -> void:
 	_title_settings_panel.set_effective_ui_pixel_size(pixel_size)
 	_pause_settings_panel.set_effective_ui_pixel_size(pixel_size)

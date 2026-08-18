@@ -1,6 +1,8 @@
 class_name ShorelineAmbience
 extends Node
 
+const WAVES_STREAM_PATH: String = "res://audio/ambience/waves.wav"
+
 @export_range(0.0, 20.0, 0.1) var near_distance: float = 2.0
 @export_range(1.0, 100.0, 0.5) var far_distance: float = 24.0
 @export_range(-40.0, 12.0, 0.5) var near_volume_db: float = 1.0
@@ -15,13 +17,35 @@ var _shoreline_segments: Array[PackedVector2Array] = []
 var _distance_update_remaining: float = 0.0
 var _target_volume_db: float = -80.0
 var _is_active := false
+var _audio_enabled: bool = false
 
 
 func _ready() -> void:
 	_waves_audio.bus = &"Environment"
-	_configure_audio_loop(_waves_audio.stream)
+	_waves_audio.stream = null
 	_waves_audio.volume_db = -80.0
 	set_process(false)
+
+
+func set_audio_enabled(enabled: bool) -> void:
+	if _audio_enabled == enabled:
+		return
+	_audio_enabled = enabled
+	if not _audio_enabled:
+		_waves_audio.stop()
+		_waves_audio.stream = null
+		set_process(false)
+		return
+	if not ResourceLoader.exists(WAVES_STREAM_PATH, "AudioStream"):
+		return
+	_waves_audio.stream = load(WAVES_STREAM_PATH) as AudioStream
+	_configure_audio_loop(_waves_audio.stream)
+	if _is_active:
+		set_process(true)
+		_update_target_volume()
+		_waves_audio.volume_db = _target_volume_db
+		if _waves_audio.stream != null:
+			_waves_audio.play()
 
 
 func configure(listener: Node3D, shoreline_mesh: MeshInstance3D) -> void:
@@ -34,8 +58,10 @@ func configure(listener: Node3D, shoreline_mesh: MeshInstance3D) -> void:
 
 func set_active(active: bool) -> void:
 	_is_active = active
-	set_process(active)
+	set_process(active and _audio_enabled)
 	if active:
+		if not _audio_enabled:
+			return
 		_distance_update_remaining = 0.0
 		_update_target_volume()
 		_waves_audio.volume_db = _target_volume_db

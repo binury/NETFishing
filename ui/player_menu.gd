@@ -149,6 +149,7 @@ const BAG_STORAGE_COLUMNS: int = 5
 const BAG_STORAGE_MINIMUM_SLOTS: int = 15
 const SALE_CONFIRMATION_SIZE := Vector2(520.0, 190.0)
 const CONTROLLER_PICKUP_HOLD_SECONDS: float = 0.42
+const LIGHT_COOLER_WATER_COLOR := Color(0.037, 0.27, 0.375, 1.0)
 
 @onready var _navigation_cluster: BubbleClusterType = %NavigationCluster
 @onready var _presentation_scale_root: Control = %PlayerMenuPresentationScaleRoot
@@ -253,6 +254,7 @@ var _sale_buyer_override: FishBuyerProfileType
 var _shop_cooler_context_active: bool = false
 var _cooler_original_parent: Node
 var _cooler_original_index: int = -1
+var _authored_cooler_water_material: ShaderMaterial
 var _confirmation_original_parent: Node
 var _confirmation_original_index: int = -1
 var _catalog: FishPoolType
@@ -325,6 +327,9 @@ var _motion_elapsed: float = 0.0
 
 
 func _ready() -> void:
+	_authored_cooler_water_material = (
+		_cooler_water_surface.material as ShaderMaterial
+	)
 	_configure_inventory_transition_group()
 	_cooler_original_parent = _cooler_page.get_parent()
 	_cooler_original_index = _cooler_page.get_index()
@@ -443,6 +448,21 @@ func _update_cooler_water_mask() -> void:
 		"rendered_size",
 		_cooler_water_surface.size,
 	)
+
+
+func set_light_performance_profile(light_profile: bool) -> void:
+	_cooler_water_surface.material = (
+		null if light_profile else _authored_cooler_water_material
+	)
+	_cooler_water_surface.color = (
+		LIGHT_COOLER_WATER_COLOR if light_profile else Color.WHITE
+	)
+	if not light_profile:
+		_update_cooler_water_mask()
+
+
+func is_cooler_water_effect_enabled() -> bool:
+	return _cooler_water_surface.material is ShaderMaterial
 
 
 func setup(

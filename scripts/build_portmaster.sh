@@ -5,6 +5,7 @@ set -euo pipefail
 readonly SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 readonly PROJECT_ROOT="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
 readonly TEMPLATE_ROOT="${SCRIPT_DIR}/portmaster"
+readonly ASSET_PROFILE_SCRIPT="${SCRIPT_DIR}/prepare_portmaster_assets.sh"
 readonly GODOT_BIN="${GODOT_BIN:-godot}"
 
 PACKAGE_ONLY=0
@@ -86,7 +87,7 @@ if [[ "${NETFISHING_ALLOW_DIRTY_RELEASE:-0}" != "1" ]]; then
   fi
 fi
 
-for command_name in git file zip unzip sha256sum; do
+for command_name in git file zip unzip sha256sum rsync; do
   command -v "${command_name}" >/dev/null 2>&1 || {
     echo "Required command not found: ${command_name}" >&2
     exit 1
@@ -95,11 +96,39 @@ done
 
 mkdir -p -- "${ARM64_ROOT}" "${RELEASE_ROOT}"
 if [[ ${PACKAGE_ONLY} -eq 0 ]]; then
+  readonly EXPORT_PROJECT_ROOT="$(
+    mktemp -d -t netfishing-portmaster-export.XXXXXX
+  )"
+  cleanup_export_project() {
+    rm -rf -- "${EXPORT_PROJECT_ROOT}"
+  }
+  trap cleanup_export_project EXIT INT TERM
   rm -f -- "${ARM64_EXECUTABLE}" "${ARM64_PCK}"
+  rsync -a \
+    --exclude '/.git/' \
+    --exclude '/.godot/' \
+    --exclude '/art/source/' \
+    --exclude '/art/exported/system_icons/netfishing.ico' \
+    --exclude '/art/exported/system_icons/netfishing_1024.png' \
+    --exclude '/art/exported/system_icons/netfishing_1024.png.import' \
+    --exclude '/audio/ambience/' \
+    --exclude '/audio/music/' \
+    --exclude '/builds/' \
+    --exclude '/docs/design/' \
+    --exclude '/tests/' \
+    "${PROJECT_ROOT}/" "${EXPORT_PROJECT_ROOT}/"
+  "${ASSET_PROFILE_SCRIPT}" "${EXPORT_PROJECT_ROOT}"
   "${GODOT_BIN}" \
     --headless \
-    --path "${PROJECT_ROOT}" \
-    --export-release "Linux ARM64"
+    --path "${EXPORT_PROJECT_ROOT}" \
+    --import
+  "${GODOT_BIN}" \
+    --headless \
+    --path "${EXPORT_PROJECT_ROOT}" \
+    --export-release "Linux ARM64" \
+    "${ARM64_EXECUTABLE}"
+  cleanup_export_project
+  trap - EXIT INT TERM
 fi
 
 test -s "${ARM64_EXECUTABLE}"
@@ -153,6 +182,8 @@ Engine/export template: $("${GODOT_BIN}" --version)
 Architecture: AArch64
 Minimum linked GLIBC symbol version: GLIBC_2.28
 Rendering method: gl_compatibility
+Texture profile: 128 px maximum; 64 px gameplay catalogs; ETC2 compressed
+Audio profile: 22.05 kHz mono QOA effects; music and ambience omitted
 
 The executable and PCK were exported from the release commit listed above.
 Repository working-tree changes were not included in game content.
@@ -187,8 +218,9 @@ selected data root. Device-local configuration remains under
 \`netfishing/conf/\`.
 PortMaster launches use the light performance profile by default. Put the word
 \`normal\` in \`netfishing/conf/performance_profile\` to opt a capable device
-into the normal rendering profile. See \`netfishing/licenses/\` for bundled
-credits and license information.
+into the normal rendering profile. PortMaster packages omit music and ambience
+in both profiles. See \`netfishing/licenses/\` for bundled credits and license
+information.
 
 ## Controls
 

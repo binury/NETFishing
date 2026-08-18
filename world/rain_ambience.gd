@@ -12,10 +12,24 @@ const SILENT_VOLUME_DB: float = -60.0
 var _weather_service: WorldWeatherService
 var _fade_tween: Tween
 var _is_active: bool = false
+var _audio_enabled: bool = false
 
 
 func _ready() -> void:
 	bus = &"Environment"
+	volume_db = SILENT_VOLUME_DB
+
+
+func set_audio_enabled(enabled: bool) -> void:
+	if _audio_enabled == enabled:
+		return
+	_audio_enabled = enabled
+	if not _audio_enabled:
+		_silence_immediately()
+		stream = null
+		return
+	if not ResourceLoader.exists(RAIN_STREAM_PATH, "AudioStreamOggVorbis"):
+		return
 	var rain_stream := load(RAIN_STREAM_PATH) as AudioStreamOggVorbis
 	var runtime_stream := (
 		rain_stream.duplicate() as AudioStreamOggVorbis
@@ -25,7 +39,10 @@ func _ready() -> void:
 	if runtime_stream != null:
 		runtime_stream.loop = true
 		stream = runtime_stream
-	volume_db = SILENT_VOLUME_DB
+	if _is_active:
+		_transition_to_rain(
+			_weather_service != null and _weather_service.is_raining()
+		)
 
 
 func configure(weather_service: WorldWeatherService) -> void:
@@ -53,6 +70,8 @@ func set_active(active: bool) -> void:
 	if not active:
 		_silence_immediately()
 		return
+	if not _audio_enabled:
+		return
 	_transition_to_rain(
 		_weather_service != null and _weather_service.is_raining()
 	)
@@ -66,7 +85,7 @@ func _on_weather_changed(
 
 
 func _transition_to_rain(is_raining: bool) -> void:
-	if not _is_active:
+	if not _is_active or not _audio_enabled:
 		return
 	_stop_fade()
 	if is_raining:

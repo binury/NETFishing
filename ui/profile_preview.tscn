@@ -18,7 +18,7 @@ script = ExtResource("1")
 [node name="Viewport" type="SubViewport" parent="."]
 transparent_bg = true
 size = Vector2i(320, 330)
-render_target_update_mode = 4
+render_target_update_mode = 2
 world_3d = SubResource("PreviewWorld")
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="Viewport"]

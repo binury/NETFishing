@@ -207,21 +207,38 @@ The light profile passes these Godot options:
 - `--audio-output-latency 40`
 
 It also passes `NETFISHING_PERFORMANCE_PROFILE=light` and
-`NETFISHING_LOW_END=1`. The game renders the 3D world at 50% linear resolution
-with nearest-neighbor scaling, reducing 3D pixel work by 75% while the
-separately rendered UI retains its canonical resolution. The light profile
-also:
+`NETFISHING_LOW_END=1`. The game renders the 3D world at 37.5% linear
+resolution with nearest-neighbor scaling, reducing 3D pixel work by about 86%
+while the separately rendered UI retains its canonical resolution. The light
+profile also:
 
 - disables the additional full-screen world-pixelation pass;
 - replaces animated depth-aware water shaders with opaque, per-vertex water;
 - disables ocean surface motion;
 - disables foliage wind;
 - keeps the title water and full-window menu patterns static;
-- reduces rain to 128 particles simulated at 12 FPS; and
+- replaces the animated cooler water and decorative bubbles with flat water;
+- disables decorative title-screen fish and bubbles;
+- omits title music, dusk music, rain ambience, and shoreline ambience from the
+  package while retaining gameplay sound effects, speech, and character calls;
+- reduces rain to 48 particles simulated at 8 FPS; and
 - replaces procedural sky clouds and 81 moving local cloud patches with one
   flat cloud ceiling.
 
-The normal profile retains the full visual presentation.
+PortMaster exports are built in an isolated project copy with a dedicated
+micro-texture profile. Every raster texture is capped at 128 pixels on its
+longest side. High-volume gameplay catalogs, including fish, character parts,
+environment art, equipment, gathering art, and item icons, are capped at 64
+pixels. All remaining raster textures use ETC2 VRAM compression. Short sound
+effects, speech, and calls are imported as 22.05 kHz mono QOA samples. The
+authoritative artwork and the desktop, Android, and macOS imports are not
+modified. Source artwork, design documents, tests, platform-specific icons,
+music, and ambience are omitted from the temporary export project. This
+build-time profile is always present in the PortMaster package; selecting the
+normal runtime profile restores visual effects, but does not restore omitted
+audio or replace the micro textures with desktop-resolution assets.
+
+The normal profile otherwise retains the full visual presentation.
 
 To opt a capable device into the normal profile, create the persistent file
 `netfishing/conf/performance_profile` containing exactly:

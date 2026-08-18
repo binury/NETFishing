@@ -12,7 +12,6 @@
 [ext_resource type="Script" uid="uid://dwv3nvfke5xtu" path="res://settings/player_settings_manager.gd" id="10_settings"]
 [ext_resource type="Resource" path="res://items/catalog/item_catalog.tres" id="11_items"]
 [ext_resource type="Resource" path="res://economy/buyers/main_fishing_shop.tres" id="12_main_shop"]
-[ext_resource type="AudioStream" uid="uid://bgkfluumuen4m" path="res://audio/music/title/as_in_four_wolves.ogg" id="13_title_music"]
 [ext_resource type="Script" uid="uid://bdtb05vkiicd" path="res://ui/ui_pixelation_presenter.gd" id="14_pixelation"]
 [ext_resource type="PackedScene" path="res://ui/pixelation_reset_overlay.tscn" id="15_reset"]
 [ext_resource type="PackedScene" path="res://main/world_pixelation_postprocess.tscn" id="16_world_pixelation"]
@@ -53,11 +52,9 @@
 [ext_resource type="Script" uid="uid://daqtje84gqgu0" path="res://jobs/player_job_service.gd" id="52_player_jobs"]
 [ext_resource type="Script" uid="uid://drlyytr2o3uw8" path="res://network/network_job_service.gd" id="53_network_jobs"]
 [ext_resource type="Script" uid="uid://b0c3o2vy76fg3" path="res://world/shoreline_ambience.gd" id="54_shoreline_ambience"]
-[ext_resource type="AudioStream" uid="uid://dck3tf8qkadea" path="res://audio/ambience/waves.wav" id="55_waves"]
 [ext_resource type="Script" uid="uid://c80x8jkdnx0xy" path="res://settings/controller_mapping_manager.gd" id="56_controller_mapping"]
 [ext_resource type="Script" path="res://settings/keyboard_mouse_mapping_manager.gd" id="keyboard_mouse_mapping"]
 [ext_resource type="Script" uid="uid://d0jv8n2nfqia0" path="res://network/discovery_client.gd" id="57_discovery"]
-[ext_resource type="AudioStream" uid="uid://c4y8puv0n6xk8" path="res://audio/music/world/craft.mp3" id="dusk_music"]
 [ext_resource type="Resource" path="res://gathering/catalog/gatherable_catalog.tres" id="58_gatherable_catalog"]
 [ext_resource type="Script" path="res://network/network_world_spawn_service.gd" id="59_world_spawns"]
 [ext_resource type="Script" path="res://gathering/gathering_controller.gd" id="60_gathering_controller"]
@@ -398,13 +395,11 @@ script = ExtResource("keyboard_mouse_mapping")
 
 [node name="TitleMusic" type="AudioStreamPlayer" parent="." unique_id=1292939956]
 unique_name_in_owner = true
-stream = ExtResource("13_title_music")
 volume_db = -80.0
 bus = &"Music"
 
 [node name="DuskMusic" type="AudioStreamPlayer" parent="." unique_id=992744241]
 unique_name_in_owner = true
-stream = ExtResource("dusk_music")
 bus = &"Music"
 
 [node name="ShorelineAmbience" type="Node" parent="." unique_id=1948037177]
@@ -413,7 +408,6 @@ script = ExtResource("54_shoreline_ambience")
 
 [node name="WavesAudio" type="AudioStreamPlayer" parent="ShorelineAmbience" unique_id=193530658]
 unique_name_in_owner = true
-stream = ExtResource("55_waves")
 bus = &"Environment"
 
 [node name="WorldPixelationPostprocess" parent="." unique_id=344378000 instance=ExtResource("16_world_pixelation")]

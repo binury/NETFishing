@@ -8,7 +8,7 @@ const LEGACY_LIGHT_ENVIRONMENT_VARIABLE: String = "NETFISHING_LOW_END"
 const NORMAL_PROFILE: StringName = &"normal"
 const LIGHT_PROFILE: StringName = &"light"
 const NORMAL_WORLD_RENDER_SCALE: float = 1.0
-const LIGHT_WORLD_RENDER_SCALE: float = 0.5
+const LIGHT_WORLD_RENDER_SCALE: float = 0.375
 
 var _profile_name: StringName = NORMAL_PROFILE
 
