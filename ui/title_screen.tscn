@@ -1,4 +1,4 @@
-[gd_scene load_steps=21 format=3]
+[gd_scene load_steps=22 format=3]
 
 [ext_resource type="Script" path="res://ui/title_screen.gd" id="1_script"]
 [ext_resource type="Theme" path="res://ui/game_theme.tres" id="2_theme"]
@@ -17,6 +17,7 @@
 [ext_resource type="PackedScene" path="res://ui/title_credits_page.tscn" id="15_credits_page"]
 [ext_resource type="Texture2D" path="res://ui/icons/main_menu/continue.png" id="16_continue"]
 [ext_resource type="Texture2D" path="res://ui/icons/main_menu/new_game.png" id="17_new_game"]
+[ext_resource type="Texture2D" path="res://ui/icons/main_menu/credits.png" id="18_credits"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_title_water"]
 shader = ExtResource("4_water_shader")
@@ -333,7 +334,8 @@ offset_left = 330.0
 offset_top = 125.0
 offset_right = 414.0
 offset_bottom = 207.0
-text = "credits"
+texture_filter = 1
+icon = ExtResource("18_credits")
 tooltip_text = "credits"
 accessibility_name = "credits"
 script = ExtResource("7_bubble_button")

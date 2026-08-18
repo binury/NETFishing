@@ -114,6 +114,19 @@ theme_override_font_sizes/font_size = 15
 text = "original 3d models for character bodies and arms, ears and tails, and multiple world props and decorative assets including trees and bridges"
 autowrap_mode = 2
 
+[node name="AdamantrisName" type="Label" parent="Paper/Margin/Layout/Columns/CreativeCredits"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.902, 0.969, 0.969, 1)
+theme_override_font_sizes/font_size = 18
+text = "adamantris"
+
+[node name="AdamantrisCredit" type="Label" parent="Paper/Margin/Layout/Columns/CreativeCredits"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.624, 0.812, 0.824, 1)
+theme_override_font_sizes/font_size = 15
+text = "original hand-net model and texture artwork"
+autowrap_mode = 2
+
 [node name="TekgatorName" type="Label" parent="Paper/Margin/Layout/Columns/CreativeCredits"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.902, 0.969, 0.969, 1)

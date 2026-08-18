@@ -34,6 +34,10 @@ func _run() -> void:
 	await process_frame
 
 	_expect(credits_button != null, "title menu exposes a credits button")
+	_expect(
+		credits_button.icon != null and credits_button.text.is_empty(),
+		"credits bubble uses its authored icon",
+	)
 	_expect(credits_page != null, "title screen contains the credits page")
 	_expect(not credits_page.visible, "credits page starts closed")
 	_expect(
@@ -145,15 +149,19 @@ func _run() -> void:
 	var chillnfill_credit := credits_page.get_node(
 		"Paper/Margin/Layout/Columns/CreativeCredits/ChillnfillCredit"
 	) as Label
+	var adamantris_name := credits_page.get_node(
+		"Paper/Margin/Layout/Columns/CreativeCredits/AdamantrisName"
+	) as Label
+	var adamantris_credit := credits_page.get_node(
+		"Paper/Margin/Layout/Columns/CreativeCredits/AdamantrisCredit"
+	) as Label
 	var tekgator_name := credits_page.get_node(
 		"Paper/Margin/Layout/Columns/CreativeCredits/TekgatorName"
 	) as Label
 	var tekgator_credit := credits_page.get_node(
 		"Paper/Margin/Layout/Columns/CreativeCredits/TekgatorCredit"
 	) as Label
-	var creative_credits := credits_page.get_node(
-		"Paper/Margin/Layout/Columns/CreativeCredits"
-	) as VBoxContainer
+	var credits_paper := credits_page.get_node("Paper") as PanelContainer
 	var audio_credits := credits_page.get_node(
 		"Paper/Margin/Layout/Columns/AdditionalCredits/AudioCredits"
 	) as Label
@@ -169,6 +177,15 @@ func _run() -> void:
 	_expect(
 		"trees and bridges" in chillnfill_credit.text.to_lower(),
 		"in-game credits describe the supplied model families",
+	)
+	_expect(
+		adamantris_name.text == "adamantris",
+		"in-game credits name adamantris",
+	)
+	_expect(
+		"hand-net model" in adamantris_credit.text.to_lower()
+		and "texture artwork" in adamantris_credit.text.to_lower(),
+		"in-game credits describe adamantris's hand-net contribution",
 	)
 	_expect(
 		tekgator_name.text == "Tekgator",
@@ -187,10 +204,10 @@ func _run() -> void:
 		"in-game credits name kim's animalese voice contribution",
 	)
 	_expect(
-		Rect2(Vector2.ZERO, creative_credits.size).encloses(
-			Rect2(tekgator_credit.position, tekgator_credit.size)
+		credits_paper.get_global_rect().encloses(
+			tekgator_credit.get_global_rect()
 		),
-		"Tekgator's credit stays inside the authored credits column",
+		"contributor credits stay inside the authored credits panel",
 	)
 
 	title_screen.queue_free()
