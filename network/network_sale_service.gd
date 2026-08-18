@@ -8,6 +8,10 @@ const FishPoolType = preload("res://fish/fish_pool.gd")
 const FishBuyerProfileType = preload("res://economy/fish_buyer_profile.gd")
 const FishSaleServiceType = preload("res://economy/fish_sale_service.gd")
 const FishSaleResultType = preload("res://economy/fish_sale_result.gd")
+const ItemDataType = preload("res://items/item_data.gd")
+const ItemCatalogType = preload("res://items/item_catalog.gd")
+const PlayerBagType = preload("res://inventory/player_bag.gd")
+const ItemResalePolicyType = preload("res://economy/item_resale_policy.gd")
 
 const MAX_LEDGER_ENTRIES_PER_PEER: int = 64
 const PELICAN_BUYER_ID: StringName = &"pelicans"
@@ -27,6 +31,8 @@ var _spawn_service: PlayerSpawnService
 var _network_fishing: NetworkFishingService
 var _shop_interaction: FishingShopInteraction
 var _inventory: FishInventory
+var _bag: PlayerBagType
+var _item_catalog: ItemCatalogType
 var _wallet: PlayerWallet
 var _sale_service: FishSaleServiceType
 var _save_manager: PlayerSaveManager
@@ -40,8 +46,10 @@ var _applied_results: Dictionary[String, bool] = {}
 var _received_results: Dictionary[String, bool] = {}
 var _pending_local_request_id: String = ""
 var _pending_local_catch_ids: Array[StringName] = []
+var _pending_local_items: Array[Dictionary] = []
 var _pending_local_buyer_id: StringName
 var _reservations: PlayerAssetReservationService
+var _inventory_layout: PlayerInventoryLayout
 
 
 func setup(
@@ -50,18 +58,23 @@ func setup(
 	network_fishing: NetworkFishingService,
 	shop_interaction: FishingShopInteraction,
 	inventory: FishInventory,
+	bag: PlayerBagType,
+	item_catalog: ItemCatalogType,
 	wallet: PlayerWallet,
 	sale_service: FishSaleServiceType,
 	save_manager: PlayerSaveManager,
 	fish_catalog: FishPoolType,
 	buyers: Array[FishBuyerProfileType],
 	reservations: PlayerAssetReservationService,
+	inventory_layout: PlayerInventoryLayout = null,
 ) -> void:
 	_session = session
 	_spawn_service = spawn_service
 	_network_fishing = network_fishing
 	_shop_interaction = shop_interaction
 	_inventory = inventory
+	_bag = bag
+	_item_catalog = item_catalog
 	_wallet = wallet
 	_sale_service = sale_service
 	_save_manager = save_manager
@@ -71,6 +84,7 @@ func setup(
 		if buyer != null and buyer.is_valid():
 			_buyers[buyer.id] = buyer
 	_reservations = reservations
+	_inventory_layout = inventory_layout
 	if not _session.peer_removed.is_connected(_on_peer_removed):
 		_session.peer_removed.connect(_on_peer_removed)
 	if not _session.state_changed.is_connected(_on_session_state_changed):
@@ -103,6 +117,15 @@ func request_local_sale(
 	catch_ids: Array[StringName],
 	buyer_id: StringName = PELICAN_BUYER_ID,
 ) -> String:
+	var no_items: Dictionary[StringName, int] = {}
+	return request_local_mixed_sale(catch_ids, no_items, buyer_id)
+
+
+func request_local_mixed_sale(
+	catch_ids: Array[StringName],
+	item_quantities: Dictionary[StringName, int],
+	buyer_id: StringName = MAIN_SHOP_BUYER_ID,
+) -> String:
 	for catch_id: StringName in catch_ids:
 		if _reservations != null and _reservations.is_fish_reserved(catch_id):
 			local_sale_finished.emit(
@@ -123,7 +146,12 @@ func request_local_sale(
 			0
 		)
 		return ""
-	if catch_ids.is_empty() or _inventory == null:
+	if (
+		(catch_ids.is_empty() and item_quantities.is_empty())
+		or _inventory == null
+		or _bag == null
+		or _item_catalog == null
+	):
 		local_sale_finished.emit(
 			"", false, "Sale could not be completed.", _empty_catch_ids(), 0
 		)
@@ -143,15 +171,41 @@ func request_local_sale(
 			)
 			return ""
 		evidence.append(fish_catch.to_network_dict())
+	var item_evidence: Array[Dictionary] = []
+	var item_ids: Array[StringName] = []
+	item_ids.assign(item_quantities.keys())
+	item_ids.sort_custom(
+		func(left: StringName, right: StringName) -> bool:
+			return str(left) < str(right)
+	)
+	for item_id: StringName in item_ids:
+		var quantity := int(item_quantities.get(item_id, 0))
+		var item: ItemDataType = _item_catalog.get_item_by_id(item_id)
+		if (
+			quantity < 1
+			or not ItemResalePolicyType.is_sellable(item)
+			or quantity > _bag.get_quantity(item_id)
+			or (
+				_reservations != null
+				and quantity > _reservations.get_available_item_quantity(item_id)
+			)
+		):
+			local_sale_finished.emit(
+				"", false, "That item is no longer available.", _empty_catch_ids(), 0
+			)
+			return ""
+		item_evidence.append({"item_id": str(item_id), "quantity": quantity})
 	var request_id: String = _new_id("sale")
 	var request: Dictionary = {
 		"request_id": request_id,
 		"session_id": _session.get_session_id(),
 		"buyer_id": str(buyer.id),
 		"catches": evidence,
+		"items": item_evidence,
 	}
 	_pending_local_request_id = request_id
 	_pending_local_catch_ids = catch_ids.duplicate()
+	_pending_local_items = item_evidence.duplicate(true)
 	_pending_local_buyer_id = buyer.id
 	local_sale_pending.emit(request_id)
 	if _session.is_host():
@@ -219,7 +273,11 @@ func _handle_sale_request(peer_id: int, data: Dictionary) -> void:
 		))
 		return
 	var result: Dictionary = _build_authoritative_result(
-		peer_id, request_id, data["catches"], buyer
+		peer_id,
+		request_id,
+		data["catches"],
+		data.get("items", []),
+		buyer,
 	)
 	_pending_by_peer[peer_id] = request_id
 	_record_and_send(peer_id, result)
@@ -229,9 +287,14 @@ func _build_authoritative_result(
 	peer_id: int,
 	request_id: String,
 	evidence_values: Array,
+	item_values: Array,
 	buyer: FishBuyerProfileType,
 ) -> Dictionary:
-	if _fish_catalog == null or buyer == null:
+	if (
+		buyer == null
+		or (not evidence_values.is_empty() and _fish_catalog == null)
+		or (not item_values.is_empty() and _item_catalog == null)
+	):
 		return _rejected_result(
 			request_id, "The buyer is unavailable."
 		)
@@ -283,6 +346,27 @@ func _build_authoritative_result(
 		base_value += decoded.sale_value
 		payout += offer
 		catch_ids.append(str(decoded.catch_id))
+	var items: Array[Dictionary] = []
+	if not item_values.is_empty() and buyer.id != MAIN_SHOP_BUYER_ID:
+		return _rejected_result(request_id, "This buyer only accepts catches.")
+	for value: Variant in item_values:
+		var evidence := value as Dictionary
+		var item_id := StringName(str(evidence.get("item_id", "")))
+		var quantity := int(evidence.get("quantity", 0))
+		var item: ItemDataType = _item_catalog.get_item_by_id(item_id)
+		var unit_value := ItemResalePolicyType.get_unit_value(item)
+		if quantity < 1 or unit_value < 0:
+			return _rejected_result(request_id, "That item cannot be sold.")
+		var item_value := unit_value * quantity
+		if (
+			item_value < 0
+			or base_value > 9223372036854775807 - item_value
+			or payout > 9223372036854775807 - item_value
+		):
+			return _rejected_result(request_id, "Sale could not be completed.")
+		base_value += item_value
+		payout += item_value
+		items.append({"item_id": str(item_id), "quantity": quantity})
 	return {
 		"result_id": _new_id("sale_result"),
 		"request_id": request_id,
@@ -291,6 +375,7 @@ func _build_authoritative_result(
 		"buyer_id": str(buyer.id),
 		"accepted": true,
 		"catch_ids": catch_ids,
+		"items": items,
 		"payout": payout,
 		"base_value": base_value,
 		"message": "Sale complete.",
@@ -313,6 +398,7 @@ func _rejected_result(request_id: String, message: String) -> Dictionary:
 		"target_peer_id": 0,
 		"accepted": false,
 		"catch_ids": [],
+		"items": [],
 		"payout": 0,
 		"base_value": 0,
 		"message": message.left(NetworkSaleProtocol.MAX_MESSAGE_LENGTH),
@@ -388,6 +474,12 @@ func _apply_sale_result(data: Dictionary) -> void:
 	if catch_ids != _pending_local_catch_ids:
 		_fail_local_apply(data, "Sale could not be completed.")
 		return
+	var items: Array[Dictionary] = []
+	for value: Variant in data.get("items", []):
+		items.append((value as Dictionary).duplicate(true))
+	if items != _pending_local_items:
+		_fail_local_apply(data, "Sale could not be completed.")
+		return
 	for catch_id: StringName in catch_ids:
 		if _reservations != null and _reservations.is_fish_reserved(catch_id):
 			_fail_local_apply(data, "Reserved in a letter.")
@@ -396,10 +488,12 @@ func _apply_sale_result(data: Dictionary) -> void:
 	if buyer == null or not buyer.is_valid():
 		_fail_local_apply(data, "The buyer is unavailable.")
 		return
-	var preview: FishSaleResultType = _sale_service.preview_batch(
-		catch_ids, buyer
-	)
-	if not preview.is_success():
+	var catch_payout: int = 0
+	var catch_base_value: int = 0
+	var preview: FishSaleResultType
+	if not catch_ids.is_empty():
+		preview = _sale_service.preview_batch(catch_ids, buyer)
+	if preview != null and not preview.is_success():
 		var message: String = (
 			"Favorite catches cannot be sold."
 			if preview.status == FishSaleResultType.Status.FAVORITED
@@ -407,22 +501,63 @@ func _apply_sale_result(data: Dictionary) -> void:
 		)
 		_fail_local_apply(data, message)
 		return
+	if preview != null:
+		catch_payout = preview.payout
+		catch_base_value = preview.base_value
+	var item_payout: int = 0
+	for record: Dictionary in items:
+		var item_id := StringName(str(record.get("item_id", "")))
+		var quantity := int(record.get("quantity", 0))
+		var item: ItemDataType = _item_catalog.get_item_by_id(item_id)
+		var unit_value := ItemResalePolicyType.get_unit_value(item)
+		if (
+			quantity < 1
+			or unit_value < 0
+			or quantity > _bag.get_quantity(item_id)
+			or (
+				_reservations != null
+				and quantity > _reservations.get_available_item_quantity(item_id)
+			)
+		):
+			_fail_local_apply(data, "That item is no longer available.")
+			return
+		item_payout += unit_value * quantity
 	if (
-		preview.payout != int(data["payout"])
-		or preview.base_value != int(data["base_value"])
+		catch_payout + item_payout != int(data["payout"])
+		or catch_base_value + item_payout != int(data["base_value"])
 	):
 		_fail_local_apply(data, "Sale could not be completed.")
 		return
 	var inventory_snapshot: Array[FishCatch] = _inventory.get_all_catches()
 	var sequence_snapshot: int = _inventory.get_next_catch_sequence()
-	var wallet_snapshot: int = _wallet.get_balance()
-	var local_result: FishSaleResultType = _sale_service.sell_batch(
-		catch_ids, buyer
+	var bag_snapshot := _bag.get_all_items()
+	var layout_snapshot: Dictionary = (
+		_inventory_layout.to_save_data()
+		if _inventory_layout != null else {}
 	)
-	if not local_result.is_success() or not _save_manager.save_if_dirty():
+	var wallet_snapshot: int = _wallet.get_balance()
+	var applied: bool = true
+	if not catch_ids.is_empty():
+		applied = (
+			_inventory.remove_catches_by_ids(catch_ids).size()
+			== catch_ids.size()
+		)
+	if applied:
+		for record: Dictionary in items:
+			if not _bag.remove_item(
+				StringName(str(record["item_id"])), int(record["quantity"])
+			):
+				applied = false
+				break
+	if applied:
+		applied = _wallet.credit(int(data["payout"]))
+	if not applied or not _save_manager.save_if_dirty():
 		_inventory.replace_all_catches(
 			inventory_snapshot, sequence_snapshot
 		)
+		_bag.replace_all_items(bag_snapshot)
+		if _inventory_layout != null:
+			_inventory_layout.restore_from_save_data(layout_snapshot)
 		_wallet.restore_balance(wallet_snapshot)
 		_save_manager.save_if_dirty()
 		_fail_local_apply(data, "Sale could not be completed.")
@@ -457,6 +592,7 @@ func _finish_local_sale(
 ) -> void:
 	_pending_local_request_id = ""
 	_pending_local_catch_ids.clear()
+	_pending_local_items.clear()
 	_pending_local_buyer_id = StringName()
 	local_sale_finished.emit(
 		request_id, accepted, message, catch_ids, payout
@@ -591,6 +727,7 @@ func _clear_session_state() -> void:
 	_received_results.clear()
 	_pending_local_request_id = ""
 	_pending_local_catch_ids.clear()
+	_pending_local_items.clear()
 	_pending_local_buyer_id = StringName()
 
 

@@ -1,11 +1,10 @@
-[gd_scene load_steps=9 format=3]
+[gd_scene load_steps=8 format=3]
 
 [ext_resource type="Script" path="res://ui/fishing_shop.gd" id="1_script"]
 [ext_resource type="Theme" path="res://ui/game_theme.tres" id="2_theme"]
 [ext_resource type="Texture2D" path="res://items/icons/shop/64_speed_plus.png" id="3_reel"]
 [ext_resource type="Texture2D" path="res://items/icons/shop/64_power_plus.png" id="4_barrier"]
 [ext_resource type="Texture2D" path="res://items/icons/shop/32_currency.png" id="5_coin"]
-[ext_resource type="Texture2D" path="res://items/icons/equipment/64_cooler_plus.png" id="6_cooler"]
 [ext_resource type="Texture2D" path="res://ui/icons/pictograms/x_light.png" id="7_close"]
 [ext_resource type="PackedScene" path="res://ui/components/currency_amount.tscn" id="8_currency"]
 
@@ -269,10 +268,10 @@ mouse_filter = 2
 unique_name_in_owner = true
 offset_right = 144.0
 offset_bottom = 144.0
-tooltip_text = "cooler capacity"
-icon = ExtResource("6_cooler")
+tooltip_text = "storage capacity"
+icon = ExtResource("7_close")
 expand_icon = true
-icon_max_width = 128
+icon_max_width = 92
 
 [node name="CoolerPriceBubble" type="PanelContainer" parent="ShopPanel/Margin/Layout/Body/Upgrades/UpgradeScroll/UpgradeGrid/CoolerTile"]
 unique_name_in_owner = true
@@ -287,4 +286,33 @@ mouse_filter = 2
 unique_name_in_owner = true
 layout_mode = 2
 amount = 75
+icon_size = 24.0
+
+[node name="BackpackTile" type="Control" parent="ShopPanel/Margin/Layout/Body/Upgrades/UpgradeScroll/UpgradeGrid"]
+custom_minimum_size = Vector2(144, 168)
+layout_mode = 2
+mouse_filter = 2
+
+[node name="BackpackPurchase" type="Button" parent="ShopPanel/Margin/Layout/Body/Upgrades/UpgradeScroll/UpgradeGrid/BackpackTile"]
+unique_name_in_owner = true
+offset_right = 144.0
+offset_bottom = 144.0
+tooltip_text = "backpack capacity"
+icon = ExtResource("7_close")
+expand_icon = true
+icon_max_width = 92
+
+[node name="BackpackPriceBubble" type="PanelContainer" parent="ShopPanel/Margin/Layout/Body/Upgrades/UpgradeScroll/UpgradeGrid/BackpackTile"]
+unique_name_in_owner = true
+z_index = 2
+offset_left = 14.0
+offset_top = 128.0
+offset_right = 130.0
+offset_bottom = 160.0
+mouse_filter = 2
+
+[node name="BackpackCost" parent="ShopPanel/Margin/Layout/Body/Upgrades/UpgradeScroll/UpgradeGrid/BackpackTile/BackpackPriceBubble" instance=ExtResource("8_currency")]
+unique_name_in_owner = true
+layout_mode = 2
+amount = 1500
 icon_size = 24.0

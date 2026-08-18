@@ -1,0 +1,68 @@
+[gd_scene load_steps=8 format=3]
+
+[ext_resource type="Script" path="res://player/tool_socket_attachment.gd" id="1_socket"]
+
+[sub_resource type="StandardMaterial3D" id="HandleMaterial"]
+shading_mode = 0
+albedo_color = Color(0.36, 0.2, 0.1, 1)
+metallic = 0.0
+roughness = 1.0
+
+[sub_resource type="StandardMaterial3D" id="BladeMaterial"]
+shading_mode = 0
+albedo_color = Color(0.34, 0.57, 0.58, 1)
+metallic = 0.0
+roughness = 1.0
+
+[sub_resource type="CylinderMesh" id="ShaftMesh"]
+top_radius = 0.018
+bottom_radius = 0.018
+height = 0.7
+radial_segments = 8
+rings = 1
+material = SubResource("HandleMaterial")
+
+[sub_resource type="BoxMesh" id="BladeMesh"]
+size = Vector3(0.19, 0.25, 0.025)
+material = SubResource("BladeMaterial")
+
+[sub_resource type="BoxMesh" id="GripCrossMesh"]
+size = Vector3(0.18, 0.035, 0.035)
+material = SubResource("HandleMaterial")
+
+[sub_resource type="BoxMesh" id="GripSideMesh"]
+size = Vector3(0.035, 0.13, 0.035)
+material = SubResource("HandleMaterial")
+
+[node name="ShovelAttachment" type="BoneAttachment3D"]
+bone_name = "rod_socket"
+script = ExtResource("1_socket")
+aligned_mount_path = NodePath("Shovel")
+
+[node name="Shovel" type="Node3D" parent="."]
+visible = false
+
+[node name="Shaft" type="MeshInstance3D" parent="Shovel"]
+position = Vector3(0, 0.35, 0)
+cast_shadow = 0
+mesh = SubResource("ShaftMesh")
+
+[node name="Blade" type="MeshInstance3D" parent="Shovel"]
+position = Vector3(0, 0.78, 0)
+cast_shadow = 0
+mesh = SubResource("BladeMesh")
+
+[node name="GripCross" type="MeshInstance3D" parent="Shovel"]
+position = Vector3(0, -0.09, 0)
+cast_shadow = 0
+mesh = SubResource("GripCrossMesh")
+
+[node name="GripLeft" type="MeshInstance3D" parent="Shovel"]
+position = Vector3(-0.0725, -0.035, 0)
+cast_shadow = 0
+mesh = SubResource("GripSideMesh")
+
+[node name="GripRight" type="MeshInstance3D" parent="Shovel"]
+position = Vector3(0.0725, -0.035, 0)
+cast_shadow = 0
+mesh = SubResource("GripSideMesh")

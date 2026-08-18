@@ -31,19 +31,10 @@ func _run_host() -> void:
 		main.get_node("%WorldWeatherService") as WorldWeatherService
 	)
 	assert(session.start_private_host(TEST_PORT))
-	var game_ui := main.get_node("%GameUI") as CanvasLayer
-	var chat_ui := game_ui.get_node("%ChatUI") as ChatUI
-	assert(chat_ui.call("_handle_chat_command", "/weather clear"))
-	assert(world_weather.get_weather() == WorldWeatherService.Weather.SUNNY)
-	world_time.synchronize_time(INITIAL_HOST_TIME)
-	assert(is_equal_approx(
-		world_time.get_persistent_time_hours(), INITIAL_HOST_TIME
+	assert(world_time.set_authoritative_time(INITIAL_HOST_TIME))
+	assert(world_weather.set_authoritative_weather(
+		WorldWeatherService.Weather.RAINY
 	))
-	assert(chat_ui.call("_handle_chat_command", "/weather rainy"))
-	assert(
-		world_weather.get_persistent_weather()
-		== WorldWeatherService.Weather.RAINY
-	)
 	assert(session.set_host_open(true))
 
 	var remote_peer_id: int = 0
@@ -61,35 +52,12 @@ func _run_host() -> void:
 	assert(session.peer_supports_capability(
 		remote_peer_id, NetworkProtocol.WORLD_WEATHER_CAPABILITY
 	))
-	var remote_record: PeerRegistry.PeerRecord = session.get_peer_record(
-		remote_peer_id
-	)
-	assert(remote_record != null and remote_record.identity_authenticated)
-	assert(session.set_peer_operator(
-		remote_peer_id,
-		remote_record.identity_fingerprint,
-		true,
-	))
 	assert(world_time.get_phase() == WorldTimeService.Phase.DUSK)
-
-	var command_deadline: int = Time.get_ticks_msec() + 10000
-	while (
-		Time.get_ticks_msec() < command_deadline
-		and _wrapped_time_difference(
-			world_time.get_time_hours(), UPDATED_HOST_TIME
-		) > TIME_TOLERANCE_HOURS
-	):
-		await process_frame
-	assert(is_equal_approx(
-		world_time.get_persistent_time_hours(), UPDATED_HOST_TIME
+	await create_timer(1.0).timeout
+	assert(world_time.set_authoritative_time(UPDATED_HOST_TIME))
+	assert(world_weather.set_authoritative_weather(
+		WorldWeatherService.Weather.FOGGY
 	))
-	var fog_deadline: int = Time.get_ticks_msec() + 10000
-	while Time.get_ticks_msec() < fog_deadline and not world_weather.is_foggy():
-		await process_frame
-	assert(
-		world_weather.get_persistent_weather()
-		== WorldWeatherService.Weather.FOGGY
-	)
 	var disconnect_deadline: int = Time.get_ticks_msec() + 12000
 	while (
 		Time.get_ticks_msec() < disconnect_deadline
@@ -131,12 +99,6 @@ func _run_client() -> void:
 	assert(session.supports_server_capability(
 		NetworkProtocol.WORLD_WEATHER_CAPABILITY
 	))
-	assert(world_time.restore_persistent_time_hours(15.25))
-	assert(world_weather.restore_persistent_state(
-		WorldWeatherService.Weather.CLOUDY,
-		222.0,
-	))
-
 	var initial_deadline: int = Time.get_ticks_msec() + 8000
 	while (
 		Time.get_ticks_msec() < initial_deadline
@@ -170,11 +132,7 @@ func _run_client() -> void:
 	assert(is_equal_approx(clock_panel.position.y, 10.0))
 	assert(is_equal_approx(weather_icon.position.y, 10.0))
 	assert(clock_panel.position.y + clock_panel.size.y < chat_panel.position.y)
-	var operator_deadline: int = Time.get_ticks_msec() + 10000
-	while Time.get_ticks_msec() < operator_deadline and not session.is_local_operator():
-		await process_frame
-	assert(session.is_local_operator())
-	assert(chat_ui.call("_handle_chat_command", "/time night"))
+	assert(not chat_ui.has_method("_handle_chat_command"))
 
 	var update_deadline: int = Time.get_ticks_msec() + 10000
 	while (
@@ -188,10 +146,7 @@ func _run_client() -> void:
 		world_time.get_time_hours(), UPDATED_HOST_TIME
 	) <= TIME_TOLERANCE_HOURS)
 	assert(world_time.get_phase() == WorldTimeService.Phase.NIGHT)
-	assert(is_equal_approx(world_time.get_persistent_time_hours(), 15.25))
 	assert(clock_label.text == world_time.get_clock_text())
-	await create_timer(0.6).timeout
-	assert(chat_ui.call("_handle_chat_command", "/weather foggy"))
 	var fog_deadline: int = Time.get_ticks_msec() + 8000
 	while (
 		Time.get_ticks_msec() < fog_deadline
@@ -200,14 +155,6 @@ func _run_client() -> void:
 		await process_frame
 	assert(world_weather.is_foggy())
 	assert(weather_icon.get_weather() == WorldWeatherService.Weather.FOGGY)
-	assert(
-		world_weather.get_persistent_weather()
-		== WorldWeatherService.Weather.CLOUDY
-	)
-	assert(is_equal_approx(
-		world_weather.get_persistent_seconds_remaining(),
-		222.0,
-	))
 	chat_ui.call("set_dock_right", true)
 	await process_frame
 	assert(clock_panel.position.x > 1000.0)

@@ -2,7 +2,12 @@ extends SceneTree
 
 const MainScene: PackedScene = preload("res://main/main.tscn")
 const TEST_PORT: int = 18170
-const EXPECTED_POPULATION: int = 2
+const EXPECTED_POPULATION: int = 8
+const EXPECTED_BY_TYPE: Dictionary = {
+	&"crab_brown": 2,
+	&"clam_manila": 3,
+	&"beetle_stag_common": 3,
+}
 
 
 func _initialize() -> void:
@@ -28,6 +33,7 @@ func _run_host() -> void:
 	assert(session.start_dedicated_host(TEST_PORT, 8, "127.0.0.1"))
 	assert(session.set_host_open(true))
 	await _wait_for_population(service)
+	_freeze_timed_entries(service)
 	_validate_population(service, true)
 
 	var remote_peer_id: int = 0
@@ -83,6 +89,9 @@ func _run_client() -> void:
 	))
 	await _wait_for_population(service)
 	_validate_population(service, false)
+	# Give the host process time to observe the authenticated peer before this
+	# deliberately short client validation disconnects.
+	await create_timer(0.75).timeout
 	print("World spawn multiplayer client validation: PASS")
 	session.disconnect_session("")
 	main.queue_free()
@@ -106,8 +115,10 @@ func _validate_population(service: Node, expect_authoritative_state: bool) -> vo
 	var presentations: Dictionary = service.get("_presentations")
 	assert(entities.size() == EXPECTED_POPULATION)
 	assert(presentations.size() == EXPECTED_POPULATION)
+	var counts: Dictionary = {}
 	for state: Dictionary in entities.values():
-		assert(state.get("type_id") == &"crab_brown")
+		var type_id := state.get("type_id") as StringName
+		counts[type_id] = int(counts.get(type_id, 0)) + 1
 		var position: Variant = state.get("position")
 		assert(typeof(position) == TYPE_VECTOR3)
 		assert((position as Vector3).is_finite())
@@ -120,27 +131,43 @@ func _validate_population(service: Node, expect_authoritative_state: bool) -> vo
 		if expect_authoritative_state:
 			var quality: int = int(state.get("quality", -1))
 			assert(FishQuality.is_valid(quality))
-			assert(entry.get_movement_speed_for_quality(quality) > 0.0)
-			assert(entry.get_scare_radius_for_quality(quality) > 0.0)
+			if entry.is_stationary_spawn():
+				assert(entry.get_movement_speed_for_quality(quality) <= 0.0)
+				assert(not entry.can_be_scared())
+			else:
+				assert(entry.get_movement_speed_for_quality(quality) > 0.0)
+				assert(entry.get_scare_radius_for_quality(quality) > 0.0)
+	assert(counts == EXPECTED_BY_TYPE)
+
+
+func _freeze_timed_entries(service: Node) -> void:
+	for state: Dictionary in (service.get("_entities") as Dictionary).values():
+		var entry := state.get("data") as GatherableData
+		if entry != null and entry.active_lifetime_seconds > 0.0:
+			state["expires_at"] = INF
 
 
 func _validate_respawn_budget(service: Node) -> void:
 	var entities: Dictionary = service.get("_entities")
-	var entity_ids: Array = entities.keys()
-	assert(entity_ids.size() == EXPECTED_POPULATION)
-	for entity_id: Variant in entity_ids:
+	var crab_ids: Array[String] = []
+	for entity_id: String in entities:
+		var state: Dictionary = entities[entity_id]
+		if state.get("type_id") == &"crab_brown":
+			crab_ids.append(entity_id)
+	assert(crab_ids.size() == 2)
+	for entity_id: String in crab_ids:
 		service.call(
 			"_despawn_entity",
-			str(entity_id),
+			entity_id,
 			&"captured",
 			false,
 			true,
 		)
-	assert((service.get("_entities") as Dictionary).is_empty())
+	assert((service.get("_entities") as Dictionary).size() == 6)
 
 	var now: float = Time.get_ticks_msec() / 1000.0
 	var respawns: Array = service.get("_respawns")
-	assert(respawns.size() == EXPECTED_POPULATION)
+	assert(respawns.size() == crab_ids.size())
 	for index: int in respawns.size():
 		var respawn: Dictionary = respawns[index]
 		var delay: float = float(respawn.get("due", 0.0)) - now
@@ -149,19 +176,20 @@ func _validate_respawn_budget(service: Node) -> void:
 		respawns[index] = respawn
 
 	service.call("_update_respawns")
-	assert((service.get("_entities") as Dictionary).size() == 1)
+	assert((service.get("_entities") as Dictionary).size() == 7)
 	assert((service.get("_respawns") as Array).size() == 1)
 	var next_by_type: Dictionary = service.get("_next_respawn_by_type")
 	var next_allowed: float = float(next_by_type.get(&"crab_brown", 0.0))
 	assert(next_allowed - now >= 179.0)
 
 	service.call("_update_respawns")
-	assert((service.get("_entities") as Dictionary).size() == 1)
+	assert((service.get("_entities") as Dictionary).size() == 7)
 	assert((service.get("_respawns") as Array).size() == 1)
 	next_by_type[&"crab_brown"] = now - 1.0
 	service.call("_update_respawns")
-	assert((service.get("_entities") as Dictionary).size() == 2)
+	assert((service.get("_entities") as Dictionary).size() == 8)
 	assert((service.get("_respawns") as Array).is_empty())
+	_validate_population(service, true)
 
 
 func _create_initialized_main() -> Node:

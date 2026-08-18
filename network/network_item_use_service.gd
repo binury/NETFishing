@@ -389,6 +389,10 @@ func _apply_equipped(data: Dictionary) -> void:
 			item_id == FishingShopStockType.CRAB_NET_ID
 			and bool(data["owns_item"]),
 		)
+		avatar.set_active_shovel(
+			item_id == FishingShopStockType.STANDARD_SHOVEL_ID
+			and bool(data["owns_item"]),
+		)
 	equipped_state_changed.emit(
 		peer_id, StringName(str(data["item_id"])), int(data["category"])
 	)

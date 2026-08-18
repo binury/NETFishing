@@ -34,7 +34,7 @@ static func category_label(category: Category) -> String:
 		Category.SHELLFISH:
 			return "Shellfish"
 		_:
-			return "Misc"
+			return "Insects"
 
 
 static func empty_state(category: Category) -> String:

@@ -48,8 +48,8 @@ func _run() -> void:
 		as PlayerAssetReservationService
 	)
 	assert(player != null)
-	assert(catalog != null and catalog.candidates.size() == 314)
-	assert(LogbookCatalog.ordered_species(catalog.candidates).size() == 54)
+	assert(catalog != null and catalog.candidates.size() == 316)
+	assert(LogbookCatalog.ordered_species(catalog.candidates).size() == 56)
 	assert(sale_service != null)
 	assert(shop_service != null)
 	assert(session != null and session.is_host())
@@ -62,7 +62,6 @@ func _run() -> void:
 	_test_multi_sale(player, catalog, sale_service)
 	_test_reservations(player, catalog, sale_service, reservations)
 	_test_anywhere_sale(player, catalog, sale_service)
-	await _test_player_menu_sale(main, player, catalog, sale_service)
 	await _test_host_shop_sale(main, player, catalog, sale_service)
 
 	assert(session.set_host_open(true))
@@ -78,6 +77,8 @@ func _run() -> void:
 	await _test_fishing_shop_sale_ui(
 		main, player, catalog, sale_service, reservations
 	)
+	_test_host_backpack_purchase(player, shop_service)
+	_test_host_storage_purchase(player, shop_service)
 	assert(not sale_service.is_local_sale_pending())
 	assert(not shop_service.is_local_purchase_pending())
 
@@ -217,6 +218,17 @@ func _run_multiplayer_client() -> void:
 	print("Client shop result: ", _shop_result)
 	assert(not _shop_result.is_empty() and bool(_shop_result[1]))
 	assert(not shop_service.is_local_purchase_pending())
+	var backpack_cost := player.inventory_layout.get_next_backpack_cost()
+	if player.wallet.get_balance() < backpack_cost:
+		assert(player.wallet.credit(
+			backpack_cost - player.wallet.get_balance()
+		))
+	_shop_result.clear()
+	assert(not shop_service.request_backpack_capacity_upgrade().is_empty())
+	while _shop_result.is_empty():
+		await process_frame
+	assert(bool(_shop_result[1]))
+	assert(player.inventory_layout.get_inventory_capacity() == 18)
 	var required_art_balance: int = (
 		ArtShopStock.ART_KIT_PRICE + ArtShopStock.UPGRADE_PRICE
 	)
@@ -377,78 +389,37 @@ func _test_host_shop_sale(
 	)
 	var species_ids: Array[StringName] = []
 	var expected_payout: int = 0
+	var species_balance_before: int = player.wallet.get_balance()
 	for fish: FishData in catalog.candidates:
 		if not fish.active:
 			continue
 		var fish_catch := _make_catch(fish)
-		player.inventory.add_catch(fish_catch)
+		assert(player.inventory.add_catch(fish_catch))
 		species_ids.append(fish_catch.catch_id)
 		expected_payout += fish_catch.sale_value
-	var species_balance_before: int = player.wallet.get_balance()
-	_assert_sale(
-		player,
-		sale_service,
-		species_ids,
-		true,
-		true,
-		NetworkSaleService.MAIN_SHOP_BUYER_ID,
-	)
+		if species_ids.size() >= 5:
+			_assert_sale(
+				player,
+				sale_service,
+				species_ids,
+				true,
+				true,
+				NetworkSaleService.MAIN_SHOP_BUYER_ID,
+			)
+			species_ids.clear()
+	if not species_ids.is_empty():
+		_assert_sale(
+			player,
+			sale_service,
+			species_ids,
+			true,
+			true,
+			NetworkSaleService.MAIN_SHOP_BUYER_ID,
+		)
 	assert(
 		player.wallet.get_balance()
 		== species_balance_before + expected_payout
 	)
-
-
-func _test_player_menu_sale(
-	main: Node,
-	player: Player,
-	catalog: FishPool,
-	sale_service: NetworkSaleService,
-) -> void:
-	var game_ui := main.get_node("%GameUI") as GameUI
-	var player_menu := game_ui.get_node("%PlayerMenu") as PlayerMenu
-	var fish_catch := _make_catch(catalog.candidates[6])
-	player.inventory.add_catch(fish_catch)
-	player.global_position = Vector3(0.0, 3.95, 13.0)
-	player_menu.open_menu()
-	await create_timer(2.2).timeout
-	player_menu.call("_on_catch_card_pressed", fish_catch.catch_id)
-	await process_frame
-	var sell_action := player_menu.get_node("%SellBubble") as Button
-	var confirmation := player_menu.get_node("%SaleConfirmation") as Control
-	var confirm_button := player_menu.get_node("%ConfirmSaleButton") as Button
-	var ui_viewport := main.get_node(
-		"UIPresentation/UIViewport"
-	) as SubViewport
-	assert(sell_action.visible and not sell_action.disabled)
-	assert(sell_action.mouse_filter == Control.MOUSE_FILTER_STOP)
-	assert(ui_viewport != null)
-	await _activate_pointer_control(sell_action, ui_viewport)
-	await process_frame
-	assert(confirmation.visible)
-	assert(confirm_button.visible and not confirm_button.disabled)
-	assert(
-		confirmation.z_index
-		> (player_menu.get_node("%CoolerOuterWall") as Control).z_index
-	)
-	_sale_result.clear()
-	await _activate_pointer_control(confirm_button, ui_viewport)
-	await process_frame
-	assert(not _sale_result.is_empty() and bool(_sale_result[1]))
-	assert(not player.inventory.contains_catch_id(fish_catch.catch_id))
-	assert(not sale_service.is_local_sale_pending())
-	player_menu.close_menu()
-	await create_timer(2.2).timeout
-	assert(not player_menu.visible)
-	player_menu.open_menu()
-	await create_timer(2.2).timeout
-	assert(player_menu.visible)
-	assert(
-		not sell_action.disabled
-		or player.inventory.get_all_catches().is_empty()
-	)
-	player_menu.close_menu()
-	await create_timer(2.2).timeout
 
 
 func _activate_pointer_control(
@@ -547,6 +518,48 @@ func _test_host_rod_purchase(
 	assert(not shop_service.is_local_purchase_pending())
 
 
+func _test_host_backpack_purchase(
+	player: Player,
+	shop_service: NetworkShopService,
+) -> void:
+	var layout := player.inventory_layout
+	assert(layout.get_inventory_capacity() == 9)
+	var total_cost: int = 0
+	for cost: int in PlayerInventoryLayout.BACKPACK_EXPANSION_COSTS:
+		total_cost += cost
+	if player.wallet.get_balance() < total_cost:
+		assert(player.wallet.credit(total_cost - player.wallet.get_balance()))
+	var balance_before := player.wallet.get_balance()
+	for expected_capacity: int in [18, 27, 36]:
+		_shop_result.clear()
+		assert(not shop_service.request_backpack_capacity_upgrade().is_empty())
+		assert(not _shop_result.is_empty() and bool(_shop_result[1]))
+		assert(layout.get_inventory_capacity() == expected_capacity)
+	assert(player.wallet.get_balance() == balance_before - total_cost)
+	assert(layout.get_next_backpack_cost() == -1)
+
+
+func _test_host_storage_purchase(
+	player: Player,
+	shop_service: NetworkShopService,
+) -> void:
+	var capacity := player.cooler_capacity
+	assert(capacity.get_capacity() == 9)
+	var total_cost: int = 0
+	for cost: int in PlayerCoolerCapacity.EXPANSION_COSTS:
+		total_cost += cost
+	if player.wallet.get_balance() < total_cost:
+		assert(player.wallet.credit(total_cost - player.wallet.get_balance()))
+	var balance_before := player.wallet.get_balance()
+	for expected_capacity: int in [18, 27, 36, 45, 54, 63, 72]:
+		_shop_result.clear()
+		assert(not shop_service.request_cooler_capacity_upgrade().is_empty())
+		assert(not _shop_result.is_empty() and bool(_shop_result[1]))
+		assert(capacity.get_capacity() == expected_capacity)
+	assert(player.wallet.get_balance() == balance_before - total_cost)
+	assert(capacity.get_next_cost() == -1)
+
+
 func _test_fishing_shop_sale_ui(
 	main: Node,
 	player: Player,
@@ -608,7 +621,11 @@ func _test_fishing_shop_sale_ui(
 		"QuantityBadge/Quantity"
 	) as Label
 	assert(tackle_quantity.text == expected_bait_supply)
-	assert(tackle_bait_button.tooltip_text.contains(expected_bait_supply))
+	assert(
+		str(tackle_bait_button.get_meta(
+			&"inventory_context_text", ""
+		)).contains(expected_bait_supply)
+	)
 	var tackle_badge := tackle_quantity.get_parent() as Panel
 	assert(
 		is_equal_approx(
@@ -654,7 +671,10 @@ func _test_fishing_shop_sale_ui(
 	assert((shop.get_node("%Upgrades") as Control).visible)
 	assert(not (shop.get_node("%Supplies") as Control).visible)
 	for upgrade_name: String in [
-		"ReelPurchase", "BarrierPurchase", "CoolerPurchase"
+		"ReelPurchase",
+		"BarrierPurchase",
+		"CoolerPurchase",
+		"BackpackPurchase",
 	]:
 		var upgrade_button := shop.get_node("%%%s" % upgrade_name) as Button
 		assert(upgrade_button != null)
@@ -662,6 +682,15 @@ func _test_fishing_shop_sale_ui(
 		assert(upgrade_button.text.is_empty())
 		assert(upgrade_button.icon != null)
 		assert(upgrade_button.tooltip_text.contains("level"))
+	for placeholder_name: String in ["CoolerPurchase", "BackpackPurchase"]:
+		var placeholder_button := shop.get_node(
+			"%%%s" % placeholder_name
+		) as Button
+		assert(
+			placeholder_button.icon.resource_path.ends_with(
+				"/pictograms/x_light.png"
+			)
+		)
 	assert(not shop.has_node("%ReelLevel"))
 	assert(not shop.has_node("%BarrierEffect"))
 	assert(not shop.has_node("%CoolerLevel"))
@@ -674,7 +703,9 @@ func _test_fishing_shop_sale_ui(
 			"/shop/32_currency.png"
 		)
 	)
-	for cost_name: String in ["ReelCost", "BarrierCost", "CoolerCost"]:
+	for cost_name: String in [
+		"ReelCost", "BarrierCost", "CoolerCost", "BackpackCost"
+	]:
 		var cost_display := shop.get_node("%%%s" % cost_name) as CurrencyAmount
 		assert(cost_display != null)
 		var cost_icon := cost_display.get_node("Icon") as TextureRect
@@ -690,7 +721,7 @@ func _test_fishing_shop_sale_ui(
 	var art_supplies_tab := shop_tabs[4] as Button
 	assert(art_supplies_tab != null and art_supplies_tab.text == "Art Supplies")
 	var sell_mode := shop_tabs[5] as Button
-	assert(sell_mode != null and sell_mode.text == "Sell Fish")
+	assert(sell_mode != null and sell_mode.text == "Sell")
 	var equipment_tab := shop_tabs[3] as Button
 	assert(equipment_tab != null and equipment_tab.text == "Equipment")
 	var supplies_list := shop.get_node("%SuppliesList") as VBoxContainer
@@ -881,44 +912,47 @@ func _test_fishing_shop_sale_ui(
 	assert((shop.get_node("%ShopPanel") as Control).visible)
 	assert(not (shop.get_node("ShopPanel/Margin/Layout/Body") as Control).visible)
 	assert(not (shop.get_node("%Feedback") as Control).visible)
-	var mounted_cooler := player_menu.get("_cooler_page") as Control
-	assert(mounted_cooler != null and mounted_cooler.visible)
+	var sell_inventory := shop.get("_sell_inventory") as ShopSellInventory
+	assert(sell_inventory != null and sell_inventory.visible)
+	var sell_tray_grid := sell_inventory.get("_tray_grid") as GridContainer
 	assert(
-		mounted_cooler.get_parent() == shop.get_node("%ShopCoolerMount")
+		sell_tray_grid.columns == PlayerInventoryLayout.INVENTORY_COLUMNS
 	)
-	var cooler_outer_wall := player_menu.get("_cooler_outer_wall") as Control
-	var water_surface := player_menu.get("_cooler_water_surface") as ColorRect
-	assert(cooler_outer_wall != null and cooler_outer_wall.visible)
-	assert(water_surface.visible and water_surface.material is ShaderMaterial)
-	var cooler_sort_option := player_menu.get("_cooler_sort_option") as Control
-	await _activate_pointer_control(cooler_sort_option, ui_viewport)
-	var cooler_choice_panel := cooler_sort_option.get("_choice_panel") as Control
-	assert(cooler_choice_panel.visible)
-	cooler_sort_option.call("close_choices")
 	assert(
-		StringName(
-			(player_menu.get("_sale_buyer_override") as FishBuyerProfile).id
-		) == NetworkSaleService.MAIN_SHOP_BUYER_ID
+		sell_tray_grid.get_theme_constant("h_separation")
+		== GeneralInventoryGrid.DEFAULT_SLOT_SEPARATION
 	)
-	var fish_nodes: Dictionary = player_menu.get("_fish_nodes")
-	var fish_button := fish_nodes.get(fish_catch.catch_id) as Button
-	var reserved_button := fish_nodes.get(reserved_catch.catch_id) as Button
-	assert(fish_button != null and fish_button.visible)
-	assert(reserved_button != null and reserved_button.visible)
-	await _activate_pointer_control(fish_button, ui_viewport)
-	var sell_button := player_menu.get("_sell_bubble") as Button
-	assert(sell_button.visible and not sell_button.disabled)
-	await _activate_pointer_control(sell_button, ui_viewport)
-	await process_frame
-	var confirmation := player_menu.get("_sale_confirmation") as Control
-	var confirm_button := player_menu.get("_confirm_sale_button") as Button
-	assert(confirmation.visible)
 	assert(
-		confirmation.z_index
-		> cooler_outer_wall.z_index
+		sell_inventory.get_parent() == shop.get_node("%ShopCoolerMount")
 	)
+	var staged: Dictionary = sell_inventory.get("_staged")
+	sell_inventory.call(
+		"_stage",
+		PlayerInventoryLayout.EntryKind.CATCH,
+		reserved_catch.catch_id,
+	)
+	assert(staged.is_empty())
+	sell_inventory.call(
+		"_stage",
+		PlayerInventoryLayout.EntryKind.CATCH,
+		fish_catch.catch_id,
+	)
+	assert(staged.has(PlayerInventoryLayout.catch_key(fish_catch.catch_id)))
+	assert((sell_inventory.get("_feedback") as Label).text.is_empty())
+	var source_grid := sell_inventory.get("_inventory_grid") as GeneralInventoryGrid
+	var staged_source_found := false
+	for source_slot: GeneralInventorySlot in source_grid.get_slots():
+		if source_slot.entry_identity == fish_catch.catch_id:
+			staged_source_found = bool(source_slot.get("_staged"))
+			break
+	assert(staged_source_found)
+	var feedback := sell_inventory.get("_feedback") as Label
+	var total_label := sell_inventory.get("_total_label") as Label
+	var sell_button := sell_inventory.get("_sell_button") as Button
+	assert(feedback.get_index() < total_label.get_parent().get_index())
+	assert(total_label.get_parent().get_index() < sell_button.get_index())
 	_sale_result.clear()
-	await _activate_pointer_control(confirm_button, ui_viewport)
+	sell_inventory.call("_submit_sale")
 	await process_frame
 	assert(not _sale_result.is_empty() and bool(_sale_result[1]))
 	assert(not player.inventory.contains_catch_id(fish_catch.catch_id))
@@ -929,7 +963,7 @@ func _test_fishing_shop_sale_ui(
 	await process_frame
 	assert(shop.visible and (shop.get_node("%ShopPanel") as Control).visible)
 	assert(not (shop.get_node("%ShopCoolerPage") as Control).visible)
-	assert(not player_menu.is_shop_cooler_mounted())
+	assert(not sell_inventory.is_visible_in_tree())
 	shop.close_shop()
 	await shop.menu_visibility_changed
 	assert(not shop.visible)

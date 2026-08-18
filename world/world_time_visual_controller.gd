@@ -66,6 +66,8 @@ const WARM_SUN := Color(1.0, 0.58, 0.30)
 const WARM_WATER_TINT := Color(0.78, 0.62, 0.58)
 const WARM_SUN_DISC := Color(1.0, 0.45, 0.16)
 const MOON_DISC := Color(0.78, 0.88, 1.0)
+const STAR_COLOR := Color(0.72, 0.82, 0.96)
+const STAR_STRENGTH: float = 0.72
 const DAY_CLOUD_LIGHT := Color(0.70, 0.76, 0.77)
 const DAY_CLOUD_SHADOW := Color(0.31, 0.38, 0.40)
 const NIGHT_CLOUD_LIGHT := Color(0.18, 0.22, 0.30)
@@ -424,6 +426,12 @@ func _apply_time(time_hours: float) -> void:
 	_sky_material.set_shader_parameter(
 		"moon_visibility",
 		(1.0 - daylight) * _weather_value(1.0, 0.72, 0.36, 1.0),
+	)
+	_sky_material.set_shader_parameter("star_color", STAR_COLOR)
+	_sky_material.set_shader_parameter("star_strength", STAR_STRENGTH)
+	_sky_material.set_shader_parameter(
+		"star_visibility",
+		(1.0 - daylight) * _weather_value(1.0, 0.18, 0.03, 0.0),
 	)
 	_sun.light_color = _blended_color(
 		NIGHT_SUN, DAY_SUN, WARM_SUN, daylight, warmth

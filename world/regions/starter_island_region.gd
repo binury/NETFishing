@@ -5,6 +5,9 @@ extends WorldRegion
 const FishingShopInteractionType = preload(
 	"res://world/fishing_shop_interaction.gd"
 )
+const PlayerStorageInteractionType = preload(
+	"res://world/player_storage_interaction.gd"
+)
 const FOLIAGE_WIND_SHADER: Shader = preload(
 	"res://world/materials/foliage_wind.gdshader"
 )
@@ -39,6 +42,10 @@ var player_spawn_path: NodePath = ^"PlayerSpawn"
 var fishing_shop_path: NodePath = (
 	^"Interactables/FishingShopWorld/InteractionArea"
 )
+@export_node_path("Area3D")
+var player_storage_path: NodePath = (
+	^"Interactables/PlayerStorageBox/InteractionArea"
+)
 @export_group("Terrain Collision")
 # The imported GLB is the collision authority. Rebuild once per region load so
 # newly authored terrain and props cannot retain a stale saved fallback shape.
@@ -65,6 +72,10 @@ func get_player_spawn_transform() -> Transform3D:
 
 func get_fishing_shop() -> FishingShopInteractionType:
 	return get_node_or_null(fishing_shop_path) as FishingShopInteractionType
+
+
+func get_player_storage() -> PlayerStorageInteractionType:
+	return get_node_or_null(player_storage_path) as PlayerStorageInteractionType
 
 
 func get_saltwater_shoreline_mesh() -> MeshInstance3D:
@@ -363,4 +374,6 @@ func _get_configuration_warnings() -> PackedStringArray:
 		warnings.append("PlayerSpawn marker is missing.")
 	if get_node_or_null(fishing_shop_path) == null:
 		warnings.append("Fishing Shop placement is missing.")
+	if get_node_or_null(player_storage_path) == null:
+		warnings.append("Private player storage placement is missing.")
 	return warnings

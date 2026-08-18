@@ -253,7 +253,7 @@ func _handle_cast_request(peer_id: int, data: Dictionary) -> void:
 		_record_and_reject(peer_id, request_id, "Already fishing.")
 		return
 	if not bool(data["capacity_available"]):
-		_record_and_reject(peer_id, request_id, "Cooler is full.")
+		_record_and_reject(peer_id, request_id, "Inventory is full.")
 		return
 	var rod := _item_catalog.get_item_by_id(
 		StringName(str(data["rod_id"]))
@@ -812,11 +812,8 @@ func _handle_local_capacity_probe(data: Dictionary) -> void:
 		return
 	var can_accept: bool = (
 		_local_inventory != null
-		and _local_capacity != null
-		and (
-			_local_inventory.contains_catch_id(StringName(data["catch_id"]))
-			or _local_inventory.get_all_catches().size()
-			< _local_capacity.get_capacity()
+		and _local_inventory.can_accept_catch(
+			StringName(data["catch_id"])
 		)
 	)
 	if _session.is_host():
@@ -864,7 +861,7 @@ func _handle_capacity_response(
 	):
 		return
 	if not can_accept:
-		_cancel_attempt(peer_id, "Cooler is full.")
+		_cancel_attempt(peer_id, "Inventory is full.")
 		return
 	_finalize_catch(attempt)
 
@@ -915,11 +912,7 @@ func _apply_target_outcome(data: Dictionary) -> void:
 	if fish_catch == null:
 		return
 	var already_owned: bool = _local_inventory.contains_catch_id(catch_id)
-	if (
-		not already_owned
-		and _local_inventory.get_all_catches().size()
-		>= _local_capacity.get_capacity()
-	):
+	if not already_owned and not _local_inventory.can_accept_catch(catch_id):
 		return
 	if not already_owned:
 		var experience_award: int = (

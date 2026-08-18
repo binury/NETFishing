@@ -12,6 +12,9 @@ const ItemCatalogType = preload("res://items/item_catalog.gd")
 const OwnedItemType = preload("res://items/owned_item.gd")
 const PlayerBagType = preload("res://inventory/player_bag.gd")
 const PlayerHotbarType = preload("res://inventory/player_hotbar.gd")
+const PlayerInventoryLayoutType = preload(
+	"res://inventory/player_inventory_layout.gd"
+)
 const PlayerFishingUpgradesType = preload(
 	"res://progression/player_fishing_upgrades.gd"
 )
@@ -30,7 +33,7 @@ const WorldWeatherServiceType = preload(
 )
 const PlayerJobServiceType = preload("res://jobs/player_job_service.gd")
 
-const SAVE_VERSION: int = 7
+const SAVE_VERSION: int = 8
 const BASIC_ROD_ID: StringName = &"basic_fishing_rod"
 const MAX_SAFE_BALANCE: int = 1000000000000
 
@@ -47,6 +50,7 @@ class LoadSnapshot:
 	var hotbar_slots: Array[StringName] = []
 	var fish_hotbar_slots: Array[StringName] = []
 	var selected_hotbar_slot: int = 0
+	var inventory_layout_data: Dictionary = {}
 	var reel_speed_level: int = 0
 	var barrier_power_level: int = 0
 	var cooler_capacity_level: int = 0
@@ -71,6 +75,7 @@ var _wallet: PlayerWalletType
 var _catalog: FishPoolType
 var _bag: PlayerBagType
 var _hotbar: PlayerHotbarType
+var _inventory_layout: PlayerInventoryLayoutType
 var _item_catalog: ItemCatalogType
 var _fishing_upgrades: PlayerFishingUpgradesType
 var _cooler_capacity: PlayerCoolerCapacityType
@@ -117,6 +122,7 @@ func setup(
 	catalog: FishPoolType,
 	bag: PlayerBagType,
 	hotbar: PlayerHotbarType,
+	inventory_layout: PlayerInventoryLayoutType,
 	item_catalog: ItemCatalogType,
 	fishing_upgrades: PlayerFishingUpgradesType,
 	cooler_capacity: PlayerCoolerCapacityType,
@@ -132,6 +138,7 @@ func setup(
 	_catalog = catalog
 	_bag = bag
 	_hotbar = hotbar
+	_inventory_layout = inventory_layout
 	_item_catalog = item_catalog
 	_fishing_upgrades = fishing_upgrades
 	_cooler_capacity = cooler_capacity
@@ -147,6 +154,7 @@ func setup(
 		and _catalog != null
 		and _bag != null
 		and _hotbar != null
+		and _inventory_layout != null
 		and _item_catalog != null
 		and _fishing_upgrades != null
 		and _cooler_capacity != null
@@ -171,6 +179,8 @@ func setup(
 		_bag.contents_changed.connect(_mark_dirty)
 	if not _hotbar.slots_changed.is_connected(_mark_dirty):
 		_hotbar.slots_changed.connect(_mark_dirty)
+	if not _inventory_layout.layout_changed.is_connected(_mark_dirty):
+		_inventory_layout.layout_changed.connect(_mark_dirty)
 	if not _hotbar.selected_slot_changed.is_connected(
 		_on_selected_hotbar_slot_changed
 	):
@@ -263,17 +273,21 @@ func load_player_data() -> bool:
 		_bag.replace_all_items(snapshot.bag_items)
 		and _bag.replace_unlocked_bait_ids(snapshot.unlocked_bait_ids)
 	)
-	var hotbar_restored: bool = _hotbar.replace_state(
-		snapshot.hotbar_slots,
-		snapshot.selected_hotbar_slot,
-		snapshot.fish_hotbar_slots,
-	)
 	var upgrades_restored: bool = _fishing_upgrades.restore_levels(
 		snapshot.reel_speed_level,
 		snapshot.barrier_power_level
 	)
 	var cooler_restored: bool = _cooler_capacity.restore_level(
 		snapshot.cooler_capacity_level
+	)
+	var layout_restored: bool = _inventory_layout.restore_from_save_data(
+		snapshot.inventory_layout_data
+	)
+	var hotbar_restored: bool = _hotbar.replace_state(
+		snapshot.hotbar_slots,
+		snapshot.selected_hotbar_slot,
+		snapshot.fish_hotbar_slots,
+		false,
 	)
 	var art_restored: bool = _art_unlocks.restore_mask(
 		snapshot.art_unlock_mask
@@ -300,13 +314,36 @@ func load_player_data() -> bool:
 		or not hotbar_restored
 		or not upgrades_restored
 		or not cooler_restored
+		or not layout_restored
 		or not art_restored
 		or not experience_restored
 		or not world_time_restored
 		or not world_weather_restored
 		or not jobs_restored
 	):
-		push_error("Validated player save could not be restored.")
+		push_error(
+			(
+				"Validated player save could not be restored: "
+				+ "inventory=%s collection=%s wallet=%s bag=%s hotbar=%s "
+				+ "upgrades=%s cooler=%s layout=%s art=%s experience=%s "
+				+ "time=%s weather=%s jobs=%s"
+			)
+			% [
+				inventory_restored,
+				collection_restored,
+				wallet_restored,
+				bag_restored,
+				hotbar_restored,
+				upgrades_restored,
+				cooler_restored,
+				layout_restored,
+				art_restored,
+				experience_restored,
+				world_time_restored,
+				world_weather_restored,
+				jobs_restored,
+			]
+		)
 		return false
 
 	_is_dirty = false
@@ -541,6 +578,7 @@ func _build_save_dictionary() -> Dictionary:
 			"slots": serialized_slots,
 			"fish_slots": serialized_fish_slots,
 		},
+		"inventory_layout": _inventory_layout.to_save_data(),
 		"upgrades": _fishing_upgrades.to_save_data(),
 		"cooler": _cooler_capacity.to_save_data(),
 		"art": _art_unlocks.to_save_data(),
@@ -563,6 +601,7 @@ func _build_load_snapshot(save_data: Dictionary) -> LoadSnapshot:
 		or typeof(save_data.get("inventory")) != TYPE_DICTIONARY
 		or typeof(save_data.get("bag")) != TYPE_DICTIONARY
 		or typeof(save_data.get("hotbar")) != TYPE_DICTIONARY
+		or typeof(save_data.get("inventory_layout")) != TYPE_DICTIONARY
 		or typeof(save_data.get("experience")) != TYPE_DICTIONARY
 		or typeof(save_data.get("jobs")) != TYPE_DICTIONARY
 	):
@@ -572,6 +611,7 @@ func _build_load_snapshot(save_data: Dictionary) -> LoadSnapshot:
 	var inventory_data: Dictionary = save_data["inventory"]
 	var bag_data: Dictionary = save_data["bag"]
 	var hotbar_data: Dictionary = save_data["hotbar"]
+	var inventory_layout_data: Dictionary = save_data["inventory_layout"]
 	var experience_data: Dictionary = save_data["experience"]
 	var jobs_data: Dictionary = save_data["jobs"]
 	var world_data: Dictionary = {}
@@ -624,6 +664,7 @@ func _build_load_snapshot(save_data: Dictionary) -> LoadSnapshot:
 		return null
 
 	var snapshot := LoadSnapshot.new()
+	snapshot.inventory_layout_data = inventory_layout_data.duplicate(true)
 	snapshot.wallet_balance = balance
 	snapshot.total_experience = _read_integer(
 		experience_data["total_experience"],
@@ -922,6 +963,8 @@ func _migrate_save(
 				migrated = _migrate_version_5_to_6(migrated)
 			6:
 				migrated = _migrate_version_6_to_7(migrated)
+			7:
+				migrated = _migrate_version_7_to_8(migrated)
 			_:
 				return {}
 		if migrated.is_empty():
@@ -1040,6 +1083,124 @@ func _migrate_version_6_to_7(data: Dictionary) -> Dictionary:
 	return migrated
 
 
+func _migrate_version_7_to_8(data: Dictionary) -> Dictionary:
+	var migrated: Dictionary = data.duplicate(true)
+	if (
+		typeof(migrated.get("bag")) != TYPE_DICTIONARY
+		or typeof(migrated.get("inventory")) != TYPE_DICTIONARY
+		or typeof(migrated.get("hotbar")) != TYPE_DICTIONARY
+	):
+		return {}
+	var bag_data: Dictionary = migrated["bag"]
+	var inventory_data: Dictionary = migrated["inventory"]
+	var hotbar_data: Dictionary = migrated["hotbar"]
+	if (
+		typeof(bag_data.get("items")) != TYPE_ARRAY
+		or typeof(inventory_data.get("catches")) != TYPE_ARRAY
+		or typeof(hotbar_data.get("slots")) != TYPE_ARRAY
+	):
+		return {}
+
+	var placements: Array[Dictionary] = []
+	var assigned: Dictionary[String, bool] = {}
+	var item_slots: Array = hotbar_data["slots"]
+	var fish_slots: Array = []
+	if typeof(hotbar_data.get("fish_slots")) == TYPE_ARRAY:
+		fish_slots = hotbar_data["fish_slots"]
+	for slot: int in PlayerHotbarType.SLOT_COUNT:
+		var item_id := StringName(
+			str(item_slots[slot]) if slot < item_slots.size() else ""
+		)
+		if not item_id.is_empty():
+			var item = _item_catalog.get_item_by_id(item_id)
+			if item != null and not item.is_bait() and not item.is_lure():
+				var key := PlayerInventoryLayoutType.item_key(item_id)
+				if not assigned.has(key):
+					placements.append({
+						"kind": PlayerInventoryLayoutType.EntryKind.ITEM,
+						"identity": String(item_id),
+						"container": PlayerInventoryLayoutType.InventoryContainer.HOTBAR,
+						"slot": slot,
+					})
+					assigned[key] = true
+					continue
+		var catch_id := StringName(
+			str(fish_slots[slot]) if slot < fish_slots.size() else ""
+		)
+		if catch_id.is_empty():
+			continue
+		var catch_key := PlayerInventoryLayoutType.catch_key(catch_id)
+		if assigned.has(catch_key):
+			continue
+		placements.append({
+			"kind": PlayerInventoryLayoutType.EntryKind.CATCH,
+			"identity": String(catch_id),
+			"container": PlayerInventoryLayoutType.InventoryContainer.HOTBAR,
+			"slot": slot,
+		})
+		assigned[catch_key] = true
+
+	var next_inventory_slot: int = 0
+	var next_storage_slot: int = 0
+	for value: Variant in bag_data["items"] as Array:
+		if typeof(value) != TYPE_DICTIONARY:
+			continue
+		var item_id := StringName(str((value as Dictionary).get("item_id", "")))
+		var item = _item_catalog.get_item_by_id(item_id)
+		if item == null or item.is_bait() or item.is_lure():
+			continue
+		var key := PlayerInventoryLayoutType.item_key(item_id)
+		if assigned.has(key):
+			continue
+		var target := PlayerInventoryLayoutType.InventoryContainer.INVENTORY
+		var target_slot := next_inventory_slot
+		if next_inventory_slot < PlayerInventoryLayoutType.INVENTORY_CAPACITIES[0]:
+			next_inventory_slot += 1
+		else:
+			target = PlayerInventoryLayoutType.InventoryContainer.STORAGE
+			target_slot = next_storage_slot
+			next_storage_slot += 1
+		placements.append({
+			"kind": PlayerInventoryLayoutType.EntryKind.ITEM,
+			"identity": String(item_id),
+			"container": target,
+			"slot": target_slot,
+		})
+		assigned[key] = true
+	for value: Variant in inventory_data["catches"] as Array:
+		if typeof(value) != TYPE_DICTIONARY:
+			continue
+		var catch_id := StringName(
+			str((value as Dictionary).get("catch_id", ""))
+		)
+		if catch_id.is_empty():
+			continue
+		var key := PlayerInventoryLayoutType.catch_key(catch_id)
+		if assigned.has(key):
+			continue
+		var target := PlayerInventoryLayoutType.InventoryContainer.INVENTORY
+		var target_slot := next_inventory_slot
+		if next_inventory_slot < PlayerInventoryLayoutType.INVENTORY_CAPACITIES[0]:
+			next_inventory_slot += 1
+		else:
+			target = PlayerInventoryLayoutType.InventoryContainer.STORAGE
+			target_slot = next_storage_slot
+			next_storage_slot += 1
+		placements.append({
+			"kind": PlayerInventoryLayoutType.EntryKind.CATCH,
+			"identity": String(catch_id),
+			"container": target,
+			"slot": target_slot,
+		})
+		assigned[key] = true
+	migrated["inventory_layout"] = {
+		"backpack_level": 0,
+		"placements": placements,
+	}
+	migrated["save_version"] = 8
+	return migrated
+
+
 func _mark_dirty() -> void:
 	if (
 		_is_restoring
@@ -1148,9 +1309,10 @@ func _restore_defaults() -> void:
 	_bag.replace_all_items(default_items)
 	var default_unlocked_baits: Array[StringName] = []
 	_bag.replace_unlocked_bait_ids(default_unlocked_baits)
-	_hotbar.replace_state(default_slots, 0)
 	_fishing_upgrades.reset_to_defaults()
 	_cooler_capacity.reset_to_defaults()
+	_inventory_layout.reset_to_defaults()
+	_hotbar.replace_state(default_slots, 0)
 	_art_unlocks.reset_to_defaults()
 	_experience.reset_to_defaults()
 	_world_time.restore_persistent_time_hours(

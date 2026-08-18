@@ -13,11 +13,14 @@ enum StorageGroup {
 	NONE,
 	EQUIPMENT,
 	ITEMS,
+	BAIT,
+	LURES,
 }
 
 signal contents_changed
 
 var _catalog: ItemCatalogType
+var _inventory_layout: PlayerInventoryLayout
 var _items: Array[OwnedItemType] = []
 var _unlocked_bait_ids: Array[StringName] = (
 	DEFAULT_UNLOCKED_BAIT_IDS.duplicate()
@@ -28,11 +31,21 @@ func setup(catalog: ItemCatalogType) -> void:
 	_catalog = catalog
 
 
+func set_inventory_layout(layout: PlayerInventoryLayout) -> void:
+	_inventory_layout = layout
+
+
 func add_item(item_id: StringName, quantity: int = 1) -> bool:
 	if not can_add_item(item_id, quantity):
 		return false
 	var item: ItemDataType = _resolve_valid_item(item_id)
 	var existing: OwnedItemType = get_owned_item(item_id)
+	if (
+		existing == null
+		and _inventory_layout != null
+		and not _inventory_layout.can_accept_item(item_id)
+	):
+		return false
 	if existing != null:
 		existing.quantity += quantity
 	else:
@@ -57,6 +70,11 @@ func can_add_item(item_id: StringName, quantity: int = 1) -> bool:
 			item.stackable
 			and existing.quantity + quantity <= item.max_stack
 		)
+	if (
+		_inventory_layout != null
+		and not _inventory_layout.can_accept_item(item_id)
+	):
+		return false
 	return quantity <= (item.max_stack if item.stackable else 1)
 
 
@@ -252,8 +270,12 @@ func _first_available_storage_slot(
 
 
 func _storage_group_for_item(item: ItemDataType) -> StorageGroup:
-	if item == null or item.is_bait() or item.is_lure():
+	if item == null:
 		return StorageGroup.NONE
+	if item.is_bait():
+		return StorageGroup.BAIT
+	if item.is_lure():
+		return StorageGroup.LURES
 	return (
 		StorageGroup.ITEMS
 		if item.category == ItemDataType.Category.CONSUMABLE

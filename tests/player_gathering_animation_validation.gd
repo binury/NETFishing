@@ -62,10 +62,14 @@ func _run() -> void:
 	assert(StringName(player.get("_animation_action_id")).is_empty())
 	assert(animation_player.current_animation == &"idle")
 	Input.action_press(&"sneak")
+	var visuals := player.get_node("Visuals") as Node3D
 
 	assert(player.play_net_strike_visual())
 	player.resolve_net_strike_visual(true)
 	player.net_success_contact_pause_duration = 0.05
+	player.showcase_turn_duration = 0.05
+	player.showcase_camera_transition_duration = 0.05
+	player.net_showcase_camera_yaw_offset = 0.0
 	var crab_catch := FishCatch.new()
 	crab_catch.fish = CrabBrown
 	crab_catch.fish_id = CrabBrown.id
@@ -89,9 +93,27 @@ func _run() -> void:
 	await contact_pause.finished
 	assert(StringName(player.get("_animation_action_id")).is_empty())
 	assert(bool(player.get("_showcase_animation_active")))
+	var stored_showcase_rotation: Vector3 = player.get(
+		"_showcase_visual_rotation"
+	)
+	await create_timer(0.1).timeout
+	assert(
+		absf(wrapf(
+			visuals.rotation.y - stored_showcase_rotation.y,
+			-PI,
+			PI,
+		)) > 3.0
+	)
 	var catch_display := player.get("_catch_display") as Node3D
 	assert(catch_display != null and catch_display.visible)
-	player.end_catch_showcase(Callable(), true)
+	player.end_catch_showcase(Callable(), true, true)
+	assert(
+		absf(wrapf(
+			visuals.rotation.y - stored_showcase_rotation.y,
+			-PI,
+			PI,
+		)) < 0.01
+	)
 
 	Input.action_release(&"sneak")
 	player.queue_free()

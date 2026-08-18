@@ -193,7 +193,6 @@ func setup(
 	_service.local_message_confirmed.connect(_on_local_message_confirmed)
 	_service.history_replaced.connect(_on_history)
 	_service.send_rejected.connect(_on_rejected)
-	_service.world_command_finished.connect(_on_world_command_finished)
 	_session.peer_removed.connect(_on_peer_removed)
 	_entry.text = _settings.current_settings.chat_draft
 	_entry.caret_column = _entry.text.length()
@@ -835,8 +834,6 @@ func _send() -> void:
 	if body.strip_edges().is_empty():
 		close_chat()
 		return
-	if _handle_chat_command(body):
-		return
 	_send_pending = true
 	_pending_send_body = NetworkChatProtocol.sanitize_body(body)
 	_entry.editable = false
@@ -850,85 +847,6 @@ func _send() -> void:
 		_entry.editable = true
 	elif _send_pending:
 		_set_status("Sending…")
-
-
-func _handle_chat_command(body: String) -> bool:
-	var command_text := body.strip_edges()
-	if not command_text.begins_with("/"):
-		return false
-	var parts: PackedStringArray = command_text.split(" ", false)
-	var command := String(parts[0]).trim_prefix("/").to_lower()
-	match command:
-		"time":
-			_handle_time_command(parts)
-		"weather":
-			_handle_weather_command(parts)
-		"":
-			_show_command_error("Enter a command after /.")
-		_:
-			_show_command_error("Unknown command: /%s" % command)
-	_entry.clear()
-	_flush_draft()
-	return true
-
-
-func _show_command_error(message: String) -> void:
-	_set_status(message)
-	close_chat(true)
-
-
-func _handle_time_command(parts: PackedStringArray) -> void:
-	if parts.size() != 2:
-		_show_command_error("Usage: /time [dawn, day, dusk, night]")
-		return
-	if _service == null or _world_time == null:
-		_show_command_error("World time is unavailable.")
-		return
-	var phase_name := String(parts[1]).to_lower()
-	if phase_name not in ["dawn", "day", "dusk", "night"]:
-		_show_command_error("Usage: /time [dawn, day, dusk, night]")
-		return
-	if not _service.request_world_time_change(phase_name):
-		_show_command_error(
-			"Only the host or an operator can change world time."
-		)
-		return
-	close_chat()
-
-
-func _handle_weather_command(parts: PackedStringArray) -> void:
-	if parts.size() != 2:
-		_show_command_error(
-			"Usage: /weather [clear, cloudy, rainy, foggy]"
-		)
-		return
-	if _service == null or _world_weather == null:
-		_show_command_error("World weather is unavailable.")
-		return
-	var weather_name := String(parts[1]).to_lower()
-	match weather_name:
-		"clear", "sunny":
-			weather_name = "clear"
-		"cloudy", "rainy", "foggy":
-			pass
-		_:
-			_show_command_error(
-				"Usage: /weather [clear, cloudy, rainy, foggy]"
-			)
-			return
-	if not _service.request_world_weather_change(weather_name):
-		_show_command_error(
-			"Only the host or an operator can change world weather."
-		)
-		return
-	close_chat()
-
-
-func _on_world_command_finished(success: bool, message: String) -> void:
-	if success:
-		_set_status("")
-	elif not message.is_empty():
-		_set_status(message)
 
 
 func _on_local_message_confirmed(message: Dictionary) -> void:

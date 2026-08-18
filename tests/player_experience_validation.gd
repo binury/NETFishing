@@ -143,7 +143,7 @@ func _validate_save_migration() -> void:
 		version_five,
 		5,
 	)
-	assert(int(migrated.get("save_version", -1)) == 7)
+	assert(int(migrated.get("save_version", -1)) == 8)
 	var experience_data: Dictionary = migrated.get("experience", {})
 	assert(int(experience_data.get("total_experience", -1)) == 0)
 	var world_data: Dictionary = migrated.get("world", {})

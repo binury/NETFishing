@@ -19,6 +19,9 @@ const PlayerItemEffectsType = preload(
 const PlayerCoolerCapacityType = preload(
 	"res://progression/player_cooler_capacity.gd"
 )
+const PlayerInventoryLayoutType = preload(
+	"res://inventory/player_inventory_layout.gd"
+)
 const PlayerArtUnlocksType = preload(
 	"res://progression/player_art_unlocks.gd"
 )
@@ -33,6 +36,7 @@ const FishingRodAttachmentScene = preload(
 )
 const NetAttachmentScene = preload("res://player/net_attachment.tscn")
 const NetAttachmentType = preload("res://player/net_attachment.gd")
+const ShovelAttachmentScene = preload("res://player/shovel_attachment.tscn")
 const FishingRodDataType = preload("res://items/fishing_rod_data.gd")
 const HeldItemAttachmentScene = preload(
 	"res://player/held_item_attachment.tscn"
@@ -347,6 +351,7 @@ class ShowcaseCameraSnapshot:
 @export_range(0.05, 1.0, 0.01) var showcase_restore_duration: float = 0.24
 @export_range(0.05, 1.5, 0.01) var showcase_camera_transition_duration: float = 0.42
 @export_range(-180.0, 180.0, 1.0) var showcase_camera_yaw_offset: float = 180.0
+@export_range(-180.0, 180.0, 1.0) var net_showcase_camera_yaw_offset: float = 0.0
 @export_range(-80.0, 80.0, 1.0) var showcase_camera_pitch: float = -8.0
 @export_range(1.0, 10.0, 0.1) var showcase_camera_zoom_distance: float = 3.6
 @export_range(0.5, 3.0, 0.05) var showcase_camera_target_height: float = 1.45
@@ -394,6 +399,7 @@ class ShowcaseCameraSnapshot:
 @onready var fishing_upgrades: PlayerFishingUpgradesType = %FishingUpgrades
 @onready var item_effects: PlayerItemEffectsType = %ItemEffects
 @onready var cooler_capacity: PlayerCoolerCapacityType = %CoolerCapacity
+@onready var inventory_layout: PlayerInventoryLayoutType = %InventoryLayout
 @onready var art_unlocks: PlayerArtUnlocksType = %ArtUnlocks
 @onready var experience: PlayerExperienceType = %Experience
 @onready var _cast_origin: Marker3D = %CastOrigin
@@ -428,6 +434,7 @@ var _remote_recovery_elapsed: float = 0.0
 var _target_zoom: float = 5.0
 var _showcase_rod_visibility: bool = true
 var _showcase_net_visibility: bool = false
+var _showcase_shovel_visibility: bool = false
 var _remote_presentation_visible := true
 var _showcase_rod_state_stored: bool = false
 var _showcase_visual_rotation: Vector3
@@ -502,6 +509,7 @@ var _retract_animation_completed: bool = true
 var _fishing_rod: Node3D
 var _catching_net: Node3D
 var _catching_net_attachment: NetAttachmentType
+var _shovel: Node3D
 var _net_strike_collision_armed: bool = false
 var _net_strike_has_previous_sample: bool = false
 var _net_strike_previous_position: Vector3
@@ -520,6 +528,7 @@ var _custom_fishing_rod_visual: Node3D
 var _active_fishing_rod_id: StringName
 var _active_item_is_rod: bool = false
 var _active_item_is_net: bool = false
+var _active_item_is_shovel: bool = false
 var _controller_mapping_manager: ControllerMappingManagerType
 var _sprint_dust_landing_ready: bool = false
 var _sprint_dust_airborne: bool = false
@@ -545,6 +554,7 @@ func _ready() -> void:
 	_apply_presented_appearance()
 	_initialize_fishing_rod()
 	_initialize_catching_net()
+	_initialize_shovel()
 	_target_zoom = clampf(_spring_arm.spring_length, minimum_zoom, maximum_zoom)
 	_spring_arm.spring_length = _target_zoom
 	_camera.current = local_control_enabled
@@ -859,6 +869,23 @@ func _initialize_catching_net() -> void:
 	_catching_net = attachment.get_node("CatchingNet") as Node3D
 	if _catching_net != null:
 		_catching_net.visible = false
+
+
+func _initialize_shovel() -> void:
+	var skeleton := get_node_or_null(
+		"Visuals/CharacterRig/CharacterRig/Skeleton3D"
+	) as Skeleton3D
+	if skeleton == null:
+		push_error("Player character skeleton is unavailable for the shovel.")
+		return
+	var attachment := ShovelAttachmentScene.instantiate() as BoneAttachment3D
+	if attachment == null:
+		push_error("Shovel attachment could not be instantiated.")
+		return
+	skeleton.add_child(attachment)
+	_shovel = attachment.get_node("Shovel") as Node3D
+	if _shovel != null:
+		_shovel.visible = false
 
 
 func _initialize_held_item_attachment() -> void:
@@ -2557,6 +2584,20 @@ func set_active_catching_net(should_show: bool) -> void:
 	)
 
 
+func set_active_shovel(should_show: bool) -> void:
+	_active_item_is_shovel = should_show
+	if not should_show:
+		cancel_net_action_visual()
+	if _shovel == null:
+		return
+	if _showcase_rod_state_stored:
+		_showcase_shovel_visibility = should_show
+		return
+	_shovel.visible = (
+		should_show and not _has_held_show_item() and not _showcase_animation_active
+	)
+
+
 func _apply_fishing_rod_model(rod: FishingRodDataType) -> void:
 	var next_id: StringName = rod.item_id if rod != null else StringName()
 	if next_id == _active_fishing_rod_id:
@@ -2625,6 +2666,12 @@ func _apply_active_rod_visibility() -> void:
 			and not _has_held_show_item()
 			and not _showcase_animation_active
 		)
+	if _shovel != null:
+		_shovel.visible = (
+			_active_item_is_shovel
+			and not _has_held_show_item()
+			and not _showcase_animation_active
+		)
 
 
 func set_active_art_kit(icon: Texture2D, should_show: bool) -> void:
@@ -2655,6 +2702,8 @@ func set_active_art_kit(icon: Texture2D, should_show: bool) -> void:
 	_fishing_rod.visible = false
 	if _catching_net != null:
 		_catching_net.visible = false
+	if _shovel != null:
+		_shovel.visible = false
 	if item_changed:
 		_begin_pocket_visual(
 			PocketVisualTarget.ART_KIT,
@@ -2705,6 +2754,8 @@ func set_held_fish(
 	_fishing_rod.visible = false
 	if _catching_net != null:
 		_catching_net.visible = false
+	if _shovel != null:
+		_shovel.visible = false
 	if item_changed:
 		_begin_pocket_visual(
 			PocketVisualTarget.HELD_FISH,
@@ -2919,10 +2970,13 @@ func begin_catch_showcase(fish_catch: FishCatchType) -> void:
 		_pending_net_showcase_catch = fish_catch
 		_pending_net_showcase_remote = false
 		return
-	_begin_catch_showcase_now(fish_catch)
+	_begin_catch_showcase_now(fish_catch, showcase_camera_yaw_offset)
 
 
-func _begin_catch_showcase_now(fish_catch: FishCatchType) -> void:
+func _begin_catch_showcase_now(
+	fish_catch: FishCatchType,
+	camera_yaw_offset_degrees: float,
+) -> void:
 	if _pocket_visual_target == PocketVisualTarget.CATCH_SHOWCASE:
 		_cancel_pocket_visual()
 	_showcase_animation_active = true
@@ -2933,17 +2987,24 @@ func _begin_catch_showcase_now(fish_catch: FishCatchType) -> void:
 	if not _showcase_visual_rotation_stored:
 		_showcase_visual_rotation = _visuals.rotation
 		_showcase_visual_rotation_stored = true
-	var showcase_camera_position: Vector3 = _begin_showcase_camera_transition()
+	var showcase_camera_position: Vector3 = _begin_showcase_camera_transition(
+		camera_yaw_offset_degrees
+	)
 	_turn_showcase_toward_position(showcase_camera_position)
 	if not _showcase_rod_state_stored:
 		_showcase_rod_visibility = _fishing_rod.visible
 		_showcase_net_visibility = (
 			_catching_net.visible if _catching_net != null else false
 		)
+		_showcase_shovel_visibility = (
+			_shovel.visible if _shovel != null else false
+		)
 		_showcase_rod_state_stored = true
 	_fishing_rod.visible = false
 	if _catching_net != null:
 		_catching_net.visible = false
+	if _shovel != null:
+		_shovel.visible = false
 	_catch_sprite.texture = fish_catch.fish.display_texture
 	_catch_display.scale = (
 		Vector3.ONE
@@ -2972,10 +3033,15 @@ func _begin_remote_catch_showcase_now(fish_catch: FishCatchType) -> void:
 	_showcase_net_visibility = (
 		_catching_net.visible if _catching_net != null else false
 	)
+	_showcase_shovel_visibility = (
+		_shovel.visible if _shovel != null else false
+	)
 	_showcase_rod_state_stored = true
 	_fishing_rod.visible = false
 	if _catching_net != null:
 		_catching_net.visible = false
+	if _shovel != null:
+		_shovel.visible = false
 	_catch_sprite.texture = fish_catch.fish.display_texture
 	_catch_display.scale = (
 		Vector3.ONE
@@ -3009,7 +3075,10 @@ func _begin_pending_net_showcase() -> void:
 	if remote:
 		_begin_remote_catch_showcase_now(fish_catch)
 	else:
-		_begin_catch_showcase_now(fish_catch)
+		_begin_catch_showcase_now(
+			fish_catch,
+			net_showcase_camera_yaw_offset,
+		)
 
 
 func end_catch_showcase(
@@ -3043,8 +3112,11 @@ func end_catch_showcase(
 		_fishing_rod.visible = _showcase_rod_visibility
 		if _catching_net != null:
 			_catching_net.visible = _showcase_net_visibility
+		if _shovel != null:
+			_shovel.visible = _showcase_shovel_visibility
 	_showcase_rod_visibility = true
 	_showcase_net_visibility = false
+	_showcase_shovel_visibility = false
 	_showcase_rod_state_stored = false
 	if (
 		not _showcase_visual_rotation_stored
@@ -3230,10 +3302,12 @@ func _capture_showcase_camera_snapshot() -> void:
 	_set_camera_dragging(false)
 
 
-func _begin_showcase_camera_transition() -> Vector3:
+func _begin_showcase_camera_transition(
+	camera_yaw_offset_degrees: float,
+) -> Vector3:
 	var target_world_yaw: float = (
 		_visuals.global_rotation.y
-		+ deg_to_rad(showcase_camera_yaw_offset)
+		+ deg_to_rad(camera_yaw_offset_degrees)
 	)
 	var target_local_yaw: float = target_world_yaw - global_rotation.y
 	var shortest_target_yaw: float = (

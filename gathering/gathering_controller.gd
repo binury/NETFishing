@@ -35,6 +35,7 @@ var _charging: bool = false
 var _charge_elapsed: float = 0.0
 var _charge_duration: float = 2.0
 var _request_id: String = ""
+var _active_tool_id: StringName
 var _gameplay_input_enabled: bool = false
 
 
@@ -76,15 +77,40 @@ func is_net_selected() -> bool:
 	)
 
 
+func is_shovel_selected() -> bool:
+	return _is_owned_tool_selected(FishingShopStockType.STANDARD_SHOVEL_ID)
+
+
+func _is_owned_tool_selected(tool_id: StringName) -> bool:
+	return (
+		_bag != null
+		and _hotbar != null
+		and _hotbar.get_selected_item_id() == tool_id
+		and _bag.owns_item(tool_id)
+	)
+
+
+func _get_selected_gathering_tool_id() -> StringName:
+	if is_net_selected():
+		return FishingShopStockType.CRAB_NET_ID
+	if is_shovel_selected():
+		return FishingShopStockType.STANDARD_SHOVEL_ID
+	return StringName()
+
+
 func _process(delta: float) -> void:
+	var selected_tool_id := _get_selected_gathering_tool_id()
 	var input_available: bool = (
 		_gameplay_input_enabled
-		and is_net_selected()
+		and not selected_tool_id.is_empty()
 		and _player != null
 		and _player.is_local_control_enabled()
 		and _fishing_spot != null
 		and _fishing_spot.can_change_hotbar_selection()
 	)
+	if _charging and selected_tool_id != _active_tool_id:
+		_cancel_charge()
+		input_available = false
 	if not input_available:
 		if _charging:
 			_cancel_charge()
@@ -105,7 +131,11 @@ func _process(delta: float) -> void:
 	var valid_target: bool = (
 		fully_charged
 		and not _target_entity_id.is_empty()
-		and _player.is_sneaking()
+		and (
+			target_entry == null
+			or not target_entry.requires_sneaking
+			or _player.is_sneaking()
+		)
 	)
 	_marker.material_override = (
 		_marker_valid_material if valid_target else _marker_invalid_material
@@ -127,7 +157,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		if (
 			_charging
 			or not _gameplay_input_enabled
-			or not is_net_selected()
+			or _get_selected_gathering_tool_id().is_empty()
 			or _fishing_spot == null
 			or not _fishing_spot.can_change_hotbar_selection()
 		):
@@ -136,10 +166,11 @@ func _unhandled_input(event: InputEvent) -> void:
 		if _request_id.is_empty():
 			return
 		_charging = true
+		_active_tool_id = _get_selected_gathering_tool_id()
 		_charge_elapsed = 0.0
 		_charge_duration = maxf(
 			_service.get_charge_duration_for_tool(
-				FishingShopStockType.CRAB_NET_ID
+				_active_tool_id
 			),
 			0.1,
 		)
@@ -151,11 +182,18 @@ func _unhandled_input(event: InputEvent) -> void:
 	if not _charging:
 		return
 	var fully_charged: bool = _charge_elapsed >= _charge_duration
+	var target_entry: GatherableData = _service.get_entry_for_entity(
+		_target_entity_id
+	)
 	var valid_capture: bool = (
 		fully_charged
 		and _marker_has_surface
 		and not _target_entity_id.is_empty()
-		and _player.is_sneaking()
+		and (
+			target_entry == null
+			or not target_entry.requires_sneaking
+			or _player.is_sneaking()
+		)
 	)
 	_player.play_net_strike_visual()
 	if valid_capture:
@@ -265,7 +303,7 @@ func _update_target_entity() -> void:
 	_target_entity_id = (
 		_service.find_capture_target(
 			_marker_position,
-			FishingShopStockType.CRAB_NET_ID,
+			_active_tool_id,
 		)
 		if _marker_has_surface and _service != null
 		else ""
@@ -284,6 +322,7 @@ func _reset_charge_state() -> void:
 	_charging = false
 	_charge_elapsed = 0.0
 	_request_id = ""
+	_active_tool_id = StringName()
 	_target_entity_id = ""
 	_marker_has_surface = false
 	_set_marker_visible(false)

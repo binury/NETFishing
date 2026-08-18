@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="ItemData" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://items/item_data.gd" id="1_item"]
+[ext_resource type="Texture2D" path="res://ui/icons/pictograms/x_light.png" id="2_icon"]
+
+[resource]
+script = ExtResource("1_item")
+item_id = &"standard_shovel"
+display_name = "standard shovel"
+description = "a sturdy shovel for digging up buried finds on the beach."
+active = true
+category = 1
+icon = ExtResource("2_icon")
+stackable = false
+max_stack = 1
+usable = false
+equippable = true
+hotbar_allowed = true

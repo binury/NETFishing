@@ -13,6 +13,7 @@ const SHOP_ID: StringName = &"main_fishing_shop"
 const REEL_PRODUCT_ID: StringName = &"reel_speed_upgrade"
 const BARRIER_PRODUCT_ID: StringName = &"barrier_power_upgrade"
 const COOLER_PRODUCT_ID: StringName = &"cooler_capacity_upgrade"
+const BACKPACK_PRODUCT_ID: StringName = &"backpack_capacity_upgrade"
 const MAX_LEDGER_ENTRIES_PER_PEER: int = 64
 
 signal local_purchase_pending(request_id: String)
@@ -35,6 +36,7 @@ var _bag: PlayerBag
 var _item_catalog: ItemCatalog
 var _upgrades: PlayerFishingUpgrades
 var _cooler_capacity: PlayerCoolerCapacity
+var _inventory_layout: PlayerInventoryLayout
 var _art_unlocks: PlayerArtUnlocks
 var _save_manager: PlayerSaveManager
 var _request_ledgers: Dictionary[int, Dictionary] = {}
@@ -60,6 +62,7 @@ func setup(
 	art_unlocks: PlayerArtUnlocks,
 	save_manager: PlayerSaveManager,
 	reservations: PlayerAssetReservationService,
+	inventory_layout: PlayerInventoryLayout = null,
 ) -> void:
 	_session = session
 	_spawn_service = spawn_service
@@ -73,6 +76,7 @@ func setup(
 	_art_unlocks = art_unlocks
 	_save_manager = save_manager
 	_reservations = reservations
+	_inventory_layout = inventory_layout
 	if not _session.peer_removed.is_connected(_on_peer_removed):
 		_session.peer_removed.connect(_on_peer_removed)
 	if not _session.state_changed.is_connected(_on_session_state_changed):
@@ -99,6 +103,18 @@ func can_request_art_purchase() -> bool:
 			_session.is_host()
 			or _session.supports_server_capability(
 				NetworkShopProtocol.ART_CAPABILITY
+			)
+		)
+	)
+
+
+func can_request_backpack_purchase() -> bool:
+	return (
+		can_request_purchase()
+		and (
+			_session.is_host()
+			or _session.supports_server_capability(
+				NetworkShopProtocol.BACKPACK_CAPABILITY
 			)
 		)
 	)
@@ -160,6 +176,16 @@ func request_cooler_capacity_upgrade() -> String:
 		NetworkShopProtocol.ProductCategory.COOLER_CAPACITY_UPGRADE,
 		1,
 		_cooler_capacity.get_level() if _cooler_capacity != null else 0
+	)
+
+
+func request_backpack_capacity_upgrade() -> String:
+	return _request_purchase(
+		BACKPACK_PRODUCT_ID,
+		NetworkShopProtocol.ProductCategory.BACKPACK_CAPACITY_UPGRADE,
+		1,
+		_inventory_layout.get_backpack_level()
+		if _inventory_layout != null else 0,
 	)
 
 
@@ -227,6 +253,15 @@ func _request_purchase(
 	):
 		local_purchase_finished.emit(
 			"", false, "Art supplies require a newer server.",
+			product_id, category, 0, 0,
+		)
+		return ""
+	if (
+		category == NetworkShopProtocol.ProductCategory.BACKPACK_CAPACITY_UPGRADE
+		and not can_request_backpack_purchase()
+	):
+		local_purchase_finished.emit(
+			"", false, "Backpack upgrades require a newer server.",
 			product_id, category, 0, 0,
 		)
 		return ""
@@ -372,7 +407,7 @@ func _build_authoritative_result(
 					or current_state + quantity > item.max_stack
 				):
 					rejection = (
-						"Your Bag is full."
+						"Your inventory is full."
 						if item != null and current_state >= item.max_stack
 						else "Purchase could not be completed."
 					)
@@ -457,6 +492,17 @@ func _build_authoritative_result(
 							current_state
 						]
 					)
+					resulting_state = current_state + 1
+			NetworkShopProtocol.ProductCategory.BACKPACK_CAPACITY_UPGRADE:
+				if (
+					product_id != BACKPACK_PRODUCT_ID
+					or current_state >= PlayerInventoryLayout.MAX_BACKPACK_LEVEL
+				):
+					rejection = "Upgrade is already at maximum."
+				else:
+					cost = PlayerInventoryLayout.BACKPACK_EXPANSION_COSTS[
+						current_state
+					]
 					resulting_state = current_state + 1
 			NetworkShopProtocol.ProductCategory.ART_KIT:
 				var art_item: ItemDataType = _item_catalog.get_item_by_id(
@@ -612,6 +658,10 @@ func _apply_purchase_result(data: Dictionary) -> void:
 	var reel_snapshot: int = _upgrades.get_reel_speed_level()
 	var barrier_snapshot: int = _upgrades.get_barrier_power_level()
 	var cooler_snapshot: int = _cooler_capacity.get_level()
+	var backpack_snapshot: int = (
+		_inventory_layout.get_backpack_level()
+		if _inventory_layout != null else 0
+	)
 	var art_snapshot: int = _art_unlocks.get_unlock_mask()
 	var applied: bool = _apply_local_product(data)
 	if not applied or not _save_manager.save_if_dirty():
@@ -619,6 +669,8 @@ func _apply_purchase_result(data: Dictionary) -> void:
 		_bag.replace_unlocked_bait_ids(bait_unlock_snapshot)
 		_upgrades.restore_levels(reel_snapshot, barrier_snapshot)
 		_cooler_capacity.restore_level(cooler_snapshot)
+		if _inventory_layout != null:
+			_inventory_layout.restore_backpack_level(backpack_snapshot)
 		_art_unlocks.restore_mask(art_snapshot)
 		_wallet.restore_balance(wallet_snapshot)
 		_save_manager.save_if_dirty()
@@ -687,7 +739,7 @@ func _validate_local_result(data: Dictionary) -> String:
 			):
 				return "Purchase could not be completed."
 			if not _bag.can_add_item(product_id, data["quantity"]):
-				return "Your Bag is full."
+				return "Your inventory is full."
 		NetworkShopProtocol.ProductCategory.ROD:
 			var rod := (
 				_item_catalog.get_item_by_id(product_id)
@@ -718,6 +770,13 @@ func _validate_local_result(data: Dictionary) -> String:
 			if _cooler_capacity.get_level() != expected_state:
 				return "Purchase could not be completed."
 			if _cooler_capacity.get_next_cost() != cost:
+				return "Purchase could not be completed."
+		NetworkShopProtocol.ProductCategory.BACKPACK_CAPACITY_UPGRADE:
+			if (
+				_inventory_layout == null
+				or _inventory_layout.get_backpack_level() != expected_state
+				or _inventory_layout.get_next_backpack_cost() != cost
+			):
 				return "Purchase could not be completed."
 		NetworkShopProtocol.ProductCategory.ART_KIT:
 			var art_item: ItemDataType = (
@@ -768,6 +827,11 @@ func _apply_local_product(data: Dictionary) -> bool:
 			return _upgrades.purchase_barrier_power(_wallet)
 		NetworkShopProtocol.ProductCategory.COOLER_CAPACITY_UPGRADE:
 			return _cooler_capacity.purchase(_wallet)
+		NetworkShopProtocol.ProductCategory.BACKPACK_CAPACITY_UPGRADE:
+			return (
+				_inventory_layout != null
+				and _inventory_layout.purchase_backpack(_wallet)
+			)
 		NetworkShopProtocol.ProductCategory.ART_KIT:
 			return (
 				_wallet.debit(int(data["total_cost"]))

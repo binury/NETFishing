@@ -5,9 +5,13 @@ const PlayerWalletType = preload("res://economy/player_wallet.gd")
 
 signal capacity_changed(level: int, capacity: int)
 
-const CAPACITIES: Array[int] = [12, 18, 24, 32, 40]
-const EXPANSION_COSTS: Array[int] = [75, 175, 400, 850]
-const MAX_LEVEL: int = 4
+## Kept under the historical class name so existing saves and network product
+## identifiers migrate without losing their purchased level. This progression
+## now controls the player's private storage box rather than carried catches.
+const CAPACITIES: Array[int] = [9, 18, 27, 36, 45, 54, 63, 72]
+const EXPANSION_COSTS: Array[int] = [75, 175, 400, 850, 1500, 2500, 4000]
+const MAX_LEVEL: int = 7
+const MAX_CAPACITY: int = 72
 
 var _capacity_level: int = 0
 

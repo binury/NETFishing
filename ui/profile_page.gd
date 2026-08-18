@@ -3,13 +3,16 @@ extends Control
 
 const CHECK_DEBOUNCE_SECONDS: float = 0.4
 const APPEARANCE_PREVIEW_INTERVAL_SECONDS: float = 0.08
-const OPTION_GRID_COLUMNS: int = 6
-const FUR_PALETTE_GRID_COLUMNS: int = 10
-const FUR_PATTERN_GRID_COLUMNS: int = 4
+const OPTION_GRID_COLUMNS: int = 3
+const FUR_PALETTE_GRID_COLUMNS: int = 6
+const FUR_PATTERN_GRID_COLUMNS: int = 2
+const FUR_CHANNEL_GRID_COLUMNS: int = 2
 const FUR_PALETTE_SWATCH_SIZE: float = 38.0
 const FUR_CHANNEL_SWATCH_SIZE: float = 22.0
+const FUR_PART_TAB_WIDTH: float = 58.0
 const FUR_COLOR_PICKER_POPUP_SIZE: Vector2i = Vector2i(720, 560)
 const FUR_COLOR_PICKER_SV_SIZE: Vector2i = Vector2i(520, 300)
+const VOICE_OPTION_BUTTON_SIZE: Vector2 = Vector2(68.0, 32.0)
 const FUR_SECTION_PATTERNS: String = "patterns"
 const FUR_SECTION_COLORS: String = "colors"
 const FEATURE_DRAWER_ANIMATION_SECONDS: float = 0.16
@@ -722,7 +725,7 @@ func _build_ui() -> void:
 	_category_list.add_theme_constant_override("separation", 5)
 	category_scroll.add_child(_category_list)
 	_option_list = VBoxContainer.new()
-	_option_list.custom_minimum_size = Vector2(360, 0)
+	_option_list.custom_minimum_size = Vector2(326, 0)
 	_option_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_option_list.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_option_list.add_theme_constant_override("separation", 5)
@@ -732,13 +735,13 @@ func _build_ui() -> void:
 	body_spacer.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	body.add_child(body_spacer)
 	var preview_stack := VBoxContainer.new()
-	preview_stack.custom_minimum_size.x = 260.0
+	preview_stack.custom_minimum_size.x = 240.0
 	preview_stack.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	preview_stack.alignment = BoxContainer.ALIGNMENT_CENTER
 	preview_stack.add_theme_constant_override("separation", 7)
 	body.add_child(preview_stack)
 	var preview_frame := PanelContainer.new()
-	preview_frame.custom_minimum_size = Vector2(260.0, 0.0)
+	preview_frame.custom_minimum_size = Vector2(240.0, 0.0)
 	preview_frame.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	preview_frame.add_theme_stylebox_override(
 		"panel", UtilityPageStyle.rounded_style(
@@ -752,7 +755,7 @@ func _build_ui() -> void:
 	preview_layer.mouse_filter = Control.MOUSE_FILTER_PASS
 	preview_frame.add_child(preview_layer)
 	_preview = preload("res://ui/profile_preview.tscn").instantiate()
-	_preview.custom_minimum_size = Vector2(260.0, 0.0)
+	_preview.custom_minimum_size = Vector2(240.0, 0.0)
 	_preview.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_preview.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	preview_layer.add_child(_preview)
@@ -911,7 +914,7 @@ func _build_voice_options() -> void:
 	var settings_grid := GridContainer.new()
 	settings_grid.name = "VoiceSettingsGrid"
 	settings_grid.columns = 2
-	settings_grid.add_theme_constant_override("h_separation", 10)
+	settings_grid.add_theme_constant_override("h_separation", 8)
 	settings_grid.add_theme_constant_override("v_separation", 8)
 	settings_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_option_list.add_child(settings_grid)
@@ -943,7 +946,7 @@ func _build_voice_options() -> void:
 		sample_set_button.text = str(option.get("label", sample_set_id))
 		sample_set_button.toggle_mode = true
 		sample_set_button.button_group = sample_set_group
-		sample_set_button.custom_minimum_size = Vector2(108.0, 32.0)
+		sample_set_button.custom_minimum_size = VOICE_OPTION_BUTTON_SIZE
 		sample_set_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		sample_set_button.button_pressed = (
 			_draft_sample_set_id == sample_set_id
@@ -951,7 +954,7 @@ func _build_voice_options() -> void:
 		sample_set_button.pressed.connect(
 			_select_sample_set_option.bind(sample_set_id)
 		)
-		UtilityPageStyle.apply_compact_ocean_button(sample_set_button)
+		_apply_voice_option_button(sample_set_button)
 		sample_set_grid.add_child(sample_set_button)
 	var pitch_title := Label.new()
 	pitch_title.text = "pitch"
@@ -976,11 +979,11 @@ func _build_voice_options() -> void:
 		button.text = str(option.get("label", option_id))
 		button.toggle_mode = true
 		button.button_group = pitch_group
-		button.custom_minimum_size = Vector2(108.0, 32.0)
+		button.custom_minimum_size = VOICE_OPTION_BUTTON_SIZE
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		button.button_pressed = _draft_voice_id == option_id
 		button.pressed.connect(_select_voice_option.bind(option_id))
-		UtilityPageStyle.apply_compact_ocean_button(button)
+		_apply_voice_option_button(button)
 		grid.add_child(button)
 	var speed_title := Label.new()
 	speed_title.text = "playback speed"
@@ -1008,13 +1011,13 @@ func _build_voice_options() -> void:
 		)
 		speed_button.toggle_mode = true
 		speed_button.button_group = speed_group
-		speed_button.custom_minimum_size = Vector2(108.0, 32.0)
+		speed_button.custom_minimum_size = VOICE_OPTION_BUTTON_SIZE
 		speed_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		speed_button.button_pressed = _draft_speech_speed_id == speed_id
 		speed_button.pressed.connect(
 			_select_speech_speed_option.bind(speed_id)
 		)
-		UtilityPageStyle.apply_compact_ocean_button(speed_button)
+		_apply_voice_option_button(speed_button)
 		speed_grid.add_child(speed_button)
 	var call_title := Label.new()
 	call_title.text = "call (G)"
@@ -1039,12 +1042,27 @@ func _build_voice_options() -> void:
 		call_button.text = str(option.get("label", call_id))
 		call_button.toggle_mode = true
 		call_button.button_group = call_group
-		call_button.custom_minimum_size = Vector2(108.0, 32.0)
+		call_button.custom_minimum_size = VOICE_OPTION_BUTTON_SIZE
 		call_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		call_button.button_pressed = _draft_call_id == call_id
 		call_button.pressed.connect(_select_call_option.bind(call_id))
-		UtilityPageStyle.apply_compact_ocean_button(call_button)
+		_apply_voice_option_button(call_button)
 		call_grid.add_child(call_button)
+
+
+func _apply_voice_option_button(button: Button) -> void:
+	UtilityPageStyle.apply_compact_ocean_button(button)
+	button.custom_minimum_size = VOICE_OPTION_BUTTON_SIZE
+	button.add_theme_font_size_override("font_size", 12)
+	for state: StringName in [
+		&"normal", &"hover", &"pressed", &"focus", &"disabled",
+	]:
+		var style := button.get_theme_stylebox(state).duplicate() as StyleBoxFlat
+		if style == null:
+			continue
+		style.content_margin_left = 6.0
+		style.content_margin_right = 6.0
+		button.add_theme_stylebox_override(state, style)
 
 
 func _select_sample_set_option(sample_set_id: String) -> void:
@@ -1473,7 +1491,7 @@ func _build_fur_pattern_options() -> void:
 	var part_tabs := HBoxContainer.new()
 	part_tabs.name = "FurPatternPartTabs"
 	part_tabs.custom_minimum_size.y = 38.0
-	part_tabs.add_theme_constant_override("separation", 4)
+	part_tabs.add_theme_constant_override("separation", 2)
 	part_tab_margin.add_child(part_tabs)
 	for style_index: int in range(
 		CharacterCustomizationCatalog.FUR_STYLE_IDS.size()
@@ -1486,7 +1504,7 @@ func _build_fur_pattern_options() -> void:
 			style_field
 		)
 		part_tab.palette_index = mini(style_index, 2)
-		part_tab.custom_minimum_size = Vector2(90.0, 38.0)
+		part_tab.custom_minimum_size = Vector2(FUR_PART_TAB_WIDTH, 38.0)
 		part_tab.focus_mode = Control.FOCUS_ALL
 		part_tab.mouse_filter = Control.MOUSE_FILTER_STOP
 		part_tab.pressed.connect(_select_fur_pattern_part.bind(style_field))
@@ -1586,7 +1604,7 @@ func _build_fur_color_channels(options: Array) -> void:
 
 	var channel_grid := GridContainer.new()
 	channel_grid.name = "FurColorChannelGrid"
-	channel_grid.columns = CharacterCustomizationCatalog.FUR_COLOR_IDS.size()
+	channel_grid.columns = FUR_CHANNEL_GRID_COLUMNS
 	channel_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	channel_grid.add_theme_constant_override("h_separation", 10)
 	channel_grid.add_theme_constant_override("v_separation", 8)

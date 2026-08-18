@@ -1,4 +1,4 @@
-[gd_scene load_steps=22 format=3]
+[gd_scene load_steps=23 format=3]
 
 [ext_resource type="Script" path="res://player/player.gd" id="1_script"]
 [ext_resource type="Script" path="res://inventory/fish_inventory.gd" id="2_inventory"]
@@ -16,6 +16,7 @@
 [ext_resource type="Script" path="res://progression/player_art_unlocks.gd" id="14_art_unlocks"]
 [ext_resource type="Script" path="res://progression/player_experience.gd" id="15_experience"]
 [ext_resource type="Script" path="res://player/sprint_dust_trail.gd" id="16_sprint_dust"]
+[ext_resource type="Script" path="res://inventory/player_inventory_layout.gd" id="17_inventory_layout"]
 
 [sub_resource type="CapsuleShape3D" id="PlayerShape"]
 radius = 0.45
@@ -118,6 +119,10 @@ script = ExtResource("9_effects")
 [node name="CoolerCapacity" type="Node" parent="."]
 unique_name_in_owner = true
 script = ExtResource("10_capacity")
+
+[node name="InventoryLayout" type="Node" parent="."]
+unique_name_in_owner = true
+script = ExtResource("17_inventory_layout")
 
 [node name="ArtUnlocks" type="Node" parent="."]
 unique_name_in_owner = true

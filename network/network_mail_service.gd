@@ -928,7 +928,9 @@ func _can_receive(attachment: Dictionary) -> bool:
 			return _wallet.can_credit(int(attachment["amount"]))
 		PlayerAssetReservationService.AttachmentType.FISH:
 			return (
-				_inventory.get_all_catches().size() < _cooler_capacity.get_capacity()
+				_inventory.can_accept_catch(
+					StringName(str(attachment["catch_id"]))
+				)
 				and not _inventory.contains_catch_id(
 					StringName(str(attachment["catch_id"]))
 				)

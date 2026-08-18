@@ -1,0 +1,26 @@
+[gd_resource type="Resource" script_class="GatherableData" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://gathering/gatherable_data.gd" id="1_data"]
+[ext_resource type="Resource" path="res://fish/species/beetle_stag_common/beetle_stag_common.tres" id="2_catch"]
+
+[resource]
+script = ExtResource("1_data")
+type_id = &"beetle_stag_common"
+catch_data = ExtResource("2_catch")
+required_tool_id = &"crab_net"
+spawn_anchor_set_id = &"starter_reachable_tree_trunks"
+population = 3
+requires_sneaking = false
+movement_speed = 0.0
+roam_radius = 0.1
+scare_radius = 0.1
+capture_radius = 0.34
+interaction_range = 2.8
+charge_duration = 1.0
+sprite_pixel_size = 0.005
+sprite_tilt_degrees = 0.0
+capture_respawn_min_seconds = 90.0
+capture_respawn_max_seconds = 150.0
+scare_respawn_min_seconds = 0.0
+scare_respawn_max_seconds = 0.0
+minimum_respawn_spacing_seconds = 30.0

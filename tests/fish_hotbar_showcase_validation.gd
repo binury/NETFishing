@@ -104,7 +104,7 @@ func _run() -> void:
 	var hotbar_data: Dictionary = (parsed as Dictionary)["hotbar"]
 	assert(typeof(hotbar_data.get("fish_slots")) == TYPE_ARRAY)
 	assert(str((hotbar_data["fish_slots"] as Array)[1]) == fish_catch.catch_id)
-	assert(int((parsed as Dictionary)["save_version"]) == 7)
+	assert(int((parsed as Dictionary)["save_version"]) == 8)
 	assert(
 		int((parsed as Dictionary)["experience"]["total_experience"])
 		== 125

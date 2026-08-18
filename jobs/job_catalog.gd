@@ -23,6 +23,8 @@ const WEATHER_SEGMENT_HOURS: float = (
 const WEATHER_SEGMENT_COUNT: int = (
 	WorldWeatherService.DAILY_PLAN_SEGMENT_COUNT
 )
+const LEGACY_WEATHER_SEGMENT_HOURS: float = 2.0
+const LEGACY_WEATHER_SEGMENT_COUNT: int = 12
 const MAX_JOB_REWARD_COINS: int = 100000
 const MAX_JOB_REWARD_EXPERIENCE: int = 10000
 
@@ -339,6 +341,36 @@ static func is_bounded_integer(
 
 static func is_valid_weather_schedule(value: Variant) -> bool:
 	return WorldWeatherService.is_valid_daily_plan_schedule(value)
+
+
+static func is_valid_legacy_weather_schedule(value: Variant) -> bool:
+	if typeof(value) != TYPE_ARRAY:
+		return false
+	var schedule: Array = value
+	if schedule.size() != LEGACY_WEATHER_SEGMENT_COUNT:
+		return false
+	for index: int in schedule.size():
+		if typeof(schedule[index]) != TYPE_DICTIONARY:
+			return false
+		var entry: Dictionary = schedule[index]
+		var expected_hour: float = fposmod(
+			WorldTimeService.DAY_START_HOUR
+				+ float(index) * LEGACY_WEATHER_SEGMENT_HOURS,
+			WorldTimeService.HOURS_PER_DAY,
+		)
+		if (
+			typeof(entry.get("start_hour")) not in [TYPE_FLOAT, TYPE_INT]
+			or not is_equal_approx(
+				float(entry.get("start_hour", -1.0)), expected_hour
+			)
+			or not is_bounded_integer(
+				entry.get("weather"),
+				WorldWeatherService.Weather.SUNNY,
+				WorldWeatherService.Weather.FOGGY,
+			)
+		):
+			return false
+	return true
 
 
 static func _job(

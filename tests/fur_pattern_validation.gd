@@ -288,9 +288,9 @@ func _validate_fur_color_ui(snapshot: Dictionary) -> void:
 	var picker_popup := picker.get_popup()
 	var picker_control := picker.get_picker()
 	assert(color_panel != null and color_panel.size.x > 360.0)
-	assert(channel_grid != null and channel_grid.columns == 4)
+	assert(channel_grid != null and channel_grid.columns == 2)
 	assert(channel_grid.get_child_count() == 4)
-	assert(palette_grid != null and palette_grid.columns == 10)
+	assert(palette_grid != null and palette_grid.columns == 6)
 	assert(palette_grid.get_child_count() == 30)
 	for option_button: Button in palette_grid.get_children():
 		assert(

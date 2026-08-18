@@ -18,6 +18,13 @@ const FishQualityType = preload("res://fish/fish_quality.gd")
 const CurrencyPresentationType = preload(
 	"res://ui/currency_presentation.gd"
 )
+const INBOX_ENTRY_WIDTH: float = 742.0
+const ATTACHMENT_COLUMN_X: float = 516.0
+const ATTACHMENT_COLUMN_WIDTH: float = 266.0
+const AMOUNT_FIELD_X_WITH_CURRENCY: float = 594.0
+const AMOUNT_FIELD_X_PLAIN: float = 570.0
+const AMOUNT_FIELD_WIDTH_WITH_CURRENCY: float = 130.0
+const AMOUNT_FIELD_WIDTH_PLAIN: float = 154.0
 
 var _service: NetworkMailService
 var _reservations: PlayerAssetReservationService
@@ -434,7 +441,7 @@ func _build_ui() -> void:
 		root.add_child(page)
 	_status = Label.new()
 	_status.position = Vector2(18, 408)
-	_status.size = Vector2(1024, 28)
+	_status.size = Vector2(758, 28)
 	_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_status.add_theme_color_override(
 		"font_color", UtilityPageStyle.OCEAN_TEXT_SECONDARY
@@ -449,19 +456,19 @@ func _build_inbox() -> Control:
 	var title := Label.new()
 	title.text = "mail"
 	title.position = Vector2(12, 0)
-	title.size = Vector2(500, 42)
+	title.size = Vector2(300, 42)
 	title.add_theme_font_size_override("font_size", 30)
 	page.add_child(title)
 	_send_mail_button = Button.new()
 	_send_mail_button.text = "send mail"
-	_send_mail_button.position = Vector2(820, 0)
-	_send_mail_button.size = Vector2(150, 48)
+	_send_mail_button.position = Vector2(642, 0)
+	_send_mail_button.size = Vector2(140, 48)
 	_send_mail_button.pressed.connect(_show_compose)
 	page.add_child(_send_mail_button)
 	_archive_view_button = Button.new()
 	_archive_view_button.text = "archive"
-	_archive_view_button.position = Vector2(654, 0)
-	_archive_view_button.size = Vector2(154, 48)
+	_archive_view_button.position = Vector2(490, 0)
+	_archive_view_button.size = Vector2(140, 48)
 	_archive_view_button.pressed.connect(func() -> void:
 		_showing_archive = not _showing_archive
 		_archive_view_button.text = "inbox" if _showing_archive else "archive"
@@ -470,16 +477,16 @@ func _build_inbox() -> Control:
 	page.add_child(_archive_view_button)
 	var scroll := ScrollContainer.new()
 	scroll.position = Vector2(12, 62)
-	scroll.size = Vector2(1036, 334)
+	scroll.size = Vector2(770, 334)
 	page.add_child(scroll)
 	_inbox_list = VBoxContainer.new()
-	_inbox_list.custom_minimum_size = Vector2(1008, 0)
+	_inbox_list.custom_minimum_size = Vector2(INBOX_ENTRY_WIDTH, 0)
 	_inbox_list.add_theme_constant_override("separation", 8)
 	scroll.add_child(_inbox_list)
 	_empty_label = Label.new()
 	_empty_label.text = "No letters yet."
 	_empty_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_empty_label.custom_minimum_size = Vector2(1008, 80)
+	_empty_label.custom_minimum_size = Vector2(INBOX_ENTRY_WIDTH, 80)
 	_inbox_list.add_child(_empty_label)
 	return page
 
@@ -494,43 +501,43 @@ func _build_compose() -> Control:
 	page.add_child(title)
 	_greeting = OptionButton.new()
 	_greeting.position = Vector2(12, 48)
-	_greeting.size = Vector2(180, 46)
+	_greeting.size = Vector2(140, 46)
 	for id: String in NetworkMailProtocol.GREETINGS:
 		_greeting.add_item(GREETING_LABELS[id])
 		_greeting.set_item_metadata(_greeting.item_count - 1, id)
 	page.add_child(_greeting)
 	_recipient = OptionButton.new()
-	_recipient.position = Vector2(204, 48)
-	_recipient.size = Vector2(330, 46)
+	_recipient.position = Vector2(164, 48)
+	_recipient.size = Vector2(328, 46)
 	page.add_child(_recipient)
 	_body = TextEdit.new()
 	_body.position = Vector2(12, 106)
-	_body.size = Vector2(650, 218)
+	_body.size = Vector2(480, 218)
 	_body.placeholder_text = "write your letter…"
 	_body.wrap_mode = TextEdit.LINE_WRAPPING_BOUNDARY
 	_body.text_changed.connect(_update_send_state)
 	page.add_child(_body)
 	_salutation = OptionButton.new()
 	_salutation.position = Vector2(12, 336)
-	_salutation.size = Vector2(250, 46)
+	_salutation.size = Vector2(180, 46)
 	for id: String in NetworkMailProtocol.SALUTATIONS:
 		_salutation.add_item(SALUTATION_LABELS[id])
 		_salutation.set_item_metadata(_salutation.item_count - 1, id)
 	page.add_child(_salutation)
 	_signature = Label.new()
-	_signature.position = Vector2(274, 342)
-	_signature.size = Vector2(360, 36)
+	_signature.position = Vector2(204, 342)
+	_signature.size = Vector2(288, 36)
 	page.add_child(_signature)
 	_attachment_kind = OptionButton.new()
-	_attachment_kind.position = Vector2(688, 48)
-	_attachment_kind.size = Vector2(280, 46)
+	_attachment_kind.position = Vector2(ATTACHMENT_COLUMN_X, 48)
+	_attachment_kind.size = Vector2(ATTACHMENT_COLUMN_WIDTH, 46)
 	for label: String in ["No gift", "Currency", "Fish", "Item"]:
 		_attachment_kind.add_item(label)
 	_attachment_kind.item_selected.connect(_refresh_attachment_choices)
 	page.add_child(_attachment_kind)
 	_attachment_choice = OptionButton.new()
-	_attachment_choice.position = Vector2(688, 106)
-	_attachment_choice.size = Vector2(280, 46)
+	_attachment_choice.position = Vector2(ATTACHMENT_COLUMN_X, 106)
+	_attachment_choice.size = Vector2(ATTACHMENT_COLUMN_WIDTH, 46)
 	_attachment_choice.item_selected.connect(
 		func(_index: int) -> void:
 			_update_attachment_amount_limit()
@@ -539,16 +546,16 @@ func _build_compose() -> Control:
 	page.add_child(_attachment_choice)
 	_coin_available_heading = Label.new()
 	_coin_available_heading.text = "Available"
-	_coin_available_heading.position = Vector2(688, 158)
+	_coin_available_heading.position = Vector2(ATTACHMENT_COLUMN_X, 158)
 	_coin_available_heading.size = Vector2(80, 28)
 	page.add_child(_coin_available_heading)
 	_coin_available = CurrencyPresentationType.instantiate_amount(0, 18.0)
-	_coin_available.position = Vector2(770, 158)
-	_coin_available.size = Vector2(198, 28)
+	_coin_available.position = Vector2(598, 158)
+	_coin_available.size = Vector2(184, 28)
 	_coin_available.alignment = BoxContainer.ALIGNMENT_BEGIN
 	page.add_child(_coin_available)
 	_attachment_amount_currency_icon = TextureRect.new()
-	_attachment_amount_currency_icon.position = Vector2(746, 204)
+	_attachment_amount_currency_icon.position = Vector2(570, 204)
 	_attachment_amount_currency_icon.size = Vector2(18, 18)
 	_attachment_amount_currency_icon.texture = preload(
 		"res://items/icons/shop/32_currency.png"
@@ -563,27 +570,27 @@ func _build_compose() -> Control:
 	_attachment_amount_currency_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	page.add_child(_attachment_amount_currency_icon)
 	_attachment_amount = LineEdit.new()
-	_attachment_amount.position = Vector2(770, 190)
-	_attachment_amount.size = Vector2(140, 46)
+	_attachment_amount.position = Vector2(AMOUNT_FIELD_X_WITH_CURRENCY, 190)
+	_attachment_amount.size = Vector2(AMOUNT_FIELD_WIDTH_WITH_CURRENCY, 46)
 	_attachment_amount.placeholder_text = "0"
 	_attachment_amount.text = "0"
 	_attachment_amount.text_changed.connect(_on_attachment_amount_changed)
 	page.add_child(_attachment_amount)
 	_amount_minus = Button.new()
 	_amount_minus.text = "−"
-	_amount_minus.position = Vector2(688, 190)
-	_amount_minus.size = Vector2(48, 46)
+	_amount_minus.position = Vector2(ATTACHMENT_COLUMN_X, 190)
+	_amount_minus.size = Vector2(44, 46)
 	_amount_minus.pressed.connect(_step_attachment_amount.bind(-1))
 	page.add_child(_amount_minus)
 	_amount_plus = Button.new()
 	_amount_plus.text = "+"
-	_amount_plus.position = Vector2(920, 190)
+	_amount_plus.position = Vector2(734, 190)
 	_amount_plus.size = Vector2(48, 46)
 	_amount_plus.pressed.connect(_step_attachment_amount.bind(1))
 	page.add_child(_amount_plus)
 	_attachment_summary = RichTextLabel.new()
-	_attachment_summary.position = Vector2(688, 246)
-	_attachment_summary.size = Vector2(280, 78)
+	_attachment_summary.position = Vector2(ATTACHMENT_COLUMN_X, 246)
+	_attachment_summary.size = Vector2(ATTACHMENT_COLUMN_WIDTH, 78)
 	_attachment_summary.bbcode_enabled = true
 	_attachment_summary.fit_content = true
 	_attachment_summary.scroll_active = false
@@ -591,14 +598,14 @@ func _build_compose() -> Control:
 	page.add_child(_attachment_summary)
 	_compose_cancel = Button.new()
 	_compose_cancel.text = "cancel"
-	_compose_cancel.position = Vector2(688, 342)
-	_compose_cancel.size = Vector2(126, 48)
+	_compose_cancel.position = Vector2(ATTACHMENT_COLUMN_X, 342)
+	_compose_cancel.size = Vector2(122, 48)
 	_compose_cancel.pressed.connect(_show_inbox)
 	page.add_child(_compose_cancel)
 	_send_button = Button.new()
 	_send_button.text = "send letter"
-	_send_button.position = Vector2(826, 342)
-	_send_button.size = Vector2(142, 48)
+	_send_button.position = Vector2(646, 342)
+	_send_button.size = Vector2(136, 48)
 	_send_button.pressed.connect(_send)
 	page.add_child(_send_button)
 	_recipient.item_selected.connect(func(_i: int) -> void:
@@ -613,12 +620,12 @@ func _build_letter() -> Control:
 	var page := Control.new()
 	_letter_text = Label.new()
 	_letter_text.position = Vector2(26, 20)
-	_letter_text.size = Vector2(680, 350)
+	_letter_text.size = Vector2(500, 350)
 	_letter_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_letter_text.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 	page.add_child(_letter_text)
 	_letter_gift = RichTextLabel.new()
-	_letter_gift.position = Vector2(730, 46)
+	_letter_gift.position = Vector2(552, 46)
 	_letter_gift.size = Vector2(230, 180)
 	_letter_gift.bbcode_enabled = true
 	_letter_gift.fit_content = true
@@ -627,7 +634,7 @@ func _build_letter() -> Control:
 	page.add_child(_letter_gift)
 	_accept = Button.new()
 	_accept.text = "accept gift"
-	_accept.position = Vector2(730, 250)
+	_accept.position = Vector2(552, 250)
 	_accept.size = Vector2(230, 48)
 	_accept.pressed.connect(func() -> void:
 		_service.accept_gift(_current_mail_id)
@@ -635,7 +642,7 @@ func _build_letter() -> Control:
 	page.add_child(_accept)
 	_decline = Button.new()
 	_decline.text = "decline gift"
-	_decline.position = Vector2(730, 308)
+	_decline.position = Vector2(552, 308)
 	_decline.size = Vector2(230, 48)
 	_decline.pressed.connect(func() -> void:
 		_service.decline_gift(_current_mail_id)
@@ -649,13 +656,13 @@ func _build_letter() -> Control:
 	page.add_child(_letter_close)
 	_archive = Button.new()
 	_archive.text = "archive"
-	_archive.position = Vector2(550, 370)
+	_archive.position = Vector2(466, 370)
 	_archive.size = Vector2(150, 48)
 	_archive.pressed.connect(_archive_current)
 	page.add_child(_archive)
 	_delete = Button.new()
 	_delete.text = "delete"
-	_delete.position = Vector2(710, 370)
+	_delete.position = Vector2(626, 370)
 	_delete.size = Vector2(150, 48)
 	_delete.pressed.connect(_delete_current)
 	page.add_child(_delete)
@@ -751,7 +758,7 @@ func _refresh_inbox() -> void:
 		empty.text = (
 			"No archived letters." if _showing_archive else "No letters yet."
 		)
-		empty.custom_minimum_size = Vector2(1008, 80)
+		empty.custom_minimum_size = Vector2(INBOX_ENTRY_WIDTH, 80)
 		empty.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		_inbox_list.add_child(empty)
 		call_deferred("_refresh_controller_navigation")
@@ -779,7 +786,7 @@ func _refresh_inbox() -> void:
 			first_line.left(72),
 			"  · gift enclosed" if gift else "",
 		]
-		button.custom_minimum_size = Vector2(1008, 54)
+		button.custom_minimum_size = Vector2(INBOX_ENTRY_WIDTH, 54)
 		button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		button.pressed.connect(_open_letter.bind(str(letter["mail_id"])))
 		UtilityPageStyle.apply_ocean_button(button)
@@ -826,8 +833,14 @@ func _refresh_attachment_choices(_index: int) -> void:
 	_coin_available_heading.visible = currency_selected
 	_coin_available.visible = currency_selected
 	_attachment_amount_currency_icon.visible = currency_selected
-	_attachment_amount.position.x = 770.0 if currency_selected else 746.0
-	_attachment_amount.size.x = 140.0 if currency_selected else 164.0
+	_attachment_amount.position.x = (
+		AMOUNT_FIELD_X_WITH_CURRENCY
+		if currency_selected else AMOUNT_FIELD_X_PLAIN
+	)
+	_attachment_amount.size.x = (
+		AMOUNT_FIELD_WIDTH_WITH_CURRENCY
+		if currency_selected else AMOUNT_FIELD_WIDTH_PLAIN
+	)
 	match _attachment_kind.selected:
 		0:
 			_attachment_choice.add_item("No attachment")

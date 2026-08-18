@@ -11,13 +11,22 @@ enum Weather {
 }
 
 const DEFAULT_WEATHER: Weather = Weather.SUNNY
-const SUNNY_DURATION_RANGE := Vector2(480.0, 900.0)
-const CLOUDY_DURATION_RANGE := Vector2(300.0, 720.0)
-const RAINY_DURATION_RANGE := Vector2(300.0, 600.0)
-const FOGGY_DURATION_RANGE := Vector2(300.0, 600.0)
-const MAX_PERSISTED_SECONDS: float = 1800.0
-const DAILY_PLAN_SEGMENT_HOURS: float = 2.0
-const DAILY_PLAN_SEGMENT_COUNT: int = 12
+const WEATHER_PERIOD_SECONDS: float = 60.0 * 60.0
+const SUNNY_DURATION_RANGE := Vector2(
+	WEATHER_PERIOD_SECONDS, WEATHER_PERIOD_SECONDS
+)
+const CLOUDY_DURATION_RANGE := Vector2(
+	WEATHER_PERIOD_SECONDS, WEATHER_PERIOD_SECONDS
+)
+const RAINY_DURATION_RANGE := Vector2(
+	WEATHER_PERIOD_SECONDS, WEATHER_PERIOD_SECONDS
+)
+const FOGGY_DURATION_RANGE := Vector2(
+	WEATHER_PERIOD_SECONDS, WEATHER_PERIOD_SECONDS
+)
+const MAX_PERSISTED_SECONDS: float = WEATHER_PERIOD_SECONDS
+const DAILY_PLAN_SEGMENT_HOURS: float = 1.0
+const DAILY_PLAN_SEGMENT_COUNT: int = 24
 
 var _weather: Weather = DEFAULT_WEATHER
 var _seconds_remaining: float = SUNNY_DURATION_RANGE.x
@@ -48,18 +57,11 @@ func begin_authoritative_session(seed_value: int) -> void:
 	set_process(true)
 	_clear_manual_override()
 	if _daily_schedule.is_empty() or _world_time == null:
-		if _has_persistent_state:
-			_set_weather(
-				_persistent_weather,
-				_persistent_seconds_remaining,
-				true,
-			)
-		else:
-			_set_weather(
-				DEFAULT_WEATHER,
-				_roll_duration(DEFAULT_WEATHER),
-				true,
-			)
+		_set_weather(
+			DEFAULT_WEATHER,
+			_roll_duration(DEFAULT_WEATHER),
+			true,
+		)
 	else:
 		_update_scheduled_weather(true)
 
@@ -104,7 +106,12 @@ func apply_authoritative_snapshot(
 
 
 func set_authoritative_weather(weather: Weather) -> bool:
-	if not _running_authority or not is_valid_weather(int(weather)):
+	# Manual weather is an editor/test hook, not a player or operator command.
+	if (
+		not OS.has_feature("editor")
+		or not _running_authority
+		or not is_valid_weather(int(weather))
+	):
 		return false
 	var duration: float = _roll_duration(weather)
 	if not _daily_schedule.is_empty() and _world_time != null:

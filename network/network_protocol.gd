@@ -21,6 +21,7 @@ const MAIL_RELIABLE_CHANNEL: int = 9
 const ENET_CHANNEL_COUNT: int = 10
 const SURFACE_DRAWING_CAPABILITY: String = "surface_drawing_v2"
 const ART_SHOP_CAPABILITY: String = "art_shop_v1"
+const BACKPACK_SHOP_CAPABILITY: String = "backpack_shop_v1"
 const WORLD_TIME_CAPABILITY: String = "world_time_v1"
 const WORLD_WEATHER_CAPABILITY: String = "world_weather_v1"
 const FISH_QUALITY_CAPABILITY: String = "fish_quality_v1"
@@ -176,6 +177,7 @@ static func make_client_hello(
 			JOBS_CAPABILITY,
 			WORLD_SPAWN_CAPABILITY,
 			APPEARANCE_PREVIEW_CAPABILITY,
+			BACKPACK_SHOP_CAPABILITY,
 		]),
 		"cosmetic_snapshot": cosmetic_snapshot,
 		"identity_fingerprint": identity_fingerprint,
@@ -296,6 +298,7 @@ static func make_server_hello(
 			"sale_v1",
 			"shop_v1",
 			ART_SHOP_CAPABILITY,
+			BACKPACK_SHOP_CAPABILITY,
 			"item_use_v1",
 			"equipment_v1",
 			"fish_showcase_v1",

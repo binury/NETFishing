@@ -72,15 +72,16 @@ unique_name_in_owner = true
 visible = false
 z_index = 40
 layout_mode = 0
-offset_left = 150.0
+offset_left = 513.0
 offset_top = 136.0
-offset_right = 664.0
+offset_right = 767.0
 offset_bottom = 174.0
 mouse_filter = 1
 theme_override_constants/separation = 6
 
 [node name="CoolerSubTab" type="Button" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/InventorySubTabs"]
 unique_name_in_owner = true
+visible = false
 custom_minimum_size = Vector2(124, 38)
 layout_mode = 2
 toggle_mode = true
@@ -94,12 +95,13 @@ custom_minimum_size = Vector2(124, 38)
 layout_mode = 2
 toggle_mode = true
 button_group = null
-text = "Equipment"
+text = "Inventory"
 script = ExtResource("23_organizer_tab")
 palette_index = 2
 
 [node name="ItemsSubTab" type="Button" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/InventorySubTabs"]
 unique_name_in_owner = true
+visible = false
 custom_minimum_size = Vector2(124, 38)
 layout_mode = 2
 toggle_mode = true
@@ -494,10 +496,10 @@ mouse_filter = 1
 unique_name_in_owner = true
 z_index = 50
 layout_mode = 0
-offset_left = 122.0
-offset_top = 132.0
-offset_right = 1018.0
-offset_bottom = 574.0
+offset_left = 199.0
+offset_top = 166.0
+offset_right = 1081.0
+offset_bottom = 650.0
 
 [node name="BagOuterMargin" type="MarginContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/BagPage/BagOuterWall"]
 layout_mode = 2
@@ -524,7 +526,7 @@ horizontal_scroll_mode = 0
 
 [node name="BagHost" type="Control" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/BagPage/BagOuterWall/BagOuterMargin/BagInnerLiner/BagInnerMargin/BagScroll"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(788, 358)
+custom_minimum_size = Vector2(810, 420)
 layout_mode = 2
 mouse_filter = 1
 
@@ -553,14 +555,26 @@ text = "your bag is empty"
 horizontal_alignment = 1
 vertical_alignment = 1
 
+[node name="BagModalBlocker" type="Control" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/BagPage"]
+unique_name_in_owner = true
+visible = false
+z_index = 110
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 0
+
 [node name="BagDetailConstellation" type="Control" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/BagPage"]
 unique_name_in_owner = true
 visible = false
 layout_mode = 0
-offset_left = 984.0
-offset_top = 266.0
-offset_right = 1256.0
-offset_bottom = 570.0
+offset_left = 501.0
+offset_top = 166.0
+offset_right = 779.0
+offset_bottom = 650.0
 mouse_filter = 2
 
 [node name="BagDetailBubble" type="PanelContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/BagPage/BagDetailConstellation"]
@@ -572,7 +586,7 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("22_inventory_notepad")
-title_text = "bag notes"
+title_text = "inventory notes"
 
 [node name="BagDetailLayout" type="VBoxContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/BagPage/BagDetailConstellation/BagDetailBubble"]
 layout_mode = 2
@@ -601,6 +615,25 @@ theme_override_font_sizes/font_size = 15
 horizontal_alignment = 1
 autowrap_mode = 2
 
+[node name="BagDetailActions" type="HBoxContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/BagPage/BagDetailConstellation/BagDetailBubble/BagDetailLayout"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 6
+alignment = 1
+
+[node name="BagFavoriteButton" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/BagPage/BagDetailConstellation/BagDetailBubble/BagDetailLayout/BagDetailActions" instance=ExtResource("12_ink_action")]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(104, 50)
+layout_mode = 2
+text = "favorite"
+allow_persistent_mark = true
+
+[node name="BagSellButton" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/BagPage/BagDetailConstellation/BagDetailBubble/BagDetailLayout/BagDetailActions" instance=ExtResource("12_ink_action")]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(104, 50)
+layout_mode = 2
+text = "sell fish"
+
 [node name="TackleBoxPage" type="Control" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot"]
 unique_name_in_owner = true
 visible = false
@@ -613,10 +646,10 @@ mouse_filter = 1
 unique_name_in_owner = true
 z_index = 50
 layout_mode = 0
-offset_left = 54.0
+offset_left = 199.0
 offset_top = 166.0
-offset_right = 936.0
-offset_bottom = 602.0
+offset_right = 1081.0
+offset_bottom = 650.0
 
 [node name="Margin" type="MarginContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/TackleBoxPage/TackleMainPanel"]
 layout_mode = 2
@@ -667,7 +700,7 @@ layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/h_separation = 28
 theme_override_constants/v_separation = 12
-columns = 3
+columns = 4
 
 [node name="BaitEmpty" type="Label" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/TackleBoxPage/TackleMainPanel/Margin/Layout/TackleColumns/BaitColumn/BaitBody"]
 unique_name_in_owner = true
@@ -720,7 +753,7 @@ layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/h_separation = 28
 theme_override_constants/v_separation = 12
-columns = 3
+columns = 4
 
 [node name="LureEmpty" type="Label" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/TackleBoxPage/TackleMainPanel/Margin/Layout/TackleColumns/LureColumn/LureBody"]
 unique_name_in_owner = true
@@ -735,13 +768,26 @@ text = "No lures collected."
 horizontal_alignment = 1
 vertical_alignment = 1
 
+[node name="TackleModalBlocker" type="Control" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/TackleBoxPage"]
+unique_name_in_owner = true
+visible = false
+z_index = 110
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 0
+
 [node name="TackleDetailPanel" type="PanelContainer" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/TackleBoxPage"]
 unique_name_in_owner = true
+visible = false
 layout_mode = 0
-offset_left = 952.0
+offset_left = 501.0
 offset_top = 166.0
-offset_right = 1230.0
-offset_bottom = 602.0
+offset_right = 779.0
+offset_bottom = 650.0
 script = ExtResource("22_inventory_notepad")
 title_text = "tackle box notes"
 
@@ -861,9 +907,9 @@ custom_minimum_size = Vector2(140, 44)
 [node name="NavigationCluster" type="Control" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot"]
 unique_name_in_owner = true
 layout_mode = 0
-offset_left = 330.0
+offset_left = 388.0
 offset_top = 44.0
-offset_right = 1170.0
+offset_right = 1228.0
 offset_bottom = 144.0
 mouse_filter = 1
 script = ExtResource("5_cluster")

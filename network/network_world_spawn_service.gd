@@ -39,6 +39,7 @@ var _entity_revisions: Dictionary = {}
 var _surface_triangles: Dictionary = {}
 var _surface_areas: Dictionary = {}
 var _surface_total_areas: Dictionary = {}
+var _spawn_anchor_positions: Dictionary = {}
 var _respawns: Array[Dictionary] = []
 var _next_respawn_by_type: Dictionary[StringName, float] = {}
 var _charge_requests: Dictionary = {}
@@ -151,10 +152,9 @@ func find_entity_near(
 		if bool(state.get("locked", false)):
 			continue
 		var entity_position: Vector3 = state.get("position", Vector3.ZERO)
-		var distance_squared: float = Vector2(
-			entity_position.x - position.x,
-			entity_position.z - position.z,
-		).length_squared()
+		var distance_squared: float = entity_position.distance_squared_to(
+			position
+		)
 		if distance_squared <= best_distance_squared:
 			best_distance_squared = distance_squared
 			best_id = entity_id
@@ -177,10 +177,9 @@ func find_capture_target(
 		if entry == null or entry.required_tool_id != tool_id:
 			continue
 		var entity_position: Vector3 = state.get("position", Vector3.ZERO)
-		var distance_squared: float = Vector2(
-			entity_position.x - position.x,
-			entity_position.z - position.z,
-		).length_squared()
+		var distance_squared: float = entity_position.distance_squared_to(
+			position
+		)
 		if (
 			distance_squared <= entry.capture_radius * entry.capture_radius
 			and distance_squared <= best_distance_squared
@@ -248,14 +247,30 @@ func _begin_population_if_ready() -> void:
 
 
 func _cache_spawn_surface(entry: GatherableDataType) -> void:
-	if entry == null or _surface_triangles.has(entry.type_id):
+	if (
+		entry == null
+		or _surface_triangles.has(entry.type_id)
+		or _spawn_anchor_positions.has(entry.type_id)
+	):
 		return
-	var triangles: Array[PackedVector3Array] = (
-		_world.get_spawn_surface_triangles(
+	if not entry.spawn_anchor_set_id.is_empty():
+		var anchor_positions: PackedVector3Array = (
+			_world.get_gatherable_spawn_positions(entry.spawn_anchor_set_id)
+		)
+		_spawn_anchor_positions[entry.type_id] = anchor_positions
+		if anchor_positions.is_empty():
+			push_warning(
+				"No gatherable spawn anchors were found for %s." % entry.type_id
+			)
+		return
+	var triangles: Array[PackedVector3Array]
+	if not entry.diggable_area_id.is_empty():
+		triangles = _world.get_diggable_area_triangles(entry.diggable_area_id)
+	else:
+		triangles = _world.get_spawn_surface_triangles(
 			entry.surface_materials,
 			entry.minimum_surface_y,
 		)
-	)
 	var areas := PackedFloat32Array()
 	var total_area: float = 0.0
 	for triangle: PackedVector3Array in triangles:
@@ -279,6 +294,11 @@ func _spawn_entity(entry: GatherableDataType) -> void:
 	var position: Vector3 = _sample_surface_position(entry)
 	if not position.is_finite():
 		return
+	var target: Vector3 = (
+		position
+		if entry.is_stationary_spawn()
+		else _sample_surface_position(entry, position, entry.roam_radius)
+	)
 	var quality: int = FishQualityType.roll(_rng)
 	var entity_id: String = _new_id("world")
 	var state: Dictionary = {
@@ -286,11 +306,16 @@ func _spawn_entity(entry: GatherableDataType) -> void:
 		"type_id": entry.type_id,
 		"data": entry,
 		"position": position,
-		"target": _sample_surface_position(entry, position, entry.roam_radius),
+		"target": target,
 		"yaw": _rng.randf_range(-PI, PI),
 		"quality": quality,
 		"revision": 1,
 		"locked": false,
+		"expires_at": (
+			_now() + entry.active_lifetime_seconds
+			if entry.active_lifetime_seconds > 0.0
+			else INF
+		),
 	}
 	if not (state["target"] as Vector3).is_finite():
 		state["target"] = position
@@ -310,6 +335,11 @@ func _update_host_entities(delta: float) -> void:
 			continue
 		var entry := state.get("data") as GatherableDataType
 		if entry == null:
+			continue
+		if _now() >= float(state.get("expires_at", INF)):
+			_despawn_entity(entity_id, &"expired", false, true)
+			continue
+		if entry.is_stationary_spawn():
 			continue
 		var quality: int = _get_state_quality(state)
 		var position: Vector3 = state["position"]
@@ -349,7 +379,7 @@ func _update_host_entities(delta: float) -> void:
 			state["yaw"] = atan2(-direction.x, -direction.z)
 		state["position"] = position
 		_entities[entity_id] = state
-		if _should_scare(entry, position, quality):
+		if entry.can_be_scared() and _should_scare(entry, position, quality):
 			_despawn_entity(entity_id, &"scared", true, true)
 
 
@@ -383,6 +413,8 @@ func _sample_surface_position(
 	maximum_distance: float = INF,
 ) -> Vector3:
 	_cache_spawn_surface(entry)
+	if not entry.spawn_anchor_set_id.is_empty():
+		return _sample_anchor_position(entry, origin, maximum_distance)
 	var triangles: Array = _surface_triangles.get(entry.type_id, [])
 	var cumulative_areas: PackedFloat32Array = _surface_areas.get(
 		entry.type_id,
@@ -418,6 +450,44 @@ func _sample_surface_position(
 	if origin.is_finite() and is_finite(maximum_distance):
 		return origin
 	return fallback
+
+
+func _sample_anchor_position(
+	entry: GatherableDataType,
+	origin: Vector3,
+	maximum_distance: float,
+) -> Vector3:
+	var anchors: PackedVector3Array = _spawn_anchor_positions.get(
+		entry.type_id,
+		PackedVector3Array(),
+	)
+	var candidates := PackedVector3Array()
+	for anchor: Vector3 in anchors:
+		if not anchor.is_finite() or _anchor_is_occupied(entry.type_id, anchor):
+			continue
+		if (
+			origin.is_finite()
+			and is_finite(maximum_distance)
+			and anchor.distance_to(origin) > maximum_distance
+		):
+			continue
+		candidates.append(anchor)
+	if candidates.is_empty():
+		return Vector3(INF, INF, INF)
+	return candidates[_rng.randi_range(0, candidates.size() - 1)]
+
+
+func _anchor_is_occupied(type_id: StringName, anchor: Vector3) -> bool:
+	for state: Dictionary in _entities.values():
+		if StringName(state.get("type_id", StringName())) != type_id:
+			continue
+		var position: Variant = state.get("position")
+		if (
+			typeof(position) == TYPE_VECTOR3
+			and (position as Vector3).distance_squared_to(anchor) <= 0.0001
+		):
+			return true
+	return false
 
 
 func _broadcast_entity_snapshots() -> void:
@@ -515,7 +585,9 @@ func _handle_interaction_begin(peer_id: int, data: Dictionary) -> void:
 		or request_id.length() > MAX_REQUEST_ID_LENGTH
 		or _pending_captures.has(peer_id)
 	):
-		_send_interaction_result(peer_id, request_id, false, "Cannot use the net now.")
+		_send_interaction_result(
+			peer_id, request_id, false, "Cannot use that gathering tool now."
+		)
 		return
 	_charge_requests[peer_id] = {
 		"request_id": request_id,
@@ -556,27 +628,26 @@ func _handle_interaction_finish(peer_id: int, data: Dictionary) -> void:
 	):
 		error = "The catch attempt was invalid."
 	elif state.is_empty() or entry == null or bool(state.get("locked", false)):
-		error = "That animal is no longer there."
+		error = "That gathering spot is no longer there."
 	elif _now() - float(charge.get("started", _now())) + 0.05 < entry.charge_duration:
-		error = "Pull the net all the way back first."
+		error = "Finish readying the tool first."
 	elif _item_use.get_equipped_item_id(peer_id) != entry.required_tool_id:
 		error = "Equip the correct gathering tool."
-	elif avatar == null or not avatar.is_sneaking():
-		error = "Sneak closer before swinging the net."
+	elif avatar == null:
+		error = "The player is unavailable."
+	elif entry.requires_sneaking and not avatar.is_sneaking():
+		error = "Sneak closer before using the tool."
 	else:
 		var entity_position: Vector3 = state["position"]
-		var target_distance: float = Vector2(
-			entity_position.x - target_position.x,
-			entity_position.z - target_position.z,
-		).length()
+		var target_distance: float = entity_position.distance_to(target_position)
 		var player_distance: float = Vector2(
 			avatar.global_position.x - entity_position.x,
 			avatar.global_position.z - entity_position.z,
 		).length()
 		if target_distance > entry.capture_radius:
-			error = "The net missed."
+			error = "The gathering tool missed."
 		elif player_distance > entry.interaction_range:
-			error = "Move closer before swinging the net."
+			error = "Move closer before using the tool."
 	if not error.is_empty():
 		_send_interaction_result(peer_id, request_id, false, error)
 		return
@@ -670,12 +741,7 @@ func _handle_local_capacity_probe(data: Dictionary) -> void:
 	var catch_id := StringName(str(data.get("catch_id", "")))
 	var can_accept: bool = (
 		_local_inventory != null
-		and _local_capacity != null
-		and (
-			_local_inventory.contains_catch_id(catch_id)
-			or _local_inventory.get_all_catches().size()
-			< _local_capacity.get_capacity()
-		)
+		and _local_inventory.can_accept_catch(catch_id)
 	)
 	if _session.is_host():
 		_handle_capacity_response(
@@ -728,7 +794,7 @@ func _handle_capacity_response(
 	):
 		return
 	if not can_accept:
-		_reject_pending_capture(peer_id, "Cooler is full.")
+		_reject_pending_capture(peer_id, "Inventory is full.")
 		return
 	_pending_captures.erase(peer_id)
 	var entity_id: String = str(pending["entity_id"])
@@ -813,8 +879,7 @@ func _apply_capture_result(data: Dictionary) -> void:
 	)
 	if (
 		not already_owned
-		and _local_inventory.get_all_catches().size()
-		>= _local_capacity.get_capacity()
+		and not _local_inventory.can_accept_catch(fish_catch.catch_id)
 	):
 		return
 	if not already_owned:
@@ -1138,6 +1203,7 @@ func _clear_world() -> void:
 	_surface_triangles.clear()
 	_surface_areas.clear()
 	_surface_total_areas.clear()
+	_spawn_anchor_positions.clear()
 	_respawns.clear()
 	_next_respawn_by_type.clear()
 	_charge_requests.clear()

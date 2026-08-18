@@ -40,9 +40,9 @@ func _run() -> void:
 
 
 func _validate_catalog() -> void:
-	assert(CatalogResource.candidates.size() == 314)
+	assert(CatalogResource.candidates.size() == 316)
 	var ordered := LogbookCatalog.ordered_species(CatalogResource.candidates)
-	assert(ordered.size() == 54)
+	assert(ordered.size() == 56)
 	var previous_number: int = 0
 	var catalog_numbers: Dictionary[int, bool] = {}
 	for fish: FishDataType in CatalogResource.candidates:
@@ -113,6 +113,10 @@ func _validate_page() -> void:
 		LogbookCatalog.Category.OTHER,
 	])
 	assert(category_tabs.size() == category_tab_categories.size())
+	assert(
+		LogbookCatalog.category_label(LogbookCatalog.Category.OTHER)
+		== "Insects"
+	)
 	for tab_node: Variant in category_tabs:
 		var category_tab := tab_node as Button
 		assert(category_tab.size == LogbookPage.LOGBOOK_TAB_SIZE)
@@ -203,16 +207,18 @@ func _validate_page() -> void:
 
 	page.call("_select_category", LogbookCatalog.Category.SHELLFISH)
 	await create_timer(0.25).timeout
-	assert((page.get("_entry_buttons") as Dictionary).size() == 1)
+	assert((page.get("_entry_buttons") as Dictionary).size() == 2)
 	assert(
 		(page.get("_entry_buttons") as Dictionary).has(&"unknown_3906")
 	)
+	assert(
+		(page.get("_entry_buttons") as Dictionary).has(&"unknown_6406")
+	)
 	page.call("_select_category", LogbookCatalog.Category.OTHER)
 	await create_timer(0.25).timeout
-	assert((page.get("_entry_buttons") as Dictionary).is_empty())
+	assert((page.get("_entry_buttons") as Dictionary).size() == 1)
 	assert(
-		(page.get("_empty_state") as Label).text
-		== "No entries available."
+		(page.get("_entry_buttons") as Dictionary).has(&"unknown_8001")
 	)
 	page.call("_select_category", LogbookCatalog.Category.FRESH_WATER)
 	await create_timer(0.25).timeout

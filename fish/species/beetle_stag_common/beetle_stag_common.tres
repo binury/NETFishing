@@ -1,0 +1,26 @@
+[gd_resource type="Resource" script_class="FishData" load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://fish/fish_data.gd" id="1_fish_data"]
+[ext_resource type="Resource" path="res://fishing/common_catch_profile.tres" id="2_profile"]
+[ext_resource type="Texture2D" path="res://fish/species/beetle_stag_common/beetle_stag_common.png" id="3_texture"]
+
+[resource]
+script = ExtResource("1_fish_data")
+id = &"beetle_stag_common"
+display_name = "common stag beetle"
+active = true
+catalog_number = 8001
+collection_group = &"Beetles"
+logbook_fact = "common stag beetles use broad jaws to wrestle rivals and cling to tree bark. adults feed on sap and other sweet plant juices."
+collection_method = 1
+habitat_label = "tree trunks"
+allowed_water_types = 0
+rarity = 0
+base_catch_weight = 1.0
+catch_profile = ExtResource("2_profile")
+weight_min_lb = 0.02
+weight_max_lb = 0.12
+sell_value_min = 4
+sell_value_max = 12
+sell_value_curve = 1.0
+display_texture = ExtResource("3_texture")

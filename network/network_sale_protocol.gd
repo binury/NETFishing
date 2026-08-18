@@ -6,6 +6,8 @@ const RELIABLE_CHANNEL: int = NetworkProtocol.SALE_RELIABLE_CHANNEL
 const MAX_ID_LENGTH: int = 96
 const MAX_CATCH_ID_LENGTH: int = 160
 const MAX_CATCHES_PER_REQUEST: int = 64
+const MAX_ITEM_STACKS_PER_REQUEST: int = 20
+const MAX_ITEM_QUANTITY: int = 999
 const MAX_MESSAGE_LENGTH: int = 160
 
 enum Rejection {
@@ -40,6 +42,7 @@ static func validate_request(data: Variant) -> String:
 	var session_id: String = payload["session_id"]
 	var buyer_id: String = str(payload["buyer_id"])
 	var catches: Array = payload["catches"]
+	var items: Array = payload.get("items", [])
 	if (
 		request_id.is_empty()
 		or request_id.length() > MAX_ID_LENGTH
@@ -47,8 +50,10 @@ static func validate_request(data: Variant) -> String:
 		or session_id.length() > MAX_ID_LENGTH
 		or buyer_id.is_empty()
 		or buyer_id.length() > MAX_ID_LENGTH
-		or catches.is_empty()
+		or typeof(items) != TYPE_ARRAY
+		or (catches.is_empty() and items.is_empty())
 		or catches.size() > MAX_CATCHES_PER_REQUEST
+		or items.size() > MAX_ITEM_STACKS_PER_REQUEST
 	):
 		return "Sale could not be completed."
 	var seen: Dictionary[String, bool] = {}
@@ -74,6 +79,23 @@ static func validate_request(data: Variant) -> String:
 		):
 			return "Sale could not be completed."
 		seen[catch_id] = true
+	var seen_items: Dictionary[String, bool] = {}
+	for value: Variant in items:
+		if typeof(value) != TYPE_DICTIONARY:
+			return "Sale could not be completed."
+		var item: Dictionary = value
+		var item_id := str(item.get("item_id", ""))
+		var quantity := int(item.get("quantity", 0))
+		if (
+			item_id.is_empty()
+			or item_id.length() > MAX_ID_LENGTH
+			or seen_items.has(item_id)
+			or typeof(item.get("quantity")) != TYPE_INT
+			or quantity < 1
+			or quantity > MAX_ITEM_QUANTITY
+		):
+			return "Sale could not be completed."
+		seen_items[item_id] = true
 	return ""
 
 
@@ -93,6 +115,8 @@ static func validate_result(data: Variant) -> bool:
 		and typeof(payload.get("accepted")) == TYPE_BOOL
 		and typeof(payload.get("catch_ids")) == TYPE_ARRAY
 		and payload["catch_ids"].size() <= MAX_CATCHES_PER_REQUEST
+		and typeof(payload.get("items", [])) == TYPE_ARRAY
+		and payload.get("items", []).size() <= MAX_ITEM_STACKS_PER_REQUEST
 		and typeof(payload.get("payout")) == TYPE_INT
 		and int(payload["payout"]) >= 0
 		and typeof(payload.get("base_value")) == TYPE_INT
@@ -119,4 +143,20 @@ static func validate_result(data: Variant) -> bool:
 		):
 			return false
 		seen[catch_id] = true
+	var seen_items: Dictionary[String, bool] = {}
+	for value: Variant in payload.get("items", []):
+		if typeof(value) != TYPE_DICTIONARY:
+			return false
+		var item := value as Dictionary
+		var item_id := str(item.get("item_id", ""))
+		if (
+			item_id.is_empty()
+			or item_id.length() > MAX_ID_LENGTH
+			or seen_items.has(item_id)
+			or typeof(item.get("quantity")) != TYPE_INT
+			or int(item["quantity"]) < 1
+			or int(item["quantity"]) > MAX_ITEM_QUANTITY
+		):
+			return false
+		seen_items[item_id] = true
 	return true

@@ -33,6 +33,9 @@ const FishingShopType = preload("res://ui/fishing_shop.gd")
 const FishingShopInteractionType = preload(
 	"res://world/fishing_shop_interaction.gd"
 )
+const PlayerStorageInteractionType = preload(
+	"res://world/player_storage_interaction.gd"
+)
 const UIPixelationPresenterType = preload(
 	"res://ui/ui_pixelation_presenter.gd"
 )
@@ -228,6 +231,7 @@ const SHOP_PATTERN_SCALE: float = 1.75
 
 var _gameplay_started: bool = false
 var _shop_interaction: FishingShopInteractionType
+var _storage_interaction: PlayerStorageInteractionType
 var _title_music_tween: Tween
 var _title_music_transition_generation: int = 0
 var _title_music_requested: bool = false
@@ -432,13 +436,14 @@ func _start_dedicated_server() -> void:
 		_fail_dedicated_server(_discovery.get_host_status_message())
 		return
 	print(
-		"NETfishing dedicated server ready: %s on %s:%d (%d players, %s)"
+		"NETfishing dedicated server ready: %s on %s:%d (%d players, %s, timezone %s)"
 		% [
 			config.server_name,
 			config.bind_address,
 			config.port,
 			config.max_players,
 			"public" if config.public_listing else "unlisted",
+			str(Time.get_time_zone_from_system().get("name", "local")),
 		]
 	)
 	print(
@@ -581,8 +586,22 @@ func _initialize_application(dedicated: bool) -> void:
 		_asset_reservations
 	)
 	_player.bag.setup(item_catalog)
-	_player.hotbar.setup(_player.bag, item_catalog, _player.inventory)
+	_player.inventory_layout.setup(
+		_player.bag,
+		_player.inventory,
+		item_catalog,
+		_player.cooler_capacity,
+	)
+	_player.bag.set_inventory_layout(_player.inventory_layout)
+	_player.inventory.set_inventory_layout(_player.inventory_layout)
+	_player.hotbar.setup(
+		_player.bag,
+		item_catalog,
+		_player.inventory,
+		_player.inventory_layout,
+	)
 	_shop_interaction = _test_world.get_fishing_shop()
+	_storage_interaction = _test_world.get_player_storage()
 	if not dedicated:
 		_shop_interaction.setup_local_player(_player)
 		_shop_interaction.local_player_range_changed.connect(
@@ -591,6 +610,10 @@ func _initialize_application(dedicated: bool) -> void:
 		_game_ui.set_shop_npc_player_in_range(
 			_shop_interaction.is_local_player_in_range()
 		)
+		_storage_interaction.setup_local_player(_player)
+		_storage_interaction.local_player_range_changed.connect(
+			_on_storage_range_changed
+		)
 	_save_manager.setup(
 		_player.inventory,
 		_player.collection_log,
@@ -598,6 +621,7 @@ func _initialize_application(dedicated: bool) -> void:
 		fish_catalog,
 		_player.bag,
 		_player.hotbar,
+		_player.inventory_layout,
 		item_catalog,
 		_player.fishing_upgrades,
 		_player.cooler_capacity,
@@ -681,7 +705,7 @@ func _initialize_application(dedicated: bool) -> void:
 	_network_player_list.set_surface_drawing_service(
 		_network_surface_drawing
 	)
-	_network_chat.setup(_network_session, _world_time, _world_weather)
+	_network_chat.setup(_network_session)
 	_network_fishing.setup(
 		_network_session,
 		_player_spawn_service,
@@ -706,12 +730,15 @@ func _initialize_application(dedicated: bool) -> void:
 		_network_fishing,
 		_shop_interaction,
 		_player.inventory,
+		_player.bag,
+		item_catalog,
 		_player.wallet,
 		_player.fish_sale_service,
 		_save_manager,
 		fish_catalog,
 		sale_buyers,
-		_asset_reservations
+		_asset_reservations,
+		_player.inventory_layout,
 	)
 	_player_jobs.bind_authoritative_services(_network_fishing, _network_sale)
 	_network_shop.setup(
@@ -726,7 +753,8 @@ func _initialize_application(dedicated: bool) -> void:
 		_player.cooler_capacity,
 		_player.art_unlocks,
 		_save_manager,
-		_asset_reservations
+		_asset_reservations,
+		_player.inventory_layout,
 	)
 	_fishing_spot.setup(
 		_player,
@@ -759,10 +787,12 @@ func _initialize_application(dedicated: bool) -> void:
 		_fishing_spot,
 		_player.bag,
 		_player.hotbar,
+		_player.inventory_layout,
 		item_catalog,
 		main_shop_buyer_profile,
 		_player.fishing_upgrades,
 		_shop_interaction,
+		_storage_interaction,
 		_player.item_effects,
 		_player.cooler_capacity,
 		_network_session,
@@ -1264,6 +1294,9 @@ func _input(event: InputEvent) -> void:
 		return
 	var pause_menu: PauseMenuType = _game_ui.get_pause_menu()
 	var fishing_shop: FishingShopType = _game_ui.get_fishing_shop()
+	if _game_ui.get_player_storage().consume_escape():
+		get_viewport().set_input_as_handled()
+		return
 	if fishing_shop.consume_escape():
 		get_viewport().set_input_as_handled()
 		return
@@ -1369,6 +1402,15 @@ func _unhandled_input(event: InputEvent) -> void:
 	):
 		return
 	if (
+		_storage_interaction != null
+		and _storage_interaction.is_local_player_in_range()
+		and _fishing_spot.can_open_fishing_shop()
+		and _game_ui.get_player_storage().open_storage()
+	):
+		_game_ui.set_storage_prompt_visible(false)
+		get_viewport().set_input_as_handled()
+		return
+	if (
 		_shop_interaction != null
 		and _shop_interaction.is_local_player_in_range()
 		and _fishing_spot.can_open_fishing_shop()
@@ -1390,6 +1432,16 @@ func _process(_delta: float) -> void:
 	_game_ui.set_shop_prompt_visible(
 		show_shop_prompt,
 		shop_prompt_anchor,
+	)
+	var show_storage_prompt := _can_show_storage_prompt()
+	var storage_prompt_anchor := (
+		_storage_interaction.get_prompt_anchor_position()
+		if _storage_interaction != null
+		else Vector3.ZERO
+	)
+	_game_ui.set_storage_prompt_visible(
+		show_storage_prompt,
+		storage_prompt_anchor,
 	)
 
 
@@ -1879,6 +1931,7 @@ func _on_water_recovery_starting() -> void:
 	_game_ui.close_player_menu_for_water_recovery()
 	_game_ui.get_pause_menu().close_for_water_recovery()
 	_game_ui.get_fishing_shop().close_for_water_recovery()
+	_game_ui.get_player_storage().close_for_water_recovery()
 
 
 func _on_water_recovery_finished() -> void:
@@ -1933,6 +1986,12 @@ func _on_active_hotbar_item_changed(
 		and item.is_available()
 		and _player.bag.owns_item(item_id)
 	)
+	var active_is_shovel: bool = (
+		item_id == FishingShopStockType.STANDARD_SHOVEL_ID
+		and item != null
+		and item.is_available()
+		and _player.bag.owns_item(item_id)
+	)
 	_player.set_active_fishing_rod(
 		item as FishingRodDataType if active_is_rod else null,
 		true,
@@ -1942,6 +2001,7 @@ func _on_active_hotbar_item_changed(
 		active_is_art_kit,
 	)
 	_player.set_active_catching_net(active_is_catching_net)
+	_player.set_active_shovel(active_is_shovel)
 	_game_ui.set_surface_drawing_hotbar_selected(active_is_art_kit)
 	_network_item_use.submit_local_equipped(item_id, active_is_rod or (
 		item != null and _player.bag.owns_item(item_id)
@@ -2067,11 +2127,29 @@ func _on_shop_range_changed(in_range: bool) -> void:
 	_game_ui.set_shop_prompt_visible(_can_show_shop_prompt())
 
 
+func _on_storage_range_changed(in_range: bool) -> void:
+	if not in_range:
+		_game_ui.get_player_storage().close_for_range_exit()
+	_game_ui.set_storage_prompt_visible(_can_show_storage_prompt())
+
+
 func _can_show_shop_prompt() -> bool:
 	return (
 		_gameplay_started
 		and _shop_interaction != null
 		and _shop_interaction.is_local_player_in_range()
+		and not _game_ui.get_fishing_shop().visible
+		and not _water_recovery.is_recovery_active()
+		and _fishing_spot.can_open_fishing_shop()
+	)
+
+
+func _can_show_storage_prompt() -> bool:
+	return (
+		_gameplay_started
+		and _storage_interaction != null
+		and _storage_interaction.is_local_player_in_range()
+		and not _game_ui.get_player_storage().visible
 		and not _game_ui.get_fishing_shop().visible
 		and not _water_recovery.is_recovery_active()
 		and _fishing_spot.can_open_fishing_shop()

@@ -13,6 +13,7 @@
 [ext_resource type="PackedScene" path="res://ui/surface_drawing_toolbar.tscn" id="11_drawing_toolbar"]
 [ext_resource type="PackedScene" path="res://ui/quick_radial_menu.tscn" id="12_quick"]
 [ext_resource type="Script" path="res://ui/controller_virtual_cursor.gd" id="13_cursor"]
+[ext_resource type="PackedScene" path="res://ui/player_storage.tscn" id="14_storage"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBox_chase_background"]
 bg_color = Color(0.032, 0.118, 0.15, 1)
@@ -470,6 +471,32 @@ polygon = PackedVector2Array(-8, 0, 8, 0, 0, 10)
 
 [node name="FishingShop" parent="UIRoot/CanonicalStage" instance=ExtResource("8_shop")]
 unique_name_in_owner = true
+
+[node name="PlayerStorage" parent="UIRoot/CanonicalStage" instance=ExtResource("14_storage")]
+unique_name_in_owner = true
+
+[node name="StoragePrompt" type="PanelContainer" parent="UIRoot/CanonicalStage/GameplayTransientHUD"]
+unique_name_in_owner = true
+visible = false
+z_index = 56
+offset_right = 220.0
+offset_bottom = 50.0
+mouse_filter = 2
+theme = ExtResource("3_theme")
+
+[node name="Margin" type="MarginContainer" parent="UIRoot/CanonicalStage/GameplayTransientHUD/StoragePrompt"]
+layout_mode = 2
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 7
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 7
+
+[node name="Message" type="Label" parent="UIRoot/CanonicalStage/GameplayTransientHUD/StoragePrompt/Margin"]
+layout_mode = 2
+text = "E  open storage"
+horizontal_alignment = 1
+vertical_alignment = 1
+theme_override_font_sizes/font_size = 18
 
 [node name="ChatUI" type="Control" parent="UIRoot"]
 unique_name_in_owner = true

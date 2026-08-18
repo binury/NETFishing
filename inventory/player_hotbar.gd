@@ -24,6 +24,7 @@ signal selected_assignment_changed(
 var _bag: PlayerBagType
 var _catalog: ItemCatalogType
 var _fish_inventory: FishInventoryType
+var _inventory_layout: PlayerInventoryLayout
 var _slots: Array[StringName] = []
 var _fish_slots: Array[StringName] = []
 var _selected_slot: int = 0
@@ -40,10 +41,12 @@ func setup(
 	bag: PlayerBagType,
 	catalog: ItemCatalogType,
 	fish_inventory: FishInventoryType = null,
+	inventory_layout: PlayerInventoryLayout = null,
 ) -> void:
 	_bag = bag
 	_catalog = catalog
 	_fish_inventory = fish_inventory
+	_inventory_layout = inventory_layout
 	if _bag != null and not _bag.contents_changed.is_connected(
 		_on_bag_contents_changed
 	):
@@ -55,6 +58,11 @@ func setup(
 		)
 	):
 		_fish_inventory.catches_changed.connect(_on_fish_inventory_changed)
+	if (
+		_inventory_layout != null
+		and not _inventory_layout.layout_changed.is_connected(_validate_assignments)
+	):
+		_inventory_layout.layout_changed.connect(_validate_assignments)
 	_validate_assignments()
 
 
@@ -63,13 +71,26 @@ func assign_item(slot_index: int, item_id: StringName) -> bool:
 		return false
 	if _slots[slot_index] == item_id:
 		return true
+	var source_index: int = _slots.find(item_id)
+	var displaced_item: StringName = _slots[slot_index]
+	var displaced_fish: StringName = _fish_slots[slot_index]
+	if (
+		_inventory_layout != null
+		and not _inventory_layout.move_entry(
+			PlayerInventoryLayout.EntryKind.ITEM,
+			item_id,
+			PlayerInventoryLayout.InventoryContainer.HOTBAR,
+			slot_index,
+		)
+	):
+		return false
 	var selected_slot_was_affected: bool = slot_index == _selected_slot
-	for index: int in range(SLOT_COUNT):
-		if index != slot_index and _slots[index] == item_id:
-			_slots[index] = StringName()
-			selected_slot_was_affected = (
-				selected_slot_was_affected or index == _selected_slot
-			)
+	if source_index >= 0 and source_index != slot_index:
+		_slots[source_index] = displaced_item
+		_fish_slots[source_index] = displaced_fish
+		selected_slot_was_affected = (
+			selected_slot_was_affected or source_index == _selected_slot
+		)
 	_slots[slot_index] = item_id
 	_fish_slots[slot_index] = StringName()
 	slots_changed.emit()
@@ -83,13 +104,26 @@ func assign_fish(slot_index: int, catch_id: StringName) -> bool:
 		return false
 	if _fish_slots[slot_index] == catch_id:
 		return true
+	var source_index: int = _fish_slots.find(catch_id)
+	var displaced_item: StringName = _slots[slot_index]
+	var displaced_fish: StringName = _fish_slots[slot_index]
+	if (
+		_inventory_layout != null
+		and not _inventory_layout.move_entry(
+			PlayerInventoryLayout.EntryKind.CATCH,
+			catch_id,
+			PlayerInventoryLayout.InventoryContainer.HOTBAR,
+			slot_index,
+		)
+	):
+		return false
 	var selected_slot_was_affected: bool = slot_index == _selected_slot
-	for index: int in range(SLOT_COUNT):
-		if index != slot_index and _fish_slots[index] == catch_id:
-			_fish_slots[index] = StringName()
-			selected_slot_was_affected = (
-				selected_slot_was_affected or index == _selected_slot
-			)
+	if source_index >= 0 and source_index != slot_index:
+		_slots[source_index] = displaced_item
+		_fish_slots[source_index] = displaced_fish
+		selected_slot_was_affected = (
+			selected_slot_was_affected or source_index == _selected_slot
+		)
 	_slots[slot_index] = StringName()
 	_fish_slots[slot_index] = catch_id
 	slots_changed.emit()
@@ -107,6 +141,11 @@ func clear_slot(slot_index: int) -> bool:
 		)
 	):
 		return false
+	if (
+		_inventory_layout != null
+		and not _inventory_layout.return_hotbar_entry_to_inventory(slot_index)
+	):
+		return false
 	_slots[slot_index] = StringName()
 	_fish_slots[slot_index] = StringName()
 	slots_changed.emit()
@@ -122,6 +161,39 @@ func swap_slots(from_index: int, to_index: int) -> bool:
 		or from_index == to_index
 	):
 		return false
+	if _inventory_layout != null:
+		var kind: PlayerInventoryLayout.EntryKind
+		var identity: StringName
+		if not _fish_slots[from_index].is_empty():
+			kind = PlayerInventoryLayout.EntryKind.CATCH
+			identity = _fish_slots[from_index]
+		elif not _slots[from_index].is_empty():
+			kind = PlayerInventoryLayout.EntryKind.ITEM
+			identity = _slots[from_index]
+		else:
+			kind = (
+				PlayerInventoryLayout.EntryKind.CATCH
+				if not _fish_slots[to_index].is_empty()
+				else PlayerInventoryLayout.EntryKind.ITEM
+			)
+			identity = (
+				_fish_slots[to_index]
+				if not _fish_slots[to_index].is_empty()
+				else _slots[to_index]
+			)
+			var temporary_index: int = from_index
+			from_index = to_index
+			to_index = temporary_index
+		if (
+			identity.is_empty()
+			or not _inventory_layout.move_entry(
+				kind,
+				identity,
+				PlayerInventoryLayout.InventoryContainer.HOTBAR,
+				to_index,
+			)
+		):
+			return false
 	var temporary: StringName = _slots[from_index]
 	_slots[from_index] = _slots[to_index]
 	_slots[to_index] = temporary
@@ -130,6 +202,50 @@ func swap_slots(from_index: int, to_index: int) -> bool:
 	_fish_slots[to_index] = temporary
 	slots_changed.emit()
 	if from_index == _selected_slot or to_index == _selected_slot:
+		_emit_selected_assignment()
+	return true
+
+
+func move_slot_to_container(
+	slot_index: int,
+	target_container: int,
+	target_slot: int,
+) -> bool:
+	if not _is_slot_valid(slot_index) or _inventory_layout == null:
+		return false
+	var kind: PlayerInventoryLayout.EntryKind
+	var identity: StringName
+	if not _fish_slots[slot_index].is_empty():
+		kind = PlayerInventoryLayout.EntryKind.CATCH
+		identity = _fish_slots[slot_index]
+	elif not _slots[slot_index].is_empty():
+		kind = PlayerInventoryLayout.EntryKind.ITEM
+		identity = _slots[slot_index]
+	else:
+		return false
+	if not _inventory_layout.move_entry(
+		kind,
+		identity,
+		target_container,
+		target_slot,
+	):
+		return false
+	_slots[slot_index] = StringName()
+	_fish_slots[slot_index] = StringName()
+	var replacement := _inventory_layout.get_entry_at(
+		PlayerInventoryLayout.InventoryContainer.HOTBAR,
+		slot_index,
+	)
+	if not replacement.is_empty():
+		var replacement_identity := StringName(
+			str(replacement.get("identity", ""))
+		)
+		if int(replacement.get("kind", -1)) == PlayerInventoryLayout.EntryKind.CATCH:
+			_fish_slots[slot_index] = replacement_identity
+		else:
+			_slots[slot_index] = replacement_identity
+	slots_changed.emit()
+	if slot_index == _selected_slot:
 		_emit_selected_assignment()
 	return true
 
@@ -202,7 +318,13 @@ func replace_state(
 	slots: Array[StringName],
 	selected_slot: int,
 	fish_slots: Array[StringName] = [],
+	synchronize_layout: bool = true,
 ) -> bool:
+	if (
+		synchronize_layout and _inventory_layout != null
+		and not _inventory_layout.return_all_hotbar_entries_to_inventory()
+	):
+		return false
 	var normalized: Array[StringName] = []
 	normalized.resize(SLOT_COUNT)
 	normalized.fill(StringName())
@@ -227,6 +349,22 @@ func replace_state(
 			seen_fish[catch_id] = true
 	_slots = normalized
 	_fish_slots = normalized_fish
+	if _inventory_layout != null and synchronize_layout:
+		for index: int in SLOT_COUNT:
+			if not _slots[index].is_empty():
+				_inventory_layout.move_entry(
+					PlayerInventoryLayout.EntryKind.ITEM,
+					_slots[index],
+					PlayerInventoryLayout.InventoryContainer.HOTBAR,
+					index,
+				)
+			elif not _fish_slots[index].is_empty():
+				_inventory_layout.move_entry(
+					PlayerInventoryLayout.EntryKind.CATCH,
+					_fish_slots[index],
+					PlayerInventoryLayout.InventoryContainer.HOTBAR,
+					index,
+				)
 	_selected_slot = clampi(selected_slot, 0, SLOT_COUNT - 1)
 	slots_changed.emit()
 	_emit_selected_assignment()
@@ -249,7 +387,17 @@ func _can_assign(item_id: StringName) -> bool:
 	if _catalog == null:
 		return false
 	var item: ItemDataType = _catalog.get_item_by_id(item_id)
-	return item != null and item.is_available() and item.hotbar_allowed
+	return (
+		item != null
+		and item.is_available()
+		and item.hotbar_allowed
+		and (
+			_inventory_layout == null
+			or _inventory_layout.get_container(
+				PlayerInventoryLayout.EntryKind.ITEM, item_id
+			) >= 0
+		)
+	)
 
 
 func _can_assign_fish(catch_id: StringName) -> bool:
@@ -257,6 +405,12 @@ func _can_assign_fish(catch_id: StringName) -> bool:
 		not catch_id.is_empty()
 		and _fish_inventory != null
 		and _fish_inventory.contains_catch_id(catch_id)
+		and (
+			_inventory_layout == null
+			or _inventory_layout.get_container(
+				PlayerInventoryLayout.EntryKind.CATCH, catch_id
+			) >= 0
+		)
 	)
 
 

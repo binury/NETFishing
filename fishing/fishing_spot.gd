@@ -563,10 +563,10 @@ func _unhandled_input(event: InputEvent) -> void:
 					get_viewport().set_input_as_handled()
 					return
 				if (
-					_is_cooler_full()
+					_is_inventory_full()
 				):
 					status_changed.emit(
-						"cooler full. sell fish before casting again."
+						"inventory full. store or sell something before casting."
 					)
 					get_viewport().set_input_as_handled()
 					return
@@ -710,17 +710,15 @@ func _get_active_rod() -> FishingRodDataType:
 	return _get_active_item() as FishingRodDataType
 
 
-func _is_cooler_full() -> bool:
+func _is_inventory_full() -> bool:
 	return (
-		_cooler_capacity != null
-		and _local_inventory != null
-		and _local_inventory.get_all_catches().size()
-		>= _cooler_capacity.get_capacity()
+		_local_inventory != null
+		and not _local_inventory.can_accept_catch()
 	)
 
 
 func _on_cooler_availability_changed() -> void:
-	if state == FishingState.READY and not _is_cooler_full():
+	if state == FishingState.READY and not _is_inventory_full():
 		refresh_active_item_status()
 
 
@@ -1644,7 +1642,7 @@ func _build_network_evidence() -> Dictionary:
 		"bite_multiplier": 1.0,
 		"rarity_multipliers": rarity_multipliers,
 		"discovered_fish_ids": discovered_ids,
-		"capacity_available": not _is_cooler_full(),
+		"capacity_available": not _is_inventory_full(),
 	}
 
 

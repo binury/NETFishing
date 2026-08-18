@@ -29,6 +29,7 @@ func _initialize() -> void:
 
 func _run() -> void:
 	_validate_clock_boundaries_and_duration()
+	_validate_system_clock_authority()
 	_validate_persistent_host_clock()
 	_validate_fishing_availability()
 	_validate_fishing_spot_context()
@@ -40,7 +41,34 @@ func _run() -> void:
 
 
 func _validate_clock_boundaries_and_duration() -> void:
-	assert(WorldTimeServiceType.REAL_SECONDS_PER_CYCLE == 3600.0)
+	assert(WorldTimeServiceType.REAL_SECONDS_PER_CYCLE == 86400.0)
+	assert(is_equal_approx(
+		WorldTimeServiceType.HOURS_PER_REAL_SECOND,
+		1.0 / 3600.0,
+	))
+	assert(is_equal_approx(
+		WorldTimeServiceType.time_hours_from_datetime({
+			"hour": 17, "minute": 30, "second": 18,
+		}),
+		17.505,
+	))
+	assert(
+		WorldTimeServiceType.date_id_from_datetime({
+			"year": 2026, "month": 8, "day": 18,
+		}) == "2026-08-18"
+	)
+	assert(
+		WorldTimeServiceType.calendar_cycle_id_from_datetime({
+			"year": 2026, "month": 8, "day": 18,
+			"hour": 7, "minute": 59, "second": 0,
+		}, WorldTimeServiceType.DAY_START_HOUR) == "2026-08-17"
+	)
+	assert(
+		WorldTimeServiceType.calendar_cycle_id_from_datetime({
+			"year": 2026, "month": 8, "day": 18,
+			"hour": 8, "minute": 0, "second": 0,
+		}, WorldTimeServiceType.DAY_START_HOUR) == "2026-08-18"
+	)
 	assert(
 		WorldTimeServiceType.phase_for_hour(7.49)
 		== WorldTimeServiceType.Phase.NIGHT
@@ -71,12 +99,12 @@ func _validate_clock_boundaries_and_duration() -> void:
 
 	var clock := WorldTimeServiceType.new()
 	root.add_child(clock)
-	clock.begin_session(8.0)
-	clock.advance_time(1800.0)
+	clock.begin_test_session(8.0)
+	clock.advance_time(12.0 * 60.0 * 60.0)
 	assert(is_equal_approx(clock.get_time_hours(), 20.0))
 	assert(clock.is_night_period())
 	assert(clock.is_transition())
-	clock.advance_time(1800.0)
+	clock.advance_time(12.0 * 60.0 * 60.0)
 	assert(is_equal_approx(clock.get_time_hours(), 8.0))
 	assert(not clock.is_night_period())
 	assert(clock.is_transition())
@@ -88,10 +116,10 @@ func _validate_clock_boundaries_and_duration() -> void:
 		func(time_hours: float, _phase: WorldTimeService.Phase) -> void:
 			emitted_times.append(time_hours)
 	)
-	clock.begin_session(12.0 + 31.0 / 60.0)
+	clock.begin_test_session(12.0 + 31.0 / 60.0)
 	emitted_times.clear()
-	for _frame: int in 1201:
-		clock.advance_time(1.0 / 240.0)
+	for _frame: int in 7201:
+		clock.advance_time(1.0 / 60.0)
 	assert(clock.get_clock_text() == "12:33 pm")
 	assert(emitted_times.size() >= 2)
 	clock.queue_free()
@@ -101,17 +129,38 @@ func _validate_persistent_host_clock() -> void:
 	var clock := WorldTimeServiceType.new()
 	root.add_child(clock)
 	assert(clock.restore_persistent_time_hours(18.75))
-	clock.set_persistence_tracking_enabled(true)
-	clock.begin_session(clock.get_persistent_time_hours())
+	clock.begin_test_session(18.75)
 	assert(is_equal_approx(clock.get_time_hours(), 18.75))
 	clock.synchronize_time(19.25)
 	assert(is_equal_approx(clock.get_persistent_time_hours(), 19.25))
-	clock.set_persistence_tracking_enabled(false)
 	clock.synchronize_time(6.5)
 	assert(is_equal_approx(clock.get_time_hours(), 6.5))
-	assert(is_equal_approx(clock.get_persistent_time_hours(), 19.25))
+	assert(is_equal_approx(clock.get_persistent_time_hours(), 6.5))
 	assert(not clock.restore_persistent_time_hours(-1.0))
 	assert(not clock.restore_persistent_time_hours(24.0))
+	clock.queue_free()
+
+
+func _validate_system_clock_authority() -> void:
+	var clock := WorldTimeServiceType.new()
+	root.add_child(clock)
+	clock.begin_authoritative_session()
+	var system_datetime: Dictionary = Time.get_datetime_dict_from_system(false)
+	var system_hour: float = WorldTimeServiceType.time_hours_from_datetime(
+		system_datetime
+	)
+	assert(clock.is_using_system_clock())
+	assert(_wrapped_time_difference(
+		clock.get_time_hours(), system_hour
+	) < 2.0 / 3600.0)
+	assert(
+		clock.get_calendar_date_id()
+		== WorldTimeServiceType.date_id_from_datetime(system_datetime)
+	)
+	assert(clock.set_authoritative_time(12.0))
+	assert(not clock.is_using_system_clock())
+	clock.clear_editor_time_override()
+	assert(clock.is_using_system_clock())
 	clock.queue_free()
 
 
@@ -165,7 +214,7 @@ func _validate_fishing_availability() -> void:
 
 func _validate_fishing_spot_context() -> void:
 	var clock := WorldTimeServiceType.new()
-	clock.begin_session(20.25)
+	clock.begin_test_session(20.25)
 	var fishing_spot := FishingSpotType.new()
 	fishing_spot.set("_world_time", clock)
 	var region := FishableWaterRegionType.new()
@@ -246,6 +295,10 @@ func _validate_environment_presentation() -> void:
 		float(runtime_sky_material.get_shader_parameter("moon_visibility"))
 		< 0.01
 	)
+	assert(
+		float(runtime_sky_material.get_shader_parameter("star_visibility"))
+		< 0.01
+	)
 	var day_ambient_energy: float = runtime_environment.ambient_light_energy
 	assert(not runtime_environment.fog_enabled)
 	assert(is_equal_approx(runtime_environment.fog_sky_affect, 0.35))
@@ -257,6 +310,9 @@ func _validate_environment_presentation() -> void:
 	)
 	assert("uniform float fog_horizon_occlusion" in sky_shader.code)
 	assert("fog_horizon_color.rgb" in sky_shader.code)
+	assert("uniform float star_visibility" in sky_shader.code)
+	assert("float procedural_star_field" in sky_shader.code)
+	assert("upper_sky_fade" in sky_shader.code)
 	assert("fog_disabled" in water_shader.code)
 	assert("surface_view_position = view_vertex.xyz" in water_shader.code)
 	assert("surface_view_distance = length(surface_view_position)" in water_shader.code)
@@ -301,6 +357,17 @@ func _validate_environment_presentation() -> void:
 		runtime_sky_material.get_shader_parameter("sun_direction") as Vector3
 	)
 	assert(night_moon_visibility > 0.99)
+	assert(
+		float(runtime_sky_material.get_shader_parameter("star_visibility"))
+		> 0.99
+	)
+	assert((
+		runtime_sky_material.get_shader_parameter("star_color") as Color
+	).is_equal_approx(WorldTimeVisualController.STAR_COLOR))
+	assert(is_equal_approx(
+		float(runtime_sky_material.get_shader_parameter("star_strength")),
+		WorldTimeVisualController.STAR_STRENGTH,
+	))
 	assert(night_moon_direction.y > 0.85)
 	assert(night_moon_direction.is_equal_approx(-night_sun_direction))
 	assert(runtime_environment.ambient_light_energy < day_ambient_energy)
@@ -339,6 +406,9 @@ func _validate_environment_presentation() -> void:
 	assert(is_equal_approx(float(
 		runtime_sky_material.get_shader_parameter("fog_horizon_occlusion")
 	), 1.0))
+	assert(is_zero_approx(float(
+		runtime_sky_material.get_shader_parameter("star_visibility")
+	)))
 	assert((
 		runtime_sky_material.get_shader_parameter("fog_horizon_color") as Color
 	).is_equal_approx(WorldTimeVisualController.NIGHT_FOG))
@@ -425,6 +495,10 @@ func _validate_environment_presentation() -> void:
 	assert(is_zero_approx(float(
 		runtime_sky_material.get_shader_parameter("fog_horizon_occlusion")
 	)))
+	var dusk_star_visibility := float(
+		runtime_sky_material.get_shader_parameter("star_visibility")
+	)
+	assert(dusk_star_visibility > 0.45 and dusk_star_visibility < 0.55)
 	var dusk_horizon: Color = runtime_sky_material.get_shader_parameter(
 		"sky_horizon_color"
 	) as Color
@@ -442,3 +516,8 @@ func _validate_weather_clock_icon() -> void:
 	weather_icon.set_weather(WorldWeatherService.Weather.CLOUDY)
 	assert(weather_icon.tooltip_text == "cloudy")
 	weather_icon.queue_free()
+
+
+static func _wrapped_time_difference(left: float, right: float) -> float:
+	var difference: float = absf(left - right)
+	return minf(difference, WorldTimeServiceType.HOURS_PER_DAY - difference)

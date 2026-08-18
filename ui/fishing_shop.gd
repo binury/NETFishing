@@ -104,7 +104,7 @@ const SHOP_SECTION_LABELS: Array[String] = [
 	"Snacks",
 	"Equipment",
 	"Art Supplies",
-	"Sell Fish",
+	"Sell",
 ]
 const SUPPLY_ICON_GRID_COLUMNS: int = 9
 const SUPPLY_ICON_TILE_SIZE := Vector2(72.0, 72.0)
@@ -154,6 +154,9 @@ const ROD_PRICE_ICON_SIZE: float = 22.0
 @onready var _cooler_cost: CurrencyAmount = %CoolerCost
 @onready var _cooler_price_bubble: PanelContainer = %CoolerPriceBubble
 @onready var _cooler_purchase: Button = %CoolerPurchase
+@onready var _backpack_cost: CurrencyAmount = %BackpackCost
+@onready var _backpack_price_bubble: PanelContainer = %BackpackPriceBubble
+@onready var _backpack_purchase: Button = %BackpackPurchase
 
 var _player: PlayerType
 var _wallet: PlayerWalletType
@@ -162,10 +165,16 @@ var _upgrades: PlayerFishingUpgradesType
 var _fishing_spot: FishingSpotType
 var _interaction: ShopInteractionType
 var _bag: PlayerBagType
+var _inventory: FishInventory
+var _hotbar: PlayerHotbar
+var _inventory_layout: PlayerInventoryLayout
 var _item_catalog: ItemCatalogType
 var _cooler_capacity: PlayerCoolerCapacityType
 var _art_unlocks: PlayerArtUnlocksType
 var _network_shop: NetworkShopService
+var _network_sale: NetworkSaleService
+var _reservations: PlayerAssetReservationService
+var _sell_inventory: ShopSellInventory
 var _prior_movement_enabled: bool = true
 var _prior_camera_enabled: bool = true
 var _prior_mouse_mode: Input.MouseMode = Input.MOUSE_MODE_VISIBLE
@@ -191,6 +200,7 @@ func _ready() -> void:
 	_reel_purchase.pressed.connect(_purchase_reel_speed)
 	_barrier_purchase.pressed.connect(_purchase_barrier_power)
 	_cooler_purchase.pressed.connect(_purchase_cooler_capacity)
+	_backpack_purchase.pressed.connect(_purchase_backpack_capacity)
 
 
 func setup_controller_mapping(
@@ -327,7 +337,9 @@ func _request_shop_cooler() -> bool:
 	if not _is_transaction_context_valid():
 		_set_feedback("The fishing shop is no longer available.")
 		return false
-	sell_fish_requested.emit()
+	activate_shop_cooler_page()
+	if _sell_inventory != null:
+		_sell_inventory.activate()
 	return _cooler_page_active
 
 
@@ -339,6 +351,7 @@ func _focus_shop_section() -> void:
 			_reel_purchase,
 			_barrier_purchase,
 			_cooler_purchase,
+			_backpack_purchase,
 		]:
 			if not upgrade_button.disabled:
 				upgrade_button.grab_focus()
@@ -403,7 +416,7 @@ func _select_shop_section(section_index: int, focus_content: bool) -> void:
 		_update_shop_tab_selection()
 		return
 	if _cooler_page_active:
-		shop_cooler_return_requested.emit()
+		deactivate_shop_cooler_page()
 	_shop_section = section_index as ShopSection
 	var showing_upgrades: bool = _shop_section == ShopSection.UPGRADES
 	_upgrades_content.visible = showing_upgrades
@@ -494,6 +507,7 @@ func _apply_shop_styles() -> void:
 		_reel_price_bubble,
 		_barrier_price_bubble,
 		_cooler_price_bubble,
+		_backpack_price_bubble,
 	]:
 		var price_style := UtilityPageStyleType.rounded_style(
 			UtilityPageStyleType.OCEAN_FIELD,
@@ -510,6 +524,7 @@ func _apply_shop_styles() -> void:
 		_reel_cost,
 		_barrier_cost,
 		_cooler_cost,
+		_backpack_cost,
 	]:
 		var amount_label := price.get_amount_label()
 		amount_label.add_theme_color_override(
@@ -521,6 +536,7 @@ func _apply_shop_styles() -> void:
 		_reel_purchase,
 		_barrier_purchase,
 		_cooler_purchase,
+		_backpack_purchase,
 	]:
 		UtilityPageStyleType.apply_ocean_button(button)
 	_feedback.add_theme_color_override(
@@ -536,10 +552,15 @@ func setup(
 	fishing_spot: FishingSpotType,
 	interaction: ShopInteractionType,
 	bag: PlayerBagType,
+	inventory: FishInventory,
+	hotbar: PlayerHotbar,
+	inventory_layout: PlayerInventoryLayout,
 	item_catalog: ItemCatalogType,
 	cooler_capacity: PlayerCoolerCapacityType,
 	art_unlocks: PlayerArtUnlocksType,
 	network_shop: NetworkShopService,
+	network_sale: NetworkSaleService,
+	reservations: PlayerAssetReservationService,
 ) -> void:
 	_player = player
 	_wallet = wallet
@@ -548,10 +569,28 @@ func setup(
 	_fishing_spot = fishing_spot
 	_interaction = interaction
 	_bag = bag
+	_inventory = inventory
+	_hotbar = hotbar
+	_inventory_layout = inventory_layout
 	_item_catalog = item_catalog
 	_cooler_capacity = cooler_capacity
 	_art_unlocks = art_unlocks
 	_network_shop = network_shop
+	_network_sale = network_sale
+	_reservations = reservations
+	_sell_inventory = ShopSellInventory.new()
+	_sell_inventory.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_shop_cooler_mount.add_child(_sell_inventory)
+	_sell_inventory.setup(
+		_inventory_layout,
+		_bag,
+		_inventory,
+		_hotbar,
+		_item_catalog,
+		_buyer,
+		_reservations,
+		_network_sale,
+	)
 	if (
 		_network_shop != null
 		and not _network_shop.local_purchase_pending.is_connected(
@@ -574,6 +613,12 @@ func setup(
 		_on_cooler_capacity_changed
 	):
 		_cooler_capacity.capacity_changed.connect(_on_cooler_capacity_changed)
+	if not _inventory_layout.backpack_capacity_changed.is_connected(
+		_on_backpack_capacity_changed
+	):
+		_inventory_layout.backpack_capacity_changed.connect(
+			_on_backpack_capacity_changed
+		)
 	if not _art_unlocks.unlocks_changed.is_connected(_on_art_unlocks_changed):
 		_art_unlocks.unlocks_changed.connect(_on_art_unlocks_changed)
 	_refresh_all()
@@ -611,6 +656,8 @@ func open_shop() -> bool:
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	_set_feedback("")
 	deactivate_shop_cooler_page()
+	if _sell_inventory != null:
+		_sell_inventory.clear_staged()
 	show()
 	_shop_tab_bar.show()
 	_controller_zone = ControllerZone.TABS
@@ -780,6 +827,7 @@ func _refresh_all() -> void:
 	_refresh_upgrades()
 	_refresh_supplies()
 	_refresh_cooler_capacity()
+	_refresh_backpack_capacity()
 
 
 func _refresh_wallet() -> void:
@@ -1515,23 +1563,58 @@ func _refresh_cooler_capacity() -> void:
 	)
 	var cooler_effect: String
 	if cost < 0:
-		cooler_effect = "%d fish · maximum level" % (
+		cooler_effect = "%d slots · maximum level" % (
 			_cooler_capacity.get_capacity()
 		)
 		_cooler_price_bubble.hide()
 	else:
 		_cooler_price_bubble.show()
-		cooler_effect = "%d → %d fish" % [
+		cooler_effect = "%d → %d slots" % [
 			_cooler_capacity.get_capacity(),
 			next_capacity,
 		]
 		_cooler_cost.set_amount(cost)
 	_cooler_purchase.tooltip_text = _upgrade_tooltip(
-		"cooler capacity",
+		"storage capacity",
 		level,
 		cooler_effect,
 	)
 	_cooler_purchase.accessibility_name = _cooler_purchase.tooltip_text
+
+
+func _refresh_backpack_capacity() -> void:
+	if _inventory_layout == null:
+		return
+	var level := _inventory_layout.get_backpack_level()
+	var cost := _inventory_layout.get_next_backpack_cost()
+	var next_capacity := _inventory_layout.get_next_inventory_capacity()
+	_backpack_purchase.disabled = (
+		cost < 0
+		or _transaction_in_progress
+		or _closing
+		or _network_shop == null
+		or not _network_shop.can_request_backpack_purchase()
+		or not _inventory_layout.can_purchase_backpack(_wallet)
+	)
+	var effect: String
+	if cost < 0:
+		effect = "%d slots · maximum level" % (
+			_inventory_layout.get_inventory_capacity()
+		)
+		_backpack_price_bubble.hide()
+	else:
+		_backpack_price_bubble.show()
+		effect = "%d → %d slots" % [
+			_inventory_layout.get_inventory_capacity(),
+			next_capacity,
+		]
+		_backpack_cost.set_amount(cost)
+	_backpack_purchase.tooltip_text = _upgrade_tooltip(
+		"backpack capacity",
+		level,
+		effect,
+	)
+	_backpack_purchase.accessibility_name = _backpack_purchase.tooltip_text
 
 
 func _purchase_reel_speed() -> void:
@@ -1555,7 +1638,7 @@ func _purchase_supply(item_id: StringName) -> void:
 		item_id, owned, item.max_stack
 	)
 	if quantity <= 0 or not _bag.can_add_item(item_id, quantity):
-		_set_feedback("Your Bag is full.")
+		_set_feedback("Your inventory is full.")
 		return
 	var total_cost: int = FishingShopStockType.get_purchase_cost(
 		item_id, quantity, _bag.is_bait_unlocked(item_id)
@@ -1615,6 +1698,23 @@ func _purchase_cooler_capacity() -> void:
 		_set_feedback("Purchase could not be completed.")
 		return
 	_network_shop.request_cooler_capacity_upgrade()
+
+
+func _purchase_backpack_capacity() -> void:
+	if _transaction_in_progress or not _is_transaction_context_valid():
+		_set_feedback("unable to complete purchase.")
+		return
+	var cost := _inventory_layout.get_next_backpack_cost()
+	if cost < 0:
+		_set_feedback("Upgrade is already at maximum.")
+		return
+	if not _wallet.can_afford(cost):
+		_set_feedback("Insufficient funds.")
+		return
+	if _network_shop == null:
+		_set_feedback("Purchase could not be completed.")
+		return
+	_network_shop.request_backpack_capacity_upgrade()
 
 
 func _purchase_upgrade(is_reel_speed: bool) -> void:
@@ -1721,6 +1821,7 @@ func _on_wallet_changed(_balance: int, _delta: int) -> void:
 	_refresh_upgrades()
 	_refresh_supplies()
 	_refresh_cooler_capacity()
+	_refresh_backpack_capacity()
 
 
 func _on_upgrades_changed(
@@ -1736,6 +1837,10 @@ func _on_bag_changed() -> void:
 
 func _on_cooler_capacity_changed(_level: int, _capacity: int) -> void:
 	_refresh_cooler_capacity()
+
+
+func _on_backpack_capacity_changed(_level: int, _capacity: int) -> void:
+	_refresh_backpack_capacity()
 
 
 func _on_art_unlocks_changed(_unlock_mask: int) -> void:

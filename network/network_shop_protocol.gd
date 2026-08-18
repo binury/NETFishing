@@ -3,6 +3,7 @@ extends RefCounted
 
 const CAPABILITY: StringName = &"shop_v1"
 const ART_CAPABILITY: StringName = &"art_shop_v1"
+const BACKPACK_CAPABILITY: StringName = &"backpack_shop_v1"
 const RELIABLE_CHANNEL: int = NetworkProtocol.SHOP_RELIABLE_CHANNEL
 const MAX_ID_LENGTH: int = 96
 const MAX_MESSAGE_LENGTH: int = 160
@@ -16,6 +17,7 @@ enum ProductCategory {
 	COOLER_CAPACITY_UPGRADE,
 	ART_KIT,
 	ART_UPGRADE,
+	BACKPACK_CAPACITY_UPGRADE,
 }
 
 

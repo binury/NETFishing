@@ -1,0 +1,27 @@
+[gd_resource type="Resource" script_class="GatherableData" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://gathering/gatherable_data.gd" id="1_data"]
+[ext_resource type="Resource" path="res://fish/species/clam_manila/clam_manila.tres" id="2_catch"]
+
+[resource]
+script = ExtResource("1_data")
+type_id = &"clam_manila"
+catch_data = ExtResource("2_catch")
+required_tool_id = &"standard_shovel"
+diggable_area_id = &"starter_beach"
+minimum_surface_y = -0.44
+population = 3
+presentation_mode = 1
+requires_sneaking = false
+active_lifetime_seconds = 10.0
+movement_speed = 0.0
+roam_radius = 0.1
+scare_radius = 0.1
+capture_radius = 0.38
+interaction_range = 2.4
+charge_duration = 0.55
+capture_respawn_min_seconds = 8.0
+capture_respawn_max_seconds = 14.0
+scare_respawn_min_seconds = 0.0
+scare_respawn_max_seconds = 0.0
+minimum_respawn_spacing_seconds = 4.0

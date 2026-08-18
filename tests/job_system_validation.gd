@@ -203,7 +203,7 @@ func _run() -> void:
 	save_file.close()
 	assert(typeof(parsed) == TYPE_DICTIONARY)
 	var save_data: Dictionary = parsed
-	assert(int(save_data.get("save_version", -1)) == 7)
+	assert(int(save_data.get("save_version", -1)) == 8)
 	assert(PlayerJobService.validate_save_data(save_data.get("jobs", {})))
 
 	_validate_pause_session_switch(main, session)

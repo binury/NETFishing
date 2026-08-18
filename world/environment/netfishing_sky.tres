@@ -31,6 +31,9 @@ shader_parameter/moon_radius = 0.045
 shader_parameter/moon_edge_softness = 0.003
 shader_parameter/moon_halo_radius = 0.11
 shader_parameter/moon_halo_strength = 0.12
+shader_parameter/star_color = Color(0.72, 0.82, 0.96, 1)
+shader_parameter/star_visibility = 0.0
+shader_parameter/star_strength = 0.72
 
 [resource]
 sky_material = SubResource("ShaderMaterial_netfishing")

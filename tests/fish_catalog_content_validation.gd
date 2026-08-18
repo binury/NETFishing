@@ -121,7 +121,7 @@ func _validate_weight_based_display_scale() -> void:
 
 
 func _validate_catalog_and_pools() -> void:
-	assert(Catalog.candidates.size() == 314)
+	assert(Catalog.candidates.size() == 316)
 	assert(PondPool.candidates.size() == 19)
 	assert(OceanPool.candidates.size() == 34)
 	var active_count: int = 0
@@ -142,7 +142,7 @@ func _validate_catalog_and_pools() -> void:
 			inactive_count += 1
 			assert(not fish.is_selectable())
 			assert(fish.display_texture == null)
-	assert(active_count == 54)
+	assert(active_count == 56)
 	assert(inactive_count == 260)
 	var inactive_fish: FishDataType = Catalog.get_fish_by_id(&"bowfin")
 	assert(inactive_fish != null and not inactive_fish.active)
@@ -455,6 +455,7 @@ func _validate_catches_and_authoritative_sale() -> void:
 			1,
 			"catalog_sale_%d" % catch_sequence,
 			[loaded.to_network_dict()],
+			[],
 			PelicanBuyer,
 		)
 		assert(bool(sale_result.get("accepted", false)))

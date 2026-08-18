@@ -9,6 +9,7 @@ signal catches_changed
 var _catches: Array[FishCatchType] = []
 var _next_catch_sequence: int = 1
 var _reservation_service: PlayerAssetReservationService
+var _inventory_layout: PlayerInventoryLayout
 
 
 func set_reservation_service(
@@ -17,11 +18,24 @@ func set_reservation_service(
 	_reservation_service = reservation_service
 
 
-func add_catch(fish_catch: FishCatchType) -> void:
+func set_inventory_layout(layout: PlayerInventoryLayout) -> void:
+	_inventory_layout = layout
+
+
+func can_accept_catch(catch_id: StringName = StringName()) -> bool:
+	return (
+		_inventory_layout == null
+		or _inventory_layout.can_accept_catch(catch_id)
+	)
+
+
+func add_catch(fish_catch: FishCatchType) -> bool:
 	if fish_catch == null or not fish_catch.is_valid():
-		return
+		return false
 	if get_catch_by_id(fish_catch.catch_id) != null:
-		return
+		return false
+	if not can_accept_catch(fish_catch.catch_id):
+		return false
 	if fish_catch.catch_sequence <= 0:
 		fish_catch.catch_sequence = _next_catch_sequence
 	_next_catch_sequence = maxi(
@@ -34,6 +48,7 @@ func add_catch(fish_catch: FishCatchType) -> void:
 		get_count(fish_catch.fish_id)
 	)
 	catches_changed.emit()
+	return true
 
 
 func get_count(fish_id: StringName) -> int:

@@ -1,11 +1,13 @@
-[gd_resource type="Resource" script_class="GatherableCatalog" load_steps=6 format=3]
+[gd_resource type="Resource" script_class="GatherableCatalog" load_steps=8 format=3]
 
 [ext_resource type="Script" path="res://gathering/gatherable_catalog.gd" id="1_catalog"]
 [ext_resource type="Resource" path="res://gathering/catalog/crab_brown.tres" id="2_brown"]
 [ext_resource type="Resource" path="res://gathering/catalog/crab_ghost.tres" id="3_ghost"]
 [ext_resource type="Resource" path="res://gathering/catalog/crab_blue.tres" id="4_blue"]
 [ext_resource type="Resource" path="res://gathering/catalog/crab_dungeness.tres" id="5_dungeness"]
+[ext_resource type="Resource" path="res://gathering/catalog/clam_manila.tres" id="6_clam"]
+[ext_resource type="Resource" path="res://gathering/catalog/beetle_stag_common.tres" id="7_beetle"]
 
 [resource]
 script = ExtResource("1_catalog")
-entries = [ExtResource("2_brown"), ExtResource("3_ghost"), ExtResource("4_blue"), ExtResource("5_dungeness")]
+entries = [ExtResource("2_brown"), ExtResource("3_ghost"), ExtResource("4_blue"), ExtResource("5_dungeness"), ExtResource("6_clam"), ExtResource("7_beetle")]

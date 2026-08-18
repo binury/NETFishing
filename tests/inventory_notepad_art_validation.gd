@@ -1,14 +1,17 @@
 extends SceneTree
 
 const PlayerMenuScene = preload("res://ui/player_menu.tscn")
+const HotbarScene = preload("res://ui/hotbar.tscn")
 const UIReferencePresentationType = preload(
 	"res://ui/ui_reference_presentation.gd"
 )
 const EXPECTED_HOST_SIZE := Vector2(278.0, 484.0)
 const EXPECTED_ART_SIZE := Vector2(306.28125, 580.8)
 const EXPECTED_ART_POSITION := Vector2(-4.140625, -28.4)
-const INVENTORY_PANEL_RECT := Rect2(54.0, 166.0, 882.0, 484.0)
-const NOTEPAD_HOST_RECT := Rect2(952.0, 166.0, 278.0, 484.0)
+const LEGACY_COOLER_PANEL_RECT := Rect2(54.0, 166.0, 882.0, 484.0)
+const LEGACY_COOLER_NOTEPAD_RECT := Rect2(952.0, 166.0, 278.0, 484.0)
+const INVENTORY_PANEL_RECT := Rect2(199.0, 166.0, 882.0, 484.0)
+const NOTEPAD_HOST_RECT := Rect2(501.0, 166.0, 278.0, 484.0)
 const NOTEPAD_ART_RECT := Rect2(
 	NOTEPAD_HOST_RECT.position + EXPECTED_ART_POSITION,
 	EXPECTED_ART_SIZE,
@@ -57,6 +60,11 @@ func _run() -> void:
 			+ InventoryNotepad.NOTEPAD_ART_OFFSET
 		))
 	_validate_shared_inventory_geometry(player_menu)
+	_validate_first_open_inventory(player_menu)
+	await _validate_inventory_grid_centering(player_menu, presentation_stage)
+	_validate_utility_page_geometry(player_menu)
+	await _validate_profile_content_bounds(player_menu)
+	await _validate_hotbar_centering(presentation_stage)
 	_validate_inventory_layering(player_menu)
 	_validate_tackle_to_items_transition(player_menu)
 	_validate_cooler_notepad_typography(player_menu)
@@ -103,23 +111,151 @@ func _apply_stage_layout(stage: Control, display_size: Vector2) -> void:
 
 func _validate_shared_inventory_geometry(player_menu: PlayerMenu) -> void:
 	for node_name: StringName in [
-		&"CoolerOuterWall",
 		&"BagOuterWall",
 		&"TackleMainPanel",
 	]:
 		var main_panel := player_menu.get_node("%%%s" % node_name) as Control
 		assert(main_panel != null)
 		assert(main_panel.position.is_equal_approx(INVENTORY_PANEL_RECT.position))
-		assert(main_panel.size.is_equal_approx(INVENTORY_PANEL_RECT.size))
+		assert(
+			main_panel.size.is_equal_approx(INVENTORY_PANEL_RECT.size),
+			"%s was %s, expected %s" % [
+				node_name,
+				main_panel.size,
+				INVENTORY_PANEL_RECT.size,
+			],
+		)
+	var cooler_panel := player_menu.get_node("%CoolerOuterWall") as Control
+	var cooler_notepad := player_menu.get_node("%DetailConstellation") as Control
+	assert(cooler_panel.position.is_equal_approx(
+		LEGACY_COOLER_PANEL_RECT.position
+	))
+	assert(cooler_panel.size.is_equal_approx(LEGACY_COOLER_PANEL_RECT.size))
+	assert(cooler_notepad.position.is_equal_approx(
+		LEGACY_COOLER_NOTEPAD_RECT.position
+	))
+	assert(cooler_notepad.size.is_equal_approx(
+		LEGACY_COOLER_NOTEPAD_RECT.size
+	))
 	for node_name: StringName in [
-		&"DetailConstellation",
 		&"BagDetailConstellation",
 		&"TackleDetailPanel",
 	]:
 		var host := player_menu.get_node("%%%s" % node_name) as Control
 		assert(host != null)
-		assert(host.position.is_equal_approx(Vector2(952.0, 166.0)))
+		assert(host.position.is_equal_approx(NOTEPAD_HOST_RECT.position))
 		assert(host.size.is_equal_approx(EXPECTED_HOST_SIZE))
+	assert(is_equal_approx(INVENTORY_PANEL_RECT.get_center().x, 640.0))
+
+
+func _validate_first_open_inventory(player_menu: PlayerMenu) -> void:
+	var legacy_slots: Array = player_menu.get("_bag_slot_nodes") as Array
+	assert(legacy_slots.is_empty())
+	var old_slot_nodes: Array[Node] = player_menu.find_children(
+		"*", "BagStorageSlot", true, false
+	)
+	assert(old_slot_nodes.is_empty())
+
+
+func _validate_inventory_grid_centering(
+	player_menu: PlayerMenu,
+	stage: Control,
+) -> void:
+	var grid := player_menu.get("_general_inventory_grid") as Control
+	assert(grid != null)
+	grid.custom_minimum_size = Vector2(782.0, 342.0)
+	grid.size = grid.custom_minimum_size
+	player_menu.call("_layout_general_inventory_grid")
+	await process_frame
+	assert(is_equal_approx(grid.position.y, 39.0))
+	assert(
+		is_equal_approx(
+			grid.get_global_rect().get_center().x,
+			stage.get_global_rect().get_center().x,
+		),
+		"inventory center %s did not match stage center %s" % [
+			grid.get_global_rect().get_center().x,
+			stage.get_global_rect().get_center().x,
+		],
+	)
+
+
+func _validate_utility_page_geometry(player_menu: PlayerMenu) -> void:
+	for page_name: StringName in [
+		&"TheNetPage",
+		&"MailPage",
+		&"ProfilePage",
+		&"PlayersPage",
+	]:
+		var page := player_menu.get_node("%%%s" % page_name) as Control
+		assert(page != null)
+		var shell := page.find_child(
+			"UtilityMainBox", true, false
+		) as Control
+		assert(shell != null)
+		assert(shell.position.is_equal_approx(UtilityPageStyle.LAPTOP_RECT.position))
+		assert(shell.size.is_equal_approx(UtilityPageStyle.LAPTOP_RECT.size))
+		assert(is_equal_approx(shell.get_rect().get_center().x, 640.0))
+
+
+func _validate_profile_content_bounds(player_menu: PlayerMenu) -> void:
+	var profile := player_menu.get_node("%ProfilePage") as ProfilePage
+	assert(profile != null)
+	var menu_was_visible: bool = player_menu.visible
+	var profile_was_visible: bool = profile.visible
+	player_menu.visible = true
+	profile.visible = true
+	await process_frame
+	await process_frame
+	var option_list := profile.get("_option_list") as Control
+	var body := option_list.get_parent() as Control
+	var preview := profile.get("_preview") as Control
+	var shell := profile.find_child("UtilityMainBox", true, false) as Control
+	assert(option_list != null and body != null and preview != null and shell != null)
+	for category_id: String in ["fur_pattern", "voice"]:
+		profile.call("_select_category", category_id)
+		await process_frame
+		await process_frame
+		assert(
+			body.get_combined_minimum_size().x <= body.size.x,
+			"%s customization content overflowed its body: %s > %s" % [
+				category_id,
+				body.get_combined_minimum_size().x,
+				body.size.x,
+			],
+		)
+		assert(
+			preview.get_global_rect().end.x
+			<= shell.get_global_rect().end.x,
+			"%s preview overflowed the utility content area" % category_id,
+		)
+	profile.visible = profile_was_visible
+	player_menu.visible = menu_was_visible
+
+
+func _validate_hotbar_centering(parent: Control) -> void:
+	var hotbar := HotbarScene.instantiate() as HotbarUI
+	parent.add_child(hotbar)
+	await process_frame
+	var presentation := hotbar.get_node(
+		"%HotbarPresentationScaleRoot"
+	) as Control
+	var field := hotbar.get_node("%BubbleField") as Control
+	hotbar.set_player_menu_context(true)
+	var displayed_center_x: float = (
+		presentation.position.x
+		+ field.get_rect().get_center().x * presentation.scale.x
+	)
+	assert(is_equal_approx(displayed_center_x, 640.0))
+	var displayed_top: float = (
+		presentation.position.y + field.position.y * presentation.scale.y
+	)
+	var displayed_bottom: float = (
+		displayed_top + field.size.y * presentation.scale.y
+	)
+	assert(displayed_top < INVENTORY_PANEL_RECT.end.y)
+	assert(displayed_bottom > INVENTORY_PANEL_RECT.end.y)
+	hotbar.queue_free()
 
 
 func _validate_inventory_layering(player_menu: PlayerMenu) -> void:
@@ -136,13 +272,31 @@ func _validate_inventory_layering(player_menu: PlayerMenu) -> void:
 	assert(cooler_panel != null)
 	assert(tackle_panel != null)
 	assert(inventory_tabs != null)
-	assert(items_tab != null and items_tab.text == "Items")
-	assert(bait_list != null and bait_list.columns == 3)
-	assert(lure_list != null and lure_list.columns == 3)
+	assert(items_tab != null and not items_tab.visible)
+	assert(not (player_menu.get_node("%CoolerSubTab") as Button).visible)
+	assert((player_menu.get_node("%BagSubTab") as Button).text == "Inventory")
+	assert(bait_list != null and bait_list.columns == 4)
+	assert(lure_list != null and lure_list.columns == 4)
 	assert(bait_list.get_theme_constant("h_separation") == 28)
 	assert(lure_list.get_theme_constant("h_separation") == 28)
 	assert(sale_confirmation.z_index > cooler_panel.z_index)
 	assert(sale_confirmation.z_index > tackle_panel.z_index)
+	assert(
+		(player_menu.get_node("%BagDetailConstellation") as Control).z_index
+		> bag_panel.z_index
+	)
+	assert(
+		(player_menu.get_node("%BagModalBlocker") as Control).z_index
+		> bag_panel.z_index
+	)
+	assert(
+		(player_menu.get_node("%BagDetailConstellation") as Control).z_index
+		> (player_menu.get_node("%BagModalBlocker") as Control).z_index
+	)
+	assert(
+		(player_menu.get_node("%TackleDetailPanel") as Control).z_index
+		> tackle_panel.z_index
+	)
 	# The contextual Hotbar uses z=90 while the Player Menu is open.
 	assert(sale_confirmation.z_index > 90)
 	assert(sale_confirmation.position.is_equal_approx(Vector2(380.0, 265.0)))
@@ -159,25 +313,55 @@ func _validate_inventory_layering(player_menu: PlayerMenu) -> void:
 
 
 func _validate_tackle_to_items_transition(player_menu: PlayerMenu) -> void:
-	var empty_state := player_menu.get_node("%BagEmptyState") as Label
-	player_menu.set("_bag_view", PlayerMenu.BagView.EQUIPMENT)
-	player_menu.call("_refresh_bag")
-	assert(empty_state.text == "No equipment in your Bag.")
+	var inventory_notepad := player_menu.get_node(
+		"%BagDetailBubble"
+	) as InventoryNotepad
+	assert(inventory_notepad != null)
+	assert(inventory_notepad.title_text == "inventory notes")
 	player_menu.call(
 		"_show_section_immediate", PlayerMenu.Section.TACKLE_BOX
 	)
-	player_menu.call("_show_bag_view", PlayerMenu.BagView.CONSUMABLES)
-	assert(
-		player_menu.get("_current_section") == PlayerMenu.Section.BAG
-	)
-	assert(
-		player_menu.get("_bag_view") == PlayerMenu.BagView.CONSUMABLES
-	)
-	assert(empty_state.text == "No items in your Bag.")
+	player_menu.call("_show_inventory_tab", 0)
 	player_menu.call("_cancel_page_tween")
-	player_menu.call(
-		"_show_section_immediate", PlayerMenu.Section.COOLER
+	player_menu.call("_show_section_immediate", PlayerMenu.Section.BAG)
+	player_menu.call("_update_bag_detail")
+	assert(player_menu.get("_current_section") == PlayerMenu.Section.BAG)
+	assert(not (player_menu.get_node("%BagDetailConstellation") as Control).visible)
+	assert(
+		(player_menu.get_node("%BagSpriteDetailData") as Label).text
+		== "select an item for details."
 	)
+	player_menu.visible = true
+	player_menu.call("_set_content_interactive", true)
+	var no_actions: Array[BaseButton] = []
+	player_menu.call(
+		"_open_inventory_notepad",
+		PlayerMenu.Section.BAG,
+		StringName("modal-test"),
+		no_actions,
+	)
+	assert((player_menu.get_node("%BagDetailConstellation") as Control).visible)
+	assert((player_menu.get_node("%BagModalBlocker") as Control).visible)
+	assert(
+		(player_menu.get_node("%BagModalBlocker") as Control).mouse_filter
+		== Control.MOUSE_FILTER_STOP
+	)
+	assert(
+		(player_menu.get_node("%InventoryTab") as Button).focus_mode
+		== Control.FOCUS_NONE
+	)
+	assert(
+		(player_menu.get_node("%BagSpriteDetailData") as Label).get_theme_font(
+			"font"
+		) == InventoryNotepad.NOTEPAD_FONT
+	)
+	player_menu.call(
+		"_release_controller_ownership", false, false
+	)
+	assert(not (player_menu.get_node("%BagModalBlocker") as Control).visible)
+	player_menu.call("_set_content_interactive", false)
+	player_menu.visible = false
+	player_menu.call("_cancel_page_tween")
 
 
 func _validate_cooler_notepad_typography(player_menu: PlayerMenu) -> void:
@@ -314,17 +498,16 @@ func _capture_inventory_pages(player_menu: PlayerMenu) -> void:
 		return
 	player_menu.visible = true
 	var sections: Array[PlayerMenu.Section] = [
-		PlayerMenu.Section.COOLER,
 		PlayerMenu.Section.BAG,
 		PlayerMenu.Section.TACKLE_BOX,
 	]
-	var suffixes: Array[String] = ["cooler", "equipment", "tackle"]
+	var suffixes: Array[String] = ["inventory", "tackle"]
 	for index: int in sections.size():
 		player_menu.call("_show_section_immediate", sections[index])
 		await process_frame
 		await process_frame
 		await _save_capture(suffixes[index])
-	player_menu.call("_show_section_immediate", PlayerMenu.Section.COOLER)
+	player_menu.call("_show_section_immediate", PlayerMenu.Section.BAG)
 	var sale_confirmation := player_menu.get_node("%SaleConfirmation") as Control
 	var confirmation_message := player_menu.get_node(
 		"%ConfirmationMessage"

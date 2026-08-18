@@ -55,6 +55,17 @@ func _initialize() -> void:
 	assert(crab_net != null)
 	assert(crab_net.icon != null)
 	assert(crab_net.icon.resource_path.ends_with("/equipment/temp_net.png"))
+	var shovel: ItemDataType = ItemCatalogResource.get_available_item_by_id(
+		&"standard_shovel"
+	)
+	assert(shovel != null)
+	assert(shovel.category == ItemDataType.Category.TOOL)
+	assert(shovel.icon != null)
+	assert(shovel.equippable)
+	assert(shovel.hotbar_allowed)
+	assert(FishingShopStockType.get_price(&"standard_shovel") == 75)
+	assert(FishingShopStockType.get_stock_item_ids().has(&"standard_shovel"))
+	assert(FishingShopStockType.is_permanent_unlock(&"standard_shovel", shovel))
 
 	var wallet := PlayerWalletType.new()
 	wallet.current_balance = 250

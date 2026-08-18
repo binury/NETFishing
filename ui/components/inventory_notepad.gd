@@ -6,7 +6,10 @@ const CONTENT_MARGIN_LEFT := 18.0
 const CONTENT_MARGIN_TOP := 98.0
 const CONTENT_MARGIN_RIGHT := 18.0
 const CONTENT_MARGIN_BOTTOM := 16.0
+# Retained for the Logbook's separate handwritten presentation. Inventory
+# notepads deliberately prioritize legibility with Tuffy.
 const HANDWRITTEN_FONT: Font = preload("res://ui/fonts/seattle_avenue.otf")
+const NOTEPAD_FONT: Font = preload("res://ui/fonts/Tuffy_Bold.otf")
 const NOTEPAD_TEXTURE: Texture2D = preload("res://art/ui/ui_notepad.png")
 const NOTEPAD_CANONICAL_OVERSCAN: float = 1.2
 const NOTEPAD_ART_OFFSET := Vector2(10.0, 20.0)
@@ -24,11 +27,11 @@ func _ready() -> void:
 
 
 static func apply_handwritten_to(root: Control) -> void:
-	root.add_theme_font_override("font", HANDWRITTEN_FONT)
+	root.add_theme_font_override("font", NOTEPAD_FONT)
 	for descendant: Node in root.find_children("*", "Control", true, false):
 		var control := descendant as Control
 		control.add_theme_font_override(
-			"font", HANDWRITTEN_FONT
+			"font", NOTEPAD_FONT
 		)
 		if control is Label:
 			control.add_theme_color_override("font_color", INK_COLOR)
@@ -37,7 +40,7 @@ static func apply_handwritten_to(root: Control) -> void:
 func _draw() -> void:
 	draw_texture_rect(NOTEPAD_TEXTURE, get_art_rect(), false)
 
-	var font: Font = HANDWRITTEN_FONT
+	var font: Font = NOTEPAD_FONT
 	draw_string(
 		font,
 		Vector2(20.0, 58.0),

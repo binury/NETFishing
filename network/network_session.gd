@@ -271,6 +271,7 @@ func _register_player_host() -> void:
 			NetworkProtocol.WORLD_WEATHER_CAPABILITY,
 			NetworkProtocol.JOBS_CAPABILITY,
 			NetworkProtocol.WORLD_SPAWN_CAPABILITY,
+			NetworkProtocol.BACKPACK_SHOP_CAPABILITY,
 		]),
 	)
 	_registry.update_appearance(1, _local_appearance_snapshot)
@@ -554,6 +555,7 @@ func supports_server_capability(capability: StringName) -> bool:
 		return str(capability) in PackedStringArray([
 			"movement_v1", "fishing_v1", "sale_v1", "shop_v1",
 			NetworkProtocol.ART_SHOP_CAPABILITY,
+			NetworkProtocol.BACKPACK_SHOP_CAPABILITY,
 			"item_use_v1", "equipment_v1", "fish_showcase_v1",
 			NetworkProtocol.FISH_QUALITY_CAPABILITY,
 			NetworkProtocol.SURFACE_DRAWING_CAPABILITY,
@@ -1365,6 +1367,7 @@ func receive_server_hello(data: Dictionary) -> void:
 			NetworkProtocol.SURFACE_DRAWING_CAPABILITY,
 			NetworkProtocol.WORLD_TIME_CAPABILITY,
 			NetworkProtocol.WORLD_WEATHER_CAPABILITY,
+			NetworkProtocol.BACKPACK_SHOP_CAPABILITY,
 		]),
 	)
 	_registry.update_appearance(local_peer_id, _local_appearance_snapshot)

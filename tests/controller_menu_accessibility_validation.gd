@@ -18,11 +18,10 @@ const VoiceProfilesType = preload(
 )
 const PlayerMenuScene = preload("res://ui/player_menu.tscn")
 const PlayerMenuType = preload("res://ui/player_menu.gd")
-const BagItemSpriteScene = preload(
-	"res://ui/components/bubble_menu/bag_item_sprite.tscn"
-)
-const OwnedItemType = preload("res://items/owned_item.gd")
 const PlayerHotbarType = preload("res://inventory/player_hotbar.gd")
+const ItemCatalogResource: ItemCatalog = preload(
+	"res://items/catalog/item_catalog.tres"
+)
 const PlayersPageType = preload("res://ui/players_page.gd")
 const TheNetPageType = preload("res://ui/the_net_page.gd")
 const ControllerMappingManagerType = preload(
@@ -1077,21 +1076,63 @@ func _validate_inventory_tab_zone_transitions() -> void:
 	var menu := PlayerMenuScene.instantiate() as Control
 	root.add_child(menu)
 	await process_frame
+	var inventory_state := Node.new()
+	root.add_child(inventory_state)
+	var bag := PlayerBag.new()
+	var catches := FishInventory.new()
+	var storage_capacity := PlayerCoolerCapacity.new()
+	var layout := PlayerInventoryLayout.new()
+	var hotbar := PlayerHotbarType.new()
+	for node: Node in [bag, catches, storage_capacity, layout, hotbar]:
+		inventory_state.add_child(node)
+	bag.setup(ItemCatalogResource)
+	layout.setup(bag, catches, ItemCatalogResource, storage_capacity)
+	bag.set_inventory_layout(layout)
+	catches.set_inventory_layout(layout)
+	hotbar.setup(bag, ItemCatalogResource, catches, layout)
+	assert(bag.add_item(&"basic_fishing_rod", 1))
+	assert(bag.add_item(&"coffee", 1))
+	assert(layout.move_entry(
+		PlayerInventoryLayout.EntryKind.ITEM,
+		&"basic_fishing_rod",
+		PlayerInventoryLayout.InventoryContainer.INVENTORY,
+		9,
+	))
+	assert(hotbar.assign_item(0, &"coffee"))
+	menu.set("_bag", bag)
+	menu.set("_inventory", catches)
+	menu.set("_hotbar", hotbar)
+	menu.set("_inventory_layout", layout)
+	menu.set("_item_catalog", ItemCatalogResource)
+	var inventory_grid := menu.get("_general_inventory_grid") as GeneralInventoryGrid
+	inventory_grid.setup(
+		layout,
+		bag,
+		catches,
+		hotbar,
+		ItemCatalogResource,
+		PlayerInventoryLayout.InventoryContainer.INVENTORY,
+	)
 	menu.visible = true
 	menu.call(
 		"_show_section_immediate",
-		PlayerMenuType.Section.COOLER,
+		PlayerMenuType.Section.BAG,
 	)
 	menu.call("_set_content_interactive", true)
 	menu.call("_enter_inventory_tabs_zone")
 	for _frame: int in 2:
 		await process_frame
-	var cooler_tab := menu.get_node("%CoolerSubTab") as Button
-	var equipment_tab := menu.get_node("%BagSubTab") as Button
-	var items_tab := menu.get_node("%ItemsSubTab") as Button
+	var inventory_tab := menu.get_node("%BagSubTab") as Button
+	var tackle_tab := menu.get_node("%TackleSubTab") as Button
 	_expect(
-		root.gui_get_focus_owner() == cooler_tab,
-		"Inventory tab zone did not begin on the active Cooler tab.",
+		root.gui_get_focus_owner() == inventory_tab,
+		"Inventory tab zone did not begin on the unified Inventory tab.",
+	)
+	_expect(inventory_tab.text == "Inventory", "Unified tab is not labelled Inventory.")
+	_expect(
+		not (menu.get_node("%CoolerSubTab") as Button).visible
+		and not (menu.get_node("%ItemsSubTab") as Button).visible,
+		"Legacy Cooler or Items tabs remain visible.",
 	)
 
 	var right := InputEventAction.new()
@@ -1103,8 +1144,8 @@ func _validate_inventory_tab_zone_transitions() -> void:
 	)
 	await _wait_for_player_menu_page_transition(menu)
 	_expect(
-		menu.get("_current_section") == PlayerMenuType.Section.BAG,
-		"Controller Right did not switch from Cooler to Equipment.",
+		menu.get("_current_section") == PlayerMenuType.Section.TACKLE_BOX,
+		"Controller Right did not switch from Inventory to Tackle.",
 	)
 	_expect(
 		menu.get("_controller_ownership")
@@ -1112,7 +1153,7 @@ func _validate_inventory_tab_zone_transitions() -> void:
 		"Changing Inventory tabs entered the item-content zone without A.",
 	)
 	_expect(
-		root.gui_get_focus_owner() == equipment_tab,
+		root.gui_get_focus_owner() == tackle_tab,
 		"Changing Inventory tabs did not keep focus on the selected tab.",
 	)
 	var down := InputEventAction.new()
@@ -1124,59 +1165,33 @@ func _validate_inventory_tab_zone_transitions() -> void:
 	)
 	await process_frame
 	_expect(
-		root.gui_get_focus_owner() == equipment_tab,
+		root.gui_get_focus_owner() == tackle_tab,
 		"Controller Down escaped the Inventory tab zone before A.",
-	)
-
-	_expect(
-		bool(menu.call("_handle_controller_ownership_input", right)),
-		"Equipment-to-Items navigation did not consume controller Right.",
-	)
-	await _wait_for_player_menu_page_transition(menu)
-	_expect(
-		root.gui_get_focus_owner() == items_tab,
-		"Items tab selection did not retain tab focus before A (focus=%s)."
-		% root.gui_get_focus_owner(),
-	)
-	_expect(
-		menu.get("_controller_ownership")
-		== PlayerMenuType.ControllerOwnership.INVENTORY_TABS,
-		"Items tab selection changed controller zones before A.",
 	)
 	var left := InputEventAction.new()
 	left.action = &"ui_left"
 	left.pressed = true
 	_expect(
 		bool(menu.call("_handle_controller_ownership_input", left)),
-		"Items-to-Equipment navigation did not consume controller Left.",
+		"Tackle-to-Inventory navigation did not consume controller Left.",
+	)
+	_expect(
+		menu.get("_current_section") == PlayerMenuType.Section.BAG
+		or bool(menu.get("_page_transitioning")),
+		"Tackle-to-Inventory input did not start the Inventory transition.",
 	)
 	await _wait_for_player_menu_page_transition(menu)
 	_expect(
-		root.gui_get_focus_owner() == equipment_tab,
-		"Returning to Equipment did not retain tab focus before A.",
+		root.gui_get_focus_owner() == inventory_tab,
+		"Returning to Inventory did not retain tab focus before A.",
 	)
-
-	# Add three representative equipment entries so entering the content zone
-	# exercises the real five-column directional layout.
-	var item_field := menu.get_node("%BagItemField") as Control
-	var bag_nodes: Dictionary = menu.get("_bag_item_nodes")
-	var owned_items: Array[OwnedItemType] = []
-	for index: int in 3:
-		var owned := OwnedItemType.new()
-		owned.item_id = StringName("controller_test_item_%d" % index)
-		owned_items.append(owned)
-		var item_node := BagItemSpriteScene.instantiate() as Button
-		item_node.set("item_id", owned.item_id)
-		item_node.position = Vector2(60.0 + float(index) * 180.0, 40.0)
-		item_field.add_child(item_node)
-		bag_nodes[owned.item_id] = item_node
-	menu.set("_sorted_bag_items", owned_items)
 	menu.call("_set_content_interactive", true)
 	menu.call("_configure_bag_item_focus")
-	for item_node: Control in bag_nodes.values():
+	var active_slots := inventory_grid.get_slots()
+	for slot: GeneralInventorySlot in active_slots:
 		_expect(
-			item_node.focus_mode == Control.FOCUS_NONE,
-			"Equipment content remained focusable while tabs owned the controller.",
+			slot.focus_mode == Control.FOCUS_NONE,
+			"Inventory slots remained focusable while tabs owned the controller.",
 		)
 
 	var accept := InputEventJoypadButton.new()
@@ -1193,34 +1208,45 @@ func _validate_inventory_tab_zone_transitions() -> void:
 	)
 	for _frame: int in 2:
 		await process_frame
-	var first_item := bag_nodes[owned_items[0].item_id] as Control
-	var second_item := bag_nodes[owned_items[1].item_id] as Control
-	for item_node: Control in bag_nodes.values():
+	_expect(
+		menu.get("_current_section") == PlayerMenuType.Section.BAG,
+		"Entering Inventory contents changed section to %s."
+		% menu.get("_current_section"),
+	)
+	var first_item := active_slots[0] as Control
+	var second_item := active_slots[1] as Control
+	for slot: GeneralInventorySlot in active_slots:
 		_expect(
-			item_node.focus_mode == Control.FOCUS_ALL,
-			"Accepting Equipment did not enable its content focus zone.",
+			slot.focus_mode == Control.FOCUS_ALL,
+			"Accepting Inventory did not enable its content focus zone.",
 		)
 	_expect(
 		root.gui_get_focus_owner() == first_item,
-		"Entering Equipment did not focus its first item.",
+		"Entering Inventory did not focus its first slot.",
 	)
 	_expect(
 		first_item.focus_neighbor_right == first_item.get_path_to(second_item),
-		"Equipment items do not provide horizontal controller navigation.",
+		"Inventory slots do not provide horizontal controller navigation.",
 	)
 	Input.parse_input_event(right)
 	for _frame: int in 2:
 		await process_frame
 	_expect(
-		root.gui_get_focus_owner() == second_item,
-		"Controller Right did not move between Equipment items.",
+		menu.get("_current_section") == PlayerMenuType.Section.BAG,
+		"Inventory slot navigation changed section to %s."
+		% menu.get("_current_section"),
 	)
-	right.pressed = false
-	Input.parse_input_event(right)
-	right.pressed = true
+	_expect(
+		root.gui_get_focus_owner() == second_item,
+		"Controller Right did not move between Inventory slots.",
+	)
+	var right_release := InputEventAction.new()
+	right_release.action = &"ui_right"
+	right_release.pressed = false
+	Input.parse_input_event(right_release)
 	_expect(
 		bool(menu.call("consume_escape")),
-		"Global player-menu Back did not consume Equipment contents.",
+		"Global player-menu Back did not consume Inventory contents.",
 	)
 	_expect(
 		menu.visible,
@@ -1234,89 +1260,101 @@ func _validate_inventory_tab_zone_transitions() -> void:
 	for _frame: int in 2:
 		await process_frame
 	_expect(
+		menu.get("_current_section") == PlayerMenuType.Section.BAG,
+		"Returning from Inventory contents changed section to %s."
+		% menu.get("_current_section"),
+	)
+	_expect(
 		bool(menu.call("_handle_controller_ownership_input", accept)),
-		"Inventory tab zone did not re-enter Equipment contents.",
+		"Inventory tab zone did not re-enter Inventory contents.",
 	)
 	for _frame: int in 2:
 		await process_frame
-
-	var favorite := menu.get_node("%FavoriteBubble") as BaseButton
-	var sell := menu.get_node("%SellBubble") as BaseButton
-	var sell_all := menu.get_node("%SellAllBubble") as BaseButton
-	for action: BaseButton in [favorite, sell, sell_all]:
-		action.disabled = false
-		action.focus_mode = Control.FOCUS_ALL
-	var notepad_actions: Array[BaseButton] = [favorite, sell, sell_all]
-	menu.call(
-		"_configure_controller_notepad_action_focus",
-		notepad_actions,
-	)
+	var notepad_source := active_slots[9]
+	notepad_source.grab_focus()
+	var context_press := InputEventJoypadButton.new()
+	context_press.button_index = JOY_BUTTON_Y
+	context_press.pressed = true
 	_expect(
-		sell.get_node(sell.focus_neighbor_bottom) == sell_all,
-		"Sell All is not reachable below Sell Fish in the notepad zone.",
-	)
-	_expect(
-		sell_all.get_node(sell_all.focus_neighbor_top) == sell,
-		"Sell All does not return to the upper notepad actions.",
-	)
-	menu.set(
-		"_controller_ownership",
-		PlayerMenuType.ControllerOwnership.NOTEPAD_ACTIONS,
-	)
-	menu.set("_controller_source_section", PlayerMenuType.Section.BAG)
-	menu.set("_controller_source_identity", owned_items[1].item_id)
-	menu.call("_apply_inventory_controller_zone_focus_modes")
-	_expect(
-		bool(menu.call("consume_escape")),
-		"Global player-menu Back did not consume the Inventory notepad zone.",
-	)
-	_expect(
-		menu.visible,
-		"Global player-menu Back closed Inventory from its notepad zone.",
+		bool(menu.call(
+			"_handle_controller_ownership_input", context_press
+		)),
+		"Controller Y did not open the selected Inventory notepad.",
 	)
 	_expect(
 		menu.get("_controller_ownership")
+		== PlayerMenuType.ControllerOwnership.NOTEPAD_ACTIONS,
+		"Inventory notepad did not become the active controller zone.",
+	)
+	_expect(
+		(menu.get_node("%BagDetailConstellation") as Control).visible,
+		"Inventory notepad remained hidden after controller Y.",
+	)
+	_expect(
+		bool(menu.call("consume_escape")),
+		"Controller B did not close the Inventory notepad.",
+	)
+	_expect(
+		not (menu.get_node("%BagDetailConstellation") as Control).visible
+		and menu.get("_controller_ownership")
 		== PlayerMenuType.ControllerOwnership.ITEM_LIST,
-		"Global player-menu Back did not return the notepad to Inventory contents.",
+		"Closing the Inventory notepad did not restore the item zone.",
 	)
 	for _frame: int in 2:
 		await process_frame
-
-	var hotbar := PlayerHotbarType.new()
-	menu.set("_hotbar", hotbar)
-	var hotbar_slots: Array[StringName] = []
-	hotbar_slots.resize(PlayerHotbarType.SLOT_COUNT)
-	hotbar_slots.fill(StringName())
-	hotbar.set("_slots", hotbar_slots)
-	var hotbar_fish_slots: Array[StringName] = []
-	hotbar_fish_slots.resize(PlayerHotbarType.SLOT_COUNT)
-	hotbar_fish_slots.fill(StringName())
-	hotbar_fish_slots[0] = &"controller_test_fish"
-	hotbar.set("_fish_slots", hotbar_fish_slots)
+	var accept_release := InputEventJoypadButton.new()
+	accept_release.button_index = JOY_BUTTON_A
+	accept_release.pressed = false
+	notepad_source.grab_focus()
+	menu.call("_handle_controller_ownership_input", accept)
+	menu.call("_handle_controller_ownership_input", accept_release)
+	_expect(
+		str(menu.get("_inventory_move_identity")) == "basic_fishing_rod",
+		"Controller A did not pick up the focused Inventory item.",
+	)
+	var move_target := active_slots[10]
+	move_target.grab_focus()
+	menu.call("_handle_controller_ownership_input", accept)
+	menu.call("_handle_controller_ownership_input", accept_release)
+	_expect(
+		layout.get_key_at(
+			PlayerInventoryLayout.InventoryContainer.INVENTORY, 10
+		) == PlayerInventoryLayout.item_key(&"basic_fishing_rod"),
+		"Controller A did not place the picked-up item in its target slot.",
+	)
 	var management_requests: Array[int] = [0]
 	menu.controller_hotbar_management_requested.connect(
 		func(_initial_slot: int) -> void:
 			management_requests[0] += 1
 	)
-	var hotbar_owned := OwnedItemType.new()
-	hotbar_owned.item_id = &"controller_hotbar_source"
-	var hotbar_source := BagItemSpriteScene.instantiate() as Button
-	hotbar_source.set("item_id", hotbar_owned.item_id)
-	hotbar_source.position = Vector2(60.0, 40.0)
-	item_field.add_child(hotbar_source)
-	bag_nodes[hotbar_owned.item_id] = hotbar_source
-	var hotbar_items: Array[OwnedItemType] = [hotbar_owned]
-	menu.set("_sorted_bag_items", hotbar_items)
 	menu.set(
 		"_controller_ownership",
 		PlayerMenuType.ControllerOwnership.ITEM_LIST,
 	)
 	menu.call("_apply_inventory_controller_zone_focus_modes")
 	menu.call("_configure_bag_item_focus")
+	var hotbar_source := active_slots[10]
+	_expect(
+		menu.get("_current_section") == PlayerMenuType.Section.BAG,
+		"Hotbar navigation test left the unified Inventory section (%s)."
+		% menu.get("_current_section"),
+	)
+	_expect(
+		hotbar_source.focus_mode == Control.FOCUS_ALL,
+		"Final active Inventory row was not controller-focusable.",
+	)
 	hotbar_source.grab_focus()
 	_expect(
+		root.gui_get_focus_owner() == hotbar_source,
+		"Final Inventory row did not accept controller focus before Hotbar entry.",
+	)
+	_expect(
+		bool(menu.call("_controller_focus_is_on_last_inventory_row")),
+		"Focused Inventory slot was not recognized as part of the final row.",
+	)
+	_expect(
 		bool(menu.call("_handle_controller_ownership_input", down)),
-		"Down from the final Equipment row did not enter the hotbar zone.",
+		"Down from the final Inventory row did not enter the hotbar zone.",
 	)
 	_expect(
 		menu.get("_controller_ownership")
@@ -1358,9 +1396,10 @@ func _validate_inventory_tab_zone_transitions() -> void:
 		"Hotbar management did not consume controller A.",
 	)
 	_expect(
-		hotbar.get_fish_catch_id(0).is_empty(),
-		"Controller A did not remove the selected fish hotbar assignment.",
+		hotbar.get_item_id(0).is_empty(),
+		"Controller A did not return the selected hotbar item to Inventory.",
 	)
+	_expect(layout.is_item_in_inventory(&"coffee"), "Cleared hotbar item was lost.")
 	_expect(
 		bool(menu.call("consume_escape")),
 		"Global player-menu Back did not consume hotbar management.",
@@ -1376,8 +1415,8 @@ func _validate_inventory_tab_zone_transitions() -> void:
 	)
 	for _frame: int in 2:
 		await process_frame
-	hotbar.free()
 	menu.queue_free()
+	inventory_state.queue_free()
 	await process_frame
 
 

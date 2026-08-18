@@ -4,12 +4,22 @@ extends Resource
 const FishDataType = preload("res://fish/fish_data.gd")
 const FishQualityType = preload("res://fish/fish_quality.gd")
 
+enum PresentationMode {
+	VISIBLE_CREATURE,
+	WATER_SPURT,
+}
+
 @export var type_id: StringName
 @export var catch_data: FishDataType
 @export var required_tool_id: StringName
 @export var surface_materials: Array[StringName] = []
+@export var diggable_area_id: StringName
+@export var spawn_anchor_set_id: StringName
 @export_range(-100.0, 100.0, 0.01) var minimum_surface_y: float = 0.08
 @export_range(0, 64, 1) var population: int = 0
+@export var presentation_mode: PresentationMode = PresentationMode.VISIBLE_CREATURE
+@export var requires_sneaking: bool = true
+@export_range(0.0, 120.0, 0.1) var active_lifetime_seconds: float = 0.0
 @export_range(0.0, 10.0, 0.05) var movement_speed: float = 0.35
 @export_range(0.1, 20.0, 0.1) var roam_radius: float = 3.5
 @export_range(0.1, 20.0, 0.1) var scare_radius: float = 2.8
@@ -41,17 +51,33 @@ const FishQualityType = preload("res://fish/fish_quality.gd")
 
 
 func is_valid() -> bool:
+	var uses_diggable_area: bool = not diggable_area_id.is_empty()
+	var uses_spawn_anchors: bool = not spawn_anchor_set_id.is_empty()
+	var movement_parameters_valid: bool = (
+		movement_speed >= 0.0
+		and (
+			presentation_mode == PresentationMode.WATER_SPURT
+			or (roam_radius > 0.0 and scare_radius > 0.0)
+		)
+	)
 	return (
 		not type_id.is_empty()
 		and catch_data != null
 		and catch_data.is_valid_catalog_entry()
 		and catch_data.collection_method != FishDataType.CollectionMethod.FISHING
 		and not required_tool_id.is_empty()
-		and not surface_materials.is_empty()
+		and (
+			uses_diggable_area
+			or uses_spawn_anchors
+			or not surface_materials.is_empty()
+		)
+		and (
+			not uses_diggable_area
+			or catch_data.collection_method
+			== FishDataType.CollectionMethod.DIGGING
+		)
 		and population > 0
-		and movement_speed >= 0.0
-		and roam_radius > 0.0
-		and scare_radius > 0.0
+		and movement_parameters_valid
 		and _quality_multipliers_are_valid(
 			quality_movement_speed_multipliers
 		)
@@ -65,6 +91,18 @@ func is_valid() -> bool:
 		and capture_respawn_max_seconds >= capture_respawn_min_seconds
 		and scare_respawn_max_seconds >= scare_respawn_min_seconds
 	)
+
+
+func is_stationary_hotspot() -> bool:
+	return presentation_mode == PresentationMode.WATER_SPURT
+
+
+func is_stationary_spawn() -> bool:
+	return is_stationary_hotspot() or not spawn_anchor_set_id.is_empty()
+
+
+func can_be_scared() -> bool:
+	return not is_stationary_spawn() and scare_radius > 0.0
 
 
 func get_movement_speed_for_quality(quality: int) -> float:

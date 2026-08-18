@@ -72,11 +72,21 @@ const BagItemSpriteScene = preload(
 const BagStorageSlotType = preload(
 	"res://ui/components/bubble_menu/bag_storage_slot.gd"
 )
+const GeneralInventoryGridType = preload(
+	"res://ui/components/general_inventory_grid.gd"
+)
+const GeneralInventorySlotType = preload(
+	"res://ui/components/general_inventory_slot.gd"
+)
 const DESKTOP_REFERENCE_SIZE := Vector2(1280.0, 720.0)
 const NAVIGATION_PRESENTATION_SCALE: float = 0.60
-const NAVIGATION_CANONICAL_POSITION := Vector2(424.0, 44.0)
+const NAVIGATION_REFERENCE_SIZE := Vector2(840.0, 100.0)
+const NAVIGATION_CANONICAL_POSITION := Vector2(
+	(DESKTOP_REFERENCE_SIZE.x
+	- NAVIGATION_REFERENCE_SIZE.x * NAVIGATION_PRESENTATION_SCALE) * 0.5,
+	44.0,
+)
 const NAVIGATION_SELECTED_SCALE: float = 1.02
-const INVENTORY_TAB_LEFT_INSET: float = 96.0
 const MAIN_SHOP_BUYER_ID: StringName = &"main_fishing_shop"
 
 signal menu_visibility_changed(is_open: bool)
@@ -134,18 +144,25 @@ enum ControllerOwnership {
 	PAGE_CONTENT,
 }
 
-const INVENTORY_MAIN_POSITION := Vector2(54.0, 166.0)
+const COOLER_MAIN_POSITION := Vector2(54.0, 166.0)
+const COOLER_MAIN_SIZE := Vector2(882.0, 484.0)
+const COOLER_NOTEPAD_POSITION := Vector2(952.0, 166.0)
 const INVENTORY_MAIN_SIZE := Vector2(882.0, 484.0)
-const INVENTORY_PANEL_GAP := 16.0
-const INVENTORY_NOTEPAD_POSITION := Vector2(
-	INVENTORY_MAIN_POSITION.x + INVENTORY_MAIN_SIZE.x + INVENTORY_PANEL_GAP,
-	INVENTORY_MAIN_POSITION.y,
+const INVENTORY_MAIN_POSITION := Vector2(
+	(DESKTOP_REFERENCE_SIZE.x - INVENTORY_MAIN_SIZE.x) * 0.5,
+	166.0,
 )
 const INVENTORY_NOTEPAD_SIZE := Vector2(278.0, 484.0)
+const INVENTORY_NOTEPAD_POSITION := Vector2(
+	INVENTORY_MAIN_POSITION.x
+	+ (INVENTORY_MAIN_SIZE.x - INVENTORY_NOTEPAD_SIZE.x) * 0.5,
+	INVENTORY_MAIN_POSITION.y,
+)
 const INVENTORY_MAIN_CORNER_RADIUS: int = 58
 const INVENTORY_INNER_CORNER_RADIUS: int = 45
-const TACKLE_GRID_COLUMNS: int = 3
-const BAG_STORAGE_COLUMNS: int = 5
+const TACKLE_GRID_COLUMNS: int = 4
+const INVENTORY_VISIBLE_TAB_WIDTH: float = 124.0 * 2.0 + 6.0
+const BAG_STORAGE_COLUMNS: int = PlayerInventoryLayout.INVENTORY_COLUMNS
 const BAG_STORAGE_MINIMUM_SLOTS: int = 15
 const SALE_CONFIRMATION_SIZE := Vector2(520.0, 190.0)
 const CONTROLLER_PICKUP_HOLD_SECONDS: float = 0.42
@@ -211,10 +228,15 @@ const LIGHT_COOLER_WATER_COLOR := Color(0.037, 0.27, 0.375, 1.0)
 @onready var _bag_host: Control = %BagHost
 @onready var _bag_item_field: Control = %BagItemField
 @onready var _bag_empty_state: Label = %BagEmptyState
+@onready var _bag_modal_blocker: Control = %BagModalBlocker
 @onready var _bag_detail_constellation: Control = %BagDetailConstellation
 @onready var _bag_sprite_detail_texture: TextureRect = %BagSpriteDetailTexture
 @onready var _bag_sprite_detail_name: Label = %BagSpriteDetailName
 @onready var _bag_sprite_detail_data: Label = %BagSpriteDetailData
+@onready var _bag_detail_actions: HBoxContainer = %BagDetailActions
+@onready var _bag_favorite_button: NotepadInkActionType = %BagFavoriteButton
+@onready var _bag_sell_button: NotepadInkActionType = %BagSellButton
+@onready var _tackle_modal_blocker: Control = %TackleModalBlocker
 @onready var _logbook_page: Control = %LogbookPage
 @onready var _catalog_logbook: LogbookPage = %CatalogLogbook
 @onready var _the_net_page: TheNetPage = %TheNetPage
@@ -262,9 +284,10 @@ var _fishing_spot: FishingSpotType
 var _bag: PlayerBagType
 var _hotbar: PlayerHotbarType
 var _item_catalog: ItemCatalogType
+var _inventory_layout: PlayerInventoryLayout
 var _cooler_capacity: PlayerCoolerCapacityType
-var _current_section: Section = Section.COOLER
-var _last_inventory_section: Section = Section.COOLER
+var _current_section: Section = Section.BAG
+var _last_inventory_section: Section = Section.BAG
 var _bag_view: BagView = BagView.EQUIPMENT
 var _selected_tackle_item_id: StringName
 var _tackle_item_buttons: Dictionary[StringName, Button] = {}
@@ -321,6 +344,15 @@ var _cooler_slot_nodes: Array[Panel] = []
 var _sorted_catches: Array[FishCatchType] = []
 var _bag_item_nodes: Dictionary[StringName, BagItemSpriteType] = {}
 var _bag_slot_nodes: Array[BagStorageSlotType] = []
+var _general_inventory_grid: GeneralInventoryGridType
+var _selected_inventory_kind: int = -1
+var _selected_inventory_identity: StringName
+var _inventory_move_kind: int = -1
+var _inventory_move_identity: StringName
+var _tackle_move_identity: StringName
+var _context_tooltip: PanelContainer
+var _context_tooltip_label: Label
+var _context_tooltip_source: Control
 var _sorted_bag_items: Array[OwnedItemType] = []
 var _bag_drag_active: bool = false
 var _motion_elapsed: float = 0.0
@@ -335,12 +367,37 @@ func _ready() -> void:
 	_cooler_original_index = _cooler_page.get_index()
 	_confirmation_original_parent = _sale_confirmation.get_parent()
 	_confirmation_original_index = _sale_confirmation.get_index()
+	_cooler_sub_tab.visible = false
+	_items_sub_tab.visible = false
+	_bag_sub_tab.text = "Inventory"
+	_general_inventory_grid = GeneralInventoryGridType.new()
+	_general_inventory_grid.name = "GeneralInventoryGrid"
+	_general_inventory_grid.set_slot_presentation(Vector2(78.0, 78.0), 10)
+	_general_inventory_grid.slot_activated.connect(
+		_on_general_inventory_slot_activated
+	)
+	_general_inventory_grid.context_requested.connect(
+		_open_general_inventory_notepad
+	)
+	_general_inventory_grid.context_changed.connect(
+		_on_inventory_context_changed
+	)
+	_bag_item_field.add_child(_general_inventory_grid)
+	_create_inventory_context_tooltip()
 	_inventory_tab.pressed.connect(_show_last_inventory_section)
 	_cooler_sub_tab.pressed.connect(_show_section.bind(Section.COOLER))
 	_bag_sub_tab.pressed.connect(_show_bag_view.bind(BagView.EQUIPMENT))
 	_items_sub_tab.pressed.connect(_show_bag_view.bind(BagView.CONSUMABLES))
 	_tackle_sub_tab.pressed.connect(_show_section.bind(Section.TACKLE_BOX))
 	_tackle_equip_button.pressed.connect(_toggle_active_tackle)
+	_bag_favorite_button.pressed.connect(_on_bag_favorite_pressed)
+	_bag_sell_button.pressed.connect(_on_bag_sell_pressed)
+	_bag_detail_constellation.visible = false
+	_tackle_detail_panel.visible = false
+	_bag_detail_constellation.z_index = 120
+	_tackle_detail_panel.z_index = 120
+	_bag_modal_blocker.z_index = 110
+	_tackle_modal_blocker.z_index = 110
 	_logbook_tab.pressed.connect(
 		_show_section.bind(Section.LOGBOOK)
 	)
@@ -477,6 +534,7 @@ func setup(
 	fishing_spot: FishingSpotType,
 	bag: PlayerBagType,
 	hotbar: PlayerHotbarType,
+	inventory_layout: PlayerInventoryLayout,
 	item_catalog: ItemCatalogType,
 	cooler_capacity: PlayerCoolerCapacityType,
 	network_session: NetworkSessionType,
@@ -501,6 +559,7 @@ func setup(
 	_fishing_spot = fishing_spot
 	_bag = bag
 	_hotbar = hotbar
+	_inventory_layout = inventory_layout
 	_item_catalog = item_catalog
 	_cooler_capacity = cooler_capacity
 	_network_session = network_session
@@ -552,10 +611,23 @@ func setup(
 		_player.active_lure_changed.connect(_on_active_lure_changed)
 	if not _hotbar.slots_changed.is_connected(_on_hotbar_changed):
 		_hotbar.slots_changed.connect(_on_hotbar_changed)
+	if (
+		_inventory_layout != null
+		and not _inventory_layout.layout_changed.is_connected(_refresh_bag)
+	):
+		_inventory_layout.layout_changed.connect(_refresh_bag)
 	if not _cooler_capacity.capacity_changed.is_connected(
 		_on_cooler_capacity_changed
 	):
 		_cooler_capacity.capacity_changed.connect(_on_cooler_capacity_changed)
+	_general_inventory_grid.setup(
+		_inventory_layout,
+		_bag,
+		_inventory,
+		_hotbar,
+		_item_catalog,
+		PlayerInventoryLayout.InventoryContainer.INVENTORY,
+	)
 	_refresh_all()
 
 
@@ -635,6 +707,9 @@ func _handle_controller_ownership_input(event: InputEvent) -> bool:
 		)
 	)
 	if cancel_pressed:
+		if _controller_ownership == ControllerOwnership.ITEM_LIST:
+			if _cancel_active_item_move():
+				return true
 		return _consume_player_menu_back()
 	if _controller_ownership == ControllerOwnership.INVENTORY_TABS:
 		if accept_pressed:
@@ -700,6 +775,17 @@ func _handle_controller_ownership_input(event: InputEvent) -> bool:
 		return false
 	if _controller_ownership == ControllerOwnership.ITEM_LIST:
 		if (
+			button_event != null
+			and button_event.pressed
+			and _event_matches_controller_role(
+				event,
+				ControllerMappingManagerType.ROLE_Y,
+				JOY_BUTTON_Y,
+			)
+		):
+			_cancel_active_item_move()
+			return _try_enter_notepad_controller_ownership()
+		if (
 			event.is_action_pressed("ui_down")
 			and _controller_focus_is_on_last_inventory_row()
 		):
@@ -760,14 +846,18 @@ func _dispatch_active_page_controller_input(event: InputEvent) -> bool:
 
 
 func _activate_inventory_selection() -> void:
-	if _try_enter_notepad_controller_ownership():
-		return
-	if _current_section != Section.BAG:
-		return
 	var focus_owner: Control = get_viewport().gui_get_focus_owner()
-	var item_node := focus_owner as BagItemSpriteType
-	if item_node != null and not item_node.item_id.is_empty():
-		_select_bag_item(item_node.item_id)
+	if _current_section == Section.BAG:
+		var slot := focus_owner as GeneralInventorySlotType
+		if slot != null:
+			_on_general_inventory_slot_activated(slot)
+	elif _current_section == Section.TACKLE_BOX:
+		if focus_owner != null and focus_owner.has_meta(
+			&"controller_tackle_item_id"
+		):
+			_activate_tackle_move(StringName(str(
+				focus_owner.get_meta(&"controller_tackle_item_id")
+			)))
 
 
 func _cancel_controller_accept_hold() -> void:
@@ -813,18 +903,28 @@ func _try_enter_notepad_controller_ownership() -> bool:
 		_select_tackle_item(source_identity)
 		if _tackle_equip_button.visible and not _tackle_equip_button.disabled:
 			actions.append(_tackle_equip_button)
+	elif _current_section == Section.BAG:
+		var inventory_slot := focus_owner as GeneralInventorySlotType
+		if inventory_slot == null or inventory_slot.entry_identity.is_empty():
+			return false
+		source_identity = inventory_slot.entry_identity
+		_on_general_inventory_entry_selected(
+			inventory_slot.entry_kind,
+			inventory_slot.entry_identity,
+		)
+		actions = _get_bag_notepad_actions()
 	else:
 		return false
-	if actions.is_empty():
-		_restore_controller_item_focus(_current_section, source_identity)
-		return true
+	_set_inventory_notepad_visible(_current_section, true)
 	_controller_source_section = _current_section
 	_controller_source_identity = source_identity
 	_controller_notepad_actions = actions
 	_controller_ownership = ControllerOwnership.NOTEPAD_ACTIONS
 	_apply_inventory_controller_zone_focus_modes()
-	_configure_controller_notepad_action_focus(actions)
-	actions.front().call_deferred("grab_focus")
+	_refresh_inventory_modal_interactivity()
+	if not actions.is_empty():
+		_configure_controller_notepad_action_focus(actions)
+		actions.front().call_deferred("grab_focus")
 	return true
 
 
@@ -874,29 +974,13 @@ func _controller_focus_is_on_last_inventory_row() -> bool:
 			and fish_index + fish_columns >= _sorted_catches.size()
 		)
 	if _current_section == Section.BAG:
-		var item_node := focus_owner as BagItemSpriteType
-		if item_node == null:
+		var slot := focus_owner as GeneralInventorySlotType
+		if slot == null:
 			return false
-		if _bag == null:
-			var legacy_index: int = _sorted_bag_items.find_custom(
-				func(owned: OwnedItemType) -> bool:
-					return owned.item_id == item_node.item_id
-			)
-			return (
-				legacy_index >= 0
-				and legacy_index + BAG_STORAGE_COLUMNS
-				>= _sorted_bag_items.size()
-			)
-		var item_slot: int = (
-			_bag.get_storage_slot(item_node.item_id)
-		)
-		var maximum_slot: int = -1
-		for owned: OwnedItemType in _sorted_bag_items:
-			maximum_slot = maxi(maximum_slot, owned.storage_slot)
 		return (
-			item_slot >= 0
-			and item_slot / BAG_STORAGE_COLUMNS
-			>= maximum_slot / BAG_STORAGE_COLUMNS
+			slot.slot_index / BAG_STORAGE_COLUMNS
+			>= (_inventory_layout.get_inventory_capacity() - 1)
+			/ BAG_STORAGE_COLUMNS
 		)
 	return false
 
@@ -912,10 +996,10 @@ func _enter_controller_hotbar_management() -> bool:
 			return false
 		source_identity = fish_node.catch_id
 	else:
-		var item_node := focus_owner as BagItemSpriteType
-		if item_node == null:
+		var slot := focus_owner as GeneralInventorySlotType
+		if slot == null:
 			return false
-		source_identity = item_node.item_id
+		source_identity = slot.entry_identity
 	if source_identity.is_empty():
 		return false
 	_controller_source_section = _current_section
@@ -946,18 +1030,20 @@ func _try_begin_controller_hotbar_placement() -> bool:
 		assignment_kind = PlayerHotbarType.AssignmentKind.FISH
 		identity = fish_node.catch_id
 	elif _current_section == Section.BAG:
-		var item_node := focus_owner as BagItemSpriteType
-		if item_node == null or item_node.item_id.is_empty():
+		var slot := focus_owner as GeneralInventorySlotType
+		if slot == null or slot.entry_identity.is_empty():
 			return false
-		var item: ItemDataType = (
-			_item_catalog.get_item_by_id(item_node.item_id)
-			if _item_catalog != null
-			else null
-		)
-		if item == null or not item.hotbar_allowed:
-			return true
-		assignment_kind = PlayerHotbarType.AssignmentKind.ITEM
-		identity = item_node.item_id
+		identity = slot.entry_identity
+		if slot.entry_kind == PlayerInventoryLayout.EntryKind.CATCH:
+			assignment_kind = PlayerHotbarType.AssignmentKind.FISH
+		else:
+			var item: ItemDataType = (
+				_item_catalog.get_item_by_id(identity)
+				if _item_catalog != null else null
+			)
+			if item == null or not item.hotbar_allowed:
+				return true
+			assignment_kind = PlayerHotbarType.AssignmentKind.ITEM
 	else:
 		return false
 	return _begin_controller_hotbar_placement(assignment_kind, identity)
@@ -1136,7 +1222,10 @@ func _release_controller_ownership(
 	_controller_hotbar_assignment_kind = PlayerHotbarType.AssignmentKind.EMPTY
 	_controller_hotbar_identity = StringName()
 	_controller_storage_identity = StringName()
+	if prior_ownership == ControllerOwnership.NOTEPAD_ACTIONS:
+		_set_inventory_notepad_visible(source_section, false)
 	_apply_inventory_controller_zone_focus_modes()
+	_refresh_inventory_modal_interactivity()
 	if prior_ownership == ControllerOwnership.HOTBAR_PLACEMENT:
 		if restore_previous_hotbar_slot and _hotbar != null:
 			_hotbar.select_slot(_controller_previous_hotbar_slot)
@@ -1167,7 +1256,11 @@ func _restore_controller_item_focus(
 	if section == Section.COOLER:
 		target = _fish_nodes.get(identity) as CoolerFishSpriteType
 	elif section == Section.BAG:
-		target = _bag_item_nodes.get(identity) as BagItemSpriteType
+		if _general_inventory_grid != null:
+			for slot: GeneralInventorySlotType in _general_inventory_grid.get_slots():
+				if slot.entry_identity == identity:
+					target = slot
+					break
 	elif section == Section.TACKLE_BOX:
 		target = _tackle_item_buttons.get(identity) as Button
 	if (
@@ -1202,6 +1295,8 @@ func _handle_controller_page_switch(event: InputEvent) -> bool:
 	)
 	if not (uses_left_bumper or uses_right_bumper):
 		return false
+	if _controller_ownership == ControllerOwnership.NOTEPAD_ACTIONS:
+		return true
 	if not button_event.pressed:
 		return true
 	if (
@@ -1239,28 +1334,21 @@ func _handle_controller_page_switch(event: InputEvent) -> bool:
 
 
 func _get_inventory_tab_index() -> int:
-	if _current_section == Section.COOLER:
-		return 0
-	if _current_section == Section.BAG:
-		return 2 if _bag_view == BagView.CONSUMABLES else 1
-	return 3
+	return 1 if _current_section == Section.TACKLE_BOX else 0
 
 
 func _show_inventory_tab(index: int) -> void:
-	match clampi(index, 0, 3):
+	match clampi(index, 0, 1):
 		0:
-			_show_section(Section.COOLER)
-		1:
-			_show_bag_view(BagView.EQUIPMENT)
-		2:
-			_show_bag_view(BagView.CONSUMABLES)
+			_bag_view = BagView.EQUIPMENT
+			_show_section(Section.BAG)
 		_:
 			_show_section(Section.TACKLE_BOX)
 
 
 func _switch_inventory_tab_direction(direction: int) -> void:
 	var current_index: int = _get_inventory_tab_index()
-	var target_index: int = clampi(current_index + direction, 0, 3)
+	var target_index: int = clampi(current_index + direction, 0, 1)
 	if target_index == current_index:
 		return
 	_show_inventory_tab(target_index)
@@ -1376,6 +1464,7 @@ func _handle_direct_page_shortcut(event: InputEvent) -> bool:
 func _shortcut_blocked_by_modal_state() -> bool:
 	return (
 		_sale_confirmation.visible
+		or _controller_ownership == ControllerOwnership.NOTEPAD_ACTIONS
 		or (
 			_current_section == Section.MAIL
 			and _mail_page.is_composing_letter()
@@ -1451,6 +1540,10 @@ func open_menu() -> void:
 	):
 		return
 	_release_controller_ownership(false, true)
+	_set_inventory_notepad_visible(Section.BAG, false)
+	_set_inventory_notepad_visible(Section.TACKLE_BOX, false)
+	_cancel_active_item_move()
+	_hide_inventory_context_tooltip()
 	_menu_generation += 1
 	_transition_generation += 1
 	_cancel_presentation_tween()
@@ -1514,8 +1607,8 @@ func mount_shop_cooler(
 	_page_transitioning = false
 	_sale_buyer_override = buyer
 	_shop_cooler_context_active = true
-	_current_section = Section.COOLER
-	_last_inventory_section = Section.COOLER
+	_current_section = Section.BAG
+	_last_inventory_section = Section.BAG
 	_cooler_page.reparent(host, false)
 	_sale_confirmation.reparent(host, false)
 	_cooler_page.position = Vector2.ZERO
@@ -1686,6 +1779,8 @@ func _show_section(section: Section) -> void:
 		or get_viewport().gui_is_dragging()
 	):
 		return
+	_cancel_active_item_move()
+	_hide_inventory_context_tooltip()
 	if (
 		_current_section == Section.PROFILE
 		and _profile_page.request_close_confirmation()
@@ -1811,7 +1906,11 @@ func _settle_inventory_tabs_for_close() -> void:
 
 
 func _show_last_inventory_section() -> void:
-	_show_section(_last_inventory_section)
+	_show_section(
+		Section.TACKLE_BOX
+		if _last_inventory_section == Section.TACKLE_BOX
+		else Section.BAG
+	)
 
 
 func _focus_current_section() -> void:
@@ -1839,9 +1938,12 @@ func _inventory_content_focus_candidates() -> Array[Control]:
 				if ControllerFocusNavigationType.is_focusable(fish_node):
 					candidates.append(fish_node)
 		Section.BAG:
-			for item_node: BagItemSpriteType in _bag_item_nodes.values():
-				if ControllerFocusNavigationType.is_focusable(item_node):
-					candidates.append(item_node)
+			if _general_inventory_grid != null:
+				for slot: GeneralInventorySlotType in (
+					_general_inventory_grid.get_slots()
+				):
+					if ControllerFocusNavigationType.is_focusable(slot):
+						candidates.append(slot)
 		Section.TACKLE_BOX:
 			for tackle_button: Button in _tackle_item_buttons.values():
 				if ControllerFocusNavigationType.is_focusable(tackle_button):
@@ -1863,10 +1965,7 @@ func _process(delta: float) -> void:
 				>= CONTROLLER_PICKUP_HOLD_SECONDS
 			):
 				_cancel_controller_accept_hold()
-				if _current_section == Section.BAG:
-					_try_begin_controller_storage_placement()
-				else:
-					_try_begin_controller_hotbar_placement()
+				_try_begin_controller_hotbar_placement()
 		_motion_elapsed += delta
 		if visible:
 			_navigation_cluster.advance_motion(delta)
@@ -1928,12 +2027,7 @@ func _set_descendant_focus_disabled(root: Node) -> void:
 func _reserve_visible_secondary_navigation() -> void:
 	if not _is_inventory_section(_current_section):
 		return
-	var inventory_tabs: Array[Button] = [
-		_cooler_sub_tab,
-		_bag_sub_tab,
-		_items_sub_tab,
-		_tackle_sub_tab,
-	]
+	var inventory_tabs: Array[Button] = [_bag_sub_tab, _tackle_sub_tab]
 	_set_inventory_tab_focus_enabled(
 		_content_interactive_enabled
 		and visible
@@ -1957,12 +2051,9 @@ func _reserve_visible_secondary_navigation() -> void:
 
 
 func _set_inventory_tab_focus_enabled(enabled: bool) -> void:
-	for tab: Button in [
-		_cooler_sub_tab,
-		_bag_sub_tab,
-		_items_sub_tab,
-		_tackle_sub_tab,
-	]:
+	_cooler_sub_tab.focus_mode = Control.FOCUS_NONE
+	_items_sub_tab.focus_mode = Control.FOCUS_NONE
+	for tab: Button in [_bag_sub_tab, _tackle_sub_tab]:
 		tab.focus_mode = (
 			Control.FOCUS_ALL if enabled else Control.FOCUS_NONE
 		)
@@ -2040,6 +2131,21 @@ func _apply_inventory_controller_zone_focus_modes() -> void:
 			)
 			else Control.FOCUS_NONE
 		)
+	for action: NotepadInkActionType in [
+		_bag_favorite_button,
+		_bag_sell_button,
+	]:
+		action.focus_mode = (
+			Control.FOCUS_ALL
+			if (
+				notepad_active
+				and _current_section == Section.BAG
+				and _bag_detail_constellation.visible
+				and action.visible
+				and not action.disabled
+			)
+			else Control.FOCUS_NONE
+		)
 	for item_node: BagItemSpriteType in _bag_item_nodes.values():
 		item_node.focus_mode = (
 			Control.FOCUS_ALL
@@ -2058,6 +2164,13 @@ func _apply_inventory_controller_zone_focus_modes() -> void:
 			)
 			else 1.0
 		)
+	if _general_inventory_grid != null:
+		for slot: GeneralInventorySlotType in _general_inventory_grid.get_slots():
+			slot.focus_mode = (
+				Control.FOCUS_ALL
+				if content_active and _current_section == Section.BAG
+				else Control.FOCUS_NONE
+			)
 	for slot: BagStorageSlotType in _bag_slot_nodes:
 		if not is_instance_valid(slot):
 			continue
@@ -2090,17 +2203,7 @@ func _apply_inventory_controller_zone_focus_modes() -> void:
 
 
 func _inventory_tab_for_section(section: Section) -> Button:
-	match section:
-		Section.COOLER:
-			return _cooler_sub_tab
-		Section.BAG:
-			return (
-				_items_sub_tab
-				if _bag_view == BagView.CONSUMABLES
-				else _bag_sub_tab
-			)
-		_:
-			return _tackle_sub_tab
+	return _tackle_sub_tab if section == Section.TACKLE_BOX else _bag_sub_tab
 
 
 func _configure_sale_confirmation_focus() -> void:
@@ -2187,6 +2290,118 @@ func _apply_inventory_styles() -> void:
 	UtilityPageStyle.apply_ocean_button(_cancel_sale_button)
 
 
+func _create_inventory_context_tooltip() -> void:
+	_context_tooltip = PanelContainer.new()
+	_context_tooltip.name = "InventoryContextTooltip"
+	_context_tooltip.visible = false
+	_context_tooltip.z_index = 140
+	_context_tooltip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_context_tooltip.custom_minimum_size = Vector2(310.0, 0.0)
+	var bubble_style := UtilityPageStyle.rounded_style(
+		Color(UtilityPageStyle.OCEAN_PANEL_DEEP, 0.98),
+		14,
+	)
+	bubble_style.set_border_width_all(0)
+	bubble_style.content_margin_left = 14.0
+	bubble_style.content_margin_top = 10.0
+	bubble_style.content_margin_right = 14.0
+	bubble_style.content_margin_bottom = 10.0
+	_context_tooltip.add_theme_stylebox_override("panel", bubble_style)
+	_context_tooltip_label = Label.new()
+	_context_tooltip_label.custom_minimum_size = Vector2(282.0, 0.0)
+	_context_tooltip_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_context_tooltip_label.add_theme_font_override(
+		"font",
+		UtilityPageStyle.TuffyFont,
+	)
+	_context_tooltip_label.add_theme_font_size_override("font_size", 16)
+	_context_tooltip_label.add_theme_color_override(
+		"font_color",
+		UtilityPageStyle.OCEAN_TEXT_PRIMARY,
+	)
+	_context_tooltip_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_context_tooltip.add_child(_context_tooltip_label)
+	_presentation_scale_root.add_child(_context_tooltip)
+
+
+func _on_inventory_context_changed(
+	source: GeneralInventorySlotType,
+	text: String,
+	active: bool,
+) -> void:
+	if active:
+		_show_inventory_context_tooltip(source, text)
+	else:
+		_hide_inventory_context_tooltip_for(source)
+
+
+func _show_inventory_context_tooltip(source: Control, text: String) -> void:
+	if (
+		source == null
+		or text.strip_edges().is_empty()
+		or _controller_ownership == ControllerOwnership.NOTEPAD_ACTIONS
+	):
+		return
+	_context_tooltip_source = source
+	_context_tooltip_label.text = text
+	_context_tooltip.visible = true
+	_context_tooltip.reset_size()
+	call_deferred("_position_inventory_context_tooltip", source)
+
+
+func _position_inventory_context_tooltip(source: Control) -> void:
+	if (
+		not _context_tooltip.visible
+		or source == null
+		or not is_instance_valid(source)
+		or source != _context_tooltip_source
+	):
+		return
+	_context_tooltip.reset_size()
+	var inverse := (
+		_presentation_scale_root.get_global_transform_with_canvas().affine_inverse()
+	)
+	var source_global: Rect2 = source.get_global_rect()
+	var source_top_left: Vector2 = inverse * source_global.position
+	var source_bottom_right: Vector2 = inverse * source_global.end
+	var source_rect := Rect2(
+		source_top_left,
+		source_bottom_right - source_top_left,
+	)
+	var bubble_size: Vector2 = _context_tooltip.size
+	var x: float = source_rect.end.x + 12.0
+	if x + bubble_size.x > DESKTOP_REFERENCE_SIZE.x - 18.0:
+		x = source_rect.position.x - bubble_size.x - 12.0
+	var y: float = source_rect.get_center().y - bubble_size.y * 0.5
+	_context_tooltip.position = Vector2(
+		clampf(x, 18.0, DESKTOP_REFERENCE_SIZE.x - bubble_size.x - 18.0),
+		clampf(y, 112.0, DESKTOP_REFERENCE_SIZE.y - bubble_size.y - 24.0),
+	)
+
+
+func _hide_inventory_context_tooltip_for(source: Control) -> void:
+	if source != _context_tooltip_source:
+		return
+	if (
+		source != null
+		and (
+			source.has_focus()
+			or source.get_global_rect().has_point(
+				get_viewport().get_mouse_position()
+			)
+		)
+	):
+		return
+	_hide_inventory_context_tooltip()
+
+
+func _hide_inventory_context_tooltip() -> void:
+	if _context_tooltip == null:
+		return
+	_context_tooltip.visible = false
+	_context_tooltip_source = null
+
+
 func _show_bag_view(view: BagView) -> void:
 	if (
 		_transitioning
@@ -2269,15 +2484,9 @@ func _populate_tackle_column(
 			continue
 		var button := Button.new()
 		button.icon = item.icon
-		button.tooltip_text = (
-			"%s • %d/%d" % [
-				item.display_name,
-				owned.quantity,
-				item.max_stack,
-			]
-			if item.is_bait()
-			else item.display_name
-		)
+		var context_text: String = _tackle_context_text(item, owned.quantity)
+		button.tooltip_text = ""
+		button.set_meta(&"inventory_context_text", context_text)
 		button.custom_minimum_size = Vector2(72, 72)
 		button.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 		button.expand_icon = item.icon != null
@@ -2296,9 +2505,107 @@ func _populate_tackle_column(
 				item.max_stack,
 				&"QuantityBadge",
 			)
-		button.pressed.connect(_select_tackle_item.bind(owned.item_id))
+		button.pressed.connect(_activate_tackle_move.bind(owned.item_id))
+		button.gui_input.connect(
+			_on_tackle_button_gui_input.bind(owned.item_id, button)
+		)
+		button.focus_entered.connect(
+			_show_inventory_context_tooltip.bind(
+				button,
+				context_text,
+			)
+		)
+		button.focus_exited.connect(
+			_hide_inventory_context_tooltip_for.bind(button)
+		)
+		button.mouse_entered.connect(
+			_show_inventory_context_tooltip.bind(button, context_text)
+		)
+		button.mouse_exited.connect(
+			_hide_inventory_context_tooltip_for.bind(button)
+		)
 		item_list.add_child(button)
 		_tackle_item_buttons[owned.item_id] = button
+	_refresh_tackle_move_presentation()
+
+
+func _tackle_context_text(item: ItemDataType, quantity: int) -> String:
+	var lines: Array[String] = [item.display_name]
+	var quantity_text := str(quantity)
+	if item.is_bait():
+		quantity_text = "%d/%d" % [quantity, item.max_stack]
+	lines.append(
+		"%s • quantity %s" % [item.get_category_name(), quantity_text]
+	)
+	if not item.description.strip_edges().is_empty():
+		lines.append(item.description.strip_edges())
+	return "\n".join(lines)
+
+
+func _activate_tackle_move(item_id: StringName) -> void:
+	if _bag == null or item_id.is_empty():
+		return
+	var target_slot: int = _bag.get_storage_slot(item_id)
+	if _tackle_move_identity.is_empty():
+		if target_slot < 0:
+			return
+		_tackle_move_identity = item_id
+		_selected_tackle_item_id = item_id
+		_update_tackle_detail()
+		_refresh_tackle_move_presentation()
+		var button := _tackle_item_buttons.get(item_id) as Button
+		if button != null:
+			_show_inventory_context_tooltip(
+				button,
+				"moving %s\nchoose another %s • B cancels" % [
+					button.accessibility_name
+					if not button.accessibility_name.is_empty()
+					else str(
+						button.get_meta(&"inventory_context_text", "item")
+					).get_slice("\n", 0),
+					"bait" if _item_catalog.get_item_by_id(item_id).is_bait()
+					else "lure",
+				],
+			)
+		return
+	var source_id: StringName = _tackle_move_identity
+	_tackle_move_identity = StringName()
+	_refresh_tackle_move_presentation()
+	_hide_inventory_context_tooltip()
+	if source_id == item_id or target_slot < 0:
+		return
+	_bag.move_item_to_storage_slot(source_id, target_slot)
+
+
+func _refresh_tackle_move_presentation() -> void:
+	for item_id: StringName in _tackle_item_buttons:
+		var button: Button = _tackle_item_buttons[item_id]
+		button.modulate = (
+			Color(1.0, 1.0, 1.0, 0.42)
+			if item_id == _tackle_move_identity
+			else Color.WHITE
+		)
+
+
+func _on_tackle_button_gui_input(
+	event: InputEvent,
+	item_id: StringName,
+	button: Button,
+) -> void:
+	var mouse_event := event as InputEventMouseButton
+	if (
+		mouse_event == null
+		or mouse_event.button_index != MOUSE_BUTTON_RIGHT
+		or not mouse_event.pressed
+	):
+		return
+	_cancel_active_item_move()
+	_select_tackle_item(item_id)
+	var actions: Array[BaseButton] = []
+	if _tackle_equip_button.visible and not _tackle_equip_button.disabled:
+		actions.append(_tackle_equip_button)
+	_open_inventory_notepad(Section.TACKLE_BOX, item_id, actions)
+	button.accept_event()
 
 
 func _configure_tackle_item_focus() -> void:
@@ -2465,14 +2772,19 @@ func _tackle_is_interactive() -> bool:
 
 
 func _apply_tackle_interactivity(interactive: bool) -> void:
+	var item_interactive: bool = (
+		interactive
+		and _controller_ownership != ControllerOwnership.NOTEPAD_ACTIONS
+	)
 	for button: Button in _tackle_item_buttons.values():
 		button.mouse_filter = (
 			Control.MOUSE_FILTER_STOP
-			if interactive
+			if item_interactive
 			else Control.MOUSE_FILTER_IGNORE
 		)
 	var action_interactive: bool = (
 		interactive
+		and _tackle_detail_panel.visible
 		and _tackle_equip_button.visible
 		and not _tackle_equip_button.disabled
 	)
@@ -2648,9 +2960,7 @@ func _update_shell_layout() -> void:
 		_presentation_scale_root.scale = Vector2.ONE
 	_presentation_scale_root.position = Vector2.ZERO
 	_presentation_scale_root.pivot_offset = reference_size * 0.5
-	var navigation_size := (
-		Vector2(840.0, 75.0) if compact else Vector2(840.0, 100.0)
-	)
+	var navigation_size := NAVIGATION_REFERENCE_SIZE
 	_navigation_cluster.position = NAVIGATION_CANONICAL_POSITION
 	_navigation_cluster.size = navigation_size
 	_navigation_cluster.scale = (
@@ -2660,16 +2970,15 @@ func _update_shell_layout() -> void:
 	_cooler_page.size = reference_size
 	_cooler_page.position = Vector2.ZERO
 	_cooler_rest_position = Vector2.ZERO
-	# The Bag shell has the widest 88 px upper-left curve. Eight more pixels
-	# place every tab flange behind a straight section of the shared panel.
-	_inventory_sub_tabs.position = (
-		INVENTORY_MAIN_POSITION
-		+ Vector2(INVENTORY_TAB_LEFT_INSET, -30.0)
+	_inventory_sub_tabs.position = Vector2(
+		(DESKTOP_REFERENCE_SIZE.x - INVENTORY_VISIBLE_TAB_WIDTH) * 0.5,
+		INVENTORY_MAIN_POSITION.y - 30.0,
 	)
+	_inventory_sub_tabs.size = Vector2(INVENTORY_VISIBLE_TAB_WIDTH, 38.0)
 	_layout_cooler_fish(false)
-	_cooler_outer_wall.position = INVENTORY_MAIN_POSITION
-	_cooler_outer_wall.size = INVENTORY_MAIN_SIZE
-	_detail_constellation.position = INVENTORY_NOTEPAD_POSITION
+	_cooler_outer_wall.position = COOLER_MAIN_POSITION
+	_cooler_outer_wall.size = COOLER_MAIN_SIZE
+	_detail_constellation.position = COOLER_NOTEPAD_POSITION
 	_detail_constellation.size = INVENTORY_NOTEPAD_SIZE
 	_notepad_binding.position = Vector2(44.0, 1.0) if compact else Vector2(28.0, 4.0)
 	_notepad_binding.size = Vector2(218.0, 20.0) if compact else Vector2(232.0, 27.0)
@@ -2790,10 +3099,11 @@ func _update_shell_layout() -> void:
 	_tackle_rest_position = Vector2.ZERO
 	_bag_outer_wall.position = INVENTORY_MAIN_POSITION
 	_bag_outer_wall.size = INVENTORY_MAIN_SIZE
-	_bag_host.custom_minimum_size = (
-		Vector2(520.0, 152.0) if compact else Vector2(788.0, 358.0)
-	)
+	# ScrollContainer reserves an 8 px vertical gutter even while disabled.
+	# Account for it so the authored 882 px outer panel stays exact.
+	_bag_host.custom_minimum_size = Vector2(810.0, 420.0)
 	_bag_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	call_deferred("_layout_general_inventory_grid")
 	_bag_detail_constellation.position = INVENTORY_NOTEPAD_POSITION
 	_bag_detail_constellation.size = INVENTORY_NOTEPAD_SIZE
 	_bag_sprite_detail_texture.custom_minimum_size = (
@@ -2811,6 +3121,8 @@ func _update_shell_layout() -> void:
 	_tackle_main_panel.size = INVENTORY_MAIN_SIZE
 	_tackle_detail_panel.position = INVENTORY_NOTEPAD_POSITION
 	_tackle_detail_panel.size = INVENTORY_NOTEPAD_SIZE
+	_bait_item_list.columns = TACKLE_GRID_COLUMNS
+	_lure_item_list.columns = TACKLE_GRID_COLUMNS
 	_logbook_page.size = reference_size
 	_logbook_page.position = Vector2.ZERO
 	_logbook_rest_position = Vector2.ZERO
@@ -2855,7 +3167,6 @@ func _update_shell_layout() -> void:
 		_profile_page.modulate.a = 1.0
 		_players_page.modulate.a = 1.0
 	_layout_cooler_fish(false)
-	_layout_bag_items()
 
 
 func _layout_cooler_detail_text(compact: bool) -> void:
@@ -3028,6 +3339,10 @@ func _finish_close(
 	_transitioning = false
 	_page_transitioning = false
 	_bag_drag_active = false
+	_cancel_active_item_move()
+	_set_inventory_notepad_visible(Section.BAG, false)
+	_set_inventory_notepad_visible(Section.TACKLE_BOX, false)
+	_hide_inventory_context_tooltip()
 	_reset_page_transition_visuals()
 	_presentation_scale_root.modulate.a = 1.0
 	_presentation_scale_root.scale = Vector2.ONE
@@ -3180,6 +3495,10 @@ func _finish_page_transition(generation: int) -> void:
 
 func _set_shell_interactive(interactive: bool) -> void:
 	_set_content_interactive(interactive)
+	var inventory_notepad_active: bool = (
+		_controller_ownership == ControllerOwnership.NOTEPAD_ACTIONS
+		and _current_section in [Section.BAG, Section.TACKLE_BOX]
+	)
 	for bubble: BubbleButtonType in [
 		_inventory_tab,
 		_logbook_tab,
@@ -3189,7 +3508,11 @@ func _set_shell_interactive(interactive: bool) -> void:
 		_players_tab,
 		_close_button,
 	]:
-		bubble.focus_mode = Control.FOCUS_ALL if interactive else Control.FOCUS_NONE
+		bubble.focus_mode = (
+			Control.FOCUS_ALL
+			if interactive and not inventory_notepad_active
+			else Control.FOCUS_NONE
+		)
 		bubble.mouse_filter = (
 			Control.MOUSE_FILTER_STOP
 			if interactive
@@ -3289,6 +3612,7 @@ func _set_content_interactive(interactive: bool) -> void:
 		interactive
 		and _current_section == Section.BAG
 		and not _bag_drag_active
+		and _controller_ownership != ControllerOwnership.NOTEPAD_ACTIONS
 	)
 	for item_node: BagItemSpriteType in _bag_item_nodes.values():
 		item_node.mouse_filter = (
@@ -3296,10 +3620,17 @@ func _set_content_interactive(interactive: bool) -> void:
 			if bag_interactive
 			else Control.MOUSE_FILTER_IGNORE
 		)
+	if _general_inventory_grid != null:
+		for slot: GeneralInventorySlotType in _general_inventory_grid.get_slots():
+			slot.mouse_filter = (
+				Control.MOUSE_FILTER_STOP
+				if bag_interactive else Control.MOUSE_FILTER_IGNORE
+			)
 	var tackle_interactive: bool = (
 		interactive and _current_section == Section.TACKLE_BOX
 	)
 	_apply_tackle_interactivity(tackle_interactive)
+	_refresh_inventory_modal_interactivity()
 	_apply_inventory_controller_zone_focus_modes()
 
 
@@ -3392,47 +3723,273 @@ func _on_hotbar_changed() -> void:
 func _refresh_bag() -> void:
 	if not is_node_ready():
 		return
-	var owned_items: Array[OwnedItemType] = []
-	if _bag != null:
-		owned_items = _bag.get_all_items()
-	var filtered_items: Array[OwnedItemType] = []
-	for owned: OwnedItemType in owned_items:
-		var item: ItemDataType = (
-			_item_catalog.get_item_by_id(owned.item_id)
-			if _item_catalog != null
-			else null
-		)
-		if item == null:
-			continue
-		var is_consumable: bool = (
-			item.category == ItemDataType.Category.CONSUMABLE
-		)
-		if (
-			(_bag_view == BagView.CONSUMABLES and is_consumable)
-			or (
-				_bag_view == BagView.EQUIPMENT
-				and not is_consumable
-				and item.category != ItemDataType.Category.BAIT
-				and item.category != ItemDataType.Category.LURE
-			)
-		):
-			filtered_items.append(owned)
-	owned_items = filtered_items
-	owned_items.sort_custom(_sort_bag_storage_items)
-	_sorted_bag_items = owned_items
+	for item_node: BagItemSpriteType in _bag_item_nodes.values():
+		if is_instance_valid(item_node):
+			item_node.queue_free()
+	_bag_item_nodes.clear()
+	for slot: BagStorageSlotType in _bag_slot_nodes:
+		if is_instance_valid(slot):
+			slot.queue_free()
+	_bag_slot_nodes.clear()
 	_bag_empty_state.visible = false
-	_bag_empty_state.text = (
-		"No equipment in your Bag."
-		if _bag_view == BagView.EQUIPMENT
-		else "No items in your Bag."
-	)
+	if _general_inventory_grid != null:
+		_general_inventory_grid.refresh()
+		call_deferred("_layout_general_inventory_grid")
 	if (
-		not _selected_bag_item_id.is_empty()
-		and (_bag == null or not _bag.owns_item(_selected_bag_item_id))
+		not _selected_inventory_identity.is_empty()
+		and _inventory_layout != null
+		and _inventory_layout.get_container(
+			_selected_inventory_kind,
+			_selected_inventory_identity,
+		) != PlayerInventoryLayout.InventoryContainer.INVENTORY
 	):
+		_selected_inventory_kind = -1
+		_selected_inventory_identity = StringName()
 		_selected_bag_item_id = StringName()
-	_sync_bag_item_nodes(owned_items)
 	_update_bag_detail()
+
+
+func _layout_general_inventory_grid() -> void:
+	if _general_inventory_grid == null or not is_instance_valid(_general_inventory_grid):
+		return
+	var available_size: Vector2 = _bag_item_field.size
+	if available_size.x <= 0.0 or available_size.y <= 0.0:
+		available_size = _bag_host.size
+	var grid_size: Vector2 = _general_inventory_grid.custom_minimum_size
+	# Center against the canonical stage rather than the ScrollContainer's
+	# left-aligned content host. Container margins and its reserved scrollbar
+	# gutter otherwise compound into a visible leftward offset.
+	var field_transform := _bag_item_field.get_global_transform_with_canvas()
+	var stage_transform := (
+		_presentation_scale_root.get_global_transform_with_canvas()
+	)
+	var field_center_global := field_transform * (available_size * 0.5)
+	var stage_center_global := stage_transform * Vector2(
+		DESKTOP_REFERENCE_SIZE.x * 0.5,
+		0.0,
+	)
+	var desired_center_in_field := field_transform.affine_inverse() * Vector2(
+		stage_center_global.x,
+		field_center_global.y,
+	)
+	_general_inventory_grid.size = grid_size
+	_general_inventory_grid.position = Vector2(
+		maxf(
+			0.0,
+			desired_center_in_field.x - grid_size.x * 0.5,
+		),
+		maxf(0.0, (available_size.y - grid_size.y) * 0.5),
+	)
+
+
+func _on_general_inventory_entry_selected(
+	kind: int,
+	identity: StringName,
+) -> void:
+	_selected_inventory_kind = kind
+	_selected_inventory_identity = identity
+	_selected_bag_item_id = (
+		identity if kind == PlayerInventoryLayout.EntryKind.ITEM
+		else StringName()
+	)
+	_update_bag_detail()
+
+
+func _on_general_inventory_slot_activated(
+	slot: GeneralInventorySlotType,
+) -> void:
+	if (
+		slot == null
+		or slot.disabled
+		or _controller_ownership == ControllerOwnership.NOTEPAD_ACTIONS
+	):
+		return
+	if _inventory_move_identity.is_empty():
+		if slot.entry_identity.is_empty():
+			return
+		_inventory_move_kind = slot.entry_kind
+		_inventory_move_identity = slot.entry_identity
+		_selected_inventory_kind = slot.entry_kind
+		_selected_inventory_identity = slot.entry_identity
+		_selected_bag_item_id = (
+			slot.entry_identity
+			if slot.entry_kind == PlayerInventoryLayout.EntryKind.ITEM
+			else StringName()
+		)
+		slot.set_move_source(true)
+		_show_inventory_context_tooltip(
+			slot,
+			"moving %s\nchoose a slot • B cancels" % _inventory_entry_name(
+				slot.entry_kind,
+				slot.entry_identity,
+			),
+		)
+		return
+	var move_kind: int = _inventory_move_kind
+	var move_identity: StringName = _inventory_move_identity
+	_cancel_inventory_move(false)
+	if _inventory_layout == null:
+		return
+	_inventory_layout.move_entry(
+		move_kind,
+		move_identity,
+		PlayerInventoryLayout.InventoryContainer.INVENTORY,
+		slot.slot_index,
+	)
+
+
+func _open_general_inventory_notepad(
+	slot: GeneralInventorySlotType,
+) -> void:
+	if slot == null or slot.entry_identity.is_empty():
+		return
+	_cancel_active_item_move()
+	_on_general_inventory_entry_selected(slot.entry_kind, slot.entry_identity)
+	_open_inventory_notepad(
+		Section.BAG,
+		slot.entry_identity,
+		_get_bag_notepad_actions(),
+	)
+
+
+func _get_bag_notepad_actions() -> Array[BaseButton]:
+	var actions: Array[BaseButton] = []
+	if _selected_inventory_kind != PlayerInventoryLayout.EntryKind.CATCH:
+		return actions
+	if _bag_favorite_button.visible and not _bag_favorite_button.disabled:
+		actions.append(_bag_favorite_button)
+	if _bag_sell_button.visible and not _bag_sell_button.disabled:
+		actions.append(_bag_sell_button)
+	return actions
+
+
+func _inventory_entry_name(kind: int, identity: StringName) -> String:
+	if kind == PlayerInventoryLayout.EntryKind.ITEM:
+		var item: ItemDataType = (
+			_item_catalog.get_item_by_id(identity)
+			if _item_catalog != null else null
+		)
+		return item.display_name if item != null else str(identity)
+	var fish_catch: FishCatchType = (
+		_inventory.get_catch_by_id(identity)
+		if _inventory != null else null
+	)
+	return (
+		FishQualityType.qualified_name(
+			fish_catch.fish.display_name,
+			fish_catch.quality,
+		)
+		if fish_catch != null else str(identity)
+	)
+
+
+func _cancel_inventory_move(hide_tooltip: bool = true) -> bool:
+	if _inventory_move_identity.is_empty():
+		return false
+	_inventory_move_kind = -1
+	_inventory_move_identity = StringName()
+	if _general_inventory_grid != null:
+		for slot: GeneralInventorySlotType in _general_inventory_grid.get_slots():
+			slot.set_move_source(false)
+	if hide_tooltip:
+		_hide_inventory_context_tooltip()
+	return true
+
+
+func _cancel_active_item_move() -> bool:
+	var canceled: bool = _cancel_inventory_move()
+	if not _tackle_move_identity.is_empty():
+		_tackle_move_identity = StringName()
+		_refresh_tackle_move_presentation()
+		_hide_inventory_context_tooltip()
+		canceled = true
+	return canceled
+
+
+func _open_inventory_notepad(
+	section: Section,
+	identity: StringName,
+	actions: Array[BaseButton],
+) -> void:
+	_controller_source_section = section
+	_controller_source_identity = identity
+	_controller_notepad_actions = actions
+	_controller_ownership = ControllerOwnership.NOTEPAD_ACTIONS
+	_set_inventory_notepad_visible(section, true)
+	_hide_inventory_context_tooltip()
+	_apply_inventory_controller_zone_focus_modes()
+	_refresh_inventory_modal_interactivity()
+	if not actions.is_empty():
+		_configure_controller_notepad_action_focus(actions)
+		actions.front().call_deferred("grab_focus")
+
+
+func _set_inventory_notepad_visible(section: Section, shown: bool) -> void:
+	if section == Section.BAG:
+		_bag_detail_constellation.visible = shown
+		_bag_modal_blocker.visible = shown
+	elif section == Section.TACKLE_BOX:
+		_tackle_detail_panel.visible = shown
+		_tackle_modal_blocker.visible = shown
+
+
+func _refresh_inventory_modal_interactivity() -> void:
+	var modal_active: bool = (
+		visible
+		and _controller_ownership == ControllerOwnership.NOTEPAD_ACTIONS
+		and _current_section in [Section.BAG, Section.TACKLE_BOX]
+	)
+	for navigation_button: BubbleButtonType in [
+		_inventory_tab,
+		_logbook_tab,
+		_the_net_tab,
+		_mail_tab,
+		_profile_tab,
+		_players_tab,
+		_close_button,
+	]:
+		navigation_button.focus_mode = (
+			Control.FOCUS_NONE
+			if modal_active
+			else (
+				Control.FOCUS_ALL
+				if _content_interactive_enabled and visible
+				else Control.FOCUS_NONE
+			)
+		)
+	var bag_interactive: bool = (
+		_content_interactive_enabled
+		and visible
+		and _current_section == Section.BAG
+		and _controller_ownership != ControllerOwnership.NOTEPAD_ACTIONS
+	)
+	if _general_inventory_grid != null:
+		for slot: GeneralInventorySlotType in _general_inventory_grid.get_slots():
+			slot.mouse_filter = (
+				Control.MOUSE_FILTER_STOP
+				if bag_interactive else Control.MOUSE_FILTER_IGNORE
+			)
+	var bag_action_interactive: bool = (
+		_content_interactive_enabled
+		and visible
+		and _current_section == Section.BAG
+		and _controller_ownership == ControllerOwnership.NOTEPAD_ACTIONS
+	)
+	for action: NotepadInkActionType in [
+		_bag_favorite_button,
+		_bag_sell_button,
+	]:
+		action.mouse_filter = (
+			Control.MOUSE_FILTER_STOP
+			if bag_action_interactive and action.visible and not action.disabled
+			else Control.MOUSE_FILTER_IGNORE
+		)
+		action.refresh_ink_state()
+	_apply_tackle_interactivity(
+		_content_interactive_enabled
+		and visible
+		and _current_section == Section.TACKLE_BOX
+	)
 
 
 func _sync_bag_item_nodes(owned_items: Array[OwnedItemType]) -> void:
@@ -3630,13 +4187,11 @@ func _configure_bag_item_focus() -> void:
 	if _current_section != Section.BAG:
 		return
 	var active_tab: Button = _active_bag_tab()
-	var controls: Array[BagItemSpriteType] = []
-	for owned: OwnedItemType in _sorted_bag_items:
-		var item_node := _bag_item_nodes.get(
-			owned.item_id
-		) as BagItemSpriteType
-		if item_node != null:
-			controls.append(item_node)
+	var controls: Array[GeneralInventorySlotType] = (
+		_general_inventory_grid.get_slots()
+		if _general_inventory_grid != null
+		else []
+	)
 	if controls.is_empty():
 		active_tab.focus_neighbor_bottom = NodePath()
 		return
@@ -3685,11 +4240,7 @@ func _configure_bag_storage_slot_focus() -> void:
 
 
 func _active_bag_tab() -> Button:
-	return (
-		_items_sub_tab
-		if _bag_view == BagView.CONSUMABLES
-		else _bag_sub_tab
-	)
+	return _bag_sub_tab
 
 
 func _sort_bag_items(a: OwnedItemType, b: OwnedItemType) -> bool:
@@ -3715,6 +4266,12 @@ func _sort_bag_storage_items(a: OwnedItemType, b: OwnedItemType) -> bool:
 
 
 func _sort_tackle_items(a: OwnedItemType, b: OwnedItemType) -> bool:
+	if a.storage_slot >= 0 and b.storage_slot >= 0:
+		return a.storage_slot < b.storage_slot
+	if a.storage_slot >= 0:
+		return true
+	if b.storage_slot >= 0:
+		return false
 	var order_a := FishingShopStockType.get_stock_order_index(a.item_id)
 	var order_b := FishingShopStockType.get_stock_order_index(b.item_id)
 	if order_a >= 0 and order_b >= 0 and order_a != order_b:
@@ -3737,6 +4294,38 @@ func _select_bag_item(item_id: StringName) -> void:
 
 
 func _update_bag_detail() -> void:
+	if _selected_inventory_kind == PlayerInventoryLayout.EntryKind.CATCH:
+		var fish_catch: FishCatchType = (
+			_inventory.get_catch_by_id(_selected_inventory_identity)
+			if _inventory != null else null
+		)
+		_bag_sprite_detail_texture.texture = (
+			fish_catch.fish.display_texture if fish_catch != null else null
+		)
+		_bag_sprite_detail_name.text = (
+			FishQualityType.qualified_name(
+				fish_catch.fish.display_name, fish_catch.quality
+			)
+			if fish_catch != null else ""
+		)
+		_bag_sprite_detail_data.text = (
+			"%0.2f %s\nvalue: %d\n%s"
+			% [
+				fish_catch.weight_lb,
+				"lb",
+				fish_catch.sale_value,
+				fish_catch.fish.logbook_fact,
+			]
+			if fish_catch != null
+			else "select an item for details."
+		)
+		_update_bag_fish_actions(fish_catch)
+		return
+	_bag_detail_actions.visible = false
+	_bag_favorite_button.disabled = true
+	_bag_sell_button.disabled = true
+	_bag_favorite_button.refresh_ink_state()
+	_bag_sell_button.refresh_ink_state()
 	var item: ItemDataType = (
 		_item_catalog.get_item_by_id(_selected_bag_item_id)
 		if _item_catalog != null and not _selected_bag_item_id.is_empty()
@@ -3777,9 +4366,75 @@ func _update_bag_detail() -> void:
 		if item != null
 		else "select an item for details."
 	)
-	_bag_detail_constellation.visible = (
-		_current_section == Section.BAG
+
+
+func _update_bag_fish_actions(fish_catch: FishCatchType) -> void:
+	_bag_detail_actions.visible = fish_catch != null
+	_bag_favorite_button.visible = fish_catch != null
+	_bag_sell_button.visible = fish_catch != null
+	if fish_catch == null:
+		_bag_favorite_button.disabled = true
+		_bag_sell_button.disabled = true
+		_bag_favorite_button.refresh_ink_state()
+		_bag_sell_button.refresh_ink_state()
+		return
+	_bag_favorite_button.disabled = false
+	_bag_favorite_button.text = (
+		"unfavorite" if fish_catch.is_favorited else "favorite"
 	)
+	_bag_favorite_button.persistent_mark = fish_catch.is_favorited
+	var active_buyer: FishBuyerProfileType = _get_active_sale_buyer()
+	var sale_available: bool = (
+		not _sale_in_progress
+		and _network_sale_service != null
+		and active_buyer != null
+		and _network_sale_service.can_request_sale(active_buyer.id)
+		and _sale_service != null
+	)
+	if sale_available:
+		var preview: FishSaleResultType = _sale_service.preview_batch(
+			[fish_catch.catch_id],
+			active_buyer,
+		)
+		sale_available = preview != null and preview.is_success()
+	_bag_sell_button.text = "sell fish"
+	_bag_sell_button.disabled = not sale_available
+	_bag_favorite_button.refresh_ink_state()
+	_bag_sell_button.refresh_ink_state()
+	_refresh_inventory_modal_interactivity()
+
+
+func _on_bag_favorite_pressed() -> void:
+	if (
+		_inventory == null
+		or _selected_inventory_kind
+		!= PlayerInventoryLayout.EntryKind.CATCH
+		or _selected_inventory_identity.is_empty()
+	):
+		return
+	var fish_catch: FishCatchType = _inventory.get_catch_by_id(
+		_selected_inventory_identity
+	)
+	if fish_catch == null:
+		return
+	if not _inventory.set_catch_favorited(
+		fish_catch.catch_id,
+		not fish_catch.is_favorited,
+	):
+		return
+	_update_bag_detail()
+	_controller_notepad_actions = _get_bag_notepad_actions()
+	_configure_controller_notepad_action_focus(_controller_notepad_actions)
+
+
+func _on_bag_sell_pressed() -> void:
+	if (
+		_selected_inventory_kind
+		!= PlayerInventoryLayout.EntryKind.CATCH
+		or _selected_inventory_identity.is_empty()
+	):
+		return
+	_begin_sale_confirmation([_selected_inventory_identity])
 
 
 func _item_category_display_name(item: ItemDataType) -> String:
@@ -3789,7 +4444,7 @@ func _item_category_display_name(item: ItemDataType) -> String:
 
 
 func _close_bag_detail() -> void:
-	_bag_detail_constellation.visible = false
+	_set_inventory_notepad_visible(Section.BAG, false)
 
 
 func _on_bag_field_gui_input(event: InputEvent) -> void:
@@ -4598,11 +5253,20 @@ func _on_network_sale_finished(
 	_payout: int,
 ) -> void:
 	_sale_in_progress = false
+	var close_bag_notepad: bool = (
+		accepted
+		and _current_section == Section.BAG
+		and _controller_ownership == ControllerOwnership.NOTEPAD_ACTIONS
+		and _controller_source_section == Section.BAG
+		and catch_ids.has(_controller_source_identity)
+	)
 	if accepted:
 		_fish_selection.remove_ids(catch_ids)
 	if not visible and not _shop_cooler_context_active:
 		return
 	_refresh_all()
+	if close_bag_notepad:
+		_release_controller_ownership(true, false)
 	if _current_section == Section.COOLER:
 		call_deferred("_restore_inventory_tab_focus")
 

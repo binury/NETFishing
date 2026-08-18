@@ -191,7 +191,10 @@ func _build() -> void:
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	root.add_child(scroll)
 	_list = VBoxContainer.new()
-	_list.custom_minimum_size = Vector2(1032, 0)
+	_list.custom_minimum_size = Vector2(
+		UtilityPageStyle.LAPTOP_CONTENT_SIZE.x,
+		0.0,
+	)
 	_list.add_theme_constant_override("separation", 7)
 	scroll.add_child(_list)
 	_status = Label.new()
@@ -207,18 +210,22 @@ func _build_host_settings(root: VBoxContainer) -> void:
 		"panel", UtilityPageStyle.row_style(false)
 	)
 	root.add_child(_host_settings_panel)
-	var row := HBoxContainer.new()
-	row.custom_minimum_size.y = 58.0
-	row.add_theme_constant_override("separation", 10)
-	_host_settings_panel.add_child(row)
+	var settings := VBoxContainer.new()
+	settings.custom_minimum_size.y = 104.0
+	settings.add_theme_constant_override("separation", 8)
+	_host_settings_panel.add_child(settings)
+	var identity_row := HBoxContainer.new()
+	identity_row.add_theme_constant_override("separation", 10)
+	settings.add_child(identity_row)
 	var label := Label.new()
 	label.text = "room name"
 	label.add_theme_color_override(
 		"font_color", UtilityPageStyle.OCEAN_TEXT_SECONDARY
 	)
-	row.add_child(label)
+	identity_row.add_child(label)
 	_room_name_edit = LineEdit.new()
-	_room_name_edit.custom_minimum_size = Vector2(300.0, 42.0)
+	_room_name_edit.custom_minimum_size = Vector2(0.0, 42.0)
+	_room_name_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_room_name_edit.max_length = DiscoveryClient.MAX_ROOM_NAME_LENGTH
 	_room_name_edit.placeholder_text = "Player Name's Server"
 	UtilityPageStyle.apply_ocean_line_edit(_room_name_edit)
@@ -226,11 +233,14 @@ func _build_host_settings(root: VBoxContainer) -> void:
 		func(_value: String) -> void: _commit_room_name()
 	)
 	_room_name_edit.focus_exited.connect(_commit_room_name)
-	row.add_child(_room_name_edit)
-	_online_toggle = _build_host_toggle("online", row)
+	identity_row.add_child(_room_name_edit)
+	var access_row := HBoxContainer.new()
+	access_row.add_theme_constant_override("separation", 10)
+	settings.add_child(access_row)
+	_online_toggle = _build_host_toggle("online", access_row)
 	_online_state_label = _online_toggle.get_node("StateBadge/State") as Label
 	_online_toggle.pressed.connect(_on_online_pressed)
-	_discoverable_toggle = _build_host_toggle("discovery", row)
+	_discoverable_toggle = _build_host_toggle("discovery", access_row)
 	_discoverable_state_label = (
 		_discoverable_toggle.get_node("StateBadge/State") as Label
 	)
@@ -244,12 +254,12 @@ func _build_host_settings(root: VBoxContainer) -> void:
 	_host_discovery_status.add_theme_color_override(
 		"font_color", UtilityPageStyle.OCEAN_TEXT_SECONDARY
 	)
-	row.add_child(_host_discovery_status)
+	access_row.add_child(_host_discovery_status)
 
 
 func _build_host_toggle(label_text: String, row: HBoxContainer) -> Button:
 	var button := Button.new()
-	button.custom_minimum_size = Vector2(150.0, 46.0)
+	button.custom_minimum_size = Vector2(140.0, 46.0)
 	button.text = label_text
 	button.alignment = HORIZONTAL_ALIGNMENT_CENTER
 	button.clip_contents = false
@@ -448,7 +458,8 @@ func _build_active_rows() -> void:
 	for entry: PlayerListEntry in entries:
 		var row := _make_row()
 		var identity := Label.new()
-		identity.custom_minimum_size.x = 430
+		identity.custom_minimum_size.x = 250
+		identity.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		var markers: Array[String] = []
 		if entry.is_host:
 			markers.append("host")
@@ -470,7 +481,7 @@ func _build_active_rows() -> void:
 		)
 		row.add_child(identity)
 		var ping := Label.new()
-		ping.custom_minimum_size.x = 80
+		ping.custom_minimum_size.x = 60
 		ping.text = (
 			"Local" if entry.is_host
 			else "%d ms" % entry.ping_to_host_ms
@@ -484,31 +495,31 @@ func _build_active_rows() -> void:
 		mute.text = "unmute" if entry.muted else "mute"
 		mute.disabled = entry.is_local_player
 		mute.pressed.connect(_toggle_mute.bind(entry))
-		UtilityPageStyle.apply_ocean_button(mute)
+		UtilityPageStyle.apply_compact_ocean_button(mute)
 		row.add_child(mute)
 		var block := Button.new()
 		block.text = "block"
 		block.disabled = entry.is_local_player
 		block.pressed.connect(_confirm_block.bind(entry))
-		UtilityPageStyle.apply_ocean_button(block)
+		UtilityPageStyle.apply_compact_ocean_button(block)
 		row.add_child(block)
 		if entry.can_manage_operator:
 			var operator := Button.new()
 			operator.text = "deop" if entry.is_operator else "op"
 			operator.pressed.connect(_confirm_operator.bind(entry))
-			UtilityPageStyle.apply_ocean_button(operator)
+			UtilityPageStyle.apply_compact_ocean_button(operator)
 			row.add_child(operator)
 		var kick := Button.new()
 		kick.text = "kick"
 		kick.disabled = not entry.can_kick
 		kick.pressed.connect(_confirm_kick.bind(entry))
-		UtilityPageStyle.apply_ocean_button(kick)
+		UtilityPageStyle.apply_compact_ocean_button(kick)
 		row.add_child(kick)
 		var ban := Button.new()
 		ban.text = "ban"
 		ban.disabled = not entry.can_ban
 		ban.pressed.connect(_confirm_ban.bind(entry))
-		UtilityPageStyle.apply_ocean_button(ban)
+		UtilityPageStyle.apply_compact_ocean_button(ban)
 		row.add_child(ban)
 
 
@@ -516,7 +527,8 @@ func _build_session_artwork_controls() -> void:
 	var counts: Vector2i = _service.get_session_artwork_counts()
 	var row := _make_row()
 	var label := Label.new()
-	label.custom_minimum_size.x = 830
+	label.custom_minimum_size.x = 600
+	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	label.text = "session artwork · %d layers · %d painted pixels" % [
 		counts.x, counts.y,
 	]
@@ -534,7 +546,7 @@ func _build_session_artwork_controls() -> void:
 			_service.reset_session_artwork,
 		)
 	)
-	UtilityPageStyle.apply_ocean_button(reset)
+	UtilityPageStyle.apply_compact_ocean_button(reset)
 	row.add_child(reset)
 
 
@@ -546,7 +558,8 @@ func _build_relationship_rows() -> void:
 	for record: Dictionary in records:
 		var row := _make_row()
 		var label := Label.new()
-		label.custom_minimum_size.x = 690
+		label.custom_minimum_size.x = 560
+		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		var fingerprint := str(record["fingerprint"])
 		label.text = "%s · %s    %s" % [
 			str(record.get("last_known_display_name", "Player")),
@@ -564,7 +577,7 @@ func _build_relationship_rows() -> void:
 			unblock.pressed.connect(func() -> void:
 				_service.set_blocked(fingerprint, str(record["last_known_display_name"]), false)
 			)
-			UtilityPageStyle.apply_ocean_button(unblock)
+			UtilityPageStyle.apply_compact_ocean_button(unblock)
 			row.add_child(unblock)
 		var unmute := Button.new()
 		unmute.text = "unmute"
@@ -572,7 +585,7 @@ func _build_relationship_rows() -> void:
 		unmute.pressed.connect(func() -> void:
 			_service.set_muted(fingerprint, str(record["last_known_display_name"]), false)
 		)
-		UtilityPageStyle.apply_ocean_button(unmute)
+		UtilityPageStyle.apply_compact_ocean_button(unmute)
 		row.add_child(unmute)
 
 
@@ -585,7 +598,8 @@ func _build_ban_rows() -> void:
 		var row := _make_row()
 		var fingerprint := str(record["target_fingerprint"])
 		var label := Label.new()
-		label.custom_minimum_size.x = 830
+		label.custom_minimum_size.x = 600
+		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		label.text = "%s · %s    banned %s" % [
 			str(record.get("last_known_display_name", "Player")),
 			NetworkIdentityCrypto.compact_suffix(fingerprint),
@@ -599,7 +613,7 @@ func _build_ban_rows() -> void:
 		var unban := Button.new()
 		unban.text = "unban"
 		unban.pressed.connect(_confirm_unban.bind(fingerprint))
-		UtilityPageStyle.apply_ocean_button(unban)
+		UtilityPageStyle.apply_compact_ocean_button(unban)
 		row.add_child(unban)
 
 

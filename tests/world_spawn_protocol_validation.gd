@@ -52,6 +52,30 @@ func _validate_catalog_statuses() -> void:
 	assert(is_equal_approx(brown.minimum_surface_y, -0.44))
 	assert(FishCatalog.get_fish_by_id(&"crab_brown") == brown.catch_data)
 	assert(not brown.catch_data.is_fishable())
+	var clam: GatherableData = Gatherables.get_entry(&"clam_manila")
+	assert(clam != null and clam.is_available())
+	assert(clam.catch_data.collection_method == FishData.CollectionMethod.DIGGING)
+	assert(clam.catch_data.logbook_section == FishData.LogbookSection.SHELLFISH)
+	assert(clam.required_tool_id == &"standard_shovel")
+	assert(clam.diggable_area_id == &"starter_beach")
+	assert(clam.presentation_mode == GatherableData.PresentationMode.WATER_SPURT)
+	assert(clam.is_stationary_hotspot())
+	assert(not clam.requires_sneaking)
+	assert(not clam.can_be_scared())
+	assert(is_equal_approx(clam.active_lifetime_seconds, 10.0))
+	assert(FishCatalog.get_fish_by_id(&"clam_manila") == clam.catch_data)
+	assert(not clam.catch_data.is_fishable())
+	var beetle: GatherableData = Gatherables.get_entry(&"beetle_stag_common")
+	assert(beetle != null and beetle.is_available())
+	assert(beetle.catch_data.collection_method == FishData.CollectionMethod.NET)
+	assert(beetle.required_tool_id == &"crab_net")
+	assert(beetle.spawn_anchor_set_id == &"starter_reachable_tree_trunks")
+	assert(beetle.is_stationary_spawn())
+	assert(not beetle.is_stationary_hotspot())
+	assert(not beetle.requires_sneaking)
+	assert(not beetle.can_be_scared())
+	assert(FishCatalog.get_fish_by_id(&"beetle_stag_common") == beetle.catch_data)
+	assert(not beetle.catch_data.is_fishable())
 
 	for type_id: StringName in [
 		&"crab_ghost",
@@ -76,8 +100,10 @@ func _validate_catalog_statuses() -> void:
 		)
 
 	var available: Array[GatherableData] = Gatherables.get_available_entries()
-	assert(available.size() == 1)
-	assert(available.front() == brown)
+	assert(available.size() == 3)
+	assert(available.has(brown))
+	assert(available.has(clam))
+	assert(available.has(beetle))
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 24680
 	var captured_delay: float = brown.get_respawn_delay(&"captured", rng)
@@ -110,6 +136,18 @@ func _validate_billboard_presentation() -> void:
 	assert(sprite.texture_filter == BaseMaterial3D.TEXTURE_FILTER_NEAREST)
 	assert(not sprite.shaded)
 	gatherable.free()
+
+	var hotspot := WorldGatherableType.new()
+	hotspot.call("_ensure_water_spurt_visual")
+	var hole := hotspot.get_node("WaterSpurt/BurrowMark") as MeshInstance3D
+	assert(hole != null)
+	assert(hole.cast_shadow == GeometryInstance3D.SHADOW_CASTING_SETTING_OFF)
+	var hole_material := hole.mesh.surface_get_material(0) as StandardMaterial3D
+	assert(hole_material != null)
+	assert(hole_material.shading_mode == BaseMaterial3D.SHADING_MODE_UNSHADED)
+	assert(hole_material.transparency == BaseMaterial3D.TRANSPARENCY_DISABLED)
+	assert(is_equal_approx(hole_material.albedo_color.a, 1.0))
+	hotspot.queue_free()
 
 
 func _validate_quality_behavior(entry: GatherableData) -> void:

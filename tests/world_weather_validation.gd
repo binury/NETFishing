@@ -26,6 +26,7 @@ func _run() -> void:
 	_validate_weather_scheduler()
 	_validate_authoritative_weather_override()
 	_validate_weather_persistence()
+	_validate_legacy_forecast_save_migration()
 	_validate_snapshot_bounds()
 	_validate_fishing_weather_seams()
 	_validate_fishing_spot_context()
@@ -65,14 +66,9 @@ func _validate_weather_scheduler() -> void:
 
 func _duration_is_valid(weather: WorldWeatherServiceType) -> bool:
 	var seconds: float = weather.get_seconds_remaining()
-	match weather.get_weather():
-		WorldWeatherServiceType.Weather.SUNNY:
-			return seconds >= 480.0 and seconds <= 900.0
-		WorldWeatherServiceType.Weather.CLOUDY:
-			return seconds >= 300.0 and seconds <= 720.0
-		WorldWeatherServiceType.Weather.RAINY, WorldWeatherServiceType.Weather.FOGGY:
-			return seconds >= 300.0 and seconds <= 600.0
-	return false
+	return is_equal_approx(
+		seconds, WorldWeatherServiceType.WEATHER_PERIOD_SECONDS
+	)
 
 
 func _validate_authoritative_weather_override() -> void:
@@ -94,7 +90,7 @@ func _validate_authoritative_weather_override() -> void:
 
 	var clock := WorldTimeServiceType.new()
 	root.add_child(clock)
-	clock.begin_session(WorldTimeServiceType.DAY_START_HOUR)
+	clock.begin_test_session(WorldTimeServiceType.DAY_START_HOUR)
 	var schedule: Array[Dictionary] = []
 	for index: int in WorldWeatherServiceType.DAILY_PLAN_SEGMENT_COUNT:
 		schedule.append({
@@ -159,8 +155,11 @@ func _validate_weather_persistence() -> void:
 	))
 	weather.set_persistence_tracking_enabled(true)
 	weather.begin_authoritative_session(20260803)
-	assert(weather.is_raining())
-	assert(is_equal_approx(weather.get_seconds_remaining(), 187.5))
+	assert(weather.get_weather() == WorldWeatherServiceType.DEFAULT_WEATHER)
+	assert(is_equal_approx(
+		weather.get_seconds_remaining(),
+		WorldWeatherServiceType.WEATHER_PERIOD_SECONDS,
+	))
 	assert(not weather.restore_persistent_state(
 		WorldWeatherServiceType.Weather.RAINY,
 		WorldWeatherServiceType.MAX_PERSISTED_SECONDS + 1.0,
@@ -184,9 +183,47 @@ func _validate_snapshot_bounds() -> void:
 	assert(not NetworkWorldWeatherServiceType.validate_snapshot({
 		"session_id": "session",
 		"weather": int(WorldWeatherServiceType.Weather.RAINY),
-		"seconds_remaining": 1801.0,
+		"seconds_remaining": 3601.0,
 		"sequence": 2,
 	}))
+
+
+func _validate_legacy_forecast_save_migration() -> void:
+	var legacy_schedule: Array[Dictionary] = []
+	for index: int in JobCatalog.LEGACY_WEATHER_SEGMENT_COUNT:
+		legacy_schedule.append({
+			"start_hour": fposmod(
+				WorldTimeService.DAY_START_HOUR
+					+ float(index) * JobCatalog.LEGACY_WEATHER_SEGMENT_HOURS,
+				WorldTimeService.HOURS_PER_DAY,
+			),
+			"weather": int(WorldWeatherService.Weather.SUNNY),
+		})
+	var legacy_job: Dictionary = {
+		"id": "legacy-catch",
+		"title": "legacy catch",
+		"description": "catch one fish",
+		"kind": int(JobCatalog.Kind.CATCH_TOTAL),
+		"target": 1,
+		"fish_coin": 1,
+		"experience": 1,
+	}
+	var save_data: Dictionary = PlayerJobService.default_save_data()
+	save_data["host_board"] = {
+		"plan_id": "legacy-plan",
+		"cycle": 4,
+		"schedule_anchor_index": 0,
+		"jobs": [legacy_job],
+		"weather_schedule": legacy_schedule,
+	}
+	save_data["active_plan_id"] = "legacy-plan"
+	assert(PlayerJobService.validate_save_data(save_data))
+	var jobs := PlayerJobService.new()
+	assert(jobs.restore_from_save_data(save_data))
+	var migrated: Dictionary = jobs.to_save_data()
+	assert((migrated.get("host_board", {}) as Dictionary).is_empty())
+	assert(str(migrated.get("active_plan_id", "")).is_empty())
+	jobs.free()
 
 
 func _validate_fishing_weather_seams() -> void:
@@ -255,7 +292,7 @@ func _validate_weather_presentation() -> void:
 	world_root.add_child(sun)
 	var clock := WorldTimeServiceType.new()
 	world_root.add_child(clock)
-	clock.begin_session(14.0)
+	clock.begin_test_session(14.0)
 	var weather := WorldWeatherServiceType.new()
 	world_root.add_child(weather)
 	weather.begin_remote_session()
@@ -279,6 +316,34 @@ func _validate_weather_presentation() -> void:
 	var runtime_sky_material := (
 		runtime_environment.sky.sky_material as ShaderMaterial
 	)
+	clock.set_authoritative_time(0.0)
+	visuals.apply_time_immediately(0.0)
+	assert(float(
+		runtime_sky_material.get_shader_parameter("star_visibility")
+	) > 0.99)
+	visuals.apply_weather_immediately(
+		WorldWeatherServiceType.Weather.CLOUDY
+	)
+	assert(is_equal_approx(float(
+		runtime_sky_material.get_shader_parameter("star_visibility")
+	), 0.18))
+	visuals.apply_weather_immediately(
+		WorldWeatherServiceType.Weather.RAINY
+	)
+	assert(is_equal_approx(float(
+		runtime_sky_material.get_shader_parameter("star_visibility")
+	), 0.03))
+	visuals.apply_weather_immediately(
+		WorldWeatherServiceType.Weather.FOGGY
+	)
+	assert(is_zero_approx(float(
+		runtime_sky_material.get_shader_parameter("star_visibility")
+	)))
+	visuals.apply_weather_immediately(
+		WorldWeatherServiceType.Weather.SUNNY
+	)
+	clock.set_authoritative_time(14.0)
+	visuals.apply_time_immediately(14.0)
 	var clear_background_energy: float = (
 		runtime_environment.background_energy_multiplier
 	)

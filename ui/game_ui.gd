@@ -27,6 +27,10 @@ const PlayerFishingUpgradesType = preload(
 const ShopInteractionType = preload(
 	"res://world/fishing_shop_interaction.gd"
 )
+const PlayerStorageType = preload("res://ui/player_storage.gd")
+const PlayerStorageInteractionType = preload(
+	"res://world/player_storage_interaction.gd"
+)
 const PlayerItemEffectsType = preload(
 	"res://progression/player_item_effects.gd"
 )
@@ -134,6 +138,8 @@ const SHOP_NPC_SPEECH_COOLDOWN_MILLISECONDS: int = 5000
 @onready var _pause_menu: PauseMenuType = %PauseMenu
 @onready var _hotbar_ui: HotbarUIType = %Hotbar
 @onready var _fishing_shop: FishingShopType = %FishingShop
+@onready var _player_storage: PlayerStorageType = %PlayerStorage
+@onready var _storage_prompt: PanelContainer = %StoragePrompt
 @onready var _shop_prompt: Control = %ShopPrompt
 @onready var _shop_prompt_bubble: PanelContainer = %ShopPromptBubble
 @onready var _shop_prompt_message: Label = %ShopPromptMessage
@@ -174,10 +180,12 @@ var _gameplay_hud_hidden: bool = false
 var _fishing_spot: FishingSpotType
 var _system_menu_open: bool = false
 var _shop_open: bool = false
+var _storage_open: bool = false
 var _chat_input_open: bool = false
 var _player_menu_hotbar_visible: bool = false
 var _main_shop_buyer: FishBuyerProfileType
 var _shop_interaction: ShopInteractionType
+var _storage_interaction: PlayerStorageInteractionType
 var _surface_drawing: NetworkSurfaceDrawingService
 var _surface_drawing_hotbar_selected: bool = false
 var _experience: PlayerExperienceType
@@ -294,10 +302,12 @@ func setup(
 	fishing_spot: FishingSpotType,
 	bag: PlayerBagType,
 	hotbar: PlayerHotbarType,
+	inventory_layout: PlayerInventoryLayout,
 	item_catalog: ItemCatalogType,
 	main_shop_buyer: FishBuyerProfileType,
 	fishing_upgrades: PlayerFishingUpgradesType,
 	shop_interaction: ShopInteractionType,
+	storage_interaction: PlayerStorageInteractionType,
 	item_effects: PlayerItemEffectsType,
 	cooler_capacity: PlayerCoolerCapacityType,
 	network_session: NetworkSessionType,
@@ -398,6 +408,7 @@ func setup(
 		fishing_spot,
 		bag,
 		hotbar,
+		inventory_layout,
 		item_catalog,
 		cooler_capacity,
 		network_session,
@@ -430,10 +441,28 @@ func setup(
 		fishing_spot,
 		shop_interaction,
 		bag,
+		inventory,
+		hotbar,
+		inventory_layout,
 		item_catalog,
 		cooler_capacity,
 		art_unlocks,
 		network_shop_service,
+		network_sale_service,
+		reservations,
+	)
+	_player_storage.setup(
+		player,
+		fishing_spot,
+		storage_interaction,
+		inventory_layout,
+		bag,
+		inventory,
+		hotbar,
+		item_catalog,
+	)
+	_player_storage.menu_visibility_changed.connect(
+		_on_storage_visibility_changed
 	)
 	_fishing_shop.menu_visibility_changed.connect(_on_shop_visibility_changed)
 	_fishing_shop.menu_exit_started.connect(_on_shop_exit_started)
@@ -446,6 +475,7 @@ func setup(
 	)
 	_main_shop_buyer = main_shop_buyer
 	_shop_interaction = shop_interaction
+	_storage_interaction = storage_interaction
 	_surface_drawing = surface_drawing
 	_surface_drawing_toolbar.setup(_surface_drawing, art_unlocks)
 	set_edge_docks(
@@ -505,6 +535,7 @@ func _input(event: InputEvent) -> void:
 		and not _system_menu_open
 		and not _player_menu_open
 		and not _shop_open
+		and not _storage_open
 		and not _chat_input_open
 		and not _showcase_active
 		and not _virtual_mouse_active
@@ -552,6 +583,7 @@ func _can_use_character_call() -> bool:
 		and not _system_menu_open
 		and not _player_menu_open
 		and not _shop_open
+		and not _storage_open
 		and not _chat_input_open
 		and not _showcase_active
 		and not _virtual_mouse_active
@@ -565,8 +597,16 @@ func _character_call_yields_to_world_interaction(
 ) -> bool:
 	return (
 		event.is_action_pressed("interact")
-		and _shop_interaction != null
-		and _shop_interaction.is_local_player_in_range()
+		and (
+			(
+				_shop_interaction != null
+				and _shop_interaction.is_local_player_in_range()
+			)
+			or (
+				_storage_interaction != null
+				and _storage_interaction.is_local_player_in_range()
+			)
+		)
 		and _fishing_spot != null
 		and _fishing_spot.can_open_fishing_shop()
 		and not _fishing_shop.visible
@@ -614,6 +654,7 @@ func _handle_controller_chat_controls(event: InputEvent) -> bool:
 		or _system_menu_open
 		or _player_menu_open
 		or _shop_open
+		or _storage_open
 	):
 		return false
 	var use_mapping: bool = (
@@ -825,6 +866,7 @@ func _can_start_virtual_mouse() -> bool:
 		and not _system_menu_open
 		and not _player_menu_open
 		and not _shop_open
+		and not _storage_open
 		and not _chat_input_open
 		and _player != null
 		and _fishing_spot != null
@@ -1182,6 +1224,7 @@ func _can_surface_drawing_be_active() -> bool:
 		and not _system_menu_open
 		and not _player_menu_open
 		and not _shop_open
+		and not _storage_open
 		and not _chat_input_open
 		and not _showcase_active
 		and _fishing_spot != null
@@ -1460,6 +1503,7 @@ func _refresh_active_bait_indicator_visibility() -> void:
 		and not _system_menu_open
 		and not _player_menu_open
 		and not _shop_open
+		and not _storage_open
 	)
 
 
@@ -1494,8 +1538,10 @@ func set_gameplay_ui_enabled(enabled: bool) -> void:
 			_surface_drawing.deactivate()
 		close_player_menu_for_session_end()
 		_fishing_shop.close_for_session_end()
+		_player_storage.close_for_session_end()
 		_fishing_panel.visible = false
 		_shop_prompt.hide()
+		_storage_prompt.hide()
 		_hotbar_ui.set_presentation_visible(false, false)
 		_hotbar_ui.set_gameplay_input_enabled(false)
 	else:
@@ -1526,6 +1572,7 @@ func _can_toggle_gameplay_hud() -> bool:
 		and not _system_menu_open
 		and not _player_menu_open
 		and not _shop_open
+		and not _storage_open
 		and not _chat_input_open
 		and not _showcase_active
 		and not _emote_radial_menu.is_open()
@@ -1540,6 +1587,7 @@ func _refresh_gameplay_hud_visibility() -> void:
 		and not _system_menu_open
 		and not _player_menu_open
 		and not _shop_open
+		and not _storage_open
 	)
 	_gameplay_transient_hud.visible = show_world_hud
 	_experience_presentation.visible = (
@@ -1558,16 +1606,65 @@ func set_system_menu_open(is_open: bool) -> void:
 		and not is_open
 		and not _player_menu_open
 		and not _shop_open
+		and not _storage_open
 	)
 	_hotbar_ui.set_drag_enabled(_player_menu_open and not is_open)
 	if is_open:
 		_hotbar_ui.set_drag_enabled(false)
 		_shop_prompt.hide()
+		_storage_prompt.hide()
 	_emit_interactive_pointer_ui_changed()
 
 
 func get_fishing_shop() -> FishingShopType:
 	return _fishing_shop
+
+
+func get_player_storage() -> PlayerStorageType:
+	return _player_storage
+
+
+func set_storage_prompt_visible(
+	requested_visible: bool,
+	world_anchor: Vector3 = Vector3(0.0, INF, 0.0),
+) -> void:
+	if not _storage_prompt.has_meta(&"styled"):
+		_storage_prompt.set_meta(&"styled", true)
+		var style := UtilityPageStyle.rounded_style(
+			Color(UtilityPageStyle.OCEAN_PANEL_MID, 0.96), 12
+		)
+		style.anti_aliasing = false
+		_storage_prompt.add_theme_stylebox_override("panel", style)
+	_storage_prompt.visible = (
+		requested_visible
+		and _gameplay_ui_enabled
+		and not _system_menu_open
+		and not _player_menu_open
+		and not _shop_open
+		and not _storage_open
+	)
+	if _storage_prompt.visible and world_anchor.is_finite():
+		_position_storage_prompt(world_anchor)
+
+
+func _position_storage_prompt(world_anchor: Vector3) -> void:
+	if _player == null:
+		_storage_prompt.hide()
+		return
+	var camera := _player.get_gameplay_camera()
+	if camera == null or camera.is_position_behind(world_anchor):
+		_storage_prompt.hide()
+		return
+	var camera_size := camera.get_viewport().get_visible_rect().size
+	var ui_size := _canonical_stage.size
+	if camera_size.x <= 0.0 or camera_size.y <= 0.0:
+		_storage_prompt.hide()
+		return
+	var point := camera.unproject_position(world_anchor) * ui_size / camera_size
+	_storage_prompt.position = Vector2(
+		clampf(point.x - _storage_prompt.size.x * 0.5, 8.0, ui_size.x - _storage_prompt.size.x - 8.0),
+		clampf(point.y - _storage_prompt.size.y - 12.0, 8.0, ui_size.y - _storage_prompt.size.y - 8.0),
+	)
 
 
 func set_shop_prompt_visible(
@@ -1581,6 +1678,7 @@ func set_shop_prompt_visible(
 		and not _system_menu_open
 		and not _player_menu_open
 		and not _shop_open
+		and not _storage_open
 	)
 	if _shop_prompt.visible:
 		if world_anchor.is_finite():
@@ -2216,9 +2314,30 @@ func _on_shop_visibility_changed(is_open: bool) -> void:
 		and not is_open
 		and not _system_menu_open
 		and not _player_menu_open
+		and not _storage_open
 	)
 	if is_open:
 		_shop_prompt.hide()
+		_storage_prompt.hide()
+	_emit_interactive_pointer_ui_changed()
+
+
+func _on_storage_visibility_changed(is_open: bool) -> void:
+	_storage_open = is_open
+	_refresh_surface_drawing_activation()
+	_refresh_gameplay_hud_visibility()
+	_refresh_chat_availability()
+	_refresh_hotbar_visibility()
+	_hotbar_ui.set_gameplay_input_enabled(
+		_gameplay_ui_enabled
+		and not is_open
+		and not _system_menu_open
+		and not _player_menu_open
+		and not _shop_open
+	)
+	if is_open:
+		_shop_prompt.hide()
+		_storage_prompt.hide()
 	_emit_interactive_pointer_ui_changed()
 
 
@@ -2338,6 +2457,7 @@ func _refresh_hotbar_visibility() -> void:
 		)
 		and not _system_menu_open
 		and not _shop_open
+		and not _storage_open
 		and (
 			not _player_menu_open
 			or _player_menu_hotbar_visible
@@ -2349,7 +2469,11 @@ func _refresh_hotbar_visibility() -> void:
 func _emit_interactive_pointer_ui_changed() -> void:
 	_refresh_active_bait_indicator_visibility()
 	interactive_pointer_ui_changed.emit(
-		_system_menu_open or _player_menu_open or _shop_open or _chat_input_open
+		_system_menu_open
+		or _player_menu_open
+		or _shop_open
+		or _storage_open
+		or _chat_input_open
 	)
 
 
@@ -2368,6 +2492,7 @@ func _refresh_chat_availability() -> void:
 		and not _system_menu_open
 		and not _player_menu_open
 		and not _shop_open
+		and not _storage_open
 	)
 	_chat_ui.set_available(chat_available)
 	_chat_ui.set_hud_hidden(_gameplay_hud_hidden and not _chat_input_open)

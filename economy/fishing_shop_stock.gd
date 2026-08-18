@@ -11,6 +11,7 @@ const FISH_FINDER_ID: StringName = &"fish_finder"
 const MAGNET_ID: StringName = &"magnet"
 const BATTERIES_ID: StringName = &"batteries"
 const CRAB_NET_ID: StringName = &"crab_net"
+const STANDARD_SHOVEL_ID: StringName = &"standard_shovel"
 
 const ITEM_PRICES: Dictionary[StringName, int] = {
 	&"worms": 1,
@@ -28,6 +29,7 @@ const ITEM_PRICES: Dictionary[StringName, int] = {
 	MAGNET_ID: 250,
 	BATTERIES_ID: 15,
 	CRAB_NET_ID: 50,
+	STANDARD_SHOVEL_ID: 75,
 }
 const BAIT_UNLOCK_PRICES: Dictionary[StringName, int] = {
 	&"snails": 400,
@@ -49,6 +51,7 @@ const ITEM_ORDER: Array[StringName] = [
 	FISH_FINDER_ID,
 	MAGNET_ID,
 	CRAB_NET_ID,
+	STANDARD_SHOVEL_ID,
 	&"coffee",
 	&"energy_drink",
 	&"snack",
@@ -116,6 +119,7 @@ static func is_permanent_unlock(
 			or item_id == FISH_FINDER_ID
 			or item_id == MAGNET_ID
 			or item_id == CRAB_NET_ID
+			or item_id == STANDARD_SHOVEL_ID
 			or item is FishingRodDataType
 		)
 	)

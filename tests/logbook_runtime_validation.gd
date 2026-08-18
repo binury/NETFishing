@@ -108,9 +108,9 @@ func _validate_save_round_trip(
 	var player := main.get("_player") as Player
 	var catalog := main.get("fish_catalog") as FishPool
 	assert(catalog != null)
-	assert(catalog.candidates.size() == 314)
+	assert(catalog.candidates.size() == 316)
 	var active_species := LogbookCatalog.ordered_species(catalog.candidates)
-	assert(active_species.size() == 54)
+	assert(active_species.size() == 56)
 	for index: int in 4:
 		_add_test_catch(player, active_species[index])
 	assert(save_manager.save_now())
@@ -131,7 +131,7 @@ func _validate_save_round_trip(
 	assert(player.inventory.replace_all_catches(no_catches, 1))
 	assert(player.collection_log.replace_discovered_ids(no_discoveries))
 	assert(save_manager.load_player_data())
-	assert(player.inventory.get_all_catches().size() == 54)
+	assert(player.inventory.get_all_catches().size() == 56)
 	for fish: FishData in active_species:
 		assert(player.inventory.get_count(fish.id) == 1)
 		assert(player.collection_log.has_discovered(fish.id))

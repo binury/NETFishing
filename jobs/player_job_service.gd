@@ -245,16 +245,30 @@ func restore_from_save_data(data: Dictionary) -> bool:
 	if not validate_save_data(data):
 		return false
 	var received_board: Dictionary = _active_board.duplicate(true)
-	_host_board = (data.get("host_board", {}) as Dictionary).duplicate(true)
-	_active_plan_id = str(data.get("active_plan_id", ""))
+	var saved_host_board: Dictionary = data.get("host_board", {})
+	var legacy_weather_board: bool = (
+		not saved_host_board.is_empty()
+		and not validate_board(saved_host_board)
+		and _validate_legacy_board(saved_host_board)
+	)
+	_host_board = (
+		{}
+		if legacy_weather_board
+		else saved_host_board.duplicate(true)
+	)
+	_active_plan_id = (
+		"" if legacy_weather_board else str(data.get("active_plan_id", ""))
+	)
 	_daily_progress.clear()
 	var progress: Dictionary = data.get("daily_progress", {})
-	for key: Variant in progress:
-		_daily_progress[str(key)] = int(progress[key])
+	if not legacy_weather_board:
+		for key: Variant in progress:
+			_daily_progress[str(key)] = int(progress[key])
 	_daily_completions.clear()
 	var completions: Dictionary = data.get("daily_completions", {})
-	for key: Variant in completions:
-		_daily_completions[str(key)] = mini(int(completions[key]), 1)
+	if not legacy_weather_board:
+		for key: Variant in completions:
+			_daily_completions[str(key)] = mini(int(completions[key]), 1)
 	_daily_clock_hour = float(data.get(
 		"daily_clock_hour",
 		_world_time.get_time_hours()
@@ -345,6 +359,14 @@ static func validate_board(value: Variant) -> bool:
 		)
 	):
 		return false
+	if (
+		board.has("calendar_cycle_id")
+		and (
+			typeof(board["calendar_cycle_id"]) != TYPE_STRING
+			or str(board["calendar_cycle_id"]).length() != 10
+		)
+	):
+		return false
 	var jobs: Array = board.get("jobs", [])
 	if jobs.is_empty() or jobs.size() > 8:
 		return false
@@ -378,7 +400,11 @@ static func validate_save_data(value: Variant) -> bool:
 	):
 		return false
 	var host_board: Dictionary = data.get("host_board", {})
-	if not host_board.is_empty() and not validate_board(host_board):
+	if (
+		not host_board.is_empty()
+		and not validate_board(host_board)
+		and not _validate_legacy_board(host_board)
+	):
 		return false
 	if (
 		data.has("daily_clock_hour")
@@ -436,9 +462,43 @@ static func validate_save_data(value: Variant) -> bool:
 	)
 
 
+static func _validate_legacy_board(value: Variant) -> bool:
+	if typeof(value) != TYPE_DICTIONARY:
+		return false
+	var board: Dictionary = value
+	if (
+		typeof(board.get("plan_id")) != TYPE_STRING
+		or str(board.get("plan_id", "")).is_empty()
+		or str(board.get("plan_id", "")).length() > 96
+		or not JobCatalog.is_bounded_integer(
+			board.get("cycle"), 0, MAX_PROGRESS_VALUE
+		)
+		or not JobCatalog.is_bounded_integer(
+			board.get("schedule_anchor_index"),
+			0,
+			JobCatalog.LEGACY_WEATHER_SEGMENT_COUNT - 1,
+		)
+		or typeof(board.get("jobs")) != TYPE_ARRAY
+		or not JobCatalog.is_valid_legacy_weather_schedule(
+			board.get("weather_schedule", [])
+		)
+	):
+		return false
+	var jobs: Array = board.get("jobs", [])
+	if jobs.is_empty() or jobs.size() > 8:
+		return false
+	for job: Variant in jobs:
+		if not JobCatalog.is_valid_job(job):
+			return false
+	return true
+
+
 func _activate_host_board() -> void:
-	if _host_board.is_empty():
-		_generate_host_board(0)
+	if _world_time != null:
+		_daily_clock_hour = _world_time.get_time_hours()
+	if _host_board.is_empty() or _host_board_is_stale():
+		var next_cycle: int = int(_host_board.get("cycle", -1)) + 1
+		_generate_host_board(maxi(next_cycle, 0))
 	else:
 		_active_board = _host_board.duplicate(true)
 		_switch_plan(str(_host_board.get("plan_id", "")))
@@ -472,6 +532,11 @@ func _generate_host_board(cycle: int) -> void:
 			plan_id, jobs, schedule_anchor_index
 		),
 	}
+	var calendar_cycle_id: String = _world_time.get_calendar_cycle_id(
+		DAILY_REFRESH_HOUR
+	)
+	if not calendar_cycle_id.is_empty():
+		_host_board["calendar_cycle_id"] = calendar_cycle_id
 	_active_board = _host_board.duplicate(true)
 	_switch_plan(plan_id)
 	_apply_host_weather_plan()
@@ -514,7 +579,10 @@ func _on_natural_time_advanced(hours: float) -> void:
 		_progression_ready
 		and _session != null
 		and _session.is_host()
-		and _crossed_daily_refresh(previous_hour, _daily_clock_hour)
+		and (
+			hours >= WorldTimeService.HOURS_PER_DAY
+			or _crossed_daily_refresh(previous_hour, _daily_clock_hour)
+		)
 	):
 		var cycle: int = int(_host_board.get("cycle", -1)) + 1
 		_generate_host_board(maxi(cycle, 0))
@@ -756,6 +824,19 @@ func _current_weather_segment() -> int:
 		floori(elapsed_hours / JobCatalog.WEATHER_SEGMENT_HOURS),
 		0,
 		JobCatalog.WEATHER_SEGMENT_COUNT - 1,
+	)
+
+
+func _host_board_is_stale() -> bool:
+	if _world_time == null:
+		return false
+	var current_cycle_id: String = _world_time.get_calendar_cycle_id(
+		DAILY_REFRESH_HOUR
+	)
+	return (
+		not current_cycle_id.is_empty()
+		and str(_host_board.get("calendar_cycle_id", ""))
+			!= current_cycle_id
 	)
 
 
