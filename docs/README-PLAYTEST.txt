@@ -1,6 +1,6 @@
 NETfishing
-v0.11.1-alpha
-Alpha 0.11.1
+v0.12.0-alpha
+Alpha 0.12.0
 
 Thank you for trying this early private playtest.
 
@@ -27,7 +27,7 @@ CONTROLS
 Move                         W / A / S / D or left stick
 Jump                         Space
 Sprint                       Shift
-Sneak                        Ctrl
+Sneak                        Ctrl or click right stick
 Slow walk                    Alt
 Rotate camera                Hold right mouse, or use right stick
 Cycle active hotbar slot     Mouse wheel
