@@ -1,7 +1,7 @@
 extends SceneTree
 
 const MainScene: PackedScene = preload("res://main/main.tscn")
-const TEST_PORT: int = 18141
+const TEST_PORT: int = 18170
 const EXPECTED_POPULATION: int = 2
 
 
@@ -111,12 +111,15 @@ func _validate_population(service: Node, expect_authoritative_state: bool) -> vo
 		var position: Variant = state.get("position")
 		assert(typeof(position) == TYPE_VECTOR3)
 		assert((position as Vector3).is_finite())
-		assert((position as Vector3).y > 0.08)
+		var entry := state.get("data") as GatherableData
+		assert(entry != null)
+		assert(
+			(position as Vector3).y
+			>= entry.minimum_surface_y - 0.001
+		)
 		if expect_authoritative_state:
 			var quality: int = int(state.get("quality", -1))
 			assert(FishQuality.is_valid(quality))
-			var entry := state.get("data") as GatherableData
-			assert(entry != null)
 			assert(entry.get_movement_speed_for_quality(quality) > 0.0)
 			assert(entry.get_scare_radius_for_quality(quality) > 0.0)
 
