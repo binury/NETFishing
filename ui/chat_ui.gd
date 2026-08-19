@@ -891,9 +891,13 @@ func _on_entry_text_submitted(_value: String) -> void:
 
 
 func _send() -> void:
+	var is_emote := false
 	if _send_pending:
 		return
 	var body := _entry.text
+	if body.begins_with("/me"):
+		is_emote = true
+		body = '(%' + 's ' + body.substr(3) + ")"
 	if body.strip_edges().is_empty():
 		close_chat()
 		return
@@ -904,6 +908,7 @@ func _send() -> void:
 		body,
 		_player.get_animalese_voice_id(),
 		_player.get_animalese_sample_set_id(),
+		is_emote,
 	):
 		_send_pending = false
 		_pending_send_body = ""

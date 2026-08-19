@@ -17,6 +17,8 @@ static func sanitize_body(value: Variant) -> String:
 		return ""
 	var result: String = str(value).replace("\r", " ").replace("\n", " ")
 	result = result.replace("\t", " ").strip_edges()
+	if result.begins_with("/me"):
+		result = '(%' + 's ' + result.substr(3) + ")"
 	if result.is_empty() or result.length() > MAX_VISIBLE_CHARACTERS:
 		return ""
 	if result.to_utf8_buffer().size() > MAX_UTF8_BYTES:

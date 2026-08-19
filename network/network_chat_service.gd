@@ -70,6 +70,7 @@ func send_local_message(
 	body: String,
 	voice_id: String = VoiceProfilesType.DEFAULT_ID,
 	sample_set_id: String = VoiceProfilesType.DEFAULT_SAMPLE_SET_ID,
+	is_emote: bool = false,
 ) -> bool:
 	if (
 		_session == null
@@ -84,6 +85,7 @@ func send_local_message(
 		send_rejected.emit("Chat is unavailable.")
 		return false
 	var clean := NetworkChatProtocol.sanitize_body(body)
+	print("Cleaned: " + clean)
 	if clean.is_empty():
 		send_rejected.emit("Message is empty or too long.")
 		return false
@@ -91,6 +93,7 @@ func send_local_message(
 		"request_id": _new_id("chat_request"),
 		"session_id": _session.get_session_id(),
 		"body": clean,
+		"is_emote": is_emote,
 		"sender_fingerprint": _session.get_local_identity_fingerprint(),
 		"voice_id": VoiceProfilesType.sanitized_id(voice_id),
 		"sample_set_id": VoiceProfilesType.sanitized_sample_set_id(
@@ -100,6 +103,7 @@ func send_local_message(
 	request["sender_signature"] = _session.sign_local_action(
 		"chat_send", NetworkChatProtocol.signature_fields(request)
 	)
+
 	if _session.is_host():
 		_handle_request(_session.get_local_peer_id(), request)
 	else:
@@ -304,7 +308,9 @@ func _handle_request(peer_id: int, data: Dictionary) -> void:
 		VoiceProfilesType.sanitized_sample_set_id(str(data.get(
 			"sample_set_id", VoiceProfilesType.DEFAULT_SAMPLE_SET_ID
 		))),
+		data["is_emote"]
 	)
+	print("MSG IS " + str(message))
 	message["request_id"] = request_id
 	message["sender_fingerprint"] = data["sender_fingerprint"]
 	message["sender_signature"] = data["sender_signature"]
@@ -322,8 +328,13 @@ func _make_message(
 	body: String,
 	voice_id: String = VoiceProfilesType.DEFAULT_ID,
 	sample_set_id: String = VoiceProfilesType.DEFAULT_SAMPLE_SET_ID,
+	is_emote: bool	= false,
 ) -> Dictionary:
 	_sequence += 1
+	if not is_emote:
+		print("NOT an emote")
+	else:
+		body = body.replace("%s", display_name.left(24))
 	var message := {
 		"message_id": _new_id("chat"),
 		"request_id": _new_id("chat_system"),
@@ -372,6 +383,7 @@ func _apply_message(
 		or str(data["session_id"]) != _session.get_session_id()
 		or _seen_messages.has(str(data["message_id"]))
 	):
+		breakpoint
 		return
 	var kind := int(data["kind"])
 	var valid_signature := false
@@ -418,6 +430,7 @@ func _apply_message(
 
 
 func _send_rejection(peer_id: int, message: String) -> void:
+	breakpoint
 	if peer_id == _session.get_local_peer_id():
 		send_rejected.emit(message)
 	else:
