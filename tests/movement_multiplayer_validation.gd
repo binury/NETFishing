@@ -258,7 +258,7 @@ func _run_host() -> void:
 	# Authentication completes before the client has necessarily created and
 	# begun observing the host avatar. Give its gameplay scene a bounded moment
 	# to settle before emitting the one-shot locomotion/action sequence.
-	await create_timer(1.0).timeout
+	await create_timer(3.0).timeout
 	var player := main.get("_player") as Player
 	player.configure_network_remote(true)
 	player.apply_authoritative_network_input(_movement_input(1, true))

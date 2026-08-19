@@ -161,13 +161,19 @@ func _run_multiplayer_client() -> void:
 	var shop_service := main.get_node("%NetworkShopService") as NetworkShopService
 	sale_service.local_sale_finished.connect(_on_sale_finished)
 	shop_service.local_purchase_finished.connect(_on_shop_finished)
+	assert(player.inventory_layout.restore_backpack_level(
+		PlayerInventoryLayout.MAX_BACKPACK_LEVEL
+	))
+	assert(player.cooler_capacity.restore_level(PlayerCoolerCapacity.MAX_LEVEL))
+	player.inventory.set_inventory_layout(null)
 	var catch_ids: Array[StringName] = []
 	for fish: FishData in catalog.candidates:
 		if not fish.active:
 			continue
 		var fish_catch := _make_catch(fish)
-		player.inventory.add_catch(fish_catch)
+		assert(player.inventory.add_catch(fish_catch))
 		catch_ids.append(fish_catch.catch_id)
+	player.inventory.set_inventory_layout(player.inventory_layout)
 	await create_timer(1.0).timeout
 	_sale_result.clear()
 	assert(not sale_service.request_local_sale(catch_ids).is_empty())
@@ -181,6 +187,8 @@ func _run_multiplayer_client() -> void:
 	for catch_id: StringName in catch_ids:
 		assert(not player.inventory.contains_catch_id(catch_id))
 	assert(not sale_service.is_local_sale_pending())
+	assert(player.inventory_layout.restore_backpack_level(0))
+	assert(player.cooler_capacity.restore_level(0))
 
 	var interaction := main.get("_shop_interaction") as FishingShopInteraction
 	player.global_position = interaction.global_position

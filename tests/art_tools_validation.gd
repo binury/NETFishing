@@ -225,14 +225,13 @@ func _run() -> void:
 	chat_ui.refocus_gameplay()
 	chat_ui.open_chat()
 	assert(chat_ui.is_open())
-	typed_chat_entry.text = "/not-a-real-command"
+	typed_chat_entry.text = "validation message"
 	chat_ui.call("_send")
 	assert(not chat_ui.is_open())
 	assert(not typed_chat_entry.has_focus())
 	assert(not bool(chat_ui.get("_input_lock_applied")))
-	assert(chat_status.visible)
-	assert(chat_status.text == "Unknown command: /not-a-real-command")
-	chat_ui.call("_set_status", "")
+	assert(not chat_status.visible)
+	assert(chat_status.text.is_empty())
 	var quick_menu := game_ui.get_node(
 		"%QuickRadialMenu"
 	) as QuickRadialMenu

@@ -89,10 +89,12 @@ func _run() -> void:
 	assert(not service.is_local_showcase_visible())
 	await _wait_for_held_fish_visibility(player, false)
 	var saved_weather: WorldWeatherService.Weather = (
-		world_weather.get_weather()
+		world_weather.get_persistent_weather()
 	)
-	var saved_weather_seconds: float = world_weather.get_seconds_remaining()
-	var saved_time_hours: float = world_time.get_time_hours()
+	var saved_weather_seconds: float = (
+		world_weather.get_persistent_seconds_remaining()
+	)
+	var saved_time_hours: float = world_time.get_persistent_time_hours()
 
 	assert(save_manager.save_now())
 	var save_path: String = str(save_manager.get("_save_path"))
@@ -143,10 +145,12 @@ func _run() -> void:
 	)
 	assert(save_manager.load_player_data())
 	assert(player.experience.get_total_experience() == 125)
-	assert(absf(world_time.get_time_hours() - saved_time_hours) < 0.01)
-	assert(world_weather.get_weather() == saved_weather)
+	# Loading a save must not replace the active RTC-authoritative clock.
+	assert(absf(world_time.get_time_hours() - 8.0) < 0.01)
+	assert(world_weather.get_persistent_weather() == saved_weather)
 	assert(absf(
-		world_weather.get_seconds_remaining() - saved_weather_seconds
+		world_weather.get_persistent_seconds_remaining()
+		- saved_weather_seconds
 	) < 2.0)
 	assert(player.experience.get_level() == 2)
 	assert(player.hotbar.get_fish_catch_id(1) == fish_catch.catch_id)
