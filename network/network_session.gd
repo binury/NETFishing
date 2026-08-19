@@ -85,6 +85,7 @@ var _last_server_max_players: int = DEFAULT_SESSION_MAX_PLAYERS
 var _last_server_player_count: int = 0
 var _last_server_display_name: String = ""
 var _last_server_protocol_version: int = 0
+var _last_server_world_seed: int = NetworkProtocol.DEFAULT_WORLD_SEED
 var _server_capabilities: PackedStringArray = PackedStringArray()
 var _profile_ready: bool = false
 var _player_identity: PlayerIdentityStore
@@ -111,6 +112,7 @@ var _configured_operator_fingerprints: Dictionary[String, bool] = {}
 var _session_operator_fingerprints: Dictionary[String, bool] = {}
 var _operator_peer_ids: Dictionary[int, bool] = {}
 var _local_operator: bool = false
+var _host_world_seed: int = NetworkProtocol.DEFAULT_WORLD_SEED
 
 
 func _ready() -> void:
@@ -272,6 +274,7 @@ func _register_player_host() -> void:
 			NetworkProtocol.JOBS_CAPABILITY,
 			NetworkProtocol.WORLD_SPAWN_CAPABILITY,
 			NetworkProtocol.BACKPACK_SHOP_CAPABILITY,
+			NetworkProtocol.WORLD_GENERATION_CAPABILITY,
 		]),
 	)
 	_registry.update_appearance(1, _local_appearance_snapshot)
@@ -527,7 +530,23 @@ func get_last_server_metadata() -> Dictionary:
 		"protocol_version": _last_server_protocol_version,
 		"player_count": _last_server_player_count,
 		"max_players": _last_server_max_players,
+		"world_seed": _last_server_world_seed,
 	}
+
+
+func set_host_world_seed(seed: int) -> bool:
+	if (
+		state != State.INACTIVE
+		or seed <= 0
+		or seed > NetworkProtocol.MAX_WORLD_SEED
+	):
+		return false
+	_host_world_seed = seed
+	return true
+
+
+func get_authoritative_world_seed() -> int:
+	return _last_server_world_seed if is_joined_client() else _host_world_seed
 
 
 func can_use_host_gameplay() -> bool:
@@ -563,6 +582,7 @@ func supports_server_capability(capability: StringName) -> bool:
 			NetworkProtocol.WORLD_WEATHER_CAPABILITY,
 			NetworkProtocol.WORLD_SPAWN_CAPABILITY,
 			NetworkProtocol.APPEARANCE_PREVIEW_CAPABILITY,
+			NetworkProtocol.WORLD_GENERATION_CAPABILITY,
 			"chat_v1",
 			"mail_v1",
 			"profile_v1",
@@ -1164,6 +1184,12 @@ func submit_client_hello(data: Dictionary) -> void:
 			NetworkProtocol.RejectionCode.UNSUPPORTED_CLIENT,
 		)
 		return
+	if NetworkProtocol.WORLD_GENERATION_CAPABILITY not in client_capabilities:
+		_reject_peer(
+			sender_id,
+			NetworkProtocol.RejectionCode.UNSUPPORTED_CLIENT,
+		)
+		return
 	var identity: Dictionary = _authenticated_identity_cache.get(sender_id, {})
 	if identity.is_empty():
 		_reject_peer(sender_id, NetworkProtocol.RejectionCode.INVALID_IDENTITY_PROOF)
@@ -1251,6 +1277,7 @@ func submit_client_hello(data: Dictionary) -> void:
 			_registry.size(),
 			session_max_players,
 			_session_display_name,
+			_host_world_seed,
 		)
 	)
 	receive_spawn_list.rpc_id(sender_id, _build_spawn_list())
@@ -1304,6 +1331,7 @@ func receive_server_hello(data: Dictionary) -> void:
 		or typeof(data.get("protocol_version")) != TYPE_INT
 		or typeof(data.get("game_version")) != TYPE_STRING
 		or typeof(data.get("rejection_code")) != TYPE_INT
+		or typeof(data.get("world_seed")) != TYPE_INT
 	):
 		_teardown_peer()
 		_fail("The server sent an invalid handshake response.")
@@ -1329,6 +1357,11 @@ func receive_server_hello(data: Dictionary) -> void:
 		_teardown_peer()
 		_fail("The server uses a different network protocol.")
 		return
+	var received_world_seed := int(data["world_seed"])
+	if received_world_seed <= 0 or received_world_seed > NetworkProtocol.MAX_WORLD_SEED:
+		_teardown_peer()
+		_fail("The server sent an invalid world seed.")
+		return
 	_session_id = str(data.get("session_id", ""))
 	_last_server_max_players = int(data.get(
 		"max_players",
@@ -1339,6 +1372,7 @@ func receive_server_hello(data: Dictionary) -> void:
 	_last_server_protocol_version = int(data.get(
 		"protocol_version", NetworkProtocol.PROTOCOL_VERSION
 	))
+	_last_server_world_seed = received_world_seed
 	_server_capabilities = PackedStringArray()
 	var advertised_capabilities: Variant = data.get(
 		"capability_flags", PackedStringArray()
@@ -1352,6 +1386,10 @@ func receive_server_hello(data: Dictionary) -> void:
 	if NetworkProtocol.FISH_QUALITY_CAPABILITY not in _server_capabilities:
 		_teardown_peer()
 		_fail("This server does not support fish quality data.")
+		return
+	if NetworkProtocol.WORLD_GENERATION_CAPABILITY not in _server_capabilities:
+		_teardown_peer()
+		_fail("This server does not support generated worlds.")
 		return
 	var local_peer_id: int = multiplayer.get_unique_id()
 	_registry.clear()
@@ -1368,6 +1406,7 @@ func receive_server_hello(data: Dictionary) -> void:
 			NetworkProtocol.WORLD_TIME_CAPABILITY,
 			NetworkProtocol.WORLD_WEATHER_CAPABILITY,
 			NetworkProtocol.BACKPACK_SHOP_CAPABILITY,
+			NetworkProtocol.WORLD_GENERATION_CAPABILITY,
 		]),
 	)
 	_registry.update_appearance(local_peer_id, _local_appearance_snapshot)

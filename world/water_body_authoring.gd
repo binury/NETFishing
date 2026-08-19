@@ -25,6 +25,12 @@ var surface_size: Vector2 = Vector2(10.0, 10.0):
 	set(value):
 		water_material = value
 		_sync_owned_nodes()
+## Render the owned plane. Disable this when another shared water surface
+## already provides visible water and this body only supplies gameplay data.
+@export var visual_surface_enabled := true:
+	set(value):
+		visual_surface_enabled = value
+		_sync_owned_nodes()
 
 @export_group("Fishing Coverage")
 @export_range(0.1, 20.0, 0.1, "or_greater", "suffix:m")
@@ -85,6 +91,7 @@ func _sync_owned_nodes() -> void:
 		return
 	var visual_water := get_node_or_null(visual_water_path) as MeshInstance3D
 	if visual_water != null:
+		visual_water.visible = visual_surface_enabled
 		var plane_mesh := visual_water.mesh as PlaneMesh
 		if plane_mesh != null and not derive_coverage_from_visual_mesh:
 			plane_mesh.size = surface_size

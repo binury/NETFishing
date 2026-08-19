@@ -25,7 +25,7 @@ func _run() -> void:
 	_validate_mail_round_trip()
 	_validate_collection_mastery()
 	_validate_version_four_migration()
-	assert(NetworkProtocol.PROTOCOL_VERSION == 8)
+	assert(NetworkProtocol.PROTOCOL_VERSION == 9)
 	assert(NetworkProtocol.ENET_CHANNEL_COUNT == 10)
 	assert(NetworkProtocol.FISH_QUALITY_CAPABILITY == "fish_quality_v1")
 	print("Fish quality validation: PASS")
@@ -433,13 +433,17 @@ func _validate_version_four_migration() -> void:
 		version_four,
 		4,
 	)
-	assert(int(migrated.get("save_version", -1)) == 8)
+	assert(int(migrated.get("save_version", -1)) == 9)
 	assert(int((migrated["experience"] as Dictionary)["total_experience"]) == 0)
 	assert(
 		is_equal_approx(
 			float((migrated["world"] as Dictionary)["time_hours"]),
 			8.0,
 		)
+	)
+	assert(
+		int((migrated["world"] as Dictionary)["seed"])
+		== PlayerSaveManager.DEFAULT_WORLD_SEED
 	)
 	var catches: Array = migrated["inventory"]["catches"]
 	assert(int((catches[0] as Dictionary)["quality"]) == 0)

@@ -28,6 +28,7 @@ func _run() -> void:
 	file.set_value("server", "bind_address", "127.0.0.1")
 	file.set_value("server", "port", 17777)
 	file.set_value("server", "max_players", 12)
+	file.set_value("world", "seed", 928374)
 	file.set_value("server", "public", true)
 	file.set_value("server", "data_directory", "/tmp/configured-server")
 	file.set_value("discovery", "url", "https://discovery.netfishing.org/")
@@ -44,6 +45,7 @@ func _run() -> void:
 	assert(str(configured.get("bind_address")) == "127.0.0.1")
 	assert(int(configured.get("port")) == 17777)
 	assert(int(configured.get("max_players")) == 12)
+	assert(int(configured.get("world_seed")) == 928374)
 	assert(bool(configured.get("public_listing")))
 	assert(str(configured.get("discovery_url")) == "https://discovery.netfishing.org")
 	assert(
@@ -80,6 +82,12 @@ func _run() -> void:
 	invalid.set("data_directory", "/tmp/invalid-server")
 	invalid.call("_validate")
 	assert(not invalid.is_valid())
+
+	var invalid_seed := ConfigType.new()
+	invalid_seed.set("world_seed", 0)
+	invalid_seed.set("data_directory", "/tmp/invalid-seed-server")
+	invalid_seed.call("_validate")
+	assert(not invalid_seed.is_valid())
 
 	var discovery := DiscoveryClient.new()
 	assert(

@@ -39,19 +39,33 @@ func _run() -> void:
 	assert(not session.is_open_host())
 	assert(service != null and fishing_spot != null and player != null)
 	assert(player.hotbar.get_selected_item_id() == &"basic_fishing_rod")
-	var pond := main.get_node(
-		"TestWorld/Regions/StarterIslandRegion/WaterBodies/Pond"
+	var fresh_root := main.get_node(
+		"TestWorld/Regions/GeneratedWorldRegion/WaterBodies/FreshWaterBodies"
 	) as Node3D
+	var pond: WaterBodyAuthoring
+	for child: Node in fresh_root.get_children():
+		var candidate := child as WaterBodyAuthoring
+		if candidate != null and &"pond" in candidate.location_tags:
+			pond = candidate
+			break
+	assert(pond != null)
 	var pond_region := pond.get_node("FishingRegion") as FishableWaterRegion
-	assert(pond != null and pond_region != null)
+	assert(pond_region != null)
 	var pond_surface_y: float = pond_region.get_surface_height()
 
-	player.global_position = pond.global_position + Vector3(8.9, 1.44, 0.0)
+	player.global_position = pond.global_transform * Vector3(
+		pond.surface_size.x * 0.5 + 0.8,
+		1.44,
+		0.0,
+	)
+	var pond_direction := pond.global_position - player.global_position
+	pond_direction.y = 0.0
+	pond_direction = pond_direction.normalized()
 	var visuals := player.get_node("Visuals") as Node3D
-	visuals.rotation.y = PI * 0.5
+	visuals.global_rotation.y = atan2(-pond_direction.x, -pond_direction.z)
 	for _frame: int in 4:
 		await physics_frame
-	assert(player.get_facing_direction().dot(Vector3.LEFT) > 0.99)
+	assert(player.get_facing_direction().dot(pond_direction) > 0.99)
 
 	fishing_spot.call("_begin_aiming", player)
 	assert(fishing_spot.state == FishingSpotType.FishingState.AIMING_CAST)
@@ -59,7 +73,9 @@ func _run() -> void:
 	fishing_spot.set("_cast_charge", 0.32)
 	fishing_spot.call("_update_cast_charge", 0.0)
 	var aimed_target: Vector3 = fishing_spot.get("_cast_target")
-	assert(aimed_target.x < player.global_position.x - 0.85)
+	var aimed_direction := aimed_target - player.global_position
+	aimed_direction.y = 0.0
+	assert(aimed_direction.normalized().dot(pond_direction) > 0.99)
 	assert(is_equal_approx(aimed_target.y, pond_surface_y))
 	assert(fishing_spot.is_target_fishable(aimed_target))
 	fishing_spot.call("_confirm_cast")

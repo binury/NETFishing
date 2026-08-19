@@ -1,7 +1,7 @@
 class_name NetworkProtocol
 extends RefCounted
 
-const PROTOCOL_VERSION: int = 8
+const PROTOCOL_VERSION: int = 9
 const GAME_BUILD: String = "prealpha"
 const MAX_GAME_VERSION_LENGTH: int = 64
 const MAX_DISPLAY_NAME_LENGTH: int = 24
@@ -28,6 +28,9 @@ const FISH_QUALITY_CAPABILITY: String = "fish_quality_v1"
 const JOBS_CAPABILITY: String = "jobs_v1"
 const WORLD_SPAWN_CAPABILITY: String = "world_spawn_envelope_v1"
 const APPEARANCE_PREVIEW_CAPABILITY: String = "appearance_preview_v1"
+const WORLD_GENERATION_CAPABILITY: String = "world_generation_v1"
+const DEFAULT_WORLD_SEED: int = 13001
+const MAX_WORLD_SEED: int = 2147483646
 
 enum RejectionCode {
 	NONE,
@@ -178,6 +181,7 @@ static func make_client_hello(
 			WORLD_SPAWN_CAPABILITY,
 			APPEARANCE_PREVIEW_CAPABILITY,
 			BACKPACK_SHOP_CAPABILITY,
+			WORLD_GENERATION_CAPABILITY,
 		]),
 		"cosmetic_snapshot": cosmetic_snapshot,
 		"identity_fingerprint": identity_fingerprint,
@@ -281,6 +285,7 @@ static func make_server_hello(
 	player_count: int,
 	max_players: int,
 	server_display_name: String = "NETfishing",
+	world_seed: int = DEFAULT_WORLD_SEED,
 ) -> Dictionary:
 	return {
 		"accepted": accepted,
@@ -292,6 +297,7 @@ static func make_server_hello(
 		"server_display_name": server_display_name,
 		"player_count": player_count,
 		"max_players": max_players,
+		"world_seed": world_seed,
 		"capability_flags": PackedStringArray([
 			"movement_v1",
 			"fishing_v1",
@@ -309,6 +315,7 @@ static func make_server_hello(
 			JOBS_CAPABILITY,
 			WORLD_SPAWN_CAPABILITY,
 			APPEARANCE_PREVIEW_CAPABILITY,
+			WORLD_GENERATION_CAPABILITY,
 			"chat_v1",
 			"mail_v1",
 			"profile_v1",

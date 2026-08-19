@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="TerrainChunkDefinition" format=3 uid="uid://b2ha4ekenoiaj"]
+
+[ext_resource type="Script" uid="uid://ck6m4auf5epde" path="res://world/generation/terrain_chunk_definition.gd" id="1_definition"]
+[ext_resource type="PackedScene" uid="uid://dgd530dol7mfd" path="res://world/generation/chunks/assets/chunk_0002.glb" id="2_scene"]
+
+[resource]
+script = ExtResource("1_definition")
+stable_id = &"chunk_0002"
+label = "beach"
+packed_scene = ExtResource("2_scene")
+primary_mesh_name = &"chunk_0002"
+selection_weight = 0.75
+maximum_placements = 10
+tags = PackedStringArray("land", "sand", "coast", "slope")

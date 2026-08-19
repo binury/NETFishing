@@ -4,11 +4,6 @@ const MainScene: PackedScene = preload("res://main/main.tscn")
 const RuntimePerformanceProfileType = preload(
 	"res://main/runtime_performance_profile.gd"
 )
-const FOLIAGE_WIND_SHADER: Shader = preload(
-	"res://world/materials/foliage_wind.gdshader"
-)
-
-
 func _initialize() -> void:
 	call_deferred("_run")
 
@@ -77,27 +72,19 @@ func _validate_main_profile(main: Node) -> void:
 	var screen_grid := pixelation.get_node("ScreenGrid") as ColorRect
 	assert(screen_grid != null and not screen_grid.visible)
 
-	var pond := main.get_node(
-		"TestWorld/Regions/StarterIslandRegion/WaterBodies/Pond/VisualWater"
-	) as MeshInstance3D
+	var pond := _first_fresh_water_visual(main)
 	var ocean := main.get_node(
-		"TestWorld/Regions/StarterIslandRegion/WaterBodies/Ocean/VisualWater"
+		"TestWorld/Regions/GeneratedWorldRegion/WaterBodies/OceanWater/VisualWater"
 	) as MeshInstance3D
-	assert(pond.material_override is StandardMaterial3D)
+	assert(not pond.visible)
 	assert(ocean.material_override is StandardMaterial3D)
-	assert(not pond.material_override is ShaderMaterial)
 	assert(not ocean.material_override is ShaderMaterial)
-	assert(ocean is WaterSurfaceMotion)
-	assert(not ocean.is_processing())
-	assert(is_zero_approx(ocean.position.y))
 	_validate_ocean_fishing_coverage(main, ocean)
-	var island := main.get_node(
-		"TestWorld/Regions/StarterIslandRegion"
-	) as StarterIslandRegion
-	assert(island != null and not island.is_foliage_wind_enabled())
-	assert(_count_foliage_wind_overrides(
-		island.get_node("Terrain/Visual")
-	) == 0)
+	var region := main.get_node(
+		"TestWorld/Regions/GeneratedWorldRegion"
+	) as GeneratedWorldRegion
+	assert(region != null)
+	assert(region.get_node("Decorations").get_child_count() > 0)
 
 	var title_background := main.get_node("%TitleBackground") as ColorRect
 	var title_material := title_background.material as ShaderMaterial
@@ -143,24 +130,18 @@ func _validate_normal_profile(main: Node) -> void:
 	assert(is_equal_approx(root.scaling_3d_scale, 1.0))
 	var pixelation: Node = main.get_node("%WorldPixelationPostprocess")
 	assert(not bool(pixelation.call("is_light_performance_profile")))
-	var pond := main.get_node(
-		"TestWorld/Regions/StarterIslandRegion/WaterBodies/Pond/VisualWater"
-	) as MeshInstance3D
+	var pond := _first_fresh_water_visual(main)
 	var ocean := main.get_node(
-		"TestWorld/Regions/StarterIslandRegion/WaterBodies/Ocean/VisualWater"
+		"TestWorld/Regions/GeneratedWorldRegion/WaterBodies/OceanWater/VisualWater"
 	) as MeshInstance3D
-	assert(pond.material_override is ShaderMaterial)
+	assert(not pond.visible)
 	assert(ocean.material_override is ShaderMaterial)
-	assert(ocean is WaterSurfaceMotion)
-	assert(ocean.is_processing())
 	_validate_ocean_fishing_coverage(main, ocean)
-	var island := main.get_node(
-		"TestWorld/Regions/StarterIslandRegion"
-	) as StarterIslandRegion
-	assert(island != null and island.is_foliage_wind_enabled())
-	assert(_count_foliage_wind_overrides(
-		island.get_node("Terrain/Visual")
-	) > 0)
+	var region := main.get_node(
+		"TestWorld/Regions/GeneratedWorldRegion"
+	) as GeneratedWorldRegion
+	assert(region != null)
+	assert(region.get_node("Decorations").get_child_count() > 0)
 	var game_ui := main.get_node("%GameUI") as GameUI
 	var title_screen := game_ui.get_title_screen()
 	assert(title_screen != null)
@@ -211,6 +192,14 @@ func _validate_normal_profile(main: Node) -> void:
 	)
 
 
+func _first_fresh_water_visual(main: Node) -> MeshInstance3D:
+	var root := main.get_node(
+		"TestWorld/Regions/GeneratedWorldRegion/WaterBodies/FreshWaterBodies"
+	) as Node3D
+	assert(root != null and root.get_child_count() > 0)
+	return root.get_child(0).get_node("VisualWater") as MeshInstance3D
+
+
 func _validate_ocean_fishing_coverage(
 	main: Node,
 	ocean: MeshInstance3D,
@@ -218,32 +207,17 @@ func _validate_ocean_fishing_coverage(
 	var ocean_mesh := ocean.mesh as PlaneMesh
 	assert(ocean_mesh != null)
 	var shape_node := main.get_node(
-		"TestWorld/Regions/StarterIslandRegion/WaterBodies/Ocean/"
-		+ "FishingRegions/OceanFishingRegion/Shape"
+		"TestWorld/Regions/GeneratedWorldRegion/WaterBodies/OceanWater/"
+		+ "FishingRegion/Shape"
 	) as CollisionShape3D
 	assert(shape_node != null)
 	var fishing_shape := shape_node.shape as BoxShape3D
 	assert(fishing_shape != null)
 	assert(fishing_shape.size.is_equal_approx(Vector3(
 		ocean_mesh.size.x,
-		2.0,
+		4.0,
 		ocean_mesh.size.y,
 	)))
-
-
-func _count_foliage_wind_overrides(root_node: Node) -> int:
-	var count: int = 0
-	var mesh_instance := root_node as MeshInstance3D
-	if mesh_instance != null and mesh_instance.mesh != null:
-		for surface_index: int in mesh_instance.mesh.get_surface_count():
-			var material := mesh_instance.get_surface_override_material(
-				surface_index
-			) as ShaderMaterial
-			if material != null and material.shader == FOLIAGE_WIND_SHADER:
-				count += 1
-	for child: Node in root_node.get_children():
-		count += _count_foliage_wind_overrides(child)
-	return count
 
 
 func _stop_audio_players(root_node: Node) -> void:

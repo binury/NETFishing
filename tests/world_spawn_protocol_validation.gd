@@ -16,7 +16,7 @@ const CalendarSeasonType = preload("res://world/calendar_season.gd")
 
 
 func _initialize() -> void:
-	assert(NetworkProtocol.PROTOCOL_VERSION == 8)
+	assert(NetworkProtocol.PROTOCOL_VERSION == 9)
 	assert(
 		NetworkWorldSpawnProtocol.CAPABILITY
 		== NetworkProtocol.WORLD_SPAWN_CAPABILITY

@@ -106,7 +106,7 @@ func _run() -> void:
 	var hotbar_data: Dictionary = (parsed as Dictionary)["hotbar"]
 	assert(typeof(hotbar_data.get("fish_slots")) == TYPE_ARRAY)
 	assert(str((hotbar_data["fish_slots"] as Array)[1]) == fish_catch.catch_id)
-	assert(int((parsed as Dictionary)["save_version"]) == 8)
+	assert(int((parsed as Dictionary)["save_version"]) == 9)
 	assert(
 		int((parsed as Dictionary)["experience"]["total_experience"])
 		== 125
@@ -185,7 +185,7 @@ func _run() -> void:
 	var invalid_state: Dictionary = valid_state.duplicate(true)
 	invalid_state["display_scale"] = 1000.0
 	assert(not NetworkFishShowcaseProtocol.validate_state(invalid_state))
-	assert(NetworkProtocol.PROTOCOL_VERSION == 8)
+	assert(NetworkProtocol.PROTOCOL_VERSION == 9)
 	assert(NetworkProtocol.ENET_CHANNEL_COUNT == 10)
 	assert(
 		NetworkProtocol.FISH_QUALITY_CAPABILITY

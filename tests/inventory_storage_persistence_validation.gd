@@ -22,7 +22,8 @@ func _run() -> void:
 	var save_manager := main.get("_save_manager") as PlayerSaveManager
 	var player := main.get("_player") as Player
 	assert(save_manager != null and player != null)
-	assert(save_manager.initialize_new_game())
+	const TEST_WORLD_SEED := 918273
+	assert(save_manager.initialize_new_game(TEST_WORLD_SEED))
 	save_manager.set_autosave_enabled(true)
 	assert(player.bag.add_item(&"art_kit"))
 	assert(player.bag.add_item(&"coffee"))
@@ -39,12 +40,14 @@ func _run() -> void:
 	save_file.close()
 	assert(typeof(parsed) == TYPE_DICTIONARY)
 	var records: Array = (parsed as Dictionary)["bag"]["items"]
+	assert(int((parsed as Dictionary)["world"]["seed"]) == TEST_WORLD_SEED)
 	assert(_saved_slot(records, &"basic_fishing_rod") == 14)
 	assert(_saved_slot(records, &"coffee") == 12)
 
 	assert(player.bag.move_item_to_storage_slot(&"basic_fishing_rod", 0))
 	assert(player.bag.move_item_to_storage_slot(&"coffee", 0))
 	assert(save_manager.load_player_data())
+	assert(save_manager.get_world_seed() == TEST_WORLD_SEED)
 	assert(player.bag.get_storage_slot(&"basic_fishing_rod") == 14)
 	assert(player.bag.get_storage_slot(&"coffee") == 12)
 

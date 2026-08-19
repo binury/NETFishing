@@ -1,0 +1,94 @@
+[gd_scene load_steps=12 format=3]
+
+[ext_resource type="Script" path="res://world/generation/generated_world_region.gd" id="1_region"]
+[ext_resource type="Script" path="res://world/generation/terrain_chunk_generator.gd" id="2_generator"]
+[ext_resource type="Resource" path="res://world/generation/chunks/terrain_chunk_catalog.tres" id="3_catalog"]
+[ext_resource type="PackedScene" path="res://world/water_body.tscn" id="4_water"]
+[ext_resource type="PackedScene" path="res://world/interactables/fishing_shop_world.tscn" id="5_shop"]
+[ext_resource type="PackedScene" path="res://world/interactables/player_storage_box.tscn" id="6_storage"]
+[ext_resource type="Script" path="res://world/safe_respawn_point.gd" id="7_safe"]
+[ext_resource type="Script" path="res://world/digging/diggable_area_3d.gd" id="8_diggable"]
+[ext_resource type="Script" path="res://world/gathering/gatherable_anchor_set_3d.gd" id="9_anchors"]
+[ext_resource type="Resource" path="res://fish/pools/starter_ocean_pool.tres" id="10_ocean_pool"]
+[ext_resource type="Resource" path="res://fish/pools/starter_pond_pool.tres" id="11_pond_pool"]
+
+[node name="GeneratedWorldRegion" type="Node3D"]
+script = ExtResource("1_region")
+region_id = &"generated_world"
+fishable_water_root = NodePath("WaterBodies")
+water_recovery_root = NodePath("WaterBodies")
+safe_respawns_root = NodePath("SafeRespawns")
+diggable_area_root = NodePath("DiggableAreas")
+gatherable_anchor_root = NodePath("GatherableAnchors")
+
+[node name="Terrain" type="Node3D" parent="."]
+
+[node name="TerrainChunkGenerator" type="Node3D" parent="Terrain"]
+unique_name_in_owner = true
+script = ExtResource("2_generator")
+catalog = ExtResource("3_catalog")
+grid_size = Vector2i(5, 5)
+generation_seed = 13001
+generate_on_ready = false
+build_collision = true
+force_center_chunk_id = &"chunk_spawn"
+required_chunk_ids = PackedStringArray("chunk_spawn", "chunk_0001", "chunk_0002", "chunk_0003", "chunk_0004")
+required_chunk_weight_multiplier = 64.0
+maximum_backtracks = 100000
+
+[node name="WaterBodies" type="Node3D" parent="."]
+
+[node name="OceanWater" parent="WaterBodies" instance=ExtResource("4_water")]
+unique_name_in_owner = true
+surface_size = Vector2(10000, 10000)
+fish_pool = ExtResource("10_ocean_pool")
+water_type = 1
+location_tags = Array[StringName]([&"coast", &"ocean", &"generated_ocean"])
+
+[node name="FreshWaterBodies" type="Node3D" parent="WaterBodies"]
+unique_name_in_owner = true
+
+[node name="DiggableAreas" type="Node3D" parent="."]
+
+[node name="DiggableBeach" type="Node3D" parent="DiggableAreas"]
+unique_name_in_owner = true
+script = ExtResource("8_diggable")
+area_id = &"starter_beach"
+terrain_source = NodePath("../../Terrain/TerrainChunkGenerator")
+surface_materials = Array[StringName]([&"sand"])
+generation_bounds = Rect2(-35, -35, 70, 70)
+minimum_global_y = -0.24
+maximum_global_y = 0.5
+minimum_up_dot = 0.72
+
+[node name="GatherableAnchors" type="Node3D" parent="."]
+
+[node name="ReachableTreeTrunks" type="Node3D" parent="GatherableAnchors"]
+unique_name_in_owner = true
+script = ExtResource("9_anchors")
+anchor_set_id = &"starter_reachable_tree_trunks"
+
+[node name="SafeRespawns" type="Node3D" parent="."]
+
+[node name="SafeSpawn" type="Marker3D" parent="SafeRespawns"]
+unique_name_in_owner = true
+script = ExtResource("7_safe")
+
+[node name="PlayerSpawn" type="Marker3D" parent="."]
+unique_name_in_owner = true
+
+[node name="Interactables" type="Node3D" parent="."]
+
+[node name="FishingShopWorld" parent="Interactables" instance=ExtResource("5_shop")]
+unique_name_in_owner = true
+
+[node name="PlayerStorageBox" parent="Interactables" instance=ExtResource("6_storage")]
+unique_name_in_owner = true
+
+[node name="Decorations" type="Node3D" parent="."]
+unique_name_in_owner = true
+
+[node name="ShorelineReference" type="MeshInstance3D" parent="."]
+unique_name_in_owner = true
+visible = false
+cast_shadow = 0

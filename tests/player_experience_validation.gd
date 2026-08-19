@@ -143,11 +143,15 @@ func _validate_save_migration() -> void:
 		version_five,
 		5,
 	)
-	assert(int(migrated.get("save_version", -1)) == 8)
+	assert(int(migrated.get("save_version", -1)) == 9)
 	var experience_data: Dictionary = migrated.get("experience", {})
 	assert(int(experience_data.get("total_experience", -1)) == 0)
 	var world_data: Dictionary = migrated.get("world", {})
 	assert(is_equal_approx(float(world_data.get("time_hours", -1.0)), 8.0))
+	assert(
+		int(world_data.get("seed", 0))
+		== PlayerSaveManager.DEFAULT_WORLD_SEED
+	)
 	assert(
 		PlayerJobService.validate_save_data(migrated.get("jobs", {}))
 	)

@@ -69,6 +69,37 @@ func setup(
 		)
 
 
+func update_world_context(
+	initial_spawn_transform: Transform3D,
+	water_triggers: Array[PlayerWaterTrigger],
+	safe_points: Array[SafeRespawnPoint],
+) -> void:
+	for water_trigger: PlayerWaterTrigger in _water_triggers:
+		if (
+			water_trigger != null
+			and is_instance_valid(water_trigger)
+			and water_trigger.recovery_requested.is_connected(
+				_on_recovery_requested
+			)
+		):
+			water_trigger.recovery_requested.disconnect(
+				_on_recovery_requested
+			)
+	_initial_spawn_transform = initial_spawn_transform
+	_water_triggers = water_triggers
+	_safe_points = safe_points
+	for water_trigger: PlayerWaterTrigger in _water_triggers:
+		if (
+			water_trigger != null
+			and not water_trigger.recovery_requested.is_connected(
+				_on_recovery_requested
+			)
+		):
+			water_trigger.recovery_requested.connect(
+				_on_recovery_requested
+			)
+
+
 func _process(delta: float) -> void:
 	if state != RecoveryState.BOBBING or _player == null:
 		return

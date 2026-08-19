@@ -1,7 +1,7 @@
 [gd_scene load_steps=10 format=3]
 
 [ext_resource type="Script" path="res://world/test_world.gd" id="1_world"]
-[ext_resource type="PackedScene" path="res://world/regions/starter_island_region.tscn" id="2_island"]
+[ext_resource type="PackedScene" path="res://world/generation/generated_world_region.tscn" id="2_island"]
 [ext_resource type="Script" path="res://world/below_world_failsafe.gd" id="3_water_trigger"]
 [ext_resource type="Environment" path="res://world/environment/netfishing_environment.tres" id="4_environment"]
 
@@ -32,7 +32,7 @@ shadow_blur = 2.0
 
 [node name="Regions" type="Node3D" parent="."]
 
-[node name="StarterIslandRegion" parent="Regions" instance=ExtResource("2_island")]
+[node name="GeneratedWorldRegion" parent="Regions" instance=ExtResource("2_island")]
 
 [node name="Safety" type="Node3D" parent="."]
 

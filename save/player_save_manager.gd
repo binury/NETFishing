@@ -33,9 +33,11 @@ const WorldWeatherServiceType = preload(
 )
 const PlayerJobServiceType = preload("res://jobs/player_job_service.gd")
 
-const SAVE_VERSION: int = 8
+const SAVE_VERSION: int = 9
 const BASIC_ROD_ID: StringName = &"basic_fishing_rod"
 const MAX_SAFE_BALANCE: int = 1000000000000
+const DEFAULT_WORLD_SEED: int = 13001
+const MAX_WORLD_SEED: int = 2147483646
 
 class LoadSnapshot:
 	extends RefCounted
@@ -56,6 +58,7 @@ class LoadSnapshot:
 	var cooler_capacity_level: int = 0
 	var art_unlock_mask: int = 0
 	var total_experience: int = 0
+	var world_seed: int = DEFAULT_WORLD_SEED
 	var world_time_hours: float = WorldTimeServiceType.DEFAULT_START_HOUR
 	var has_world_weather_state: bool = false
 	var world_weather: WorldWeatherServiceType.Weather = (
@@ -93,6 +96,7 @@ var _autosave_enabled: bool = false
 var _save_path := ""
 var _expected_hash := ""
 var _data_root: PlayerDataRoot
+var _world_seed: int = DEFAULT_WORLD_SEED
 
 
 func configure_storage(path: String, data_root: PlayerDataRoot) -> void:
@@ -298,6 +302,7 @@ func load_player_data() -> bool:
 	var world_time_restored: bool = (
 		_world_time.restore_persistent_time_hours(snapshot.world_time_hours)
 	)
+	_world_seed = snapshot.world_seed
 	var world_weather_restored: bool = true
 	if snapshot.has_world_weather_state:
 		world_weather_restored = _world_weather.restore_persistent_state(
@@ -403,12 +408,26 @@ func inspect_save() -> SaveInspectionType:
 	return result
 
 
-func initialize_new_game() -> bool:
+func initialize_new_game(world_seed: int = DEFAULT_WORLD_SEED) -> bool:
 	if not _is_configured:
+		return false
+	if world_seed <= 0 or world_seed > MAX_WORLD_SEED:
 		return false
 	_automatic_saving_blocked = false
 	_restore_defaults()
+	_world_seed = world_seed
+	_is_dirty = true
 	return true
+
+
+func get_world_seed() -> int:
+	return _world_seed
+
+
+static func roll_world_seed() -> int:
+	var random := RandomNumberGenerator.new()
+	random.randomize()
+	return random.randi_range(1, MAX_WORLD_SEED)
 
 
 func delete_progression_save() -> bool:
@@ -584,6 +603,7 @@ func _build_save_dictionary() -> Dictionary:
 		"art": _art_unlocks.to_save_data(),
 		"experience": _experience.to_save_data(),
 		"world": {
+			"seed": _world_seed,
 			"time_hours": _world_time.get_persistent_time_hours(),
 			"weather": int(_world_weather.get_persistent_weather()),
 			"weather_seconds_remaining": (
@@ -664,6 +684,14 @@ func _build_load_snapshot(save_data: Dictionary) -> LoadSnapshot:
 		return null
 
 	var snapshot := LoadSnapshot.new()
+	if world_data.has("seed"):
+		snapshot.world_seed = _read_integer(
+			world_data["seed"],
+			-1,
+			MAX_WORLD_SEED,
+		)
+		if snapshot.world_seed <= 0:
+			return null
 	snapshot.inventory_layout_data = inventory_layout_data.duplicate(true)
 	snapshot.wallet_balance = balance
 	snapshot.total_experience = _read_integer(
@@ -965,6 +993,8 @@ func _migrate_save(
 				migrated = _migrate_version_6_to_7(migrated)
 			7:
 				migrated = _migrate_version_7_to_8(migrated)
+			8:
+				migrated = _migrate_version_8_to_9(migrated)
 			_:
 				return {}
 		if migrated.is_empty():
@@ -1201,6 +1231,17 @@ func _migrate_version_7_to_8(data: Dictionary) -> Dictionary:
 	return migrated
 
 
+func _migrate_version_8_to_9(data: Dictionary) -> Dictionary:
+	var migrated: Dictionary = data.duplicate(true)
+	var world_data: Dictionary = {}
+	if typeof(migrated.get("world")) == TYPE_DICTIONARY:
+		world_data = (migrated["world"] as Dictionary).duplicate(true)
+	world_data["seed"] = DEFAULT_WORLD_SEED
+	migrated["world"] = world_data
+	migrated["save_version"] = 9
+	return migrated
+
+
 func _mark_dirty() -> void:
 	if (
 		_is_restoring
@@ -1319,6 +1360,7 @@ func _restore_defaults() -> void:
 		WorldTimeServiceType.DEFAULT_START_HOUR
 	)
 	_world_weather.reset_persistent_state()
+	_world_seed = DEFAULT_WORLD_SEED
 	_jobs.reset_to_defaults()
 	_is_restoring = false
 	_is_dirty = false

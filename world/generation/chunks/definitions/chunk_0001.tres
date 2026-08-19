@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="TerrainChunkDefinition" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://world/generation/terrain_chunk_definition.gd" id="1_definition"]
+[ext_resource type="PackedScene" path="res://world/generation/chunks/assets/chunk_0001.glb" id="2_scene"]
+
+[resource]
+script = ExtResource("1_definition")
+stable_id = &"chunk_0001"
+label = "sand"
+packed_scene = ExtResource("2_scene")
+primary_mesh_name = &"chunk_0001"
+allowed_rotation_mask = 15
+selection_weight = 1.5
+tags = PackedStringArray("land", "sand", "flat")

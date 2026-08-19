@@ -298,47 +298,10 @@ unique_name_in_owner = true
 script = ExtResource("36_player_list")
 
 [node name="TestWorld" parent="." unique_id=1334932296 instance=ExtResource("1_world")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.4475808, 0, -1.8959346)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)
 
 [node name="Sun" parent="TestWorld/Environment" index="1"]
 transform = Transform3D(0.8480481, 0.4287137, -0.31147876, 0, 0.5877853, 0.809017, 0.52991927, -0.68608534, 0.49847022, 0, 0, 0)
-
-[node name="Shape" parent="TestWorld/Regions/StarterIslandRegion/Terrain/Collision" index="0" unique_id=674742331]
-shape = SubResource("ConcavePolygonShape3D_hifdc")
-
-[node name="Pond" parent="TestWorld/Regions/StarterIslandRegion/WaterBodies" index="0" unique_id=995477450]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -9.4, 2.51, 2.1)
-
-[node name="VisualWater" parent="TestWorld/Regions/StarterIslandRegion/WaterBodies/Pond" index="0" unique_id=1034265960]
-mesh = SubResource("PlaneMesh_7ny4s")
-
-[node name="Shape" parent="TestWorld/Regions/StarterIslandRegion/WaterBodies/Pond/FishingRegion" index="0" unique_id=1185360438]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -2, 0)
-shape = SubResource("BoxShape3D_agj3o")
-
-[node name="Shape" parent="TestWorld/Regions/StarterIslandRegion/WaterBodies/Pond/RecoveryRegion" index="0" unique_id=1718808476]
-shape = SubResource("BoxShape3D_l6210")
-
-[node name="VisualWater" parent="TestWorld/Regions/StarterIslandRegion/WaterBodies/Ocean" index="0" unique_id=1176408937]
-mesh = SubResource("PlaneMesh_6upbg")
-
-[node name="Shape" parent="TestWorld/Regions/StarterIslandRegion/WaterBodies/Ocean/FishingRegions/OceanFishingRegion" index="0" unique_id=357406062]
-shape = SubResource("BoxShape3D_umo15")
-
-[node name="WestShape" parent="TestWorld/Regions/StarterIslandRegion/WaterBodies/Ocean/RecoveryRegions/OceanRecoveryRegion" index="0" unique_id=1183368645]
-shape = SubResource("BoxShape3D_1fdkm")
-
-[node name="EastShape" parent="TestWorld/Regions/StarterIslandRegion/WaterBodies/Ocean/RecoveryRegions/OceanRecoveryRegion" index="1" unique_id=1742419808]
-shape = SubResource("BoxShape3D_y2c0j")
-
-[node name="NorthShape" parent="TestWorld/Regions/StarterIslandRegion/WaterBodies/Ocean/RecoveryRegions/OceanRecoveryRegion" index="2" unique_id=1844920260]
-shape = SubResource("BoxShape3D_uwwqy")
-
-[node name="SouthShape" parent="TestWorld/Regions/StarterIslandRegion/WaterBodies/Ocean/RecoveryRegions/OceanRecoveryRegion" index="3" unique_id=1316495770]
-shape = SubResource("BoxShape3D_hf28p")
-
-[node name="FishingShopWorld" parent="TestWorld/Regions/StarterIslandRegion/Interactables" index="0" unique_id=1255373524]
-transform = Transform3D(-0.9976046, 0, -0.06917416, 0, 1, 0, 0.06917416, 0, -0.9976046, 7.3292284, 3.4012775, 14.888193)
 
 [node name="BelowWorldFailsafe" parent="TestWorld/Safety" index="0"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 12, -7, 0)
@@ -436,4 +399,3 @@ unique_name_in_owner = true
 unique_name_in_owner = true
 
 [editable path="TestWorld"]
-[editable path="TestWorld/Regions/StarterIslandRegion"]

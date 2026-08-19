@@ -10,6 +10,38 @@ extends Node3D
 @export var gatherable_anchor_root: NodePath = ^"GatherableAnchors"
 
 
+func get_player_spawn_transform() -> Transform3D:
+	return global_transform
+
+
+func get_fishing_shop() -> FishingShopInteraction:
+	return null
+
+
+func get_player_storage() -> PlayerStorageInteraction:
+	return null
+
+
+func get_saltwater_shoreline_mesh() -> MeshInstance3D:
+	return null
+
+
+func set_light_performance_profile(_enabled: bool) -> void:
+	pass
+
+
+func get_playable_half_extents() -> Vector2:
+	return Vector2(50.0, 50.0)
+
+
+func get_spawn_surface_triangles(
+	_material_names: Array[StringName],
+	_minimum_global_y: float,
+	_minimum_up_dot: float = 0.6,
+) -> Array[PackedVector3Array]:
+	return []
+
+
 func get_fishable_water_regions() -> Array[FishableWaterRegion]:
 	var regions: Array[FishableWaterRegion] = []
 	var root: Node = get_node_or_null(fishable_water_root)

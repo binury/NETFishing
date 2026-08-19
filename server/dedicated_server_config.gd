@@ -5,12 +5,15 @@ const DEFAULT_NAME: String = "NETfishing Dedicated Server"
 const DEFAULT_BIND_ADDRESS: String = "*"
 const DEFAULT_PORT: int = 7777
 const DEFAULT_MAX_PLAYERS: int = 8
+const DEFAULT_WORLD_SEED: int = 13001
+const MAX_WORLD_SEED: int = 2147483646
 const MAX_OPERATORS: int = 64
 
 var server_name: String = DEFAULT_NAME
 var bind_address: String = DEFAULT_BIND_ADDRESS
 var port: int = DEFAULT_PORT
 var max_players: int = DEFAULT_MAX_PLAYERS
+var world_seed: int = DEFAULT_WORLD_SEED
 var public_listing: bool = false
 var discovery_url: String = ""
 var data_directory: String = ""
@@ -58,6 +61,7 @@ func _load_file(path: String) -> bool:
 	max_players = int(file.get_value(
 		"server", "max_players", max_players
 	))
+	world_seed = int(file.get_value("world", "seed", world_seed))
 	public_listing = bool(file.get_value(
 		"server", "public", public_listing
 	))
@@ -83,6 +87,9 @@ func _apply_environment() -> void:
 	port = _environment_int("NETFISHING_SERVER_PORT", port)
 	max_players = _environment_int(
 		"NETFISHING_SERVER_MAX_PLAYERS", max_players
+	)
+	world_seed = _environment_int(
+		"NETFISHING_WORLD_SEED", world_seed
 	)
 	public_listing = _environment_bool(
 		"NETFISHING_SERVER_PUBLIC", public_listing
@@ -110,6 +117,10 @@ func _apply_arguments(arguments: PackedStringArray) -> void:
 		elif argument.begins_with("--max-players="):
 			max_players = _parse_int(
 				argument.trim_prefix("--max-players="), max_players
+			)
+		elif argument.begins_with("--world-seed="):
+			world_seed = _parse_int(
+				argument.trim_prefix("--world-seed="), world_seed
 			)
 		elif argument.begins_with("--data-dir="):
 			data_directory = argument.trim_prefix("--data-dir=")
@@ -141,6 +152,8 @@ func _validate() -> void:
 		error_message = "Server port must be between 1 and 65535."
 	elif max_players < 1 or max_players > 128:
 		error_message = "Maximum players must be between 1 and 128."
+	elif world_seed <= 0 or world_seed > MAX_WORLD_SEED:
+		error_message = "World seed must be between 1 and %d." % MAX_WORLD_SEED
 	elif not data_directory.is_empty() and not data_directory.is_absolute_path():
 		error_message = "Server data directory must be an absolute path."
 	elif public_listing and not (

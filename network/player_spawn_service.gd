@@ -23,6 +23,10 @@ func setup(
 	_spawn_transform = spawn_transform
 
 
+func set_spawn_transform(spawn_transform: Transform3D) -> void:
+	_spawn_transform = spawn_transform
+
+
 func register_local_player(peer_id: int) -> void:
 	if _local_player == null:
 		return

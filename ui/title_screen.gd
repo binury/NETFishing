@@ -94,7 +94,7 @@ const INTRO_BRANDING_TRAVEL_DURATION: float = 2.0
 const INTRO_BRANDING_START_DELAY: float = 0.35
 const HOST_CLUSTER_SAFE_MARGIN: float = 24.0
 
-signal new_game_requested
+signal new_game_requested(world_seed: int)
 signal continue_game_requested
 signal quit_requested
 signal join_game_requested(endpoint: String)
@@ -147,6 +147,7 @@ enum ConfirmationAction {
 var _save_manager: SaveManagerType
 var _settings_manager: SettingsManagerType
 var _inspection: SaveInspectionType
+var _pending_new_game_seed: int = PlayerSaveManager.DEFAULT_WORLD_SEED
 var _confirmation_action: ConfirmationAction = ConfirmationAction.NONE
 var _action_in_progress: bool = false
 var _decorative_rng := RandomNumberGenerator.new()
@@ -1019,9 +1020,6 @@ func _on_new_game_pressed() -> void:
 	):
 		return
 	_hide_continue_stats_context()
-	if _inspection.status == SaveInspectionType.Status.MISSING:
-		new_game_requested.emit()
-		return
 	if _inspection.status == SaveInspectionType.Status.UNSUPPORTED_VERSION:
 		_feedback_label.text = _center_feedback_text(
 			"this save is from a newer game version. "
@@ -1033,9 +1031,14 @@ func _on_new_game_pressed() -> void:
 			"the existing save cannot be accessed safely."
 		)
 		return
+	_pending_new_game_seed = PlayerSaveManager.roll_world_seed()
+	var warning := "start a new world?"
+	if _inspection.status != SaveInspectionType.Status.MISSING:
+		warning += " existing progression will be deleted."
+	warning += "\nworld seed: %d" % _pending_new_game_seed
 	_open_confirmation(
 		ConfirmationAction.NEW_GAME,
-		"start a new game? existing progression will be deleted.",
+		warning,
 		"start\nnew game",
 		true
 	)
@@ -1073,7 +1076,7 @@ func _on_confirmation_accepted() -> void:
 		_confirmation_transition_generation += 1
 		_cancel_confirmation_transition()
 		_confirmation_page.hide_page()
-		new_game_requested.emit()
+		new_game_requested.emit(_pending_new_game_seed)
 		_action_in_progress = false
 		return
 	if not _save_manager.delete_progression_save():

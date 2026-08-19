@@ -409,6 +409,12 @@ func _start_dedicated_server() -> void:
 	):
 		_fail_dedicated_server("The server operator list is invalid.")
 		return
+	if not _apply_generated_world(config.world_seed, false):
+		_fail_dedicated_server("The configured world seed could not be generated.")
+		return
+	if not _network_session.set_host_world_seed(config.world_seed):
+		_fail_dedicated_server("The configured world seed is invalid.")
+		return
 	_configure_portable_stores()
 	if not _discovery.configure_dedicated_runtime(config.server_name):
 		_fail_dedicated_server("The server room name is invalid.")
@@ -1666,14 +1672,24 @@ func _resize_native_overlays() -> void:
 	_shop_backdrop.size = Vector2(get_window().size)
 
 
-func _on_new_game_requested() -> void:
+func _on_new_game_requested(world_seed: int) -> void:
 	if _gameplay_started or _quit_in_progress:
+		return
+	if not _apply_generated_world(world_seed, true):
+		_game_ui.get_title_screen().report_network_error(
+			"Could not generate that world seed. Try rolling another world."
+		)
+		return
+	if not _prepare_host_world_seed(world_seed):
+		_game_ui.get_title_screen().report_network_error(
+			"Could not prepare the generated world for hosting."
+		)
 		return
 	if not _prepare_private_host():
 		return
 	if (
 		not _save_manager.delete_progression_save()
-		or not _save_manager.initialize_new_game()
+		or not _save_manager.initialize_new_game(world_seed)
 	):
 		_network_session.disconnect_session("New Game setup failed.")
 		_game_ui.get_title_screen().report_network_error(
@@ -1686,13 +1702,21 @@ func _on_new_game_requested() -> void:
 func _on_continue_game_requested() -> void:
 	if _gameplay_started or _quit_in_progress:
 		return
-	if not _prepare_private_host():
-		return
 	if not _save_manager.load_player_data():
-		_network_session.disconnect_session("Continue failed.")
 		_game_ui.get_title_screen().report_network_error(
 			"Failed to load save. The original was preserved."
 		)
+		return
+	var world_seed: int = _save_manager.get_world_seed()
+	if (
+		not _apply_generated_world(world_seed, true)
+		or not _prepare_host_world_seed(world_seed)
+	):
+		_game_ui.get_title_screen().report_network_error(
+			"The saved world could not be generated. The save was preserved."
+		)
+		return
+	if not _prepare_private_host():
 		return
 	_enter_gameplay()
 
@@ -1714,6 +1738,15 @@ func _prepare_private_host() -> bool:
 		)
 		return false
 	return true
+
+
+func _prepare_host_world_seed(world_seed: int) -> bool:
+	if _network_session.state in [
+		NetworkSessionType.State.CONNECTION_FAILED,
+		NetworkSessionType.State.SERVER_LOST,
+	]:
+		_network_session.reset_failure()
+	return _network_session.set_host_world_seed(world_seed)
 
 
 func _enter_gameplay() -> void:
@@ -1805,10 +1838,14 @@ func _on_network_join_authenticated() -> void:
 			)
 			_join_requested_from_title = false
 			return
+		if not _apply_joined_world(server_metadata):
+			return
 		_fade_out_title_music()
 		_game_ui.get_title_screen().hide()
 		_set_gameplay_active(true)
 	elif _join_requested_from_pause:
+		if not _apply_joined_world(server_metadata):
+			return
 		_set_gameplay_active(true)
 	_join_requested_from_title = false
 	_join_requested_from_pause = false
@@ -1912,13 +1949,56 @@ func _on_reset_progress_requested() -> void:
 	if not _save_manager.delete_progression_save():
 		pause_menu.report_reset_failure()
 		return
-	if not _save_manager.initialize_new_game():
+	var world_seed: int = PlayerSaveManager.roll_world_seed()
+	if not _save_manager.initialize_new_game(world_seed):
+		pause_menu.report_reset_failure()
+		return
+	_network_session.disconnect_session("Progress reset.")
+	if not _apply_generated_world(world_seed, true):
 		pause_menu.report_reset_failure()
 		return
 	pause_menu.close_for_title_transition()
 	_set_gameplay_active(false)
 	_game_ui.get_title_screen().reopen()
 	_show_title_music(true)
+
+
+func _apply_joined_world(server_metadata: Dictionary) -> bool:
+	var world_seed: int = int(server_metadata.get("world_seed", 0))
+	if _apply_generated_world(world_seed, true):
+		return true
+	_network_session.disconnect_session("World generation failed.")
+	_join_requested_from_title = false
+	_join_requested_from_pause = false
+	_set_gameplay_active(false)
+	var title_screen: TitleScreenType = _game_ui.get_title_screen()
+	title_screen.reopen_to_menu()
+	title_screen.report_network_error(
+		"The host's generated world could not be built locally."
+	)
+	_show_title_music(true)
+	return false
+
+
+func _apply_generated_world(world_seed: int, reposition_player: bool) -> bool:
+	if not _test_world.generate_world(world_seed):
+		return false
+	var spawn_transform: Transform3D = _test_world.get_player_spawn_transform()
+	_player_spawn_service.set_spawn_transform(spawn_transform)
+	if reposition_player:
+		_player.global_transform = spawn_transform
+		_player.velocity = Vector3.ZERO
+	if _application_initialized and not _dedicated_runtime:
+		_water_recovery.update_world_context(
+			spawn_transform,
+			_test_world.get_player_water_triggers(),
+			_test_world.get_safe_respawn_points(),
+		)
+		_shoreline_ambience.configure(
+			_player,
+			_test_world.get_saltwater_shoreline_mesh(),
+		)
+	return true
 
 
 func _on_water_recovery_starting() -> void:
