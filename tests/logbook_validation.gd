@@ -5,6 +5,7 @@ const FishInventoryType = preload("res://inventory/fish_inventory.gd")
 const FishPoolType = preload("res://fish/fish_pool.gd")
 const CollectionLogType = preload("res://collection/collection_log.gd")
 const FishDataType = preload("res://fish/fish_data.gd")
+const FishQualityType = preload("res://fish/fish_quality.gd")
 const LogbookPortraitType = preload(
 	"res://ui/components/logbook_portrait.gd"
 )
@@ -74,6 +75,8 @@ func _validate_page() -> void:
 	root.add_child(inventory)
 	var page := LogbookPageScene.instantiate() as LogbookPage
 	root.add_child(page)
+	page.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
+	page.size = Vector2(1280.0, 720.0)
 	await process_frame
 	page.setup(collection, inventory, CatalogResource)
 	page.activate()
@@ -233,6 +236,10 @@ func _validate_page() -> void:
 		.get(bluegill_unknown) != null
 	)
 	collection.mark_discovered(&"bluegill")
+	collection.mark_quality_discovered(
+		&"bluegill",
+		FishQualityType.Tier.BORING,
+	)
 	await process_frame
 	var entries: Dictionary = page.get("_entry_buttons")
 	var known := entries.get(&"bluegill") as Button
@@ -263,7 +270,7 @@ func _validate_page() -> void:
 	inventory.add_catch(fish_catch)
 	page.call("_select_entry", &"bluegill", &"bluegill")
 	await process_frame
-	assert(_detail_text(page).contains("number owned\n1"))
+	assert(not _detail_text(page).contains("number owned"))
 	assert(_detail_text(page).contains("number caught\nunknown"))
 	assert(_detail_text(page).contains("body of water\nfresh water"))
 	assert(
@@ -275,6 +282,7 @@ func _validate_page() -> void:
 	assert(_detail_text(page).contains(LogbookCatalog.facts_for(bluegill)))
 	_validate_detail_field_fonts(page)
 	_validate_handwritten_numeric_scale(page)
+	_validate_detail_content_bounds(page)
 	var detail_buttons: Array = page.get("_detail_buttons") as Array
 	assert(detail_buttons.size() == 4)
 	var portrait_detail := detail_buttons[0] as Button
@@ -316,9 +324,15 @@ func _validate_page() -> void:
 	)
 	assert(overlay_artwork.source_texture == bluegill.display_texture)
 	assert(
-		overlay_artwork.custom_minimum_size.x <= 860.0
-		and overlay_artwork.custom_minimum_size.y <= 480.0
+		overlay_artwork.custom_minimum_size.x
+		<= LogbookPage.PORTRAIT_VIEW_MAX_SIZE.x
+		and overlay_artwork.custom_minimum_size.y
+		<= LogbookPage.PORTRAIT_VIEW_MAX_SIZE.y
 	)
+	var overlay_card := _find_overlay_card(portrait_overlay)
+	assert(overlay_card != null)
+	assert(overlay_card.size == LogbookPage.DETAIL_OVERLAY_CARD_SIZE)
+	assert(is_equal_approx(overlay_card.size.aspect(), 4.0 / 3.0))
 	(page.get("_portrait_overlay_backdrop") as Button).pressed.emit()
 	await process_frame
 	assert(not portrait_overlay.visible)
@@ -338,20 +352,40 @@ func _validate_page() -> void:
 		== HORIZONTAL_ALIGNMENT_LEFT
 	)
 	assert(
-		portrait_overlay.size.x
-		- overlay_text.size.x
-		<= float(
-			(LogbookPage.DETAIL_OVERLAY_EDGE_MARGIN
-			+ LogbookPage.DETAIL_OVERLAY_CONTENT_MARGIN) * 2
-			+ 8
-		)
+		overlay_text.get_theme_font("font")
+		== UtilityPageStyle.TuffyFont
 	)
+	(page.get("_portrait_overlay_backdrop") as Button).pressed.emit()
+	await process_frame
+
+	quality_detail.pressed.emit()
+	await process_frame
+	var quality_view := page.get("_portrait_overlay_quality_view") as Control
+	assert(quality_view.visible)
+	var quality_text: String = _descendant_label_text(quality_view)
+	for quality: int in FishQualityType.TIER_COUNT:
+		assert(quality_text.contains(FishQualityType.display_name(quality)))
+	assert(quality_text.contains("●"))
+	assert(quality_text.contains("○"))
+	_validate_overlay_fonts(quality_view)
+	(page.get("_portrait_overlay_backdrop") as Button).pressed.emit()
+	await process_frame
+
+	stats_detail.pressed.emit()
+	await process_frame
+	var stats_view := page.get("_portrait_overlay_stats_view") as Control
+	assert(stats_view.visible)
+	var stats_text: String = _descendant_label_text(stats_view)
+	assert(stats_text.contains("catalog number"))
+	assert(stats_text.contains("seasons"))
+	assert(not stats_text.contains("number owned"))
+	_validate_overlay_fonts(stats_view)
 	(page.get("_portrait_overlay_backdrop") as Button).pressed.emit()
 	await process_frame
 
 	inventory.remove_catch_by_id(fish_catch.catch_id)
 	await process_frame
-	assert(_detail_text(page).contains("number owned\n0"))
+	assert(not _detail_text(page).contains("number owned"))
 	page.queue_free()
 	collection.queue_free()
 	inventory.queue_free()
@@ -363,6 +397,49 @@ func _detail_text(page: LogbookPage) -> String:
 	for node: Node in detail_body.find_children("*", "Label", true, false):
 		values.append((node as Label).text)
 	return "\n".join(values)
+
+
+func _descendant_label_text(parent: Node) -> String:
+	var values: PackedStringArray = []
+	for node: Node in parent.find_children("*", "Label", true, false):
+		values.append((node as Label).text)
+	return "\n".join(values)
+
+
+func _validate_overlay_fonts(parent: Node) -> void:
+	for node: Node in parent.find_children("*", "Label", true, false):
+		assert(
+			(node as Label).get_theme_font("font")
+			== UtilityPageStyle.TuffyFont
+		)
+
+
+func _validate_detail_content_bounds(page: LogbookPage) -> void:
+	var detail_body := page.get("_detail_body") as VBoxContainer
+	var page_rect: Rect2 = (detail_body.get_parent() as Control).get_global_rect()
+	for node: Node in detail_body.find_children("*", "Label", true, false):
+		var label := node as Label
+		var label_rect: Rect2 = label.get_global_rect()
+		assert(
+			label_rect.position.y >= page_rect.position.y - 0.5,
+			"Label starts above logbook page: %s %s vs %s"
+			% [label.text, label_rect, page_rect],
+		)
+		assert(
+			label_rect.end.y <= page_rect.end.y + 0.5,
+			"Label ends below logbook page: %s %s vs %s"
+			% [label.text, label_rect, page_rect],
+		)
+
+
+func _find_overlay_card(parent: Node) -> PanelContainer:
+	for node: Node in parent.find_children(
+		"*", "PanelContainer", true, false
+	):
+		var panel := node as PanelContainer
+		if panel.custom_minimum_size == LogbookPage.DETAIL_OVERLAY_CARD_SIZE:
+			return panel
+	return null
 
 
 func _find_portrait(entry: Button) -> LogbookPortraitType:
@@ -401,10 +478,10 @@ func _validate_handwritten_logbook_font(page: LogbookPage) -> void:
 			"rarity",
 			"body of water",
 			"time of day",
+			"seasons",
 			"weight range",
 			"value range",
 			"number caught",
-			"number owned",
 		]:
 			continue
 		assert(
@@ -421,10 +498,10 @@ func _validate_detail_field_fonts(page: LogbookPage) -> void:
 		"rarity",
 		"body of water",
 		"time of day",
+		"seasons",
 		"weight range",
 		"value range",
 		"number caught",
-		"number owned",
 	]
 	for node: Node in detail_body.find_children("*", "Label", true, false):
 		var label := node as Label

@@ -23,11 +23,13 @@ const CurrencyPresentationType = preload(
 const DETAIL_FADE_DURATION: float = 0.12
 const CATEGORY_FADE_DURATION: float = UIMotion.UTILITY_EXIT_DURATION
 const HANDWRITTEN_NUMERIC_SCALE: float = 0.8
-const PORTRAIT_VIEW_MAX_SIZE := Vector2(860.0, 480.0)
-const DETAIL_OVERLAY_EDGE_MARGIN: int = 22
+const PORTRAIT_VIEW_MAX_SIZE := Vector2(680.0, 420.0)
+const DETAIL_OVERLAY_CARD_SIZE := Vector2(800.0, 600.0)
 const DETAIL_OVERLAY_CONTENT_MARGIN: int = 34
-const DETAIL_OVERLAY_TITLE_FONT_SIZE: int = 40
-const DETAIL_OVERLAY_TEXT_FONT_SIZE: int = 36
+const DETAIL_OVERLAY_TITLE_FONT_SIZE: int = 36
+const DETAIL_OVERLAY_TEXT_FONT_SIZE: int = 28
+const DETAIL_OVERLAY_FIELD_FONT_SIZE: int = 22
+const DETAIL_OVERLAY_VALUE_FONT_SIZE: int = 26
 const INK := Color("251b10")
 const MUTED_INK := Color("6d5b45")
 const LOGBOOK_ARTWORK: Texture2D = preload(
@@ -52,7 +54,9 @@ const CATALOG_ENTRY_SIZE := Vector2(92.0, 92.0)
 const CATALOG_ROW_STEP: float = 98.0
 const CATALOG_SNAP_DELAY: float = 0.12
 const DETAIL_PORTRAIT_SIZE := Vector2(160.0, 88.0)
-const DETAIL_BOTTOM_INSET: float = 35.0
+const DETAIL_SECTION_SEPARATION: int = 10
+const DETAIL_QUALITY_SECTION_HEIGHT: float = 104.0
+const DETAIL_STATS_ROW_SEPARATION: int = 8
 
 enum ControllerZone {
 	TABS,
@@ -93,8 +97,13 @@ var _detail_buttons: Array[Button] = []
 var _portrait_overlay: Control
 var _portrait_overlay_backdrop: Button
 var _portrait_overlay_artwork: LogbookPortraitType
+var _portrait_overlay_artwork_view: Control
 var _portrait_overlay_title: Label
 var _portrait_overlay_text: Label
+var _portrait_overlay_quality_view: Control
+var _portrait_overlay_quality: VBoxContainer
+var _portrait_overlay_stats_view: Control
+var _portrait_overlay_stats: GridContainer
 var _overlay_return_focus: Control
 var _controller_zone: ControllerZone = ControllerZone.TABS
 
@@ -393,7 +402,9 @@ func _build_interface() -> void:
 	_detail_body.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_detail_body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_detail_body.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_detail_body.add_theme_constant_override("separation", 16)
+	_detail_body.add_theme_constant_override(
+		"separation", DETAIL_SECTION_SEPARATION
+	)
 	right_page.add_child(_detail_body)
 	_apply_page_content_scale(_detail_body)
 	_show_no_selection()
@@ -827,8 +838,13 @@ func _build_known_details(fish: FishDataType) -> void:
 		artwork_center.add_child(artwork)
 
 	var facts_text: String = LogbookCatalog.facts_for(fish)
+	var facts_section_title: String = (
+		"shellfish facts"
+		if fish.logbook_section == FishDataType.LogbookSection.SHELLFISH
+		else "fish facts"
+	)
 	var facts_button := _make_detail_section_button(
-		"fish facts",
+		facts_section_title,
 		facts_text,
 	)
 	facts_button.custom_minimum_size = Vector2(190.0, 132.0)
@@ -841,9 +857,7 @@ func _build_known_details(fish: FishDataType) -> void:
 	facts_column.add_theme_constant_override("separation", 6)
 	facts_button.add_child(facts_column)
 	var facts_heading := _field_label(
-		"shellfish facts"
-		if fish.logbook_section == FishDataType.LogbookSection.SHELLFISH
-		else "fish facts",
+		facts_section_title,
 		16,
 	)
 	facts_column.add_child(facts_heading)
@@ -855,7 +869,7 @@ func _build_known_details(fish: FishDataType) -> void:
 		"quality collection",
 		_quality_overlay_text(fish.id),
 	)
-	quality_button.custom_minimum_size.y = 132.0
+	quality_button.custom_minimum_size.y = DETAIL_QUALITY_SECTION_HEIGHT
 	quality_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_detail_body.add_child(quality_button)
 	var quality_progress := _build_quality_progress(fish.id)
@@ -876,7 +890,7 @@ func _build_known_details(fish: FishDataType) -> void:
 	stats_anchor.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	stats_anchor.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	stats_anchor.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	stats_anchor.alignment = BoxContainer.ALIGNMENT_END
+	stats_anchor.alignment = BoxContainer.ALIGNMENT_BEGIN
 	stats_button.add_child(stats_anchor)
 	var stats_columns := HBoxContainer.new()
 	stats_columns.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -924,15 +938,6 @@ func _build_known_details(fish: FishDataType) -> void:
 			FishQualityType.Tier.SHINY,
 		),
 	)
-	_add_detail_row(
-		right_stats,
-		"number owned",
-		str(_inventory.get_count(fish.id) if _inventory != null else 0),
-	)
-	var bottom_inset := Control.new()
-	bottom_inset.custom_minimum_size.y = DETAIL_BOTTOM_INSET
-	bottom_inset.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	stats_anchor.add_child(bottom_inset)
 	_configure_detail_focus(
 		_detail_portrait_button,
 		facts_button,
@@ -1095,9 +1100,6 @@ func _stats_overlay_text(fish: FishDataType, catalog_number: int) -> String:
 				FishQualityType.Tier.SHINY,
 			),
 		],
-		"number owned: %d" % (
-			_inventory.get_count(fish.id) if _inventory != null else 0
-		),
 	])
 
 
@@ -1169,7 +1171,9 @@ func _make_stats_column() -> VBoxContainer:
 	var column := VBoxContainer.new()
 	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	column.size_flags_stretch_ratio = 1.0
-	column.add_theme_constant_override("separation", 12)
+	column.add_theme_constant_override(
+		"separation", DETAIL_STATS_ROW_SEPARATION
+	)
 	return column
 
 
@@ -1333,12 +1337,12 @@ func _build_portrait_overlay() -> void:
 	_portrait_overlay_backdrop.focus_neighbor_right = NodePath(".")
 	_portrait_overlay_backdrop.focus_next = NodePath(".")
 	_portrait_overlay_backdrop.focus_previous = NodePath(".")
-	var transparent_style := StyleBoxEmpty.new()
+	var backdrop_style := _portrait_overlay_backdrop_style()
 	for state: StringName in [
 		&"normal", &"hover", &"focus", &"pressed", &"disabled",
 	]:
 		_portrait_overlay_backdrop.add_theme_stylebox_override(
-			state, transparent_style
+			state, backdrop_style
 		)
 	_portrait_overlay_backdrop.pressed.connect(_hide_portrait_overlay)
 	_portrait_overlay_backdrop.gui_input.connect(
@@ -1346,23 +1350,17 @@ func _build_portrait_overlay() -> void:
 	)
 	_portrait_overlay.add_child(_portrait_overlay_backdrop)
 
-	var overlay_margin := MarginContainer.new()
-	overlay_margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	overlay_margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_set_margins(
-		overlay_margin,
-		DETAIL_OVERLAY_EDGE_MARGIN,
-		DETAIL_OVERLAY_EDGE_MARGIN,
-		DETAIL_OVERLAY_EDGE_MARGIN,
-		DETAIL_OVERLAY_EDGE_MARGIN,
-	)
-	_portrait_overlay.add_child(overlay_margin)
+	var overlay_center := CenterContainer.new()
+	overlay_center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	overlay_center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_portrait_overlay.add_child(overlay_center)
 	var card := PanelContainer.new()
 	card.mouse_filter = Control.MOUSE_FILTER_STOP
-	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	card.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	card.custom_minimum_size = DETAIL_OVERLAY_CARD_SIZE
+	card.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	card.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	card.add_theme_stylebox_override("panel", _portrait_view_style())
-	overlay_margin.add_child(card)
+	overlay_center.add_child(card)
 	var margin := MarginContainer.new()
 	_set_margins(
 		margin,
@@ -1373,24 +1371,76 @@ func _build_portrait_overlay() -> void:
 	)
 	card.add_child(margin)
 	var overlay_stack := VBoxContainer.new()
-	overlay_stack.alignment = BoxContainer.ALIGNMENT_CENTER
-	overlay_stack.add_theme_constant_override("separation", 18)
+	overlay_stack.add_theme_constant_override("separation", 20)
 	margin.add_child(overlay_stack)
 	_portrait_overlay_title = _field_label(
 		"", DETAIL_OVERLAY_TITLE_FONT_SIZE
 	)
 	_portrait_overlay_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_portrait_overlay_title.add_theme_color_override(
+		"font_color", UIPalette.TEXT
+	)
 	overlay_stack.add_child(_portrait_overlay_title)
+	var content_panel := PanelContainer.new()
+	content_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	content_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	content_panel.add_theme_stylebox_override(
+		"panel", _portrait_overlay_content_style()
+	)
+	overlay_stack.add_child(content_panel)
+	var content_margin := MarginContainer.new()
+	_set_margins(content_margin, 28, 24, 28, 24)
+	content_panel.add_child(content_margin)
+	var content_holder := Control.new()
+	content_holder.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	content_holder.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	content_margin.add_child(content_holder)
+
+	_portrait_overlay_artwork_view = CenterContainer.new()
+	_portrait_overlay_artwork_view.set_anchors_and_offsets_preset(
+		Control.PRESET_FULL_RECT
+	)
+	content_holder.add_child(_portrait_overlay_artwork_view)
 	_portrait_overlay_artwork = LogbookPortraitType.new()
 	_portrait_overlay_artwork.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	overlay_stack.add_child(_portrait_overlay_artwork)
-	_portrait_overlay_text = _label("", DETAIL_OVERLAY_TEXT_FONT_SIZE)
-	_portrait_overlay_text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_portrait_overlay_text.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_portrait_overlay_artwork_view.add_child(_portrait_overlay_artwork)
+
+	_portrait_overlay_text = _field_label("", DETAIL_OVERLAY_TEXT_FONT_SIZE)
+	_portrait_overlay_text.set_anchors_and_offsets_preset(
+		Control.PRESET_FULL_RECT
+	)
 	_portrait_overlay_text.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	_portrait_overlay_text.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_portrait_overlay_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	overlay_stack.add_child(_portrait_overlay_text)
+	_portrait_overlay_text.add_theme_color_override(
+		"font_color", UIPalette.TEXT
+	)
+	content_holder.add_child(_portrait_overlay_text)
+
+	_portrait_overlay_quality_view = CenterContainer.new()
+	_portrait_overlay_quality_view.set_anchors_and_offsets_preset(
+		Control.PRESET_FULL_RECT
+	)
+	content_holder.add_child(_portrait_overlay_quality_view)
+	_portrait_overlay_quality = VBoxContainer.new()
+	_portrait_overlay_quality.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	_portrait_overlay_quality.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_portrait_overlay_quality.add_theme_constant_override("separation", 22)
+	_portrait_overlay_quality_view.add_child(_portrait_overlay_quality)
+
+	_portrait_overlay_stats_view = CenterContainer.new()
+	_portrait_overlay_stats_view.set_anchors_and_offsets_preset(
+		Control.PRESET_FULL_RECT
+	)
+	content_holder.add_child(_portrait_overlay_stats_view)
+	_portrait_overlay_stats = GridContainer.new()
+	_portrait_overlay_stats.columns = 2
+	_portrait_overlay_stats.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	_portrait_overlay_stats.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_portrait_overlay_stats.add_theme_constant_override("h_separation", 48)
+	_portrait_overlay_stats.add_theme_constant_override("v_separation", 12)
+	_portrait_overlay_stats_view.add_child(_portrait_overlay_stats)
+	_set_detail_overlay_view(&"text")
 
 
 func _show_portrait_overlay(portrait_texture: Texture2D) -> void:
@@ -1401,8 +1451,7 @@ func _show_portrait_overlay(portrait_texture: Texture2D) -> void:
 		PORTRAIT_VIEW_MAX_SIZE,
 	)
 	_portrait_overlay_title.text = "artwork"
-	_portrait_overlay_artwork.visible = true
-	_portrait_overlay_text.visible = false
+	_set_detail_overlay_view(&"artwork")
 	_overlay_return_focus = _detail_portrait_button
 	_controller_zone = ControllerZone.OVERLAY
 	set_interactive(_interactive)
@@ -1419,15 +1468,108 @@ func _show_detail_text_overlay(
 	if _portrait_overlay == null:
 		return
 	_portrait_overlay_title.text = section_title
-	_portrait_overlay_artwork.visible = false
-	_portrait_overlay_text.text = section_text
-	_portrait_overlay_text.visible = true
+	match section_title:
+		"quality collection":
+			_populate_quality_overlay(_selected_id)
+			_set_detail_overlay_view(&"quality")
+		"fish stats":
+			_populate_stats_overlay(section_text)
+			_set_detail_overlay_view(&"stats")
+		_:
+			_portrait_overlay_text.text = section_text
+			_set_detail_overlay_view(&"text")
 	_overlay_return_focus = return_focus
 	_controller_zone = ControllerZone.OVERLAY
 	set_interactive(_interactive)
 	_portrait_overlay.visible = true
 	_portrait_overlay.mouse_filter = Control.MOUSE_FILTER_STOP
 	_portrait_overlay_backdrop.grab_focus()
+
+
+func _set_detail_overlay_view(view: StringName) -> void:
+	_portrait_overlay_artwork_view.visible = view == &"artwork"
+	_portrait_overlay_text.visible = view == &"text"
+	_portrait_overlay_quality_view.visible = view == &"quality"
+	_portrait_overlay_stats_view.visible = view == &"stats"
+
+
+func _populate_quality_overlay(fish_id: StringName) -> void:
+	_clear_overlay_container(_portrait_overlay_quality)
+	var discovered_count: int = 0
+	for quality: int in FishQualityType.TIER_COUNT:
+		if _collection_log.has_discovered_quality(fish_id, quality):
+			discovered_count += 1
+	var summary := _field_label(
+		"%d / %d collected" % [
+			discovered_count,
+			FishQualityType.TIER_COUNT,
+		],
+		DETAIL_OVERLAY_VALUE_FONT_SIZE,
+	)
+	summary.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	summary.add_theme_color_override("font_color", UIPalette.MUTED_TEXT)
+	_portrait_overlay_quality.add_child(summary)
+	var quality_grid := GridContainer.new()
+	quality_grid.columns = 2
+	quality_grid.add_theme_constant_override("h_separation", 44)
+	quality_grid.add_theme_constant_override("v_separation", 20)
+	_portrait_overlay_quality.add_child(quality_grid)
+	for quality: int in FishQualityType.TIER_COUNT:
+		var collected: bool = _collection_log.has_discovered_quality(
+			fish_id,
+			quality,
+		)
+		var tier := HBoxContainer.new()
+		tier.custom_minimum_size.x = 250.0
+		tier.add_theme_constant_override("separation", 12)
+		quality_grid.add_child(tier)
+		var quality_color: Color = UIPalette.get_quality_color(quality)
+		var dot := _field_label("●" if collected else "○", 34)
+		dot.add_theme_color_override("font_color", quality_color)
+		dot.modulate.a = 1.0 if collected else 0.55
+		tier.add_child(dot)
+		var tier_label := _field_label(
+			FishQualityType.display_name(quality),
+			DETAIL_OVERLAY_VALUE_FONT_SIZE,
+		)
+		tier_label.add_theme_color_override(
+			"font_color",
+			UIPalette.TEXT if collected else UIPalette.MUTED_TEXT,
+		)
+		tier.add_child(tier_label)
+
+
+func _populate_stats_overlay(section_text: String) -> void:
+	_clear_overlay_container(_portrait_overlay_stats)
+	for line: String in section_text.split("\n", false):
+		var separator_index: int = line.find(":")
+		if separator_index < 0:
+			continue
+		var field_name: String = line.left(separator_index).strip_edges()
+		var field_value: String = line.substr(separator_index + 1).strip_edges()
+		var field_label := _field_label(
+			field_name,
+			DETAIL_OVERLAY_FIELD_FONT_SIZE,
+		)
+		field_label.custom_minimum_size.x = 210.0
+		field_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		field_label.add_theme_color_override(
+			"font_color", UIPalette.MUTED_TEXT
+		)
+		_portrait_overlay_stats.add_child(field_label)
+		var value_label := _field_label(
+			field_value,
+			DETAIL_OVERLAY_VALUE_FONT_SIZE,
+		)
+		value_label.custom_minimum_size.x = 280.0
+		value_label.add_theme_color_override("font_color", UIPalette.TEXT)
+		_portrait_overlay_stats.add_child(value_label)
+
+
+func _clear_overlay_container(container: Container) -> void:
+	for child: Node in container.get_children():
+		container.remove_child(child)
+		child.queue_free()
 
 
 func _hide_portrait_overlay(restore_focus: bool = true) -> void:
@@ -1467,9 +1609,27 @@ func _portrait_button_style(highlighted: bool) -> StyleBoxFlat:
 
 func _portrait_view_style() -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
-	style.bg_color = Color("fff5dc")
+	style.bg_color = UIPalette.PANEL
+	style.border_color = UIPalette.PRIMARY
+	style.set_border_width_all(4)
+	style.set_corner_radius_all(24)
+	style.shadow_color = Color(0.0, 0.0, 0.0, 0.42)
+	style.shadow_size = 12
+	return style
+
+
+func _portrait_overlay_backdrop_style() -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.01, 0.045, 0.065, 0.82)
 	style.set_border_width_all(0)
-	style.set_corner_radius_all(18)
+	return style
+
+
+func _portrait_overlay_content_style() -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = UIPalette.ELEVATED_PANEL
+	style.set_border_width_all(0)
+	style.set_corner_radius_all(16)
 	return style
 
 
