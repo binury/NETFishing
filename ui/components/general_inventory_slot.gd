@@ -223,11 +223,10 @@ func _catch_context_text(fish_catch: FishCatch) -> String:
 		fish_catch.fish.display_name,
 		fish_catch.quality,
 	)
-	return "%s\n%0.2f lb • value %d\n%s" % [
+	return "%s\n%0.2f lb • value %d" % [
 		catch_name,
 		fish_catch.weight_lb,
 		fish_catch.sale_value,
-		fish_catch.fish.logbook_fact,
 	]
 
 

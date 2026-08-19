@@ -188,11 +188,11 @@ const LIGHT_COOLER_WATER_COLOR := Color(0.037, 0.27, 0.375, 1.0)
 @onready var _cooler_detail_texture: TextureRect = %CoolerDetailTexture
 @onready var _cooler_detail_name: Label = %CoolerDetailName
 @onready var _cooler_detail_stats: Control = %CoolerDetailStats
+@onready var _cooler_quality_label: Label = %CoolerQualityLabel
+@onready var _cooler_rarity_label: Label = %CoolerRarityLabel
 @onready var _cooler_weight_row: HBoxContainer = %CoolerWeightRow
 @onready var _cooler_weight_value: Label = %CoolerWeightValue
 @onready var _cooler_weight_unit: Label = %CoolerWeightUnit
-@onready var _cooler_offer_row: HBoxContainer = %CoolerOfferRow
-@onready var _cooler_offer_label: Label = %CoolerOfferLabel
 @onready var _cooler_offer_value: CurrencyAmount = %CoolerOfferValue
 @onready var _cooler_selection_summary: Control = %CoolerSelectionSummary
 @onready var _cooler_selection_empty: Label = %CoolerSelectionEmpty
@@ -204,7 +204,6 @@ const LIGHT_COOLER_WATER_COLOR := Color(0.037, 0.27, 0.375, 1.0)
 @onready var _cooler_combined_offer_value: CurrencyAmount = %CoolerCombinedOfferValue
 @onready var _favorite_bubble: NotepadInkActionType = %FavoriteBubble
 @onready var _sell_bubble: NotepadInkActionType = %SellBubble
-@onready var _sell_all_bubble: NotepadInkActionType = %SellAllBubble
 @onready var _bag_page: Control = %BagPage
 @onready var _tackle_box_page: Control = %TackleBoxPage
 @onready var _inventory_sub_tabs: HBoxContainer = %InventorySubTabs
@@ -233,6 +232,9 @@ const LIGHT_COOLER_WATER_COLOR := Color(0.037, 0.27, 0.375, 1.0)
 @onready var _bag_sprite_detail_texture: TextureRect = %BagSpriteDetailTexture
 @onready var _bag_sprite_detail_name: Label = %BagSpriteDetailName
 @onready var _bag_sprite_detail_data: Label = %BagSpriteDetailData
+@onready var _bag_sprite_detail_value_row: HBoxContainer = %BagSpriteDetailValueRow
+@onready var _bag_sprite_detail_weight: Label = %BagSpriteDetailWeight
+@onready var _bag_sprite_detail_value: CurrencyAmount = %BagSpriteDetailValue
 @onready var _bag_detail_actions: HBoxContainer = %BagDetailActions
 @onready var _bag_favorite_button: NotepadInkActionType = %BagFavoriteButton
 @onready var _bag_sell_button: NotepadInkActionType = %BagSellButton
@@ -410,7 +412,6 @@ func _ready() -> void:
 	_cooler_sort_direction.pressed.connect(_on_sort_direction_pressed)
 	_favorite_bubble.pressed.connect(_on_favorite_pressed)
 	_sell_bubble.pressed.connect(_on_sell_pressed)
-	_sell_all_bubble.pressed.connect(_on_sell_all_pressed)
 	_confirm_sale_button.pressed.connect(_on_confirm_sale_pressed)
 	_cancel_sale_button.pressed.connect(_close_sale_confirmation)
 	_configure_sale_confirmation_focus()
@@ -892,8 +893,6 @@ func _try_enter_notepad_controller_ownership() -> bool:
 			actions.append(_favorite_bubble)
 		if not _sell_bubble.disabled:
 			actions.append(_sell_bubble)
-		if not _sell_all_bubble.disabled:
-			actions.append(_sell_all_bubble)
 	elif _current_section == Section.TACKLE_BOX:
 		if not focus_owner.has_meta(&"controller_tackle_item_id"):
 			return false
@@ -938,22 +937,9 @@ func _configure_controller_notepad_action_focus(
 		_favorite_bubble if _favorite_bubble in actions else null
 	)
 	var sell: BaseButton = _sell_bubble if _sell_bubble in actions else null
-	var sell_all: BaseButton = (
-		_sell_all_bubble if _sell_all_bubble in actions else null
-	)
 	if favorite != null and sell != null:
 		favorite.focus_neighbor_right = favorite.get_path_to(sell)
 		sell.focus_neighbor_left = sell.get_path_to(favorite)
-	if sell_all == null:
-		return
-	for upper_action: BaseButton in [favorite, sell]:
-		if upper_action != null:
-			upper_action.focus_neighbor_bottom = (
-				upper_action.get_path_to(sell_all)
-			)
-	var return_action: BaseButton = sell if sell != null else favorite
-	if return_action != null:
-		sell_all.focus_neighbor_top = sell_all.get_path_to(return_action)
 
 
 func _controller_focus_is_on_last_inventory_row() -> bool:
@@ -2120,7 +2106,6 @@ func _apply_inventory_controller_zone_focus_modes() -> void:
 	for action: NotepadInkActionType in [
 		_favorite_bubble,
 		_sell_bubble,
-		_sell_all_bubble,
 	]:
 		action.focus_mode = (
 			Control.FOCUS_ALL
@@ -3035,20 +3020,20 @@ func _update_shell_layout() -> void:
 		Vector2(82.0, 82.0) if compact else Vector2(18.0, 241.0)
 	)
 	_cooler_detail_name.size = (
-		Vector2(214.0, 26.0) if compact else Vector2(252.0, 32.0)
+		Vector2(214.0, 40.0) if compact else Vector2(252.0, 48.0)
 	)
 	_cooler_detail_name.add_theme_font_size_override(
 		"font_size", 18 if compact else 25,
 	)
 	_cooler_detail_stats.position = (
-		Vector2(82.0, 109.0) if compact else Vector2(18.0, 274.0)
+		Vector2(82.0, 123.0) if compact else Vector2(18.0, 290.0)
 	)
 	_cooler_detail_stats.size = (
-		Vector2(214.0, 39.0) if compact else Vector2(252.0, 65.0)
+		Vector2(214.0, 62.0) if compact else Vector2(252.0, 72.0)
 	)
 	_layout_cooler_detail_text(compact)
 	_cooler_selection_summary.position = (
-		Vector2(10.0, 151.0) if compact else Vector2(18.0, 346.0)
+		Vector2(10.0, 190.0) if compact else Vector2(18.0, 365.0)
 	)
 	_cooler_selection_summary.size = (
 		Vector2(130.0, 35.0) if compact else Vector2(252.0, 40.0)
@@ -3060,35 +3045,23 @@ func _update_shell_layout() -> void:
 	_sell_bubble.custom_minimum_size = (
 		Vector2(74.0, 42.0) if compact else Vector2(118.0, 50.0)
 	)
-	_sell_all_bubble.custom_minimum_size = (
-		Vector2(96.0, 38.0) if compact else Vector2(122.0, 44.0)
-	)
 	_favorite_bubble.position = (
-		Vector2(144.0, 148.0) if compact else Vector2(26.0, 378.0)
+		Vector2(144.0, 190.0) if compact else Vector2(26.0, 408.0)
 	)
 	_favorite_bubble.size = (
 		Vector2(72.0, 42.0) if compact else Vector2(108.0, 50.0)
 	)
 	_sell_bubble.position = (
-		Vector2(222.0, 148.0) if compact else Vector2(144.0, 378.0)
+		Vector2(222.0, 190.0) if compact else Vector2(144.0, 408.0)
 	)
 	_sell_bubble.size = (
 		Vector2(74.0, 42.0) if compact else Vector2(118.0, 50.0)
-	)
-	_sell_all_bubble.position = (
-		Vector2(102.0, 190.0) if compact else Vector2(78.0, 426.0)
-	)
-	_sell_all_bubble.size = (
-		Vector2(96.0, 38.0) if compact else Vector2(122.0, 44.0)
 	)
 	_favorite_bubble.add_theme_font_size_override(
 		"font_size", 13 if compact else 19,
 	)
 	_sell_bubble.add_theme_font_size_override(
 		"font_size", 13 if compact else 19,
-	)
-	_sell_all_bubble.add_theme_font_size_override(
-		"font_size", 12 if compact else 17,
 	)
 	_update_sort_direction_text()
 	_bag_page.size = reference_size
@@ -3116,6 +3089,14 @@ func _update_shell_layout() -> void:
 	_bag_sprite_detail_data.add_theme_font_size_override(
 		"font_size",
 		12 if compact else 15,
+	)
+	_bag_sprite_detail_weight.add_theme_font_size_override(
+		"font_size",
+		13 if compact else 16,
+	)
+	_bag_sprite_detail_value.icon_size = 13.0 if compact else 16.0
+	_bag_sprite_detail_value.get_amount_label().add_theme_font_size_override(
+		"font_size", 13 if compact else 16,
 	)
 	_tackle_main_panel.position = INVENTORY_MAIN_POSITION
 	_tackle_main_panel.size = INVENTORY_MAIN_SIZE
@@ -3170,19 +3151,29 @@ func _update_shell_layout() -> void:
 
 
 func _layout_cooler_detail_text(compact: bool) -> void:
-	var weight_row_height: float = 17.0 if compact else 24.0
-	_cooler_weight_row.position = Vector2.ZERO
+	var text_row_height: float = 19.0 if compact else 22.0
+	_cooler_quality_label.position = Vector2.ZERO
+	_cooler_quality_label.size = Vector2(
+		_cooler_detail_stats.size.x,
+		text_row_height,
+	)
+	_cooler_rarity_label.position = Vector2(0.0, text_row_height)
+	_cooler_rarity_label.size = Vector2(
+		_cooler_detail_stats.size.x,
+		text_row_height,
+	)
+	_cooler_weight_row.position = Vector2(0.0, text_row_height * 2.0)
 	_cooler_weight_row.size = Vector2(
 		_cooler_detail_stats.size.x,
-		weight_row_height,
+		24.0 if compact else 28.0,
 	)
-	_cooler_offer_row.position = Vector2(
-		0.0,
-		17.0 if compact else 27.0,
+	_cooler_quality_label.add_theme_font_size_override(
+		"font_size",
+		13 if compact else 17,
 	)
-	_cooler_offer_row.size = Vector2(
-		_cooler_detail_stats.size.x,
-		22.0 if compact else 30.0,
+	_cooler_rarity_label.add_theme_font_size_override(
+		"font_size",
+		13 if compact else 17,
 	)
 	_cooler_weight_value.add_theme_font_size_override(
 		"font_size",
@@ -3191,10 +3182,6 @@ func _layout_cooler_detail_text(compact: bool) -> void:
 	_cooler_weight_unit.add_theme_font_size_override(
 		"font_size",
 		10 if compact else 14,
-	)
-	_cooler_offer_label.add_theme_font_size_override(
-		"font_size",
-		13 if compact else 18,
 	)
 	_cooler_offer_value.icon_size = 10.0 if compact else 15.0
 	_cooler_offer_value.get_amount_label().add_theme_font_size_override(
@@ -3599,7 +3586,6 @@ func _set_content_interactive(interactive: bool) -> void:
 	for action: NotepadInkActionType in [
 		_favorite_bubble,
 		_sell_bubble,
-		_sell_all_bubble,
 	]:
 		var action_interactive: bool = detail_interactive and not action.disabled
 		action.mouse_filter = (
@@ -4303,24 +4289,27 @@ func _update_bag_detail() -> void:
 			fish_catch.fish.display_texture if fish_catch != null else null
 		)
 		_bag_sprite_detail_name.text = (
-			FishQualityType.qualified_name(
-				fish_catch.fish.display_name, fish_catch.quality
-			)
-			if fish_catch != null else ""
+			fish_catch.fish.display_name if fish_catch != null else ""
 		)
 		_bag_sprite_detail_data.text = (
-			"%0.2f %s\nvalue: %d\n%s"
+			"quality: %s\nrarity: %s"
 			% [
-				fish_catch.weight_lb,
-				"lb",
-				fish_catch.sale_value,
-				fish_catch.fish.logbook_fact,
+				FishQualityType.display_name(fish_catch.quality),
+				fish_catch.fish.get_rarity_name(),
 			]
 			if fish_catch != null
 			else "select an item for details."
 		)
+		_bag_sprite_detail_value_row.visible = fish_catch != null
+		_bag_sprite_detail_weight.text = (
+			"%.2f lb" % fish_catch.weight_lb if fish_catch != null else ""
+		)
+		if fish_catch != null:
+			_bag_sprite_detail_value.set_amount(fish_catch.sale_value)
 		_update_bag_fish_actions(fish_catch)
 		return
+	_bag_sprite_detail_value_row.visible = false
+	_bag_sprite_detail_weight.text = ""
 	_bag_detail_actions.visible = false
 	_bag_favorite_button.disabled = true
 	_bag_sell_button.disabled = true
@@ -4397,7 +4386,7 @@ func _update_bag_fish_actions(fish_catch: FishCatchType) -> void:
 			active_buyer,
 		)
 		sale_available = preview != null and preview.is_success()
-	_bag_sell_button.text = "sell fish"
+	_bag_sell_button.text = "sell"
 	_bag_sell_button.disabled = not sale_available
 	_bag_favorite_button.refresh_ink_state()
 	_bag_sell_button.refresh_ink_state()
@@ -4444,6 +4433,7 @@ func _item_category_display_name(item: ItemDataType) -> String:
 
 
 func _close_bag_detail() -> void:
+	_bag_sprite_detail_value_row.visible = false
 	_set_inventory_notepad_visible(Section.BAG, false)
 
 
@@ -4740,12 +4730,6 @@ func _configure_cooler_fish_focus() -> void:
 				and not _favorite_bubble.disabled
 				and index + columns >= controls.size()
 			)
-			else control.get_path_to(_sell_all_bubble)
-			if (
-				_shop_cooler_context_active
-				and not _sell_all_bubble.disabled
-				and index + columns >= controls.size()
-			)
 			else control.get_path_to(controls[index + columns])
 			if index + columns < controls.size()
 			else control.get_path_to(control)
@@ -4771,18 +4755,7 @@ func _configure_cooler_fish_focus() -> void:
 		_sell_bubble.get_path_to(_close_button)
 	)
 	_sell_bubble.focus_neighbor_top = _sell_bubble.get_path_to(focused_node)
-	_sell_bubble.focus_neighbor_bottom = (
-		_sell_bubble.get_path_to(_sell_all_bubble)
-	)
-	_sell_all_bubble.focus_neighbor_left = (
-		_sell_all_bubble.get_path_to(_favorite_bubble)
-	)
-	_sell_all_bubble.focus_neighbor_right = (
-		_sell_all_bubble.get_path_to(_close_button)
-	)
-	_sell_all_bubble.focus_neighbor_top = (
-		_sell_all_bubble.get_path_to(_sell_bubble)
-	)
+	_sell_bubble.focus_neighbor_bottom = _sell_bubble.get_path_to(_sell_bubble)
 
 
 func _compare_catches(left: FishCatchType, right: FishCatchType) -> bool:
@@ -4855,7 +4828,7 @@ func _close_detail_constellation() -> void:
 	_favorite_bubble.text = "favorite"
 	_favorite_bubble.persistent_mark = false
 	_sell_bubble.disabled = true
-	_sell_bubble.text = "sell fish"
+	_sell_bubble.text = "sell"
 	_sell_bubble.persistent_mark = false
 	_favorite_bubble.focus_mode = Control.FOCUS_NONE
 	_sell_bubble.focus_mode = Control.FOCUS_NONE
@@ -4869,9 +4842,10 @@ func _close_detail_constellation() -> void:
 
 func _clear_cooler_detail_stats() -> void:
 	for label: Label in [
+		_cooler_quality_label,
+		_cooler_rarity_label,
 		_cooler_weight_value,
 		_cooler_weight_unit,
-		_cooler_offer_label,
 	]:
 		label.text = ""
 	_cooler_offer_value.visible = false
@@ -4950,16 +4924,17 @@ func _update_inventory_detail(fish_catch: FishCatchType) -> void:
 		and _reservations.is_fish_reserved(fish_catch.catch_id)
 	):
 		_cooler_detail_name.text += " • reserved in mail"
-	_cooler_weight_unit.text = "lb • %s • %s" % [
-		FishQualityType.display_name(fish_catch.quality),
-		fish_catch.fish.get_rarity_name(),
-	]
-	if buyer_offer >= 0 and active_buyer != null:
-		_cooler_offer_label.text = _get_offer_label(active_buyer)
+	_cooler_quality_label.text = "quality: %s" % (
+		FishQualityType.display_name(fish_catch.quality)
+	)
+	_cooler_rarity_label.text = (
+		"rarity: %s" % fish_catch.fish.get_rarity_name()
+	)
+	_cooler_weight_unit.text = "lb"
+	if buyer_offer >= 0:
 		_cooler_offer_value.visible = true
 		_cooler_offer_value.set_amount(buyer_offer)
 	else:
-		_cooler_offer_label.text = "buyer unavailable"
 		_cooler_offer_value.visible = false
 	_favorite_bubble.disabled = false
 	_favorite_bubble.text = (
@@ -4985,7 +4960,6 @@ func _refresh_cooler_notepad_action_interactivity() -> void:
 	for action: NotepadInkActionType in [
 		_favorite_bubble,
 		_sell_bubble,
-		_sell_all_bubble,
 	]:
 		var action_interactive: bool = detail_interactive and not action.disabled
 		action.mouse_filter = (
@@ -5002,17 +4976,12 @@ func _update_sale_summary() -> void:
 	var buyer_id: StringName = (
 		active_buyer.id if active_buyer != null else StringName()
 	)
-	_update_sell_all_action(active_buyer, buyer_id)
 	var selected_ids: Array[StringName] = _fish_selection.get_selected_ids()
 	var selected_count: int = selected_ids.size()
-	_sell_bubble.text = (
-		"sell fish"
-		if selected_count == 1
-		else "sell %d fish" % selected_count
-	)
+	_sell_bubble.text = "sell"
 	if selected_count == 0:
 		_sell_bubble.disabled = true
-		_sell_bubble.text = "sell fish"
+		_sell_bubble.text = "sell"
 		_sell_bubble.persistent_mark = false
 		_sell_bubble.refresh_ink_state()
 		_set_cooler_selection_summary_empty()
@@ -5059,55 +5028,6 @@ func _update_sale_summary() -> void:
 	_sell_bubble.refresh_ink_state()
 
 
-func _update_sell_all_action(
-	active_buyer: FishBuyerProfileType,
-	buyer_id: StringName,
-) -> void:
-	var sell_all_ids: Array[StringName] = _get_sell_all_catch_ids()
-	var sale_available: bool = (
-		not _sale_in_progress
-		and (
-			_network_sale_service == null
-			or not _network_sale_service.is_local_sale_pending()
-		)
-		and _network_sale_service != null
-		and not buyer_id.is_empty()
-		and _network_sale_service.can_request_sale(buyer_id)
-		and _sale_service != null
-		and active_buyer != null
-		and not sell_all_ids.is_empty()
-	)
-	if sale_available:
-		var preview: FishSaleResultType = _sale_service.preview_batch(
-			sell_all_ids,
-			active_buyer,
-		)
-		sale_available = preview.is_success()
-	_sell_all_bubble.text = "sell all fish"
-	_sell_all_bubble.disabled = not sale_available
-	_sell_all_bubble.persistent_mark = false
-	_sell_all_bubble.refresh_ink_state()
-
-
-func _get_sell_all_catch_ids() -> Array[StringName]:
-	var catch_ids: Array[StringName] = []
-	if _inventory == null:
-		return catch_ids
-	for fish_catch: FishCatchType in _inventory.get_all_catches():
-		if (
-			fish_catch == null
-			or not fish_catch.is_valid()
-			or fish_catch.is_favorited
-			or (
-				_reservations != null
-				and _reservations.is_fish_reserved(fish_catch.catch_id)
-			)
-		):
-			continue
-		catch_ids.append(fish_catch.catch_id)
-	return catch_ids
-
-
 func _on_favorite_pressed() -> void:
 	var focused_id: StringName = _fish_selection.get_focused_id()
 	if _inventory == null or focused_id.is_empty():
@@ -5127,13 +5047,6 @@ func _on_favorite_pressed() -> void:
 
 func _on_sell_pressed() -> void:
 	_begin_sale_confirmation(_fish_selection.get_selected_ids())
-
-
-func _on_sell_all_pressed() -> void:
-	var catch_ids: Array[StringName] = _get_sell_all_catch_ids()
-	if catch_ids.is_empty():
-		return
-	_begin_sale_confirmation(catch_ids)
 
 
 func _begin_sale_confirmation(catch_ids: Array[StringName]) -> void:
@@ -5351,16 +5264,6 @@ func _get_active_sale_buyer() -> FishBuyerProfileType:
 	if _sale_buyer_override != null and _sale_buyer_override.is_valid():
 		return _sale_buyer_override
 	return _default_buyer
-
-
-func _get_offer_label(buyer: FishBuyerProfileType) -> String:
-	if buyer == null:
-		return "buyer offer"
-	if buyer.id == MAIN_SHOP_BUYER_ID:
-		return "shop offer"
-	if buyer.id == NetworkSaleService.PELICAN_BUYER_ID:
-		return "pelican offer"
-	return "buyer offer"
 
 
 func _release_focus_from(node: Node, fallback: Control) -> void:

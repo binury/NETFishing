@@ -374,11 +374,11 @@ func _validate_cooler_notepad_typography(player_menu: PlayerMenu) -> void:
 	) as Label
 	var favorite := player_menu.get_node("%FavoriteBubble") as Button
 	var sell := player_menu.get_node("%SellBubble") as Button
-	var sell_all := player_menu.get_node("%SellAllBubble") as Button
 	assert(sort_choice != null)
 	assert(sort_direction != null)
 	assert(empty_selection != null)
-	assert(favorite != null and sell != null and sell_all != null)
+	assert(favorite != null and sell != null)
+	assert(player_menu.get_node_or_null("%SellAllBubble") == null)
 	var displayed_value := sort_choice.get_node("%DisplayedValue") as Label
 	assert(displayed_value != null)
 	assert(displayed_value.get_theme_font_size("font_size") == 17)
@@ -394,7 +394,6 @@ func _validate_cooler_notepad_typography(player_menu: PlayerMenu) -> void:
 	assert(empty_selection.get_theme_font_size("font_size") == 20)
 	assert(favorite.get_theme_font_size("font_size") == 19)
 	assert(sell.get_theme_font_size("font_size") == 19)
-	assert(sell_all.get_theme_font_size("font_size") == 17)
 
 
 func _validate_resolution_matrix() -> void:
