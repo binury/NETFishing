@@ -232,10 +232,13 @@ func _validate_starter_region_surfaces() -> void:
 	assert(is_equal_approx(ocean.position.y, -0.45))
 	var ocean_visual := region.get_node(
 		"WaterBodies/Ocean/VisualWater"
-	) as MeshInstance3D
+	) as WaterSurfaceMotion
 	assert(ocean_visual != null)
-	assert(is_equal_approx(ocean_visual.global_position.y, ocean.position.y))
-	assert(not ocean_visual.is_processing())
+	assert(ocean_visual.is_processing())
+	assert(
+		absf(ocean_visual.global_position.y - ocean.position.y)
+		<= ocean_visual.amplitude + 0.0001
+	)
 	var ocean_shapes := region.get_node(
 		"WaterBodies/Ocean/FishingRegions/OceanFishingRegion"
 	).get_children()

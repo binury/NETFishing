@@ -87,7 +87,9 @@ func _validate_main_profile(main: Node) -> void:
 	assert(ocean.material_override is StandardMaterial3D)
 	assert(not pond.material_override is ShaderMaterial)
 	assert(not ocean.material_override is ShaderMaterial)
+	assert(ocean is WaterSurfaceMotion)
 	assert(not ocean.is_processing())
+	assert(is_zero_approx(ocean.position.y))
 	_validate_ocean_fishing_coverage(main, ocean)
 	var island := main.get_node(
 		"TestWorld/Regions/StarterIslandRegion"
@@ -139,6 +141,8 @@ func _validate_normal_profile(main: Node) -> void:
 	var profile: RuntimePerformanceProfile = main.get("_performance_profile")
 	assert(profile != null and not profile.is_light())
 	assert(is_equal_approx(root.scaling_3d_scale, 1.0))
+	var pixelation: Node = main.get_node("%WorldPixelationPostprocess")
+	assert(not bool(pixelation.call("is_light_performance_profile")))
 	var pond := main.get_node(
 		"TestWorld/Regions/StarterIslandRegion/WaterBodies/Pond/VisualWater"
 	) as MeshInstance3D
@@ -147,7 +151,8 @@ func _validate_normal_profile(main: Node) -> void:
 	) as MeshInstance3D
 	assert(pond.material_override is ShaderMaterial)
 	assert(ocean.material_override is ShaderMaterial)
-	assert(not ocean.is_processing())
+	assert(ocean is WaterSurfaceMotion)
+	assert(ocean.is_processing())
 	_validate_ocean_fishing_coverage(main, ocean)
 	var island := main.get_node(
 		"TestWorld/Regions/StarterIslandRegion"
@@ -157,6 +162,10 @@ func _validate_normal_profile(main: Node) -> void:
 		island.get_node("Terrain/Visual")
 	) > 0)
 	var game_ui := main.get_node("%GameUI") as GameUI
+	var title_screen := game_ui.get_title_screen()
+	assert(title_screen != null)
+	assert(title_screen.is_decorative_presentation_active())
+	assert(title_screen.is_decorative_bubble_scheduler_active())
 	var player_menu := game_ui.get("_player_menu") as PlayerMenu
 	assert(player_menu != null)
 	assert(player_menu.is_cooler_water_effect_enabled())
@@ -186,6 +195,12 @@ func _validate_normal_profile(main: Node) -> void:
 	var rain := visuals.get_node("LocalRain") as GPUParticles3D
 	assert(rain.amount == WorldTimeVisualController.RAIN_PARTICLE_AMOUNT)
 	assert(rain.fixed_fps == 30)
+	var clouds := visuals.get_node(
+		"LocalStormClouds"
+	) as LocalStormCloudLayer
+	assert(clouds.get_patch_count() == 81)
+	assert(clouds.get_node_or_null("CloudField") is MultiMeshInstance3D)
+	assert(clouds.get_node_or_null("CloudCeiling") == null)
 	assert((main.get_node("%TitleMusic") as AudioStreamPlayer).stream != null)
 	assert((main.get_node("%DuskMusic") as AudioStreamPlayer).stream != null)
 	assert(

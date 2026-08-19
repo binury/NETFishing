@@ -108,6 +108,9 @@ func set_light_performance_profile(enabled: bool) -> void:
 			if enabled
 			else NORMAL_SALT_WATER_MATERIAL
 		)
+		var surface_motion := ocean as WaterSurfaceMotion
+		if surface_motion != null:
+			surface_motion.set_motion_enabled(not enabled)
 
 
 func is_foliage_wind_enabled() -> bool:

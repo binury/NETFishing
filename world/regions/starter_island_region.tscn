@@ -13,6 +13,7 @@
 [ext_resource type="Material" path="res://world/materials/stylized_water.tres" id="13_water"]
 [ext_resource type="ArrayMesh" path="res://world/generated/shorelines/starter_ocean_shoreline.tres" id="17_ocean_shoreline"]
 [ext_resource type="Material" path="res://world/materials/stylized_water_fresh.tres" id="19_fresh_water"]
+[ext_resource type="Script" uid="uid://drdjm443o35tc" path="res://world/water_surface_motion.gd" id="20_surface_motion"]
 [ext_resource type="Script" path="res://world/water/shoreline_ribbon_baker.gd" id="21_shoreline_baker"]
 [ext_resource type="Script" path="res://world/water/shoreline_ribbon_config.gd" id="22_shoreline_config"]
 [ext_resource type="Script" path="res://world/digging/diggable_area_3d.gd" id="23_diggable_area"]
@@ -205,6 +206,7 @@ fishing_region_path = NodePath("FishingRegions/OceanFishingRegion")
 [node name="VisualWater" type="MeshInstance3D" parent="WaterBodies/Ocean" unique_id=1176408937]
 material_override = ExtResource("13_water")
 mesh = SubResource("OceanWaterMesh")
+script = ExtResource("20_surface_motion")
 
 [node name="FishingRegions" type="Node3D" parent="WaterBodies/Ocean" unique_id=205598473]
 
