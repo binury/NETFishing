@@ -368,6 +368,10 @@ func _validate_environment_presentation() -> void:
 	assert("weather_fog_near_amount" in water_shader.code)
 	assert("float weather_fog_alpha = mix(" in water_shader.code)
 	assert("ALPHA = clamp(water_alpha, 0.1, weather_fog_alpha)" in water_shader.code)
+	assert(
+		"water_alpha *= mix(0.82, 1.0, contact_stability);"
+		in water_shader.code
+	)
 	assert(is_zero_approx(float(
 		SaltWaterMaterial.get_shader_parameter("weather_fog_amount")
 	)))

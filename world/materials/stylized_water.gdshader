@@ -515,10 +515,10 @@ void fragment() {
 		water_alpha + shoreline_foam * shoreline_opacity_boost,
 		0.98
 	);
-	// The authored water-body height is also the casting authority. Fade the
-	// visual layer completely at exact terrain contact so dry land cannot look
-	// fishable while the stable sub-surface water remains visible.
-	water_alpha *= contact_stability;
+	// Keep the water tint visually continuous across authored terrain contact.
+	// Fully fading here exposes the raised sand edge as a broken tan seam; the
+	// fishing resolver, rather than this presentation shader, owns castability.
+	water_alpha *= mix(0.82, 1.0, contact_stability);
 
 	float surface_mottle = value_noise(
 		world_position.xz * surface_mottle_scale
