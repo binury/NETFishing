@@ -87,14 +87,25 @@ func _run() -> void:
 	assert(player != null and service != null and toolbar != null)
 	assert(chat_ui != null)
 	assert(bool(game_ui.call("_can_start_virtual_mouse")))
+	var virtual_pointer_states: Array[bool] = []
+	game_ui.virtual_pointer_mode_changed.connect(
+		func(active: bool) -> void: virtual_pointer_states.append(active)
+	)
 	game_ui.call("_begin_virtual_mouse", 0)
 	var virtual_cursor := game_ui.get_node(
 		"%ControllerVirtualCursor"
 	) as ControllerVirtualCursor
 	assert(virtual_cursor.visible)
+	assert(virtual_pointer_states == [true])
+	# PopupMenu subwindows can consume the physical shoulder release. The
+	# polled primary-button state must still release the synthetic mouse click.
+	game_ui.set("_virtual_mouse_button_mask", MOUSE_BUTTON_MASK_LEFT)
+	game_ui.call("_sync_virtual_mouse_primary_button", false)
+	assert(int(game_ui.get("_virtual_mouse_button_mask")) == 0)
 	assert(not player.is_camera_input_enabled())
 	game_ui.call("_end_virtual_mouse")
 	assert(not virtual_cursor.visible)
+	assert(virtual_pointer_states == [true, false])
 	assert(player.is_camera_input_enabled())
 	var settings_panel := game_ui.get(
 		"_pause_settings_panel"
@@ -131,6 +142,12 @@ func _run() -> void:
 	changed_docks.paint_dock_right = false
 	assert(settings_manager.apply_settings(changed_docks))
 	await process_frame
+	assert(not chat_ui.is_docked_right())
+	assert(not chat_ui.is_mobile_mode())
+	assert(toolbar.is_docked_right())
+	changed_docks.presentation_layout_customized = true
+	assert(settings_manager.apply_settings(changed_docks))
+	await process_frame
 	assert(chat_ui.is_docked_right())
 	assert(chat_ui.is_mobile_mode())
 	assert(not toolbar.is_docked_right())
@@ -153,7 +170,31 @@ func _run() -> void:
 	assert(reloaded_settings.current_settings.chat_dock_right)
 	assert(reloaded_settings.current_settings.chat_mobile_mode)
 	assert(not reloaded_settings.current_settings.paint_dock_right)
+	assert(reloaded_settings.current_settings.presentation_layout_customized)
 	reloaded_settings.queue_free()
+	var legacy_data: Dictionary = JSON.parse_string(
+		FileAccess.get_file_as_string(PlayerSettingsManager.SETTINGS_PATH)
+	) as Dictionary
+	var legacy_presentation := legacy_data.get("presentation", {}) as Dictionary
+	legacy_presentation.erase("layout_customized")
+	legacy_data["presentation"] = legacy_presentation
+	var legacy_file := FileAccess.open(
+		PlayerSettingsManager.SETTINGS_PATH,
+		FileAccess.WRITE,
+	)
+	assert(legacy_file != null)
+	legacy_file.store_string(JSON.stringify(legacy_data, "\t"))
+	legacy_file.close()
+	var migrated_legacy_settings := PlayerSettingsManager.new()
+	root.add_child(migrated_legacy_settings)
+	assert(migrated_legacy_settings.load_settings())
+	assert(not migrated_legacy_settings.current_settings.chat_dock_right)
+	assert(not migrated_legacy_settings.current_settings.chat_mobile_mode)
+	assert(migrated_legacy_settings.current_settings.paint_dock_right)
+	assert(
+		not migrated_legacy_settings.current_settings.presentation_layout_customized
+	)
+	migrated_legacy_settings.queue_free()
 	var default_docks: PlayerSettings = settings_manager.current_settings.copy()
 	default_docks.chat_dock_right = false
 	default_docks.chat_mobile_mode = false
@@ -456,18 +497,39 @@ func _run() -> void:
 		assert(grid_option.get_item_text(index).is_empty())
 		assert(brush_option.get_item_icon(index) != null)
 		assert(grid_option.get_item_icon(index) != null)
-		assert(
-			str(brush_option.get_item_icon(index).get_meta(
-				&"channel_mask_source", ""
-			)).ends_with(
-				expected_brush_icons[index]
+		var brush_unlocked: bool = index == 0
+		var grid_unlocked: bool = index == 0
+		if brush_unlocked:
+			assert(
+				str(brush_option.get_item_icon(index).get_meta(
+					&"channel_mask_source", ""
+				)).ends_with(
+					expected_brush_icons[index]
+				)
 			)
-		)
-		assert(
-			grid_option.get_item_icon(index).resource_path.ends_with(
-				expected_grid_icons[index]
+		else:
+			assert(bool(brush_option.get_item_icon(index).get_meta(
+				&"locked_content_icon", false
+			)))
+		if grid_unlocked:
+			assert(
+				grid_option.get_item_icon(index).resource_path.ends_with(
+					expected_grid_icons[index]
+				)
 			)
-		)
+		else:
+			assert(bool(grid_option.get_item_icon(index).get_meta(
+				&"locked_content_icon", false
+			)))
+		var expected_lock_alpha: float = 1.0 if index == 0 else 0.72
+		assert(is_equal_approx(
+			brush_option.get_popup().get_item_icon_modulate(index).a,
+			expected_lock_alpha,
+		))
+		assert(is_equal_approx(
+			grid_option.get_popup().get_item_icon_modulate(index).a,
+			expected_lock_alpha,
+		))
 	assert(not brush_option.get_popup().is_item_disabled(0))
 	assert(brush_option.get_popup().is_item_disabled(1))
 	assert(not grid_option.get_popup().is_item_disabled(0))
@@ -478,6 +540,26 @@ func _run() -> void:
 		assert(color_button.focus_mode == Control.FOCUS_NONE)
 	assert(not (color_buttons[&"chalk_white"] as Button).disabled)
 	assert((color_buttons[&"ocean_teal"] as Button).disabled)
+	var base_color_lock := (
+		(color_buttons[&"chalk_white"] as Button).get_node(
+			"UnlockStateIcon"
+		) as TextureRect
+	)
+	var locked_color_lock := (
+		(color_buttons[&"ocean_teal"] as Button).get_node(
+			"UnlockStateIcon"
+		) as TextureRect
+	)
+	assert(not base_color_lock.visible)
+	assert(locked_color_lock.visible)
+	assert(locked_color_lock.size == Vector2(18.0, 18.0))
+	assert(is_equal_approx(locked_color_lock.modulate.a, 0.34))
+	var popup_lock_icon := toolbar.get("_popup_lock_icon") as Texture2D
+	assert(popup_lock_icon.get_width() == 40)
+	assert(popup_lock_icon.get_height() == 40)
+	assert(int(popup_lock_icon.get_meta(
+		&"locked_content_icon_size", 0
+	)) == 24)
 
 	for product_id: StringName in [
 		&"marker_ocean_teal", &"brush_4x", &"grid_128x",
@@ -487,6 +569,19 @@ func _run() -> void:
 	assert(not (color_buttons[&"ocean_teal"] as Button).disabled)
 	assert(not brush_option.get_popup().is_item_disabled(3))
 	assert(not grid_option.get_popup().is_item_disabled(3))
+	assert(not locked_color_lock.visible)
+	assert(str(brush_option.get_item_icon(3).get_meta(
+		&"channel_mask_source", ""
+	)).ends_with(expected_brush_icons[3]))
+	assert(grid_option.get_item_icon(3).resource_path.ends_with(
+		expected_grid_icons[3]
+	))
+	assert(is_equal_approx(
+		brush_option.get_popup().get_item_icon_modulate(3).a, 1.0
+	))
+	assert(is_equal_approx(
+		grid_option.get_popup().get_item_icon_modulate(3).a, 1.0
+	))
 	assert(service.set_color_id(&"ocean_teal"))
 	assert(service.set_brush_size(4))
 	assert(service.set_grid_size(128))

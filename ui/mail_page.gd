@@ -519,14 +519,17 @@ func _build_compose() -> Control:
 	page.add_child(_body)
 	_salutation = OptionButton.new()
 	_salutation.position = Vector2(12, 336)
-	_salutation.size = Vector2(180, 46)
+	_salutation.size = Vector2(230, 46)
+	_salutation.alignment = HORIZONTAL_ALIGNMENT_CENTER
 	for id: String in NetworkMailProtocol.SALUTATIONS:
 		_salutation.add_item(SALUTATION_LABELS[id])
 		_salutation.set_item_metadata(_salutation.item_count - 1, id)
 	page.add_child(_salutation)
 	_signature = Label.new()
-	_signature.position = Vector2(204, 342)
-	_signature.size = Vector2(288, 36)
+	_signature.position = Vector2(262, 336)
+	_signature.size = Vector2(230, 46)
+	_signature.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_signature.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	page.add_child(_signature)
 	_attachment_kind = OptionButton.new()
 	_attachment_kind.position = Vector2(ATTACHMENT_COLUMN_X, 48)

@@ -357,7 +357,6 @@ var _selected_inventory_kind: int = -1
 var _selected_inventory_identity: StringName
 var _inventory_move_kind: int = -1
 var _inventory_move_identity: StringName
-var _tackle_move_identity: StringName
 var _context_tooltip: PanelContainer
 var _context_tooltip_label: Label
 var _context_tooltip_source: Control
@@ -796,6 +795,12 @@ func _handle_controller_ownership_input(event: InputEvent) -> bool:
 		):
 			_cancel_active_item_move()
 			return _try_enter_notepad_controller_ownership()
+		if _current_section == Section.TACKLE_BOX and accept_event:
+			# Bait and lures are unlock collections, not movable inventory slots.
+			# Controller Y owns their contextual equip/notepad action; A is
+			# intentionally inert and consumed so it cannot activate the Button.
+			_cancel_controller_accept_hold()
+			return true
 		if (
 			event.is_action_pressed("ui_down")
 			and _controller_focus_is_on_last_inventory_row()
@@ -862,13 +867,6 @@ func _activate_inventory_selection() -> void:
 		var slot := focus_owner as GeneralInventorySlotType
 		if slot != null:
 			_on_general_inventory_slot_activated(slot)
-	elif _current_section == Section.TACKLE_BOX:
-		if focus_owner != null and focus_owner.has_meta(
-			&"controller_tackle_item_id"
-		):
-			_activate_tackle_move(StringName(str(
-				focus_owner.get_meta(&"controller_tackle_item_id")
-			)))
 
 
 func _cancel_controller_accept_hold() -> void:
@@ -2500,7 +2498,7 @@ func _populate_tackle_column(
 				item.max_stack,
 				&"QuantityBadge",
 			)
-		button.pressed.connect(_activate_tackle_move.bind(owned.item_id))
+		button.pressed.connect(_select_tackle_item.bind(owned.item_id))
 		button.gui_input.connect(
 			_on_tackle_button_gui_input.bind(owned.item_id, button)
 		)
@@ -2521,7 +2519,6 @@ func _populate_tackle_column(
 		)
 		item_list.add_child(button)
 		_tackle_item_buttons[owned.item_id] = button
-	_refresh_tackle_move_presentation()
 
 
 func _tackle_context_text(item: ItemDataType, quantity: int) -> String:
@@ -2535,51 +2532,6 @@ func _tackle_context_text(item: ItemDataType, quantity: int) -> String:
 	if not item.description.strip_edges().is_empty():
 		lines.append(item.description.strip_edges())
 	return "\n".join(lines)
-
-
-func _activate_tackle_move(item_id: StringName) -> void:
-	if _bag == null or item_id.is_empty():
-		return
-	var target_slot: int = _bag.get_storage_slot(item_id)
-	if _tackle_move_identity.is_empty():
-		if target_slot < 0:
-			return
-		_tackle_move_identity = item_id
-		_selected_tackle_item_id = item_id
-		_update_tackle_detail()
-		_refresh_tackle_move_presentation()
-		var button := _tackle_item_buttons.get(item_id) as Button
-		if button != null:
-			_show_inventory_context_tooltip(
-				button,
-				"moving %s\nchoose another %s • B cancels" % [
-					button.accessibility_name
-					if not button.accessibility_name.is_empty()
-					else str(
-						button.get_meta(&"inventory_context_text", "item")
-					).get_slice("\n", 0),
-					"bait" if _item_catalog.get_item_by_id(item_id).is_bait()
-					else "lure",
-				],
-			)
-		return
-	var source_id: StringName = _tackle_move_identity
-	_tackle_move_identity = StringName()
-	_refresh_tackle_move_presentation()
-	_hide_inventory_context_tooltip()
-	if source_id == item_id or target_slot < 0:
-		return
-	_bag.move_item_to_storage_slot(source_id, target_slot)
-
-
-func _refresh_tackle_move_presentation() -> void:
-	for item_id: StringName in _tackle_item_buttons:
-		var button: Button = _tackle_item_buttons[item_id]
-		button.modulate = (
-			Color(1.0, 1.0, 1.0, 0.42)
-			if item_id == _tackle_move_identity
-			else Color.WHITE
-		)
 
 
 func _on_tackle_button_gui_input(
@@ -3912,13 +3864,7 @@ func _cancel_inventory_move(hide_tooltip: bool = true) -> bool:
 
 
 func _cancel_active_item_move() -> bool:
-	var canceled: bool = _cancel_inventory_move()
-	if not _tackle_move_identity.is_empty():
-		_tackle_move_identity = StringName()
-		_refresh_tackle_move_presentation()
-		_hide_inventory_context_tooltip()
-		canceled = true
-	return canceled
+	return _cancel_inventory_move()
 
 
 func _open_inventory_notepad(

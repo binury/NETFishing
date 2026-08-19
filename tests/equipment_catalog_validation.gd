@@ -20,20 +20,25 @@ func _initialize() -> void:
 	shop.call(
 		"_add_unlock_state_icon", locked_button, false, Vector2(72.0, 72.0)
 	)
-	var locked_icon := locked_button.get_node(
+	var locked_badge := locked_button.get_node(
+		"UnlockStateBadge"
+	) as Panel
+	var locked_icon := locked_badge.get_node(
 		"UnlockStateIcon"
 	) as TextureRect
+	assert(locked_badge.position == Vector2(4.0, 4.0))
+	assert(locked_badge.size == Vector2(30.0, 30.0))
 	assert(locked_icon.texture.resource_path.ends_with("/lock_light.png"))
-	assert(locked_icon.size == Vector2(48.0, 48.0))
-	assert(locked_icon.position == Vector2(12.0, 6.0))
-	assert(is_equal_approx(locked_icon.modulate.a, 0.75))
+	assert(locked_icon.size == Vector2(18.0, 18.0))
+	assert(locked_icon.position == Vector2(6.0, 6.0))
+	assert(is_equal_approx(locked_icon.modulate.a, 0.88))
 	assert(not bool(locked_icon.get_meta(&"unlocked")))
 	locked_button.free()
 	var unlocked_button := Button.new()
 	shop.call(
 		"_add_unlock_state_icon", unlocked_button, true, Vector2(72.0, 72.0)
 	)
-	assert(unlocked_button.get_node_or_null("UnlockStateIcon") == null)
+	assert(unlocked_button.get_node_or_null("UnlockStateBadge") == null)
 	unlocked_button.free()
 	shop.free()
 
@@ -54,13 +59,14 @@ func _initialize() -> void:
 	)
 	assert(crab_net != null)
 	assert(crab_net.icon != null)
-	assert(crab_net.icon.resource_path.ends_with("/equipment/temp_net.png"))
+	assert(crab_net.icon.resource_path.ends_with("/equipment/net.png"))
 	var shovel: ItemDataType = ItemCatalogResource.get_available_item_by_id(
 		&"standard_shovel"
 	)
 	assert(shovel != null)
 	assert(shovel.category == ItemDataType.Category.TOOL)
 	assert(shovel.icon != null)
+	assert(shovel.icon.resource_path.ends_with("/equipment/shovel.png"))
 	assert(shovel.equippable)
 	assert(shovel.hotbar_allowed)
 	assert(FishingShopStockType.get_price(&"standard_shovel") == 75)

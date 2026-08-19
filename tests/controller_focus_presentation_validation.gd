@@ -42,11 +42,30 @@ func _run() -> void:
 	stage.add_child(second_button)
 	await process_frame
 
+	standard_button.grab_focus()
+	await process_frame
+	_expect(
+		root.gui_get_focus_owner() == null,
+		"a menu's programmatic first focus is visible before navigation input",
+	)
+	_expect(
+		presentation.get("_neutral_focus_seed") == standard_button,
+		"the neutral menu focus seed did not remember the first action",
+	)
+	var first_navigation := InputEventJoypadButton.new()
+	first_navigation.button_index = JOY_BUTTON_DPAD_DOWN
+	first_navigation.pressed = true
+	presentation._input(first_navigation)
+	await process_frame
+	_expect(
+		root.gui_get_focus_owner() == standard_button,
+		"the first directional input did not activate the neutral focus seed",
+	)
+
 	var controller_event := InputEventJoypadButton.new()
 	controller_event.button_index = JOY_BUTTON_A
 	controller_event.pressed = true
 	presentation._input(controller_event)
-	standard_button.grab_focus()
 	await process_frame
 	var focus_arrow := presentation.get("_focus_arrow") as TextureRect
 	var focus_shadow := presentation.get("_focus_arrow_shadow") as TextureRect
@@ -111,8 +130,8 @@ func _run() -> void:
 		root.gui_get_hovered_control() == standard_button,
 		"the pointer did not reach the hover-suppression test button",
 	)
+	presentation._input(first_navigation)
 	presentation._input(controller_event)
-	standard_button.grab_focus()
 	await process_frame
 	_expect(
 		standard_button.get_theme_stylebox("hover") == normal_style,
@@ -155,6 +174,10 @@ func _run() -> void:
 		"mouse motion leaves the controller focus shadow visible",
 	)
 	_expect(
+		root.gui_get_focus_owner() == null,
+		"mouse motion leaves a stale menu action focused",
+	)
+	_expect(
 		standard_button.get_theme_stylebox("focus") == old_focus_style,
 		"native theme overrides were not restored after controller use",
 	)
@@ -162,8 +185,6 @@ func _run() -> void:
 		standard_button.get_theme_stylebox("hover") == old_hover_style,
 		"mouse hover styling was not restored after controller use",
 	)
-	presentation._input(controller_event)
-
 	var item_list := ItemList.new()
 	item_list.position = Vector2(80.0, 160.0)
 	item_list.size = Vector2(240.0, 150.0)
@@ -174,6 +195,9 @@ func _run() -> void:
 	await process_frame
 	item_list.select(0)
 	item_list.grab_focus()
+	await process_frame
+	presentation._input(first_navigation)
+	presentation._input(controller_event)
 	await process_frame
 	var first_item_arrow_y: float = focus_arrow.position.y
 	item_list.select(2)
@@ -328,6 +352,42 @@ func _run() -> void:
 	_expect(
 		not focus_arrow.visible,
 		"focus arrow remains after its control becomes unfocusable",
+	)
+	var event_focused_button := Button.new()
+	event_focused_button.text = "event focused"
+	event_focused_button.position = Vector2(700.0, 360.0)
+	event_focused_button.custom_minimum_size = Vector2(160.0, 50.0)
+	stage.add_child(event_focused_button)
+	await process_frame
+	presentation._input(first_navigation)
+	event_focused_button.grab_focus()
+	await process_frame
+	_expect(
+		root.gui_get_focus_owner() == event_focused_button,
+		(
+			"a menu focus established by the current directional event was "
+			+ "mistaken for an automatic default"
+		),
+	)
+
+	presentation.set_virtual_pointer_active(true)
+	await process_frame
+	_expect(
+		not focus_arrow.visible,
+		"focus arrow competes with active virtual-pointer presentation",
+	)
+	presentation._input(controller_event)
+	await process_frame
+	_expect(
+		not focus_arrow.visible,
+		"controller input stole presentation from the held virtual pointer",
+	)
+	presentation.set_virtual_pointer_active(false)
+	presentation._input(controller_event)
+	await process_frame
+	_expect(
+		focus_arrow.visible,
+		"controller focus presentation did not resume after virtual-pointer use",
 	)
 
 	stage.queue_free()

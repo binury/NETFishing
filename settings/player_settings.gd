@@ -15,6 +15,9 @@ const DEFAULT_WORLD_PIXEL_SIZE: int = 3
 const MIN_UI_PIXEL_SIZE: int = 1
 const MAX_UI_PIXEL_SIZE: int = 5
 const DEFAULT_UI_PIXEL_SIZE: int = 3
+const DEFAULT_CHAT_DOCK_RIGHT: bool = false
+const DEFAULT_CHAT_MOBILE_MODE: bool = false
+const DEFAULT_PAINT_DOCK_RIGHT: bool = true
 const MAX_CHAT_DRAFT_CHARACTERS: int = 256
 const COMPACT_DISPLAY_HEIGHT: int = 560
 const WORLD_DESKTOP_GRID_HEIGHTS: Array[int] = [0, 540, 360, 216, 96]
@@ -32,9 +35,10 @@ const UI_COMPACT_RENDER_HEIGHTS: Array[int] = [0, 408, 336, 264, 192]
 @export var on_screen_keyboard_enabled: bool = false
 @export var chat_draft: String = ""
 @export var chat_collapsed: bool = false
-@export var chat_dock_right: bool = false
-@export var chat_mobile_mode: bool = false
-@export var paint_dock_right: bool = true
+@export var chat_dock_right: bool = DEFAULT_CHAT_DOCK_RIGHT
+@export var chat_mobile_mode: bool = DEFAULT_CHAT_MOBILE_MODE
+@export var paint_dock_right: bool = DEFAULT_PAINT_DOCK_RIGHT
+@export var presentation_layout_customized: bool = false
 @export var fullscreen_enabled: bool = false
 @export_range(0.0, 1.0, 0.01) var master_volume: float = 1.0
 @export_range(0.0, 1.0, 0.01) var music_volume: float = 1.0
@@ -81,6 +85,7 @@ func copy() -> PlayerSettings:
 	result.chat_dock_right = chat_dock_right
 	result.chat_mobile_mode = chat_mobile_mode
 	result.paint_dock_right = paint_dock_right
+	result.presentation_layout_customized = presentation_layout_customized
 	result.fullscreen_enabled = fullscreen_enabled
 	result.master_volume = master_volume
 	result.music_volume = music_volume
@@ -89,6 +94,20 @@ func copy() -> PlayerSettings:
 	result.world_pixel_size = world_pixel_size
 	result.ui_pixel_size = ui_pixel_size
 	return result
+
+
+func normalize_implicit_presentation_layout() -> bool:
+	if presentation_layout_customized:
+		return false
+	var changed: bool = (
+		chat_dock_right != DEFAULT_CHAT_DOCK_RIGHT
+		or chat_mobile_mode != DEFAULT_CHAT_MOBILE_MODE
+		or paint_dock_right != DEFAULT_PAINT_DOCK_RIGHT
+	)
+	chat_dock_right = DEFAULT_CHAT_DOCK_RIGHT
+	chat_mobile_mode = DEFAULT_CHAT_MOBILE_MODE
+	paint_dock_right = DEFAULT_PAINT_DOCK_RIGHT
+	return changed
 
 
 static func _is_valid_audio_volume(value: float) -> bool:

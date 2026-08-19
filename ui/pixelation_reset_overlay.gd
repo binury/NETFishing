@@ -6,6 +6,9 @@ const FADE_DURATION: float = 0.55
 const UIReferencePresentationType = preload(
 	"res://ui/ui_reference_presentation.gd"
 )
+const ControllerFocusPresentationType = preload(
+	"res://ui/controller_focus_presentation.gd"
+)
 
 signal reset_requested
 signal return_to_settings_requested
@@ -16,9 +19,16 @@ signal return_to_settings_requested
 var _fade_tween: Tween
 var _fade_generation: int = 0
 var _settings_open: bool = false
+var _controller_focus_presentation: ControllerFocusPresentationType
 
 
 func _ready() -> void:
+	# This control intentionally lives outside the pixelated UI SubViewport, so
+	# it needs a cursor presenter in its own viewport. Reusing the shared class
+	# keeps its paw geometry and input policy identical to every other menu.
+	_controller_focus_presentation = ControllerFocusPresentationType.new()
+	_controller_focus_presentation.name = "ControllerFocusPresentation"
+	add_child(_controller_focus_presentation)
 	_reset_button.pressed.connect(reset_requested.emit)
 	_reset_button.gui_input.connect(_on_reset_button_gui_input)
 	get_viewport().size_changed.connect(_update_responsive_layout)

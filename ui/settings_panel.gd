@@ -116,6 +116,7 @@ var _on_screen_keyboard_enabled: bool = false
 var _chat_dock_right: bool = false
 var _chat_mobile_mode: bool = false
 var _paint_dock_right: bool = true
+var _presentation_layout_edited: bool = false
 var _fullscreen_enabled: bool = false
 var _master_volume: float = 1.0
 var _music_volume: float = 1.0
@@ -941,6 +942,8 @@ func _apply_settings() -> void:
 	edited.chat_dock_right = _chat_dock_right
 	edited.chat_mobile_mode = _chat_mobile_mode
 	edited.paint_dock_right = _paint_dock_right
+	if _presentation_layout_edited:
+		edited.presentation_layout_customized = true
 	edited.fullscreen_enabled = _fullscreen_enabled
 	edited.master_volume = _master_volume
 	edited.music_volume = _music_volume
@@ -1000,6 +1003,7 @@ func _load_controls() -> void:
 	_auto_click_interval_slider.set_value_no_signal(
 		_auto_click_interval_value
 	)
+	_presentation_layout_edited = false
 	_settings_manager.restore_audio_levels()
 	_refresh_value_labels()
 
@@ -1081,14 +1085,17 @@ func _set_ui_pixelation(pixel_size: int) -> void:
 
 func _on_chat_dock_selected(index: int) -> void:
 	_chat_dock_right = _chat_dock.get_item_id(index) == 1
+	_presentation_layout_edited = true
 
 
 func _on_chat_mode_selected(index: int) -> void:
 	_chat_mobile_mode = _chat_mode.get_item_id(index) == 1
+	_presentation_layout_edited = true
 
 
 func _on_paint_dock_selected(index: int) -> void:
 	_paint_dock_right = _paint_dock.get_item_id(index) == 1
+	_presentation_layout_edited = true
 
 
 func _set_fullscreen(enabled: bool) -> void:

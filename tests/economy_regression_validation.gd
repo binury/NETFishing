@@ -806,15 +806,15 @@ func _test_fishing_shop_sale_ui(
 	assert(bait_receipt.contains(" spent on "))
 	assert(bait_receipt.ends_with(" worms"))
 	assert(snails_button.get_node_or_null("SupplyQuantityBadge") == null)
-	assert(worms_button.get_node_or_null("UnlockStateIcon") == null)
+	assert(worms_button.get_node_or_null("UnlockStateBadge") == null)
 	var snails_lock_icon := snails_button.get_node(
-		"UnlockStateIcon"
+		"UnlockStateBadge/UnlockStateIcon"
 	) as TextureRect
 	assert(not bool(snails_lock_icon.get_meta(&"unlocked")))
 	assert(snails_lock_icon.texture.resource_path.ends_with(
 		"/lock_light.png"
 	))
-	assert(is_equal_approx(snails_lock_icon.modulate.a, 0.75))
+	assert(is_equal_approx(snails_lock_icon.modulate.a, 0.88))
 	await _activate_pointer_control(equipment_tab, ui_viewport)
 	await process_frame
 	var equipment_sections: Array[String] = []
@@ -836,7 +836,7 @@ func _test_fishing_shop_sale_ui(
 	assert(basic_rod_button != null)
 	assert(basic_rod_button.custom_minimum_size == Vector2(144.0, 144.0))
 	assert(basic_rod_button.icon != null and basic_rod_button.disabled)
-	assert(basic_rod_button.get_node_or_null("UnlockStateIcon") == null)
+	assert(basic_rod_button.get_node_or_null("UnlockStateBadge") == null)
 	assert(rod_cards.find_child("Rod_aurora_rod", true, false) == null)
 	await _activate_pointer_control(art_supplies_tab, ui_viewport)
 	await process_frame
@@ -886,8 +886,13 @@ func _test_fishing_shop_sale_ui(
 		var product_unlocked: bool = (
 			player.art_unlocks.owns_product(product_id)
 		)
-		var state_icon := upgrade_button.get_node_or_null(
-			"UnlockStateIcon"
+		var state_badge := upgrade_button.get_node_or_null(
+			"UnlockStateBadge"
+		) as Panel
+		var state_icon := (
+			state_badge.get_node("UnlockStateIcon") as TextureRect
+			if state_badge != null
+			else null
 		) as TextureRect
 		assert((state_icon == null) == product_unlocked)
 		if state_icon != null:

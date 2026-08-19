@@ -10,6 +10,9 @@ const SettingsPanelType = preload("res://ui/settings_panel.gd")
 const FullscreenMenuPresentationType = preload(
 	"res://ui/fullscreen_menu_presentation.gd"
 )
+const ControllerFocusNavigationType = preload(
+	"res://ui/controller_focus_navigation.gd"
+)
 const BubbleButtonType = preload(
 	"res://ui/components/bubble_menu/bubble_button.gd"
 )
@@ -85,7 +88,6 @@ const BUBBLE_COMPACT_HEIGHT_THRESHOLD: float = 560.0
 const START_PROMPT_MIN_SCALE: float = 0.985
 const START_PROMPT_MAX_SCALE: float = 1.015
 const START_PROMPT_CYCLE_SECONDS: float = 3.0
-const DISABLED_BUBBLE_LABEL_ALPHA: float = 0.55
 const INTRO_PROMPT_FADE_DURATION: float = 0.55
 const INTRO_BUBBLE_TRAVEL_DURATION: float = 2.40
 const INTRO_BRANDING_TRAVEL_DURATION: float = 2.0
@@ -110,7 +112,6 @@ enum ConfirmationAction {
 @onready var _delete_button: BubbleButtonType = %DeleteSaveButton
 @onready var _quit_button: BubbleButtonType = %QuitButton
 @onready var _join_game_button: BubbleButtonType = %JoinGameButton
-@onready var _delete_save_label: Label = %DeleteSaveLabel
 @onready var _feedback_label: RichTextLabel = %FeedbackLabel
 @onready var _confirmation_page: TitleConfirmationBubblePageType = (
 	%ConfirmationPage
@@ -446,9 +447,6 @@ func _update_title_layout() -> void:
 	)
 	if not _title_settings_transition_active:
 		call_deferred("_capture_title_bubble_rest_position")
-	_delete_save_label.text = (
-		"delete\nsave" if compact_layout else "delete save"
-	)
 	if _awaiting_start_input and not _title_entry_transition_active:
 		_schedule_intro_presentation()
 	_update_world_preview_resolution()
@@ -1415,6 +1413,10 @@ func _set_title_bubbles_interactive(interactive: bool) -> void:
 			if interactive
 			else Control.MOUSE_FILTER_IGNORE
 		)
+	if interactive:
+		ControllerFocusNavigationType.configure_spatial_neighbors(
+			_get_title_buttons()
+		)
 
 
 func _capture_title_bubble_rest_position() -> void:
@@ -1470,9 +1472,6 @@ func _refresh_save_inspection() -> void:
 	_inspection = _save_manager.inspect_save()
 	_continue_button.disabled = not _inspection.can_continue()
 	_delete_button.disabled = not _inspection.can_delete()
-	_delete_save_label.modulate.a = (
-		DISABLED_BUBBLE_LABEL_ALPHA if _delete_button.disabled else 1.0
-	)
 	_feedback_label.text = _center_feedback_text(_inspection.message)
 	if _inspection.status == SaveInspectionType.Status.VALID_SUPPORTED:
 		_feedback_label.text = _get_continue_stats_text()

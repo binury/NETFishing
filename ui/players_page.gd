@@ -5,6 +5,20 @@ const TOGGLE_STATE_COLOR := Color("c3dfe6")
 const DialogControllerNavigationType = preload(
 	"res://ui/file_dialog_controller_navigation.gd"
 )
+const MODERATION_BAN_ICON: Texture2D = preload(
+	"res://ui/icons/moderation_options/moderation_options_ban_light.png"
+)
+const MODERATION_BLOCK_ICON: Texture2D = preload(
+	"res://ui/icons/moderation_options/moderation_options_block_light.png"
+)
+const MODERATION_KICK_ICON: Texture2D = preload(
+	"res://ui/icons/moderation_options/moderation_options_kick_light.png"
+)
+const MODERATION_MUTE_ICON: Texture2D = preload(
+	"res://ui/icons/moderation_options/moderation_options_mute_light.png"
+)
+const MODERATION_BUTTON_SIZE := Vector2(52.0, 40.0)
+const MODERATION_ICON_SIZE: int = 40
 
 enum ControllerZone {
 	TABS,
@@ -492,16 +506,15 @@ func _build_active_rows() -> void:
 		)
 		row.add_child(ping)
 		var mute := Button.new()
-		mute.text = "unmute" if entry.muted else "mute"
+		var mute_action: String = "unmute" if entry.muted else "mute"
 		mute.disabled = entry.is_local_player
 		mute.pressed.connect(_toggle_mute.bind(entry))
-		UtilityPageStyle.apply_compact_ocean_button(mute)
+		_configure_moderation_button(mute, MODERATION_MUTE_ICON, mute_action)
 		row.add_child(mute)
 		var block := Button.new()
-		block.text = "block"
 		block.disabled = entry.is_local_player
 		block.pressed.connect(_confirm_block.bind(entry))
-		UtilityPageStyle.apply_compact_ocean_button(block)
+		_configure_moderation_button(block, MODERATION_BLOCK_ICON, "block")
 		row.add_child(block)
 		if entry.can_manage_operator:
 			var operator := Button.new()
@@ -510,17 +523,48 @@ func _build_active_rows() -> void:
 			UtilityPageStyle.apply_compact_ocean_button(operator)
 			row.add_child(operator)
 		var kick := Button.new()
-		kick.text = "kick"
 		kick.disabled = not entry.can_kick
 		kick.pressed.connect(_confirm_kick.bind(entry))
-		UtilityPageStyle.apply_compact_ocean_button(kick)
+		_configure_moderation_button(kick, MODERATION_KICK_ICON, "kick")
 		row.add_child(kick)
 		var ban := Button.new()
-		ban.text = "ban"
 		ban.disabled = not entry.can_ban
 		ban.pressed.connect(_confirm_ban.bind(entry))
-		UtilityPageStyle.apply_compact_ocean_button(ban)
+		_configure_moderation_button(ban, MODERATION_BAN_ICON, "ban")
 		row.add_child(ban)
+
+
+func _configure_moderation_button(
+	button: Button,
+	button_icon: Texture2D,
+	action_label: String,
+) -> void:
+	button.text = ""
+	button.icon = button_icon
+	button.tooltip_text = action_label
+	button.accessibility_name = action_label
+	button.expand_icon = true
+	button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	button.vertical_icon_alignment = VERTICAL_ALIGNMENT_CENTER
+	button.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	UtilityPageStyle.apply_compact_ocean_button(button)
+	button.custom_minimum_size = MODERATION_BUTTON_SIZE
+	button.add_theme_constant_override("icon_max_width", MODERATION_ICON_SIZE)
+	button.add_theme_color_override(
+		"icon_disabled_color",
+		Color(1.0, 1.0, 1.0, 0.78),
+	)
+	for state: StringName in [
+		&"normal", &"hover", &"pressed", &"focus", &"disabled",
+	]:
+		var style := button.get_theme_stylebox(state).duplicate() as StyleBoxFlat
+		if style == null:
+			continue
+		style.content_margin_left = 6.0
+		style.content_margin_right = 6.0
+		style.content_margin_top = 0.0
+		style.content_margin_bottom = 0.0
+		button.add_theme_stylebox_override(state, style)
 
 
 func _build_session_artwork_controls() -> void:

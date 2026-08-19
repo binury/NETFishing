@@ -78,6 +78,7 @@ signal interactive_pointer_ui_changed(is_open: bool)
 signal passive_pointer_ui_changed(is_enabled: bool)
 signal player_menu_backdrop_visibility_changed(is_visible: bool)
 signal shop_backdrop_visibility_changed(is_visible: bool)
+signal virtual_pointer_mode_changed(is_active: bool)
 
 const VIRTUAL_MOUSE_INPUT_OWNER: StringName = &"controller_virtual_mouse"
 const VIRTUAL_MOUSE_TRIGGER_THRESHOLD: float = 0.55
@@ -881,6 +882,7 @@ func _begin_virtual_mouse(device_id: int) -> void:
 	if _virtual_mouse_active:
 		return
 	_virtual_mouse_active = true
+	virtual_pointer_mode_changed.emit(true)
 	_virtual_mouse_device_id = maxi(device_id, 0)
 	_virtual_mouse_stick = (
 		_mapped_virtual_mouse_stick()
@@ -921,6 +923,7 @@ func _end_virtual_mouse() -> void:
 	if _virtual_mouse_right_pressed:
 		_set_virtual_mouse_button(MOUSE_BUTTON_RIGHT, false)
 	_virtual_mouse_active = false
+	virtual_pointer_mode_changed.emit(false)
 	_virtual_mouse_trigger_strength = 0.0
 	_virtual_mouse_stick = Vector2.ZERO
 	_controller_virtual_cursor.visible = false
@@ -994,6 +997,12 @@ func _poll_virtual_mouse_controller_state() -> void:
 		_virtual_mouse_trigger_strength = _virtual_mouse_strength_for_device(
 			_virtual_mouse_device_id
 		)
+		_sync_virtual_mouse_primary_button(
+			Input.is_joy_button_pressed(
+				_virtual_mouse_device_id,
+				JOY_BUTTON_RIGHT_SHOULDER,
+			)
+		)
 		_set_virtual_mouse_button(
 			MOUSE_BUTTON_RIGHT,
 			_secondary_click_strength_for_device(
@@ -1034,6 +1043,11 @@ func _poll_mapped_virtual_mouse_controller_state() -> void:
 			_end_virtual_mouse()
 			return
 		_virtual_mouse_stick = _mapped_virtual_mouse_stick()
+		_sync_virtual_mouse_primary_button(
+			_controller_mapping_manager.get_role_strength(
+				ControllerMappingManagerType.ROLE_RB
+			) >= VIRTUAL_MOUSE_TRIGGER_THRESHOLD
+		)
 		_set_virtual_mouse_button(
 			MOUSE_BUTTON_RIGHT,
 			_controller_mapping_manager.get_role_strength(
@@ -1149,6 +1163,13 @@ func _set_virtual_mouse_button(button: MouseButton, pressed: bool) -> void:
 	mouse_event.factor = 1.0
 	_parse_virtual_mouse_event(mouse_event)
 	_update_virtual_cursor_position(_virtual_mouse_window_position)
+
+
+func _sync_virtual_mouse_primary_button(pressed: bool) -> void:
+	# Embedded PopupMenu windows can consume the controller release event before
+	# GameUI._input receives it. Polling the physical role while virtual-pointer
+	# mode is held guarantees the synthetic left button cannot remain latched.
+	_set_virtual_mouse_button(MOUSE_BUTTON_LEFT, pressed)
 
 
 func _emit_virtual_mouse_motion(relative_motion: Vector2) -> void:

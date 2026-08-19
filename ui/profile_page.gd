@@ -71,6 +71,7 @@ var _apply_button: Button
 var _revert_button: Button
 var _defaults_button: Button
 var _reset_view_button: Button
+var _reset_view_controller_hint: Label
 var _discard_confirmation: PanelContainer
 var _confirmation_label: Label
 var _confirmation_confirm: Button
@@ -226,6 +227,15 @@ func consume_escape() -> bool:
 func handle_controller_input(event: InputEvent) -> bool:
 	if not _profile_active or not _profile_interactive:
 		return false
+	var reset_view_pressed := _event_matches_controller_press(
+		event,
+		&"sneak",
+		ControllerMappingManagerType.ROLE_RIGHT_STICK_CLICK,
+		JOY_BUTTON_RIGHT_STICK,
+	)
+	if reset_view_pressed:
+		_preview.reset_view()
+		return true
 	if (
 		event.is_action_pressed(&"ui_up")
 		or event.is_action_pressed(&"ui_down")
@@ -794,6 +804,17 @@ func _build_ui() -> void:
 	UtilityPageStyle.apply_compact_ocean_button(_reset_view_button)
 	_reset_view_button.add_theme_font_size_override("font_size", 22)
 	preview_layer.add_child(_reset_view_button)
+	_reset_view_controller_hint = Label.new()
+	_reset_view_controller_hint.name = "ResetViewControllerHint"
+	_reset_view_controller_hint.text = "Reset View: RS"
+	_reset_view_controller_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_reset_view_controller_hint.focus_mode = Control.FOCUS_NONE
+	_reset_view_controller_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_reset_view_controller_hint.add_theme_font_size_override("font_size", 14)
+	_reset_view_controller_hint.add_theme_color_override(
+		"font_color", UtilityPageStyle.OCEAN_TEXT_SECONDARY
+	)
+	preview_stack.add_child(_reset_view_controller_hint)
 
 	_discard_confirmation = PanelContainer.new()
 	_discard_confirmation.visible = false

@@ -1,4 +1,4 @@
-[gd_scene load_steps=16 format=3]
+[gd_scene load_steps=17 format=3]
 
 [ext_resource type="Script" path="res://ui/pause_menu.gd" id="1_script"]
 [ext_resource type="PackedScene" path="res://ui/settings_panel.tscn" id="2_settings"]
@@ -15,6 +15,7 @@
 [ext_resource type="Texture2D" path="res://ui/icons/pictograms/settings_dark.png" id="13_settings_dark"]
 [ext_resource type="Texture2D" path="res://ui/icons/main_menu/continue.png" id="14_continue"]
 [ext_resource type="Texture2D" path="res://ui/icons/pictograms/x_dark.png" id="15_x_dark"]
+[ext_resource type="Texture2D" path="res://ui/icons/main_menu/delete_save.png" id="16_delete_save"]
 
 [node name="PauseMenu" type="Control"]
 unique_name_in_owner = true
@@ -162,7 +163,9 @@ motion_phase = 3.0
 [node name="ResetProgressButton" parent="ResponsivePauseStage/PausePresentationScaleRoot/RootPage/BubbleCluster" instance=ExtResource("5_bubble")]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 0)
-text = "reset\nprogress"
+texture_filter = 1
+icon = ExtResource("16_delete_save")
+tooltip_text = "reset progress"
 accessibility_name = "reset progress"
 neutral_size = Vector2(126, 120)
 desktop_anchor = Vector2(245, 365)

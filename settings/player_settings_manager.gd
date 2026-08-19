@@ -83,6 +83,10 @@ func load_settings() -> bool:
 			and typeof(presentation["paint_dock_right"]) != TYPE_BOOL
 		)
 		or (
+			presentation.has("layout_customized")
+			and typeof(presentation["layout_customized"]) != TYPE_BOOL
+		)
+		or (
 			presentation.has("fullscreen_enabled")
 			and typeof(presentation["fullscreen_enabled"]) != TYPE_BOOL
 		)
@@ -135,6 +139,12 @@ func load_settings() -> bool:
 		presentation.get("chat_mobile_mode", false)
 	)
 	loaded.paint_dock_right = bool(presentation.get("paint_dock_right", true))
+	loaded.presentation_layout_customized = bool(
+		presentation.get("layout_customized", false)
+	)
+	var normalized_implicit_layout: bool = (
+		loaded.normalize_implicit_presentation_layout()
+	)
 	loaded.fullscreen_enabled = bool(
 		presentation.get("fullscreen_enabled", false)
 	)
@@ -147,7 +157,7 @@ func load_settings() -> bool:
 	if not loaded.is_valid():
 		return _use_defaults_after_corruption("Player settings values are invalid.")
 	current_settings = loaded
-	_is_dirty = false
+	_is_dirty = normalized_implicit_layout
 	_apply_audio_settings(current_settings)
 	emit_signal("settings_changed", current_settings)
 	return true
@@ -157,7 +167,9 @@ func apply_settings(settings: PlayerSettings) -> bool:
 	if settings == null or not settings.is_valid():
 		return false
 	var previous: PlayerSettings = current_settings
-	current_settings = settings.copy()
+	var normalized_settings := settings.copy()
+	normalized_settings.normalize_implicit_presentation_layout()
+	current_settings = normalized_settings
 	_is_dirty = true
 	if not save_now():
 		current_settings = previous
@@ -240,6 +252,9 @@ func save_now() -> bool:
 			"chat_dock_right": current_settings.chat_dock_right,
 			"chat_mobile_mode": current_settings.chat_mobile_mode,
 			"paint_dock_right": current_settings.paint_dock_right,
+			"layout_customized": (
+				current_settings.presentation_layout_customized
+			),
 			"fullscreen_enabled": current_settings.fullscreen_enabled,
 		},
 	}

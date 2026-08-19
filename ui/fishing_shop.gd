@@ -27,6 +27,9 @@ const ShopInteractionType = preload(
 )
 const UtilityPageStyleType = preload("res://ui/utility_page_style.gd")
 const OrganizerTabType = preload("res://ui/components/organizer_tab.gd")
+const LockedContentPresentationType = preload(
+	"res://ui/components/locked_content_presentation.gd"
+)
 const UIMotionType = preload("res://ui/ui_motion.gd")
 const ControllerMappingManagerType = preload(
 	"res://settings/controller_mapping_manager.gd"
@@ -65,9 +68,6 @@ const ART_UPGRADE_ICONS: Dictionary[StringName, Texture2D] = {
 }
 const CURRENCY_ICON: Texture2D = preload(
 	"res://items/icons/shop/32_currency.png"
-)
-const LOCKED_ITEM_ICON: Texture2D = preload(
-	"res://ui/icons/pictograms/lock_light.png"
 )
 
 signal menu_visibility_changed(is_open: bool)
@@ -120,8 +120,11 @@ const SUPPLY_PRICE_ICON_GAP: float = 3.0
 const BAIT_SUPPLY_BADGE_Y: float = (
 	UtilityPageStyleType.SUPPLY_BADGE_EDGE_MARGIN
 )
-const LOCKED_ITEM_ICON_SIZE := Vector2(48.0, 48.0)
-const LOCKED_ITEM_ICON_ALPHA: float = 0.75
+const LOCK_BADGE_SIZE := Vector2(30.0, 30.0)
+const LOCK_BADGE_MARGIN := Vector2(4.0, 4.0)
+const LOCK_BADGE_ICON_SIZE := Vector2(18.0, 18.0)
+const LOCK_BADGE_ALPHA: float = 0.9
+const LOCK_BADGE_ICON_ALPHA: float = 0.88
 const ROD_CARD_TILE_SIZE := Vector2(144.0, 144.0)
 const ROD_CARD_HOST_SIZE := Vector2(152.0, 198.0)
 const ROD_CAROUSEL_HEIGHT: float = 206.0
@@ -1434,27 +1437,41 @@ func _configure_marker_icon_tile(
 func _add_unlock_state_icon(
 	button: Button,
 	unlocked: bool,
-	tile_size: Vector2,
-	price_bubble_y: float = SUPPLY_PRICE_Y,
+	_tile_size: Vector2,
+	_price_bubble_y: float = SUPPLY_PRICE_Y,
 ) -> void:
 	if unlocked:
 		return
+	var badge := Panel.new()
+	badge.name = "UnlockStateBadge"
+	badge.position = LOCK_BADGE_MARGIN
+	badge.size = LOCK_BADGE_SIZE
+	badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	badge.z_index = 3
+	var badge_style := UtilityPageStyleType.rounded_style(
+		Color(UtilityPageStyleType.OCEAN_FIELD, LOCK_BADGE_ALPHA),
+		int(LOCK_BADGE_SIZE.x * 0.5),
+	)
+	badge.add_theme_stylebox_override("panel", badge_style)
+	button.add_child(badge)
 	var icon := TextureRect.new()
 	icon.name = "UnlockStateIcon"
-	icon.texture = LOCKED_ITEM_ICON
+	icon.texture = LockedContentPresentationType.ICON
 	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	icon.z_index = 3
 	icon.set_meta(&"unlocked", false)
-	icon.size = LOCKED_ITEM_ICON_SIZE
+	icon.size = LOCK_BADGE_ICON_SIZE
 	icon.position = Vector2(
-		(tile_size.x - LOCKED_ITEM_ICON_SIZE.x) * 0.5,
-		(price_bubble_y - LOCKED_ITEM_ICON_SIZE.y) * 0.5,
+		(LOCK_BADGE_SIZE.x - LOCK_BADGE_ICON_SIZE.x) * 0.5,
+		(LOCK_BADGE_SIZE.y - LOCK_BADGE_ICON_SIZE.y) * 0.5,
 	)
-	icon.modulate.a = LOCKED_ITEM_ICON_ALPHA
-	button.add_child(icon)
+	icon.modulate = Color(
+		UtilityPageStyleType.OCEAN_TEXT_PRIMARY,
+		LOCK_BADGE_ICON_ALPHA,
+	)
+	badge.add_child(icon)
 
 
 func _add_supply_icon_tile(

@@ -7,7 +7,9 @@ signal context_requested(slot: GeneralInventorySlot)
 signal context_changed(slot: GeneralInventorySlot, text: String, active: bool)
 
 const ItemDataType = preload("res://items/item_data.gd")
-const LOCK_ICON: Texture2D = preload("res://ui/icons/pictograms/lock_light.png")
+const LockedContentPresentationType = preload(
+	"res://ui/components/locked_content_presentation.gd"
+)
 
 var slot_index: int = -1
 var container: int = -1
@@ -104,8 +106,8 @@ func refresh() -> void:
 	disabled = _locked
 	_apply_icon_geometry()
 	if _locked:
-		_icon.texture = LOCK_ICON
-		_icon.modulate = Color(UtilityPageStyle.OCEAN_DISABLED, 0.18)
+		_icon.texture = LockedContentPresentationType.ICON
+		_icon.modulate = LockedContentPresentationType.icon_modulate()
 		var storage_slot := (
 			container == PlayerInventoryLayout.InventoryContainer.STORAGE
 		)
@@ -305,7 +307,7 @@ func _apply_style() -> void:
 		Color(UtilityPageStyle.OCEAN_SELECTED, 0.92), radius
 	)
 	var locked := UtilityPageStyle.rounded_style(
-		Color(UtilityPageStyle.OCEAN_FIELD, 0.38), radius
+		LockedContentPresentationType.disabled_background_color(), radius
 	)
 	for state: StringName in [&"normal", &"pressed"]:
 		add_theme_stylebox_override(state, normal)
@@ -332,7 +334,9 @@ func _apply_icon_geometry() -> void:
 	var is_large: bool = _presentation_size.x >= 70.0
 	var margin: float
 	if _locked:
-		var lock_size: float = 24.0 if is_large else 18.0
+		var lock_size: float = LockedContentPresentationType.icon_size_for(
+			_presentation_size
+		).x
 		margin = maxf(
 			(_presentation_size.x - lock_size) * 0.5,
 			0.0,

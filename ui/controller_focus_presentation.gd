@@ -43,6 +43,13 @@ const HOVER_COLOR_REPLACEMENTS: Dictionary[StringName, StringName] = {
 }
 
 var _controller_active: bool = false
+var _virtual_pointer_active: bool = false
+var _navigation_focus_active: bool = false
+var _neutral_focus_seed: Control
+var _releasing_neutral_focus: bool = false
+var _focus_clear_generation: int = 0
+var _directional_input_generation: int = 0
+var _directional_input_in_flight: bool = false
 var _focused_control: Control
 var _focused_popup: PopupMenu
 var _popup_scroll_offset: float = 0.0
@@ -64,6 +71,9 @@ func _ready() -> void:
 	get_viewport().gui_focus_changed.connect(_on_focus_changed)
 	set_process_input(true)
 	set_process(true)
+	var existing_focus: Control = _active_focus_owner()
+	if existing_focus != null:
+		_capture_neutral_focus_seed(existing_focus)
 
 
 func _exit_tree() -> void:
@@ -72,6 +82,17 @@ func _exit_tree() -> void:
 
 
 func _input(event: InputEvent) -> void:
+	if _virtual_pointer_active and (
+		event is InputEventJoypadButton or event is InputEventJoypadMotion
+	):
+		return
+	var directional_navigation: bool = _is_directional_navigation(event)
+	if directional_navigation:
+		_directional_input_generation += 1
+		_directional_input_in_flight = true
+		_clear_directional_input_in_flight.call_deferred(
+			_directional_input_generation
+		)
 	if event is InputEventJoypadButton:
 		if (event as InputEventJoypadButton).pressed:
 			_set_controller_active(true)
@@ -82,15 +103,32 @@ func _input(event: InputEvent) -> void:
 			_set_controller_active(true)
 	elif event is InputEventMouseMotion:
 		_set_controller_active(false)
+		_neutralize_current_navigation_focus()
 	elif event is InputEventMouseButton:
 		if (event as InputEventMouseButton).pressed:
 			_set_controller_active(false)
+			_neutralize_current_navigation_focus()
 	elif event is InputEventKey:
 		if (event as InputEventKey).pressed:
 			_set_controller_active(false)
+	if directional_navigation and _restore_neutral_focus_seed():
+		get_viewport().set_input_as_handled()
+
+
+func set_virtual_pointer_active(active: bool) -> void:
+	if _virtual_pointer_active == active:
+		return
+	_virtual_pointer_active = active
+	if active:
+		_set_controller_active(false)
+		_clear_focus_presentation()
+		_restore_native_hover_highlight()
 
 
 func _process(_delta: float) -> void:
+	if _virtual_pointer_active:
+		_set_controller_active(false)
+		return
 	_update_hover_suppression()
 	if _controller_active:
 		var focused_popup: PopupMenu = _active_focused_popup(get_viewport())
@@ -164,6 +202,24 @@ func _set_controller_active(active: bool) -> void:
 
 
 func _on_focus_changed(control: Control) -> void:
+	if _releasing_neutral_focus and control == null:
+		return
+	if control == null:
+		_focus_clear_generation += 1
+		_clear_focus_presentation()
+		_reset_navigation_session_after_focus_clear.call_deferred(
+			_focus_clear_generation
+		)
+		return
+	# A normal transfer between controls briefly reports a null owner. Cancel
+	# that deferred reset so active directional navigation remains continuous.
+	_focus_clear_generation += 1
+	if _directional_input_in_flight and _is_navigation_focus(control):
+		_navigation_focus_active = true
+		_neutral_focus_seed = null
+	elif not _navigation_focus_active and _is_navigation_focus(control):
+		_capture_neutral_focus_seed(control)
+		return
 	if _controller_active:
 		var focused_popup: PopupMenu = _active_focused_popup(get_viewport())
 		if focused_popup != null:
@@ -172,6 +228,68 @@ func _on_focus_changed(control: Control) -> void:
 	_apply_to_focus(control)
 	if _controller_active:
 		_queue_focus_visibility_update(control)
+
+
+func _reset_navigation_session_after_focus_clear(generation: int) -> void:
+	if generation != _focus_clear_generation or _active_focus_owner() != null:
+		return
+	_navigation_focus_active = false
+	_neutral_focus_seed = null
+
+
+func _clear_directional_input_in_flight(generation: int) -> void:
+	if generation == _directional_input_generation:
+		_directional_input_in_flight = false
+
+
+func _is_directional_navigation(event: InputEvent) -> bool:
+	if event is InputEventKey and (event as InputEventKey).echo:
+		return false
+	return (
+		event.is_action_pressed(&"ui_left")
+		or event.is_action_pressed(&"ui_right")
+		or event.is_action_pressed(&"ui_up")
+		or event.is_action_pressed(&"ui_down")
+		or event.is_action_pressed(&"ui_focus_next")
+		or event.is_action_pressed(&"ui_focus_prev")
+	)
+
+
+func _is_navigation_focus(control: Control) -> bool:
+	# Text entry is an explicit interaction rather than menu navigation. It must
+	# retain direct focus for typing, including Chat and dialog fields.
+	return not (control is LineEdit or control is TextEdit)
+
+
+func _capture_neutral_focus_seed(control: Control) -> void:
+	if not _focus_is_presentable(control) or not _is_navigation_focus(control):
+		return
+	_navigation_focus_active = false
+	_neutral_focus_seed = control
+	_clear_focus_presentation()
+	_releasing_neutral_focus = true
+	control.release_focus()
+	_releasing_neutral_focus = false
+
+
+func _neutralize_current_navigation_focus() -> void:
+	var focus_owner: Control = _active_focus_owner()
+	if focus_owner != null and _is_navigation_focus(focus_owner):
+		_capture_neutral_focus_seed(focus_owner)
+	else:
+		_navigation_focus_active = false
+		_clear_focus_presentation()
+
+
+func _restore_neutral_focus_seed() -> bool:
+	if not _focus_is_presentable(_neutral_focus_seed):
+		_neutral_focus_seed = null
+		return false
+	var target: Control = _neutral_focus_seed
+	_neutral_focus_seed = null
+	_navigation_focus_active = true
+	target.grab_focus()
+	return true
 
 
 func _queue_focus_visibility_update(control: Control) -> void:
@@ -314,15 +432,23 @@ func _bubble_focus_target_position(control: Control) -> Vector2:
 
 
 func _presentation_canvas_scale() -> Vector2:
-	var host := get_parent() as Control
-	if host == null:
-		return Vector2.ONE
-	var host_scale: Vector2 = (
-		host.get_global_transform_with_canvas().get_scale().abs()
-	)
+	var target: Control = _focused_control
+	var target_scale := Vector2.ONE
+	if target != null and is_instance_valid(target):
+		target_scale = (
+			target.get_global_transform_with_canvas().get_scale().abs()
+		)
+	else:
+		# PopupMenu is a Window rather than a Control. Its cursor retains the
+		# canonical host scale used before cross-viewport focus support.
+		var host := get_parent() as Control
+		if host != null:
+			target_scale = (
+				host.get_global_transform_with_canvas().get_scale().abs()
+			)
 	return Vector2(
-		maxf(host_scale.x, 0.001),
-		maxf(host_scale.y, 0.001),
+		maxf(target_scale.x, 0.001),
+		maxf(target_scale.y, 0.001),
 	)
 
 
@@ -535,8 +661,6 @@ func _update_hover_suppression() -> void:
 	_restore_native_hover_highlight()
 	if hovered != null:
 		_suppress_native_hover_highlight(hovered)
-
-
 func _hovered_control_in_viewport(viewport: Viewport) -> Control:
 	var embedded_windows: Array[Window] = viewport.get_embedded_subwindows()
 	for index: int in range(embedded_windows.size() - 1, -1, -1):

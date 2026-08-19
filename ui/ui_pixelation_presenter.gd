@@ -49,6 +49,9 @@ func _ready() -> void:
 	)
 	var controller_focus_presentation := ControllerFocusPresentationType.new()
 	_ui_root.add_child(controller_focus_presentation)
+	_game_ui.virtual_pointer_mode_changed.connect(
+		controller_focus_presentation.set_virtual_pointer_active
+	)
 	var root_viewport: Viewport = get_viewport()
 	root_viewport.size_changed.connect(_resize_presentation)
 	_resize_presentation()

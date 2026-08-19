@@ -215,6 +215,13 @@ func _validate_settings_navigation_contract() -> void:
 	settings.crisp_reset_focus_requested.connect(
 		reset_overlay.focus_reset_button
 	)
+	var reset_cursor_presentation := reset_overlay.get_node(
+		"ControllerFocusPresentation"
+	) as ControllerFocusPresentation
+	var controller_right := InputEventJoypadButton.new()
+	controller_right.button_index = JOY_BUTTON_DPAD_RIGHT
+	controller_right.pressed = true
+	reset_cursor_presentation._input(controller_right)
 	var focus_reset_event := InputEventAction.new()
 	focus_reset_event.action = &"ui_right"
 	focus_reset_event.pressed = true
@@ -223,6 +230,9 @@ func _validate_settings_navigation_contract() -> void:
 	assert(
 		root.gui_get_focus_owner()
 		== reset_overlay.get_node("%ResetPixelationButton")
+	)
+	assert(
+		(reset_cursor_presentation.get("_focus_arrow") as TextureRect).visible
 	)
 	reset_overlay.return_to_settings_requested.connect(
 		settings.focus_back_button

@@ -3,6 +3,8 @@ extends SceneTree
 const JoinGamePageScene = preload(
 	"res://ui/network/join_game_page.tscn"
 )
+const TitleScreenScene = preload("res://ui/title_screen.tscn")
+const PauseMenuScene = preload("res://ui/pause_menu.tscn")
 const SettingsPanelScene = preload("res://ui/settings_panel.tscn")
 const BubbleConfirmationScene = preload(
 	"res://ui/components/bubble_menu/bubble_confirmation_page.tscn"
@@ -40,6 +42,7 @@ func _initialize() -> void:
 
 func _run() -> void:
 	root.size = Vector2i(1280, 720)
+	await _validate_primary_menu_navigation()
 	await _validate_join_game_navigation()
 	await _validate_data_settings_navigation()
 	await _validate_settings_adjustment_navigation()
@@ -59,6 +62,49 @@ func _run() -> void:
 	for failure: String in _failures:
 		push_error(failure)
 	quit(1)
+
+
+func _validate_primary_menu_navigation() -> void:
+	var title := TitleScreenScene.instantiate() as Control
+	root.add_child(title)
+	await process_frame
+	(title.get_node("%ButtonCenter") as Control).show()
+	(title.get_node("%BubbleField") as Control).show()
+	title.call("_update_title_layout")
+	title.call("_set_title_bubbles_interactive", true)
+	var title_controls: Array[Control] = []
+	for candidate: Variant in title.call("_get_title_buttons"):
+		var control := candidate as Control
+		if control is BaseButton:
+			(control as BaseButton).disabled = false
+		title_controls.append(control)
+	_expect(
+		title_controls.size() == 7,
+		"Title menu does not expose all seven primary actions.",
+	)
+	_assert_directionally_reachable(title_controls.front(), title_controls)
+	title.queue_free()
+	await process_frame
+
+	var pause := PauseMenuScene.instantiate() as Control
+	root.add_child(pause)
+	pause.show()
+	var root_page := pause.get_node("%RootPage") as Control
+	root_page.call("show_page", false)
+	for _frame: int in 2:
+		await process_frame
+	var pause_controls: Array[Control] = [
+		pause.get_node("%ResumeButton") as Control,
+		pause.get_node("%SaveButton") as Control,
+		pause.get_node("%JoinGameButton") as Control,
+		pause.get_node("%SettingsButton") as Control,
+		pause.get_node("%ReturnToTitleButton") as Control,
+		pause.get_node("%ResetProgressButton") as Control,
+		pause.get_node("%QuitButton") as Control,
+	]
+	_assert_directionally_reachable(pause_controls.front(), pause_controls)
+	pause.queue_free()
+	await process_frame
 
 
 func _validate_join_game_navigation() -> void:
@@ -541,11 +587,20 @@ func _validate_settings_presentation_requires_apply() -> void:
 	_expect(
 		not settings_manager.current_settings.chat_dock_right
 		and not settings_manager.current_settings.chat_mobile_mode
-		and settings_manager.current_settings.paint_dock_right,
+		and settings_manager.current_settings.paint_dock_right
+		and not settings_manager.current_settings.presentation_layout_customized,
 		(
 			"Navigating presentation choices changed saved docking settings "
 			+ "before Apply."
 		),
+	)
+	panel.call("_apply_settings")
+	_expect(
+		settings_manager.current_settings.chat_dock_right
+		and settings_manager.current_settings.chat_mobile_mode
+		and not settings_manager.current_settings.paint_dock_right
+		and settings_manager.current_settings.presentation_layout_customized,
+		"Applying deliberate presentation choices did not retain them.",
 	)
 	panel.close_panel(true)
 	panel.queue_free()
@@ -622,6 +677,7 @@ func _validate_profile_confirmation_focus() -> void:
 		account_controls.append(item as Control)
 	var preview := page.get("_preview") as Control
 	var reset_view := page.get("_reset_view_button") as Button
+	var reset_view_hint := page.get("_reset_view_controller_hint") as Label
 	_expect(
 		suggestion in account_controls,
 		"Profile name-conflict choices are outside the account zone.",
@@ -637,6 +693,34 @@ func _validate_profile_confirmation_focus() -> void:
 	_expect(
 		reset_view.focus_mode == Control.FOCUS_NONE,
 		"The profile reset-view button must not take controller focus.",
+	)
+	_expect(
+		reset_view_hint != null
+		and reset_view_hint.text == "Reset View: RS"
+		and reset_view_hint.focus_mode == Control.FOCUS_NONE,
+		"The profile preview does not present its right-stick reset hint.",
+	)
+	preview.set("_camera_yaw", 1.0)
+	preview.set("_camera_pitch", 0.4)
+	preview.set("_camera_distance", 2.5)
+	var reset_view_event := InputEventJoypadButton.new()
+	reset_view_event.button_index = JOY_BUTTON_RIGHT_STICK
+	reset_view_event.pressed = true
+	_expect(
+		bool(page.call("handle_controller_input", reset_view_event)),
+		"Profile customization did not consume right-stick reset.",
+	)
+	_expect(
+		is_equal_approx(float(preview.get("_camera_yaw")), 0.0)
+		and is_equal_approx(
+			float(preview.get("_camera_pitch")),
+			ProfilePreview.DEFAULT_CAMERA_PITCH,
+		)
+		and is_equal_approx(
+			float(preview.get("_camera_distance")),
+			ProfilePreview.DEFAULT_CAMERA_DISTANCE,
+		),
+		"Right-stick click did not restore the default profile preview view.",
 	)
 	page.call("_show_confirmation", "defaults")
 	var confirmation := page.get("_discard_confirmation") as Control
@@ -1087,11 +1171,13 @@ func _validate_inventory_tab_zone_transitions() -> void:
 		inventory_state.add_child(node)
 	bag.setup(ItemCatalogResource)
 	layout.setup(bag, catches, ItemCatalogResource, storage_capacity)
+	assert(layout.restore_backpack_level(1))
 	bag.set_inventory_layout(layout)
 	catches.set_inventory_layout(layout)
 	hotbar.setup(bag, ItemCatalogResource, catches, layout)
 	assert(bag.add_item(&"basic_fishing_rod", 1))
 	assert(bag.add_item(&"coffee", 1))
+	assert(bag.add_item(&"worms", 1))
 	assert(layout.move_entry(
 		PlayerInventoryLayout.EntryKind.ITEM,
 		&"basic_fishing_rod",
@@ -1415,6 +1501,47 @@ func _validate_inventory_tab_zone_transitions() -> void:
 	)
 	for _frame: int in 2:
 		await process_frame
+
+	menu.call("_show_section_immediate", PlayerMenuType.Section.TACKLE_BOX)
+	menu.call("_set_content_interactive", true)
+	menu.set(
+		"_controller_ownership",
+		PlayerMenuType.ControllerOwnership.ITEM_LIST,
+	)
+	menu.call("_apply_inventory_controller_zone_focus_modes")
+	menu.call("_configure_tackle_item_focus")
+	for _frame: int in 2:
+		await process_frame
+	var tackle_buttons: Dictionary = menu.get("_tackle_item_buttons")
+	var worms_button := tackle_buttons.get(&"worms") as Button
+	_expect(worms_button != null, "Tackle test could not find unlocked worms.")
+	if worms_button != null:
+		worms_button.grab_focus()
+		menu.call("_handle_controller_ownership_input", accept)
+		menu.call("_handle_controller_ownership_input", accept_release)
+		_expect(
+			StringName(menu.get("_selected_tackle_item_id")).is_empty(),
+			"Controller A still activates a bait or lure inventory action.",
+		)
+		_expect(
+			not (menu.get_node("%TackleDetailPanel") as Control).visible,
+			"Controller A opened the tackle notepad reserved for Y.",
+		)
+		_expect(
+			bool(menu.call(
+				"_handle_controller_ownership_input", context_press
+			)),
+			"Controller Y did not open the bait/lure equip notepad.",
+		)
+		_expect(
+			menu.get("_controller_ownership")
+			== PlayerMenuType.ControllerOwnership.NOTEPAD_ACTIONS,
+			"Tackle notepad did not take controller ownership after Y.",
+		)
+		_expect(
+			(menu.get_node("%TackleDetailPanel") as Control).visible,
+			"Controller Y left the bait/lure equip notepad hidden.",
+		)
 	menu.queue_free()
 	inventory_state.queue_free()
 	await process_frame

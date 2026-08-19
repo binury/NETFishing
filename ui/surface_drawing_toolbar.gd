@@ -5,6 +5,9 @@ const UtilityPageStyleType = preload("res://ui/utility_page_style.gd")
 const ControllerVirtualCursorType = preload(
 	"res://ui/controller_virtual_cursor.gd"
 )
+const LockedContentPresentationType = preload(
+	"res://ui/components/locked_content_presentation.gd"
+)
 const MARKER_MODE_ICON: Texture2D = preload(
 	"res://items/icons/art/art_kit_marker.png"
 )
@@ -29,6 +32,10 @@ const GRID_SIZE_ICONS: Dictionary[int, Texture2D] = {
 const TOOLBAR_WIDTH: float = 510.0
 const TOOLBAR_HEIGHT: float = 373.0
 const COLOR_RAIL_WIDTH: float = 46.0
+const POPUP_LOCK_ICON_SIZE: int = 24
+const POPUP_LOCK_CANVAS_SIZE: int = 40
+const POPUP_LOCK_ICON_ALPHA: float = 0.72
+const COLOR_LOCK_ICON_ALPHA: float = 0.34
 
 @onready var _mode_button: Button = %ModeButton
 @onready var _brush_option: OptionButton = %BrushOption
@@ -50,6 +57,8 @@ var _marker_mode_material: ShaderMaterial
 var _brush_popup_cursor: ControllerVirtualCursorType
 var _grid_popup_cursor: ControllerVirtualCursorType
 var _applied_marker_icon_color: Color = Color(-1.0, -1.0, -1.0, -1.0)
+var _brush_option_icons: Dictionary[int, Texture2D] = {}
+var _popup_lock_icon: Texture2D
 
 
 func _ready() -> void:
@@ -98,6 +107,10 @@ func _ready() -> void:
 	_configure_pointer_only_controls()
 	_brush_popup_cursor = _add_popup_cursor(_brush_option.get_popup())
 	_grid_popup_cursor = _add_popup_cursor(_grid_option.get_popup())
+	_popup_lock_icon = LockedContentPresentationType.make_icon_texture(
+		POPUP_LOCK_ICON_SIZE,
+		POPUP_LOCK_CANVAS_SIZE,
+	)
 	_build_options()
 	_apply_marker_color_to_brush_icons(
 		SurfaceDrawingPalette.get_color(SurfaceDrawingPalette.DEFAULT_COLOR_ID)
@@ -307,19 +320,49 @@ func _build_options() -> void:
 		button.pressed.connect(_select_color.bind(color_id))
 		_color_list.add_child(button)
 		_color_buttons[color_id] = button
+		_add_color_lock_icon(button)
 		_apply_color_button_style(button, color_id, false)
+
+
+func _add_color_lock_icon(button: Button) -> void:
+	var icon_size := Vector2.ONE * (
+		LockedContentPresentationType.COMPACT_ICON_SIZE
+	)
+	var icon := TextureRect.new()
+	icon.name = "UnlockStateIcon"
+	icon.texture = LockedContentPresentationType.ICON
+	icon.set_anchors_preset(Control.PRESET_CENTER)
+	icon.offset_left = -icon_size.x * 0.5
+	icon.offset_top = -icon_size.y * 0.5
+	icon.offset_right = icon_size.x * 0.5
+	icon.offset_bottom = icon_size.y * 0.5
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	icon.modulate = Color(
+		UtilityPageStyleType.OCEAN_TEXT_SECONDARY,
+		COLOR_LOCK_ICON_ALPHA,
+	)
+	icon.z_index = 1
+	icon.visible = false
+	button.add_child(icon)
 
 
 func _apply_marker_color_to_brush_icons(marker_color: Color) -> void:
 	if _applied_marker_icon_color.is_equal_approx(marker_color):
 		return
 	_applied_marker_icon_color = marker_color
+	_brush_option_icons.clear()
 	for index: int in range(_brush_option.item_count):
 		var brush_size: int = _brush_option.get_item_id(index)
-		_brush_option.set_item_icon(
-			index,
-			_channel_masked_icon(BRUSH_SIZE_ICONS[brush_size], marker_color),
+		_brush_option_icons[brush_size] = _channel_masked_icon(
+			BRUSH_SIZE_ICONS[brush_size], marker_color
 		)
+		if _unlocks == null or _unlocks.is_brush_size_unlocked(brush_size):
+			_brush_option.set_item_icon(
+				index, _brush_option_icons[brush_size]
+			)
 
 
 func _channel_masked_icon(source: Texture2D, marker_color: Color) -> Texture2D:
@@ -371,18 +414,26 @@ func _refresh_unlocks() -> void:
 	var brush_popup: PopupMenu = _brush_option.get_popup()
 	for index: int in range(_brush_option.item_count):
 		var brush_size: int = _brush_option.get_item_id(index)
-		brush_popup.set_item_disabled(
-			index, not _unlocks.is_brush_size_unlocked(brush_size)
+		_apply_popup_unlock_state(
+			brush_popup,
+			index,
+			_unlocks.is_brush_size_unlocked(brush_size),
+			_brush_option_icons.get(brush_size, BRUSH_SIZE_ICONS[brush_size]),
 		)
 	var grid_popup: PopupMenu = _grid_option.get_popup()
 	for index: int in range(_grid_option.item_count):
 		var grid_size: int = _grid_option.get_item_id(index)
-		grid_popup.set_item_disabled(
-			index, not _unlocks.is_grid_size_unlocked(grid_size)
+		_apply_popup_unlock_state(
+			grid_popup,
+			index,
+			_unlocks.is_grid_size_unlocked(grid_size),
+			GRID_SIZE_ICONS[grid_size],
 		)
 	for color_id: StringName in _color_buttons:
 		var button: Button = _color_buttons[color_id]
 		button.disabled = not _unlocks.is_color_unlocked(color_id)
+		var lock_icon := button.get_node("UnlockStateIcon") as TextureRect
+		lock_icon.visible = button.disabled
 		_apply_color_button_style(
 			button,
 			color_id,
@@ -392,6 +443,25 @@ func _refresh_unlocks() -> void:
 				and _service.get_color_id() == color_id
 			),
 		)
+
+
+func _apply_popup_unlock_state(
+	popup: PopupMenu,
+	index: int,
+	unlocked: bool,
+	unlocked_icon: Texture2D,
+) -> void:
+	popup.set_item_disabled(index, not unlocked)
+	popup.set_item_icon(index, unlocked_icon if unlocked else _popup_lock_icon)
+	popup.set_item_icon_modulate(
+		index,
+		Color.WHITE
+		if unlocked
+		else Color(
+			UtilityPageStyleType.OCEAN_TEXT_SECONDARY,
+			POPUP_LOCK_ICON_ALPHA,
+		),
+	)
 
 
 func _apply_color_button_style(
@@ -412,7 +482,9 @@ func _apply_color_button_style(
 		style.set_corner_radius_all(17)
 		button.add_theme_stylebox_override(style_name, style)
 	var disabled_style := StyleBoxFlat.new()
-	disabled_style.bg_color = UtilityPageStyleType.OCEAN_DISABLED
+	disabled_style.bg_color = (
+		LockedContentPresentationType.disabled_background_color()
+	)
 	disabled_style.set_corner_radius_all(17)
 	button.add_theme_stylebox_override("disabled", disabled_style)
 
