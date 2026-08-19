@@ -5,6 +5,11 @@ const HotbarScene = preload("res://ui/hotbar.tscn")
 const UIReferencePresentationType = preload(
 	"res://ui/ui_reference_presentation.gd"
 )
+const FishSaleResultType = preload("res://economy/fish_sale_result.gd")
+const CurrencyPresentationType = preload(
+	"res://ui/currency_presentation.gd"
+)
+const PelicanBuyer = preload("res://economy/buyers/pelicans.tres")
 const EXPECTED_HOST_SIZE := Vector2(278.0, 484.0)
 const EXPECTED_ART_SIZE := Vector2(306.28125, 580.8)
 const EXPECTED_ART_POSITION := Vector2(-4.140625, -28.4)
@@ -66,6 +71,7 @@ func _run() -> void:
 	await _validate_profile_content_bounds(player_menu)
 	await _validate_hotbar_centering(presentation_stage)
 	_validate_inventory_layering(player_menu)
+	_validate_sale_confirmation_copy(player_menu)
 	_validate_tackle_to_items_transition(player_menu)
 	_validate_cooler_notepad_typography(player_menu)
 	_validate_resolution_matrix()
@@ -211,11 +217,129 @@ func _validate_profile_content_bounds(player_menu: PlayerMenu) -> void:
 	var body := option_list.get_parent() as Control
 	var preview := profile.get("_preview") as Control
 	var shell := profile.find_child("UtilityMainBox", true, false) as Control
-	assert(option_list != null and body != null and preview != null and shell != null)
-	for category_id: String in ["fur_pattern", "voice"]:
+	var content_zone := profile.find_child(
+		"ProfileContentZone", true, false
+	) as Control
+	var profile_layout := profile.find_child(
+		"ProfileLayout", true, false
+	) as Control
+	var account_row := profile.find_child(
+		"ProfileAccountRow", true, false
+	) as Control
+	var body_panel := profile.find_child(
+		"ProfileBodyPanel", true, false
+	) as Control
+	assert(option_list != null and body != null and preview != null)
+	assert(shell != null and content_zone != null and profile_layout != null)
+	assert(account_row != null and body_panel != null)
+	var content_frame_size := Vector2(
+		UtilityPageStyle.LAPTOP_RECT.size.x - 40.0,
+		UtilityPageStyle.LAPTOP_RECT.size.y - 42.0,
+	)
+	assert(
+		content_zone.size.is_equal_approx(content_frame_size),
+		(
+			"profile content zone changed size: %s != %s; "
+			+ "layout min=%s account min=%s body min=%s"
+		) % [
+			content_zone.size,
+			content_frame_size,
+			profile_layout.get_combined_minimum_size(),
+			account_row.get_combined_minimum_size(),
+			body_panel.get_combined_minimum_size(),
+		],
+	)
+	assert(
+		profile_layout.size.is_equal_approx(
+			UtilityPageStyle.LAPTOP_CONTENT_SIZE
+		),
+		"profile layout changed size: %s != %s" % [
+			profile_layout.size,
+			UtilityPageStyle.LAPTOP_CONTENT_SIZE,
+		],
+	)
+	assert(
+		profile_layout.get_combined_minimum_size().x
+		<= profile_layout.size.x,
+		"profile layout exceeded shared content width: %s > %s" % [
+			profile_layout.get_combined_minimum_size().x,
+			profile_layout.size.x,
+		],
+	)
+	var content_rect: Rect2 = profile_layout.get_global_rect()
+	for section: Control in [account_row, body_panel]:
+		var section_rect: Rect2 = section.get_global_rect()
+		assert(section_rect.position.x >= content_rect.position.x - 0.5)
+		assert(section_rect.end.x <= content_rect.end.x + 0.5)
+	var category_ids: Array[String] = []
+	for category_id: String in CharacterCustomizationCatalog.CATEGORY_IDS:
+		category_ids.append(category_id)
+	category_ids.append("voice")
+	for category_id: String in category_ids:
 		profile.call("_select_category", category_id)
 		await process_frame
 		await process_frame
+		assert(
+			shell.position.is_equal_approx(
+				UtilityPageStyle.LAPTOP_RECT.position
+			),
+			"%s profile shell position changed: %s" % [
+				category_id,
+				shell.position,
+			],
+		)
+		assert(
+			shell.size.is_equal_approx(UtilityPageStyle.LAPTOP_RECT.size),
+			"%s profile shell size changed: %s != %s" % [
+				category_id,
+				shell.size,
+				UtilityPageStyle.LAPTOP_RECT.size,
+			],
+		)
+		assert(
+			content_zone.size.is_equal_approx(content_frame_size),
+			"%s profile content zone changed size: %s != %s" % [
+				category_id,
+				content_zone.size,
+				content_frame_size,
+			],
+		)
+		assert(
+			profile_layout.size.is_equal_approx(
+				UtilityPageStyle.LAPTOP_CONTENT_SIZE
+			),
+			"%s profile layout changed size: %s != %s" % [
+				category_id,
+				profile_layout.size,
+				UtilityPageStyle.LAPTOP_CONTENT_SIZE,
+			],
+		)
+		assert(
+			profile_layout.get_combined_minimum_size().x
+			<= profile_layout.size.x,
+			"%s profile layout exceeded shared content width: %s > %s" % [
+				category_id,
+				profile_layout.get_combined_minimum_size().x,
+				profile_layout.size.x,
+			],
+		)
+		var category_body_rect: Rect2 = body_panel.get_global_rect()
+		assert(
+			category_body_rect.end.x <= content_rect.end.x + 0.5,
+			"%s body overflowed shared content: %s > %s" % [
+				category_id,
+				category_body_rect.end.x,
+				content_rect.end.x,
+			],
+		)
+		assert(
+			category_body_rect.end.y <= content_rect.end.y + 0.5,
+			"%s body overflowed shared content vertically: %s > %s" % [
+				category_id,
+				category_body_rect.end.y,
+				content_rect.end.y,
+			],
+		)
 		assert(
 			body.get_combined_minimum_size().x <= body.size.x,
 			"%s customization content overflowed its body: %s > %s" % [
@@ -226,9 +350,36 @@ func _validate_profile_content_bounds(player_menu: PlayerMenu) -> void:
 		)
 		assert(
 			preview.get_global_rect().end.x
-			<= shell.get_global_rect().end.x,
+			<= content_rect.end.x + 0.5,
 			"%s preview overflowed the utility content area" % category_id,
 		)
+	profile.call("_select_category", "fur_pattern")
+	profile.call("_select_fur_section", "colors")
+	await process_frame
+	await process_frame
+	var color_panel := profile.find_child(
+		"FurColorOptionsPanel", true, false
+	) as Control
+	var color_scroll := profile.find_child(
+		"FurColorScroll", true, false
+	) as ScrollContainer
+	assert(color_panel != null and color_scroll != null)
+	assert(
+		color_panel.get_global_rect().end.y
+		<= body_panel.get_global_rect().end.y + 0.5,
+		"fur color panel overflowed profile body: %s > %s" % [
+			color_panel.get_global_rect().end.y,
+			body_panel.get_global_rect().end.y,
+		],
+	)
+	assert(
+		profile_layout.get_combined_minimum_size().y
+		<= profile_layout.size.y,
+		"fur colors expanded profile layout vertically: %s > %s" % [
+			profile_layout.get_combined_minimum_size().y,
+			profile_layout.size.y,
+		],
+	)
 	profile.visible = profile_was_visible
 	player_menu.visible = menu_was_visible
 
@@ -310,6 +461,28 @@ func _validate_inventory_layering(player_menu: PlayerMenu) -> void:
 			UtilityPageStyle.OCEAN_PANEL_DEEP
 		)
 	)
+
+
+func _validate_sale_confirmation_copy(player_menu: PlayerMenu) -> void:
+	var preview := FishSaleResultType.new()
+	preview.fish_count = 1
+	preview.payout = 3
+	preview.base_value = 12
+	var message: String = str(player_menu.call(
+		"_sale_confirmation_text",
+		preview,
+		PelicanBuyer,
+		preview.base_value,
+	))
+	assert(message == (
+		"[center]You can sell this fish to the pelicans now for %s, "
+		+ "but the shop is willing to pay %s![/center]"
+	) % [
+		CurrencyPresentationType.bbcode_amount(preview.payout, 22),
+		CurrencyPresentationType.bbcode_amount(preview.base_value, 22),
+	])
+	assert((player_menu.get_node("%ConfirmSaleButton") as Button).text == "sell now")
+	assert((player_menu.get_node("%CancelSaleButton") as Button).text == "nevermind")
 
 
 func _validate_tackle_to_items_transition(player_menu: PlayerMenu) -> void:
@@ -513,7 +686,10 @@ func _capture_inventory_pages(player_menu: PlayerMenu) -> void:
 	) as Label
 	assert(sale_confirmation != null)
 	assert(confirmation_message != null)
-	confirmation_message.text = "sell selected fish?"
+	confirmation_message.text = (
+		"You can sell this fish to the pelicans now, "
+		+ "but the shop will pay more!"
+	)
 	sale_confirmation.visible = true
 	await process_frame
 	await process_frame

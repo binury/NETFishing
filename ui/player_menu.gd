@@ -88,6 +88,7 @@ const NAVIGATION_CANONICAL_POSITION := Vector2(
 )
 const NAVIGATION_SELECTED_SCALE: float = 1.02
 const MAIN_SHOP_BUYER_ID: StringName = &"main_fishing_shop"
+const PELICAN_BUYER_ID: StringName = &"pelicans"
 
 signal menu_visibility_changed(is_open: bool)
 signal inventory_hotbar_context_changed(show_hotbar: bool)
@@ -274,6 +275,7 @@ var _network_profile_service: NetworkProfileService
 var _network_player_list: NetworkPlayerListService
 var _controller_mapping_manager: ControllerMappingManagerType
 var _default_buyer: FishBuyerProfileType
+var _shop_buyer: FishBuyerProfileType
 var _sale_buyer_override: FishBuyerProfileType
 var _shop_cooler_context_active: bool = false
 var _cooler_original_parent: Node
@@ -531,6 +533,7 @@ func setup(
 	wallet: PlayerWalletType,
 	sale_service: FishSaleServiceType,
 	default_buyer: FishBuyerProfileType,
+	shop_buyer: FishBuyerProfileType,
 	catalog: FishPoolType,
 	fishing_spot: FishingSpotType,
 	bag: PlayerBagType,
@@ -556,6 +559,7 @@ func setup(
 	_wallet = wallet
 	_sale_service = sale_service
 	_default_buyer = default_buyer
+	_shop_buyer = shop_buyer
 	_catalog = catalog
 	_fishing_spot = fishing_spot
 	_bag = bag
@@ -5086,17 +5090,19 @@ func _begin_sale_confirmation(catch_ids: Array[StringName]) -> void:
 	_confirmation_buyer = active_buyer
 	_confirmation_buyer_id = active_buyer.id
 	_confirmation_generation = _menu_generation
-	var fish_label: String = "fish"
-	_confirmation_message.text = (
-		"[center]sell %d %s to the %s for %s?\n"
-		+ "combined base value: %s[/center]"
-	) % [
-		preview.fish_count,
-		fish_label,
-		_get_buyer_display_group(active_buyer),
-		CurrencyPresentationType.bbcode_amount(preview.payout, 22),
-		CurrencyPresentationType.bbcode_amount(preview.base_value, 22),
-	]
+	var shop_payout: int = preview.base_value
+	if _shop_buyer != null and _shop_buyer.is_valid():
+		var shop_preview: FishSaleResultType = _sale_service.preview_batch(
+			catch_ids,
+			_shop_buyer,
+		)
+		if shop_preview != null and shop_preview.is_success():
+			shop_payout = shop_preview.payout
+	_confirmation_message.text = _sale_confirmation_text(
+		preview,
+		active_buyer,
+		shop_payout,
+	)
 	_sale_confirmation.visible = true
 	if _shop_cooler_context_active:
 		shop_cooler_modal_changed.emit(true)
@@ -5106,6 +5112,36 @@ func _begin_sale_confirmation(catch_ids: Array[StringName]) -> void:
 		button.mouse_filter = Control.MOUSE_FILTER_STOP
 	_confirm_sale_button.disabled = false
 	_cancel_sale_button.grab_focus()
+
+
+func _sale_confirmation_text(
+	preview: FishSaleResultType,
+	buyer: FishBuyerProfileType,
+	shop_payout: int,
+) -> String:
+	var catch_label: String = (
+		"this fish"
+		if preview.fish_count == 1
+		else "these %d fish" % preview.fish_count
+	)
+	var payout_text: String = CurrencyPresentationType.bbcode_amount(
+		preview.payout,
+		22,
+	)
+	if buyer != null and buyer.id == PELICAN_BUYER_ID:
+		return (
+			"[center]You can sell %s to the pelicans now for %s, "
+			+ "but the shop is willing to pay %s![/center]"
+		) % [
+			catch_label,
+			payout_text,
+			CurrencyPresentationType.bbcode_amount(shop_payout, 22),
+		]
+	return "[center]Sell %s to the %s now for %s?[/center]" % [
+		catch_label,
+		_get_buyer_display_group(buyer),
+		payout_text,
+	]
 
 
 func _on_confirm_sale_pressed() -> void:

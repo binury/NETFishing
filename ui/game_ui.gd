@@ -404,6 +404,7 @@ func setup(
 		wallet,
 		sale_service,
 		default_buyer,
+		main_shop_buyer,
 		catalog,
 		fishing_spot,
 		bag,
@@ -2247,6 +2248,7 @@ func _update_experience_bubble_position() -> void:
 
 func _on_player_menu_visibility_changed(is_open: bool) -> void:
 	_player_menu_open = is_open
+	_chat_ui.set_world_speech_visible(not is_open)
 	if is_open:
 		_end_virtual_mouse()
 	_refresh_surface_drawing_activation()

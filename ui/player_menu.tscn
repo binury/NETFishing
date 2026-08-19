@@ -914,13 +914,13 @@ alignment = 1
 [node name="ConfirmSaleButton" type="Button" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/SaleConfirmation/ConfirmationMargin/ConfirmationLayout/ConfirmationButtons"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "confirm"
+text = "sell now"
 custom_minimum_size = Vector2(140, 44)
 
 [node name="CancelSaleButton" type="Button" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot/SaleConfirmation/ConfirmationMargin/ConfirmationLayout/ConfirmationButtons"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "cancel"
+text = "nevermind"
 custom_minimum_size = Vector2(140, 44)
 
 [node name="NavigationCluster" type="Control" parent="ResponsivePlayerMenuStage/PlayerMenuPresentationScaleRoot"]

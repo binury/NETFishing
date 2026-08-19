@@ -10,7 +10,6 @@ const CHAT_SURFACE_COLOR := Color(0.025, 0.13, 0.19, 0.94)
 const PANEL_WIDTH: float = 290.0
 const COMPACT_HEIGHT: float = 250.0
 const BOTTOM_MARGIN: float = 12.0
-const EXPANDED_TOP_MARGIN: float = 94.0
 const MIN_TOP_MARGIN: float = 24.0
 const MIN_HISTORY_HEIGHT: float = 92.0
 const HISTORY_FONT_SIZE: int = 20
@@ -45,6 +44,14 @@ const CALENDAR_SIZE := Vector2(
 )
 const CALENDAR_FONT_SIZE: int = 16
 const CALENDAR_TOP_GAP: float = 4.0
+const EXPANDED_CHAT_TOP_GAP: float = 12.0
+const EXPANDED_TOP_MARGIN: float = (
+	CLOCK_EDGE_MARGIN
+	+ CLOCK_SIZE.y
+	+ CALENDAR_TOP_GAP
+	+ CALENDAR_SIZE.y
+	+ EXPANDED_CHAT_TOP_GAP
+)
 const STATUS_EFFECT_ICON_SIZE := Vector2(40.0, 40.0)
 const STATUS_EFFECT_TOP_GAP: float = 6.0
 const STATUS_EFFECT_ICON_GAP: int = 4
@@ -116,6 +123,7 @@ var _height_tween: Tween
 var _opened: bool = false
 var _available: bool = false
 var _hud_hidden: bool = false
+var _world_speech_visible: bool = true
 var _presentation_state := PresentationState.COMPACT
 var _visible_state_before_collapse := PresentationState.COMPACT
 var _panel_hovered: bool = false
@@ -1198,6 +1206,16 @@ func set_hud_hidden(hidden: bool) -> void:
 
 func is_hud_hidden() -> bool:
 	return _hud_hidden
+
+
+func set_world_speech_visible(should_be_visible: bool) -> void:
+	_world_speech_visible = should_be_visible
+	if _speech_layer != null:
+		_speech_layer.visible = should_be_visible
+
+
+func is_world_speech_visible() -> bool:
+	return _world_speech_visible
 
 
 func _refresh_handle_labels(state: PresentationState) -> void:

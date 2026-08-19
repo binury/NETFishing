@@ -62,6 +62,21 @@ func _run() -> void:
 	root.add_child(presenter)
 	await process_frame
 	chat_ui.set_available(true)
+	var speech_layer := chat_ui.get("_speech_layer") as Control
+	assert(speech_layer != null and speech_layer.visible)
+	game_ui.call("_on_player_menu_visibility_changed", true)
+	assert(not chat_ui.is_world_speech_visible())
+	assert(not speech_layer.visible)
+	game_ui.call("_on_player_menu_visibility_changed", false)
+	assert(chat_ui.is_world_speech_visible())
+	assert(speech_layer.visible)
+	chat_ui.set_available(true)
+	chat_ui.call(
+		"_set_presentation_state",
+		ChatUI.PresentationState.EXPANDED,
+		false,
+		false,
+	)
 	print(
 		"UI viewport embedding: root=%s subviewport=%s"
 		% [root.gui_embed_subwindows, ui_viewport.gui_embed_subwindows]
@@ -186,6 +201,13 @@ func _run() -> void:
 			+ ChatUI.CALENDAR_TOP_GAP,
 		)))
 		assert(calendar_panel.size.is_equal_approx(ChatUI.CALENDAR_SIZE))
+		assert(
+			chat_panel.position.y
+			>= calendar_panel.position.y
+			+ calendar_panel.size.y
+			+ ChatUI.EXPANDED_CHAT_TOP_GAP
+			- 0.01
+		)
 		assert(is_equal_approx(
 			status_effect_column.position.x,
 			calendar_panel.position.x

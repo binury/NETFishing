@@ -13,6 +13,10 @@ const FUR_PART_TAB_WIDTH: float = 58.0
 const FUR_COLOR_PICKER_POPUP_SIZE: Vector2i = Vector2i(720, 560)
 const FUR_COLOR_PICKER_SV_SIZE: Vector2i = Vector2i(520, 300)
 const VOICE_OPTION_BUTTON_SIZE: Vector2 = Vector2(68.0, 32.0)
+const HEADER_ACTION_FONT_SIZE: int = 18
+const BODY_COLUMN_SEPARATION: int = 12
+const SIZE_ENDPOINT_FONT_SIZE: int = 18
+const SIZE_SLIDER_MIN_WIDTH: float = 180.0
 const FUR_SECTION_PATTERNS: String = "patterns"
 const FUR_SECTION_COLORS: String = "colors"
 const FEATURE_DRAWER_ANIMATION_SECONDS: float = 0.16
@@ -572,11 +576,14 @@ func has_modal_confirmation() -> bool:
 func _build_ui() -> void:
 	UtilityPageStyle.apply_page(self)
 	var margin: MarginContainer = UtilityPageStyle.build_laptop_screen(self)
+	margin.name = "ProfileContentZone"
 	var layout := VBoxContainer.new()
+	layout.name = "ProfileLayout"
 	layout.add_theme_constant_override("separation", 8)
 	margin.add_child(layout)
 
 	var account_row := HBoxContainer.new()
+	account_row.name = "ProfileAccountRow"
 	account_row.add_theme_constant_override("separation", 14)
 	layout.add_child(account_row)
 	var account_stack := VBoxContainer.new()
@@ -668,6 +675,7 @@ func _build_ui() -> void:
 	experience_row.add_child(_experience_value)
 
 	var actions := HBoxContainer.new()
+	actions.name = "ProfileActionRow"
 	actions.alignment = BoxContainer.ALIGNMENT_END
 	actions.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	actions.add_theme_constant_override("separation", 7)
@@ -676,28 +684,41 @@ func _build_ui() -> void:
 	_customize_button.text = "customize"
 	_customize_button.custom_minimum_size.x = 96.0
 	UtilityPageStyle.apply_compact_ocean_button(_customize_button)
+	_customize_button.add_theme_font_size_override(
+		"font_size", HEADER_ACTION_FONT_SIZE
+	)
 	_customize_button.pressed.connect(_enter_controller_customization)
 	actions.add_child(_customize_button)
 	_apply_button = Button.new()
 	_apply_button.text = "apply"
 	_apply_button.custom_minimum_size.x = 72.0
 	UtilityPageStyle.apply_compact_ocean_button(_apply_button)
+	_apply_button.add_theme_font_size_override(
+		"font_size", HEADER_ACTION_FONT_SIZE
+	)
 	_apply_button.pressed.connect(_apply)
 	actions.add_child(_apply_button)
 	_revert_button = Button.new()
 	_revert_button.text = "revert"
 	_revert_button.custom_minimum_size.x = 76.0
 	UtilityPageStyle.apply_compact_ocean_button(_revert_button)
+	_revert_button.add_theme_font_size_override(
+		"font_size", HEADER_ACTION_FONT_SIZE
+	)
 	_revert_button.pressed.connect(_revert)
 	actions.add_child(_revert_button)
 	_defaults_button = Button.new()
 	_defaults_button.text = "defaults"
 	_defaults_button.custom_minimum_size.x = 82.0
 	UtilityPageStyle.apply_compact_ocean_button(_defaults_button)
+	_defaults_button.add_theme_font_size_override(
+		"font_size", HEADER_ACTION_FONT_SIZE
+	)
 	_defaults_button.pressed.connect(_show_confirmation.bind("defaults"))
 	actions.add_child(_defaults_button)
 
 	var body_panel := PanelContainer.new()
+	body_panel.name = "ProfileBodyPanel"
 	body_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	body_panel.add_theme_stylebox_override(
 		"panel", UtilityPageStyle.row_style(false)
@@ -711,7 +732,9 @@ func _build_ui() -> void:
 	body_panel.add_child(body_margin)
 	var body := HBoxContainer.new()
 	body.alignment = BoxContainer.ALIGNMENT_BEGIN
-	body.add_theme_constant_override("separation", 16)
+	body.add_theme_constant_override(
+		"separation", BODY_COLUMN_SEPARATION
+	)
 	body_margin.add_child(body)
 	var category_scroll := ScrollContainer.new()
 	category_scroll.name = "CategoryScroll"
@@ -1134,6 +1157,9 @@ func _build_scale_option() -> void:
 	var small_label := Label.new()
 	small_label.text = "small"
 	small_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	small_label.add_theme_font_size_override(
+		"font_size", SIZE_ENDPOINT_FONT_SIZE
+	)
 	small_label.add_theme_color_override(
 		"font_color", UtilityPageStyle.OCEAN_TEXT_SECONDARY
 	)
@@ -1144,7 +1170,7 @@ func _build_scale_option() -> void:
 	slider.min_value = CharacterCustomizationCatalog.MIN_CHARACTER_SCALE
 	slider.max_value = CharacterCustomizationCatalog.MAX_CHARACTER_SCALE
 	slider.step = CharacterCustomizationCatalog.CHARACTER_SCALE_STEP
-	slider.custom_minimum_size = Vector2(220.0, 40.0)
+	slider.custom_minimum_size = Vector2(SIZE_SLIDER_MIN_WIDTH, 40.0)
 	slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	slider.tooltip_text = "character size"
 	slider.value = CharacterCustomizationCatalog.character_scale(
@@ -1159,6 +1185,9 @@ func _build_scale_option() -> void:
 	var large_label := Label.new()
 	large_label.text = "large"
 	large_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	large_label.add_theme_font_size_override(
+		"font_size", SIZE_ENDPOINT_FONT_SIZE
+	)
 	large_label.add_theme_color_override(
 		"font_color", UtilityPageStyle.OCEAN_TEXT_SECONDARY
 	)
@@ -1581,7 +1610,7 @@ func _build_fur_pattern_options() -> void:
 func _build_fur_color_channels(options: Array) -> void:
 	var color_panel := PanelContainer.new()
 	color_panel.name = "FurColorOptionsPanel"
-	color_panel.custom_minimum_size.y = 250.0
+	color_panel.custom_minimum_size.y = 180.0
 	color_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	color_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	color_panel.add_theme_stylebox_override(
@@ -1595,12 +1624,18 @@ func _build_fur_color_channels(options: Array) -> void:
 	color_margin.add_theme_constant_override("margin_right", 14)
 	color_margin.add_theme_constant_override("margin_bottom", 12)
 	color_panel.add_child(color_margin)
+	var color_scroll := ScrollContainer.new()
+	color_scroll.name = "FurColorScroll"
+	color_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	color_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	color_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	color_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	color_margin.add_child(color_scroll)
 	var color_stack := VBoxContainer.new()
 	color_stack.name = "FurColorStack"
 	color_stack.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	color_stack.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	color_stack.add_theme_constant_override("separation", 10)
-	color_margin.add_child(color_stack)
+	color_scroll.add_child(color_stack)
 
 	var channel_grid := GridContainer.new()
 	channel_grid.name = "FurColorChannelGrid"

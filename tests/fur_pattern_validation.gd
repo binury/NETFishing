@@ -287,7 +287,10 @@ func _validate_fur_color_ui(snapshot: Dictionary) -> void:
 	) as ColorPickerButton
 	var picker_popup := picker.get_popup()
 	var picker_control := picker.get_picker()
-	assert(color_panel != null and color_panel.size.x > 360.0)
+	var option_list := profile_page.get("_option_list") as Control
+	assert(color_panel != null and option_list != null)
+	assert(color_panel.size.x > 0.0)
+	assert(color_panel.size.x <= option_list.size.x + 0.5)
 	assert(channel_grid != null and channel_grid.columns == 2)
 	assert(channel_grid.get_child_count() == 4)
 	assert(palette_grid != null and palette_grid.columns == 6)
