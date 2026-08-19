@@ -5,6 +5,12 @@ const PlayerScene: PackedScene = preload("res://player/player.tscn")
 const CrabBrown: FishData = preload(
 	"res://fish/species/crab_brown/crab_brown.tres"
 )
+const ClamManila: FishData = preload(
+	"res://fish/species/clam_manila/clam_manila.tres"
+)
+const BeetleStagCommon: FishData = preload(
+	"res://fish/species/beetle_stag_common/beetle_stag_common.tres"
+)
 
 
 func _initialize() -> void:
@@ -15,6 +21,18 @@ func _run() -> void:
 	var player := PlayerScene.instantiate() as Player
 	root.add_child(player)
 	await process_frame
+	assert(is_equal_approx(
+		Player.get_catch_texture_resolution_scale(CrabBrown.display_texture),
+		1.0,
+	))
+	assert(is_equal_approx(
+		Player.get_catch_texture_resolution_scale(ClamManila.display_texture),
+		20.0,
+	))
+	assert(is_equal_approx(
+		Player.get_catch_texture_resolution_scale(BeetleStagCommon.display_texture),
+		20.0,
+	))
 	player.set_process(false)
 	player.set_physics_process(false)
 	var animation_player := player.get_node(

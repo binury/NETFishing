@@ -15,6 +15,7 @@ active = false
 catalog_number = 1603
 collection_group = &"Deep shelf fish"
 logbook_fact = "pacific ocean perch hover around deep rocky reefs in the north pacific. these slow-growing fish give birth to live young."
+available_seasons = 15
 allowed_water_types = 2
 rarity = 1
 base_catch_weight = 0.8

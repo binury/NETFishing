@@ -17,6 +17,7 @@ active = false
 catalog_number = 7303
 collection_group = &"Tropical estuary"
 logbook_fact = "common snook wait around mangrove roots and current seams to ambush prey. a bold black lateral line divides their silver flanks."
+available_seasons = 15
 allowed_water_types = 2
 rarity = 2
 base_catch_weight = 0.3

@@ -1,7 +1,7 @@
 class_name NetworkProtocol
 extends RefCounted
 
-const PROTOCOL_VERSION: int = 7
+const PROTOCOL_VERSION: int = 8
 const GAME_BUILD: String = "prealpha"
 const MAX_GAME_VERSION_LENGTH: int = 64
 const MAX_DISPLAY_NAME_LENGTH: int = 24
@@ -22,7 +22,7 @@ const ENET_CHANNEL_COUNT: int = 10
 const SURFACE_DRAWING_CAPABILITY: String = "surface_drawing_v2"
 const ART_SHOP_CAPABILITY: String = "art_shop_v1"
 const BACKPACK_SHOP_CAPABILITY: String = "backpack_shop_v1"
-const WORLD_TIME_CAPABILITY: String = "world_time_v1"
+const WORLD_TIME_CAPABILITY: String = "world_time_v2"
 const WORLD_WEATHER_CAPABILITY: String = "world_weather_v1"
 const FISH_QUALITY_CAPABILITY: String = "fish_quality_v1"
 const JOBS_CAPABILITY: String = "jobs_v1"

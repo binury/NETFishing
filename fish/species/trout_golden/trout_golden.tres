@@ -17,6 +17,7 @@ active = true
 catalog_number = 1105
 collection_group = &"Cold freshwater salmonids"
 logbook_fact = "golden trout evolved in clear, high-elevation california streams. their bright flanks stand out against rocky alpine water."
+available_seasons = 7
 allowed_water_types = 1
 rarity = 2
 base_catch_weight = 0.2

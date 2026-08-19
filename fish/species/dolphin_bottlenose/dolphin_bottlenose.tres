@@ -17,6 +17,7 @@ active = false
 catalog_number = 7702
 collection_group = &"Whales and dolphins"
 logbook_fact = "common bottlenose dolphins coordinate with whistles, clicks, and body signals. echolocation reveals prey hidden in dark or cloudy water."
+available_seasons = 15
 allowed_water_types = 2
 rarity = 4
 base_catch_weight = 0.012

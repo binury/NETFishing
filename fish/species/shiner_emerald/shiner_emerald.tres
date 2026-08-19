@@ -15,6 +15,7 @@ active = false
 catalog_number = 2803
 collection_group = &"Freshwater minnows"
 logbook_fact = "emerald shiners form bright surface schools in large lakes and rivers. slender bodies feed on plankton and drifting insects."
+available_seasons = 7
 allowed_water_types = 1
 rarity = 0
 base_catch_weight = 3.5

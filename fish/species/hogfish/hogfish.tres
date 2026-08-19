@@ -16,6 +16,7 @@ active = false
 catalog_number = 6103
 collection_group = &"Reef wrasses"
 logbook_fact = "hogfish root through sand with long pig-like snouts in search of shellfish. adults can change from female to male as social groups shift."
+available_seasons = 15
 allowed_water_types = 2
 rarity = 2
 base_catch_weight = 0.3

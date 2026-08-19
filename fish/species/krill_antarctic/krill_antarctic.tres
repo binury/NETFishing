@@ -16,6 +16,7 @@ active = false
 catalog_number = 3802
 collection_group = &"Lobsters and shrimp"
 logbook_fact = "antarctic krill form enormous swarms beneath southern seas and ice. these small crustaceans feed whales, seals, penguins, and fish."
+available_seasons = 15
 allowed_water_types = 2
 rarity = 2
 base_catch_weight = 0.3

@@ -17,6 +17,7 @@ active = false
 catalog_number = 7601
 collection_group = &"Tropical freshwater predators"
 logbook_fact = "giant snakeheads breathe air and guard schools of young near the surface. long bodies launch sudden attacks from flooded vegetation."
+available_seasons = 15
 allowed_water_types = 1
 rarity = 3
 base_catch_weight = 0.1

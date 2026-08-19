@@ -17,6 +17,7 @@ active = false
 catalog_number = 7501
 collection_group = &"Tropical freshwater fish"
 logbook_fact = "clown knifefish undulate one long belly fin to glide forward or backward. dark eye-like spots line their silver nocturnal bodies."
+available_seasons = 15
 allowed_water_types = 1
 rarity = 2
 base_catch_weight = 0.25

@@ -16,6 +16,7 @@ active = false
 catalog_number = 1602
 collection_group = &"Deep shelf fish"
 logbook_fact = "golden tilefish excavate burrows in soft clay along deep ocean slopes. their bright yellow spots contrast with blue-green backs."
+available_seasons = 15
 allowed_water_types = 2
 rarity = 2
 base_catch_weight = 0.22

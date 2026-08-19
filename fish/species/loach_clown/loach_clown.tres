@@ -17,6 +17,7 @@ active = false
 catalog_number = 7502
 collection_group = &"Tropical freshwater fish"
 logbook_fact = "clown loaches rest in groups and make clicking sounds while feeding. orange bodies carry three broad black bands and small eye spines."
+available_seasons = 15
 allowed_water_types = 1
 rarity = 2
 base_catch_weight = 0.32

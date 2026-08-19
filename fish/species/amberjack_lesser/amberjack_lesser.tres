@@ -15,6 +15,7 @@ active = false
 catalog_number = 3605
 collection_group = &"Large coastal predators"
 logbook_fact = "lesser amberjacks school around deep reefs and floating objects. an enlarged eye suits their preference for dimmer water."
+available_seasons = 6
 allowed_water_types = 2
 rarity = 1
 base_catch_weight = 0.75

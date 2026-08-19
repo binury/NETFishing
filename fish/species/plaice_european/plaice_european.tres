@@ -16,6 +16,7 @@ active = false
 catalog_number = 401
 collection_group = &"Coastal flatfish"
 logbook_fact = "european plaice lie flat on the seafloor with both eyes on the same side. orange spots help distinguish them from neighboring flatfish."
+available_seasons = 13
 allowed_water_types = 2
 rarity = 0
 base_catch_weight = 1.8

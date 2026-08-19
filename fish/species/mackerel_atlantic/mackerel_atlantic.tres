@@ -17,6 +17,7 @@ active = true
 catalog_number = 701
 collection_group = &"Coastal pelagic fish"
 logbook_fact = "atlantic mackerel travel in fast schools across the north atlantic and feed on plankton and small schooling fish."
+available_seasons = 7
 allowed_water_types = 2
 base_catch_weight = 0.5
 catch_profile = ExtResource("2_profile")

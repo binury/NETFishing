@@ -17,6 +17,7 @@ active = true
 catalog_number = 803
 collection_group = &"Coastal schooling fish"
 logbook_fact = "black pomfret have a deep, laterally compressed body that lets them maneuver neatly through open water."
+available_seasons = 15
 allowed_water_types = 2
 rarity = 1
 base_catch_weight = 0.3

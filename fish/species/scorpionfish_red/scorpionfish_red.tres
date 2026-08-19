@@ -16,6 +16,7 @@ active = false
 catalog_number = 5202
 collection_group = &"Reef ambush fish"
 logbook_fact = "red scorpionfish vanish against rocky reefs through mottled color and skin flaps. venomous dorsal spines punish careless predators."
+available_seasons = 15
 allowed_water_types = 2
 rarity = 2
 base_catch_weight = 0.3

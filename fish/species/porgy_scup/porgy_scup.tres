@@ -16,6 +16,7 @@ active = false
 catalog_number = 6904
 collection_group = &"Temperate reef fish"
 logbook_fact = "scup use small strong teeth to crush shellfish and other bottom prey. deep silver bodies gather around piers, reefs, and eelgrass."
+available_seasons = 13
 allowed_water_types = 2
 rarity = 0
 base_catch_weight = 2.2

@@ -17,6 +17,7 @@ active = false
 catalog_number = 5104
 collection_group = &"Rays and skates"
 logbook_fact = "ocellate river stingrays carry bright eye-like spots across a round disc. they hide beneath sand in south american rivers."
+available_seasons = 15
 allowed_water_types = 1
 rarity = 3
 base_catch_weight = 0.09

@@ -17,6 +17,7 @@ active = false
 catalog_number = 4702
 collection_group = &"Oceanic pelagic fish"
 logbook_fact = "opah circulate warm blood through much of the body, an unusual trait among fish. round silver flanks glow with red fins and pale spots."
+available_seasons = 6
 allowed_water_types = 2
 rarity = 3
 base_catch_weight = 0.09

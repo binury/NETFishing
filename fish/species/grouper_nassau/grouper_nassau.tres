@@ -16,6 +16,7 @@ active = false
 catalog_number = 5806
 collection_group = &"Reef predators"
 logbook_fact = "nassau groupers shift their bars and colors with mood and surroundings. adults gather at traditional reef sites to spawn."
+available_seasons = 15
 allowed_water_types = 2
 rarity = 3
 base_catch_weight = 0.12

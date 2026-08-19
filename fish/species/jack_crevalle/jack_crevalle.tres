@@ -17,6 +17,7 @@ active = false
 catalog_number = 705
 collection_group = &"Coastal pelagic fish"
 logbook_fact = "crevalle jacks patrol warm coasts in fast-moving schools. their deep bodies and forked tails deliver long, powerful runs."
+available_seasons = 6
 allowed_water_types = 2
 rarity = 1
 base_catch_weight = 0.8

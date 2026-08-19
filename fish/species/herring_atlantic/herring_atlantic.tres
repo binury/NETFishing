@@ -15,6 +15,7 @@ active = false
 catalog_number = 1301
 collection_group = &"Cold schooling fish"
 logbook_fact = "atlantic herring gather in immense schools that move between feeding and spawning grounds. they filter plankton with fine gill rakers."
+available_seasons = 13
 allowed_water_types = 2
 rarity = 0
 base_catch_weight = 3.0

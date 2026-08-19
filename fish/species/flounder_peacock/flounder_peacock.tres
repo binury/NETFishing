@@ -16,6 +16,7 @@ active = false
 catalog_number = 5401
 collection_group = &"Reef flatfish"
 logbook_fact = "peacock flounders change their spots and colors to match tropical sand. both eyes scan above while the flat body remains concealed."
+available_seasons = 15
 allowed_water_types = 2
 rarity = 2
 base_catch_weight = 0.3

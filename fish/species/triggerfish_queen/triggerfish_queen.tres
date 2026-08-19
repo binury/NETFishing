@@ -17,6 +17,7 @@ active = false
 catalog_number = 5605
 collection_group = &"Reef oddities"
 logbook_fact = "queen triggerfish blow jets of water to uncover buried prey and flip sea urchins. vivid blue lines radiate across the face."
+available_seasons = 15
 allowed_water_types = 2
 rarity = 2
 base_catch_weight = 0.25

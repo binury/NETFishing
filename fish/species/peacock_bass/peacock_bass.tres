@@ -16,6 +16,7 @@ active = false
 catalog_number = 7604
 collection_group = &"Tropical freshwater predators"
 logbook_fact = "peacock bass are aggressive south american cichlids rather than true bass. adults guard nests and hunt fish in warm clear water."
+available_seasons = 15
 allowed_water_types = 1
 rarity = 2
 base_catch_weight = 0.25

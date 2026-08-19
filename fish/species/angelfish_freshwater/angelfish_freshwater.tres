@@ -16,6 +16,7 @@ active = false
 catalog_number = 7504
 collection_group = &"Tropical freshwater fish"
 logbook_fact = "freshwater angelfish slip between tall plants on narrow triangular bodies. long fins and vertical bars resemble stems and shadows."
+available_seasons = 15
 allowed_water_types = 1
 rarity = 2
 base_catch_weight = 0.3

@@ -12,10 +12,11 @@ const WorldGatherableType = preload("res://gathering/world_gatherable.gd")
 const CRAB_PIXEL_SIZE: float = 0.0005
 const REDUCED_CATCH_RING_RADIUS: float = 0.175
 const NET_STRIKE_MARKER_DISTANCE: float = 0.85
+const CalendarSeasonType = preload("res://world/calendar_season.gd")
 
 
 func _initialize() -> void:
-	assert(NetworkProtocol.PROTOCOL_VERSION == 7)
+	assert(NetworkProtocol.PROTOCOL_VERSION == 8)
 	assert(
 		NetworkWorldSpawnProtocol.CAPABILITY
 		== NetworkProtocol.WORLD_SPAWN_CAPABILITY
@@ -67,6 +68,8 @@ func _validate_catalog_statuses() -> void:
 	assert(not clam.catch_data.is_fishable())
 	var beetle: GatherableData = Gatherables.get_entry(&"beetle_stag_common")
 	assert(beetle != null and beetle.is_available())
+	assert(beetle.is_available(CalendarSeasonType.Season.SUMMER))
+	assert(not beetle.is_available(CalendarSeasonType.Season.WINTER))
 	assert(beetle.catch_data.collection_method == FishData.CollectionMethod.NET)
 	assert(beetle.required_tool_id == &"crab_net")
 	assert(beetle.spawn_anchor_set_id == &"starter_reachable_tree_trunks")
@@ -104,6 +107,12 @@ func _validate_catalog_statuses() -> void:
 	assert(available.has(brown))
 	assert(available.has(clam))
 	assert(available.has(beetle))
+	var winter_available: Array[GatherableData] = (
+		Gatherables.get_available_entries(CalendarSeasonType.Season.WINTER)
+	)
+	assert(winter_available.has(brown))
+	assert(winter_available.has(clam))
+	assert(not winter_available.has(beetle))
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 24680
 	var captured_delay: float = brown.get_respawn_delay(&"captured", rng)

@@ -17,6 +17,7 @@ active = false
 catalog_number = 6402
 collection_group = &"Shellfish"
 logbook_fact = "giant clams host photosynthetic algae inside brightly colored mantles. heavy shells remain anchored to one reef spot throughout adulthood."
+available_seasons = 15
 allowed_water_types = 2
 rarity = 3
 base_catch_weight = 0.1

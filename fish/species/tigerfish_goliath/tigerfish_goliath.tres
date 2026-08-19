@@ -16,6 +16,7 @@ active = false
 catalog_number = 2703
 collection_group = &"Freshwater giants"
 logbook_fact = "goliath tigerfish patrol powerful african rivers with interlocking dagger-like teeth. a muscular forked tail drives sudden attacks."
+available_seasons = 15
 allowed_water_types = 1
 rarity = 4
 base_catch_weight = 0.035

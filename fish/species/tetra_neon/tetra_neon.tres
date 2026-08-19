@@ -16,6 +16,7 @@ active = false
 catalog_number = 2102
 collection_group = &"Freshwater aquarium fish"
 logbook_fact = "neon tetras school through shaded forest streams. an iridescent blue stripe remains visible in the dim, tannin-stained water."
+available_seasons = 15
 allowed_water_types = 1
 rarity = 1
 base_catch_weight = 0.9

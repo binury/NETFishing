@@ -17,6 +17,7 @@ active = false
 catalog_number = 3502
 collection_group = &"Jellies"
 logbook_fact = "lion's mane jellies trail dense curtains of tentacles through cold seas. the bell darkens from yellow to deep red as the animal grows."
+available_seasons = 13
 allowed_water_types = 2
 rarity = 3
 base_catch_weight = 0.11

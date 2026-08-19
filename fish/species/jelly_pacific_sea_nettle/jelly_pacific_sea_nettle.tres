@@ -17,6 +17,7 @@ active = false
 catalog_number = 3504
 collection_group = &"Jellies"
 logbook_fact = "pacific sea nettles carry rust-colored stripes across pale bells. long tentacles and frilled mouth arms capture plankton and small fish."
+available_seasons = 6
 allowed_water_types = 2
 rarity = 2
 base_catch_weight = 0.28

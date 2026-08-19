@@ -16,6 +16,7 @@ active = false
 catalog_number = 3303
 collection_group = &"Freshwater predators"
 logbook_fact = "northern pike are solitary ambush hunters built for sudden acceleration. pale bean-shaped spots cover their long green bodies."
+available_seasons = 13
 allowed_water_types = 1
 rarity = 1
 base_catch_weight = 0.75

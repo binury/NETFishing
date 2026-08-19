@@ -16,6 +16,7 @@ active = false
 catalog_number = 503
 collection_group = &"Coastal marine mammals"
 logbook_fact = "sea otters float on their backs while opening shellfish with stones. dense fur traps insulating air because they lack a thick blubber layer."
+available_seasons = 15
 allowed_water_types = 2
 rarity = 4
 base_catch_weight = 0.02

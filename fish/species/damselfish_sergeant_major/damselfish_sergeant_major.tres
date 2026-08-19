@@ -16,6 +16,7 @@ active = false
 catalog_number = 5904
 collection_group = &"Reef schooling fish"
 logbook_fact = "sergeant majors guard purple egg patches on hard reef surfaces. five dark bars cross their yellow and silver bodies."
+available_seasons = 15
 allowed_water_types = 2
 rarity = 0
 base_catch_weight = 2.5

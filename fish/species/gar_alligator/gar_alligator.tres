@@ -16,6 +16,7 @@ active = false
 catalog_number = 2701
 collection_group = &"Freshwater giants"
 logbook_fact = "alligator gar combine a broad tooth-filled snout with heavy armor-like scales. a vascular swim bladder lets them breathe air at the surface."
+available_seasons = 7
 allowed_water_types = 1
 rarity = 4
 base_catch_weight = 0.055

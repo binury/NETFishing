@@ -16,6 +16,7 @@ active = false
 catalog_number = 1801
 collection_group = &"Deep-sea oddities"
 logbook_fact = "black seadevils lure prey with a glowing organ suspended above the mouth. tiny males permanently attach to much larger females."
+available_seasons = 15
 allowed_water_types = 2
 rarity = 4
 base_catch_weight = 0.05

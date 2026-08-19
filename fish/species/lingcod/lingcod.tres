@@ -15,6 +15,7 @@ active = false
 catalog_number = 7001
 collection_group = &"Temperate reef predators"
 logbook_fact = "lingcod guard rocky dens and ambush fish with a huge tooth-lined mouth. despite the name, they are greenling relatives rather than cod."
+available_seasons = 13
 allowed_water_types = 2
 rarity = 2
 base_catch_weight = 0.25

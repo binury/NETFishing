@@ -15,6 +15,7 @@ active = false
 catalog_number = 806
 collection_group = &"Coastal schooling fish"
 logbook_fact = "european pilchards form shimmering schools along atlantic and mediterranean coasts. they feed mainly on plankton near the surface."
+available_seasons = 13
 allowed_water_types = 2
 rarity = 0
 base_catch_weight = 3.5

@@ -15,6 +15,7 @@ active = false
 catalog_number = 3702
 collection_group = &"Large flatfish"
 logbook_fact = "pacific halibut lie camouflaged on cold continental shelves. powerful flat bodies can travel long distances between feeding and spawning grounds."
+available_seasons = 13
 allowed_water_types = 2
 rarity = 3
 base_catch_weight = 0.1

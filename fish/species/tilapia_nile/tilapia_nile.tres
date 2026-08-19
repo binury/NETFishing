@@ -16,6 +16,7 @@ active = false
 catalog_number = 7506
 collection_group = &"Tropical freshwater fish"
 logbook_fact = "nile tilapia thrive in warm lakes and rivers on a varied diet. females protect eggs and young inside their mouths."
+available_seasons = 15
 allowed_water_types = 1
 rarity = 0
 base_catch_weight = 2.2

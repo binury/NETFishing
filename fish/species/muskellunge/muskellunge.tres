@@ -17,6 +17,7 @@ active = false
 catalog_number = 2704
 collection_group = &"Freshwater giants"
 logbook_fact = "muskellunge wait motionless among weeds before exploding toward prey. pale bodies carry bars or spots that fade into broken underwater light."
+available_seasons = 13
 allowed_water_types = 1
 rarity = 3
 base_catch_weight = 0.11

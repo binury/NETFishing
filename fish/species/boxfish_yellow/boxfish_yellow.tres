@@ -16,6 +16,7 @@ active = false
 catalog_number = 5608
 collection_group = &"Reef oddities"
 logbook_fact = "yellow boxfish juveniles are bright cubes covered in black spots. rigid body armor leaves small fins to provide careful steering."
+available_seasons = 15
 allowed_water_types = 2
 rarity = 2
 base_catch_weight = 0.32

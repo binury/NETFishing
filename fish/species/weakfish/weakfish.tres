@@ -17,6 +17,7 @@ active = false
 catalog_number = 6805
 collection_group = &"Temperate estuary"
 logbook_fact = "weakfish are named for delicate mouth tissue that tears easily around a hook. iridescent spots scatter across their bronze backs."
+available_seasons = 7
 allowed_water_types = 2
 rarity = 2
 base_catch_weight = 0.32

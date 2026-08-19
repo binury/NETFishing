@@ -17,6 +17,7 @@ active = false
 catalog_number = 5606
 collection_group = &"Reef oddities"
 logbook_fact = "red cornetfish stalk reefs with extremely long bodies and tubular snouts. a trailing filament extends from the center of the tail."
+available_seasons = 15
 allowed_water_types = 2
 rarity = 3
 base_catch_weight = 0.11

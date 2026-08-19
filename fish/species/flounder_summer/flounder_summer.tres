@@ -16,6 +16,7 @@ active = false
 catalog_number = 402
 collection_group = &"Coastal flatfish"
 logbook_fact = "summer flounder bury themselves in sand with only their eyes exposed. a sudden burst carries them upward to seize passing prey."
+available_seasons = 7
 allowed_water_types = 2
 rarity = 1
 base_catch_weight = 0.9

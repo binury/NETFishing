@@ -17,6 +17,7 @@ active = true
 catalog_number = 4605
 collection_group = &"Oceanic billfish"
 logbook_fact = "white marlin favor warm offshore water and use their rounded dorsal fin and bill to weave through schools of prey."
+available_seasons = 6
 allowed_water_types = 2
 rarity = 3
 base_catch_weight = 0.1

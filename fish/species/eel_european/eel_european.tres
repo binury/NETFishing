@@ -17,6 +17,7 @@ active = false
 catalog_number = 4002
 collection_group = &"Migratory eels"
 logbook_fact = "european eels cross the atlantic as transparent larvae before entering rivers and lakes. mature silver eels return to sea to reproduce."
+available_seasons = 12
 allowed_water_types = 3
 rarity = 2
 base_catch_weight = 0.2

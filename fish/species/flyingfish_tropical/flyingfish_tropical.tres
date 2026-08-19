@@ -17,6 +17,7 @@ active = false
 catalog_number = 6603
 collection_group = &"Surface ocean fish"
 logbook_fact = "tropical flyingfish accelerate underwater before spreading enlarged fins above the surface. glides help them escape pursuing predators."
+available_seasons = 15
 allowed_water_types = 2
 rarity = 2
 base_catch_weight = 0.35

@@ -17,6 +17,7 @@ active = false
 catalog_number = 1403
 collection_group = &"Cold shelf fish"
 logbook_fact = "atlantic pollock are swift relatives of cod with dark backs and pale lateral lines. adults gather around rocky banks and wrecks."
+available_seasons = 13
 allowed_water_types = 2
 rarity = 1
 base_catch_weight = 0.9

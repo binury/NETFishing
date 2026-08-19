@@ -16,6 +16,7 @@ active = false
 catalog_number = 1201
 collection_group = &"Cold reef fish"
 logbook_fact = "atlantic wolffish use heavy jaws and blunt teeth to crush shellfish and urchins. natural antifreeze proteins help them endure icy water."
+available_seasons = 13
 allowed_water_types = 2
 rarity = 2
 base_catch_weight = 0.25

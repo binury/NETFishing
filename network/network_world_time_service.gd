@@ -23,6 +23,12 @@ func setup(session: NetworkSession, world_time: WorldTimeService) -> void:
 		_world_time.authoritative_time_set.connect(
 			_on_authoritative_time_set
 		)
+	if not _world_time.calendar_date_changed.is_connected(
+		_on_authoritative_calendar_date_changed
+	):
+		_world_time.calendar_date_changed.connect(
+			_on_authoritative_calendar_date_changed
+		)
 	set_process(true)
 
 
@@ -90,6 +96,13 @@ func _on_authoritative_time_set(_time_hours: float) -> void:
 	_broadcast_snapshot()
 
 
+func _on_authoritative_calendar_date_changed(_date_id: String) -> void:
+	if _session == null or not _session.is_host():
+		return
+	_sync_elapsed = 0.0
+	_broadcast_snapshot()
+
+
 func _broadcast_snapshot() -> void:
 	if _session == null or not _session.is_host():
 		return
@@ -107,6 +120,7 @@ func _send_snapshot(peer_id: int) -> void:
 	receive_world_time_snapshot.rpc_id(peer_id, {
 		"session_id": _session.get_session_id(),
 		"time_hours": _world_time.get_time_hours(),
+		"calendar_date_id": _world_time.get_calendar_date_id(),
 		"sequence": _sequence,
 	})
 
@@ -128,7 +142,10 @@ func receive_world_time_snapshot(data: Dictionary) -> void:
 	if sequence <= _last_received_sequence:
 		return
 	_last_received_sequence = sequence
-	_world_time.synchronize_time(float(data["time_hours"]))
+	_world_time.synchronize_calendar_time(
+		float(data["time_hours"]),
+		str(data["calendar_date_id"]),
+	)
 
 
 static func validate_snapshot(data: Variant) -> bool:
@@ -143,6 +160,10 @@ static func validate_snapshot(data: Variant) -> bool:
 		and is_finite(float(value["time_hours"]))
 		and float(value["time_hours"]) >= 0.0
 		and float(value["time_hours"]) < WorldTimeService.HOURS_PER_DAY
+		and typeof(value.get("calendar_date_id")) == TYPE_STRING
+		and WorldTimeService.is_valid_calendar_date_id(
+			str(value["calendar_date_id"])
+		)
 		and typeof(value.get("sequence")) == TYPE_INT
 		and int(value["sequence"]) >= 0
 	)

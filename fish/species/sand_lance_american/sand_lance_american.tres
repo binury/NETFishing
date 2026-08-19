@@ -16,6 +16,7 @@ active = false
 catalog_number = 801
 collection_group = &"Coastal schooling fish"
 logbook_fact = "american sand lance dive headfirst into loose sand when danger approaches. immense schools carry energy from plankton to larger predators."
+available_seasons = 13
 allowed_water_types = 2
 rarity = 0
 base_catch_weight = 3.0

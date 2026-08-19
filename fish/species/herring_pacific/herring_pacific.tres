@@ -16,6 +16,7 @@ active = false
 catalog_number = 1304
 collection_group = &"Cold schooling fish"
 logbook_fact = "pacific herring return to coastal shallows to coat plants and rocks with eggs. their oily schools support entire marine food webs."
+available_seasons = 13
 allowed_water_types = 2
 rarity = 0
 base_catch_weight = 2.8

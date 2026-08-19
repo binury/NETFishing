@@ -16,6 +16,7 @@ active = false
 catalog_number = 6401
 collection_group = &"Shellfish"
 logbook_fact = "black-lip pearl oysters line their shells with dark-edged nacre. a trapped irritant can become coated in the same pearly material."
+available_seasons = 15
 allowed_water_types = 2
 rarity = 2
 base_catch_weight = 0.22

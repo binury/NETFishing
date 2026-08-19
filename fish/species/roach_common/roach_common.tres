@@ -15,6 +15,7 @@ active = false
 catalog_number = 2504
 collection_group = &"Freshwater coarse fish"
 logbook_fact = "common roach thrive in many lakes and rivers, often schooling near vegetation. red fins and a red-orange eye brighten their silver bodies."
+available_seasons = 15
 allowed_water_types = 1
 rarity = 0
 base_catch_weight = 2.8

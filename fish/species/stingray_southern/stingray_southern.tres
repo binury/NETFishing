@@ -16,6 +16,7 @@ active = false
 catalog_number = 5105
 collection_group = &"Rays and skates"
 logbook_fact = "southern stingrays bury in warm sand with only their eyes and spiracles visible. crushing plates break open clams and crustaceans."
+available_seasons = 15
 allowed_water_types = 2
 rarity = 2
 base_catch_weight = 0.23

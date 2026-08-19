@@ -16,6 +16,7 @@ active = false
 catalog_number = 1604
 collection_group = &"Deep shelf fish"
 logbook_fact = "patagonian toothfish patrol cold, deep southern water with large canine teeth. natural antifreeze proteins protect their blood from freezing."
+available_seasons = 15
 allowed_water_types = 2
 rarity = 3
 base_catch_weight = 0.09

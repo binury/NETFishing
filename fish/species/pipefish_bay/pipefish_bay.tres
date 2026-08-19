@@ -16,6 +16,7 @@ active = false
 catalog_number = 601
 collection_group = &"Coastal oddities"
 logbook_fact = "bay pipefish hide upright among seagrass, matching the blades with their slender bodies. males carry developing eggs in a brood pouch."
+available_seasons = 15
 allowed_water_types = 2
 rarity = 1
 base_catch_weight = 0.9

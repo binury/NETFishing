@@ -17,6 +17,7 @@ active = false
 catalog_number = 1001
 collection_group = &"Cold freshwater fish"
 logbook_fact = "burbot are the only freshwater members of the cod family. they become most active in cold darkness and may spawn beneath winter ice."
+available_seasons = 13
 allowed_water_types = 1
 rarity = 2
 base_catch_weight = 0.24

@@ -17,6 +17,7 @@ active = false
 catalog_number = 602
 collection_group = &"Coastal oddities"
 logbook_fact = "lined seahorses anchor to grass and coral with curling tails. the male broods eggs in a pouch and releases fully formed young."
+available_seasons = 15
 allowed_water_types = 2
 rarity = 2
 base_catch_weight = 0.28

@@ -15,6 +15,7 @@ const CatchDifficultyProfileType = preload(
 	"res://fishing/catch_difficulty_profile.gd"
 )
 const FishAvailabilityType = preload("res://fish/fish_availability.gd")
+const CalendarSeasonType = preload("res://world/calendar_season.gd")
 
 enum Rarity {
 	COMMON,
@@ -46,6 +47,8 @@ enum LogbookSection {
 @export var collection_method: CollectionMethod = CollectionMethod.FISHING
 @export var logbook_section: LogbookSection = LogbookSection.AUTOMATIC
 @export var habitat_label: String = ""
+@export_flags("Spring", "Summer", "Fall", "Winter")
+var available_seasons: int = CalendarSeasonType.ALL_MASK
 @export_category("Fishing")
 @export_flags("Fresh Water", "Salt Water")
 var allowed_water_types: int = WaterType.ALL_FISHABLE_MASK
@@ -83,6 +86,7 @@ func is_valid_catalog_entry() -> bool:
 		and sell_value_min >= 0
 		and sell_value_max >= sell_value_min
 		and sell_value_curve > 0.0
+		and CalendarSeasonType.is_valid_mask(available_seasons)
 	)
 
 
@@ -98,6 +102,14 @@ func get_habitat_label() -> String:
 
 func is_allowed_in_water(type: WaterType.Type) -> bool:
 	return (allowed_water_types & WaterType.mask_for(type)) != 0
+
+
+func is_available_in_season(season: int) -> bool:
+	return CalendarSeasonType.includes(available_seasons, season)
+
+
+func get_season_text() -> String:
+	return CalendarSeasonType.format_mask(available_seasons)
 
 
 func get_primary_water_type() -> WaterType.Type:

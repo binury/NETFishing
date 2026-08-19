@@ -17,6 +17,7 @@ active = true
 catalog_number = 2505
 collection_group = &"Freshwater coarse fish"
 logbook_fact = "european chub are adaptable river fish. adults often patrol shallows and feed on insects, small fish, and fruit."
+available_seasons = 15
 allowed_water_types = 1
 base_catch_weight = 0.55
 catch_profile = ExtResource("2_profile")

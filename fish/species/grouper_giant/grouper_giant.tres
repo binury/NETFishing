@@ -16,6 +16,7 @@ active = false
 catalog_number = 5803
 collection_group = &"Reef predators"
 logbook_fact = "giant groupers become massive ambush predators around indo-pacific reefs. juveniles carry bold black-and-yellow markings."
+available_seasons = 15
 allowed_water_types = 2
 rarity = 4
 base_catch_weight = 0.045

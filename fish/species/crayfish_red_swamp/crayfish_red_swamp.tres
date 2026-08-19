@@ -17,6 +17,7 @@ active = false
 catalog_number = 2601
 collection_group = &"Freshwater crustaceans"
 logbook_fact = "red swamp crayfish burrow into wet ground when water recedes. adaptable populations feed on plants, carrion, and small aquatic animals."
+available_seasons = 7
 allowed_water_types = 1
 rarity = 0
 base_catch_weight = 1.1

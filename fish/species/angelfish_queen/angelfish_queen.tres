@@ -16,6 +16,7 @@ active = false
 catalog_number = 5703
 collection_group = &"Reef ornamentals"
 logbook_fact = "queen angelfish graze sponges from warm atlantic reefs. a blue-ringed spot on the forehead resembles a tiny crown."
+available_seasons = 15
 allowed_water_types = 2
 rarity = 2
 base_catch_weight = 0.3

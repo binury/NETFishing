@@ -17,6 +17,7 @@ active = false
 catalog_number = 5504
 collection_group = &"Reef grazers"
 logbook_fact = "yellow tangs browse algae across hawaiian reefs during daylight. at night their bright bodies darken and show a pale horizontal stripe."
+available_seasons = 15
 allowed_water_types = 2
 rarity = 2
 base_catch_weight = 0.35

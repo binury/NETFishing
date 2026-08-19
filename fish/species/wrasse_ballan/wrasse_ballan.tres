@@ -16,6 +16,7 @@ active = false
 catalog_number = 6101
 collection_group = &"Reef wrasses"
 logbook_fact = "ballan wrasse crush shellfish and sea urchins with strong throat teeth. thick lips and mottled colors suit rocky european reefs."
+available_seasons = 15
 allowed_water_types = 2
 rarity = 1
 base_catch_weight = 0.8

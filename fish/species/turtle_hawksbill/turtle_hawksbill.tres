@@ -17,6 +17,7 @@ active = false
 catalog_number = 6202
 collection_group = &"Sea turtles"
 logbook_fact = "hawksbill sea turtles reach into reef crevices with narrow hooked beaks. a diet rich in sponges helps shape coral communities."
+available_seasons = 6
 allowed_water_types = 2
 rarity = 4
 base_catch_weight = 0.014

@@ -14,6 +14,7 @@ collection_group = &"Beetles"
 logbook_fact = "common stag beetles use broad jaws to wrestle rivals and cling to tree bark. adults feed on sap and other sweet plant juices."
 collection_method = 1
 habitat_label = "tree trunks"
+available_seasons = 2
 allowed_water_types = 0
 rarity = 0
 base_catch_weight = 1.0

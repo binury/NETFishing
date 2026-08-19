@@ -49,20 +49,20 @@ func _run() -> void:
 	assert(not hotbar.visible)
 
 	var entry_buttons: Dictionary = logbook.get("_entry_buttons")
-	assert(entry_buttons.size() == 19)
+	assert(entry_buttons.size() == 26)
 	await _capture_if_requested("-unknown")
 	logbook.call(
 		"_select_category", WaterType.Type.FRESH_WATER
 	)
 	await create_timer(0.25).timeout
-	assert((logbook.get("_entry_buttons") as Dictionary).size() == 19)
+	assert((logbook.get("_entry_buttons") as Dictionary).size() == 26)
 	await _capture_if_requested("-fresh")
 	logbook.call("_select_category", WaterType.Type.SALT_WATER)
 	await create_timer(0.25).timeout
 	assert((logbook.get("_entry_buttons") as Dictionary).size() == 34)
 	logbook.call("_select_category", WaterType.Type.FRESH_WATER)
 	await create_timer(0.25).timeout
-	assert((logbook.get("_entry_buttons") as Dictionary).size() == 19)
+	assert((logbook.get("_entry_buttons") as Dictionary).size() == 26)
 	player.collection_log.mark_discovered(&"bluegill")
 	await process_frame
 	logbook.call("_select_entry", &"bluegill", &"bluegill")
@@ -110,7 +110,21 @@ func _validate_save_round_trip(
 	assert(catalog != null)
 	assert(catalog.candidates.size() == 316)
 	var active_species := LogbookCatalog.ordered_species(catalog.candidates)
-	assert(active_species.size() == 56)
+	assert(active_species.size() == 63)
+	# This test intentionally round-trips one catch for every active species.
+	# Give the fixture enough combined capacity, then bypass per-catch carried
+	# inventory admission while constructing it. The inventory layout still
+	# reconciles and persists the resulting placements.
+	player.inventory_layout.restore_backpack_level(
+		PlayerInventoryLayout.MAX_BACKPACK_LEVEL
+	)
+	player.cooler_capacity.restore_level(PlayerCoolerCapacity.MAX_LEVEL)
+	assert(
+		player.inventory_layout.get_backpack_level()
+		== PlayerInventoryLayout.MAX_BACKPACK_LEVEL
+	)
+	assert(player.cooler_capacity.get_level() == PlayerCoolerCapacity.MAX_LEVEL)
+	player.inventory.set_inventory_layout(null)
 	for index: int in 4:
 		_add_test_catch(player, active_species[index])
 	assert(save_manager.save_now())
@@ -131,7 +145,7 @@ func _validate_save_round_trip(
 	assert(player.inventory.replace_all_catches(no_catches, 1))
 	assert(player.collection_log.replace_discovered_ids(no_discoveries))
 	assert(save_manager.load_player_data())
-	assert(player.inventory.get_all_catches().size() == 56)
+	assert(player.inventory.get_all_catches().size() == 63)
 	for fish: FishData in active_species:
 		assert(player.inventory.get_count(fish.id) == 1)
 		assert(player.collection_log.has_discovered(fish.id))
@@ -151,6 +165,7 @@ func _validate_save_round_trip(
 		assert(catch_sprite != null)
 		assert(catch_sprite.texture == fish_catch.fish.display_texture)
 		player.end_catch_showcase(Callable(), true)
+	player.inventory.set_inventory_layout(player.inventory_layout)
 
 
 func _add_test_catch(player: Player, fish: FishData) -> void:

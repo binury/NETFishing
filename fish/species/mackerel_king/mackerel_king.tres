@@ -17,6 +17,7 @@ active = true
 catalog_number = 706
 collection_group = &"Coastal pelagic fish"
 logbook_fact = "king mackerel are swift coastal predators. their pointed teeth and long body are built for sudden bursts of speed."
+available_seasons = 6
 allowed_water_types = 2
 rarity = 1
 base_catch_weight = 0.3

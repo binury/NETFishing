@@ -17,6 +17,7 @@ active = false
 catalog_number = 4201
 collection_group = &"Ocean-run forage fish"
 logbook_fact = "eulachon return from the pacific to spawn in coastal rivers. their oil-rich bodies once served as candles when dried and fitted with wicks."
+available_seasons = 1
 allowed_water_types = 3
 rarity = 1
 base_catch_weight = 0.9

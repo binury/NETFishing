@@ -16,6 +16,7 @@ active = false
 catalog_number = 1408
 collection_group = &"Cold shelf fish"
 logbook_fact = "silver hake hunt fish and crustaceans over sandy atlantic shelves. they move upward after dark and return toward the bottom by day."
+available_seasons = 13
 allowed_water_types = 2
 rarity = 0
 base_catch_weight = 1.7

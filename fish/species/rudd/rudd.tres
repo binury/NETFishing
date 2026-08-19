@@ -16,6 +16,7 @@ active = false
 catalog_number = 2508
 collection_group = &"Freshwater coarse fish"
 logbook_fact = "rudd feed near the surface with an upturned mouth and red fins. golden-green bodies disappear easily among warm, weedy shallows."
+available_seasons = 7
 allowed_water_types = 1
 rarity = 0
 base_catch_weight = 2.4

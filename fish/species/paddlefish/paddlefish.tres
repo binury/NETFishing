@@ -1,8 +1,9 @@
-[gd_resource type="Resource" script_class="FishData" load_steps=4 format=3]
+[gd_resource type="Resource" script_class="FishData" load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://fish/fish_data.gd" id="1_fish_data"]
 [ext_resource type="Resource" path="res://fishing/common_catch_profile.tres" id="2_profile"]
 [ext_resource type="Script" path="res://fish/fish_availability.gd" id="3_availability"]
+[ext_resource type="Texture2D" path="res://fish/species/paddlefish/paddlefish.png" id="4_texture"]
 
 [sub_resource type="Resource" id="Availability"]
 script = ExtResource("3_availability")
@@ -13,10 +14,11 @@ require_rain = true
 script = ExtResource("1_fish_data")
 id = &"paddlefish"
 display_name = "paddlefish"
-active = false
+active = true
 catalog_number = 104
 collection_group = &"Ancient freshwater fish"
 logbook_fact = "paddlefish cruise open rivers with their mouths wide, filtering tiny plankton from the water. the broad snout senses faint electrical signals."
+available_seasons = 3
 allowed_water_types = 1
 rarity = 3
 base_catch_weight = 0.1
@@ -27,3 +29,4 @@ weight_max_lb = 120.0
 sell_value_min = 34
 sell_value_max = 76
 sell_value_curve = 0.82
+display_texture = ExtResource("4_texture")

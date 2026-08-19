@@ -17,6 +17,7 @@ active = false
 catalog_number = 4903
 collection_group = &"Octopuses"
 logbook_fact = "giant pacific octopuses explore cold rocky dens with thousands of arm suckers. females guard their eggs without feeding until they hatch."
+available_seasons = 15
 allowed_water_types = 2
 rarity = 3
 base_catch_weight = 0.1

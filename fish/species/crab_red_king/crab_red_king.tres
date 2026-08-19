@@ -17,6 +17,7 @@ active = false
 catalog_number = 3905
 collection_group = &"Marine crabs"
 logbook_fact = "red king crabs stride over cold northern bottoms on long armored legs. despite the name, they are closer to hermit crabs than true crabs."
+available_seasons = 13
 allowed_water_types = 2
 rarity = 3
 base_catch_weight = 0.11

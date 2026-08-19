@@ -66,6 +66,9 @@ func _initialize() -> void:
 	assert(FishingShopStockType.get_price(&"standard_shovel") == 75)
 	assert(FishingShopStockType.get_stock_item_ids().has(&"standard_shovel"))
 	assert(FishingShopStockType.is_permanent_unlock(&"standard_shovel", shovel))
+	assert(FishingShopStockType.is_gathering_tool(&"crab_net"))
+	assert(FishingShopStockType.is_gathering_tool(&"standard_shovel"))
+	assert(not FishingShopStockType.is_gathering_tool(&"basic_fishing_rod"))
 
 	var wallet := PlayerWalletType.new()
 	wallet.current_balance = 250

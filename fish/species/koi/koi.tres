@@ -17,6 +17,7 @@ active = false
 catalog_number = 3003
 collection_group = &"Freshwater ornamental"
 logbook_fact = "koi are colorful domesticated forms of common carp selected over many generations. each fish carries a distinctive arrangement of patches and scales."
+available_seasons = 15
 allowed_water_types = 1
 rarity = 2
 base_catch_weight = 0.28

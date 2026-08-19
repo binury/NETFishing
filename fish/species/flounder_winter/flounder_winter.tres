@@ -17,6 +17,7 @@ active = false
 catalog_number = 403
 collection_group = &"Coastal flatfish"
 logbook_fact = "winter flounder favor cool bays and estuaries where they rest on muddy bottoms. their eyes sit on the right side of the body."
+available_seasons = 13
 allowed_water_types = 2
 rarity = 0
 base_catch_weight = 1.8

@@ -16,6 +16,7 @@ active = false
 catalog_number = 5903
 collection_group = &"Reef schooling fish"
 logbook_fact = "french grunts gather in yellow-striped schools around reefs and wrecks. they travel into nearby sand and grass beds after dark."
+available_seasons = 15
 allowed_water_types = 2
 rarity = 0
 base_catch_weight = 2.0

@@ -16,6 +16,7 @@ active = false
 catalog_number = 1601
 collection_group = &"Deep shelf fish"
 logbook_fact = "blueline tilefish shelter in burrows and rocky openings along deep shelves. a narrow blue stripe traces the edge of the dorsal fin."
+available_seasons = 15
 allowed_water_types = 2
 rarity = 1
 base_catch_weight = 0.7

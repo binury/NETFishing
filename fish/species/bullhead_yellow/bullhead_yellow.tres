@@ -17,6 +17,7 @@ active = false
 catalog_number = 2408
 collection_group = &"Freshwater catfish"
 logbook_fact = "yellow bullheads use pale chin barbels to distinguish food in murky shallows. both parents may guard the nest and schooling young."
+available_seasons = 7
 allowed_water_types = 1
 rarity = 0
 base_catch_weight = 2.0

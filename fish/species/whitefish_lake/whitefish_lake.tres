@@ -15,6 +15,7 @@ active = false
 catalog_number = 1003
 collection_group = &"Cold freshwater fish"
 logbook_fact = "lake whitefish browse deep, cold bottoms with small downward-pointing mouths. large schools move toward shallows to spawn in autumn."
+available_seasons = 13
 allowed_water_types = 1
 rarity = 0
 base_catch_weight = 1.5

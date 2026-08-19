@@ -16,6 +16,7 @@ active = false
 catalog_number = 1103
 collection_group = &"Cold freshwater salmonids"
 logbook_fact = "brown trout often shelter by day and hunt more freely after dark. adaptable populations occupy streams, lakes, and even coastal water."
+available_seasons = 15
 allowed_water_types = 1
 rarity = 1
 base_catch_weight = 0.8

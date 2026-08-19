@@ -17,6 +17,7 @@ active = false
 catalog_number = 5802
 collection_group = &"Reef predators"
 logbook_fact = "bluefin trevally hunt reef fish in coordinated groups. electric blue fins and scattered blue spots contrast with a golden body."
+available_seasons = 15
 allowed_water_types = 2
 rarity = 2
 base_catch_weight = 0.3

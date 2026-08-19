@@ -17,6 +17,7 @@ active = true
 catalog_number = 808
 collection_group = &"Coastal schooling fish"
 logbook_fact = "northern anchovies gather in huge schools along the pacific coast and filter plankton with their fine gill rakers."
+available_seasons = 15
 allowed_water_types = 2
 base_catch_weight = 0.5
 catch_profile = ExtResource("2_profile")

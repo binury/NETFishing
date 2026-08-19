@@ -17,6 +17,7 @@ active = true
 catalog_number = 2807
 collection_group = &"Freshwater minnows"
 logbook_fact = "lake chubs school in cold northern water and use their small mouths to pick insects and other tiny prey from the current."
+available_seasons = 13
 allowed_water_types = 1
 base_catch_weight = 0.55
 catch_profile = ExtResource("2_profile")

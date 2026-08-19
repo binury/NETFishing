@@ -17,6 +17,7 @@ active = false
 catalog_number = 7508
 collection_group = &"Tropical freshwater fish"
 logbook_fact = "siamese fighting fish breathe surface air with a labyrinth organ. males build bubble nests and guard the eggs beneath them."
+available_seasons = 15
 allowed_water_types = 1
 rarity = 1
 base_catch_weight = 1.0

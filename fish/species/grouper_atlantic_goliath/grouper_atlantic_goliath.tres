@@ -16,6 +16,7 @@ active = false
 catalog_number = 5801
 collection_group = &"Reef predators"
 logbook_fact = "atlantic goliath groupers occupy reefs, wrecks, and mangrove roots. enormous mouths pull prey inward with a sudden pressure drop."
+available_seasons = 15
 allowed_water_types = 2
 rarity = 4
 base_catch_weight = 0.05

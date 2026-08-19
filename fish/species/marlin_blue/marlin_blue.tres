@@ -17,6 +17,7 @@ active = true
 catalog_number = 4602
 collection_group = &"Oceanic billfish"
 logbook_fact = "blue marlin are highly migratory open-ocean hunters. their long bill helps them stun prey before turning back to feed."
+available_seasons = 6
 allowed_water_types = 2
 rarity = 4
 base_catch_weight = 0.05

@@ -17,6 +17,7 @@ active = false
 catalog_number = 505
 collection_group = &"Coastal marine mammals"
 logbook_fact = "west indian manatees graze aquatic plants in warm coastal water and rivers. they surface regularly to breathe through nostrils atop the snout."
+available_seasons = 15
 allowed_water_types = 2
 rarity = 4
 base_catch_weight = 0.012

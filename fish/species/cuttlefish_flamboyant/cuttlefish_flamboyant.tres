@@ -17,6 +17,7 @@ active = false
 catalog_number = 1503
 collection_group = &"Cuttlefish and nautiluses"
 logbook_fact = "flamboyant cuttlefish walk along the seafloor on their arms and fins. vivid displays warn predators of potent toxins."
+available_seasons = 15
 allowed_water_types = 2
 rarity = 3
 base_catch_weight = 0.1

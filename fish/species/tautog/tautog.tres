@@ -16,6 +16,7 @@ active = false
 catalog_number = 6906
 collection_group = &"Temperate reef fish"
 logbook_fact = "tautog pry mussels and crabs from rocky structure with thick lips and strong teeth. adults return to familiar shelters year after year."
+available_seasons = 13
 allowed_water_types = 2
 rarity = 1
 base_catch_weight = 0.8

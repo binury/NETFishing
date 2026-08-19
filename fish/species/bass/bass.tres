@@ -18,6 +18,7 @@ active = true
 catalog_number = 6701
 collection_group = &"Temperate coastal"
 logbook_fact = "striped bass split their lives between salt and fresh water, returning upriver to spawn. a long-lived striper may see three decades."
+available_seasons = 5
 allowed_water_types = 2
 rarity = 1
 base_catch_weight = 4.0

@@ -17,6 +17,7 @@ active = false
 catalog_number = 7509
 collection_group = &"Tropical freshwater fish"
 logbook_fact = "tambaqui follow seasonal floods into forests to feed on fruit and seeds. strong square teeth crack tough plant material."
+available_seasons = 15
 allowed_water_types = 1
 rarity = 3
 base_catch_weight = 0.1

@@ -15,6 +15,7 @@ active = false
 catalog_number = 809
 collection_group = &"Coastal schooling fish"
 logbook_fact = "pacific sardines follow cool, productive water in enormous schools. their movements shift as currents and plankton supplies change."
+available_seasons = 15
 allowed_water_types = 2
 rarity = 0
 base_catch_weight = 3.5

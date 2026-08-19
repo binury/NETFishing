@@ -18,6 +18,7 @@ active = true
 catalog_number = 2503
 collection_group = &"Freshwater coarse fish"
 logbook_fact = "whisker-like barbels help a common carp investigate the bottom. nosing through sediment can cloud the water and loosen plants."
+available_seasons = 15
 allowed_water_types = 1
 rarity = 2
 base_catch_weight = 1.5

@@ -16,6 +16,7 @@ active = false
 catalog_number = 2403
 collection_group = &"Freshwater catfish"
 logbook_fact = "brown bullheads search muddy bottoms with eight sensitive barbels. males guard nests and herd newly hatched young in a dark moving ball."
+available_seasons = 7
 allowed_water_types = 1
 rarity = 0
 base_catch_weight = 2.3

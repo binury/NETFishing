@@ -16,6 +16,7 @@ active = false
 catalog_number = 1101
 collection_group = &"Cold freshwater salmonids"
 logbook_fact = "arctic char thrive farther north than any other freshwater fish. some remain in lakes while others migrate between rivers and the sea."
+available_seasons = 13
 allowed_water_types = 3
 rarity = 2
 base_catch_weight = 0.3

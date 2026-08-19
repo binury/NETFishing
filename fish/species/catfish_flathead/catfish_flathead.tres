@@ -20,6 +20,7 @@ active = true
 catalog_number = 2405
 collection_group = &"Freshwater catfish"
 logbook_fact = "flatheads favor hideouts made by logs, rocks, ledges, and other underwater structure. as they grow, fish dominate their menu."
+available_seasons = 7
 allowed_water_types = 1
 rarity = 1
 catch_profile = ExtResource("2_profile")

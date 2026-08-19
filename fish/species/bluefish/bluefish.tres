@@ -16,6 +16,7 @@ active = false
 catalog_number = 702
 collection_group = &"Coastal pelagic fish"
 logbook_fact = "bluefish race in coordinated schools while pursuing smaller fish. sharp teeth and powerful jaws make their feeding bursts especially fierce."
+available_seasons = 7
 allowed_water_types = 2
 rarity = 1
 base_catch_weight = 0.85

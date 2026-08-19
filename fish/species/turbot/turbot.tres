@@ -16,6 +16,7 @@ active = false
 catalog_number = 3703
 collection_group = &"Large flatfish"
 logbook_fact = "turbot have broad, nearly circular bodies covered with bony bumps instead of scales. they bury into sand before ambushing fish and crustaceans."
+available_seasons = 13
 allowed_water_types = 2
 rarity = 2
 base_catch_weight = 0.24

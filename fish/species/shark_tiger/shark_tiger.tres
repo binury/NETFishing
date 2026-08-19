@@ -17,6 +17,7 @@ active = false
 catalog_number = 904
 collection_group = &"Coastal sharks"
 logbook_fact = "tiger sharks carry dark vertical bars that fade as they mature. broad jaws let them investigate an unusually varied range of prey."
+available_seasons = 15
 allowed_water_types = 2
 rarity = 3
 base_catch_weight = 0.06

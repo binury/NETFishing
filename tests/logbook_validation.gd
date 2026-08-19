@@ -42,7 +42,7 @@ func _run() -> void:
 func _validate_catalog() -> void:
 	assert(CatalogResource.candidates.size() == 316)
 	var ordered := LogbookCatalog.ordered_species(CatalogResource.candidates)
-	assert(ordered.size() == 56)
+	assert(ordered.size() == 63)
 	var previous_number: int = 0
 	var catalog_numbers: Dictionary[int, bool] = {}
 	for fish: FishDataType in CatalogResource.candidates:
@@ -152,7 +152,7 @@ func _validate_page() -> void:
 		var entries: Dictionary = page.get("_entry_buttons")
 		assert(
 			entries.size()
-			== (19 if category == LogbookCatalog.Category.FRESH_WATER else 34)
+			== (26 if category == LogbookCatalog.Category.FRESH_WATER else 34)
 		)
 		for fish: FishDataType in LogbookCatalog.ordered_species(
 			CatalogResource.candidates
@@ -203,7 +203,7 @@ func _validate_page() -> void:
 						candidate.display_name
 					)
 				)
-	assert(silhouette_count == 53)
+	assert(silhouette_count == 60)
 
 	page.call("_select_category", LogbookCatalog.Category.SHELLFISH)
 	await create_timer(0.25).timeout

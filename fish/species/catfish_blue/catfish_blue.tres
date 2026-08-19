@@ -20,6 +20,7 @@ active = true
 catalog_number = 2402
 collection_group = &"Freshwater catfish"
 logbook_fact = "a deep fork in the tail inspired the blue catfish's scientific name. it rests deep by daylight and becomes more active after dark."
+available_seasons = 7
 allowed_water_types = 1
 rarity = 1
 base_catch_weight = 1.25

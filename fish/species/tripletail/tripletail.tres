@@ -17,6 +17,7 @@ active = false
 catalog_number = 604
 collection_group = &"Coastal oddities"
 logbook_fact = "tripletail often drift sideways near floating debris, resembling a loose leaf. rounded rear fins create the three-tailed silhouette."
+available_seasons = 6
 allowed_water_types = 2
 rarity = 2
 base_catch_weight = 0.28

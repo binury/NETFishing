@@ -18,6 +18,7 @@ active = true
 catalog_number = 3401
 collection_group = &"Freshwater small fish"
 logbook_fact = "round gobies use fused pelvic fins like a suction cup to hold onto rocks. they are small fish with a famously large appetite."
+available_seasons = 15
 allowed_water_types = 1
 base_catch_weight = 8.0
 catch_profile = ExtResource("2_profile")

@@ -18,6 +18,7 @@ active = true
 catalog_number = 4804
 collection_group = &"Oceanic tuna"
 logbook_fact = "skipjack travel in fast-moving schools and have dark stripes along their lower sides. they rarely stop swimming."
+available_seasons = 15
 allowed_water_types = 2
 rarity = 1
 base_catch_weight = 3.0

@@ -11,6 +11,7 @@ const GatherableCatalogType = preload("res://gathering/gatherable_catalog.gd")
 const GatherableDataType = preload("res://gathering/gatherable_data.gd")
 const WorldGatherableType = preload("res://gathering/world_gatherable.gd")
 const TestWorldType = preload("res://world/test_world.gd")
+const CalendarSeasonType = preload("res://world/calendar_season.gd")
 
 signal local_capture_received(fish_catch: FishCatch)
 signal local_interaction_finished(accepted: bool, message: String)
@@ -24,6 +25,7 @@ var _session: NetworkSession
 var _spawn_service: PlayerSpawnService
 var _world: TestWorldType
 var _world_root: Node3D
+var _world_time: WorldTimeService
 var _catalog: GatherableCatalogType
 var _fish_catalog: FishPoolType
 var _local_inventory: FishInventory
@@ -65,6 +67,7 @@ func setup(
 	local_experience: PlayerExperience,
 	save_manager: PlayerSaveManager,
 	item_use: NetworkItemUseService,
+	world_time: WorldTimeService = null,
 ) -> void:
 	_session = session
 	_spawn_service = spawn_service
@@ -78,10 +81,18 @@ func setup(
 	_local_experience = local_experience
 	_save_manager = save_manager
 	_item_use = item_use
+	_world_time = world_time
 	_rng.randomize()
 	_session.peer_authenticated.connect(_on_peer_authenticated)
 	_session.peer_removed.connect(_on_peer_removed)
 	_session.state_changed.connect(_on_session_state_changed)
+	if (
+		_world_time != null
+		and not _world_time.calendar_date_changed.is_connected(
+			_on_calendar_date_changed
+		)
+	):
+		_world_time.calendar_date_changed.connect(_on_calendar_date_changed)
 	set_physics_process(true)
 	_begin_population_if_ready.call_deferred()
 
@@ -193,7 +204,9 @@ func get_charge_duration_for_tool(tool_id: StringName) -> float:
 	var duration: float = 0.0
 	if _catalog == null or tool_id.is_empty():
 		return duration
-	for entry: GatherableDataType in _catalog.get_available_entries():
+	for entry: GatherableDataType in _catalog.get_available_entries(
+		_current_season()
+	):
 		if entry.required_tool_id == tool_id:
 			duration = maxf(duration, entry.charge_duration)
 	return duration
@@ -240,7 +253,9 @@ func _begin_population_if_ready() -> void:
 		return
 	_clear_world()
 	_population_session_id = session_id
-	for entry: GatherableDataType in _catalog.get_available_entries():
+	for entry: GatherableDataType in _catalog.get_available_entries(
+		_current_season()
+	):
 		_cache_spawn_surface(entry)
 		for _spawn_index: int in entry.population:
 			_spawn_entity(entry)
@@ -557,7 +572,7 @@ func _update_respawns() -> void:
 		var entry: GatherableDataType = _catalog.get_entry(
 			type_id
 		)
-		if entry != null and entry.is_available():
+		if entry != null and entry.is_available(_current_season()):
 			_spawn_entity(entry)
 			_next_respawn_by_type[type_id] = (
 				now + entry.minimum_respawn_spacing_seconds
@@ -1191,6 +1206,61 @@ func _on_session_state_changed(_state: NetworkSession.State) -> void:
 		return
 	_clear_world()
 	_population_session_id = ""
+
+
+func _on_calendar_date_changed(_date_id: String) -> void:
+	if (
+		_session == null
+		or not _session.is_host()
+		or not _session.is_gameplay_session_active()
+		or _population_session_id.is_empty()
+	):
+		return
+	_reconcile_seasonal_population()
+
+
+func _reconcile_seasonal_population() -> void:
+	if _catalog == null:
+		return
+	var season: int = _current_season()
+	for entity_id: String in _entities.keys():
+		var state: Dictionary = _entities.get(entity_id, {})
+		var entry := state.get("data") as GatherableDataType
+		if entry != null and not entry.is_available(season):
+			_despawn_entity(entity_id, &"season_changed", false, false)
+	var retained_respawns: Array[Dictionary] = []
+	for respawn: Dictionary in _respawns:
+		var entry: GatherableDataType = _catalog.get_entry(
+			StringName(str(respawn.get("type_id", "")))
+		)
+		if entry != null and entry.is_available(season):
+			retained_respawns.append(respawn)
+	_respawns = retained_respawns
+	for entry: GatherableDataType in _catalog.get_available_entries(season):
+		_cache_spawn_surface(entry)
+		var current_population: int = _population_for_type(entry.type_id)
+		while current_population < entry.population:
+			_spawn_entity(entry)
+			current_population += 1
+
+
+func _population_for_type(type_id: StringName) -> int:
+	var count: int = 0
+	for state: Dictionary in _entities.values():
+		if StringName(str(state.get("type_id", ""))) == type_id:
+			count += 1
+	for respawn: Dictionary in _respawns:
+		if StringName(str(respawn.get("type_id", ""))) == type_id:
+			count += 1
+	return count
+
+
+func _current_season() -> int:
+	return (
+		_world_time.get_season()
+		if _world_time != null
+		else CalendarSeasonType.UNKNOWN
+	)
 
 
 func _clear_world() -> void:

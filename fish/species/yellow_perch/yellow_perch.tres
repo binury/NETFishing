@@ -16,6 +16,7 @@ active = false
 catalog_number = 3201
 collection_group = &"Freshwater perch"
 logbook_fact = "yellow perch travel in schools through cool lakes and slow rivers. dark vertical bars and orange lower fins make them easy to recognize."
+available_seasons = 13
 allowed_water_types = 1
 rarity = 0
 base_catch_weight = 2.2

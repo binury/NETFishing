@@ -16,6 +16,7 @@ active = false
 catalog_number = 5503
 collection_group = &"Reef grazers"
 logbook_fact = "stoplight parrotfish change color dramatically as they mature. powerful dental plates bite algae from hard reef surfaces."
+available_seasons = 15
 allowed_water_types = 2
 rarity = 2
 base_catch_weight = 0.28

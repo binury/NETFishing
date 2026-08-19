@@ -17,6 +17,7 @@ active = false
 catalog_number = 1701
 collection_group = &"Deep-sea legends"
 logbook_fact = "giant oarfish drift vertically through deep open water, rowing with a crimson dorsal fin. their ribbon-like bodies can reach remarkable lengths."
+available_seasons = 15
 allowed_water_types = 2
 rarity = 4
 base_catch_weight = 0.035

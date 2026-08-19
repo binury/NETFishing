@@ -911,6 +911,7 @@ func _build_known_details(fish: FishDataType) -> void:
 	_add_detail_row(left_stats, "number caught", "unknown")
 	_add_detail_row(right_stats, "rarity", fish.get_rarity_name().to_lower())
 	_add_detail_row(right_stats, "time of day", _availability_text(fish))
+	_add_detail_row(right_stats, "seasons", fish.get_season_text())
 	_add_currency_detail_row(
 		right_stats,
 		"value range",
@@ -1083,6 +1084,7 @@ func _stats_overlay_text(fish: FishDataType, catalog_number: int) -> String:
 		],
 		"rarity: %s" % fish.get_rarity_name().to_lower(),
 		"time of day: %s" % _availability_text(fish),
+		"seasons: %s" % fish.get_season_text(),
 		"value range: %d–%d" % [
 			FishQualityType.apply_sale_value(
 				fish.sell_value_min,

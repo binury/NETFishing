@@ -15,6 +15,7 @@ active = false
 catalog_number = 1401
 collection_group = &"Cold shelf fish"
 logbook_fact = "alaska pollock form vast schools over cold northern shelves. they feed on plankton and fish while supporting many larger predators."
+available_seasons = 13
 allowed_water_types = 2
 rarity = 0
 base_catch_weight = 2.5

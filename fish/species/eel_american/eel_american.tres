@@ -17,6 +17,7 @@ active = false
 catalog_number = 4001
 collection_group = &"Migratory eels"
 logbook_fact = "american eels hatch far out in the sargasso sea before entering freshwater rivers. adults later reverse the journey to spawn once."
+available_seasons = 12
 allowed_water_types = 3
 rarity = 2
 base_catch_weight = 0.25

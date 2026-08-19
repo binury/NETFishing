@@ -13,6 +13,7 @@ active = true
 catalog_number = 3102
 collection_group = &"Freshwater panfish"
 logbook_fact = "bluegill fathers sweep shallow bowls into the bottom for nests, then stand guard. whole neighborhoods of nests can crowd together."
+available_seasons = 7
 allowed_water_types = 1
 rarity = 0
 base_catch_weight = 10.0

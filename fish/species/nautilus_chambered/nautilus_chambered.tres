@@ -17,6 +17,7 @@ active = false
 catalog_number = 1501
 collection_group = &"Cuttlefish and nautiluses"
 logbook_fact = "chambered nautiluses regulate buoyancy with gas-filled shell chambers. dozens of small tentacles feel for food in dark reef slopes."
+available_seasons = 15
 allowed_water_types = 2
 rarity = 4
 base_catch_weight = 0.05

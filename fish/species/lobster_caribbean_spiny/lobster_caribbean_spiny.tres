@@ -17,6 +17,7 @@ active = false
 catalog_number = 3803
 collection_group = &"Lobsters and shrimp"
 logbook_fact = "caribbean spiny lobsters rely on long antennae and a thorny shell instead of large claws. groups march together across the seafloor."
+available_seasons = 15
 allowed_water_types = 2
 rarity = 2
 base_catch_weight = 0.25

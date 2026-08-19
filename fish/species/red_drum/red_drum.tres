@@ -16,6 +16,7 @@ active = false
 catalog_number = 6803
 collection_group = &"Temperate estuary"
 logbook_fact = "red drum use powerful tails to patrol surf and estuaries. one or more black spots near the tail may confuse predators about which end is the head."
+available_seasons = 7
 allowed_water_types = 2
 rarity = 1
 base_catch_weight = 0.75

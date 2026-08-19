@@ -18,6 +18,7 @@ active = true
 catalog_number = 4402
 collection_group = &"Ocean-run salmon"
 logbook_fact = "chum salmon travel immense distances and develop striking bars when they return to fresh water to spawn."
+available_seasons = 4
 allowed_water_types = 2
 rarity = 1
 base_catch_weight = 2.5

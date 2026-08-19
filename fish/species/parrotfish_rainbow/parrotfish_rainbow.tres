@@ -16,6 +16,7 @@ active = false
 catalog_number = 5502
 collection_group = &"Reef grazers"
 logbook_fact = "rainbow parrotfish scrape algae from reefs with fused beak-like teeth. crushed coral passes through them and returns to the reef as sand."
+available_seasons = 15
 allowed_water_types = 2
 rarity = 3
 base_catch_weight = 0.12

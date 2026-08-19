@@ -17,6 +17,7 @@ active = false
 catalog_number = 3301
 collection_group = &"Freshwater predators"
 logbook_fact = "chain pickerel hover among vegetation before darting at fish and frogs. a chain-like pattern breaks up their green flanks."
+available_seasons = 13
 allowed_water_types = 1
 rarity = 1
 base_catch_weight = 0.8

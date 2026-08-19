@@ -20,6 +20,7 @@ active = true
 catalog_number = 2404
 collection_group = &"Freshwater catfish"
 logbook_fact = "a channel catfish can taste through skin all over its body, especially near its gills and whiskers. the male watches the eggs."
+available_seasons = 7
 allowed_water_types = 1
 base_catch_weight = 2.0
 catch_profile = ExtResource("2_profile")

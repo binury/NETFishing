@@ -16,6 +16,7 @@ active = false
 catalog_number = 4301
 collection_group = &"Ocean-run giants"
 logbook_fact = "white sturgeon are the largest freshwater fish in north america. armored plates line bodies built for long lives in rivers and estuaries."
+available_seasons = 5
 allowed_water_types = 3
 rarity = 4
 base_catch_weight = 0.045

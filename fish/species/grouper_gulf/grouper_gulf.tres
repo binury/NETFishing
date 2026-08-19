@@ -17,6 +17,7 @@ active = true
 catalog_number = 5805
 collection_group = &"Reef predators"
 logbook_fact = "gulf grouper are ambush predators that use a sudden gulp to pull prey into their cavernous mouths."
+available_seasons = 15
 allowed_water_types = 2
 rarity = 1
 base_catch_weight = 0.3

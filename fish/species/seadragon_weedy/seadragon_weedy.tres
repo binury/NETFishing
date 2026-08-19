@@ -17,6 +17,7 @@ active = false
 catalog_number = 6302
 collection_group = &"Seahorses and seadragons"
 logbook_fact = "weedy seadragons rely on slender bodies and small leaf-like lobes for camouflage. males brood rows of eggs on the underside of the tail."
+available_seasons = 15
 allowed_water_types = 2
 rarity = 2
 base_catch_weight = 0.22

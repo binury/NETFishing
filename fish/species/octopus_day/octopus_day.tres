@@ -17,6 +17,7 @@ active = false
 catalog_number = 4902
 collection_group = &"Octopuses"
 logbook_fact = "day octopuses forage across tropical reefs while the sun is high. shifting bars and spots communicate alarm, camouflage, and threat."
+available_seasons = 15
 allowed_water_types = 2
 rarity = 2
 base_catch_weight = 0.24

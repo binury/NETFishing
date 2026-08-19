@@ -16,6 +16,7 @@ active = false
 catalog_number = 3302
 collection_group = &"Freshwater predators"
 logbook_fact = "grass pickerel remain small enough to hunt in narrow, weedy creeks and marshes. dark bars camouflage their slim bodies among stems."
+available_seasons = 13
 allowed_water_types = 1
 rarity = 0
 base_catch_weight = 2.1

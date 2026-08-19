@@ -16,6 +16,7 @@ active = false
 catalog_number = 5603
 collection_group = &"Reef oddities"
 logbook_fact = "guineafowl puffers swallow water to inflate when threatened. adults may shift from a spotted dark pattern to a vivid yellow form."
+available_seasons = 15
 allowed_water_types = 2
 rarity = 2
 base_catch_weight = 0.3

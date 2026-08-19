@@ -16,6 +16,7 @@ active = false
 catalog_number = 4901
 collection_group = &"Octopuses"
 logbook_fact = "common octopuses squeeze through narrow cracks and solve problems while hunting reefs. skin cells rapidly change color and texture."
+available_seasons = 15
 allowed_water_types = 2
 rarity = 1
 base_catch_weight = 0.65

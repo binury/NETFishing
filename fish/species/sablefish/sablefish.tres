@@ -16,6 +16,7 @@ active = false
 catalog_number = 1605
 collection_group = &"Deep shelf fish"
 logbook_fact = "sablefish roam deep north pacific slopes and can live for many decades. soft dark bodies conceal rich, oil-filled flesh."
+available_seasons = 15
 allowed_water_types = 2
 rarity = 2
 base_catch_weight = 0.22

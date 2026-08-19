@@ -53,6 +53,9 @@ func _run_host() -> void:
 		remote_peer_id, NetworkProtocol.WORLD_WEATHER_CAPABILITY
 	))
 	assert(world_time.get_phase() == WorldTimeService.Phase.DUSK)
+	assert(WorldTimeService.is_valid_calendar_date_id(
+		world_time.get_calendar_date_id()
+	))
 	await create_timer(1.0).timeout
 	assert(world_time.set_authoritative_time(UPDATED_HOST_TIME))
 	assert(world_weather.set_authoritative_weather(
@@ -111,6 +114,10 @@ func _run_client() -> void:
 		world_time.get_time_hours(), INITIAL_HOST_TIME
 	) <= TIME_TOLERANCE_HOURS)
 	assert(world_time.get_phase() == WorldTimeService.Phase.DUSK)
+	var expected_date_id: String = WorldTimeService.date_id_from_datetime(
+		Time.get_datetime_dict_from_system(false)
+	)
+	assert(world_time.get_calendar_date_id() == expected_date_id)
 	var weather_deadline: int = Time.get_ticks_msec() + 8000
 	while (
 		Time.get_ticks_msec() < weather_deadline
@@ -122,15 +129,31 @@ func _run_client() -> void:
 	var chat_ui := game_ui.get_node("%ChatUI") as Control
 	var clock_panel := chat_ui.get_node("WorldClockPanel") as PanelContainer
 	var clock_label := clock_panel.get_node("WorldClockLabel") as Label
+	var calendar_panel := (
+		chat_ui.get_node("WorldCalendarPanel") as PanelContainer
+	)
+	var calendar_label := (
+		calendar_panel.get_node("WorldCalendarLabel") as Label
+	)
 	var weather_icon := chat_ui.get_node("WorldWeatherIcon") as WeatherIcon
 	var chat_panel := chat_ui.get_node("ChatPanel") as PanelContainer
 	assert(clock_panel.visible)
 	assert(clock_label.text == world_time.get_clock_text())
 	assert(clock_label.text.ends_with(" pm"))
+	assert(calendar_panel.visible)
+	assert(calendar_label.text == world_time.get_calendar_text())
+	assert(not calendar_label.text.is_empty())
 	assert(weather_icon.visible)
 	assert(weather_icon.get_weather() == WorldWeatherService.Weather.RAINY)
 	assert(is_equal_approx(clock_panel.position.y, 10.0))
 	assert(is_equal_approx(weather_icon.position.y, 10.0))
+	assert(is_equal_approx(
+		calendar_panel.position.y,
+		clock_panel.position.y
+		+ clock_panel.size.y
+		+ ChatUI.CALENDAR_TOP_GAP,
+	))
+	assert(calendar_panel.size.is_equal_approx(ChatUI.CALENDAR_SIZE))
 	assert(clock_panel.position.y + clock_panel.size.y < chat_panel.position.y)
 	assert(not chat_ui.has_method("_handle_chat_command"))
 
@@ -159,11 +182,17 @@ func _run_client() -> void:
 	await process_frame
 	assert(clock_panel.position.x > 1000.0)
 	assert(weather_icon.position.x < clock_panel.position.x)
+	assert(is_equal_approx(
+		calendar_panel.position.x, weather_icon.position.x
+	))
 	assert(is_equal_approx(clock_panel.position.y, 10.0))
 	chat_ui.call("set_dock_right", false)
 	await process_frame
 	assert(clock_panel.position.x < 20.0)
 	assert(weather_icon.position.x > clock_panel.position.x)
+	assert(is_equal_approx(
+		calendar_panel.position.x, clock_panel.position.x
+	))
 	assert(is_equal_approx(clock_panel.position.y, 10.0))
 	print("World time multiplayer client validation: PASS")
 	session.disconnect_session("")

@@ -8,6 +8,13 @@ const EXPECTED_BY_TYPE: Dictionary = {
 	&"clam_manila": 3,
 	&"beetle_stag_common": 3,
 }
+const WINTER_POPULATION: int = 5
+const WINTER_BY_TYPE: Dictionary = {
+	&"crab_brown": 2,
+	&"clam_manila": 3,
+}
+const SUMMER_DATE_ID: String = "2026-08-18"
+const WINTER_DATE_ID: String = "2026-12-18"
 
 
 func _initialize() -> void:
@@ -30,9 +37,12 @@ func _run_host() -> void:
 	var main: Node = await _create_initialized_main()
 	var session := main.get_node("%NetworkSession") as NetworkSession
 	var service: Node = main.get_node("%NetworkWorldSpawnService")
+	var world_time := main.get_node("%WorldTimeService") as WorldTimeService
 	assert(session.start_dedicated_host(TEST_PORT, 8, "127.0.0.1"))
+	assert(world_time.synchronize_calendar_time(12.0, SUMMER_DATE_ID))
+	assert(world_time.set_authoritative_time(12.0))
 	assert(session.set_host_open(true))
-	await _wait_for_population(service)
+	await _wait_for_population(service, EXPECTED_POPULATION)
 	_freeze_timed_entries(service)
 	_validate_population(service, true)
 
@@ -49,6 +59,14 @@ func _run_host() -> void:
 		remote_peer_id,
 		NetworkProtocol.WORLD_SPAWN_CAPABILITY,
 	))
+	await create_timer(0.75).timeout
+	assert(world_time.synchronize_calendar_time(12.0, WINTER_DATE_ID))
+	await _wait_for_population(service, WINTER_POPULATION)
+	_validate_population(service, true, WINTER_BY_TYPE)
+	await create_timer(0.75).timeout
+	assert(world_time.synchronize_calendar_time(12.0, SUMMER_DATE_ID))
+	await _wait_for_population(service, EXPECTED_POPULATION)
+	_validate_population(service, true)
 
 	var disconnect_deadline: int = Time.get_ticks_msec() + 12000
 	while (
@@ -76,6 +94,7 @@ func _run_client() -> void:
 	)
 	var session := main.get_node("%NetworkSession") as NetworkSession
 	var service: Node = main.get_node("%NetworkWorldSpawnService")
+	var world_time := main.get_node("%WorldTimeService") as WorldTimeService
 	var join_deadline: int = Time.get_ticks_msec() + 20000
 	while Time.get_ticks_msec() < join_deadline:
 		await process_frame
@@ -87,11 +106,14 @@ func _run_client() -> void:
 	assert(session.supports_server_capability(
 		NetworkProtocol.WORLD_SPAWN_CAPABILITY
 	))
-	await _wait_for_population(service)
+	await _wait_for_population(service, EXPECTED_POPULATION)
 	_validate_population(service, false)
-	# Give the host process time to observe the authenticated peer before this
-	# deliberately short client validation disconnects.
-	await create_timer(0.75).timeout
+	await _wait_for_population(service, WINTER_POPULATION)
+	_validate_population(service, false, WINTER_BY_TYPE)
+	assert(world_time.get_calendar_date_id() == WINTER_DATE_ID)
+	await _wait_for_population(service, EXPECTED_POPULATION)
+	_validate_population(service, false)
+	assert(world_time.get_calendar_date_id() == SUMMER_DATE_ID)
 	print("World spawn multiplayer client validation: PASS")
 	session.disconnect_session("")
 	main.queue_free()
@@ -101,20 +123,27 @@ func _run_client() -> void:
 	quit()
 
 
-func _wait_for_population(service: Node) -> void:
+func _wait_for_population(service: Node, expected_population: int) -> void:
 	var deadline: int = Time.get_ticks_msec() + 12000
 	while Time.get_ticks_msec() < deadline:
 		await process_frame
-		if (service.get("_entities") as Dictionary).size() == EXPECTED_POPULATION:
+		if (service.get("_entities") as Dictionary).size() == expected_population:
 			return
 	assert(false, "Timed out waiting for the world spawn population.")
 
 
-func _validate_population(service: Node, expect_authoritative_state: bool) -> void:
+func _validate_population(
+	service: Node,
+	expect_authoritative_state: bool,
+	expected_by_type: Dictionary = EXPECTED_BY_TYPE,
+) -> void:
 	var entities: Dictionary = service.get("_entities")
 	var presentations: Dictionary = service.get("_presentations")
-	assert(entities.size() == EXPECTED_POPULATION)
-	assert(presentations.size() == EXPECTED_POPULATION)
+	var expected_population: int = 0
+	for amount: int in expected_by_type.values():
+		expected_population += amount
+	assert(entities.size() == expected_population)
+	assert(presentations.size() == expected_population)
 	var counts: Dictionary = {}
 	for state: Dictionary in entities.values():
 		var type_id := state.get("type_id") as StringName
@@ -137,7 +166,7 @@ func _validate_population(service: Node, expect_authoritative_state: bool) -> vo
 			else:
 				assert(entry.get_movement_speed_for_quality(quality) > 0.0)
 				assert(entry.get_scare_radius_for_quality(quality) > 0.0)
-	assert(counts == EXPECTED_BY_TYPE)
+	assert(counts == expected_by_type)
 
 
 func _freeze_timed_entries(service: Node) -> void:

@@ -17,6 +17,7 @@ active = false
 catalog_number = 7402
 collection_group = &"Tropical flats fish"
 logbook_fact = "florida pompano search warm surf for crabs, clams, and sand fleas. short blunt snouts lead into deep, silvery bodies."
+available_seasons = 15
 allowed_water_types = 2
 rarity = 1
 base_catch_weight = 0.85

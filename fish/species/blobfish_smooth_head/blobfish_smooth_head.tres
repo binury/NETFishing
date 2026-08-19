@@ -17,6 +17,7 @@ active = false
 catalog_number = 1805
 collection_group = &"Deep-sea oddities"
 logbook_fact = "smooth-head blobfish rest on deep slopes where pressure supports their soft bodies. they conserve energy by waiting for edible matter nearby."
+available_seasons = 15
 allowed_water_types = 2
 rarity = 4
 base_catch_weight = 0.04

@@ -16,6 +16,7 @@ active = false
 catalog_number = 1203
 collection_group = &"Cold reef fish"
 logbook_fact = "spotted wolffish crush hard-shelled prey with broad molar-like teeth. their pale spots stand out against a dark cold-water body."
+available_seasons = 13
 allowed_water_types = 2
 rarity = 3
 base_catch_weight = 0.11

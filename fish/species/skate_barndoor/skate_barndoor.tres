@@ -16,6 +16,7 @@ active = false
 catalog_number = 5101
 collection_group = &"Rays and skates"
 logbook_fact = "barndoor skates glide over cold atlantic bottoms with broad wing-like fins. rows of thorny spines protect the back and tail."
+available_seasons = 13
 allowed_water_types = 2
 rarity = 3
 base_catch_weight = 0.1

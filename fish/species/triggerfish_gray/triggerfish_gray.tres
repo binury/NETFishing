@@ -16,6 +16,7 @@ active = false
 catalog_number = 5602
 collection_group = &"Reef oddities"
 logbook_fact = "gray triggerfish lock a stout dorsal spine upright when wedged into shelter. strong teeth crack barnacles, crabs, and shellfish."
+available_seasons = 15
 allowed_water_types = 2
 rarity = 1
 base_catch_weight = 0.8

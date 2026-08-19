@@ -17,6 +17,7 @@ active = false
 catalog_number = 6405
 collection_group = &"Shellfish"
 logbook_fact = "red abalones cling to pacific rocks with broad muscular feet. rows of shell holes release water that has passed over the gills."
+available_seasons = 15
 allowed_water_types = 2
 rarity = 3
 base_catch_weight = 0.09

@@ -17,6 +17,7 @@ active = false
 catalog_number = 2002
 collection_group = &"Freshwater amphibians"
 logbook_fact = "hellbenders hide beneath large rocks in cool, clean rivers. folds of loose skin absorb oxygen while the flattened body grips the current."
+available_seasons = 7
 allowed_water_types = 1
 rarity = 3
 base_catch_weight = 0.1

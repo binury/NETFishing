@@ -16,6 +16,7 @@ active = false
 catalog_number = 4101
 collection_group = &"Migratory forage fish"
 logbook_fact = "rainbow smelt move between coastal water and rivers, though some remain landlocked. cucumber-like aromas cling to freshly caught fish."
+available_seasons = 9
 allowed_water_types = 3
 rarity = 0
 base_catch_weight = 2.5

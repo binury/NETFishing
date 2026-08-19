@@ -17,6 +17,7 @@ active = false
 catalog_number = 1905
 collection_group = &"Echinoderms"
 logbook_fact = "sunflower sea stars move quickly on thousands of tube feet and may carry many arms. they hunt urchins, clams, and other bottom animals."
+available_seasons = 15
 allowed_water_types = 2
 rarity = 2
 base_catch_weight = 0.25

@@ -17,6 +17,7 @@ active = false
 catalog_number = 6501
 collection_group = &"Squid"
 logbook_fact = "bigfin reef squid hover in coordinated groups around warm reefs. shifting colors and body patterns signal to nearby squid."
+available_seasons = 15
 allowed_water_types = 2
 rarity = 2
 base_catch_weight = 0.3

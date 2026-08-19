@@ -16,6 +16,7 @@ active = false
 catalog_number = 5901
 collection_group = &"Reef schooling fish"
 logbook_fact = "blue-green chromis form loose clouds above branching coral. the school dives into narrow shelter whenever a predator approaches."
+available_seasons = 15
 allowed_water_types = 2
 rarity = 0
 base_catch_weight = 2.8

@@ -16,6 +16,7 @@ active = false
 catalog_number = 2904
 collection_group = &"Freshwater oddities"
 logbook_fact = "mooneyes flash silver in clear rivers and lakes while feeding near the surface. their large eyes suit evening hunts for insects and small fish."
+available_seasons = 13
 allowed_water_types = 1
 rarity = 1
 base_catch_weight = 0.85

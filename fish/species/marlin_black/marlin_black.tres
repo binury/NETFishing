@@ -17,6 +17,7 @@ active = true
 catalog_number = 4601
 collection_group = &"Oceanic billfish"
 logbook_fact = "black marlin are powerful billfish that spend much of their lives in warm open ocean and can make blistering runs."
+available_seasons = 6
 allowed_water_types = 2
 rarity = 3
 base_catch_weight = 0.08

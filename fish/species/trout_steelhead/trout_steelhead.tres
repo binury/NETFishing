@@ -17,6 +17,7 @@ active = true
 catalog_number = 4501
 collection_group = &"Ocean-run salmonids"
 logbook_fact = "steelhead are the ocean-going form of rainbow trout. adults can leave fresh water and later return to spawn."
+available_seasons = 13
 allowed_water_types = 1
 rarity = 2
 base_catch_weight = 0.2

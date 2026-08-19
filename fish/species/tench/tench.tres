@@ -17,6 +17,7 @@ active = false
 catalog_number = 2509
 collection_group = &"Freshwater coarse fish"
 logbook_fact = "tench browse quiet, muddy bottoms with two small mouth barbels. a thick coat of slime protects their olive-green scales."
+available_seasons = 7
 allowed_water_types = 1
 rarity = 1
 base_catch_weight = 0.75

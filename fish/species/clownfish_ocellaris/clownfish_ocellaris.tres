@@ -16,6 +16,7 @@ active = false
 catalog_number = 5702
 collection_group = &"Reef ornamentals"
 logbook_fact = "ocellaris clownfish shelter safely among stinging anemone tentacles. each group is led by a female that develops from the largest male."
+available_seasons = 15
 allowed_water_types = 2
 rarity = 1
 base_catch_weight = 1.0

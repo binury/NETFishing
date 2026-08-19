@@ -16,6 +16,7 @@ active = false
 catalog_number = 1404
 collection_group = &"Cold shelf fish"
 logbook_fact = "dover sole glide over deep muddy bottoms of the eastern pacific. both eyes migrate to the right side as the young fish becomes flat."
+available_seasons = 13
 allowed_water_types = 2
 rarity = 1
 base_catch_weight = 0.8

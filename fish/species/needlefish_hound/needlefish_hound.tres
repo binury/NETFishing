@@ -16,6 +16,7 @@ active = false
 catalog_number = 6602
 collection_group = &"Surface ocean fish"
 logbook_fact = "houndfish hunt near the surface with long jaws filled with fine teeth. powerful leaps can carry their narrow bodies far above the water."
+available_seasons = 15
 allowed_water_types = 2
 rarity = 2
 base_catch_weight = 0.3

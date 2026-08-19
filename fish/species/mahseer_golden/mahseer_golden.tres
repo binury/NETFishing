@@ -17,6 +17,7 @@ active = false
 catalog_number = 7603
 collection_group = &"Tropical freshwater predators"
 logbook_fact = "golden mahseer migrate through swift mountain rivers to reach spawning grounds. large scales shine bronze beneath reddish fins."
+available_seasons = 15
 allowed_water_types = 1
 rarity = 3
 base_catch_weight = 0.09

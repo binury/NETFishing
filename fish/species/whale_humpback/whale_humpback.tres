@@ -17,6 +17,7 @@ active = false
 catalog_number = 7703
 collection_group = &"Whales and dolphins"
 logbook_fact = "humpback whales use long pectoral fins while turning and feeding. males produce layered songs that change across breeding seasons."
+available_seasons = 13
 allowed_water_types = 2
 rarity = 4
 base_catch_weight = 0.008

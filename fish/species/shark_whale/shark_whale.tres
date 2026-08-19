@@ -17,6 +17,7 @@ active = false
 catalog_number = 905
 collection_group = &"Coastal sharks"
 logbook_fact = "whale sharks are enormous filter feeders covered in unique spot patterns. they cruise with open mouths to collect plankton and tiny fish."
+available_seasons = 6
 allowed_water_types = 2
 rarity = 4
 base_catch_weight = 0.025

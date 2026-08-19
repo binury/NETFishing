@@ -17,6 +17,7 @@ active = false
 catalog_number = 1901
 collection_group = &"Echinoderms"
 logbook_fact = "crown-of-thorns sea stars crawl over reefs and digest coral tissue outside the body. venomous spines discourage many predators."
+available_seasons = 15
 allowed_water_types = 2
 rarity = 3
 base_catch_weight = 0.1

@@ -16,6 +16,7 @@ active = false
 catalog_number = 5301
 collection_group = &"Reef eels"
 logbook_fact = "green morays appear green because yellow mucus coats blue-gray skin. a second set of jaws pulls captured prey deeper into the throat."
+available_seasons = 15
 allowed_water_types = 2
 rarity = 2
 base_catch_weight = 0.28

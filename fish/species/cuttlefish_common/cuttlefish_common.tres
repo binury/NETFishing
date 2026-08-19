@@ -16,6 +16,7 @@ active = false
 catalog_number = 1502
 collection_group = &"Cuttlefish and nautiluses"
 logbook_fact = "common cuttlefish flash changing colors and patterns through specialized skin cells. an internal cuttlebone controls buoyancy."
+available_seasons = 15
 allowed_water_types = 2
 rarity = 1
 base_catch_weight = 0.55

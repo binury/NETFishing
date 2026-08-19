@@ -16,6 +16,7 @@ active = false
 catalog_number = 3603
 collection_group = &"Large coastal predators"
 logbook_fact = "giant trevally hunt reef edges with bursts of speed and force. large individuals sometimes charge prey from surf and shallow lagoons."
+available_seasons = 6
 allowed_water_types = 2
 rarity = 3
 base_catch_weight = 0.1

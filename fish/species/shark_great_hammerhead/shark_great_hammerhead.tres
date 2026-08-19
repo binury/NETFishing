@@ -17,6 +17,7 @@ active = false
 catalog_number = 902
 collection_group = &"Coastal sharks"
 logbook_fact = "great hammerheads sweep their wide heads over the bottom while searching for rays. widely spaced senses help pinpoint hidden prey."
+available_seasons = 6
 allowed_water_types = 2
 rarity = 4
 base_catch_weight = 0.035

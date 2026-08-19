@@ -17,6 +17,7 @@ active = false
 catalog_number = 7510
 collection_group = &"Tropical freshwater fish"
 logbook_fact = "walking catfish wriggle across wet ground using stiff pectoral spines for support. an air-breathing organ helps them survive the journey."
+available_seasons = 15
 allowed_water_types = 1
 rarity = 2
 base_catch_weight = 0.3

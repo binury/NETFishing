@@ -15,6 +15,7 @@ active = false
 catalog_number = 6901
 collection_group = &"Temperate reef fish"
 logbook_fact = "black rockfish gather above reefs and kelp along the north pacific coast. like other rockfish, they give birth to live young."
+available_seasons = 13
 allowed_water_types = 2
 rarity = 0
 base_catch_weight = 1.7

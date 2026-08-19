@@ -1,4 +1,4 @@
-[gd_resource type="Resource" load_steps=21 format=3]
+[gd_resource type="Resource" load_steps=28 format=3]
 
 [ext_resource type="Script" path="res://fish/fish_pool.gd" id="1_pool"]
 [ext_resource type="Resource" path="res://fish/species/bluegill/bluegill.tres" id="2_bluegill"]
@@ -20,7 +20,14 @@
 [ext_resource type="Resource" path="res://fish/species/trout_rainbow/trout_rainbow.tres" id="18_trout_rainbow"]
 [ext_resource type="Resource" path="res://fish/species/trout_steelhead/trout_steelhead.tres" id="19_trout_steelhead"]
 [ext_resource type="Resource" path="res://fish/species/walleye/walleye.tres" id="20_walleye"]
+[ext_resource type="Resource" path="res://fish/species/bowfin/bowfin.tres" id="21_bowfin"]
+[ext_resource type="Resource" path="res://fish/species/sturgeon_lake/sturgeon_lake.tres" id="22_sturgeon_lake"]
+[ext_resource type="Resource" path="res://fish/species/gar_longnose/gar_longnose.tres" id="23_gar_longnose"]
+[ext_resource type="Resource" path="res://fish/species/paddlefish/paddlefish.tres" id="24_paddlefish"]
+[ext_resource type="Resource" path="res://fish/species/sturgeon_shovelnose/sturgeon_shovelnose.tres" id="25_sturgeon_shovelnose"]
+[ext_resource type="Resource" path="res://fish/species/gar_spotted/gar_spotted.tres" id="26_gar_spotted"]
+[ext_resource type="Resource" path="res://fish/species/lungfish_west_african/lungfish_west_african.tres" id="27_lungfish_west_african"]
 
 [resource]
 script = ExtResource("1_pool")
-candidates = [ExtResource("2_bluegill"), ExtResource("3_carp"), ExtResource("4_catfish_blue"), ExtResource("5_catfish_channel"), ExtResource("6_catfish_flathead"), ExtResource("7_catfish_white"), ExtResource("8_goby_round"), ExtResource("9_chub_european"), ExtResource("10_chub_flame"), ExtResource("11_chub_lake"), ExtResource("12_goldfish"), ExtResource("13_goldfish_bubbleeye"), ExtResource("14_sauger"), ExtResource("15_saugeye"), ExtResource("16_trout_cutthroat"), ExtResource("17_trout_golden"), ExtResource("18_trout_rainbow"), ExtResource("19_trout_steelhead"), ExtResource("20_walleye")]
+candidates = [ExtResource("2_bluegill"), ExtResource("3_carp"), ExtResource("4_catfish_blue"), ExtResource("5_catfish_channel"), ExtResource("6_catfish_flathead"), ExtResource("7_catfish_white"), ExtResource("8_goby_round"), ExtResource("9_chub_european"), ExtResource("10_chub_flame"), ExtResource("11_chub_lake"), ExtResource("12_goldfish"), ExtResource("13_goldfish_bubbleeye"), ExtResource("14_sauger"), ExtResource("15_saugeye"), ExtResource("16_trout_cutthroat"), ExtResource("17_trout_golden"), ExtResource("18_trout_rainbow"), ExtResource("19_trout_steelhead"), ExtResource("20_walleye"), ExtResource("21_bowfin"), ExtResource("22_sturgeon_lake"), ExtResource("23_gar_longnose"), ExtResource("24_paddlefish"), ExtResource("25_sturgeon_shovelnose"), ExtResource("26_gar_spotted"), ExtResource("27_lungfish_west_african")]

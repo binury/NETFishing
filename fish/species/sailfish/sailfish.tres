@@ -17,6 +17,7 @@ active = true
 catalog_number = 4603
 collection_group = &"Oceanic billfish"
 logbook_fact = "sailfish raise their enormous dorsal fin while herding baitfish. they are among the fastest fish in the sea."
+available_seasons = 15
 allowed_water_types = 2
 rarity = 3
 base_catch_weight = 0.1

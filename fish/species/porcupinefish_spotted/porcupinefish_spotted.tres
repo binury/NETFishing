@@ -17,6 +17,7 @@ active = false
 catalog_number = 5607
 collection_group = &"Reef oddities"
 logbook_fact = "spotted porcupinefish inflate until long spines stand outward. fused teeth form a strong beak for crushing shelled prey."
+available_seasons = 15
 allowed_water_types = 2
 rarity = 3
 base_catch_weight = 0.12

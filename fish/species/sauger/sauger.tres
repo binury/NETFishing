@@ -17,6 +17,7 @@ active = true
 catalog_number = 3304
 collection_group = &"Freshwater predators"
 logbook_fact = "sauger favor turbid rivers and reservoirs. their mottled backs blend into the dim, shifting light near the bottom."
+available_seasons = 13
 allowed_water_types = 1
 rarity = 1
 base_catch_weight = 0.35

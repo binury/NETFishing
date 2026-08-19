@@ -129,6 +129,10 @@ static func is_passive_supply(item_id: StringName) -> bool:
 	return item_id == BATTERIES_ID
 
 
+static func is_gathering_tool(item_id: StringName) -> bool:
+	return item_id == CRAB_NET_ID or item_id == STANDARD_SHOVEL_ID
+
+
 static func get_purchase_cost(
 	item_id: StringName,
 	quantity: int,

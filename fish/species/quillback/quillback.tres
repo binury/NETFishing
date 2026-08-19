@@ -16,6 +16,7 @@ active = false
 catalog_number = 2303
 collection_group = &"Freshwater bottom fish"
 logbook_fact = "quillbacks carry a long first dorsal ray that rises like a quill. small mouths gather insect larvae and other food from river and lake bottoms."
+available_seasons = 7
 allowed_water_types = 1
 rarity = 1
 base_catch_weight = 0.8

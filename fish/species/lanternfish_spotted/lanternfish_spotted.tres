@@ -16,6 +16,7 @@ active = false
 catalog_number = 1806
 collection_group = &"Deep-sea oddities"
 logbook_fact = "spotted lanternfish carry rows of light-producing organs along their bodies. immense schools rise toward the surface each night."
+available_seasons = 15
 allowed_water_types = 2
 rarity = 2
 base_catch_weight = 0.24

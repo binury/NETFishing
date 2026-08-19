@@ -527,7 +527,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	if (
 		state == FishingState.READY
 		and selected_item != null
-		and selected_item.item_id == FishingShopStockType.CRAB_NET_ID
+		and FishingShopStockType.is_gathering_tool(selected_item.item_id)
 	):
 		return
 	if event.is_pressed():
@@ -1572,6 +1572,7 @@ func _build_fishing_context(
 	if _world_time != null:
 		context.is_night = _world_time.is_night_period()
 		context.is_day_night_transition = _world_time.is_transition()
+		context.season = _world_time.get_season()
 	if _world_weather != null:
 		context.is_raining = _world_weather.is_raining()
 		context.is_foggy = _world_weather.is_foggy()

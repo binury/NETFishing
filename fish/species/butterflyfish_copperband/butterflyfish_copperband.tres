@@ -17,6 +17,7 @@ active = false
 catalog_number = 5701
 collection_group = &"Reef ornamentals"
 logbook_fact = "copperband butterflyfish probe reef cracks with long narrow snouts. bold orange bands and a false eyespot confuse predators."
+available_seasons = 15
 allowed_water_types = 2
 rarity = 2
 base_catch_weight = 0.32

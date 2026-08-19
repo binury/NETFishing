@@ -39,6 +39,12 @@ const CLOCK_FONT_SIZE: int = 27
 const CLOCK_EDGE_MARGIN: float = 10.0
 const WEATHER_ICON_SIZE := Vector2(51.0, 51.0)
 const WEATHER_ICON_GAP: float = 6.0
+const CALENDAR_SIZE := Vector2(
+	CLOCK_SIZE.x + WEATHER_ICON_GAP + WEATHER_ICON_SIZE.x,
+	28.0,
+)
+const CALENDAR_FONT_SIZE: int = 16
+const CALENDAR_TOP_GAP: float = 4.0
 const STATUS_EFFECT_ICON_SIZE := Vector2(40.0, 40.0)
 const STATUS_EFFECT_TOP_GAP: float = 6.0
 const STATUS_EFFECT_ICON_GAP: int = 4
@@ -98,6 +104,8 @@ var _speech_layer: Control
 var _animalese_voice: AnimaleseVoiceType
 var _clock_panel: PanelContainer
 var _clock_label: Label
+var _calendar_panel: PanelContainer
+var _calendar_label: Label
 var _weather_icon: WeatherIconType
 var _status_effect_column: VBoxContainer
 var _status_effect_icons: Dictionary[StringName, TextureRect] = {}
@@ -175,6 +183,18 @@ func setup(
 		_world_time.time_changed.connect(_on_world_time_changed)
 		_on_world_time_changed(
 			_world_time.get_time_hours(), _world_time.get_phase()
+		)
+	if (
+		_world_time != null
+		and not _world_time.calendar_date_changed.is_connected(
+			_on_world_calendar_date_changed
+		)
+	):
+		_world_time.calendar_date_changed.connect(
+			_on_world_calendar_date_changed
+		)
+		_on_world_calendar_date_changed(
+			_world_time.get_calendar_date_id()
 		)
 	if (
 		_world_weather != null
@@ -474,6 +494,30 @@ func _build_ui() -> void:
 		"font_color", UtilityPageStyle.OCEAN_TEXT_PRIMARY
 	)
 	_clock_panel.add_child(_clock_label)
+	_calendar_panel = PanelContainer.new()
+	_calendar_panel.name = "WorldCalendarPanel"
+	_calendar_panel.size = CALENDAR_SIZE
+	_calendar_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_calendar_panel.add_theme_stylebox_override(
+		"panel", _calendar_panel_style()
+	)
+	add_child(_calendar_panel)
+	_calendar_label = Label.new()
+	_calendar_label.name = "WorldCalendarLabel"
+	_calendar_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_calendar_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_calendar_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_calendar_label.add_theme_font_override(
+		"font", UtilityPageStyle.TuffyFont
+	)
+	_calendar_label.add_theme_font_size_override(
+		"font_size", CALENDAR_FONT_SIZE
+	)
+	_calendar_label.add_theme_color_override(
+		"font_color", UtilityPageStyle.OCEAN_TEXT_PRIMARY
+	)
+	_calendar_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	_calendar_panel.add_child(_calendar_label)
 	_status_effect_column = VBoxContainer.new()
 	_status_effect_column.name = "StatusEffectColumn"
 	_status_effect_column.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -652,6 +696,7 @@ func _build_ui() -> void:
 	add_child(_draft_save_timer)
 	_panel.hide()
 	_clock_panel.hide()
+	_calendar_panel.hide()
 	_weather_icon.hide()
 	_collapse_button.hide()
 	_height_button.hide()
@@ -714,6 +759,16 @@ func _clock_panel_style() -> StyleBoxFlat:
 	style.content_margin_right = 10
 	style.content_margin_top = 4
 	style.content_margin_bottom = 4
+	return style
+
+
+func _calendar_panel_style() -> StyleBoxFlat:
+	var style := _borderless_style(CHAT_SURFACE_COLOR)
+	style.set_corner_radius_all(10)
+	style.content_margin_left = 8
+	style.content_margin_right = 8
+	style.content_margin_top = 2
+	style.content_margin_bottom = 2
 	return style
 
 
@@ -1032,6 +1087,7 @@ func _refresh_visibility() -> void:
 	if not _available:
 		_panel.hide()
 		_clock_panel.hide()
+		_calendar_panel.hide()
 		_weather_icon.hide()
 		_status_effect_column.hide()
 		_collapse_button.hide()
@@ -1042,6 +1098,7 @@ func _refresh_visibility() -> void:
 	if _hud_hidden and not _opened:
 		_panel.hide()
 		_clock_panel.hide()
+		_calendar_panel.hide()
 		_weather_icon.hide()
 		_status_effect_column.hide()
 		_collapse_button.hide()
@@ -1050,6 +1107,7 @@ func _refresh_visibility() -> void:
 		_hint.hide()
 		return
 	_clock_panel.show()
+	_calendar_panel.visible = not _calendar_label.text.is_empty()
 	_weather_icon.show()
 	_collapse_button.show()
 	var collapsed := _presentation_state == PresentationState.COLLAPSED
@@ -1439,6 +1497,17 @@ func _layout_presentation(animate: bool) -> void:
 	var weather_icon_position := Vector2(
 		weather_icon_x, clock_position.y
 	)
+	var calendar_position := Vector2(
+		minf(clock_position.x, weather_icon_position.x),
+		clock_position.y + CLOCK_SIZE.y + CALENDAR_TOP_GAP,
+	)
+	status_effect_column_position = Vector2(
+		calendar_position.x
+		+ (CALENDAR_SIZE.x - STATUS_EFFECT_ICON_SIZE.x) * 0.5,
+		calendar_position.y
+		+ CALENDAR_SIZE.y
+		+ STATUS_EFFECT_TOP_GAP,
+	)
 	var hint_position := Vector2(
 		(
 			viewport_width - _hint.size.x - HINT_EDGE_MARGIN
@@ -1454,6 +1523,8 @@ func _layout_presentation(animate: bool) -> void:
 		_panel.size = target_size
 		_clock_panel.position = clock_position
 		_clock_panel.size = CLOCK_SIZE
+		_calendar_panel.position = calendar_position
+		_calendar_panel.size = CALENDAR_SIZE
 		_status_effect_column.position = status_effect_column_position
 		_weather_icon.position = weather_icon_position
 		_weather_icon.size = WEATHER_ICON_SIZE
@@ -1474,6 +1545,12 @@ func _layout_presentation(animate: bool) -> void:
 		_clock_panel,
 		"position",
 		clock_position,
+		UIMotion.CHAT_RESIZE_DURATION,
+	).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	_height_tween.tween_property(
+		_calendar_panel,
+		"position",
+		calendar_position,
 		UIMotion.CHAT_RESIZE_DURATION,
 	).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	_height_tween.tween_property(
@@ -1615,6 +1692,17 @@ func _on_world_time_changed(
 		_clock_label.text = _world_time.get_clock_text()
 	if _weather_icon != null and _world_time != null:
 		_weather_icon.set_nighttime(_world_time.is_night_period())
+
+
+func _on_world_calendar_date_changed(_date_id: String) -> void:
+	if _calendar_label == null or _world_time == null:
+		return
+	_calendar_label.text = _world_time.get_calendar_text()
+	_calendar_panel.visible = (
+		_available
+		and (not _hud_hidden or _opened)
+		and not _calendar_label.text.is_empty()
+	)
 
 
 func _on_world_weather_changed(

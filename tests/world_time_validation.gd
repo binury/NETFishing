@@ -15,6 +15,7 @@ const FishableWaterRegionType = preload(
 	"res://world/fishable_water_region.gd"
 )
 const WeatherIconType = preload("res://ui/weather_icon.gd")
+const CalendarSeasonType = preload("res://world/calendar_season.gd")
 
 const Catalog: FishPoolType = preload("res://fish/pools/fish_catalog.tres")
 const SaltWaterMaterial: ShaderMaterial = preload(
@@ -56,6 +57,35 @@ func _validate_clock_boundaries_and_duration() -> void:
 		WorldTimeServiceType.date_id_from_datetime({
 			"year": 2026, "month": 8, "day": 18,
 		}) == "2026-08-18"
+	)
+	assert(WorldTimeServiceType.is_valid_calendar_date_id("2026-08-18"))
+	assert(WorldTimeServiceType.is_valid_calendar_date_id("2028-02-29"))
+	assert(not WorldTimeServiceType.is_valid_calendar_date_id("2026-02-29"))
+	assert(not WorldTimeServiceType.is_valid_calendar_date_id("2026-13-01"))
+	assert(not WorldTimeServiceType.is_valid_calendar_date_id("2026-8-18"))
+	assert(
+		WorldTimeServiceType.format_calendar_date("2026-08-18")
+		== "tuesday, august 18"
+	)
+	assert(
+		CalendarSeasonType.from_date_id("2026-03-01")
+		== CalendarSeasonType.Season.SPRING
+	)
+	assert(
+		CalendarSeasonType.from_date_id("2026-06-01")
+		== CalendarSeasonType.Season.SUMMER
+	)
+	assert(
+		CalendarSeasonType.from_date_id("2026-09-01")
+		== CalendarSeasonType.Season.FALL
+	)
+	assert(
+		CalendarSeasonType.from_date_id("2026-12-01")
+		== CalendarSeasonType.Season.WINTER
+	)
+	assert(
+		CalendarSeasonType.from_date_id("invalid")
+		== CalendarSeasonType.UNKNOWN
 	)
 	assert(
 		WorldTimeServiceType.calendar_cycle_id_from_datetime({
@@ -99,7 +129,11 @@ func _validate_clock_boundaries_and_duration() -> void:
 
 	var clock := WorldTimeServiceType.new()
 	root.add_child(clock)
-	clock.begin_test_session(8.0)
+	clock.begin_test_session(8.0, "2026-08-18")
+	assert(clock.get_calendar_date_id() == "2026-08-18")
+	assert(clock.get_calendar_text() == "tuesday, august 18")
+	assert(clock.get_season() == CalendarSeasonType.Season.SUMMER)
+	assert(clock.get_season_text() == "summer")
 	clock.advance_time(12.0 * 60.0 * 60.0)
 	assert(is_equal_approx(clock.get_time_hours(), 20.0))
 	assert(clock.is_night_period())
@@ -214,7 +248,7 @@ func _validate_fishing_availability() -> void:
 
 func _validate_fishing_spot_context() -> void:
 	var clock := WorldTimeServiceType.new()
-	clock.begin_test_session(20.25)
+	clock.begin_test_session(20.25, "2026-12-18")
 	var fishing_spot := FishingSpotType.new()
 	fishing_spot.set("_world_time", clock)
 	var region := FishableWaterRegionType.new()
@@ -223,6 +257,7 @@ func _validate_fishing_spot_context() -> void:
 	var dusk_context: FishingContext = fishing_spot.build_network_context(region)
 	assert(dusk_context.is_night)
 	assert(dusk_context.is_day_night_transition)
+	assert(dusk_context.season == CalendarSeasonType.Season.WINTER)
 	clock.synchronize_time(14.0)
 	var day_context: FishingContext = fishing_spot.build_network_context(region)
 	assert(not day_context.is_night)
@@ -236,16 +271,25 @@ func _validate_network_snapshot_bounds() -> void:
 	assert(NetworkWorldTimeServiceType.validate_snapshot({
 		"session_id": "session",
 		"time_hours": 8.25,
+		"calendar_date_id": "2026-08-18",
 		"sequence": 1,
 	}))
 	assert(not NetworkWorldTimeServiceType.validate_snapshot({
 		"session_id": "session",
 		"time_hours": 24.0,
+		"calendar_date_id": "2026-08-18",
 		"sequence": 1,
 	}))
 	assert(not NetworkWorldTimeServiceType.validate_snapshot({
 		"session_id": "",
 		"time_hours": 8.0,
+		"calendar_date_id": "2026-08-18",
+		"sequence": 1,
+	}))
+	assert(not NetworkWorldTimeServiceType.validate_snapshot({
+		"session_id": "session",
+		"time_hours": 8.0,
+		"calendar_date_id": "2026-02-29",
 		"sequence": 1,
 	}))
 

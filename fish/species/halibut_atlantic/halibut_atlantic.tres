@@ -15,6 +15,7 @@ active = false
 catalog_number = 3701
 collection_group = &"Large flatfish"
 logbook_fact = "atlantic halibut are immense right-eyed flatfish of cold northern seas. adults ambush fish and squid from deep rocky or sandy bottoms."
+available_seasons = 13
 allowed_water_types = 2
 rarity = 3
 base_catch_weight = 0.1

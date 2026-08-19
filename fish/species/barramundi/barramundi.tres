@@ -17,6 +17,7 @@ active = false
 catalog_number = 7302
 collection_group = &"Tropical estuary"
 logbook_fact = "barramundi move between rivers and coasts and can breathe in low-oxygen water. many mature first as males and later become females."
+available_seasons = 15
 allowed_water_types = 3
 rarity = 2
 base_catch_weight = 0.24

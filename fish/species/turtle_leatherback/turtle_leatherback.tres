@@ -17,6 +17,7 @@ active = false
 catalog_number = 6203
 collection_group = &"Sea turtles"
 logbook_fact = "leatherback sea turtles cross entire oceans while hunting jellies. a flexible ridged shell and internal heat help them enter cold water."
+available_seasons = 15
 allowed_water_types = 2
 rarity = 4
 base_catch_weight = 0.012

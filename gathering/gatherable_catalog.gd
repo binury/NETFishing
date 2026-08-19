@@ -2,6 +2,7 @@ class_name GatherableCatalog
 extends Resource
 
 const GatherableDataType = preload("res://gathering/gatherable_data.gd")
+const CalendarSeasonType = preload("res://world/calendar_season.gd")
 
 @export var entries: Array[GatherableDataType] = []
 
@@ -15,9 +16,11 @@ func get_entry(type_id: StringName) -> GatherableDataType:
 	return null
 
 
-func get_available_entries() -> Array[GatherableDataType]:
+func get_available_entries(
+	season: int = CalendarSeasonType.UNKNOWN,
+) -> Array[GatherableDataType]:
 	var available: Array[GatherableDataType] = []
 	for entry: GatherableDataType in entries:
-		if entry != null and entry.is_available():
+		if entry != null and entry.is_available(season):
 			available.append(entry)
 	return available

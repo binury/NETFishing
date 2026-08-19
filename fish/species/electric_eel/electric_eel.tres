@@ -17,6 +17,7 @@ active = false
 catalog_number = 2901
 collection_group = &"Freshwater oddities"
 logbook_fact = "electric eels navigate and hunt with electrical pulses produced along most of the body. they must surface regularly to breathe air."
+available_seasons = 15
 allowed_water_types = 1
 rarity = 3
 base_catch_weight = 0.1

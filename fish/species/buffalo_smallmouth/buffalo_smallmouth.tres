@@ -15,6 +15,7 @@ active = false
 catalog_number = 2304
 collection_group = &"Freshwater bottom fish"
 logbook_fact = "smallmouth buffalo use thick lips to graze bottom-dwelling food in warm rivers. their deep, heavy bodies form a pronounced arch behind the head."
+available_seasons = 7
 allowed_water_types = 1
 rarity = 2
 base_catch_weight = 0.3

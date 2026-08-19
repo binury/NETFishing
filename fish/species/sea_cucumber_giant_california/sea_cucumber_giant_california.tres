@@ -17,6 +17,7 @@ active = false
 catalog_number = 1902
 collection_group = &"Echinoderms"
 logbook_fact = "giant california sea cucumbers sweep organic particles from the seafloor with branching tentacles. soft tube feet anchor their long bodies."
+available_seasons = 15
 allowed_water_types = 2
 rarity = 2
 base_catch_weight = 0.24

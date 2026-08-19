@@ -18,6 +18,7 @@ active = true
 catalog_number = 4801
 collection_group = &"Oceanic tuna"
 logbook_fact = "albacore have unusually long pectoral fins. their warm muscles help them cruise across wide stretches of open ocean."
+available_seasons = 7
 allowed_water_types = 2
 rarity = 2
 base_catch_weight = 1.5

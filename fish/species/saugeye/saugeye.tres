@@ -17,6 +17,7 @@ active = true
 catalog_number = 3305
 collection_group = &"Freshwater predators"
 logbook_fact = "saugeye are a fertile hybrid of sauger and walleye. they combine traits from both parent species and often grow quickly."
+available_seasons = 13
 allowed_water_types = 1
 rarity = 2
 base_catch_weight = 0.2

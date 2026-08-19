@@ -17,6 +17,7 @@ active = false
 catalog_number = 3801
 collection_group = &"Lobsters and shrimp"
 logbook_fact = "american lobsters shelter in rocky crevices and emerge to forage along the bottom. one claw crushes while the other cuts and grips."
+available_seasons = 15
 allowed_water_types = 2
 rarity = 2
 base_catch_weight = 0.28

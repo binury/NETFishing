@@ -82,6 +82,9 @@ const CHARACTER_FIGHTING_ANIMATION: StringName = &"fighting"
 const CHARACTER_FIGHTING_SIT_ANIMATION: StringName = &"fighting_sit"
 const CHARACTER_NET_DRAW_ANIMATION: StringName = &"draw"
 const CHARACTER_NET_STRIKE_ANIMATION: StringName = &"strike"
+const CATCH_PRESENTATION_REFERENCE_LONG_SIDE_PX: float = 1280.0
+const CATCH_PRESENTATION_MIN_TEXTURE_SCALE: float = 0.1
+const CATCH_PRESENTATION_MAX_TEXTURE_SCALE: float = 20.0
 # Add future networked emote animation IDs here. The protocol accepts unknown
 # safe IDs so newer clients can extend it, but Player only presents actions
 # explicitly approved by this catalog.
@@ -2744,10 +2747,9 @@ func set_held_fish(
 	)
 	_held_fish_visible = true
 	_pending_held_fish_texture = fish.display_texture
-	_pending_held_fish_scale = (
-		Vector3.ONE
-		* maxf(display_scale, 0.01)
-		* catch_presentation_base_scale
+	_pending_held_fish_scale = _get_catch_presentation_scale(
+		fish,
+		display_scale,
 	)
 	if not previous_show_pose:
 		_held_fish_display.visible = false
@@ -3006,10 +3008,9 @@ func _begin_catch_showcase_now(
 	if _shovel != null:
 		_shovel.visible = false
 	_catch_sprite.texture = fish_catch.fish.display_texture
-	_catch_display.scale = (
-		Vector3.ONE
-		* fish_catch.display_scale
-		* catch_presentation_base_scale
+	_catch_display.scale = _get_catch_presentation_scale(
+		fish_catch.fish,
+		fish_catch.display_scale,
 	)
 	_catch_display.visible = _catch_sprite.texture != null
 	_update_character_animation()
@@ -3043,13 +3044,39 @@ func _begin_remote_catch_showcase_now(fish_catch: FishCatchType) -> void:
 	if _shovel != null:
 		_shovel.visible = false
 	_catch_sprite.texture = fish_catch.fish.display_texture
-	_catch_display.scale = (
-		Vector3.ONE
-		* fish_catch.display_scale
-		* catch_presentation_base_scale
+	_catch_display.scale = _get_catch_presentation_scale(
+		fish_catch.fish,
+		fish_catch.display_scale,
 	)
 	_catch_display.visible = _catch_sprite.texture != null
 	_update_character_animation()
+
+
+func _get_catch_presentation_scale(
+	fish: FishDataType,
+	display_scale: float,
+) -> Vector3:
+	var texture: Texture2D = fish.display_texture if fish != null else null
+	return (
+		Vector3.ONE
+		* maxf(display_scale, 0.01)
+		* catch_presentation_base_scale
+		* get_catch_texture_resolution_scale(texture)
+	)
+
+
+static func get_catch_texture_resolution_scale(texture: Texture2D) -> float:
+	if texture == null:
+		return 1.0
+	var texture_size: Vector2 = texture.get_size()
+	var longest_side: float = maxf(texture_size.x, texture_size.y)
+	if not is_finite(longest_side) or longest_side <= 0.0:
+		return 1.0
+	return clampf(
+		CATCH_PRESENTATION_REFERENCE_LONG_SIDE_PX / longest_side,
+		CATCH_PRESENTATION_MIN_TEXTURE_SCALE,
+		CATCH_PRESENTATION_MAX_TEXTURE_SCALE,
+	)
 
 
 func _is_net_strike_visual_active() -> bool:

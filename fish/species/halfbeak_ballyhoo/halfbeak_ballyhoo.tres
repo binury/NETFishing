@@ -16,6 +16,7 @@ active = false
 catalog_number = 6601
 collection_group = &"Surface ocean fish"
 logbook_fact = "ballyhoo skim warm ocean surfaces with an extended lower jaw. tight schools scatter into quick leaps when predators strike."
+available_seasons = 15
 allowed_water_types = 2
 rarity = 0
 base_catch_weight = 2.5

@@ -16,6 +16,7 @@ active = false
 catalog_number = 2301
 collection_group = &"Freshwater bottom fish"
 logbook_fact = "bigmouth buffalo filter plankton with fine gill rakers instead of rooting for prey. some individuals survive for more than a century."
+available_seasons = 7
 allowed_water_types = 1
 rarity = 3
 base_catch_weight = 0.12

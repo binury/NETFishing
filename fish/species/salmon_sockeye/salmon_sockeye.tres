@@ -18,6 +18,7 @@ active = true
 catalog_number = 4405
 collection_group = &"Ocean-run salmon"
 logbook_fact = "sockeye salmon feed heavily on plankton at sea. adults turn vivid red as they return inland to spawn."
+available_seasons = 6
 allowed_water_types = 2
 rarity = 2
 base_catch_weight = 1.6

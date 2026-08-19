@@ -17,6 +17,7 @@ active = false
 catalog_number = 1102
 collection_group = &"Cold freshwater salmonids"
 logbook_fact = "arctic grayling carry a tall, colorful dorsal fin like a sail. they feed on drifting insects in cold, clear rivers and lakes."
+available_seasons = 13
 allowed_water_types = 1
 rarity = 1
 base_catch_weight = 0.75

@@ -18,6 +18,7 @@ active = true
 catalog_number = 4403
 collection_group = &"Ocean-run salmon"
 logbook_fact = "coho salmon are agile hunters known for powerful leaps. young coho may spend more than a year growing in streams."
+available_seasons = 12
 allowed_water_types = 2
 rarity = 2
 base_catch_weight = 1.4

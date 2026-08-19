@@ -15,6 +15,7 @@ active = false
 catalog_number = 2305
 collection_group = &"Freshwater bottom fish"
 logbook_fact = "white suckers vacuum insects and organic matter from cool freshwater bottoms. spring runs carry large groups into shallow streams."
+available_seasons = 7
 allowed_water_types = 1
 rarity = 0
 base_catch_weight = 2.0

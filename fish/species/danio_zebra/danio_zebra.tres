@@ -16,6 +16,7 @@ active = false
 catalog_number = 2103
 collection_group = &"Freshwater aquarium fish"
 logbook_fact = "zebrafish carry horizontal blue stripes from gill to tail. hardy schools thrive in shallow streams, flooded fields, and quiet pools."
+available_seasons = 15
 allowed_water_types = 1
 rarity = 0
 base_catch_weight = 1.35

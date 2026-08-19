@@ -3,6 +3,7 @@ extends Resource
 
 const FishDataType = preload("res://fish/fish_data.gd")
 const FishQualityType = preload("res://fish/fish_quality.gd")
+const CalendarSeasonType = preload("res://world/calendar_season.gd")
 
 enum PresentationMode {
 	VISIBLE_CREATURE,
@@ -130,8 +131,13 @@ func get_respawn_delay(reason: StringName, rng: RandomNumberGenerator) -> float:
 	return rng.randf_range(minimum_seconds, maximum_seconds)
 
 
-func is_available() -> bool:
-	return catch_data != null and catch_data.active and is_valid()
+func is_available(season: int = CalendarSeasonType.UNKNOWN) -> bool:
+	return (
+		catch_data != null
+		and catch_data.active
+		and catch_data.is_available_in_season(season)
+		and is_valid()
+	)
 
 
 func _quality_multiplier(values: Array[float], quality: int) -> float:

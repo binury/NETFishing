@@ -17,6 +17,7 @@ active = false
 catalog_number = 2501
 collection_group = &"Freshwater coarse fish"
 logbook_fact = "common barbels hold close to fast river bottoms with streamlined bodies and broad fins. four mouth barbels locate food among stones."
+available_seasons = 7
 allowed_water_types = 1
 rarity = 2
 base_catch_weight = 0.28

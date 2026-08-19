@@ -15,6 +15,7 @@ active = false
 catalog_number = 1303
 collection_group = &"Cold schooling fish"
 logbook_fact = "european sprat form compact schools in northern coastal seas. these tiny herring relatives feed on plankton near the surface."
+available_seasons = 13
 allowed_water_types = 2
 rarity = 0
 base_catch_weight = 3.2

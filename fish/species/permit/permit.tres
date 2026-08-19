@@ -17,6 +17,7 @@ active = false
 catalog_number = 7404
 collection_group = &"Tropical flats fish"
 logbook_fact = "permit browse tropical flats for crabs and shellfish with rubbery mouths. tall silver bodies carry long sickle-shaped dorsal and anal fins."
+available_seasons = 15
 allowed_water_types = 2
 rarity = 3
 base_catch_weight = 0.11

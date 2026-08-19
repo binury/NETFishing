@@ -20,6 +20,7 @@ logbook_fact = "dungeness crabs bury beneath sand with only their eyes and anten
 collection_method = 1
 logbook_section = 1
 habitat_label = "shallow coastal sand"
+available_seasons = 13
 allowed_water_types = 2
 rarity = 1
 base_catch_weight = 0.65

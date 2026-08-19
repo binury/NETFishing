@@ -157,12 +157,16 @@ func _run() -> void:
 		assert(presenter.size.is_equal_approx(Vector2(expected_viewport_size)))
 		var chat_panel := chat_ui.get_node("ChatPanel") as Control
 		var clock_panel := chat_ui.get_node("WorldClockPanel") as Control
+		var calendar_panel := chat_ui.get_node(
+			"WorldCalendarPanel"
+		) as Control
 		var status_effect_column := chat_ui.get_node(
 			"StatusEffectColumn"
 		) as Control
 		var weather_icon := chat_ui.get_node("WorldWeatherIcon") as Control
 		assert(chat_panel != null)
 		assert(clock_panel != null)
+		assert(calendar_panel != null)
 		assert(status_effect_column != null)
 		assert(weather_icon != null)
 		assert(chat_panel.visible)
@@ -175,15 +179,25 @@ func _run() -> void:
 			ChatUI.CLOCK_EDGE_MARGIN,
 			ChatUI.CLOCK_EDGE_MARGIN,
 		)))
+		assert(calendar_panel.position.is_equal_approx(Vector2(
+			ChatUI.CLOCK_EDGE_MARGIN,
+			ChatUI.CLOCK_EDGE_MARGIN
+			+ ChatUI.CLOCK_SIZE.y
+			+ ChatUI.CALENDAR_TOP_GAP,
+		)))
+		assert(calendar_panel.size.is_equal_approx(ChatUI.CALENDAR_SIZE))
 		assert(is_equal_approx(
 			status_effect_column.position.x,
-			clock_panel.position.x
-			+ (ChatUI.CLOCK_SIZE.x - ChatUI.STATUS_EFFECT_ICON_SIZE.x) * 0.5,
+			calendar_panel.position.x
+			+ (
+				ChatUI.CALENDAR_SIZE.x
+				- ChatUI.STATUS_EFFECT_ICON_SIZE.x
+			) * 0.5,
 		))
 		assert(is_equal_approx(
 			status_effect_column.position.y,
-			clock_panel.position.y
-			+ ChatUI.CLOCK_SIZE.y
+			calendar_panel.position.y
+			+ ChatUI.CALENDAR_SIZE.y
 			+ ChatUI.STATUS_EFFECT_TOP_GAP,
 		))
 		assert(is_equal_approx(

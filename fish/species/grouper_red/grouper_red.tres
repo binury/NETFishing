@@ -17,6 +17,7 @@ active = true
 catalog_number = 5807
 collection_group = &"Reef predators"
 logbook_fact = "red grouper excavate shelters in reef rubble. the hollows they make can become hiding places for many smaller animals."
+available_seasons = 15
 allowed_water_types = 2
 rarity = 2
 base_catch_weight = 0.2

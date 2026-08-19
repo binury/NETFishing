@@ -19,6 +19,7 @@ logbook_fact = "blue crabs swim with flattened rear legs shaped like paddles. br
 collection_method = 1
 logbook_section = 1
 habitat_label = "shallow coastal water"
+available_seasons = 6
 allowed_water_types = 2
 rarity = 0
 base_catch_weight = 1.15

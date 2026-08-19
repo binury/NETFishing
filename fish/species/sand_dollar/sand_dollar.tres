@@ -17,6 +17,7 @@ active = false
 catalog_number = 1904
 collection_group = &"Echinoderms"
 logbook_fact = "sand dollars burrow just beneath sandy seafloors and filter tiny food particles. the familiar star pattern marks their five-part body plan."
+available_seasons = 15
 allowed_water_types = 2
 rarity = 1
 base_catch_weight = 0.8

@@ -16,6 +16,7 @@ active = false
 catalog_number = 1405
 collection_group = &"Cold shelf fish"
 logbook_fact = "haddock are recognized by a dark shoulder mark and black lateral line. schools forage over cold seafloors for small bottom animals."
+available_seasons = 13
 allowed_water_types = 2
 rarity = 0
 base_catch_weight = 2.0

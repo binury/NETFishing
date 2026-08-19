@@ -16,6 +16,7 @@ active = false
 catalog_number = 7301
 collection_group = &"Tropical estuary"
 logbook_fact = "atlantic tarpon gulp air with a lung-like swim bladder when coastal water runs low on oxygen. giant silver scales flash during leaps."
+available_seasons = 15
 allowed_water_types = 3
 rarity = 3
 base_catch_weight = 0.09

@@ -16,6 +16,7 @@ active = false
 catalog_number = 7505
 collection_group = &"Tropical freshwater fish"
 logbook_fact = "giant gouramis breathe surface air through a specialized labyrinth organ. adults graze plants but also investigate insects and small animals."
+available_seasons = 15
 allowed_water_types = 1
 rarity = 2
 base_catch_weight = 0.25

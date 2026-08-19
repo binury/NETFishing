@@ -17,6 +17,7 @@ active = false
 catalog_number = 7701
 collection_group = &"Whales and dolphins"
 logbook_fact = "blue whales are the largest animals known to have lived. pleated throats expand around vast mouthfuls of water that baleen filters for krill."
+available_seasons = 15
 allowed_water_types = 2
 rarity = 4
 base_catch_weight = 0.005

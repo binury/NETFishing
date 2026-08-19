@@ -16,6 +16,7 @@ active = false
 catalog_number = 5201
 collection_group = &"Reef ambush fish"
 logbook_fact = "red lionfish spread ornate venomous spines when threatened. broad fins herd smaller fish into corners before a rapid gulp."
+available_seasons = 15
 allowed_water_types = 2
 rarity = 2
 base_catch_weight = 0.3

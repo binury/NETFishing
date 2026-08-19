@@ -16,6 +16,7 @@ active = false
 catalog_number = 903
 collection_group = &"Coastal sharks"
 logbook_fact = "great white sharks conserve heat in their swimming muscles while crossing cool seas. rows of serrated teeth are replaced throughout life."
+available_seasons = 15
 allowed_water_types = 2
 rarity = 4
 base_catch_weight = 0.025

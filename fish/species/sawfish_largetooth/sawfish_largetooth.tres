@@ -17,6 +17,7 @@ active = false
 catalog_number = 5103
 collection_group = &"Rays and skates"
 logbook_fact = "largetooth sawfish detect hidden prey with a long sensory rostrum. a swift sideways sweep stuns fish and exposes animals buried in mud."
+available_seasons = 15
 allowed_water_types = 2
 rarity = 4
 base_catch_weight = 0.035

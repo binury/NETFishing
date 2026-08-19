@@ -18,6 +18,7 @@ active = true
 catalog_number = 4802
 collection_group = &"Oceanic tuna"
 logbook_fact = "bigeye tuna make daily trips between deep, cool water and warmer surface layers. their large eyes suit those dim depths."
+available_seasons = 15
 allowed_water_types = 2
 rarity = 3
 base_catch_weight = 0.55

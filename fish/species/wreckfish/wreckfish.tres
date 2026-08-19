@@ -16,6 +16,7 @@ active = false
 catalog_number = 1606
 collection_group = &"Deep shelf fish"
 logbook_fact = "wreckfish gather around caves, ledges, and shipwrecks in deep water. powerful jaws let them ambush fish and large crustaceans."
+available_seasons = 15
 allowed_water_types = 2
 rarity = 3
 base_catch_weight = 0.1

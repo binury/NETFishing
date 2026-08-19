@@ -17,6 +17,7 @@ active = false
 catalog_number = 7403
 collection_group = &"Tropical flats fish"
 logbook_fact = "ladyfish race through warm shallows after schooling prey and often leap when pursued. a deeply forked tail powers their slender bodies."
+available_seasons = 15
 allowed_water_types = 2
 rarity = 0
 base_catch_weight = 1.7

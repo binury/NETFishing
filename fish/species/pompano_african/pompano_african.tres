@@ -15,6 +15,7 @@ active = false
 catalog_number = 3601
 collection_group = &"Large coastal predators"
 logbook_fact = "african pompano develop long streaming fin rays while young. adults become deep-bodied silver hunters around reefs and offshore structure."
+available_seasons = 6
 allowed_water_types = 2
 rarity = 2
 base_catch_weight = 0.26

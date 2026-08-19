@@ -17,6 +17,7 @@ active = false
 catalog_number = 6301
 collection_group = &"Seahorses and seadragons"
 logbook_fact = "leafy seadragons drift among seaweed with elaborate skin lobes that resemble leaves. males carry eggs beneath the tail."
+available_seasons = 15
 allowed_water_types = 2
 rarity = 3
 base_catch_weight = 0.1

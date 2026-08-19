@@ -17,6 +17,7 @@ active = false
 catalog_number = 201
 collection_group = &"Brackish oddities"
 logbook_fact = "atlantic mudskippers use sturdy fins to hop and crawl across exposed mud. moist skin and mouth linings let them breathe out of water."
+available_seasons = 15
 allowed_water_types = 2
 rarity = 1
 base_catch_weight = 1.0

@@ -17,6 +17,7 @@ active = false
 catalog_number = 6403
 collection_group = &"Shellfish"
 logbook_fact = "pacific geoducks bury their shells deep while a long siphon reaches the seafloor. these clams can survive for well over a century."
+available_seasons = 15
 allowed_water_types = 2
 rarity = 2
 base_catch_weight = 0.25

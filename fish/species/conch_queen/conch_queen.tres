@@ -17,6 +17,7 @@ active = false
 catalog_number = 6404
 collection_group = &"Shellfish"
 logbook_fact = "queen conchs graze algae with a long flexible snout. adults develop a broad flared shell lip and move by vaulting on one muscular foot."
+available_seasons = 15
 allowed_water_types = 2
 rarity = 2
 base_catch_weight = 0.24

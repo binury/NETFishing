@@ -16,6 +16,7 @@ active = false
 catalog_number = 7101
 collection_group = &"Tropical coastal fish"
 logbook_fact = "milkfish graze algae and tiny organisms in warm coastal shallows. deeply forked tails drive large schools through lagoons and estuaries."
+available_seasons = 15
 allowed_water_types = 2
 rarity = 0
 base_catch_weight = 1.8

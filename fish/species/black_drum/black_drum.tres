@@ -16,6 +16,7 @@ active = false
 catalog_number = 6802
 collection_group = &"Temperate estuary"
 logbook_fact = "black drum crush oysters and crabs with rounded throat teeth. large adults develop dark vertical bars that fade with age."
+available_seasons = 7
 allowed_water_types = 2
 rarity = 1
 base_catch_weight = 0.7

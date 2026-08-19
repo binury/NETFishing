@@ -16,6 +16,7 @@ active = false
 catalog_number = 3101
 collection_group = &"Freshwater panfish"
 logbook_fact = "black crappie gather around submerged wood and vegetation in clear water. irregular dark speckles scatter across their deep silver bodies."
+available_seasons = 13
 allowed_water_types = 1
 rarity = 1
 base_catch_weight = 1.0

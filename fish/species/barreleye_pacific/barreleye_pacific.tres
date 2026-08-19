@@ -17,6 +17,7 @@ active = false
 catalog_number = 1804
 collection_group = &"Deep-sea oddities"
 logbook_fact = "pacific barreleyes peer upward through transparent shields covering the head. tubular eyes rotate forward when the fish turns to feed."
+available_seasons = 15
 allowed_water_types = 2
 rarity = 4
 base_catch_weight = 0.045

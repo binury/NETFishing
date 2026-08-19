@@ -16,6 +16,7 @@ active = false
 catalog_number = 3904
 collection_group = &"Marine crabs"
 logbook_fact = "japanese spider crabs carry the longest leg span of any living arthropod. adults roam deep seafloors around japan."
+available_seasons = 13
 allowed_water_types = 2
 rarity = 4
 base_catch_weight = 0.045

@@ -17,6 +17,7 @@ active = false
 catalog_number = 5804
 collection_group = &"Reef predators"
 logbook_fact = "great barracudas hover motionless before accelerating toward prey. long jaws carry two distinct rows of sharp teeth."
+available_seasons = 15
 allowed_water_types = 2
 rarity = 3
 base_catch_weight = 0.12

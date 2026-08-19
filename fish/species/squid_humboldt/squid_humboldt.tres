@@ -16,6 +16,7 @@ active = false
 catalog_number = 6504
 collection_group = &"Squid"
 logbook_fact = "humboldt squid flash red and white while hunting in large groups. powerful beaks and grasping suckers handle fish and other squid."
+available_seasons = 15
 allowed_water_types = 2
 rarity = 3
 base_catch_weight = 0.09

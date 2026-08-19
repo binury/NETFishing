@@ -16,6 +16,7 @@ active = false
 catalog_number = 6907
 collection_group = &"Temperate reef fish"
 logbook_fact = "yelloweye rockfish can live for more than a century on deep pacific reefs. bright golden eyes stand out against orange-red bodies."
+available_seasons = 13
 allowed_water_types = 2
 rarity = 3
 base_catch_weight = 0.09

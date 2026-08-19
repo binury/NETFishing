@@ -1,8 +1,11 @@
 class_name WorldTimeService
 extends Node
 
+const CalendarSeasonType = preload("res://world/calendar_season.gd")
+
 signal time_changed(time_hours: float, phase: Phase)
 signal phase_changed(phase: Phase)
+signal calendar_date_changed(date_id: String)
 signal authoritative_time_set(time_hours: float)
 signal natural_time_advanced(hours: float)
 
@@ -25,6 +28,32 @@ const DAWN_END_HOUR: float = DAY_START_HOUR + TRANSITION_HALF_HOURS
 const DUSK_START_HOUR: float = NIGHT_START_HOUR - TRANSITION_HALF_HOURS
 const DUSK_END_HOUR: float = NIGHT_START_HOUR + TRANSITION_HALF_HOURS
 const DEFAULT_START_HOUR: float = DAY_START_HOUR
+const MONTH_NAMES: Array[String] = [
+	"january",
+	"february",
+	"march",
+	"april",
+	"may",
+	"june",
+	"july",
+	"august",
+	"september",
+	"october",
+	"november",
+	"december",
+]
+const WEEKDAY_NAMES: Array[String] = [
+	"sunday",
+	"monday",
+	"tuesday",
+	"wednesday",
+	"thursday",
+	"friday",
+	"saturday",
+]
+const WEEKDAY_MONTH_OFFSETS: Array[int] = [
+	0, 3, 2, 5, 0, 3, 5, 1, 4, 6, 2, 4,
+]
 
 var _time_hours: float = DEFAULT_START_HOUR
 var _persistent_time_hours: float = DEFAULT_START_HOUR
@@ -71,16 +100,26 @@ func begin_remote_session() -> void:
 	_editor_time_override = false
 	_system_clock_sample_elapsed = 0.0
 	_last_system_unix_seconds = -1.0
+	_set_calendar_date_id("")
+	_local_datetime = {}
 	set_process(true)
 
 
-func begin_test_session(start_hour: float = DEFAULT_START_HOUR) -> void:
+func begin_test_session(
+	start_hour: float = DEFAULT_START_HOUR,
+	date_id: String = "",
+) -> void:
 	_running = true
 	_system_clock_authority = false
 	_editor_time_override = false
 	_system_clock_sample_elapsed = 0.0
 	_last_system_unix_seconds = -1.0
 	set_process(false)
+	if is_valid_calendar_date_id(date_id):
+		_set_remote_datetime(start_hour, date_id)
+	else:
+		_set_calendar_date_id("")
+		_local_datetime = {}
 	_set_time_hours(start_hour, true)
 
 
@@ -90,7 +129,7 @@ func end_session() -> void:
 	_editor_time_override = false
 	_system_clock_sample_elapsed = 0.0
 	_last_system_unix_seconds = -1.0
-	_calendar_date_id = ""
+	_set_calendar_date_id("")
 	_local_datetime = {}
 	set_process(false)
 	_set_time_hours(DEFAULT_START_HOUR, true)
@@ -108,6 +147,20 @@ func synchronize_time(authoritative_time_hours: float) -> void:
 	if not is_finite(authoritative_time_hours):
 		return
 	_set_time_hours(authoritative_time_hours, true)
+
+
+func synchronize_calendar_time(
+	authoritative_time_hours: float,
+	date_id: String,
+) -> bool:
+	if (
+		not is_finite(authoritative_time_hours)
+		or not is_valid_calendar_date_id(date_id)
+	):
+		return false
+	_set_remote_datetime(authoritative_time_hours, date_id)
+	_set_time_hours(authoritative_time_hours, true)
+	return true
 
 
 func set_authoritative_time(time_hours: float) -> bool:
@@ -191,6 +244,23 @@ func get_clock_text() -> String:
 	return format_clock_time(_time_hours)
 
 
+func get_calendar_text() -> String:
+	return format_calendar_date(_calendar_date_id)
+
+
+func get_season() -> int:
+	return CalendarSeasonType.from_date_id(_calendar_date_id)
+
+
+func get_season_text() -> String:
+	var season: int = get_season()
+	return (
+		CalendarSeasonType.NAMES[season]
+		if season != CalendarSeasonType.UNKNOWN
+		else ""
+	)
+
+
 static func time_hours_from_datetime(datetime: Dictionary) -> float:
 	var hour: int = clampi(int(datetime.get("hour", 0)), 0, 23)
 	var minute: int = clampi(int(datetime.get("minute", 0)), 0, 59)
@@ -207,6 +277,44 @@ static func date_id_from_datetime(datetime: Dictionary) -> String:
 		int(datetime.get("year", 0)),
 		int(datetime.get("month", 0)),
 		int(datetime.get("day", 0)),
+	]
+
+
+static func is_valid_calendar_date_id(date_id: String) -> bool:
+	if (
+		date_id.length() != 10
+		or date_id[4] != "-"
+		or date_id[7] != "-"
+	):
+		return false
+	var year_text: String = date_id.substr(0, 4)
+	var month_text: String = date_id.substr(5, 2)
+	var day_text: String = date_id.substr(8, 2)
+	if (
+		not year_text.is_valid_int()
+		or not month_text.is_valid_int()
+		or not day_text.is_valid_int()
+	):
+		return false
+	var year: int = int(year_text)
+	var month: int = int(month_text)
+	var day: int = int(day_text)
+	if year < 1 or month < 1 or month > 12:
+		return false
+	return day >= 1 and day <= _days_in_month(year, month)
+
+
+static func format_calendar_date(date_id: String) -> String:
+	if not is_valid_calendar_date_id(date_id):
+		return ""
+	var year: int = int(date_id.substr(0, 4))
+	var month: int = int(date_id.substr(5, 2))
+	var day: int = int(date_id.substr(8, 2))
+	var weekday: int = _weekday_for_date(year, month, day)
+	return "%s, %s %d" % [
+		WEEKDAY_NAMES[weekday],
+		MONTH_NAMES[month - 1],
+		day,
 	]
 
 
@@ -257,13 +365,34 @@ func _sample_system_clock(force_emit: bool) -> void:
 	var previous_unix_seconds: float = _last_system_unix_seconds
 	_last_system_unix_seconds = unix_seconds
 	_local_datetime = datetime.duplicate(true)
-	_calendar_date_id = date_id_from_datetime(datetime)
 	_set_time_hours(time_hours_from_datetime(datetime), force_emit)
+	_set_calendar_date_id(date_id_from_datetime(datetime))
 	if previous_unix_seconds < 0.0:
 		return
 	var advanced_seconds: float = unix_seconds - previous_unix_seconds
 	if advanced_seconds > 0.0:
 		natural_time_advanced.emit(advanced_seconds / 3600.0)
+
+
+func _set_remote_datetime(time_hours: float, date_id: String) -> void:
+	var normalized: float = _normalized_hour(time_hours)
+	var total_seconds: int = floori(normalized * 60.0 * 60.0)
+	_local_datetime = {
+		"year": int(date_id.substr(0, 4)),
+		"month": int(date_id.substr(5, 2)),
+		"day": int(date_id.substr(8, 2)),
+		"hour": total_seconds / 3600,
+		"minute": (total_seconds / 60) % 60,
+		"second": total_seconds % 60,
+	}
+	_set_calendar_date_id(date_id)
+
+
+func _set_calendar_date_id(date_id: String) -> void:
+	if date_id == _calendar_date_id:
+		return
+	_calendar_date_id = date_id
+	calendar_date_changed.emit(_calendar_date_id)
 
 
 func _set_time_hours(time_hours: float, force_emit: bool) -> void:
@@ -285,3 +414,30 @@ func _set_time_hours(time_hours: float, force_emit: bool) -> void:
 
 static func _normalized_hour(time_hours: float) -> float:
 	return fposmod(time_hours, HOURS_PER_DAY)
+
+
+static func _days_in_month(year: int, month: int) -> int:
+	match month:
+		2:
+			return 29 if _is_leap_year(year) else 28
+		4, 6, 9, 11:
+			return 30
+		_:
+			return 31
+
+
+static func _is_leap_year(year: int) -> bool:
+	return year % 400 == 0 or (year % 4 == 0 and year % 100 != 0)
+
+
+static func _weekday_for_date(year: int, month: int, day: int) -> int:
+	var adjusted_year: int = year - 1 if month < 3 else year
+	return posmod(
+		adjusted_year
+		+ adjusted_year / 4
+		- adjusted_year / 100
+		+ adjusted_year / 400
+		+ WEEKDAY_MONTH_OFFSETS[month - 1]
+		+ day,
+		7,
+	)

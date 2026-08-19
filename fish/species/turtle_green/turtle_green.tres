@@ -17,6 +17,7 @@ active = false
 catalog_number = 6201
 collection_group = &"Sea turtles"
 logbook_fact = "green sea turtles graze seagrass meadows with finely serrated jaws. adults migrate long distances between feeding and nesting grounds."
+available_seasons = 6
 allowed_water_types = 2
 rarity = 4
 base_catch_weight = 0.018

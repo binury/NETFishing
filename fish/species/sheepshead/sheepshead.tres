@@ -16,6 +16,7 @@ active = false
 catalog_number = 6905
 collection_group = &"Temperate reef fish"
 logbook_fact = "sheepshead carry flat human-like front teeth for biting barnacles and crabs. dark bars cross their high silver bodies."
+available_seasons = 13
 allowed_water_types = 2
 rarity = 1
 base_catch_weight = 0.75

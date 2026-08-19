@@ -13,6 +13,7 @@ active = true
 catalog_number = 5001
 collection_group = &"Open-ocean giants"
 logbook_fact = "ocean sunfish are built more like enormous swimming heads than ordinary fish. they visit the surface and turn sideways to warm up."
+available_seasons = 7
 allowed_water_types = 2
 rarity = 0
 base_catch_weight = 7.0

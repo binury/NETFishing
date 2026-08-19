@@ -17,6 +17,7 @@ active = false
 catalog_number = 4701
 collection_group = &"Oceanic pelagic fish"
 logbook_fact = "mahi-mahi flash brilliant blue, green, and gold while chasing prey near the surface. they grow quickly and gather around floating objects."
+available_seasons = 6
 allowed_water_types = 2
 rarity = 2
 base_catch_weight = 0.28

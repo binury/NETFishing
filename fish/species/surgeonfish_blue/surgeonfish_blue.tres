@@ -16,6 +16,7 @@ active = false
 catalog_number = 5501
 collection_group = &"Reef grazers"
 logbook_fact = "blue tangs graze algae from coral reefs with small close-set teeth. sharp folding spines near the tail give surgeonfish their name."
+available_seasons = 15
 allowed_water_types = 2
 rarity = 1
 base_catch_weight = 0.9

@@ -16,6 +16,7 @@ active = false
 catalog_number = 2905
 collection_group = &"Freshwater oddities"
 logbook_fact = "weather loaches gulp air and pass it through the intestine when oxygen runs low. restless activity often increases as air pressure falls."
+available_seasons = 15
 allowed_water_types = 1
 rarity = 1
 base_catch_weight = 0.85

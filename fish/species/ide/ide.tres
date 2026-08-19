@@ -16,6 +16,7 @@ active = false
 catalog_number = 2507
 collection_group = &"Freshwater coarse fish"
 logbook_fact = "ide move between rivers, lakes, and brackish coastal water in loose schools. adults eat insects, crustaceans, plants, and small fish."
+available_seasons = 7
 allowed_water_types = 1
 rarity = 1
 base_catch_weight = 0.8

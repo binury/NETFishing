@@ -15,6 +15,7 @@ const NetworkFishingServiceType = preload(
 	"res://network/network_fishing_service.gd"
 )
 const FishingSpotType = preload("res://fishing/fishing_spot.gd")
+const CalendarSeasonType = preload("res://world/calendar_season.gd")
 
 const Catalog: FishPoolType = preload("res://fish/pools/fish_catalog.tres")
 const PondPool: FishPoolType = preload(
@@ -69,6 +70,8 @@ const NEW_FRESH_WATER_IDS: Array[StringName] = [
 	&"chub_european", &"chub_flame", &"chub_lake", &"goldfish",
 	&"goldfish_bubbleeye", &"sauger", &"saugeye", &"trout_cutthroat",
 	&"trout_golden", &"trout_rainbow", &"trout_steelhead", &"walleye",
+	&"bowfin", &"sturgeon_lake", &"gar_longnose", &"paddlefish",
+	&"sturgeon_shovelnose", &"gar_spotted", &"lungfish_west_african",
 ]
 
 
@@ -122,7 +125,7 @@ func _validate_weight_based_display_scale() -> void:
 
 func _validate_catalog_and_pools() -> void:
 	assert(Catalog.candidates.size() == 316)
-	assert(PondPool.candidates.size() == 19)
+	assert(PondPool.candidates.size() == 26)
 	assert(OceanPool.candidates.size() == 34)
 	var active_count: int = 0
 	var inactive_count: int = 0
@@ -134,6 +137,8 @@ func _validate_catalog_and_pools() -> void:
 		assert(not catalog_numbers.has(fish.catalog_number))
 		catalog_numbers[fish.catalog_number] = true
 		assert(not fish.logbook_fact.strip_edges().is_empty())
+		assert(CalendarSeasonType.is_valid_mask(fish.available_seasons))
+		assert(not fish.get_season_text().is_empty())
 		if fish.active:
 			active_count += 1
 			assert(fish.is_selectable())
@@ -142,9 +147,46 @@ func _validate_catalog_and_pools() -> void:
 			inactive_count += 1
 			assert(not fish.is_selectable())
 			assert(fish.display_texture == null)
-	assert(active_count == 56)
-	assert(inactive_count == 260)
-	var inactive_fish: FishDataType = Catalog.get_fish_by_id(&"bowfin")
+	assert(active_count == 63)
+	assert(inactive_count == 253)
+	var chum: FishDataType = Catalog.get_fish_by_id(&"salmon_chum")
+	assert(chum != null)
+	assert(chum.get_season_text() == "fall")
+	assert(
+		chum.is_available_in_season(CalendarSeasonType.Season.FALL)
+	)
+	assert(
+		not chum.is_available_in_season(CalendarSeasonType.Season.SUMMER)
+	)
+	var chum_pool := FishPoolType.new()
+	chum_pool.candidates = [chum]
+	var seasonal_collection := CollectionLogType.new()
+	var seasonal_selector := FishSelectorType.new()
+	seasonal_selector.use_deterministic_test_seed = true
+	var summer_context := FishingContextType.new()
+	summer_context.water_type = WaterType.Type.SALT_WATER
+	summer_context.season = CalendarSeasonType.Season.SUMMER
+	seasonal_selector.begin_roll()
+	assert(
+		seasonal_selector.select_fish(
+			chum_pool,
+			summer_context,
+			seasonal_collection,
+		) == null
+	)
+	var fall_context := FishingContextType.new()
+	fall_context.water_type = WaterType.Type.SALT_WATER
+	fall_context.season = CalendarSeasonType.Season.FALL
+	seasonal_selector.begin_roll()
+	assert(
+		seasonal_selector.select_fish(
+			chum_pool,
+			fall_context,
+			seasonal_collection,
+		) == chum
+	)
+	seasonal_collection.free()
+	var inactive_fish: FishDataType = Catalog.get_fish_by_id(&"mudskipper_atlantic")
 	assert(inactive_fish != null and not inactive_fish.active)
 	var inactive_pool := FishPoolType.new()
 	inactive_pool.candidates = [inactive_fish]

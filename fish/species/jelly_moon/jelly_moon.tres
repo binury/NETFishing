@@ -16,6 +16,7 @@ active = false
 catalog_number = 3503
 collection_group = &"Jellies"
 logbook_fact = "moon jellies pulse gently with four horseshoe-shaped organs visible through the bell. short tentacles sweep plankton toward the mouth."
+available_seasons = 15
 allowed_water_types = 2
 rarity = 1
 base_catch_weight = 0.7

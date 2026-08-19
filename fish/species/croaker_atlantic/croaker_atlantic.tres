@@ -17,6 +17,7 @@ active = false
 catalog_number = 6801
 collection_group = &"Temperate estuary"
 logbook_fact = "atlantic croakers vibrate muscles against the swim bladder to make a croaking sound. chin barbels locate worms in sandy bays."
+available_seasons = 7
 allowed_water_types = 2
 rarity = 0
 base_catch_weight = 2.1

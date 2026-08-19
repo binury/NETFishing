@@ -17,6 +17,7 @@ active = false
 catalog_number = 7503
 collection_group = &"Tropical freshwater fish"
 logbook_fact = "discus move through quiet amazon backwaters with round, flattened bodies. parents feed newly hatched young with nutrient-rich skin mucus."
+available_seasons = 15
 allowed_water_types = 1
 rarity = 3
 base_catch_weight = 0.12

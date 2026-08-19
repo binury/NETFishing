@@ -16,6 +16,7 @@ active = false
 catalog_number = 2202
 collection_group = &"Freshwater bass"
 logbook_fact = "smallmouth bass favor clear water with rock and moving current. bronze flanks and dark vertical bars distinguish them from largemouth bass."
+available_seasons = 7
 allowed_water_types = 1
 rarity = 1
 base_catch_weight = 1.2

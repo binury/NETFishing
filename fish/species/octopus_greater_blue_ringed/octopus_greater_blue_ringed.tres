@@ -17,6 +17,7 @@ active = false
 catalog_number = 4904
 collection_group = &"Octopuses"
 logbook_fact = "greater blue-ringed octopuses reveal vivid rings when threatened. a tiny beak can deliver venom strong enough to stop breathing."
+available_seasons = 15
 allowed_water_types = 2
 rarity = 4
 base_catch_weight = 0.04

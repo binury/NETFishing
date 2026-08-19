@@ -16,6 +16,7 @@ active = false
 catalog_number = 1302
 collection_group = &"Cold schooling fish"
 logbook_fact = "capelin are small polar fish that feed whales, seabirds, and larger fish. many schools roll onto beaches or shallows to release their eggs."
+available_seasons = 13
 allowed_water_types = 2
 rarity = 1
 base_catch_weight = 1.0

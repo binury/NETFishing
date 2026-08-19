@@ -17,6 +17,7 @@ active = false
 catalog_number = 3501
 collection_group = &"Jellies"
 logbook_fact = "crystal jellies are nearly transparent except for glowing points around the bell. their green fluorescent protein transformed biological research."
+available_seasons = 9
 allowed_water_types = 2
 rarity = 2
 base_catch_weight = 0.24

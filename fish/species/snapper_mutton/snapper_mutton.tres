@@ -17,6 +17,7 @@ active = true
 catalog_number = 6003
 collection_group = &"Reef snapper"
 logbook_fact = "mutton snapper have canine teeth that help them pick crabs, shrimp, and other hard-shelled prey from the reef."
+available_seasons = 15
 allowed_water_types = 2
 rarity = 2
 base_catch_weight = 0.2

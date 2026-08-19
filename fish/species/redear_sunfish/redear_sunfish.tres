@@ -16,6 +16,7 @@ active = false
 catalog_number = 3105
 collection_group = &"Freshwater panfish"
 logbook_fact = "redear sunfish specialize in snails, crushing shells with strong throat teeth. a red or orange margin marks the dark flap behind the gill."
+available_seasons = 7
 allowed_water_types = 1
 rarity = 1
 base_catch_weight = 1.1

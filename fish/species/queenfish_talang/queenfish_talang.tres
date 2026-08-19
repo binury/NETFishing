@@ -16,6 +16,7 @@ active = false
 catalog_number = 708
 collection_group = &"Coastal pelagic fish"
 logbook_fact = "talang queenfish chase schooling prey near warm coasts and estuaries. hooked teeth and a deeply forked tail suit their rapid attacks."
+available_seasons = 15
 allowed_water_types = 2
 rarity = 1
 base_catch_weight = 0.8

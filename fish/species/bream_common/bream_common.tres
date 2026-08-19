@@ -15,6 +15,7 @@ active = false
 catalog_number = 2502
 collection_group = &"Freshwater coarse fish"
 logbook_fact = "common bream gather in slow rivers and lakes with silvery, deep-sided bodies. protruding mouths sift insect larvae from soft bottoms."
+available_seasons = 13
 allowed_water_types = 1
 rarity = 0
 base_catch_weight = 1.8

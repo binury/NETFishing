@@ -17,6 +17,7 @@ active = false
 catalog_number = 6502
 collection_group = &"Squid"
 logbook_fact = "colossal squid carry swiveling hooks on their arms and tentacles. enormous eyes gather faint light in the deep southern ocean."
+available_seasons = 15
 allowed_water_types = 2
 rarity = 4
 base_catch_weight = 0.015

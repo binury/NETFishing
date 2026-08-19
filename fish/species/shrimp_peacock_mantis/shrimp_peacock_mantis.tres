@@ -17,6 +17,7 @@ active = false
 catalog_number = 3804
 collection_group = &"Lobsters and shrimp"
 logbook_fact = "peacock mantis shrimp strike hard-shelled prey with club-like limbs. complex eyes move independently and detect colors beyond human vision."
+available_seasons = 15
 allowed_water_types = 2
 rarity = 3
 base_catch_weight = 0.1

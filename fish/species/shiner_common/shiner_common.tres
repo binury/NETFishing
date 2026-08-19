@@ -16,6 +16,7 @@ active = false
 catalog_number = 2801
 collection_group = &"Freshwater minnows"
 logbook_fact = "common shiners flash silver in clear streams and small rivers. breeding males develop rosy fins and a blue-violet sheen."
+available_seasons = 7
 allowed_water_types = 1
 rarity = 0
 base_catch_weight = 4.0

@@ -671,6 +671,7 @@ func _initialize_application(dedicated: bool) -> void:
 		_player.experience,
 		_save_manager,
 		_network_item_use,
+		_world_time,
 	)
 	_gathering_controller.setup(
 		_player,

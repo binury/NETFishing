@@ -17,6 +17,7 @@ active = false
 catalog_number = 2902
 collection_group = &"Freshwater oddities"
 logbook_fact = "freshwater drum crush snails and mussels with powerful throat teeth. muscles vibrating against the swim bladder produce a low drumming sound."
+available_seasons = 7
 allowed_water_types = 1
 rarity = 1
 base_catch_weight = 0.7

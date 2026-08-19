@@ -15,6 +15,7 @@ logbook_fact = "manila clams bury themselves in wet coastal sand and reveal thei
 collection_method = 2
 logbook_section = 1
 habitat_label = "wet beach sand"
+available_seasons = 15
 allowed_water_types = 2
 rarity = 0
 base_catch_weight = 1.0

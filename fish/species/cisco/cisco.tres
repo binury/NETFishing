@@ -16,6 +16,7 @@ active = false
 catalog_number = 1002
 collection_group = &"Cold freshwater fish"
 logbook_fact = "cisco school in the cool open water of northern lakes. these slim relatives of salmon feed on plankton and become prey for larger fish."
+available_seasons = 13
 allowed_water_types = 1
 rarity = 0
 base_catch_weight = 2.2

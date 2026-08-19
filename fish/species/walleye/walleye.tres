@@ -17,6 +17,7 @@ active = true
 catalog_number = 3306
 collection_group = &"Freshwater predators"
 logbook_fact = "walleye have light-sensitive eyes that help them hunt in murky water and around dusk. their reflective layer gives the eyes a pale glow."
+available_seasons = 13
 allowed_water_types = 1
 rarity = 1
 base_catch_weight = 0.4

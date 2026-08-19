@@ -15,6 +15,7 @@ logbook_fact = "brown crabs hide among rocks and sand along sheltered coasts. br
 collection_method = 1
 logbook_section = 1
 habitat_label = "dry beach sand"
+available_seasons = 15
 allowed_water_types = 2
 rarity = 0
 base_catch_weight = 1.0

@@ -17,6 +17,7 @@ active = false
 catalog_number = 6102
 collection_group = &"Reef wrasses"
 logbook_fact = "cleaner wrasses advertise with a bright stripe and dance at reef stations. larger fish wait while parasites are picked from skin and gills."
+available_seasons = 15
 allowed_water_types = 2
 rarity = 2
 base_catch_weight = 0.35

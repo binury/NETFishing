@@ -17,6 +17,7 @@ active = false
 catalog_number = 7704
 collection_group = &"Whales and dolphins"
 logbook_fact = "killer whales live in close family groups with distinct calls and hunting traditions. different populations specialize in different prey."
+available_seasons = 13
 allowed_water_types = 2
 rarity = 4
 base_catch_weight = 0.008

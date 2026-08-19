@@ -16,6 +16,7 @@ active = false
 catalog_number = 4703
 collection_group = &"Oceanic pelagic fish"
 logbook_fact = "wahoo are streamlined open-ocean hunters with rows of sharp teeth. blue vertical bars flicker across their sides during fast pursuits."
+available_seasons = 6
 allowed_water_types = 2
 rarity = 3
 base_catch_weight = 0.11

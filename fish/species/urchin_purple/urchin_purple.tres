@@ -16,6 +16,7 @@ active = false
 catalog_number = 1903
 collection_group = &"Echinoderms"
 logbook_fact = "purple sea urchins scrape algae from rocks with a five-toothed feeding structure. dense groups can clear kelp from entire reefs."
+available_seasons = 15
 allowed_water_types = 2
 rarity = 1
 base_catch_weight = 0.75

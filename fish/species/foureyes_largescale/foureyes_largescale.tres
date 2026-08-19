@@ -16,6 +16,7 @@ active = false
 catalog_number = 202
 collection_group = &"Brackish oddities"
 logbook_fact = "largescale foureyes cruise with each eye divided across the waterline. one half watches above while the other scans below."
+available_seasons = 15
 allowed_water_types = 3
 rarity = 2
 base_catch_weight = 0.32

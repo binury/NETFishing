@@ -16,6 +16,7 @@ active = false
 catalog_number = 3107
 collection_group = &"Freshwater panfish"
 logbook_fact = "white crappie favor warm, cloudy water and gather around structure. vertical bars cross their silver sides instead of scattered speckles."
+available_seasons = 13
 allowed_water_types = 1
 rarity = 0
 base_catch_weight = 1.7

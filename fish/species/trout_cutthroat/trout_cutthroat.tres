@@ -17,6 +17,7 @@ active = true
 catalog_number = 1104
 collection_group = &"Cold freshwater salmonids"
 logbook_fact = "cutthroat trout take their name from the red slash beneath the jaw. many populations rely on cold, well-oxygenated streams."
+available_seasons = 13
 allowed_water_types = 1
 rarity = 1
 base_catch_weight = 0.4

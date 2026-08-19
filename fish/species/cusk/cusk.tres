@@ -16,6 +16,7 @@ active = false
 catalog_number = 1202
 collection_group = &"Cold reef fish"
 logbook_fact = "cusk move slowly across cold rocky bottoms, sheltering in cracks and caves. a single long fin runs around much of the rear body."
+available_seasons = 13
 allowed_water_types = 2
 rarity = 1
 base_catch_weight = 0.75

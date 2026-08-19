@@ -16,6 +16,7 @@ active = false
 catalog_number = 7201
 collection_group = &"Tropical coastal predators"
 logbook_fact = "roosterfish raise seven long dorsal spines while chasing prey through tropical surf. dark bands cross their sleek silver bodies."
+available_seasons = 15
 allowed_water_types = 2
 rarity = 3
 base_catch_weight = 0.11
