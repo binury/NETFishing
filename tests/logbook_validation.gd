@@ -81,6 +81,22 @@ func _validate_page() -> void:
 	page.setup(collection, inventory, CatalogResource)
 	page.activate()
 	await process_frame
+	var outer_margin := page.get("_outer_margin") as MarginContainer
+	var book := page.get("_book") as Control
+	assert(outer_margin != null)
+	assert(book != null)
+	page.set_compact_presentation(true)
+	await process_frame
+	assert(outer_margin.get_theme_constant("margin_left") == 160)
+	assert(outer_margin.get_theme_constant("margin_right") == 160)
+	assert(outer_margin.get_theme_constant("margin_bottom") == 106)
+	assert(is_equal_approx(book.offset_top, 65.0))
+	page.set_compact_presentation(false)
+	await process_frame
+	assert(outer_margin.get_theme_constant("margin_left") == 52)
+	assert(outer_margin.get_theme_constant("margin_right") == 52)
+	assert(outer_margin.get_theme_constant("margin_bottom") == 18)
+	assert(is_equal_approx(book.offset_top, 50.0))
 	assert(
 		page.get("_category") == LogbookCatalog.Category.FRESH_WATER
 	)
@@ -289,6 +305,25 @@ func _validate_page() -> void:
 	var facts_detail := detail_buttons[1] as Button
 	var quality_detail := detail_buttons[2] as Button
 	var stats_detail := detail_buttons[3] as Button
+	assert(
+		quality_detail.custom_minimum_size
+		== LogbookPage.DETAIL_QUALITY_SECTION_SIZE
+	)
+	assert(
+		stats_detail.custom_minimum_size
+		== LogbookPage.DETAIL_STATS_SECTION_SIZE
+	)
+	assert(
+		quality_detail.size_flags_horizontal
+		== Control.SIZE_SHRINK_CENTER
+	)
+	assert(
+		stats_detail.size_flags_horizontal
+		== Control.SIZE_SHRINK_CENTER
+	)
+	assert(
+		stats_detail.size_flags_vertical & Control.SIZE_EXPAND == 0
+	)
 	assert(
 		portrait_detail.get_node(portrait_detail.focus_neighbor_right)
 		== facts_detail

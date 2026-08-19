@@ -6,6 +6,9 @@ const UIPixelationPresenterType = preload(
 const UIReferencePresentationType = preload(
 	"res://ui/ui_reference_presentation.gd"
 )
+const FullscreenMenuPresentationType = preload(
+	"res://ui/fullscreen_menu_presentation.gd"
+)
 const GameUIScene := preload("res://ui/game_ui.tscn")
 const TARGET_SIZES: Array[Vector2i] = [
 	Vector2i(1280, 720),
@@ -40,6 +43,9 @@ func _run() -> void:
 	var player_menu := game_ui.get_node(
 		"UIRoot/CanonicalStage/PlayerMenu"
 	) as PlayerMenu
+	var player_menu_profile_stage := player_menu.get_node(
+		"ResponsivePlayerMenuStage"
+	) as Control
 	var hotbar := game_ui.get_node(
 		"UIRoot/CanonicalStage/Hotbar"
 	) as HotbarUI
@@ -50,6 +56,15 @@ func _run() -> void:
 	var title_screen := game_ui.get_node("UIRoot/TitleScreen") as TitleScreen
 	var title_content_stage := title_screen.get_node(
 		"ResponsiveTitleStage"
+	) as Control
+	var title_profile_root := title_screen.get_node(
+		"ResponsiveTitleStage/TitlePresentationScaleRoot"
+	) as Control
+	var pause_menu := game_ui.get_node(
+		"UIRoot/CanonicalStage/PauseMenu"
+	) as PauseMenu
+	var pause_profile_stage := pause_menu.get_node(
+		"ResponsivePauseStage"
 	) as Control
 	var decorative_fish_layer := title_screen.get_node(
 		"DecorativeFishLayer"
@@ -94,6 +109,12 @@ func _run() -> void:
 		var expected_stage_offset: Vector2 = UIReferencePresentationType.get_offset(
 			display_size
 		)
+		var expected_profile_scale: float = (
+			FullscreenMenuPresentationType.get_profile_scale(display_size)
+		)
+		var expected_profile_position: Vector2 = (
+			FullscreenMenuPresentationType.get_profile_position(display_size)
+		)
 		assert(presenter.position.is_equal_approx(Vector2.ZERO))
 		assert(ui_root.position.is_equal_approx(Vector2.ZERO))
 		var expected_visible_size: Vector2 = (
@@ -112,6 +133,12 @@ func _run() -> void:
 		assert(player_menu.size.is_equal_approx(
 			UIReferencePresentationType.REFERENCE_SIZE
 		))
+		assert(player_menu_profile_stage.scale.is_equal_approx(
+			Vector2.ONE * expected_profile_scale
+		))
+		assert(player_menu_profile_stage.position.is_equal_approx(
+			expected_profile_position
+		))
 		assert(hotbar.position.is_equal_approx(Vector2(
 			0.0,
 			canonical_stage.position.y,
@@ -125,6 +152,18 @@ func _run() -> void:
 		))
 		assert(title_content_stage.position.is_equal_approx(
 			canonical_stage.position
+		))
+		assert(title_profile_root.scale.is_equal_approx(
+			Vector2.ONE * expected_profile_scale
+		))
+		assert(title_profile_root.position.is_equal_approx(
+			expected_profile_position
+		))
+		assert(pause_profile_stage.scale.is_equal_approx(
+			Vector2.ONE * expected_profile_scale
+		))
+		assert(pause_profile_stage.position.is_equal_approx(
+			expected_profile_position
 		))
 		assert(decorative_fish_layer.size.is_equal_approx(
 			expected_visible_size
@@ -153,6 +192,34 @@ func _run() -> void:
 		assert((
 			canonical_stage.position * effective_scale
 		).distance_to(expected_stage_offset) <= 0.01)
+		var profile_source_rect: Rect2 = (
+			FullscreenMenuPresentationType.get_source_rect(display_size)
+		)
+		var profile_screen_start: Vector2 = expected_stage_offset + (
+			expected_profile_position
+			+ profile_source_rect.position * expected_profile_scale
+		) * expected_scale
+		var profile_screen_size: Vector2 = (
+			profile_source_rect.size
+			* expected_profile_scale
+			* expected_scale
+		)
+		var compact_target_scale: float = minf(
+			display_size.x / profile_source_rect.size.x,
+			display_size.y / profile_source_rect.size.y,
+		)
+		var expected_profile_screen_size: Vector2 = (
+			profile_source_rect.size * compact_target_scale
+		)
+		var expected_profile_screen_start: Vector2 = (
+			display_size - expected_profile_screen_size
+		) * 0.5
+		assert(profile_screen_start.distance_to(
+			expected_profile_screen_start
+		) <= 0.01)
+		assert(profile_screen_size.distance_to(
+			expected_profile_screen_size
+		) <= 0.01)
 		var expected_render_height: int = mini(
 			roundi(UIReferencePresentationType.REFERENCE_SIZE.y * expected_scale),
 			PlayerSettings.get_ui_render_height(

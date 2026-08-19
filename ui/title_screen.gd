@@ -7,6 +7,9 @@ const SettingsManagerType = preload(
 	"res://settings/player_settings_manager.gd"
 )
 const SettingsPanelType = preload("res://ui/settings_panel.gd")
+const FullscreenMenuPresentationType = preload(
+	"res://ui/fullscreen_menu_presentation.gd"
+)
 const BubbleButtonType = preload(
 	"res://ui/components/bubble_menu/bubble_button.gd"
 )
@@ -229,6 +232,7 @@ func _ready() -> void:
 	)
 	visibility_changed.connect(_on_title_visibility_changed)
 	resized.connect(_update_responsive_title_stage)
+	get_window().size_changed.connect(_update_responsive_title_stage)
 	_start_prompt_label.resized.connect(_update_start_prompt_pivot)
 	_decorative_rng.randomize()
 	set_process(false)
@@ -453,9 +457,14 @@ func _update_title_layout() -> void:
 func _update_responsive_title_stage() -> void:
 	if not is_node_ready():
 		return
+	var display_size := Vector2(get_window().size)
 	_title_presentation_scale_root.size = TITLE_DESKTOP_REFERENCE_SIZE
-	_title_presentation_scale_root.scale = Vector2.ONE
-	_title_presentation_scale_root.position = Vector2.ZERO
+	_title_presentation_scale_root.scale = Vector2.ONE * (
+		FullscreenMenuPresentationType.get_profile_scale(display_size)
+	)
+	_title_presentation_scale_root.position = (
+		FullscreenMenuPresentationType.get_profile_position(display_size)
+	)
 	_update_title_layout()
 	if (
 		_is_confirmation_active()

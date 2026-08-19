@@ -6,6 +6,9 @@ const ControllerFocusNavigationType = preload(
 const UIReferencePresentationType = preload(
 	"res://ui/ui_reference_presentation.gd"
 )
+const FullscreenMenuPresentationType = preload(
+	"res://ui/fullscreen_menu_presentation.gd"
+)
 
 
 func _initialize() -> void:
@@ -234,10 +237,21 @@ func _validate_settings_navigation_contract() -> void:
 
 
 func _validate_four_by_three_centering() -> void:
-	var stage_position: Vector2 = (
-		UIReferencePresentationType.get_stage_position(Vector2(640.0, 480.0))
+	var display_size := Vector2(640.0, 480.0)
+	var stage_position: Vector2 = UIReferencePresentationType.get_stage_position(
+		display_size
 	)
 	assert(stage_position.is_equal_approx(Vector2(0.0, 120.0)))
+	assert(FullscreenMenuPresentationType.uses_compact_profile(display_size))
+	assert(is_equal_approx(
+		FullscreenMenuPresentationType.get_profile_scale(display_size),
+		4.0 / 3.0,
+	))
+	assert(FullscreenMenuPresentationType.get_profile_position(
+		display_size
+	).is_equal_approx(Vector2(-640.0 / 3.0, -120.0)))
+	assert(FullscreenMenuPresentationType.get_source_rect(display_size)
+		== Rect2(160.0, 0.0, 960.0, 720.0))
 
 
 func _validate_low_end_profile_contract() -> void:

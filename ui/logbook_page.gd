@@ -49,13 +49,18 @@ const LOGBOOK_TAB_SIZE := Vector2(108.0, 38.0)
 const LOGBOOK_TAB_SEPARATION: float = 6.0
 const LOGBOOK_TAB_TEXT_SIDE_INSET: float = 10.0
 const PAGE_CONTENT_SCALE: float = 0.97
+const WIDE_OUTER_MARGINS := Rect2(52.0, 85.0, 52.0, 18.0)
+const COMPACT_OUTER_MARGINS := Rect2(160.0, 85.0, 160.0, 106.0)
+const WIDE_BOOK_TOP: float = 50.0
+const COMPACT_BOOK_TOP: float = 65.0
 const CATALOG_PORTRAIT_SIZE := Vector2(78.0, 36.0)
 const CATALOG_ENTRY_SIZE := Vector2(92.0, 92.0)
 const CATALOG_ROW_STEP: float = 98.0
 const CATALOG_SNAP_DELAY: float = 0.12
 const DETAIL_PORTRAIT_SIZE := Vector2(160.0, 88.0)
 const DETAIL_SECTION_SEPARATION: int = 10
-const DETAIL_QUALITY_SECTION_HEIGHT: float = 104.0
+const DETAIL_QUALITY_SECTION_SIZE := Vector2(300.0, 104.0)
+const DETAIL_STATS_SECTION_SIZE := Vector2(400.0, 160.0)
 const DETAIL_STATS_ROW_SEPARATION: int = 8
 
 enum ControllerZone {
@@ -83,6 +88,9 @@ var _category_tween: Tween
 var _silhouette_material: ShaderMaterial
 var _snapping_catalog_scroll: bool = false
 var _catalog_scroll_snap_timer: Timer
+var _outer_margin: MarginContainer
+var _book: Control
+var _compact_presentation: bool = false
 
 var _category_tabs: Array[Button] = []
 var _category_tab_categories: Array[LogbookCatalog.Category] = []
@@ -134,6 +142,11 @@ func setup(
 	if not _inventory.catches_changed.is_connected(_on_inventory_changed):
 		_inventory.catches_changed.connect(_on_inventory_changed)
 	_refresh_catalog()
+
+
+func set_compact_presentation(compact: bool) -> void:
+	_compact_presentation = compact
+	_apply_presentation_margins()
 
 
 func activate() -> void:
@@ -279,17 +292,14 @@ func _select_adjacent_controller_category(direction: int) -> void:
 
 func _build_interface() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	var outer := MarginContainer.new()
-	outer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	outer.add_theme_constant_override("margin_left", 52)
-	outer.add_theme_constant_override("margin_top", 85)
-	outer.add_theme_constant_override("margin_right", 52)
-	outer.add_theme_constant_override("margin_bottom", 18)
-	add_child(outer)
+	_outer_margin = MarginContainer.new()
+	_outer_margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(_outer_margin)
+	_apply_presentation_margins()
 
 	var stack := Control.new()
 	stack.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	outer.add_child(stack)
+	_outer_margin.add_child(stack)
 
 	var tabs := HBoxContainer.new()
 	# Align the first flange with the authored left paper edge.
@@ -325,8 +335,11 @@ func _build_interface() -> void:
 	_configure_category_focus()
 
 	var book := Control.new()
+	_book = book
 	book.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	book.offset_top = 50.0
+	book.offset_top = (
+		COMPACT_BOOK_TOP if _compact_presentation else WIDE_BOOK_TOP
+	)
 	book.z_index = 20
 	book.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	stack.add_child(book)
@@ -409,6 +422,34 @@ func _build_interface() -> void:
 	_apply_page_content_scale(_detail_body)
 	_show_no_selection()
 	_build_portrait_overlay()
+
+
+func _apply_presentation_margins() -> void:
+	if _outer_margin == null:
+		return
+	var margins: Rect2 = (
+		COMPACT_OUTER_MARGINS
+		if _compact_presentation
+		else WIDE_OUTER_MARGINS
+	)
+	_outer_margin.add_theme_constant_override(
+		"margin_left", roundi(margins.position.x)
+	)
+	_outer_margin.add_theme_constant_override(
+		"margin_top", roundi(margins.position.y)
+	)
+	_outer_margin.add_theme_constant_override(
+		"margin_right", roundi(margins.size.x)
+	)
+	_outer_margin.add_theme_constant_override(
+		"margin_bottom", roundi(margins.size.y)
+	)
+	if _book != null:
+		_book.offset_top = (
+			COMPACT_BOOK_TOP
+			if _compact_presentation
+			else WIDE_BOOK_TOP
+		)
 
 
 func _apply_artwork_rect(control: Control, source_rect: Rect2) -> void:
@@ -869,8 +910,8 @@ func _build_known_details(fish: FishDataType) -> void:
 		"quality collection",
 		_quality_overlay_text(fish.id),
 	)
-	quality_button.custom_minimum_size.y = DETAIL_QUALITY_SECTION_HEIGHT
-	quality_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	quality_button.custom_minimum_size = DETAIL_QUALITY_SECTION_SIZE
+	quality_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	_detail_body.add_child(quality_button)
 	var quality_progress := _build_quality_progress(fish.id)
 	quality_progress.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -881,9 +922,8 @@ func _build_known_details(fish: FishDataType) -> void:
 		"fish stats",
 		_stats_overlay_text(fish, catalog_number),
 	)
-	stats_button.custom_minimum_size.y = 190.0
-	stats_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	stats_button.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	stats_button.custom_minimum_size = DETAIL_STATS_SECTION_SIZE
+	stats_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	_detail_body.add_child(stats_button)
 	var stats_anchor := VBoxContainer.new()
 	stats_anchor.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)

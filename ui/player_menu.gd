@@ -42,6 +42,9 @@ const ControllerMappingManagerType = preload(
 const ControllerFocusNavigationType = preload(
 	"res://ui/controller_focus_navigation.gd"
 )
+const FullscreenMenuPresentationType = preload(
+	"res://ui/fullscreen_menu_presentation.gd"
+)
 const FishBatchSelectionType = preload(
 	"res://ui/fish_batch_selection.gd"
 )
@@ -170,6 +173,7 @@ const CONTROLLER_PICKUP_HOLD_SECONDS: float = 0.42
 const LIGHT_COOLER_WATER_COLOR := Color(0.037, 0.27, 0.375, 1.0)
 
 @onready var _navigation_cluster: BubbleClusterType = %NavigationCluster
+@onready var _presentation_profile_stage: Control = $ResponsivePlayerMenuStage
 @onready var _presentation_scale_root: Control = %PlayerMenuPresentationScaleRoot
 @onready var _cooler_page: Control = %CoolerPage
 @onready var _cooler_outer_wall: PanelContainer = %CoolerOuterWall
@@ -445,8 +449,10 @@ func _ready() -> void:
 	_bag_item_field.gui_input.connect(_on_bag_field_gui_input)
 	_apply_mail_notification_style()
 	resized.connect(_update_shell_layout)
+	get_window().size_changed.connect(_update_presentation_profile)
 	_show_section_immediate(_current_section)
 	call_deferred("_update_shell_layout")
+	call_deferred("_update_presentation_profile")
 	call_deferred("_update_cooler_water_mask")
 	set_process(false)
 
@@ -3152,6 +3158,25 @@ func _update_shell_layout() -> void:
 		_profile_page.modulate.a = 1.0
 		_players_page.modulate.a = 1.0
 	_layout_cooler_fish(false)
+	_update_presentation_profile()
+
+
+func _update_presentation_profile() -> void:
+	if not is_node_ready():
+		return
+	var display_size := Vector2(get_window().size)
+	var compact: bool = (
+		FullscreenMenuPresentationType.uses_compact_profile(display_size)
+	)
+	_presentation_profile_stage.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	_presentation_profile_stage.size = DESKTOP_REFERENCE_SIZE
+	_presentation_profile_stage.scale = Vector2.ONE * (
+		FullscreenMenuPresentationType.get_profile_scale(display_size)
+	)
+	_presentation_profile_stage.position = (
+		FullscreenMenuPresentationType.get_profile_position(display_size)
+	)
+	_catalog_logbook.set_compact_presentation(compact)
 
 
 func _layout_cooler_detail_text(compact: bool) -> void:

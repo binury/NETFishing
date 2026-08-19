@@ -10,6 +10,9 @@ const SettingsManagerType = preload(
 	"res://settings/player_settings_manager.gd"
 )
 const SettingsPanelType = preload("res://ui/settings_panel.gd")
+const FullscreenMenuPresentationType = preload(
+	"res://ui/fullscreen_menu_presentation.gd"
+)
 const BubbleConfirmationPageType = preload(
 	"res://ui/components/bubble_menu/bubble_confirmation_page.gd"
 )
@@ -43,6 +46,7 @@ enum CloseReason {
 }
 
 @onready var _presentation_scale_root: Control = %PausePresentationScaleRoot
+@onready var _responsive_pause_stage: Control = %ResponsivePauseStage
 @onready var _root_page: SettingsBubblePage = %RootPage
 @onready var _settings_panel: SettingsPanelType = %SettingsPanel
 @onready var _transition_flurry: BubbleTransitionFlurry = (
@@ -94,6 +98,7 @@ func _ready() -> void:
 	_join_game_page.back_requested.connect(_close_join_game)
 	_confirmation_page.hide_page()
 	resized.connect(_update_responsive_pause_stage)
+	get_window().size_changed.connect(_update_responsive_pause_stage)
 	call_deferred("_update_responsive_pause_stage")
 
 
@@ -549,6 +554,15 @@ func _emit_transition_flurry() -> void:
 func _update_responsive_pause_stage() -> void:
 	if not is_node_ready():
 		return
+	var display_size := Vector2(get_window().size)
+	_responsive_pause_stage.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	_responsive_pause_stage.size = PAUSE_DESKTOP_REFERENCE_SIZE
+	_responsive_pause_stage.scale = Vector2.ONE * (
+		FullscreenMenuPresentationType.get_profile_scale(display_size)
+	)
+	_responsive_pause_stage.position = (
+		FullscreenMenuPresentationType.get_profile_position(display_size)
+	)
 	_presentation_scale_root.size = PAUSE_DESKTOP_REFERENCE_SIZE
 	_presentation_scale_root.scale = Vector2.ONE
 	_presentation_scale_root.position = Vector2.ZERO
