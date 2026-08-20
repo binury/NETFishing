@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="TerrainChunkDefinition" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://world/generation/terrain_chunk_definition.gd" id="1_definition"]
+[ext_resource type="PackedScene" uid="uid://ddjqd4kl4tkhg" path="res://world/generation/chunks/assets/chunk_0006.glb" id="2_scene"]
+
+[resource]
+script = ExtResource("1_definition")
+stable_id = &"chunk_0006"
+label = "grass to beach ocean edge"
+packed_scene = ExtResource("2_scene")
+primary_mesh_name = &"chunk_0006"
+selection_weight = 0.35
+maximum_placements = 8
+tags = PackedStringArray("land", "walkable", "sand", "coast", "transition", "slope")
+allowed_neighbor_tags = PackedStringArray("grass", "sand", "coast")
+north_allowed_neighbor_tags = PackedStringArray("coast")
+south_allowed_neighbor_tags = PackedStringArray("grass_ocean_edge")
+west_allowed_neighbor_tags = PackedStringArray("grass")
+required_neighbor_tags = PackedStringArray("coast")
+minimum_required_neighbors = 2
+preferred_neighbor_tags = PackedStringArray("coast")
+prefers_map_boundary = true
+ocean_facing_edges = 2

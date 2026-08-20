@@ -24,10 +24,14 @@ func _unhandled_input(event: InputEvent) -> void:
 func _on_generation_completed(summary: Dictionary) -> void:
 	_status.text = (
 		"Terrain generator diagnostic  •  seed %d  •  %d chunks  •  "
-		+ "%d variants  •  %d backtracks\nR: regenerate  •  Esc/B: close"
+		+ "%d rotations / %d constraints  •  %d backtracks  •  "
+		+ "%d repeated edges\nlayout %s  •  R: regenerate  •  Esc/B: close"
 	) % [
 		int(summary["seed"]),
 		int(summary["chunk_count"]),
 		int(summary["variant_count"]),
+		int(summary["solver_variant_count"]),
 		int(summary["backtracks"]),
+		int(summary["adjacent_repeat_edges"]),
+		str(summary["layout_fingerprint"]).substr(0, 12),
 	]

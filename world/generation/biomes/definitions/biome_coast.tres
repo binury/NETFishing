@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="TerrainBiomeDefinition" load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://world/generation/terrain_biome_definition.gd" id="1_definition"]
+[ext_resource type="Script" path="res://world/generation/terrain_biome_prop_rule.gd" id="2_rule"]
+
+[sub_resource type="Resource" id="Rule_sand_tree"]
+script = ExtResource("2_rule")
+procedural_group = &"sand_tree"
+placement_chance = 4200
+adjacency_bonus = 1200
+maximum_density = 5000
+minimum_placements = 1
+allowed_prop_ids = PackedStringArray("prop_palm")
+
+[resource]
+script = ExtResource("1_definition")
+stable_id = &"biome_coast"
+label = "coast"
+required_chunk_tags = PackedStringArray("sand")
+prop_rules = Array[ExtResource("2_rule")]([SubResource("Rule_sand_tree")])

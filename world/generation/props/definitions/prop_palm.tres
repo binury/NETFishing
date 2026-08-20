@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="TerrainPropDefinition" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://world/generation/terrain_prop_definition.gd" id="1_definition"]
+[ext_resource type="PackedScene" path="res://world/generation/props/assets/prop_palm.glb" id="2_scene"]
+
+[resource]
+script = ExtResource("1_definition")
+stable_id = &"prop_palm"
+label = "palm"
+packed_scene = ExtResource("2_scene")
+procedural_group = &"sand_tree"
+required_chunk_tags = PackedStringArray("sand")
+minimum_spawn_chunk_distance = 2
+clearance_radius = 2.0
+collision_radius = 0.4
+collision_height = 6.0

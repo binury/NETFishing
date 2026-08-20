@@ -11,4 +11,6 @@ packed_scene = ExtResource("2_scene")
 primary_mesh_name = &"chunk_0000"
 allowed_rotation_mask = 15
 selection_weight = 4.0
-tags = PackedStringArray("land", "grass", "flat")
+tags = PackedStringArray("land", "walkable", "grass", "flat", "spawn_safe")
+allowed_neighbor_tags = PackedStringArray("grass", "sand", "coast", "fresh_water")
+preferred_neighbor_tags = PackedStringArray("grass")

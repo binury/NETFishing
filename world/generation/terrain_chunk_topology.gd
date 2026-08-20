@@ -39,6 +39,19 @@ static func edge_normal(edge: Edge) -> Vector3:
 	return Vector3.ZERO
 
 
+static func grid_offset(edge: Edge) -> Vector2i:
+	match edge:
+		Edge.NORTH:
+			return Vector2i.UP
+		Edge.EAST:
+			return Vector2i.RIGHT
+		Edge.SOUTH:
+			return Vector2i.DOWN
+		Edge.WEST:
+			return Vector2i.LEFT
+	return Vector2i.ZERO
+
+
 static func rotated_edge(edge: Edge, quarter_turns: int) -> Edge:
 	var angle := float(posmod(quarter_turns, 4)) * PI * 0.5
 	var normal := edge_normal(edge).rotated(Vector3.UP, angle)

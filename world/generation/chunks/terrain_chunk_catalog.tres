@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="TerrainChunkCatalog" load_steps=9 format=3]
+[gd_resource type="Resource" script_class="TerrainChunkCatalog" load_steps=12 format=3]
 
 [ext_resource type="Script" path="res://world/generation/terrain_chunk_catalog.gd" id="1_catalog"]
 [ext_resource type="Resource" path="res://world/generation/chunks/definitions/chunk_0000.tres" id="2_grass"]
@@ -8,8 +8,11 @@
 [ext_resource type="Resource" path="res://world/generation/chunks/definitions/chunk_0004.tres" id="6_pond"]
 [ext_resource type="Script" path="res://world/generation/terrain_chunk_definition.gd" id="7_definition_script"]
 [ext_resource type="Resource" path="res://world/generation/chunks/definitions/chunk_spawn.tres" id="8_spawn"]
+[ext_resource type="Resource" path="res://world/generation/chunks/definitions/chunk_0005.tres" id="9_grass_ocean_edge"]
+[ext_resource type="Resource" path="res://world/generation/chunks/definitions/chunk_0006.tres" id="10_grass_beach_transition"]
+[ext_resource type="Resource" path="res://world/generation/chunks/definitions/chunk_0007.tres" id="11_grass_ocean_corner"]
 
 [resource]
 script = ExtResource("1_catalog")
 chunk_size = 10.0
-definitions = Array[ExtResource("7_definition_script")]([ExtResource("2_grass"), ExtResource("3_sand"), ExtResource("4_beach"), ExtResource("5_stream"), ExtResource("6_pond"), ExtResource("8_spawn")])
+definitions = Array[ExtResource("7_definition_script")]([ExtResource("2_grass"), ExtResource("3_sand"), ExtResource("4_beach"), ExtResource("5_stream"), ExtResource("6_pond"), ExtResource("9_grass_ocean_edge"), ExtResource("10_grass_beach_transition"), ExtResource("11_grass_ocean_corner"), ExtResource("8_spawn")])

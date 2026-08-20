@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="TerrainPropCatalog" load_steps=16 format=3]
+
+[ext_resource type="Script" path="res://world/generation/terrain_prop_catalog.gd" id="1_catalog"]
+[ext_resource type="Resource" path="res://world/generation/props/definitions/prop_bridge.tres" id="2_bridge"]
+[ext_resource type="Resource" path="res://world/generation/props/definitions/prop_dock.tres" id="3_dock"]
+[ext_resource type="Resource" path="res://world/generation/props/definitions/prop_log.tres" id="4_log"]
+[ext_resource type="Resource" path="res://world/generation/props/definitions/prop_log_post_1.tres" id="5_post_1"]
+[ext_resource type="Resource" path="res://world/generation/props/definitions/prop_log_post_2.tres" id="6_post_2"]
+[ext_resource type="Resource" path="res://world/generation/props/definitions/prop_mushroom.tres" id="7_mushroom"]
+[ext_resource type="Resource" path="res://world/generation/props/definitions/prop_palm.tres" id="8_palm"]
+[ext_resource type="Resource" path="res://world/generation/props/definitions/prop_pine.tres" id="9_pine"]
+[ext_resource type="Resource" path="res://world/generation/props/definitions/prop_timber_1.tres" id="10_timber_1"]
+[ext_resource type="Resource" path="res://world/generation/props/definitions/prop_timber_2.tres" id="11_timber_2"]
+[ext_resource type="Resource" path="res://world/generation/props/definitions/prop_tree_1.tres" id="12_tree_1"]
+[ext_resource type="Resource" path="res://world/generation/props/definitions/prop_tree_2.tres" id="13_tree_2"]
+[ext_resource type="Resource" path="res://world/generation/props/definitions/prop_tree_3.tres" id="14_tree_3"]
+[ext_resource type="Script" path="res://world/generation/terrain_prop_definition.gd" id="15_definition_script"]
+
+[resource]
+script = ExtResource("1_catalog")
+definitions = Array[ExtResource("15_definition_script")]([ExtResource("2_bridge"), ExtResource("3_dock"), ExtResource("4_log"), ExtResource("5_post_1"), ExtResource("6_post_2"), ExtResource("7_mushroom"), ExtResource("8_palm"), ExtResource("9_pine"), ExtResource("10_timber_1"), ExtResource("11_timber_2"), ExtResource("12_tree_1"), ExtResource("13_tree_2"), ExtResource("14_tree_3")])

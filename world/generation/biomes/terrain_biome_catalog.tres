@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="TerrainBiomeCatalog" load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://world/generation/terrain_biome_catalog.gd" id="1_catalog"]
+[ext_resource type="Resource" path="res://world/generation/biomes/definitions/biome_plains.tres" id="2_plains"]
+[ext_resource type="Resource" path="res://world/generation/biomes/definitions/biome_forest.tres" id="3_forest"]
+[ext_resource type="Resource" path="res://world/generation/biomes/definitions/biome_pine_forest.tres" id="4_pine"]
+[ext_resource type="Resource" path="res://world/generation/biomes/definitions/biome_coast.tres" id="5_coast"]
+[ext_resource type="Script" path="res://world/generation/terrain_biome_definition.gd" id="6_definition_script"]
+
+[resource]
+script = ExtResource("1_catalog")
+definitions = Array[ExtResource("6_definition_script")]([ExtResource("2_plains"), ExtResource("3_forest"), ExtResource("4_pine"), ExtResource("5_coast")])

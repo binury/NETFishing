@@ -32,6 +32,18 @@ func validation_errors() -> PackedStringArray:
 			errors.append("%s has no primary mesh name." % definition.stable_id)
 		if definition.allowed_rotation_mask == 0:
 			errors.append("%s allows no rotations." % definition.stable_id)
+		var has_coast := "coast" in definition.tags
+		var has_ocean_edge := definition.ocean_facing_edges != 0
+		if has_coast and not has_ocean_edge:
+			errors.append(
+				"%s is coastal but has no ocean-facing edge."
+				% definition.stable_id
+			)
+		elif not has_coast and has_ocean_edge:
+			errors.append(
+				"%s has an ocean-facing edge without the coast tag."
+				% definition.stable_id
+			)
 		var has_fresh_water := "fresh_water" in definition.tags
 		var has_water_footprint := (
 			definition.water_surface_size.x > 0.0
@@ -45,6 +57,39 @@ func validation_errors() -> PackedStringArray:
 		elif not has_fresh_water and has_water_footprint:
 			errors.append(
 				"%s has a water footprint without the freshwater tag."
+				% definition.stable_id
+			)
+		for allowed_tag: String in definition.allowed_neighbor_tags:
+			if allowed_tag in definition.forbidden_neighbor_tags:
+				errors.append(
+					(
+						"%s both allows and forbids neighbor tag '%s'."
+						% [definition.stable_id, allowed_tag]
+					)
+				)
+		for edge_value: int in TerrainChunkTopology.Edge.values():
+			var edge := edge_value as TerrainChunkTopology.Edge
+			for allowed_tag: String in (
+				definition.directional_allowed_neighbor_tags(edge)
+			):
+				if allowed_tag not in definition.forbidden_neighbor_tags:
+					continue
+				errors.append(
+					(
+						"%s both allows and forbids neighbor tag '%s' on its %s edge."
+						% [
+							definition.stable_id,
+							allowed_tag,
+							TerrainChunkTopology.edge_name(edge),
+						]
+					)
+				)
+		if (
+			definition.minimum_required_neighbors > 0
+			and definition.required_neighbor_tags.is_empty()
+		):
+			errors.append(
+				"%s requires neighbors but defines no required neighbor tags."
 				% definition.stable_id
 			)
 	return errors

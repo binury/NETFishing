@@ -1,4 +1,4 @@
-[gd_scene load_steps=12 format=3]
+[gd_scene load_steps=14 format=3]
 
 [ext_resource type="Script" path="res://world/generation/generated_world_region.gd" id="1_region"]
 [ext_resource type="Script" path="res://world/generation/terrain_chunk_generator.gd" id="2_generator"]
@@ -11,9 +11,13 @@
 [ext_resource type="Script" path="res://world/gathering/gatherable_anchor_set_3d.gd" id="9_anchors"]
 [ext_resource type="Resource" path="res://fish/pools/starter_ocean_pool.tres" id="10_ocean_pool"]
 [ext_resource type="Resource" path="res://fish/pools/starter_pond_pool.tres" id="11_pond_pool"]
+[ext_resource type="Resource" path="res://world/generation/props/terrain_prop_catalog.tres" id="12_prop_catalog"]
+[ext_resource type="Resource" path="res://world/generation/biomes/terrain_biome_catalog.tres" id="13_biome_catalog"]
 
 [node name="GeneratedWorldRegion" type="Node3D"]
 script = ExtResource("1_region")
+prop_catalog = ExtResource("12_prop_catalog")
+biome_catalog = ExtResource("13_biome_catalog")
 region_id = &"generated_world"
 fishable_water_root = NodePath("WaterBodies")
 water_recovery_root = NodePath("WaterBodies")
@@ -27,12 +31,12 @@ gatherable_anchor_root = NodePath("GatherableAnchors")
 unique_name_in_owner = true
 script = ExtResource("2_generator")
 catalog = ExtResource("3_catalog")
-grid_size = Vector2i(5, 5)
+grid_size = Vector2i(7, 7)
 generation_seed = 13001
 generate_on_ready = false
 build_collision = true
 force_center_chunk_id = &"chunk_spawn"
-required_chunk_ids = PackedStringArray("chunk_spawn", "chunk_0001", "chunk_0002", "chunk_0003", "chunk_0004")
+required_chunk_ids = PackedStringArray("chunk_spawn", "chunk_0001", "chunk_0002", "chunk_0003", "chunk_0004", "chunk_0005", "chunk_0006", "chunk_0007")
 required_chunk_weight_multiplier = 64.0
 maximum_backtracks = 100000
 
