@@ -98,29 +98,27 @@ func _run() -> void:
 
 	assert(save_manager.save_now())
 	var save_path: String = str(save_manager.get("_save_path"))
-	var save_file := FileAccess.open(save_path, FileAccess.READ)
-	assert(save_file != null)
-	var parsed: Variant = JSON.parse_string(save_file.get_as_text())
-	save_file.close()
-	assert(typeof(parsed) == TYPE_DICTIONARY)
-	var hotbar_data: Dictionary = (parsed as Dictionary)["hotbar"]
+	var decoded: Dictionary = ProgressionSaveCodec.read_local_save(save_path)
+	assert(bool(decoded.get("ok", false)))
+	var parsed: Dictionary = decoded["data"]
+	var hotbar_data: Dictionary = parsed["hotbar"]
 	assert(typeof(hotbar_data.get("fish_slots")) == TYPE_ARRAY)
 	assert(str((hotbar_data["fish_slots"] as Array)[1]) == fish_catch.catch_id)
-	assert(int((parsed as Dictionary)["save_version"]) == 9)
+	assert(int(parsed["save_version"]) == 10)
 	assert(
-		int((parsed as Dictionary)["experience"]["total_experience"])
+		int(parsed["experience"]["total_experience"])
 		== 125
 	)
 	assert(absf(
-		float((parsed as Dictionary)["world"]["time_hours"]) - saved_time_hours
+		float(parsed["world"]["time_hours"]) - saved_time_hours
 	) < 0.01)
 	assert(
-		int((parsed as Dictionary)["world"]["weather"])
+		int(parsed["world"]["weather"])
 		== int(saved_weather)
 	)
 	assert(absf(
 		float(
-			(parsed as Dictionary)["world"][
+			parsed["world"][
 				"weather_seconds_remaining"
 			]
 		) - saved_weather_seconds

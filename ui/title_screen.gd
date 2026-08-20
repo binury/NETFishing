@@ -1295,7 +1295,7 @@ func _on_settings_applied() -> void:
 
 
 func _on_settings_closed() -> void:
-	pass
+	_refresh_save_inspection()
 
 
 func _on_settings_closing() -> void:

@@ -433,7 +433,7 @@ func _validate_version_four_migration() -> void:
 		version_four,
 		4,
 	)
-	assert(int(migrated.get("save_version", -1)) == 9)
+	assert(int(migrated.get("save_version", -1)) == 10)
 	assert(int((migrated["experience"] as Dictionary)["total_experience"]) == 0)
 	assert(
 		is_equal_approx(

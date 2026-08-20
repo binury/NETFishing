@@ -49,6 +49,7 @@ func _run() -> void:
 	_validate_weather_guarantees(board)
 	_validate_late_board_weather_fallback()
 	_validate_remote_tamper_rejection(jobs, board)
+	_validate_creature_jobs(jobs)
 
 	var sell_job: Dictionary = _find_job(
 		jobs.get_daily_jobs(), JobCatalog.Kind.SELL_TOTAL
@@ -195,15 +196,12 @@ func _run() -> void:
 	assert(session.set_host_open(false))
 
 	assert(save_manager.save_now())
-	var save_file := FileAccess.open(
-		str(save_manager.get("_save_path")), FileAccess.READ
+	var decoded: Dictionary = ProgressionSaveCodec.read_local_save(
+		str(save_manager.get("_save_path"))
 	)
-	assert(save_file != null)
-	var parsed: Variant = JSON.parse_string(save_file.get_as_text())
-	save_file.close()
-	assert(typeof(parsed) == TYPE_DICTIONARY)
-	var save_data: Dictionary = parsed
-	assert(int(save_data.get("save_version", -1)) == 9)
+	assert(bool(decoded.get("ok", false)))
+	var save_data: Dictionary = decoded["data"]
+	assert(int(save_data.get("save_version", -1)) == 10)
 	assert(PlayerJobService.validate_save_data(save_data.get("jobs", {})))
 
 	_validate_pause_session_switch(main, session)
@@ -261,6 +259,100 @@ func _validate_unavailable_fishnet_layout() -> void:
 	unavailable_page.queue_free()
 	for _frame: int in 2:
 		await process_frame
+
+
+func _validate_creature_jobs(jobs: PlayerJobService) -> void:
+	var fish_count: int = 0
+	var insect_count: int = 0
+	var shellfish_count: int = 0
+	var candidates: Array[FishData] = []
+	for fish: FishData in Catalog.candidates:
+		if fish == null or not fish.is_selectable():
+			continue
+		candidates.append(fish)
+		match fish.get_creature_group():
+			FishData.CreatureGroup.FISH:
+				fish_count += 1
+			FishData.CreatureGroup.INSECT:
+				insect_count += 1
+			FishData.CreatureGroup.SHELLFISH:
+				shellfish_count += 1
+	assert(fish_count > 0 and insect_count > 0 and shellfish_count > 0)
+
+	var lifetime: Array[Dictionary] = jobs.get_lifetime_jobs()
+	var fish_discovery: Dictionary = _find_job(
+		lifetime, JobCatalog.Kind.DISCOVER_SPECIES
+	)
+	assert(int(fish_discovery.get("target", -1)) == fish_count)
+	for creature_group: int in [
+		FishData.CreatureGroup.INSECT,
+		FishData.CreatureGroup.SHELLFISH,
+	]:
+		assert(not _find_creature_job(
+			lifetime,
+			JobCatalog.Kind.CATCH_CREATURE_GROUP,
+			creature_group,
+		).is_empty())
+		assert(not _find_creature_job(
+			lifetime,
+			JobCatalog.Kind.DISCOVER_CREATURE_GROUP,
+			creature_group,
+		).is_empty())
+		assert(not _find_creature_job(
+			lifetime,
+			JobCatalog.Kind.MASTER_CREATURE_GROUP,
+			creature_group,
+		).is_empty())
+
+	var daily_groups: Dictionary[int, bool] = {}
+	for seed_index: int in 64:
+		for job: Dictionary in JobCatalog.generate_daily_jobs(
+			"creature-job-validation-%d" % seed_index,
+			candidates,
+			true,
+		):
+			if int(job.get("kind", -1)) == JobCatalog.Kind.CATCH_CREATURE_GROUP:
+				daily_groups[int(job.get("creature_group", -1))] = true
+	assert(daily_groups.has(FishData.CreatureGroup.INSECT))
+	assert(daily_groups.has(FishData.CreatureGroup.SHELLFISH))
+
+	var beetle: FishData = Catalog.get_fish_by_id(&"beetle_stag_common")
+	assert(beetle != null)
+	var beetle_catch := _make_test_catch(beetle, &"job-beetle")
+	jobs.call("_on_authoritative_catch", beetle_catch)
+	var statistics: Dictionary = jobs.to_save_data().get("statistics", {})
+	assert(int(statistics.get("fish_caught", -1)) == 0)
+	assert(int(statistics.get("insects_caught", -1)) == 1)
+
+
+func _find_creature_job(
+	jobs: Array[Dictionary],
+	kind: JobCatalog.Kind,
+	creature_group: int,
+) -> Dictionary:
+	for job: Dictionary in jobs:
+		if (
+			int(job.get("kind", -1)) == kind
+			and int(job.get("creature_group", -1)) == creature_group
+		):
+			return job
+	return {}
+
+
+func _make_test_catch(fish: FishData, catch_id: StringName) -> FishCatch:
+	var fish_catch := FishCatch.new()
+	fish_catch.fish = fish
+	fish_catch.fish_id = fish.id
+	fish_catch.catch_id = catch_id
+	fish_catch.catch_sequence = 1
+	fish_catch.weight_lb = fish.get_minimum_weight()
+	fish_catch.display_scale = fish.get_display_scale_for_weight(
+		fish_catch.weight_lb
+	)
+	fish_catch.quality = FishQuality.Tier.BORING
+	fish_catch.sale_value = fish.get_sale_value_for_weight(fish_catch.weight_lb)
+	assert(fish_catch.is_valid())
+	return fish_catch
 
 
 func _validate_weather_guarantees(board: Dictionary) -> void:

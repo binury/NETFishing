@@ -1,6 +1,9 @@
 extends SceneTree
 
 const MainScene: PackedScene = preload("res://main/main.tscn")
+const ItemCatalogResource: ItemCatalog = preload(
+	"res://items/catalog/item_catalog.tres"
+)
 
 
 func _initialize() -> void:
@@ -27,29 +30,34 @@ func _run() -> void:
 	save_manager.set_autosave_enabled(true)
 	assert(player.bag.add_item(&"art_kit"))
 	assert(player.bag.add_item(&"coffee"))
+	assert(player.bag.add_item(&"worms"))
+	assert(player.bag.add_item(&"the_standby"))
+	assert(player.equip_bait(ItemCatalogResource.get_item_by_id(&"worms")))
+	assert(player.equip_lure(ItemCatalogResource.get_item_by_id(&"the_standby")))
 	assert(player.bag.move_item_to_storage_slot(&"basic_fishing_rod", 14))
 	assert(player.bag.move_item_to_storage_slot(&"coffee", 12))
 	assert(save_manager.save_now())
 
-	var save_file := FileAccess.open(
-		str(save_manager.get("_save_path")),
-		FileAccess.READ,
+	var decoded: Dictionary = ProgressionSaveCodec.read_local_save(
+		str(save_manager.get("_save_path"))
 	)
-	assert(save_file != null)
-	var parsed: Variant = JSON.parse_string(save_file.get_as_text())
-	save_file.close()
-	assert(typeof(parsed) == TYPE_DICTIONARY)
-	var records: Array = (parsed as Dictionary)["bag"]["items"]
-	assert(int((parsed as Dictionary)["world"]["seed"]) == TEST_WORLD_SEED)
+	assert(bool(decoded.get("ok", false)))
+	var parsed: Dictionary = decoded["data"]
+	var records: Array = parsed["bag"]["items"]
+	assert(int(parsed["world"]["seed"]) == TEST_WORLD_SEED)
 	assert(_saved_slot(records, &"basic_fishing_rod") == 14)
 	assert(_saved_slot(records, &"coffee") == 12)
 
 	assert(player.bag.move_item_to_storage_slot(&"basic_fishing_rod", 0))
 	assert(player.bag.move_item_to_storage_slot(&"coffee", 0))
+	player.unequip_bait()
+	player.unequip_lure()
 	assert(save_manager.load_player_data())
 	assert(save_manager.get_world_seed() == TEST_WORLD_SEED)
 	assert(player.bag.get_storage_slot(&"basic_fishing_rod") == 14)
 	assert(player.bag.get_storage_slot(&"coffee") == 12)
+	assert(player.active_bait_id == &"worms")
+	assert(player.active_lure_id == &"the_standby")
 
 	main.queue_free()
 	for _frame: int in 4:

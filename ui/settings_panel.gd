@@ -125,6 +125,7 @@ var _environment_volume: float = 1.0
 var _network_profile: NetworkProfilePreferences
 var _network_session: NetworkSession
 var _data_root: PlayerDataRoot
+var _progression_saves: PlayerSaveManager
 var _identity_backups: IdentityBackupService
 var _player_identity: PlayerIdentityStore
 var _host_identity: HostIdentityStore
@@ -134,6 +135,8 @@ var _controller_mapping_panel: ControllerMappingPanelType
 var _keyboard_mouse_mapping_manager: KeyboardMouseMappingManagerType
 var _keyboard_mouse_mapping_panel: KeyboardMouseMappingPanelType
 var _data_folder_dialog: FileDialog
+var _progression_import_dialog: FileDialog
+var _progression_export_dialog: FileDialog
 var _backup_file_dialog: FileDialog
 var _export_file_dialog: FileDialog
 var _passphrase_dialog: ConfirmationDialog
@@ -143,6 +146,7 @@ var _pending_identity_operation := ""
 var _pending_identity_type := ""
 var _pending_identity_path := ""
 var _pending_import_data: Dictionary = {}
+var _pending_progression_path := ""
 
 
 func _notification(what: int) -> void:
@@ -244,6 +248,8 @@ func _connect_controls() -> void:
 	%KeyboardMapping.pressed.connect(_open_keyboard_mouse_mapping)
 	%OpenDataFolder.pressed.connect(_open_data_folder)
 	%ChangeDataFolder.pressed.connect(_choose_data_folder)
+	%ExportProgression.pressed.connect(_choose_progression_export)
+	%ImportProgression.pressed.connect(_choose_progression_import)
 	%ExportPlayerIdentity.pressed.connect(
 		_choose_identity_export.bind("player")
 	)
@@ -337,6 +343,7 @@ func setup_keyboard_mouse_mapping(
 
 func setup_data_and_identity(
 	data_root: PlayerDataRoot,
+	progression_saves: PlayerSaveManager,
 	identity_backups: IdentityBackupService,
 	player_identity: PlayerIdentityStore,
 	host_identity: HostIdentityStore,
@@ -344,6 +351,7 @@ func setup_data_and_identity(
 	interface_fonts: InterfaceFontController,
 ) -> void:
 	_data_root = data_root
+	_progression_saves = progression_saves
 	_identity_backups = identity_backups
 	_player_identity = player_identity
 	_host_identity = host_identity
@@ -611,6 +619,11 @@ func _refresh_data_page() -> void:
 		_data_root.override_active
 		or (_network_session != null and _network_session.is_session_active())
 	)
+	%ExportProgression.disabled = _progression_saves == null
+	%ImportProgression.disabled = (
+		_progression_saves == null
+		or (_network_session != null and _network_session.is_session_active())
+	)
 	var fingerprint: String = (
 		_player_identity.fingerprint if _player_identity != null else ""
 	)
@@ -659,6 +672,118 @@ func _copy_player_fingerprint() -> void:
 		return
 	DisplayServer.clipboard_set(fingerprint)
 	_feedback.text = "full player fingerprint copied for server operator setup."
+
+
+func _choose_progression_export() -> void:
+	if _progression_saves == null or _data_root == null:
+		_feedback.text = "progression export is unavailable."
+		return
+	var timestamp: String = Time.get_datetime_string_from_system().replace(
+		":", "-"
+	)
+	var suggested: String = _data_root.progression_backup_directory().path_join(
+		"NETfishing-progression-%s%s"
+		% [timestamp, PlayerSaveManager.ARCHIVE_EXTENSION]
+	)
+	if _progression_export_dialog == null:
+		_progression_export_dialog = FileDialog.new()
+		_progression_export_dialog.file_mode = FileDialog.FILE_MODE_SAVE_FILE
+		_progression_export_dialog.access = FileDialog.ACCESS_FILESYSTEM
+		_progression_export_dialog.use_native_dialog = false
+		_progression_export_dialog.filters = PackedStringArray([
+			"*.nfsave ; NETfishing progression archive",
+		])
+		_progression_export_dialog.file_selected.connect(
+			_progression_export_file_selected
+		)
+		_interface_fonts.apply_utility_theme(_progression_export_dialog)
+		add_child(_progression_export_dialog)
+	_progression_export_dialog.current_dir = suggested.get_base_dir()
+	_progression_export_dialog.current_file = suggested.get_file()
+	_interface_fonts.popup_file_dialog(_progression_export_dialog)
+
+
+func _progression_export_file_selected(path: String) -> void:
+	var destination: String = (
+		path
+		if path.ends_with(PlayerSaveManager.ARCHIVE_EXTENSION)
+		else path + PlayerSaveManager.ARCHIVE_EXTENSION
+	)
+	var result: Dictionary = _progression_saves.export_progression_archive(
+		destination
+	)
+	_feedback.text = str(
+		result.get("message", "progression export failed.")
+	)
+
+
+func _choose_progression_import() -> void:
+	if _progression_saves == null or _data_root == null:
+		_feedback.text = "progression import is unavailable."
+		return
+	if _network_session != null and _network_session.is_session_active():
+		_feedback.text = "return to title before importing progression."
+		return
+	if _progression_import_dialog == null:
+		_progression_import_dialog = FileDialog.new()
+		_progression_import_dialog.file_mode = FileDialog.FILE_MODE_OPEN_FILE
+		_progression_import_dialog.access = FileDialog.ACCESS_FILESYSTEM
+		_progression_import_dialog.use_native_dialog = false
+		_progression_import_dialog.filters = PackedStringArray([
+			"*.nfsave ; NETfishing progression archive",
+		])
+		_progression_import_dialog.file_selected.connect(
+			_progression_import_file_selected
+		)
+		_interface_fonts.apply_utility_theme(_progression_import_dialog)
+		add_child(_progression_import_dialog)
+	_progression_import_dialog.current_dir = (
+		_data_root.progression_backup_directory()
+	)
+	_interface_fonts.popup_file_dialog(_progression_import_dialog)
+
+
+func _progression_import_file_selected(path: String) -> void:
+	var inspected: Dictionary = (
+		_progression_saves.inspect_progression_archive(path)
+	)
+	if not bool(inspected.get("ok", false)):
+		_feedback.text = str(
+			inspected.get("message", "progression archive could not be opened.")
+		)
+		return
+	_pending_progression_path = path
+	var dialog := ConfirmationDialog.new()
+	dialog.title = "replace saved progression?"
+	dialog.ok_button_text = "import progression"
+	dialog.dialog_text = (
+		"this will replace the current progression after making a backup.\n\n"
+		+ "fish: %d\ndiscovered: %d\nworld seed: %d\n\n"
+		+ "identities, settings, friends, bans, and trusted servers are unchanged."
+	) % [
+		int(inspected.get("catch_count", 0)),
+		int(inspected.get("discovered_species_count", 0)),
+		int(inspected.get("world_seed", 0)),
+	]
+	dialog.confirmed.connect(_confirm_progression_import.bind(dialog))
+	dialog.canceled.connect(dialog.queue_free)
+	_interface_fonts.apply_utility_theme(dialog)
+	add_child(dialog)
+	dialog.popup_centered(Vector2i(640, 390))
+	_configure_confirmation_dialog.call_deferred(
+		dialog, dialog.get_cancel_button()
+	)
+
+
+func _confirm_progression_import(dialog: ConfirmationDialog) -> void:
+	var result: Dictionary = _progression_saves.import_progression_archive(
+		_pending_progression_path
+	)
+	_feedback.text = str(
+		result.get("message", "progression import failed.")
+	)
+	_pending_progression_path = ""
+	dialog.queue_free()
 
 
 func _choose_data_folder() -> void:

@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="ItemData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://items/item_data.gd" id="1_item"]
+
+[resource]
+script = ExtResource("1_item")
+item_id = &"fishing_net"
+display_name = "fishing net"
+description = "a placeable water net reserved for a future passive fishing system."
+active = true
+category = 1
+stackable = false
+max_stack = 1
+usable = false
+equippable = false
+hotbar_allowed = false

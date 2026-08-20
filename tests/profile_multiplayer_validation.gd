@@ -152,15 +152,10 @@ func _run_client() -> void:
 	var chat_service := main.get_node(
 		"%NetworkChatService"
 	) as NetworkChatService
-	var history_deadline: int = Time.get_ticks_msec() + 8000
-	while Time.get_ticks_msec() < history_deadline:
-		if chat_service.get_history().any(
-			func(message: Dictionary) -> bool:
-				return str(message.get("body", "")) == HOST_HISTORY_MESSAGE
-		):
-			break
-		await process_frame
-	assert(chat_service.get_history().any(
+	# Player-hosted rooms deliberately send no prior scrollback to joining or
+	# reconnecting clients. Live messages sent after authentication still work.
+	await create_timer(0.5).timeout
+	assert(not chat_service.get_history().any(
 		func(message: Dictionary) -> bool:
 			return str(message.get("body", "")) == HOST_HISTORY_MESSAGE
 	))

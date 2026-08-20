@@ -3,7 +3,8 @@ extends Node
 
 signal mapping_changed
 
-const FORMAT_VERSION: int = 1
+const FORMAT_VERSION: int = 2
+const LEGACY_FORMAT_VERSION: int = 1
 const MAPPING_PATH: String = "user://keyboard_mouse_bindings.json"
 const MAPPING_TEMP_PATH: String = "user://keyboard_mouse_bindings.json.tmp"
 const MAPPING_BACKUP_PATH: String = (
@@ -21,6 +22,7 @@ const ROLE_SNEAK: StringName = &"sneak"
 const ROLE_SLOW_WALK: StringName = &"slow_walk"
 const ROLE_INTERACT: StringName = &"interact"
 const ROLE_PRIMARY_ACTION: StringName = &"fish_primary"
+const ROLE_ALTERNATE_REEL: StringName = &"reel_alternate"
 const ROLE_CAMERA_DRAG: StringName = &"camera_drag"
 const ROLE_CAMERA_ZOOM_IN: StringName = &"camera_zoom_in"
 const ROLE_CAMERA_ZOOM_OUT: StringName = &"camera_zoom_out"
@@ -46,6 +48,7 @@ const ROLE_ORDER: Array[StringName] = [
 	ROLE_SLOW_WALK,
 	ROLE_INTERACT,
 	ROLE_PRIMARY_ACTION,
+	ROLE_ALTERNATE_REEL,
 	ROLE_CAMERA_DRAG,
 	ROLE_CAMERA_ZOOM_IN,
 	ROLE_CAMERA_ZOOM_OUT,
@@ -81,6 +84,7 @@ const ROLE_LABELS: Dictionary = {
 	ROLE_SLOW_WALK: "slow walk",
 	ROLE_INTERACT: "interact",
 	ROLE_PRIMARY_ACTION: "primary action",
+	ROLE_ALTERNATE_REEL: "alternate reel",
 	ROLE_CAMERA_DRAG: "rotate camera",
 	ROLE_CAMERA_ZOOM_IN: "camera zoom in",
 	ROLE_CAMERA_ZOOM_OUT: "camera zoom out",
@@ -138,19 +142,28 @@ func load_mapping() -> bool:
 		_bindings = {}
 		return false
 	var data := json.data as Dictionary
-	if int(data.get("format_version", -1)) != FORMAT_VERSION:
+	var format_version: int = int(data.get("format_version", -1))
+	if format_version not in [LEGACY_FORMAT_VERSION, FORMAT_VERSION]:
 		push_warning("Keyboard binding version is unsupported; using defaults.")
 		_bindings = {}
 		return false
 	var raw_bindings: Variant = data.get("bindings", {})
 	if (
 		typeof(raw_bindings) != TYPE_DICTIONARY
-		or not _validate_complete_bindings(raw_bindings as Dictionary)
 	):
 		push_warning("Keyboard bindings are incomplete; using defaults.")
 		_bindings = {}
 		return false
-	_bindings = (raw_bindings as Dictionary).duplicate(true)
+	var loaded_bindings := (raw_bindings as Dictionary).duplicate(true)
+	if format_version == LEGACY_FORMAT_VERSION:
+		loaded_bindings[str(ROLE_ALTERNATE_REEL)] = (
+			_default_bindings[str(ROLE_ALTERNATE_REEL)].duplicate(true)
+		)
+	if not _validate_complete_bindings(loaded_bindings):
+		push_warning("Keyboard bindings are incomplete; using defaults.")
+		_bindings = {}
+		return false
+	_bindings = loaded_bindings
 	return true
 
 

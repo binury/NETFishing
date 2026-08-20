@@ -25,6 +25,7 @@ var _session: NetworkSession
 var _save_manager: PlayerSaveManager
 var _network_fishing: NetworkFishingService
 var _network_sale: NetworkSaleService
+var _network_world_spawns: NetworkWorldSpawnService
 
 var _progression_ready: bool = false
 var _host_board: Dictionary = {}
@@ -35,6 +36,8 @@ var _daily_completions: Dictionary[String, int] = {}
 var _pending_rewards: Array[Dictionary] = []
 var _lifetime_claimed: Array[String] = []
 var _total_catches: int = 0
+var _total_insects: int = 0
+var _total_shellfish: int = 0
 var _total_sold: int = 0
 var _daily_clock_hour: float = WorldTimeService.DEFAULT_START_HOUR
 
@@ -65,9 +68,11 @@ func setup(
 func bind_authoritative_services(
 	network_fishing: NetworkFishingService,
 	network_sale: NetworkSaleService,
+	network_world_spawns: NetworkWorldSpawnService,
 ) -> void:
 	_network_fishing = network_fishing
 	_network_sale = network_sale
+	_network_world_spawns = network_world_spawns
 	if not _network_fishing.local_catch_received.is_connected(
 		_on_authoritative_catch
 	):
@@ -77,6 +82,12 @@ func bind_authoritative_services(
 	):
 		_network_sale.local_sale_finished.connect(
 			_on_authoritative_sale_finished
+		)
+	if not _network_world_spawns.local_capture_received.is_connected(
+		_on_authoritative_catch
+	):
+		_network_world_spawns.local_capture_received.connect(
+			_on_authoritative_catch
 		)
 
 
@@ -123,7 +134,10 @@ func get_daily_jobs() -> Array[Dictionary]:
 
 func get_lifetime_jobs() -> Array[Dictionary]:
 	var result: Array[Dictionary] = JobCatalog.visible_lifetime_jobs(
-		_registered_species_count(), _lifetime_claimed
+		_registered_species_count(),
+		_lifetime_claimed,
+		_registered_creature_count(FishDataType.CreatureGroup.INSECT),
+		_registered_creature_count(FishDataType.CreatureGroup.SHELLFISH),
 	)
 	for job: Dictionary in result:
 		var progress: int = _lifetime_progress(job)
@@ -236,6 +250,8 @@ func to_save_data() -> Dictionary:
 		"lifetime_claimed": _lifetime_claimed.duplicate(),
 		"statistics": {
 			"fish_caught": _total_catches,
+			"insects_caught": _total_insects,
+			"shellfish_caught": _total_shellfish,
 			"fish_sold": _total_sold,
 		},
 	}
@@ -294,6 +310,8 @@ func restore_from_save_data(data: Dictionary) -> bool:
 		_lifetime_claimed.append(str(value))
 	var statistics: Dictionary = data.get("statistics", {})
 	_total_catches = int(statistics.get("fish_caught", 0))
+	_total_insects = int(statistics.get("insects_caught", 0))
+	_total_shellfish = int(statistics.get("shellfish_caught", 0))
 	_total_sold = int(statistics.get("fish_sold", 0))
 	if _session != null and _session.is_host():
 		_active_board = _host_board.duplicate(true)
@@ -318,6 +336,8 @@ func reset_to_defaults() -> void:
 	_pending_rewards.clear()
 	_lifetime_claimed.clear()
 	_total_catches = 0
+	_total_insects = 0
+	_total_shellfish = 0
 	_total_sold = 0
 	_daily_clock_hour = WorldTimeService.DEFAULT_START_HOUR
 	changed.emit()
@@ -333,7 +353,12 @@ static func default_save_data() -> Dictionary:
 		"daily_clock_hour": WorldTimeService.DEFAULT_START_HOUR,
 		"pending_rewards": [],
 		"lifetime_claimed": [],
-		"statistics": {"fish_caught": 0, "fish_sold": 0},
+		"statistics": {
+			"fish_caught": 0,
+			"insects_caught": 0,
+			"shellfish_caught": 0,
+			"fish_sold": 0,
+		},
 	}
 
 
@@ -457,6 +482,12 @@ static func validate_save_data(value: Variant) -> bool:
 			statistics.get("fish_caught"), 0, MAX_PROGRESS_VALUE
 		)
 		and JobCatalog.is_bounded_integer(
+			statistics.get("insects_caught", 0), 0, MAX_PROGRESS_VALUE
+		)
+		and JobCatalog.is_bounded_integer(
+			statistics.get("shellfish_caught", 0), 0, MAX_PROGRESS_VALUE
+		)
+		and JobCatalog.is_bounded_integer(
 			statistics.get("fish_sold"), 0, MAX_PROGRESS_VALUE
 		)
 	)
@@ -514,7 +545,7 @@ func _generate_host_board(cycle: int) -> void:
 	var candidates: Array[FishDataType] = []
 	if _catalog != null:
 		for fish: FishDataType in _catalog.candidates:
-			if fish != null and fish.is_fishable():
+			if fish != null and fish.is_selectable():
 				candidates.append(fish)
 	var schedule_anchor_index: int = _current_weather_segment()
 	var allow_weather_jobs: bool = (
@@ -608,7 +639,13 @@ func _on_session_state_changed(state: NetworkSession.State) -> void:
 func _on_authoritative_catch(fish_catch: FishCatchType) -> void:
 	if not _progression_ready or fish_catch == null or not fish_catch.is_valid():
 		return
-	_total_catches = mini(_total_catches + 1, MAX_PROGRESS_VALUE)
+	match fish_catch.fish.get_creature_group():
+		FishDataType.CreatureGroup.FISH:
+			_total_catches = mini(_total_catches + 1, MAX_PROGRESS_VALUE)
+		FishDataType.CreatureGroup.INSECT:
+			_total_insects = mini(_total_insects + 1, MAX_PROGRESS_VALUE)
+		FishDataType.CreatureGroup.SHELLFISH:
+			_total_shellfish = mini(_total_shellfish + 1, MAX_PROGRESS_VALUE)
 	_update_daily_for_catch(fish_catch)
 	changed.emit()
 
@@ -630,23 +667,40 @@ func _on_authoritative_sale_finished(
 
 
 func _update_daily_for_catch(fish_catch: FishCatchType) -> void:
+	var creature_group: int = int(fish_catch.fish.get_creature_group())
+	var is_fish: bool = creature_group == FishDataType.CreatureGroup.FISH
 	for job: Dictionary in get_daily_jobs():
 		var matches: bool = false
 		match int(job.get("kind", -1)):
 			JobCatalog.Kind.CATCH_TOTAL:
-				matches = true
+				matches = is_fish
 			JobCatalog.Kind.CATCH_WATER:
-				matches = fish_catch.fish.is_allowed_in_water(
+				matches = is_fish and fish_catch.fish.is_allowed_in_water(
 					int(job.get("water_type", WaterType.Type.OTHER)) as WaterType.Type
 				)
 			JobCatalog.Kind.CATCH_QUALITY:
-				matches = fish_catch.quality >= int(job.get("minimum_quality", 0))
+				matches = (
+					is_fish
+					and fish_catch.quality >= int(job.get("minimum_quality", 0))
+				)
 			JobCatalog.Kind.CATCH_PHASE:
-				matches = int(_world_time.get_phase()) == int(job.get("phase", -1))
+				matches = (
+					is_fish
+					and int(_world_time.get_phase()) == int(job.get("phase", -1))
+				)
 			JobCatalog.Kind.CATCH_WEATHER:
-				matches = int(_world_weather.get_weather()) == int(job.get("weather", -1))
+				matches = (
+					is_fish
+					and int(_world_weather.get_weather())
+					== int(job.get("weather", -1))
+				)
 			JobCatalog.Kind.CATCH_SPECIES:
-				matches = String(fish_catch.fish_id) == str(job.get("fish_id", ""))
+				matches = (
+					is_fish
+					and String(fish_catch.fish_id) == str(job.get("fish_id", ""))
+				)
+			JobCatalog.Kind.CATCH_CREATURE_GROUP:
+				matches = creature_group == int(job.get("creature_group", -1))
 		if matches:
 			_advance_daily(job, 1)
 
@@ -741,24 +795,72 @@ func _lifetime_progress(job: Dictionary) -> int:
 		JobCatalog.Kind.REACH_LEVEL:
 			return _experience.get_level() if _experience != null else 0
 		JobCatalog.Kind.DISCOVER_SPECIES:
-			return _collection.get_discovered_ids().size() if _collection != null else 0
+			return _collection_progress(
+				FishDataType.CreatureGroup.FISH, false
+			)
 		JobCatalog.Kind.MASTER_QUALITIES:
-			var mastered: int = 0
-			if _collection != null and _catalog != null:
-				for fish: FishDataType in _catalog.candidates:
-					if fish != null and _collection.has_mastered(fish.id):
-						mastered += 1
-			return mastered
+			return _collection_progress(
+				FishDataType.CreatureGroup.FISH, true
+			)
+		JobCatalog.Kind.CATCH_CREATURE_GROUP:
+			match int(job.get("creature_group", -1)):
+				FishDataType.CreatureGroup.INSECT:
+					return _total_insects
+				FishDataType.CreatureGroup.SHELLFISH:
+					return _total_shellfish
+		JobCatalog.Kind.DISCOVER_CREATURE_GROUP:
+			return _collection_progress(
+				int(job.get("creature_group", -1)) as FishDataType.CreatureGroup,
+				false,
+			)
+		JobCatalog.Kind.MASTER_CREATURE_GROUP:
+			return _collection_progress(
+				int(job.get("creature_group", -1)) as FishDataType.CreatureGroup,
+				true,
+			)
 	return 0
 
 
 func _registered_species_count() -> int:
+	return _registered_creature_count(FishDataType.CreatureGroup.FISH)
+
+
+func _registered_creature_count(
+	creature_group: FishDataType.CreatureGroup,
+) -> int:
 	var count: int = 0
 	if _catalog != null:
 		for fish: FishDataType in _catalog.candidates:
-			if fish != null and fish.is_fishable():
+			if (
+				fish != null
+				and fish.is_selectable()
+				and fish.get_creature_group() == creature_group
+			):
 				count += 1
 	return count
+
+
+func _collection_progress(
+	creature_group: FishDataType.CreatureGroup,
+	require_mastery: bool,
+) -> int:
+	var progress: int = 0
+	if _collection == null or _catalog == null:
+		return progress
+	for fish: FishDataType in _catalog.candidates:
+		if (
+			fish == null
+			or not fish.is_selectable()
+			or fish.get_creature_group() != creature_group
+		):
+			continue
+		if (
+			_collection.has_mastered(fish.id)
+			if require_mastery
+			else _collection.has_discovered(fish.id)
+		):
+			progress += 1
+	return progress
 
 
 func _expire_incomplete_daily_jobs() -> void:
@@ -795,7 +897,7 @@ func _matches_canonical_board(board: Dictionary) -> bool:
 	var candidates: Array[FishDataType] = []
 	if _catalog != null:
 		for fish: FishDataType in _catalog.candidates:
-			if fish != null and fish.is_fishable():
+			if fish != null and fish.is_selectable():
 				candidates.append(fish)
 	var anchor_index: int = int(board.get("schedule_anchor_index", -1))
 	var allow_weather_jobs: bool = (

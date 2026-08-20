@@ -111,7 +111,9 @@ const BITE_QUICK_PROBABILITY: float = 0.30
 const BITE_TYPICAL_PROBABILITY: float = 0.65
 const BITE_LONG_PROBABILITY: float = 0.04
 const NETWORK_INPUT_RESEND_INTERVAL_SECONDS: float = 0.1
+const ALTERNATE_REEL_ACTION: StringName = &"reel_alternate"
 @export_range(0.1, 10.0, 0.1) var cooldown_duration: float = 1.0
+@export_range(0.1, 5.0, 0.05) var minimum_showcase_duration: float = 0.8
 
 @export_category("Selection")
 @export_range(0.0, 10.0, 0.05) var undiscovered_weight_multiplier: float = 1.5
@@ -172,6 +174,7 @@ var _selected_fish: FishDataType
 var _pending_catch: FishCatchType
 var _showcase_ready: bool = false
 var _put_away_press_armed: bool = false
+var _showcase_input_lock_remaining: float = 0.0
 var _showcase_restore_generation: int = 0
 var _showcase_outcome_completed: bool = false
 var _network_auto_click_accumulator: float = 0.0
@@ -444,6 +447,7 @@ func _secure_showcase_catch_for_recovery() -> void:
 	_pending_catch = null
 	_showcase_ready = false
 	_put_away_press_armed = false
+	_showcase_input_lock_remaining = 0.0
 	showcase_changed.emit("", "", 0.0, 0, false)
 	if _active_player != null:
 		_active_player.end_catch_showcase(Callable(), true)
@@ -473,14 +477,21 @@ func _exit_tree() -> void:
 	_selected_fish = null
 	_showcase_ready = false
 	_put_away_press_armed = false
+	_showcase_input_lock_remaining = 0.0
 
 
 func _process(delta: float) -> void:
 	if state == FishingState.READY and not Input.is_action_pressed("fish_primary"):
 		_new_cast_press_armed = true
+	if state == FishingState.SHOWING_CATCH:
+		_showcase_input_lock_remaining = maxf(
+			_showcase_input_lock_remaining - delta,
+			0.0,
+		)
 	if (
 		state == FishingState.SHOWING_CATCH
 		and _showcase_ready
+		and _showcase_input_lock_remaining <= 0.0
 		and not Input.is_action_pressed("fish_primary")
 	):
 		_put_away_press_armed = true
@@ -501,7 +512,7 @@ func _process(delta: float) -> void:
 					_get_effective_reel_speed(),
 					_get_effective_barrier_damage()
 				)
-				if not Input.is_action_pressed("fish_primary"):
+				if not _is_reel_input_pressed():
 					_catch_controller.set_reel_input(false)
 			else:
 				_resend_network_input_state(delta)
@@ -521,7 +532,11 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if _local_player == null or not _local_player.is_local_control_enabled():
 		return
-	if not event.is_action("fish_primary"):
+	var primary_action: bool = event.is_action("fish_primary")
+	var alternate_reel: bool = event.is_action(ALTERNATE_REEL_ACTION)
+	if not primary_action and not (
+		alternate_reel and state == FishingState.FIGHTING
+	):
 		return
 	var selected_item: ItemDataType = _get_active_item()
 	if (
@@ -582,7 +597,11 @@ func _unhandled_input(event: InputEvent) -> void:
 					FishingPresentationType.LineMode.TAUT
 				)
 			FishingState.SHOWING_CATCH:
-				if _showcase_ready and _put_away_press_armed:
+				if (
+					_showcase_ready
+					and _showcase_input_lock_remaining <= 0.0
+					and _put_away_press_armed
+				):
 					_put_away_catch()
 				else:
 					return
@@ -619,13 +638,21 @@ func _unhandled_input(event: InputEvent) -> void:
 		_presentation.set_line_mode(FishingPresentationType.LineMode.SLACK)
 		get_viewport().set_input_as_handled()
 	elif state == FishingState.FIGHTING:
+		var reel_input_held: bool = _is_reel_input_pressed()
 		if _network_fishing != null:
-			_network_primary_input_held = false
+			_network_primary_input_held = reel_input_held
 			_network_input_resend_elapsed = 0.0
-			_network_fishing.submit_local_input(false, false)
+			_network_fishing.submit_local_input(reel_input_held, false)
 		else:
-			_catch_controller.set_reel_input(false)
+			_catch_controller.set_reel_input(reel_input_held)
 		get_viewport().set_input_as_handled()
+
+
+func _is_reel_input_pressed() -> bool:
+	return (
+		Input.is_action_pressed("fish_primary")
+		or Input.is_action_pressed(ALTERNATE_REEL_ACTION)
+	)
 
 
 func _begin_aiming(player: PlayerType) -> void:
@@ -756,6 +783,17 @@ func is_returning() -> bool:
 	return state == FishingState.RETURNING
 
 
+func is_fishing_sequence_active() -> bool:
+	return state in [
+		FishingState.AIMING_CAST,
+		FishingState.CASTING,
+		FishingState.WAITING_FOR_BITE,
+		FishingState.FIGHTING,
+		FishingState.SHOWING_CATCH,
+		FishingState.RETURNING,
+	]
+
+
 func refresh_active_item_status() -> void:
 	if state == FishingState.READY and has_active_fishing_rod():
 		status_changed.emit("")
@@ -780,6 +818,7 @@ func present_external_catch(fish_catch: FishCatchType) -> bool:
 	_showcase_ready = true
 	_showcase_outcome_completed = true
 	_put_away_press_armed = false
+	_showcase_input_lock_remaining = minimum_showcase_duration
 	_active_player.begin_catch_showcase(fish_catch)
 	showcase_changed.emit(
 		fish_catch.fish.display_name,
@@ -1112,7 +1151,7 @@ func _activate_bite(confirmation_override: bool = false) -> void:
 		_pending_catch.quality,
 	)
 	_catch_controller.set_reel_input(
-		Input.is_action_pressed("fish_primary")
+		_is_reel_input_pressed()
 	)
 	_presentation.show_bite()
 
@@ -1197,6 +1236,7 @@ func _on_catch_completed() -> void:
 	_showcase_ready = false
 	_showcase_outcome_completed = false
 	_put_away_press_armed = false
+	_showcase_input_lock_remaining = 0.0
 	_catch_controller.reset()
 	_presentation.set_line_mode(FishingPresentationType.LineMode.TAUT)
 	_presentation.play_outcome(&"catch")
@@ -1232,6 +1272,7 @@ func _on_outcome_completed(outcome: StringName) -> void:
 		return
 	_showcase_outcome_completed = true
 	_showcase_ready = true
+	_showcase_input_lock_remaining = minimum_showcase_duration
 	_active_player.begin_catch_showcase(_pending_catch)
 	showcase_changed.emit(
 		_pending_catch.fish.display_name,
@@ -1265,6 +1306,7 @@ func _put_away_catch() -> void:
 	_showcase_ready = false
 	_showcase_outcome_completed = false
 	_put_away_press_armed = false
+	_showcase_input_lock_remaining = 0.0
 	showcase_changed.emit("", "", 0.0, 0, false)
 	_showcase_restore_generation += 1
 	var restore_generation: int = _showcase_restore_generation
@@ -1338,6 +1380,7 @@ func _cleanup_attempt(
 		_showcase_ready = false
 		_showcase_outcome_completed = false
 		_put_away_press_armed = false
+		_showcase_input_lock_remaining = 0.0
 		showcase_changed.emit("", "", 0.0, 0, false)
 		_catch_controller.reset()
 		state = FishingState.RETURNING
@@ -1387,6 +1430,7 @@ func _finalize_attempt_cleanup(
 	_showcase_ready = false
 	_showcase_outcome_completed = false
 	_put_away_press_armed = false
+	_showcase_input_lock_remaining = 0.0
 	showcase_changed.emit("", "", 0.0, 0, false)
 	_catch_controller.reset()
 	_presentation.cleanup()
@@ -1724,7 +1768,7 @@ func _on_network_bite_started(_attempt_id: String) -> void:
 	if _active_player != null:
 		_active_player.set_fighting_visual(true)
 	_withdrawal_input_held = false
-	_network_primary_input_held = Input.is_action_pressed("fish_primary")
+	_network_primary_input_held = _is_reel_input_pressed()
 	_network_input_resend_elapsed = 0.0
 	_network_auto_click_accumulator = 0.0
 	_network_active_barrier_index = -1
@@ -1796,7 +1840,7 @@ func _on_network_fishing_snapshot(snapshot: Dictionary) -> void:
 func _update_network_auto_click(delta: float) -> void:
 	if (
 		not _catch_controller.auto_click_enabled
-		or not Input.is_action_pressed("fish_primary")
+		or not _is_reel_input_pressed()
 		or _network_active_barrier_index < 0
 	):
 		_network_auto_click_accumulator = 0.0
@@ -1823,6 +1867,7 @@ func _on_network_catch_received(fish_catch: FishCatchType) -> void:
 	_showcase_ready = false
 	_showcase_outcome_completed = false
 	_put_away_press_armed = false
+	_showcase_input_lock_remaining = 0.0
 	catch_display_changed.emit(
 		0.0, 0.0, PackedFloat32Array(), PackedInt32Array(),
 		PackedInt32Array(), -1, false

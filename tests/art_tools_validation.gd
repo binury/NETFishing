@@ -86,6 +86,11 @@ func _run() -> void:
 	var chat_ui := game_ui.get_node("%ChatUI") as ChatUI
 	assert(player != null and service != null and toolbar != null)
 	assert(chat_ui != null)
+	assert(toolbar.get_parent() == chat_ui.get_parent())
+	assert(
+		toolbar.get_index() > chat_ui.get_index(),
+		"The art-kit toolbar must receive overlapping pointer input before Chat.",
+	)
 	assert(bool(game_ui.call("_can_start_virtual_mouse")))
 	var virtual_pointer_states: Array[bool] = []
 	game_ui.virtual_pointer_mode_changed.connect(
@@ -317,6 +322,22 @@ func _run() -> void:
 	assert(not (
 		game_ui.get_node("%ExperiencePresentation") as Control
 	).visible)
+	var hud_fishing_spot := main.get_node("%FishingSpot") as FishingSpot
+	assert(hud_fishing_spot != null)
+	hud_fishing_spot.state = FishingSpot.FishingState.SHOWING_CATCH
+	game_ui.call("_refresh_gameplay_hud_visibility")
+	assert((
+		game_ui.get_node("%GameplayTransientHUD") as Control
+	).visible)
+	assert(not (
+		game_ui.get_node("%ExperiencePresentation") as Control
+	).visible)
+	assert(chat_ui.is_hud_hidden())
+	hud_fishing_spot.state = FishingSpot.FishingState.READY
+	game_ui.call("_refresh_gameplay_hud_visibility")
+	assert(not (
+		game_ui.get_node("%GameplayTransientHUD") as Control
+	).visible)
 	quick_menu.open_menu(true)
 	assert(quick_menu.visible and quick_menu.is_open())
 	quick_menu.close_menu()
@@ -365,6 +386,12 @@ func _run() -> void:
 	await process_frame
 	assert(service.is_active() and not service.is_placement_mode())
 	assert(toolbar.visible)
+	chat_ui.open_chat()
+	assert(chat_ui.is_open())
+	assert(not service.is_active() and not toolbar.visible)
+	chat_ui.close_chat()
+	assert(not chat_ui.is_open())
+	assert(service.is_active() and toolbar.visible)
 	var ui_root := game_ui.get_node("%UIRoot") as Control
 	assert(toolbar.get_parent() == ui_root)
 	assert(is_zero_approx(toolbar.position.y))

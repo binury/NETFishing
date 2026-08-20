@@ -567,7 +567,7 @@ size_flags_horizontal = 3
 focus_mode = 2
 focus_neighbor_right = NodePath("../ChangeDataFolder")
 focus_neighbor_top = NodePath("../../../../../../../../TabBar/DataTab")
-focus_neighbor_bottom = NodePath("../../CopyPlayerFingerprint")
+focus_neighbor_bottom = NodePath("../../ProgressionRow/ExportProgression")
 text = "open data folder"
 
 [node name="ChangeDataFolder" type="Button" parent="MainPanel/OuterMargin/Layout/ContentPanel/ContentMargin/PageStack/DataPage/DataScroll/DataButtons/FolderRow"]
@@ -578,15 +578,41 @@ size_flags_horizontal = 3
 focus_mode = 2
 focus_neighbor_left = NodePath("../OpenDataFolder")
 focus_neighbor_top = NodePath("../../../../../../../../TabBar/DataTab")
-focus_neighbor_bottom = NodePath("../../CopyPlayerFingerprint")
+focus_neighbor_bottom = NodePath("../../ProgressionRow/ImportProgression")
 text = "change data folder"
+
+[node name="ProgressionRow" type="HBoxContainer" parent="MainPanel/OuterMargin/Layout/ContentPanel/ContentMargin/PageStack/DataPage/DataScroll/DataButtons"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="ExportProgression" type="Button" parent="MainPanel/OuterMargin/Layout/ContentPanel/ContentMargin/PageStack/DataPage/DataScroll/DataButtons/ProgressionRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 2
+focus_neighbor_right = NodePath("../ImportProgression")
+focus_neighbor_top = NodePath("../../FolderRow/OpenDataFolder")
+focus_neighbor_bottom = NodePath("../../CopyPlayerFingerprint")
+text = "export progression"
+
+[node name="ImportProgression" type="Button" parent="MainPanel/OuterMargin/Layout/ContentPanel/ContentMargin/PageStack/DataPage/DataScroll/DataButtons/ProgressionRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 2
+focus_neighbor_left = NodePath("../ExportProgression")
+focus_neighbor_top = NodePath("../../FolderRow/ChangeDataFolder")
+focus_neighbor_bottom = NodePath("../../CopyPlayerFingerprint")
+text = "import progression"
 
 [node name="CopyPlayerFingerprint" type="Button" parent="MainPanel/OuterMargin/Layout/ContentPanel/ContentMargin/PageStack/DataPage/DataScroll/DataButtons"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 44)
 layout_mode = 2
 focus_mode = 2
-focus_neighbor_top = NodePath("../FolderRow/OpenDataFolder")
+focus_neighbor_top = NodePath("../ProgressionRow/ExportProgression")
 focus_neighbor_bottom = NodePath("../PlayerIdentityRow/ExportPlayerIdentity")
 text = "copy player fingerprint"
 

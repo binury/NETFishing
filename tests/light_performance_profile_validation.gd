@@ -43,6 +43,7 @@ func _run() -> void:
 		await process_frame
 	assert(bool(normal_main.get("_application_initialized")))
 	_validate_normal_profile(normal_main)
+	_validate_new_game_music_transition(normal_main)
 	_stop_audio_players(normal_main)
 	normal_main.queue_free()
 	for _frame: int in 8:
@@ -115,6 +116,7 @@ func _validate_main_profile(main: Node) -> void:
 	assert(player_menu != null)
 	assert(not player_menu.is_cooler_water_effect_enabled())
 	assert((main.get_node("%TitleMusic") as AudioStreamPlayer).stream != null)
+	assert((main.get_node("%NewGameMusic") as AudioStreamPlayer).stream != null)
 	assert((main.get_node("%DuskMusic") as AudioStreamPlayer).stream != null)
 	assert(
 		(main.get_node("%WavesAudio") as AudioStreamPlayer).stream == null
@@ -183,6 +185,7 @@ func _validate_normal_profile(main: Node) -> void:
 	assert(clouds.get_node_or_null("CloudField") is MultiMeshInstance3D)
 	assert(clouds.get_node_or_null("CloudCeiling") == null)
 	assert((main.get_node("%TitleMusic") as AudioStreamPlayer).stream != null)
+	assert((main.get_node("%NewGameMusic") as AudioStreamPlayer).stream != null)
 	assert((main.get_node("%DuskMusic") as AudioStreamPlayer).stream != null)
 	assert(
 		(main.get_node("%WavesAudio") as AudioStreamPlayer).stream != null
@@ -190,6 +193,18 @@ func _validate_normal_profile(main: Node) -> void:
 	assert(
 		(main.get_node("RainAmbience") as AudioStreamPlayer).stream != null
 	)
+
+
+func _validate_new_game_music_transition(main: Node) -> void:
+	var title_music := main.get_node("%TitleMusic") as AudioStreamPlayer
+	var new_game_music := main.get_node("%NewGameMusic") as AudioStreamPlayer
+	assert(title_music.playing)
+	main.call("_start_new_game_music")
+	assert(not title_music.playing)
+	assert(new_game_music.playing)
+	main.call("_show_title_music", true)
+	assert(not new_game_music.playing)
+	assert(title_music.playing)
 
 
 func _first_fresh_water_visual(main: Node) -> MeshInstance3D:

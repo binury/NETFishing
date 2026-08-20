@@ -7,6 +7,12 @@ const KeyboardMouseMappingPanelType = preload(
 	"res://ui/keyboard_mouse_mapping_panel.gd"
 )
 const SettingsPanelScene = preload("res://ui/settings_panel.tscn")
+const FishingSpotScene = preload("res://fishing/fishing_spot.tscn")
+const FishingSpotType = preload("res://fishing/fishing_spot.gd")
+const CatchDifficultyProfileType = preload(
+	"res://fishing/catch_difficulty_profile.gd"
+)
+const PlayerType = preload("res://player/player.gd")
 
 
 func _initialize() -> void:
@@ -27,6 +33,13 @@ func _run() -> void:
 			str(KeyboardMouseMappingManagerType.ROLE_PRIMARY_ACTION)
 		].get("kind", "")) == "mouse_button"
 	)
+	assert(
+		str(defaults[
+			str(KeyboardMouseMappingManagerType.ROLE_ALTERNATE_REEL)
+		].get("kind", "")) == "key"
+	)
+	assert(_has_physical_key(&"reel_alternate", KEY_QUOTELEFT))
+	assert(_event_count(&"reel_alternate", true) == 0)
 	assert(
 		str(defaults[
 			str(KeyboardMouseMappingManagerType.ROLE_CHAT)
@@ -60,6 +73,15 @@ func _run() -> void:
 	))
 	assert(_has_mouse_button(&"fish_primary", MOUSE_BUTTON_XBUTTON1))
 	assert(not _has_mouse_button(&"fish_primary", MOUSE_BUTTON_LEFT))
+	var alternate_reel_key := InputEventKey.new()
+	alternate_reel_key.physical_keycode = KEY_G
+	alternate_reel_key.pressed = true
+	assert(manager.set_binding(
+		KeyboardMouseMappingManagerType.ROLE_ALTERNATE_REEL,
+		manager.binding_from_event(alternate_reel_key),
+	))
+	assert(_has_physical_key(&"reel_alternate", KEY_G))
+	assert(_event_count(&"reel_alternate", true) == 0)
 
 	var joypad_event := InputEventJoypadButton.new()
 	joypad_event.button_index = JOY_BUTTON_A
@@ -117,11 +139,64 @@ func _run() -> void:
 	))
 	assert(_has_physical_key(&"jump", KEY_SPACE))
 	assert(_has_mouse_button(&"fish_primary", MOUSE_BUTTON_LEFT))
+	assert(_has_physical_key(&"reel_alternate", KEY_QUOTELEFT))
+	assert(_event_count(&"reel_alternate", true) == 0)
 	assert(_has_physical_key(&"open_chat", KEY_T))
 	assert(_event_count(&"jump", true) == joypad_events_before)
 
+	var legacy_bindings: Dictionary = manager.get_active_bindings()
+	legacy_bindings.erase(str(
+		KeyboardMouseMappingManagerType.ROLE_ALTERNATE_REEL
+	))
+	legacy_bindings[str(KeyboardMouseMappingManagerType.ROLE_JUMP)] = (
+		manager.binding_from_event(rebind_key)
+	)
+	var legacy_file := FileAccess.open(
+		KeyboardMouseMappingManagerType.MAPPING_PATH,
+		FileAccess.WRITE,
+	)
+	assert(legacy_file != null)
+	legacy_file.store_string(JSON.stringify({
+		"format_version": KeyboardMouseMappingManagerType.LEGACY_FORMAT_VERSION,
+		"bindings": legacy_bindings,
+	}))
+	legacy_file.close()
+	var migrated_manager := KeyboardMouseMappingManagerType.new()
+	root.add_child(migrated_manager)
+	await process_frame
+	assert(migrated_manager.has_custom_mapping())
+	assert(_has_physical_key(&"jump", KEY_R))
+	assert(_has_physical_key(&"reel_alternate", KEY_QUOTELEFT))
+	assert(migrated_manager.reset_mapping())
+
+	var fishing_spot := FishingSpotScene.instantiate() as FishingSpotType
+	root.add_child(fishing_spot)
+	await process_frame
+	var local_player := PlayerType.new()
+	fishing_spot.set("_local_player", local_player)
+	fishing_spot.set("_gameplay_input_enabled", true)
+	fishing_spot.state = FishingSpotType.FishingState.FIGHTING
+	var catch_controller := fishing_spot.get_node("%CatchController")
+	var catch_profile := CatchDifficultyProfileType.new()
+	catch_profile.barrier_count_min = 0
+	catch_profile.barrier_count_max = 0
+	catch_controller.start_encounter(catch_profile, 1.0, 1)
+	var alternate_press := InputEventAction.new()
+	alternate_press.action = &"reel_alternate"
+	alternate_press.pressed = true
+	fishing_spot._unhandled_input(alternate_press)
+	assert(bool(catch_controller.get("_reel_input_held")))
+	var alternate_release := InputEventAction.new()
+	alternate_release.action = &"reel_alternate"
+	alternate_release.pressed = false
+	fishing_spot._unhandled_input(alternate_release)
+	assert(not bool(catch_controller.get("_reel_input_held")))
+	fishing_spot.free()
+	local_player.free()
+
 	settings_panel.queue_free()
 	panel.queue_free()
+	migrated_manager.queue_free()
 	manager.queue_free()
 	print("Keyboard and mouse mapping validation: PASS")
 	quit(0)

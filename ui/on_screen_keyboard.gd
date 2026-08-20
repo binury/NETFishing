@@ -430,7 +430,8 @@ func _show_native_keyboard_for(control: Control) -> void:
 
 
 func _hide_native_keyboard() -> void:
-	DisplayServer.virtual_keyboard_hide()
+	if DisplayServer.has_feature(DisplayServer.FEATURE_VIRTUAL_KEYBOARD):
+		DisplayServer.virtual_keyboard_hide()
 
 
 static func _line_edit_keyboard_type(

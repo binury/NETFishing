@@ -32,6 +32,7 @@ func _run() -> void:
 	var fishing_spot := main.get_node("%FishingSpot") as FishingSpot
 	var catalog := main.get("fish_catalog") as FishPool
 	assert(player != null and fishing_spot != null and catalog != null)
+	fishing_spot.minimum_showcase_duration = 0.15
 	assert(player.bag.add_item(&"crab_net"))
 	assert(player.hotbar.assign_item(0, &"crab_net"))
 	assert(player.hotbar.select_slot(0))
@@ -60,11 +61,18 @@ func _run() -> void:
 	assert(not player.is_movement_enabled())
 	Input.action_release("fish_primary")
 	await process_frame
-	assert(bool(fishing_spot.get("_put_away_press_armed")))
+	assert(not bool(fishing_spot.get("_put_away_press_armed")))
 
 	var pocket_event := InputEventAction.new()
 	pocket_event.action = &"fish_primary"
 	pocket_event.pressed = true
+	Input.parse_input_event(pocket_event)
+	await process_frame
+	assert(fishing_spot.get("_pending_catch") == crab_catch)
+	Input.action_release("fish_primary")
+	await create_timer(0.2).timeout
+	await process_frame
+	assert(bool(fishing_spot.get("_put_away_press_armed")))
 	Input.parse_input_event(pocket_event)
 	await process_frame
 	assert(fishing_spot.get("_pending_catch") == null)

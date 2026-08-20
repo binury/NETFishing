@@ -188,7 +188,7 @@ func activate_process_root(path: String) -> bool:
 
 func path_for(store_owner: StringName) -> String:
 	var relative: String = {
-		&"player_save": "player/player_save.json",
+		&"player_save": "player/player_save.nfsave",
 		&"network_profile": "player/network_profile.json",
 		&"player_appearance": "player/player_appearance.json",
 		&"saved_servers": "social/saved_servers.json",
@@ -206,6 +206,10 @@ func conflict_directory() -> String:
 
 func identity_backup_directory() -> String:
 	return root_path.path_join("identity-backups")
+
+
+func progression_backup_directory() -> String:
+	return root_path.path_join("progression-backups")
 
 
 func migration_backup_directory() -> String:
@@ -347,7 +351,7 @@ func _test_writable(path: String) -> bool:
 func _create_layout(path: String, id: String) -> bool:
 	for relative: String in [
 		"player", "social", "backups/saves", "backups/migrations",
-		"backups/conflicts", "identity-backups",
+		"backups/conflicts", "identity-backups", "progression-backups",
 	]:
 		if DirAccess.make_dir_recursive_absolute(path.path_join(relative)) != OK:
 			return false
@@ -369,6 +373,7 @@ func _create_layout(path: String, id: String) -> bool:
 		+ "This folder is safe to synchronize with tools such as Syncthing.\n"
 		+ "Active private identity keys remain device-local.\n"
 		+ "Encrypted identity backups require their passphrase.\n"
+		+ "Progression exports do not contain identity keys or social data.\n"
 		+ "Chat and Session Mail are not stored here.\n"
 		+ "Do not play the same profile on two devices at the same time.\n"
 		+ "Conflicting edits are preserved under backups/conflicts; they are not merged.\n"

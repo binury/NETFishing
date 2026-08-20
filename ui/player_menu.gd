@@ -1693,6 +1693,7 @@ func close_menu(
 	_release_controller_ownership(false, true)
 	get_viewport().gui_cancel_drag()
 	_close_sale_confirmation()
+	_hide_inventory_context_tooltip()
 	if reason in [
 		CloseReason.BITE_STARTED,
 		CloseReason.WATER_RECOVERY,
@@ -2497,6 +2498,8 @@ func _populate_tackle_column(
 				owned.quantity,
 				item.max_stack,
 				&"QuantityBadge",
+				UtilityPageStyle.SUPPLY_BADGE_EDGE_MARGIN,
+				0.0,
 			)
 		button.pressed.connect(_select_tackle_item.bind(owned.item_id))
 		button.gui_input.connect(
@@ -2540,6 +2543,8 @@ func _on_tackle_button_gui_input(
 	button: Button,
 ) -> void:
 	var mouse_event := event as InputEventMouseButton
+	if mouse_event != null and mouse_event.pressed:
+		call_deferred("_release_pointer_focus", button)
 	if (
 		mouse_event == null
 		or mouse_event.button_index != MOUSE_BUTTON_RIGHT
@@ -2553,6 +2558,11 @@ func _on_tackle_button_gui_input(
 		actions.append(_tackle_equip_button)
 	_open_inventory_notepad(Section.TACKLE_BOX, item_id, actions)
 	button.accept_event()
+
+
+func _release_pointer_focus(control: Control) -> void:
+	if control != null and is_instance_valid(control) and control.has_focus():
+		control.release_focus()
 
 
 func _configure_tackle_item_focus() -> void:

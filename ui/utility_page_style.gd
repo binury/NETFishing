@@ -53,6 +53,7 @@ static func add_supply_quantity_badge(
 	total: int,
 	badge_name: StringName = &"SupplyQuantityBadge",
 	top_margin: float = SUPPLY_BADGE_EDGE_MARGIN,
+	x_offset: float = SUPPLY_BADGE_X_OFFSET,
 ) -> Panel:
 	var badge := Panel.new()
 	badge.name = badge_name
@@ -68,7 +69,7 @@ static func add_supply_quantity_badge(
 	quantity_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	badge.add_child(quantity_label)
 	configure_supply_quantity_badge(
-		badge, quantity_label, current, total, top_margin
+		badge, quantity_label, current, total, top_margin, x_offset
 	)
 	return badge
 
@@ -79,6 +80,7 @@ static func configure_supply_quantity_badge(
 	current: int,
 	total: int,
 	top_margin: float = SUPPLY_BADGE_EDGE_MARGIN,
+	x_offset: float = SUPPLY_BADGE_X_OFFSET,
 ) -> void:
 	var supply_text := supply_quantity_text(current, total)
 	var text_width: float = TuffyFont.get_string_size(
@@ -92,10 +94,10 @@ static func configure_supply_quantity_badge(
 		ceilf(text_width + SUPPLY_BADGE_HORIZONTAL_PADDING),
 	)
 	badge.offset_left = (
-		-badge_width - SUPPLY_BADGE_EDGE_MARGIN + SUPPLY_BADGE_X_OFFSET
+		-badge_width - SUPPLY_BADGE_EDGE_MARGIN + x_offset
 	)
 	badge.offset_top = top_margin
-	badge.offset_right = -SUPPLY_BADGE_EDGE_MARGIN + SUPPLY_BADGE_X_OFFSET
+	badge.offset_right = -SUPPLY_BADGE_EDGE_MARGIN + x_offset
 	badge.offset_bottom = top_margin + SUPPLY_BADGE_HEIGHT
 	badge.pivot_offset = Vector2(
 		badge_width * 0.5,

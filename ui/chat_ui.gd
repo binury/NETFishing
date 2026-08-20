@@ -897,6 +897,8 @@ func _send() -> void:
 	if body.strip_edges().is_empty():
 		close_chat()
 		return
+	if _handle_editor_world_command(body):
+		return
 	_send_pending = true
 	_pending_send_body = NetworkChatProtocol.sanitize_body(body)
 	_entry.editable = false
@@ -910,6 +912,82 @@ func _send() -> void:
 		_entry.editable = true
 	elif _send_pending:
 		_set_status("Sending…")
+
+
+func _handle_editor_world_command(body: String) -> bool:
+	# These commands are deliberately limited to sessions launched by the
+	# Godot editor. Exported builds do not have the editor feature tag, and a
+	# joined editor client must not be able to mutate its host's world.
+	if not OS.has_feature("editor"):
+		return false
+	var command_text: String = body.strip_edges()
+	if not (
+		command_text.begins_with("/time")
+		or command_text.begins_with("/weather")
+	):
+		return false
+	var parts: PackedStringArray = command_text.split(" ", false)
+	var command: String = String(parts[0]).trim_prefix("/").to_lower()
+	var result: String = ""
+	if _session == null or not _session.is_host():
+		result = "Editor world commands require the authoritative host."
+	elif command == "time":
+		result = _apply_editor_time_command(parts)
+	elif command == "weather":
+		result = _apply_editor_weather_command(parts)
+	else:
+		return false
+	_entry.clear()
+	_flush_draft()
+	_set_status(result)
+	close_chat(true)
+	return true
+
+
+func _apply_editor_time_command(parts: PackedStringArray) -> String:
+	if parts.size() != 2 or _world_time == null:
+		return "Usage: /time [dawn, day, dusk, night]"
+	var phase_name: String = String(parts[1]).to_lower()
+	var target_hour: float = -1.0
+	match phase_name:
+		"dawn":
+			target_hour = WorldTimeServiceType.DAWN_START_HOUR
+		"day":
+			target_hour = WorldTimeServiceType.DAWN_END_HOUR
+		"dusk":
+			target_hour = WorldTimeServiceType.DUSK_START_HOUR
+		"night":
+			target_hour = WorldTimeServiceType.DUSK_END_HOUR
+		_:
+			return "Usage: /time [dawn, day, dusk, night]"
+	if not _world_time.set_authoritative_time(target_hour):
+		return "Editor world time could not be changed."
+	return "Editor time: %s (%s)." % [
+		phase_name,
+		_world_time.get_clock_text(),
+	]
+
+
+func _apply_editor_weather_command(parts: PackedStringArray) -> String:
+	if parts.size() != 2 or _world_weather == null:
+		return "Usage: /weather [sunny, cloudy, rainy, foggy]"
+	var weather_name: String = String(parts[1]).to_lower()
+	var target_weather: WorldWeatherServiceType.Weather
+	match weather_name:
+		"clear", "sunny":
+			weather_name = "sunny"
+			target_weather = WorldWeatherServiceType.Weather.SUNNY
+		"cloudy":
+			target_weather = WorldWeatherServiceType.Weather.CLOUDY
+		"rainy":
+			target_weather = WorldWeatherServiceType.Weather.RAINY
+		"foggy":
+			target_weather = WorldWeatherServiceType.Weather.FOGGY
+		_:
+			return "Usage: /weather [sunny, cloudy, rainy, foggy]"
+	if not _world_weather.set_authoritative_weather(target_weather):
+		return "Editor world weather could not be changed."
+	return "Editor weather: %s." % weather_name
 
 
 func _on_local_message_confirmed(message: Dictionary) -> void:

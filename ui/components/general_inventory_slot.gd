@@ -168,6 +168,12 @@ func _on_pressed() -> void:
 
 func _on_gui_input(event: InputEvent) -> void:
 	var mouse_event := event as InputEventMouseButton
+	if mouse_event != null and mouse_event.pressed:
+		# Pointer clicks give Buttons keyboard focus after their GUI callback.
+		# Release that pointer-created focus on the next frame so a tooltip does
+		# not remain pinned after the pointer leaves. Controller navigation still
+		# keeps focus normally because it does not arrive as a mouse event.
+		call_deferred("_release_pointer_focus")
 	if (
 		mouse_event != null
 		and mouse_event.button_index == MOUSE_BUTTON_RIGHT
@@ -177,6 +183,11 @@ func _on_gui_input(event: InputEvent) -> void:
 	):
 		context_requested.emit(self)
 		accept_event()
+
+
+func _release_pointer_focus() -> void:
+	if has_focus():
+		release_focus()
 
 
 func _set_context_hovered(active: bool) -> void:

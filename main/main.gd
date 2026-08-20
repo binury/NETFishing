@@ -124,6 +124,7 @@ const TITLE_MUSIC_SILENCE_DB: float = -80.0
 const TITLE_MUSIC_PATH: String = (
 	"res://audio/music/title/as_in_four_wolves.ogg"
 )
+const NEW_GAME_MUSIC_PATH: String = "res://audio/music/world/tulips.wav"
 const DUSK_MUSIC_PATH: String = "res://audio/music/world/craft.mp3"
 const TIME_CROSSING_EPSILON_HOURS: float = 0.000001
 const PLAYER_MENU_PATTERN_SCALE: float = 0.85
@@ -138,6 +139,7 @@ const SHOP_PATTERN_SCALE: float = 1.75
 @export_category("Title Music")
 @export_range(-40.0, 0.0, 0.5) var title_music_volume_db: float = -6.0
 @export_range(0.0, 10.0, 0.05) var title_music_fade_out_seconds: float = 5.0
+@export_range(-40.0, 0.0, 0.5) var new_game_music_volume_db: float = -6.0
 
 @onready var _test_world: TestWorldType = $TestWorld
 @onready var _player: PlayerType = %Player
@@ -154,6 +156,7 @@ const SHOP_PATTERN_SCALE: float = 1.75
 )
 @onready var _interface_fonts: InterfaceFontController = %InterfaceFontController
 @onready var _title_music: AudioStreamPlayer = %TitleMusic
+@onready var _new_game_music: AudioStreamPlayer = %NewGameMusic
 @onready var _dusk_music: AudioStreamPlayer = %DuskMusic
 @onready var _ui_pixelation: UIPixelationPresenterType = %UIPresentation
 @onready var _pixelation_reset: PixelationResetOverlayType = (
@@ -356,6 +359,7 @@ func _configure_presentation_performance_profile(light_profile: bool) -> void:
 
 func _configure_audio_performance_profile(light_profile: bool) -> void:
 	_title_music.stream = _load_optional_audio_stream(TITLE_MUSIC_PATH)
+	_new_game_music.stream = _load_optional_audio_stream(NEW_GAME_MUSIC_PATH)
 	_dusk_music.stream = _load_optional_audio_stream(DUSK_MUSIC_PATH)
 	if light_profile:
 		_shoreline_ambience.set_audio_enabled(false)
@@ -408,6 +412,14 @@ func _start_dedicated_server() -> void:
 		config.operator_fingerprints
 	):
 		_fail_dedicated_server("The server operator list is invalid.")
+		return
+	if not _network_chat.configure_dedicated_history(
+		config.chat_logging,
+		config.chat_log_path,
+	):
+		_fail_dedicated_server(
+			"The dedicated-server chat privacy configuration is invalid."
+		)
 		return
 	if not _apply_generated_world(config.world_seed, false):
 		_fail_dedicated_server("The configured world seed could not be generated.")
@@ -636,6 +648,7 @@ func _initialize_application(dedicated: bool) -> void:
 		_world_time,
 		_world_weather,
 		_player_jobs,
+		_player,
 	)
 	_player_jobs.set_save_manager(_save_manager)
 	_save_manager.set_autosave_enabled(false)
@@ -747,7 +760,11 @@ func _initialize_application(dedicated: bool) -> void:
 		_asset_reservations,
 		_player.inventory_layout,
 	)
-	_player_jobs.bind_authoritative_services(_network_fishing, _network_sale)
+	_player_jobs.bind_authoritative_services(
+		_network_fishing,
+		_network_sale,
+		_network_world_spawns,
+	)
 	_network_shop.setup(
 		_network_session,
 		_player_spawn_service,
@@ -824,6 +841,7 @@ func _initialize_application(dedicated: bool) -> void:
 	)
 	_game_ui.setup_data_and_identity(
 		_data_root,
+		_save_manager,
 		_identity_backups,
 		_player_identity,
 		_host_identity,
@@ -1571,7 +1589,10 @@ func _on_natural_time_advanced(advanced_hours: float) -> void:
 		)
 	):
 		_dusk_music_played_for_natural_day = true
-		if _dusk_music.stream != null:
+		if (
+			_dusk_music.stream != null
+			and not _new_game_music.playing
+		):
 			_dusk_music.play(0.0)
 
 
@@ -1675,23 +1696,28 @@ func _resize_native_overlays() -> void:
 func _on_new_game_requested(world_seed: int) -> void:
 	if _gameplay_started or _quit_in_progress:
 		return
+	_start_new_game_music()
 	if not _apply_generated_world(world_seed, true):
+		_show_title_music(true)
 		_game_ui.get_title_screen().report_network_error(
 			"Could not generate that world seed. Try rolling another world."
 		)
 		return
 	if not _prepare_host_world_seed(world_seed):
+		_show_title_music(true)
 		_game_ui.get_title_screen().report_network_error(
 			"Could not prepare the generated world for hosting."
 		)
 		return
 	if not _prepare_private_host():
+		_show_title_music(true)
 		return
 	if (
 		not _save_manager.delete_progression_save()
 		or not _save_manager.initialize_new_game(world_seed)
 	):
 		_network_session.disconnect_session("New Game setup failed.")
+		_show_title_music(true)
 		_game_ui.get_title_screen().report_network_error(
 			"Could not initialize local progression. Existing data was preserved where possible."
 		)
@@ -2120,6 +2146,7 @@ func _on_quit_requested() -> void:
 
 
 func _show_title_music(restart_from_beginning: bool = false) -> void:
+	_new_game_music.stop()
 	_title_music_requested = true
 	_replace_title_music_transition()
 	if _title_music.stream == null:
@@ -2129,6 +2156,19 @@ func _show_title_music(restart_from_beginning: bool = false) -> void:
 	_title_music.volume_db = title_music_volume_db
 	if restart_from_beginning or not _title_music.playing:
 		_title_music.play(0.0)
+
+
+func _start_new_game_music() -> void:
+	if _new_game_music.stream == null:
+		return
+	_title_music_requested = false
+	_replace_title_music_transition()
+	_title_music.stop()
+	_title_music.volume_db = title_music_volume_db
+	_dusk_music.stop()
+	_new_game_music.stop()
+	_new_game_music.volume_db = new_game_music_volume_db
+	_new_game_music.play(0.0)
 
 
 func _fade_out_title_music(on_complete: Callable = Callable()) -> void:
@@ -2196,6 +2236,9 @@ func _exit_tree() -> void:
 	if is_instance_valid(_title_music):
 		_title_music.stop()
 		_title_music.stream = null
+	if is_instance_valid(_new_game_music):
+		_new_game_music.stop()
+		_new_game_music.stream = null
 	if is_instance_valid(_dusk_music):
 		_dusk_music.stop()
 		_dusk_music.stream = null

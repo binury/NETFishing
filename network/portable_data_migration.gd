@@ -122,6 +122,7 @@ static func migrate_active_to(
 		_remove_tree(staging)
 		return {"ok": false, "message": str(created.get("message", ""))}
 	for relative: String in [
+		"player/player_save.nfsave",
 		"player/player_save.json",
 		"player/network_profile.json",
 		"player/player_appearance.json",
@@ -134,7 +135,11 @@ static func migrate_active_to(
 		var source: String = data_root.root_path.path_join(relative)
 		if not FileAccess.file_exists(source):
 			continue
-		if not bool(_copy_verified_json(source, staging.path_join(relative)).get("ok", false)):
+		if not bool(
+			_copy_verified_owned_file(
+				source, staging.path_join(relative)
+			).get("ok", false)
+		):
 			_remove_tree(staging)
 			return {"ok": false, "message": "Migration validation failed for %s." % relative}
 	if DirAccess.dir_exists_absolute(normalized):
@@ -243,6 +248,30 @@ static func _copy_verified_json(source: String, destination: String) -> Dictiona
 	return {
 		"ok": (
 			PortableFileGuard.hash_bytes(copied)
+			== PortableFileGuard.hash_bytes(bytes)
+		)
+	}
+
+
+static func _copy_verified_owned_file(
+	source: String,
+	destination: String,
+) -> Dictionary:
+	if source.get_file() != "player_save.nfsave":
+		return _copy_verified_json(source, destination)
+	var decoded: Dictionary = ProgressionSaveCodec.read_local_save(source)
+	if not bool(decoded.get("ok", false)):
+		return {"ok": false}
+	var save_data: Dictionary = decoded["data"]
+	var version: int = int(save_data.get("save_version", -1))
+	if version < 1 or version > PlayerSaveManager.SAVE_VERSION:
+		return {"ok": false}
+	var bytes: PackedByteArray = PortableFileGuard.read_bytes(source)
+	if bytes.is_empty() or not _write_bytes(destination, bytes):
+		return {"ok": false}
+	return {
+		"ok": (
+			PortableFileGuard.hash_file(destination)
 			== PortableFileGuard.hash_bytes(bytes)
 		)
 	}

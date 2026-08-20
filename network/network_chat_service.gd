@@ -4,7 +4,10 @@ extends Node
 const BURST_COUNT: int = 3
 const WINDOW_COUNT: int = 5
 const WINDOW_SECONDS: float = 10.0
-const CALL_COOLDOWN_MILLISECONDS: int = 180
+const CALL_COOLDOWN_MILLISECONDS: int = 90
+const DEDICATED_CHAT_WARNING: String = (
+	"Privacy notice: This dedicated server records and retains chat messages."
+)
 const CALL_PITCH_VARIANTS: Array[float] = [
 	0.96,
 	1.03,
@@ -38,6 +41,32 @@ var _call_variant_indices: Dictionary[int, int] = {}
 var _sequence: int = 0
 var _peer_names: Dictionary[int, String] = {}
 var _relationships: PlayerRelationshipStore
+var _dedicated_history_enabled: bool = false
+var _chat_log_path: String = ""
+
+
+func configure_dedicated_history(enabled: bool, log_path: String) -> bool:
+	_dedicated_history_enabled = false
+	_chat_log_path = ""
+	if not enabled:
+		return true
+	var normalized_path: String = log_path.strip_edges()
+	if normalized_path.is_empty() or not normalized_path.is_absolute_path():
+		return false
+	var directory: String = normalized_path.get_base_dir()
+	if DirAccess.make_dir_recursive_absolute(directory) != OK:
+		return false
+	var file: FileAccess
+	if FileAccess.file_exists(normalized_path):
+		file = FileAccess.open(normalized_path, FileAccess.READ_WRITE)
+	else:
+		file = FileAccess.open(normalized_path, FileAccess.WRITE)
+	if file == null:
+		return false
+	file.close()
+	_dedicated_history_enabled = true
+	_chat_log_path = normalized_path
+	return true
 
 
 func setup(session: NetworkSession) -> void:
@@ -288,7 +317,8 @@ func _handle_request(peer_id: int, data: Dictionary) -> void:
 	var request_id: String = data["request_id"]
 	var ledger: Dictionary = _request_ledgers.get(peer_id, {})
 	if ledger.has(request_id):
-		_send_message(peer_id, ledger[request_id])
+		if typeof(ledger[request_id]) == TYPE_DICTIONARY:
+			_send_message(peer_id, ledger[request_id])
 		return
 	if not _consume_rate(peer_id):
 		_send_rejection(peer_id, "Slow down.")
@@ -308,7 +338,11 @@ func _handle_request(peer_id: int, data: Dictionary) -> void:
 	message["request_id"] = request_id
 	message["sender_fingerprint"] = data["sender_fingerprint"]
 	message["sender_signature"] = data["sender_signature"]
-	ledger[request_id] = message.duplicate(true)
+	ledger[request_id] = (
+		message.duplicate(true)
+		if _should_store_host_history()
+		else true
+	)
 	while ledger.size() > 64:
 		ledger.erase(ledger.keys().front())
 	_request_ledgers[peer_id] = ledger
@@ -404,9 +438,12 @@ func _apply_message(
 		kind == NetworkChatProtocol.Kind.PLAYER
 		and is_sender_filtered(str(data.get("sender_fingerprint", "")))
 	)
-	_history.append(stored_message)
-	while _history.size() > NetworkChatProtocol.MAX_HISTORY:
-		_history.pop_front()
+	if _should_store_local_history():
+		_history.append(stored_message)
+		while _history.size() > NetworkChatProtocol.MAX_HISTORY:
+			_history.pop_front()
+	if _should_log_message(stored_message):
+		_append_chat_log(stored_message)
 	if emit_live_signals and _message_is_visible(stored_message):
 		message_received.emit(stored_message.duplicate(true))
 		if (
@@ -433,8 +470,26 @@ func _on_peer_authenticated(peer_id: int, display_name: String) -> void:
 	if not _session.is_host():
 		return
 	_peer_names[peer_id] = display_name
-	var start := maxi(0, _history.size() - NetworkChatProtocol.LATE_JOIN_HISTORY)
-	receive_chat_history.rpc_id(peer_id, _history.slice(start))
+	var history: Array[Dictionary] = []
+	if _dedicated_history_enabled and _session.is_dedicated_host():
+		var start := maxi(
+			0,
+			_history.size() - NetworkChatProtocol.LATE_JOIN_HISTORY,
+		)
+		history = _history.slice(start)
+	# An explicit empty replacement is intentional for player-hosted rooms and
+	# dedicated servers without logging. It destroys any stale client scrollback
+	# instead of replaying another player's live-session chat on reconnect.
+	receive_chat_history.rpc_id(peer_id, history)
+	if _dedicated_history_enabled and _session.is_dedicated_host():
+		# Deliver the disclosure as a live system message after scrollback. This
+		# raises the normal unread indicator without creating speech or audio.
+		_send_message(peer_id, _make_message(
+			NetworkChatProtocol.Kind.SYSTEM,
+			0,
+			"",
+			DEDICATED_CHAT_WARNING,
+		))
 	_broadcast(_make_message(
 		NetworkChatProtocol.Kind.SYSTEM, 0, "", "%s joined." % display_name
 	))
@@ -492,6 +547,44 @@ func _consume_rate(peer_id: int) -> bool:
 	times.append(now)
 	_rate_times[peer_id] = times
 	return true
+
+
+func _should_store_host_history() -> bool:
+	return (
+		_session == null
+		or not _session.is_dedicated_host()
+		or _dedicated_history_enabled
+	)
+
+
+func _should_store_local_history() -> bool:
+	return _should_store_host_history()
+
+
+func _should_log_message(message: Dictionary) -> bool:
+	return (
+		_dedicated_history_enabled
+		and not _chat_log_path.is_empty()
+		and _session != null
+		and _session.is_dedicated_host()
+		and int(message.get("kind", -1)) == NetworkChatProtocol.Kind.PLAYER
+	)
+
+
+func _append_chat_log(message: Dictionary) -> void:
+	var file := FileAccess.open(_chat_log_path, FileAccess.READ_WRITE)
+	if file == null:
+		push_error("The configured dedicated-server chat log is unavailable.")
+		return
+	file.seek_end()
+	file.store_line(JSON.stringify({
+		"recorded_at_utc": (
+			Time.get_datetime_string_from_system(true, false) + "Z"
+		),
+		"sender_display_name": str(message.get("sender_display_name", "")),
+		"body": str(message.get("body", "")),
+	}))
+	file.close()
 
 
 func _on_session_state_changed(state: NetworkSession.State) -> void:

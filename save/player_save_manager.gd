@@ -32,8 +32,11 @@ const WorldWeatherServiceType = preload(
 	"res://world/world_weather_service.gd"
 )
 const PlayerJobServiceType = preload("res://jobs/player_job_service.gd")
+const PlayerType = preload("res://player/player.gd")
 
-const SAVE_VERSION: int = 9
+const SAVE_VERSION: int = 10
+const LEGACY_SAVE_FILENAME := "player_save.json"
+const ARCHIVE_EXTENSION := ".nfsave"
 const BASIC_ROD_ID: StringName = &"basic_fishing_rod"
 const MAX_SAFE_BALANCE: int = 1000000000000
 const DEFAULT_WORLD_SEED: int = 13001
@@ -49,6 +52,8 @@ class LoadSnapshot:
 	var next_catch_sequence: int = 1
 	var bag_items: Array[OwnedItemType] = []
 	var unlocked_bait_ids: Array[StringName] = []
+	var active_bait_id: StringName
+	var active_lure_id: StringName
 	var hotbar_slots: Array[StringName] = []
 	var fish_hotbar_slots: Array[StringName] = []
 	var selected_hotbar_slot: int = 0
@@ -87,6 +92,7 @@ var _experience: PlayerExperienceType
 var _world_time: WorldTimeServiceType
 var _world_weather: WorldWeatherServiceType
 var _jobs: PlayerJobServiceType
+var _player: PlayerType
 var _autosave_timer: Timer
 var _is_configured: bool = false
 var _is_restoring: bool = false
@@ -112,6 +118,21 @@ func _backup_path() -> String:
 	return _save_path + ".backup"
 
 
+func _codec_scratch_path() -> String:
+	return _save_path + ".codec.tmp"
+
+
+func _legacy_save_path() -> String:
+	return _save_path.get_base_dir().path_join(LEGACY_SAVE_FILENAME)
+
+
+func _read_path() -> String:
+	if FileAccess.file_exists(_save_path):
+		return _save_path
+	var legacy: String = _legacy_save_path()
+	return legacy if FileAccess.file_exists(legacy) else ""
+
+
 func _ready() -> void:
 	_autosave_timer = Timer.new()
 	_autosave_timer.one_shot = true
@@ -135,6 +156,7 @@ func setup(
 	world_time: WorldTimeServiceType,
 	world_weather: WorldWeatherServiceType,
 	jobs: PlayerJobServiceType,
+	player: PlayerType,
 ) -> void:
 	_inventory = inventory
 	_collection_log = collection_log
@@ -151,6 +173,7 @@ func setup(
 	_world_time = world_time
 	_world_weather = world_weather
 	_jobs = jobs
+	_player = player
 	_is_configured = (
 		_inventory != null
 		and _collection_log != null
@@ -167,6 +190,7 @@ func setup(
 		and _world_time != null
 		and _world_weather != null
 		and _jobs != null
+		and _player != null
 	)
 	if not _is_configured:
 		push_error("PlayerSaveManager setup is missing required references.")
@@ -209,6 +233,10 @@ func setup(
 		_experience.experience_changed.connect(_on_experience_changed)
 	if not _jobs.changed.is_connected(_mark_dirty):
 		_jobs.changed.connect(_mark_dirty)
+	if not _player.active_bait_changed.is_connected(_on_active_tackle_changed):
+		_player.active_bait_changed.connect(_on_active_tackle_changed)
+	if not _player.active_lure_changed.is_connected(_on_active_tackle_changed):
+		_player.active_lure_changed.connect(_on_active_tackle_changed)
 
 
 func load_player_data() -> bool:
@@ -216,24 +244,22 @@ func load_player_data() -> bool:
 		return false
 	_automatic_saving_blocked = false
 	_recover_interrupted_write()
-	if _save_path.is_empty() or not FileAccess.file_exists(_save_path):
+	var read_path: String = _read_path()
+	if _save_path.is_empty() or read_path.is_empty():
 		_is_dirty = false
 		return true
-
-	var save_file := FileAccess.open(_save_path, FileAccess.READ)
-	if save_file == null:
-		_handle_corrupt_save("Unable to open player save.")
+	var decoded: Dictionary = ProgressionSaveCodec.read_local_save(
+		read_path,
+		read_path == _legacy_save_path(),
+	)
+	if not bool(decoded.get("ok", false)):
+		_handle_corrupt_save("Player save could not be decoded.", read_path)
 		return false
-	var json_text: String = save_file.get_as_text()
-	save_file.close()
-	_expected_hash = PortableFileGuard.hash_file(_save_path)
-
-	var json := JSON.new()
-	var parse_error: Error = json.parse(json_text)
-	if parse_error != OK or typeof(json.data) != TYPE_DICTIONARY:
-		_handle_corrupt_save("Player save contains malformed JSON.")
-		return false
-	var save_data: Dictionary = json.data
+	_expected_hash = (
+		PortableFileGuard.hash_file(_save_path)
+		if read_path == _save_path else ""
+	)
+	var save_data: Dictionary = decoded["data"]
 	var version: int = _read_integer(save_data.get("save_version"), -1)
 	if version > SAVE_VERSION:
 		_automatic_saving_blocked = true
@@ -250,13 +276,16 @@ func load_player_data() -> bool:
 		save_data = _migrate_save(save_data, version)
 		if save_data.is_empty():
 			_handle_corrupt_save(
-				"Player save version %d is unsupported." % version
+				"Player save version %d is unsupported." % version,
+				read_path,
 			)
 			return false
 
 	var snapshot: LoadSnapshot = _build_load_snapshot(save_data)
 	if snapshot == null:
-		_handle_corrupt_save("Player save failed structural validation.")
+		_handle_corrupt_save(
+			"Player save failed structural validation.", read_path
+		)
 		return false
 
 	_is_restoring = true
@@ -277,6 +306,7 @@ func load_player_data() -> bool:
 		_bag.replace_all_items(snapshot.bag_items)
 		and _bag.replace_unlocked_bait_ids(snapshot.unlocked_bait_ids)
 	)
+	var tackle_restored: bool = _restore_tackle_selection(snapshot)
 	var upgrades_restored: bool = _fishing_upgrades.restore_levels(
 		snapshot.reel_speed_level,
 		snapshot.barrier_power_level
@@ -316,6 +346,7 @@ func load_player_data() -> bool:
 		or not collection_restored
 		or not wallet_restored
 		or not bag_restored
+		or not tackle_restored
 		or not hotbar_restored
 		or not upgrades_restored
 		or not cooler_restored
@@ -329,7 +360,7 @@ func load_player_data() -> bool:
 		push_error(
 			(
 				"Validated player save could not be restored: "
-				+ "inventory=%s collection=%s wallet=%s bag=%s hotbar=%s "
+				+ "inventory=%s collection=%s wallet=%s bag=%s tackle=%s hotbar=%s "
 				+ "upgrades=%s cooler=%s layout=%s art=%s experience=%s "
 				+ "time=%s weather=%s jobs=%s"
 			)
@@ -338,6 +369,7 @@ func load_player_data() -> bool:
 				collection_restored,
 				wallet_restored,
 				bag_restored,
+				tackle_restored,
 				hotbar_restored,
 				upgrades_restored,
 				cooler_restored,
@@ -352,6 +384,8 @@ func load_player_data() -> bool:
 		return false
 
 	_is_dirty = false
+	if read_path == _legacy_save_path():
+		_migrate_legacy_plaintext_save(save_data, read_path)
 	print(
 		"Loaded player save version %d with %d catches."
 		% [SAVE_VERSION, snapshot.catches.size()]
@@ -362,24 +396,21 @@ func load_player_data() -> bool:
 func inspect_save() -> SaveInspectionType:
 	var result := SaveInspectionType.new()
 	_recover_interrupted_write()
-	result.has_primary_file = FileAccess.file_exists(_save_path)
+	var read_path: String = _read_path()
+	result.has_primary_file = not read_path.is_empty()
 	if not result.has_primary_file:
 		result.status = SaveInspectionType.Status.MISSING
 		result.message = "no save found."
 		return result
-	var save_file := FileAccess.open(_save_path, FileAccess.READ)
-	if save_file == null:
+	var decoded: Dictionary = ProgressionSaveCodec.read_local_save(
+		read_path,
+		read_path == _legacy_save_path(),
+	)
+	if not bool(decoded.get("ok", false)):
 		result.status = SaveInspectionType.Status.IO_ERROR
 		result.message = "the save could not be read."
 		return result
-	var json := JSON.new()
-	var parse_error: Error = json.parse(save_file.get_as_text())
-	save_file.close()
-	if parse_error != OK or typeof(json.data) != TYPE_DICTIONARY:
-		result.status = SaveInspectionType.Status.MALFORMED
-		result.message = "the save is corrupt and was preserved."
-		return result
-	var save_data: Dictionary = json.data
+	var save_data: Dictionary = decoded["data"]
 	result.detected_version = _read_integer(save_data.get("save_version"), -1)
 	if result.detected_version > SAVE_VERSION:
 		result.status = SaveInspectionType.Status.UNSUPPORTED_VERSION
@@ -408,6 +439,88 @@ func inspect_save() -> SaveInspectionType:
 	return result
 
 
+func export_progression_archive(path: String) -> Dictionary:
+	if not _is_configured or path.is_empty():
+		return {"ok": false, "message": "progression export is unavailable."}
+	if _is_dirty and not save_if_dirty():
+		return {"ok": false, "message": "progression could not be saved first."}
+	var source_path: String = _read_path()
+	if source_path.is_empty():
+		return {"ok": false, "message": "there is no progression to export."}
+	var decoded: Dictionary = ProgressionSaveCodec.read_local_save(
+		source_path,
+		source_path == _legacy_save_path(),
+	)
+	if not bool(decoded.get("ok", false)):
+		return {"ok": false, "message": "the active progression could not be read."}
+	var prepared: Dictionary = _prepare_external_save_data(decoded["data"])
+	if not bool(prepared.get("ok", false)):
+		return prepared
+	var bytes: PackedByteArray = ProgressionSaveCodec.encode_archive(
+		prepared["data"],
+		path + ".codec.tmp",
+	)
+	if bytes.is_empty():
+		return {"ok": false, "message": "the progression archive could not be encoded."}
+	var result: Dictionary = PortableFileGuard.write_guarded(
+		path,
+		bytes,
+		PortableFileGuard.hash_file(path),
+		_data_root.conflict_directory(),
+		_data_root.device_id,
+	)
+	if not bool(result.get("ok", false)):
+		return {"ok": false, "message": "the progression archive could not be written."}
+	var verified: Dictionary = inspect_progression_archive(path)
+	if not bool(verified.get("ok", false)):
+		return {"ok": false, "message": "the progression archive could not be verified."}
+	verified["message"] = "progression archive created."
+	return verified
+
+
+func inspect_progression_archive(path: String) -> Dictionary:
+	var decoded: Dictionary = ProgressionSaveCodec.read_archive(path)
+	if not bool(decoded.get("ok", false)):
+		return {
+			"ok": false,
+			"message": str(decoded.get("message", "could not open progression archive.")),
+		}
+	var prepared: Dictionary = _prepare_external_save_data(decoded["data"])
+	if not bool(prepared.get("ok", false)):
+		return prepared
+	prepared["game_version"] = str(decoded.get("game_version", ""))
+	prepared["created_at_unix"] = int(decoded.get("created_at_unix", 0))
+	return prepared
+
+
+func import_progression_archive(path: String) -> Dictionary:
+	if not _is_configured:
+		return {"ok": false, "message": "progression import is unavailable."}
+	var inspected: Dictionary = inspect_progression_archive(path)
+	if not bool(inspected.get("ok", false)):
+		return inspected
+	var current_path: String = _read_path()
+	if not current_path.is_empty() and not _archive_replaced_save(current_path):
+		return {"ok": false, "message": "the current progression could not be backed up."}
+	var expected_hash: String = PortableFileGuard.hash_file(_save_path)
+	var result: Dictionary = _write_current_save_data(
+		inspected["data"], expected_hash
+	)
+	if not bool(result.get("ok", false)):
+		return {"ok": false, "message": "the imported progression could not be installed."}
+	_expected_hash = str(result.get("hash", ""))
+	_remove_legacy_save_files()
+	_is_dirty = false
+	_automatic_saving_blocked = false
+	return {
+		"ok": true,
+		"message": "progression imported.",
+		"catch_count": inspected["catch_count"],
+		"wallet_balance": inspected["wallet_balance"],
+		"discovered_species_count": inspected["discovered_species_count"],
+	}
+
+
 func initialize_new_game(world_seed: int = DEFAULT_WORLD_SEED) -> bool:
 	if not _is_configured:
 		return false
@@ -431,9 +544,19 @@ static func roll_world_seed() -> int:
 
 
 func delete_progression_save() -> bool:
-	if FileAccess.file_exists(_save_path) and not _remove_if_present(_save_path):
-		return false
-	for path: String in [_temp_path(), _backup_path()]:
+	for primary_path: String in [_save_path, _legacy_save_path()]:
+		if (
+			FileAccess.file_exists(primary_path)
+			and not _remove_if_present(primary_path)
+		):
+			return false
+	for path: String in [
+		_temp_path(),
+		_backup_path(),
+		_codec_scratch_path(),
+		_legacy_save_path() + ".tmp",
+		_legacy_save_path() + ".backup",
+	]:
 		if FileAccess.file_exists(path) and not _remove_if_present(path):
 			push_warning("Unable to remove stale player-save auxiliary file.")
 	if _autosave_timer != null:
@@ -485,16 +608,8 @@ func save_now() -> bool:
 	var save_data: Dictionary = _build_save_dictionary()
 	if save_data.is_empty():
 		return false
-	var json_text: String = JSON.stringify(save_data, "\t")
-	if json_text.is_empty():
-		return false
-
-	var result := PortableFileGuard.write_guarded(
-		_save_path,
-		json_text.to_utf8_buffer(),
-		_expected_hash,
-		_data_root.conflict_directory(),
-		_data_root.device_id,
+	var result: Dictionary = _write_current_save_data(
+		save_data, _expected_hash
 	)
 	if bool(result.get("conflict", false)):
 		_data_root.report_conflict(
@@ -574,6 +689,17 @@ func _build_save_dictionary() -> Dictionary:
 		)
 	):
 		return {}
+	var active_bait_id: StringName = _player.active_bait_id
+	var active_lure_id: StringName = _player.active_lure_id
+	if (
+		(not active_bait_id.is_empty() and not _valid_active_tackle(
+			active_bait_id, true
+		))
+		or (not active_lure_id.is_empty() and not _valid_active_tackle(
+			active_lure_id, false
+		))
+	):
+		return {}
 
 	return {
 		"save_version": SAVE_VERSION,
@@ -591,6 +717,10 @@ func _build_save_dictionary() -> Dictionary:
 		"bag": {
 			"items": serialized_items,
 			"unlocked_bait_ids": serialized_unlocked_baits,
+		},
+		"tackle": {
+			"active_bait_id": String(active_bait_id),
+			"active_lure_id": String(active_lure_id),
 		},
 		"hotbar": {
 			"selected_slot": _hotbar.get_selected_slot(),
@@ -620,6 +750,7 @@ func _build_load_snapshot(save_data: Dictionary) -> LoadSnapshot:
 		or typeof(save_data.get("collection")) != TYPE_DICTIONARY
 		or typeof(save_data.get("inventory")) != TYPE_DICTIONARY
 		or typeof(save_data.get("bag")) != TYPE_DICTIONARY
+		or typeof(save_data.get("tackle")) != TYPE_DICTIONARY
 		or typeof(save_data.get("hotbar")) != TYPE_DICTIONARY
 		or typeof(save_data.get("inventory_layout")) != TYPE_DICTIONARY
 		or typeof(save_data.get("experience")) != TYPE_DICTIONARY
@@ -630,6 +761,7 @@ func _build_load_snapshot(save_data: Dictionary) -> LoadSnapshot:
 	var collection_data: Dictionary = save_data["collection"]
 	var inventory_data: Dictionary = save_data["inventory"]
 	var bag_data: Dictionary = save_data["bag"]
+	var tackle_data: Dictionary = save_data["tackle"]
 	var hotbar_data: Dictionary = save_data["hotbar"]
 	var inventory_layout_data: Dictionary = save_data["inventory_layout"]
 	var experience_data: Dictionary = save_data["experience"]
@@ -665,6 +797,12 @@ func _build_load_snapshot(save_data: Dictionary) -> LoadSnapshot:
 			and typeof(bag_data.get("unlocked_bait_ids")) != TYPE_ARRAY
 		)
 		or typeof(hotbar_data.get("slots")) != TYPE_ARRAY
+		or typeof(tackle_data.get("active_bait_id")) not in [
+			TYPE_STRING, TYPE_STRING_NAME,
+		]
+		or typeof(tackle_data.get("active_lure_id")) not in [
+			TYPE_STRING, TYPE_STRING_NAME,
+		]
 		or not hotbar_data.has("selected_slot")
 		or not experience_data.has("total_experience")
 	):
@@ -897,6 +1035,16 @@ func _build_load_snapshot(save_data: Dictionary) -> LoadSnapshot:
 		):
 			seen_unlocked_baits[owned.item_id] = true
 			snapshot.unlocked_bait_ids.append(owned.item_id)
+	snapshot.active_bait_id = _validated_tackle_id(
+		StringName(str(tackle_data.get("active_bait_id", ""))),
+		true,
+		seen_items,
+	)
+	snapshot.active_lure_id = _validated_tackle_id(
+		StringName(str(tackle_data.get("active_lure_id", ""))),
+		false,
+		seen_items,
+	)
 
 	var slot_values: Array = hotbar_data["slots"]
 	snapshot.hotbar_slots.resize(PlayerHotbarType.SLOT_COUNT)
@@ -995,6 +1143,8 @@ func _migrate_save(
 				migrated = _migrate_version_7_to_8(migrated)
 			8:
 				migrated = _migrate_version_8_to_9(migrated)
+			9:
+				migrated = _migrate_version_9_to_10(migrated)
 			_:
 				return {}
 		if migrated.is_empty():
@@ -1242,6 +1392,16 @@ func _migrate_version_8_to_9(data: Dictionary) -> Dictionary:
 	return migrated
 
 
+func _migrate_version_9_to_10(data: Dictionary) -> Dictionary:
+	var migrated: Dictionary = data.duplicate(true)
+	migrated["tackle"] = {
+		"active_bait_id": "",
+		"active_lure_id": "",
+	}
+	migrated["save_version"] = 10
+	return migrated
+
+
 func _mark_dirty() -> void:
 	if (
 		_is_restoring
@@ -1291,33 +1451,168 @@ func _on_experience_changed(_total_experience: int, _level: int) -> void:
 	_mark_dirty()
 
 
+func _on_active_tackle_changed(_item_id: StringName) -> void:
+	_mark_dirty()
+
+
 func _on_autosave_timeout() -> void:
 	if _is_dirty:
 		save_now()
 
 
 func _recover_interrupted_write() -> void:
-	if FileAccess.file_exists(_save_path):
-		_remove_if_present(_temp_path())
-		_remove_if_present(_backup_path())
+	_remove_if_present(_codec_scratch_path())
+	_recover_path_write(_save_path)
+	_recover_path_write(_legacy_save_path())
+
+
+func _recover_path_write(path: String) -> void:
+	var temporary: String = path + ".tmp"
+	var backup: String = path + ".backup"
+	if FileAccess.file_exists(path):
+		_remove_if_present(temporary)
+		_remove_if_present(backup)
 		return
-	if FileAccess.file_exists(_backup_path()):
-		_rename_file(_backup_path(), _save_path)
-	_remove_if_present(_temp_path())
+	if FileAccess.file_exists(backup):
+		_rename_file(backup, path)
+	_remove_if_present(temporary)
 
 
-func _handle_corrupt_save(message: String) -> void:
+func _write_current_save_data(
+	save_data: Dictionary,
+	expected_hash: String,
+) -> Dictionary:
+	var bytes: PackedByteArray = ProgressionSaveCodec.encode_local_save(
+		save_data,
+		_codec_scratch_path(),
+	)
+	if bytes.is_empty():
+		return {"ok": false}
+	return PortableFileGuard.write_guarded(
+		_save_path,
+		bytes,
+		expected_hash,
+		_data_root.conflict_directory(),
+		_data_root.device_id,
+	)
+
+
+func _prepare_external_save_data(value: Variant) -> Dictionary:
+	if typeof(value) != TYPE_DICTIONARY:
+		return {"ok": false, "message": "progression data is malformed."}
+	var save_data: Dictionary = (value as Dictionary).duplicate(true)
+	var version: int = _read_integer(save_data.get("save_version"), -1)
+	if version > SAVE_VERSION:
+		return {
+			"ok": false,
+			"message": "this progression belongs to a newer game version.",
+		}
+	if version < 1:
+		return {"ok": false, "message": "the progression version is unsupported."}
+	if version != SAVE_VERSION:
+		save_data = _migrate_save(save_data, version)
+		if save_data.is_empty():
+			return {
+				"ok": false,
+				"message": "the progression version is unsupported.",
+			}
+	var snapshot: LoadSnapshot = _build_load_snapshot(save_data)
+	if snapshot == null:
+		return {"ok": false, "message": "the progression is structurally invalid."}
+	return {
+		"ok": true,
+		"data": save_data,
+		"catch_count": snapshot.catches.size(),
+		"wallet_balance": snapshot.wallet_balance,
+		"discovered_species_count": snapshot.discovered_ids.size(),
+		"world_seed": snapshot.world_seed,
+	}
+
+
+func _migrate_legacy_plaintext_save(
+	save_data: Dictionary,
+	legacy_path: String,
+) -> void:
+	var result: Dictionary = _write_current_save_data(save_data, "")
+	if not bool(result.get("ok", false)):
+		push_warning("Legacy progression loaded but could not be encrypted yet.")
+		return
+	_expected_hash = str(result.get("hash", ""))
+	if not _archive_replaced_save(legacy_path, "plaintext-migration"):
+		push_warning(
+			"Legacy progression was encrypted, but its migration backup failed."
+		)
+		return
+	_remove_legacy_save_files()
+	print("Upgraded legacy plaintext progression to the opaque save format.")
+
+
+func _archive_replaced_save(
+	source_path: String,
+	reason: String = "before-import",
+) -> bool:
+	if source_path.is_empty() or not FileAccess.file_exists(source_path):
+		return true
+	var timestamp: String = Time.get_datetime_string_from_system().replace(
+		":", "-"
+	)
+	var destination: String = _data_root.root_path.path_join(
+		"backups/saves/player-save-%s-%s%s"
+		% [reason, timestamp, ARCHIVE_EXTENSION]
+	)
+	if FileAccess.file_exists(destination):
+		destination = destination.trim_suffix(ARCHIVE_EXTENSION) + (
+			"-%s%s" % [Time.get_ticks_usec(), ARCHIVE_EXTENSION]
+		)
+	var decoded: Dictionary = ProgressionSaveCodec.read_local_save(
+		source_path,
+		source_path == _legacy_save_path(),
+	)
+	var bytes: PackedByteArray
+	if bool(decoded.get("ok", false)):
+		var prepared: Dictionary = _prepare_external_save_data(decoded["data"])
+		if bool(prepared.get("ok", false)):
+			bytes = ProgressionSaveCodec.encode_archive(
+				prepared["data"], destination + ".codec.tmp"
+			)
+	if bytes.is_empty():
+		bytes = PortableFileGuard.read_bytes(source_path)
+		destination = (
+			destination.trim_suffix(ARCHIVE_EXTENSION) + ".preserved"
+		)
+	if bytes.is_empty():
+		return false
+	var result: Dictionary = PortableFileGuard.write_guarded(
+		destination,
+		bytes,
+		"",
+		_data_root.conflict_directory(),
+		_data_root.device_id,
+	)
+	return bool(result.get("ok", false))
+
+
+func _remove_legacy_save_files() -> void:
+	for path: String in [
+		_legacy_save_path(),
+		_legacy_save_path() + ".tmp",
+		_legacy_save_path() + ".backup",
+	]:
+		_remove_if_present(path)
+
+
+func _handle_corrupt_save(message: String, source_path: String) -> void:
 	push_warning(message)
 	_restore_defaults()
-	if not FileAccess.file_exists(_save_path):
+	if not FileAccess.file_exists(source_path):
 		return
 	var timestamp: int = int(Time.get_unix_time_from_system())
 	var corrupt_path: String = (
-		"%s.corrupt-%d" % [_save_path, timestamp]
+		"%s.corrupt-%d" % [source_path, timestamp]
 	)
 	if FileAccess.file_exists(corrupt_path):
 		corrupt_path += "-%d" % Time.get_ticks_usec()
-	if not _rename_file(_save_path, corrupt_path):
+	if not _rename_file(source_path, corrupt_path):
 		_automatic_saving_blocked = true
 		push_warning(
 			"Corrupt player save was left in place; automatic saving is "
@@ -1350,6 +1645,8 @@ func _restore_defaults() -> void:
 	_bag.replace_all_items(default_items)
 	var default_unlocked_baits: Array[StringName] = []
 	_bag.replace_unlocked_bait_ids(default_unlocked_baits)
+	_player.unequip_bait()
+	_player.unequip_lure()
 	_fishing_upgrades.reset_to_defaults()
 	_cooler_capacity.reset_to_defaults()
 	_inventory_layout.reset_to_defaults()
@@ -1364,6 +1661,53 @@ func _restore_defaults() -> void:
 	_jobs.reset_to_defaults()
 	_is_restoring = false
 	_is_dirty = false
+
+
+func _valid_active_tackle(item_id: StringName, bait: bool) -> bool:
+	var item = _item_catalog.get_item_by_id(item_id)
+	return (
+		item != null
+		and item.is_available()
+		and (item.is_bait() if bait else item.is_lure())
+		and _bag.owns_item(item_id)
+	)
+
+
+func _validated_tackle_id(
+	item_id: StringName,
+	bait: bool,
+	seen_items: Dictionary[StringName, bool],
+) -> StringName:
+	if item_id.is_empty():
+		return StringName()
+	var item = _item_catalog.get_item_by_id(item_id)
+	if (
+		item == null
+		or not item.is_available()
+		or not seen_items.has(item_id)
+		or not (item.is_bait() if bait else item.is_lure())
+	):
+		push_warning("Skipped invalid saved active tackle '%s'." % String(item_id))
+		return StringName()
+	return item_id
+
+
+func _restore_tackle_selection(snapshot: LoadSnapshot) -> bool:
+	_player.unequip_bait()
+	_player.unequip_lure()
+	var bait_restored: bool = (
+		snapshot.active_bait_id.is_empty()
+		or _player.equip_bait(
+			_item_catalog.get_item_by_id(snapshot.active_bait_id)
+		)
+	)
+	var lure_restored: bool = (
+		snapshot.active_lure_id.is_empty()
+		or _player.equip_lure(
+			_item_catalog.get_item_by_id(snapshot.active_lure_id)
+		)
+	)
+	return bait_restored and lure_restored
 
 
 func _read_integer(

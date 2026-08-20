@@ -22,6 +22,7 @@ readonly -a QUICK_TESTS=(
 	"tests/controller_ui_navigation_validation.gd"
 	"tests/dedicated_server_config_validation.gd"
 	"tests/digging_prototype_validation.gd"
+	"tests/equipment_catalog_validation.gd"
 	"tests/exported_decal_hotfix_validation.gd"
 	"tests/file_dialog_controller_navigation_validation.gd"
 	"tests/fish_catalog_content_validation.gd"
@@ -72,10 +73,12 @@ readonly -a HOST_TESTS=(
 	"tests/gathering_showcase_validation.gd"
 	"tests/inventory_storage_persistence_validation.gd"
 	"tests/job_system_validation.gd"
+	"tests/progression_archive_validation.gd"
 	"tests/surface_drawing_runtime_validation.gd"
 )
 
 readonly -a NETWORK_TESTS=(
+	"tests/chat_privacy_multiplayer_validation.gd"
 	"tests/economy_regression_validation.gd"
 	"tests/fish_showcase_multiplayer_validation.gd"
 	"tests/fishing_multiplayer_validation.gd"

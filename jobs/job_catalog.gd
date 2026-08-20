@@ -14,6 +14,9 @@ enum Kind {
 	REACH_LEVEL,
 	DISCOVER_SPECIES,
 	MASTER_QUALITIES,
+	CATCH_CREATURE_GROUP,
+	DISCOVER_CREATURE_GROUP,
+	MASTER_CREATURE_GROUP,
 }
 
 const DAILY_JOB_COUNT: int = 4
@@ -111,6 +114,28 @@ static func generate_daily_jobs(
 			50,
 			{"fish_id": String(selected.id)},
 		))
+	if _has_creature_group(candidates, FishDataType.CreatureGroup.INSECT):
+		optional.append(_job(
+			"insect_roundup",
+			"bug hunt",
+			"catch 3 insects",
+			Kind.CATCH_CREATURE_GROUP,
+			3,
+			40,
+			50,
+			{"creature_group": int(FishDataType.CreatureGroup.INSECT)},
+		))
+	if _has_creature_group(candidates, FishDataType.CreatureGroup.SHELLFISH):
+		optional.append(_job(
+			"shellfish_search",
+			"shore patrol",
+			"catch 3 shellfish",
+			Kind.CATCH_CREATURE_GROUP,
+			3,
+			45,
+			50,
+			{"creature_group": int(FishDataType.CreatureGroup.SHELLFISH)},
+		))
 	_shuffle(optional, rng)
 	while jobs.size() < DAILY_JOB_COUNT and not optional.is_empty():
 		jobs.append(optional.pop_back())
@@ -172,6 +197,8 @@ static func generate_weather_schedule(
 
 static func lifetime_chains(
 	registered_species_count: int,
+	registered_insect_count: int = 0,
+	registered_shellfish_count: int = 0,
 ) -> Array[Dictionary]:
 	var chains: Array[Dictionary] = [
 		_chain("catch", Kind.CATCH_TOTAL, [100, 1000, 5000], [
@@ -197,15 +224,33 @@ static func lifetime_chains(
 			[registered_species_count],
 			[[1500, 2000]],
 		))
+	_append_creature_lifetime_chains(
+		chains,
+		"insect",
+		FishDataType.CreatureGroup.INSECT,
+		registered_insect_count,
+	)
+	_append_creature_lifetime_chains(
+		chains,
+		"shellfish",
+		FishDataType.CreatureGroup.SHELLFISH,
+		registered_shellfish_count,
+	)
 	return chains
 
 
 static func visible_lifetime_jobs(
 	registered_species_count: int,
 	claimed_ids: Array[String],
+	registered_insect_count: int = 0,
+	registered_shellfish_count: int = 0,
 ) -> Array[Dictionary]:
 	var visible: Array[Dictionary] = []
-	for chain: Dictionary in lifetime_chains(registered_species_count):
+	for chain: Dictionary in lifetime_chains(
+		registered_species_count,
+		registered_insect_count,
+		registered_shellfish_count,
+	):
 		var targets: Array = chain.get("targets", [])
 		var rewards: Array = chain.get("rewards", [])
 		for tier_index: int in targets.size():
@@ -216,6 +261,9 @@ static func visible_lifetime_jobs(
 			if job_id in claimed_ids:
 				continue
 			var reward: Array = rewards[tier_index]
+			var extra: Dictionary = {}
+			if chain.has("creature_group"):
+				extra["creature_group"] = int(chain["creature_group"])
 			visible.append(_job(
 				job_id,
 				_lifetime_title(str(chain.get("id", "")), int(targets[tier_index])),
@@ -226,6 +274,7 @@ static func visible_lifetime_jobs(
 				int(targets[tier_index]),
 				int(reward[0]),
 				int(reward[1]),
+				extra,
 			))
 			break
 	return visible
@@ -256,10 +305,10 @@ static func is_valid_job(value: Variant) -> bool:
 		and typeof(job.get("description")) == TYPE_STRING
 		and str(job["description"]).length() <= 160
 		and is_bounded_integer(
-			job.get("kind"), Kind.CATCH_TOTAL, Kind.MASTER_QUALITIES
+			job.get("kind"), Kind.CATCH_TOTAL, Kind.MASTER_CREATURE_GROUP
 		)
 		and kind >= Kind.CATCH_TOTAL
-		and kind <= Kind.MASTER_QUALITIES
+		and kind <= Kind.MASTER_CREATURE_GROUP
 		and is_bounded_integer(job.get("target"), 1, 1000000000)
 		and is_bounded_integer(
 			job.get("fish_coin"), 0, MAX_JOB_REWARD_COINS
@@ -317,6 +366,12 @@ static func is_valid_job(value: Variant) -> bool:
 				typeof(job.get("fish_id")) == TYPE_STRING
 				and not str(job.get("fish_id", "")).is_empty()
 				and str(job.get("fish_id", "")).length() <= 96
+			)
+		Kind.CATCH_CREATURE_GROUP, Kind.DISCOVER_CREATURE_GROUP, Kind.MASTER_CREATURE_GROUP:
+			return is_bounded_integer(
+				job.get("creature_group"),
+				FishDataType.CreatureGroup.FISH,
+				FishDataType.CreatureGroup.SHELLFISH,
 			)
 	return true
 
@@ -401,13 +456,16 @@ static func _chain(
 	kind: Kind,
 	targets: Array[int],
 	rewards: Array,
+	extra: Dictionary = {},
 ) -> Dictionary:
-	return {
+	var result: Dictionary = {
 		"id": id,
 		"kind": int(kind),
 		"targets": targets,
 		"rewards": rewards,
 	}
+	result.merge(extra, true)
+	return result
 
 
 static func _lifetime_title(chain_id: String, target: int) -> String:
@@ -422,6 +480,18 @@ static func _lifetime_title(chain_id: String, target: int) -> String:
 			return "complete the catalog"
 		"master":
 			return "quality master"
+		"insect_catch":
+			return "seasoned bug catcher"
+		"insect_discover":
+			return "complete the insect catalog"
+		"insect_master":
+			return "insect quality master"
+		"shellfish_catch":
+			return "seasoned beachcomber"
+		"shellfish_discover":
+			return "complete the shellfish catalog"
+		"shellfish_master":
+			return "shellfish quality master"
 	return "long-term job"
 
 
@@ -437,7 +507,65 @@ static func _lifetime_description(chain_id: String, target: int) -> String:
 			return "discover all %d cataloged fish" % target
 		"master":
 			return "collect every quality of all %d fish" % target
+		"insect_catch":
+			return "catch %d insects" % target
+		"insect_discover":
+			return "discover all %d cataloged insects" % target
+		"insect_master":
+			return "collect every quality of all %d insects" % target
+		"shellfish_catch":
+			return "catch %d shellfish" % target
+		"shellfish_discover":
+			return "discover all %d cataloged shellfish" % target
+		"shellfish_master":
+			return "collect every quality of all %d shellfish" % target
 	return "keep fishing"
+
+
+static func _has_creature_group(
+	candidates: Array[FishDataType],
+	creature_group: FishDataType.CreatureGroup,
+) -> bool:
+	for fish: FishDataType in candidates:
+		if (
+			fish != null
+			and fish.is_selectable()
+			and fish.get_creature_group() == creature_group
+		):
+			return true
+	return false
+
+
+static func _append_creature_lifetime_chains(
+	chains: Array[Dictionary],
+	id_prefix: String,
+	creature_group: FishDataType.CreatureGroup,
+	registered_count: int,
+) -> void:
+	if registered_count <= 0:
+		return
+	var group_data := {"creature_group": int(creature_group)}
+	chains.append(_chain(
+		"%s_catch" % id_prefix,
+		Kind.CATCH_CREATURE_GROUP,
+		[10, 50, 250],
+		[[75, 100], [250, 350], [900, 1100]],
+		group_data,
+	))
+	chains.append(_chain(
+		"%s_discover" % id_prefix,
+		Kind.DISCOVER_CREATURE_GROUP,
+		[registered_count],
+		[[250, 350]],
+		group_data,
+	))
+	chains.append(_chain(
+		"%s_master" % id_prefix,
+		Kind.MASTER_CREATURE_GROUP,
+		[registered_count],
+		[[750, 1000]],
+		group_data,
+	))
 
 
 static func _shuffle(values: Array[Dictionary], rng: RandomNumberGenerator) -> void:

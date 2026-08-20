@@ -36,6 +36,12 @@ enum LogbookSection {
 	SHELLFISH,
 }
 
+enum CreatureGroup {
+	FISH,
+	INSECT,
+	SHELLFISH,
+}
+
 @export var id: StringName
 @export var display_name: String
 @export_category("Developer Catalog")
@@ -92,6 +98,14 @@ func is_valid_catalog_entry() -> bool:
 
 func is_fishable() -> bool:
 	return is_selectable() and collection_method == CollectionMethod.FISHING
+
+
+func get_creature_group() -> CreatureGroup:
+	if logbook_section == LogbookSection.SHELLFISH:
+		return CreatureGroup.SHELLFISH
+	if collection_method == CollectionMethod.FISHING:
+		return CreatureGroup.FISH
+	return CreatureGroup.INSECT
 
 
 func get_habitat_label() -> String:

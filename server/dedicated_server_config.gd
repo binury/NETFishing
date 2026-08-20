@@ -17,6 +17,8 @@ var world_seed: int = DEFAULT_WORLD_SEED
 var public_listing: bool = false
 var discovery_url: String = ""
 var data_directory: String = ""
+var chat_logging: bool = false
+var chat_log_path: String = ""
 var operator_fingerprints: PackedStringArray = PackedStringArray()
 var error_message: String = ""
 
@@ -71,6 +73,12 @@ func _load_file(path: String) -> bool:
 	discovery_url = str(file.get_value(
 		"discovery", "url", discovery_url
 	))
+	chat_logging = bool(file.get_value(
+		"privacy", "chat_logging", chat_logging
+	))
+	chat_log_path = str(file.get_value(
+		"privacy", "chat_log_path", chat_log_path
+	))
 	operator_fingerprints = _parse_fingerprint_list(file.get_value(
 		"moderation", "operators", operator_fingerprints
 	))
@@ -99,6 +107,12 @@ func _apply_environment() -> void:
 	)
 	data_directory = _environment_string(
 		"NETFISHING_DATA_DIR", data_directory
+	)
+	chat_logging = _environment_bool(
+		"NETFISHING_CHAT_LOGGING", chat_logging
+	)
+	chat_log_path = _environment_string(
+		"NETFISHING_CHAT_LOG_PATH", chat_log_path
 	)
 	if OS.has_environment("NETFISHING_SERVER_OPERATORS"):
 		operator_fingerprints = _parse_fingerprint_list(
@@ -130,10 +144,16 @@ func _apply_arguments(arguments: PackedStringArray) -> void:
 			operator_fingerprints = _parse_fingerprint_list(
 				argument.trim_prefix("--operators=")
 			)
+		elif argument.begins_with("--chat-log-path="):
+			chat_log_path = argument.trim_prefix("--chat-log-path=")
 		elif argument == "--public":
 			public_listing = true
 		elif argument == "--private":
 			public_listing = false
+		elif argument == "--chat-logging":
+			chat_logging = true
+		elif argument == "--no-chat-logging":
+			chat_logging = false
 
 
 func _validate() -> void:
@@ -141,6 +161,9 @@ func _validate() -> void:
 	bind_address = bind_address.strip_edges()
 	discovery_url = discovery_url.strip_edges().trim_suffix("/")
 	data_directory = data_directory.strip_edges()
+	chat_log_path = chat_log_path.strip_edges()
+	if chat_logging and chat_log_path.is_empty() and not data_directory.is_empty():
+		chat_log_path = data_directory.path_join("logs/chat.jsonl")
 	operator_fingerprints = _normalized_fingerprints(operator_fingerprints)
 	if server_name.is_empty():
 		error_message = "Server name cannot be empty."
@@ -156,6 +179,12 @@ func _validate() -> void:
 		error_message = "World seed must be between 1 and %d." % MAX_WORLD_SEED
 	elif not data_directory.is_empty() and not data_directory.is_absolute_path():
 		error_message = "Server data directory must be an absolute path."
+	elif chat_logging and (
+		chat_log_path.is_empty() or not chat_log_path.is_absolute_path()
+	):
+		error_message = (
+			"Chat logging requires an absolute chat log path."
+		)
 	elif public_listing and not (
 		discovery_url.begins_with("https://")
 		or discovery_url.begins_with("http://")

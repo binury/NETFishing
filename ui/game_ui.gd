@@ -214,6 +214,7 @@ var _controller_text_entry_is_open: Callable
 
 
 func _ready() -> void:
+	_prioritize_surface_drawing_pointer_input()
 	_bite_prompt_button.pressed.connect(_on_bite_prompt_pressed)
 	_apply_active_bait_indicator_style()
 	_refresh_active_bait_indicator()
@@ -485,6 +486,27 @@ func setup(
 		settings_manager.current_settings.paint_dock_right,
 		settings_manager.current_settings.chat_mobile_mode,
 	)
+
+
+func _prioritize_surface_drawing_pointer_input() -> void:
+	# Control input follows sibling order rather than CanvasItem.z_index. Chat is
+	# a full-screen Control with interactive mobile children, so the toolbar must
+	# follow it in the tree to own their overlap while the art kit is active.
+	# Opening Chat deactivates surface drawing and hides the toolbar, returning
+	# the same area to Chat without any special-case pointer forwarding.
+	if (
+		_surface_drawing_toolbar == null
+		or _chat_ui == null
+		or _surface_drawing_toolbar.get_parent() != _chat_ui.get_parent()
+	):
+		return
+	var ui_root: Node = _surface_drawing_toolbar.get_parent()
+	var toolbar_index: int = _surface_drawing_toolbar.get_index()
+	var chat_index: int = _chat_ui.get_index()
+	if toolbar_index > chat_index:
+		return
+	# Removing the earlier toolbar shifts Chat one position toward the start.
+	ui_root.move_child(_surface_drawing_toolbar, chat_index)
 
 
 func _input(event: InputEvent) -> void:
@@ -1264,6 +1286,7 @@ func _drawing_pointer_window_position() -> Vector2:
 
 func setup_data_and_identity(
 	data_root: PlayerDataRoot,
+	progression_saves: PlayerSaveManager,
 	identity_backups: IdentityBackupService,
 	player_identity: PlayerIdentityStore,
 	host_identity: HostIdentityStore,
@@ -1275,6 +1298,7 @@ func setup_data_and_identity(
 	]:
 		panel.setup_data_and_identity(
 			data_root,
+			progression_saves,
 			identity_backups,
 			player_identity,
 			host_identity,
@@ -1603,9 +1627,14 @@ func _can_toggle_gameplay_hud() -> bool:
 
 
 func _refresh_gameplay_hud_visibility() -> void:
+	var fishing_override_active: bool = (
+		_gameplay_hud_hidden
+		and _fishing_spot != null
+		and _fishing_spot.is_fishing_sequence_active()
+	)
 	var show_world_hud: bool = (
 		_gameplay_ui_enabled
-		and not _gameplay_hud_hidden
+		and (not _gameplay_hud_hidden or fishing_override_active)
 		and not _system_menu_open
 		and not _player_menu_open
 		and not _shop_open
@@ -1660,6 +1689,7 @@ func set_storage_prompt_visible(
 	_storage_prompt.visible = (
 		requested_visible
 		and _gameplay_ui_enabled
+		and not _gameplay_hud_hidden
 		and not _system_menu_open
 		and not _player_menu_open
 		and not _shop_open
@@ -1697,6 +1727,7 @@ func set_shop_prompt_visible(
 	_shop_prompt.visible = (
 		requested_visible
 		and _gameplay_ui_enabled
+		and not _gameplay_hud_hidden
 		and not _system_menu_open
 		and not _player_menu_open
 		and not _shop_open
@@ -1923,6 +1954,7 @@ func _refresh_fishing_panel_visibility() -> void:
 		_gameplay_ui_enabled
 		and has_content
 	)
+	_refresh_gameplay_hud_visibility()
 
 
 func _on_bite_prompt_changed(prompt_visible: bool) -> void:

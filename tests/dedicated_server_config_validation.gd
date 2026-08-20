@@ -19,6 +19,12 @@ func _run() -> void:
 	defaults.call("_validate")
 	assert(defaults.is_valid())
 	assert(not bool(defaults.get("public_listing")))
+	assert(not bool(defaults.get("chat_logging")))
+	assert(str(defaults.get("chat_log_path")).is_empty())
+	assert(NetworkChatService.BURST_COUNT == 3)
+	assert(NetworkChatService.WINDOW_COUNT == 5)
+	assert(is_equal_approx(NetworkChatService.WINDOW_SECONDS, 10.0))
+	assert(NetworkChatService.CALL_COOLDOWN_MILLISECONDS == 90)
 
 	var path: String = ProjectSettings.globalize_path(
 		"user://dedicated-server-validation.cfg"
@@ -32,6 +38,12 @@ func _run() -> void:
 	file.set_value("server", "public", true)
 	file.set_value("server", "data_directory", "/tmp/configured-server")
 	file.set_value("discovery", "url", "https://discovery.netfishing.org/")
+	file.set_value("privacy", "chat_logging", true)
+	file.set_value(
+		"privacy",
+		"chat_log_path",
+		"/tmp/configured-server/logs/chat.jsonl",
+	)
 	file.set_value(
 		"moderation", "operators", PackedStringArray([OPERATOR_B, OPERATOR_A])
 	)
@@ -48,6 +60,11 @@ func _run() -> void:
 	assert(int(configured.get("world_seed")) == 928374)
 	assert(bool(configured.get("public_listing")))
 	assert(str(configured.get("discovery_url")) == "https://discovery.netfishing.org")
+	assert(bool(configured.get("chat_logging")))
+	assert(
+		str(configured.get("chat_log_path"))
+		== "/tmp/configured-server/logs/chat.jsonl"
+	)
 	assert(
 		configured.get("operator_fingerprints")
 		== PackedStringArray([OPERATOR_A, OPERATOR_B])
@@ -88,6 +105,51 @@ func _run() -> void:
 	invalid_seed.set("data_directory", "/tmp/invalid-seed-server")
 	invalid_seed.call("_validate")
 	assert(not invalid_seed.is_valid())
+
+	var default_chat_path := ConfigType.new()
+	default_chat_path.set("data_directory", "/tmp/default-chat-path-server")
+	default_chat_path.set("chat_logging", true)
+	default_chat_path.call("_validate")
+	assert(default_chat_path.is_valid())
+	assert(
+		str(default_chat_path.get("chat_log_path"))
+		== "/tmp/default-chat-path-server/logs/chat.jsonl"
+	)
+
+	var invalid_chat_path := ConfigType.new()
+	invalid_chat_path.set("data_directory", "/tmp/invalid-chat-path-server")
+	invalid_chat_path.set("chat_logging", true)
+	invalid_chat_path.set("chat_log_path", "relative/chat.jsonl")
+	invalid_chat_path.call("_validate")
+	assert(not invalid_chat_path.is_valid())
+
+	var chat_log_validation_path: String = ProjectSettings.globalize_path(
+		"user://dedicated-chat-log-validation.jsonl"
+	)
+	var chat_service := NetworkChatService.new()
+	assert(not chat_service.configure_dedicated_history(
+		true,
+		"relative/chat.jsonl",
+	))
+	assert(chat_service.configure_dedicated_history(
+		true,
+		chat_log_validation_path,
+	))
+	assert(FileAccess.file_exists(chat_log_validation_path))
+	chat_service.call("_append_chat_log", {
+		"sender_display_name": "Privacy Tester",
+		"body": "explicitly retained message",
+	})
+	var logged_message: Variant = JSON.parse_string(
+		FileAccess.get_file_as_string(chat_log_validation_path).strip_edges()
+	)
+	assert(typeof(logged_message) == TYPE_DICTIONARY)
+	assert(str(logged_message.get("recorded_at_utc", "")).ends_with("Z"))
+	assert(logged_message.get("sender_display_name") == "Privacy Tester")
+	assert(logged_message.get("body") == "explicitly retained message")
+	assert(chat_service.configure_dedicated_history(false, ""))
+	assert(DirAccess.remove_absolute(chat_log_validation_path) == OK)
+	chat_service.free()
 
 	var discovery := DiscoveryClient.new()
 	assert(

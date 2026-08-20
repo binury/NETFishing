@@ -54,6 +54,21 @@ func _initialize() -> void:
 	assert(FishingShopStockType.get_price(&"magnet") == 250)
 	assert(FishingShopStockType.get_stock_item_ids().has(&"magnet"))
 	assert(FishingShopStockType.is_permanent_unlock(&"magnet", magnet))
+	var fishing_net: ItemDataType = (
+		ItemCatalogResource.get_available_item_by_id(&"fishing_net")
+	)
+	assert(fishing_net != null)
+	assert(fishing_net.category == ItemDataType.Category.TOOL)
+	assert(fishing_net.icon == null)
+	assert(not fishing_net.usable)
+	assert(not fishing_net.equippable)
+	assert(not fishing_net.hotbar_allowed)
+	assert(FishingShopStockType.get_price(&"fishing_net") == 250)
+	assert(FishingShopStockType.get_stock_item_ids().has(&"fishing_net"))
+	assert(FishingShopStockType.is_permanent_unlock(
+		&"fishing_net", fishing_net
+	))
+	assert(not FishingShopStockType.is_gathering_tool(&"fishing_net"))
 	var crab_net: ItemDataType = ItemCatalogResource.get_available_item_by_id(
 		&"crab_net"
 	)
