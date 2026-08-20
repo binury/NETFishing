@@ -6,10 +6,11 @@
 [sub_resource type="Resource" id="Rule_grass_tree"]
 script = ExtResource("2_rule")
 procedural_group = &"grass_tree"
-placement_chance = 9000
-adjacency_bonus = 1000
-maximum_density = 10000
+placement_chance = 8200
+adjacency_bonus = 1200
+maximum_density = 8500
 minimum_placements = 2
+placement_attempts_per_chunk = 3
 allowed_prop_ids = PackedStringArray("prop_tree_1", "prop_tree_2", "prop_tree_3")
 
 [sub_resource type="Resource" id="Rule_grass_detail"]

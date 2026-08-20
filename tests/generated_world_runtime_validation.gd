@@ -82,8 +82,14 @@ func _validate_generated_region(
 	generator: TerrainChunkGenerator,
 ) -> void:
 	var placements := generator.placement_keys()
-	assert(placements.size() == 49)
-	assert(placements[24].begins_with("chunk_spawn@"))
+	var expected_chunk_count := generator.grid_size.x * generator.grid_size.y
+	var center := Vector2i(
+		generator.grid_size.x / 2,
+		generator.grid_size.y / 2,
+	)
+	var center_index := center.y * generator.grid_size.x + center.x
+	assert(placements.size() == expected_chunk_count)
+	assert(placements[center_index].begins_with("chunk_spawn@"))
 	assert(_placement_count(placements, "chunk_spawn") == 1)
 	assert(_placement_count(placements, "chunk_0001") >= 1)
 	assert(_placement_count(placements, "chunk_0002") >= 1)
@@ -92,8 +98,24 @@ func _validate_generated_region(
 	assert(_placement_count(placements, "chunk_0005") >= 1)
 	assert(_placement_count(placements, "chunk_0006") >= 1)
 	assert(_placement_count(placements, "chunk_0007") >= 1)
-	assert(generator.get_generated_chunks_root().get_child_count() == 49)
-	assert(generator.get_primary_terrain_meshes().size() == 49)
+	assert(_placement_count(placements, "chunk_0008") >= 1)
+	assert(_placement_count(placements, "chunk_0009") == 1)
+	assert(_placement_count(placements, "chunk_0010") == 4)
+	assert(
+		_placement_count(placements, "chunk_0011")
+		+ _placement_count(placements, "chunk_0012")
+		== 4
+	)
+	assert(_placement_count(placements, "chunk_0012") <= 1)
+	assert(
+		generator.get_generated_chunks_root().get_child_count()
+		== expected_chunk_count
+	)
+	assert(
+		generator.get_primary_terrain_meshes().size()
+		== expected_chunk_count
+	)
+	_validate_elevated_cliff_feature(generator)
 
 	var shop := region.get_node("Interactables/FishingShopWorld") as Node3D
 	var storage := region.get_node("Interactables/PlayerStorageBox") as Node3D
@@ -111,6 +133,7 @@ func _validate_generated_region(
 	var fresh_root := region.get_node("WaterBodies/FreshWaterBodies") as Node3D
 	assert(ocean != null and fresh_root != null)
 	assert(ocean.water_type == WaterType.Type.SALT_WATER)
+	assert(is_equal_approx(ocean.position.y, GeneratedWorldRegion.WATER_HEIGHT))
 	var fresh_placement_count := 0
 	for record: Dictionary in generator.placement_records():
 		var tags: PackedStringArray = record.get("tags", PackedStringArray())
@@ -123,6 +146,7 @@ func _validate_generated_region(
 		var fresh := child as WaterBodyAuthoring
 		assert(fresh != null)
 		assert(fresh.water_type == WaterType.Type.FRESH_WATER)
+		assert(is_equal_approx(fresh.position.y, GeneratedWorldRegion.WATER_HEIGHT))
 		assert(fresh.visible)
 		assert(fresh.surface_size.x < 10.0 or fresh.surface_size.y < 10.0)
 		assert(not fresh.visual_surface_enabled)
@@ -155,13 +179,13 @@ func _validate_generated_region(
 			&"terrain_chunk_coordinate",
 			Vector2i.ZERO,
 		)
-		var center := Vector2i(
+		var spawn_coordinate := Vector2i(
 			generator.grid_size.x / 2,
 			generator.grid_size.y / 2,
 		)
 		var spawn_distance := (
-			absi(coordinate.x - center.x)
-			+ absi(coordinate.y - center.y)
+			absi(coordinate.x - spawn_coordinate.x)
+			+ absi(coordinate.y - spawn_coordinate.y)
 		)
 		assert(spawn_distance >= definition.minimum_spawn_chunk_distance)
 		_validate_decoration_transform(
@@ -169,6 +193,13 @@ func _validate_generated_region(
 			child as Node3D,
 			definition,
 		)
+		if prop_id in [&"prop_tree_1", &"prop_tree_2", &"prop_tree_3"]:
+			assert(
+				_has_material_variant_override(
+					child.get_node_or_null("Visual"),
+					definition.material_variants,
+				)
+			)
 	assert(_decoration_group_count(region, &"grass_tree") > 0)
 	assert(_decoration_group_count(region, &"sand_tree") > 0)
 	assert(
@@ -185,6 +216,69 @@ func _validate_generated_region(
 			&"grass_tree",
 		) >= 2
 	)
+
+
+func _validate_elevated_cliff_feature(
+	generator: TerrainChunkGenerator,
+) -> void:
+	var elevated_coordinates: Dictionary[Vector2i, StringName] = {}
+	var top_coordinate := Vector2i(-1, -1)
+	for record: Dictionary in generator.placement_records():
+		var stable_id: StringName = record.get("stable_id", &"")
+		if stable_id not in [
+			&"chunk_0009",
+			&"chunk_0010",
+			&"chunk_0011",
+			&"chunk_0012",
+		]:
+			continue
+		var coordinate: Vector2i = record.get("coordinate", Vector2i.ZERO)
+		assert(coordinate.x > 0 and coordinate.x < generator.grid_size.x - 1)
+		assert(coordinate.y > 0 and coordinate.y < generator.grid_size.y - 1)
+		elevated_coordinates[coordinate] = stable_id
+		if stable_id == &"chunk_0009":
+			top_coordinate = coordinate
+	assert(elevated_coordinates.size() == 9)
+	assert(top_coordinate != Vector2i(-1, -1))
+	for row_offset: int in range(-1, 2):
+		for column_offset: int in range(-1, 2):
+			assert(
+				elevated_coordinates.has(
+					top_coordinate + Vector2i(column_offset, row_offset)
+				)
+			)
+
+	var generated := generator.get_generated_chunks_root()
+	assert(generated != null)
+	var layered_count := 0
+	for chunk_root: Node in generated.get_children():
+		var stable_id := StringName(
+			chunk_root.get_meta(&"terrain_chunk_id", &"")
+		)
+		if stable_id not in [
+			&"chunk_0009",
+			&"chunk_0010",
+			&"chunk_0011",
+			&"chunk_0012",
+		]:
+			continue
+		layered_count += 1
+		var base_layer := chunk_root.get_node_or_null("TerrainBaseLayer")
+		var overlay := chunk_root.get_node_or_null("TerrainOverlay")
+		assert(base_layer != null and overlay != null)
+		var base_mesh := TerrainChunkAnalyzer.find_primary_mesh(
+			base_layer,
+			&"chunk_0000",
+		)
+		var overlay_mesh := TerrainChunkAnalyzer.find_primary_mesh(
+			overlay,
+			stable_id,
+		)
+		assert(base_mesh != null and base_mesh.mesh != null)
+		assert(overlay_mesh != null and overlay_mesh.mesh != null)
+		assert(base_mesh.has_node("TerrainBaseLayerCollision"))
+		assert(overlay_mesh.has_node("TerrainCollision"))
+	assert(layered_count == 9)
 
 
 func _validate_ocean_facing_record(
@@ -224,6 +318,23 @@ func _validate_prop_catalog(region: GeneratedWorldRegion) -> void:
 		assert(instance.position.is_zero_approx())
 		assert(_find_mesh_instance(instance) != null)
 		instance.free()
+	var mushroom := catalog.definition_for_id(&"prop_mushroom")
+	assert(mushroom != null and mushroom.has_collision())
+	assert(mushroom.visual_offset.y < 0.0)
+	for tree_id: StringName in [
+		&"prop_tree_1",
+		&"prop_tree_2",
+		&"prop_tree_3",
+	]:
+		var tree := catalog.definition_for_id(tree_id)
+		assert(tree != null)
+		assert(tree.minimum_visual_scale < tree.maximum_visual_scale)
+		assert(tree.material_variants.size() >= 3)
+		assert(not tree.variant_material_slot_names.is_empty())
+	var pine := catalog.definition_for_id(&"prop_pine")
+	assert(pine != null)
+	assert(pine.minimum_visual_scale < pine.maximum_visual_scale)
+	assert(pine.material_variants.is_empty())
 
 
 func _validate_biome_catalog(
@@ -276,7 +387,16 @@ func _validate_decoration_transform(
 	var collision := prop.get_node_or_null(
 		"TrunkCollision/CollisionShape"
 	) as CollisionShape3D
-	assert(visual_root != null and visual_root.position.is_zero_approx())
+	assert(visual_root != null)
+	assert(visual_root.position.is_equal_approx(definition.visual_offset))
+	var visual_scale := float(
+		prop.get_meta(&"terrain_prop_visual_scale", 1.0)
+	)
+	assert(visual_scale >= definition.minimum_visual_scale - 0.001)
+	assert(visual_scale <= definition.maximum_visual_scale + 0.001)
+	assert(
+		visual_root.scale.is_equal_approx(Vector3.ONE * visual_scale)
+	)
 	assert(visual != null and visual.mesh != null)
 	if definition.has_collision():
 		assert(collision != null)
@@ -319,6 +439,26 @@ func _find_mesh_instance(root_node: Node) -> MeshInstance3D:
 	return null
 
 
+func _has_material_variant_override(
+	root_node: Node,
+	variants: Array[Material],
+) -> bool:
+	if root_node == null:
+		return false
+	var mesh_instance := root_node as MeshInstance3D
+	if mesh_instance != null and mesh_instance.mesh != null:
+		for surface_index: int in mesh_instance.mesh.get_surface_count():
+			var override := mesh_instance.get_surface_override_material(
+				surface_index
+			)
+			if override != null and override in variants:
+				return true
+	for child: Node in root_node.get_children():
+		if _has_material_variant_override(child, variants):
+			return true
+	return false
+
+
 func _validate_authored_chunk_surfaces(
 	region: GeneratedWorldRegion,
 	generator: TerrainChunkGenerator,
@@ -329,6 +469,7 @@ func _validate_authored_chunk_surfaces(
 	var found_grass_ocean_edge := false
 	var found_grass_beach_transition := false
 	var found_grass_ocean_corner := false
+	var found_beach_ocean_corner := false
 	for chunk_root: Node in generated.get_children():
 		if chunk_root.name.begins_with("chunk_0002r"):
 			var beach := chunk_root.find_child(
@@ -383,11 +524,20 @@ func _validate_authored_chunk_surfaces(
 			assert("grass_lite" in corner_materials)
 			assert("cliff_wall" in corner_materials)
 			found_grass_ocean_corner = true
+		elif chunk_root.name.begins_with("chunk_0008r"):
+			var beach_ocean_corner := chunk_root.find_child(
+				"chunk_0008", true, false
+			) as MeshInstance3D
+			assert(beach_ocean_corner != null and beach_ocean_corner.mesh != null)
+			var beach_corner_materials := _material_names(beach_ocean_corner)
+			assert("sand" in beach_corner_materials)
+			found_beach_ocean_corner = true
 	assert(found_beach)
 	assert(found_pond)
 	assert(found_grass_ocean_edge)
 	assert(found_grass_beach_transition)
 	assert(found_grass_ocean_corner)
+	assert(found_beach_ocean_corner)
 
 
 func _material_names(mesh_instance: MeshInstance3D) -> PackedStringArray:

@@ -34,6 +34,29 @@ static func create_variants(
 		chunk_size,
 		edge_epsilon,
 	)
+	if definition.base_layer_scene != null:
+		var base_layer_root := definition.base_layer_scene.instantiate()
+		var base_layer_mesh := find_primary_mesh(
+			base_layer_root,
+			definition.base_layer_mesh_name,
+		)
+		if base_layer_mesh == null or base_layer_mesh.mesh == null:
+			push_error(
+				"Terrain chunk %s has no base-layer MeshInstance3D named %s."
+				% [definition.stable_id, definition.base_layer_mesh_name]
+			)
+			base_layer_root.free()
+			chunk_root.free()
+			return variants
+		boundary_points.append_array(
+			_collect_boundary_points(
+				base_layer_mesh.mesh,
+				_transform_relative_to(base_layer_mesh, base_layer_root),
+				chunk_size,
+				edge_epsilon,
+			)
+		)
+		base_layer_root.free()
 	for quarter_turns: int in 4:
 		if not definition.allows_quarter_turn(quarter_turns):
 			continue

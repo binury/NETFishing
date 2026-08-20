@@ -78,6 +78,11 @@ func _ready() -> void:
 func generate_world(seed: int) -> bool:
 	if seed <= 0 or seed > PlayerSaveManager.MAX_WORLD_SEED:
 		return false
+	if (
+		seed == _current_seed
+		and _generator.get_generated_chunks_root() != null
+	):
+		return true
 	_current_seed = seed
 	_generator.generation_seed = seed
 	return _generator.generate()
@@ -237,29 +242,34 @@ func _on_generation_completed(summary: Dictionary) -> void:
 					_prop_definitions_for(rule, tags),
 					coordinate,
 				)
-				if (
-					definitions.is_empty()
-					or not _prop_group_roll_succeeds(
-						rule,
-						group_key,
+				for _placement_attempt: int in (
+					rule.placement_attempts_per_chunk
+				):
+					if group_counts.get(group_key, 0) >= maximum:
+						break
+					if (
+						definitions.is_empty()
+						or not _prop_group_roll_succeeds(
+							rule,
+							group_key,
+							coordinate,
+							random,
+						)
+					):
+						continue
+					if _maybe_add_prop(
+						definitions,
+						record.get("position", Vector3.ZERO),
 						coordinate,
+						biome.stable_id,
 						random,
-					)
-				):
-					continue
-				if _maybe_add_prop(
-					definitions,
-					record.get("position", Vector3.ZERO),
-					coordinate,
-					biome.stable_id,
-					random,
-					terrain_triangles,
-				):
-					group_counts[group_key] += 1
-					_record_prop_group_coordinate(
-						group_key,
-						coordinate,
-					)
+						terrain_triangles,
+					):
+						group_counts[group_key] += 1
+						_record_prop_group_coordinate(
+							group_key,
+							coordinate,
+						)
 	_ensure_minimum_props(
 		eligible_records,
 		group_counts,
@@ -322,7 +332,7 @@ func _configure_static_water() -> void:
 	_ocean.fish_pool = OCEAN_POOL
 	_ocean.location_tags = [&"coast", &"ocean", &"generated_ocean"]
 	_ocean.surface_size = Vector2(10000.0, 10000.0)
-	_ocean.position.y = WATER_HEIGHT - 0.025
+	_ocean.position.y = WATER_HEIGHT
 	_apply_water_materials()
 
 
@@ -451,6 +461,11 @@ func _add_prop(
 ) -> bool:
 	if definition == null or definition.packed_scene == null:
 		return false
+	var visual_scale := random.randf_range(
+		definition.minimum_visual_scale,
+		definition.maximum_visual_scale,
+	)
+	var scaled_clearance := definition.clearance_radius * visual_scale
 	var placement := Vector3.ZERO
 	var found_surface := false
 	for attempt: int in PROP_PLACEMENT_ATTEMPTS:
@@ -470,7 +485,7 @@ func _add_prop(
 			> WATER_HEIGHT + PROP_MINIMUM_GROUND_CLEARANCE
 			and _has_prop_clearance(
 				placement,
-				definition.clearance_radius,
+				scaled_clearance,
 			)
 		):
 			placement.y = surface_height
@@ -492,22 +507,26 @@ func _add_prop(
 	prop.set_meta(&"terrain_prop_group", definition.procedural_group)
 	prop.set_meta(&"terrain_chunk_coordinate", chunk_coordinate)
 	prop.set_meta(&"terrain_biome_id", biome_id)
+	prop.set_meta(&"terrain_prop_visual_scale", visual_scale)
 	prop.position = placement
 	prop.rotation.y = random.randf_range(-PI, PI)
 	_decorations.add_child(prop)
 	visual_root.name = "Visual"
 	prop.add_child(visual_root)
+	visual_root.position = definition.visual_offset
+	visual_root.scale = Vector3.ONE * visual_scale
 	_configure_prop_visuals(visual_root)
-	_add_prop_collision(prop, definition)
+	_apply_prop_material_variant(visual_root, definition, random)
+	_add_prop_collision(prop, definition, visual_scale)
 	_placed_prop_positions.append(placement)
-	_placed_prop_clearance_radii.append(definition.clearance_radius)
+	_placed_prop_clearance_radii.append(scaled_clearance)
 	_placed_prop_groups.append(definition.procedural_group)
 	if definition.gatherable_anchor_height > 0.0:
 		var anchor := Marker3D.new()
 		anchor.name = "TreeAnchor_%d" % _tree_anchors.get_child_count()
 		anchor.position = prop.position + Vector3(
 			0.0,
-			definition.gatherable_anchor_height,
+			definition.gatherable_anchor_height * visual_scale,
 			0.0,
 		)
 		_tree_anchors.add_child(anchor)
@@ -624,7 +643,11 @@ func _prop_group_maximum(
 	if eligible_count <= 0:
 		return 0
 	var maximum := ceili(
-		float(eligible_count * rule.maximum_density)
+		float(
+			eligible_count
+			* rule.placement_attempts_per_chunk
+			* rule.maximum_density
+		)
 		/ float(PROP_CHANCE_SCALE)
 	)
 	return maxi(maximum, rule.minimum_placements)
@@ -777,6 +800,51 @@ func _configure_prop_visuals(root_node: Node) -> void:
 		_configure_prop_visuals(child)
 
 
+func _apply_prop_material_variant(
+	root_node: Node,
+	definition: TerrainPropDefinition,
+	random: RandomNumberGenerator,
+) -> void:
+	if (
+		definition.material_variants.is_empty()
+		or definition.variant_material_slot_names.is_empty()
+	):
+		return
+	var variant := definition.material_variants[
+		random.randi_range(0, definition.material_variants.size() - 1)
+	]
+	_apply_material_variant_to_meshes(
+		root_node,
+		definition.variant_material_slot_names,
+		variant,
+	)
+
+
+func _apply_material_variant_to_meshes(
+	root_node: Node,
+	target_material_names: PackedStringArray,
+	variant: Material,
+) -> void:
+	var mesh_instance := root_node as MeshInstance3D
+	if mesh_instance != null and mesh_instance.mesh != null:
+		for surface_index: int in mesh_instance.mesh.get_surface_count():
+			var active_material := mesh_instance.get_active_material(surface_index)
+			if (
+				active_material != null
+				and active_material.resource_name in target_material_names
+			):
+				mesh_instance.set_surface_override_material(
+					surface_index,
+					variant,
+				)
+	for child: Node in root_node.get_children():
+		_apply_material_variant_to_meshes(
+			child,
+			target_material_names,
+			variant,
+		)
+
+
 func _terrain_surface_triangles() -> Array[PackedVector3Array]:
 	var triangles: Array[PackedVector3Array] = []
 	for mesh_instance: MeshInstance3D in _generator.get_primary_terrain_meshes():
@@ -818,6 +886,7 @@ func _surface_height_at(
 func _add_prop_collision(
 	prop: Node3D,
 	definition: TerrainPropDefinition,
+	visual_scale: float,
 ) -> void:
 	if not definition.has_collision():
 		return
@@ -830,16 +899,16 @@ func _add_prop_collision(
 	collision.name = "CollisionShape"
 	if definition.has_box_collision():
 		var box := BoxShape3D.new()
-		box.size = definition.collision_box_size
+		box.size = definition.collision_box_size * visual_scale
 		collision.shape = box
-		collision.position = definition.collision_offset
+		collision.position = definition.collision_offset * visual_scale
 	else:
 		var cylinder := CylinderShape3D.new()
-		cylinder.radius = definition.collision_radius
-		cylinder.height = definition.collision_height
+		cylinder.radius = definition.collision_radius * visual_scale
+		cylinder.height = definition.collision_height * visual_scale
 		collision.shape = cylinder
 		collision.position = (
-			definition.collision_offset
+			definition.collision_offset * visual_scale
 			+ Vector3.UP * cylinder.height * 0.5
 		)
 	body.add_child(collision)

@@ -82,4 +82,23 @@ func validation_errors() -> PackedStringArray:
 				"%s has a negative box collision dimension."
 				% definition.stable_id
 			)
+		if definition.minimum_visual_scale > definition.maximum_visual_scale:
+			errors.append(
+				"%s has an inverted visual scale range."
+				% definition.stable_id
+			)
+		if (
+			not definition.material_variants.is_empty()
+			and definition.variant_material_slot_names.is_empty()
+		):
+			errors.append(
+				"%s has material variants but no target material slots."
+				% definition.stable_id
+			)
+		for material: Material in definition.material_variants:
+			if material == null:
+				errors.append(
+					"%s contains an empty material variant."
+					% definition.stable_id
+				)
 	return errors

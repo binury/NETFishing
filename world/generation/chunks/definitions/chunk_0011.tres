@@ -1,0 +1,27 @@
+[gd_resource type="Resource" script_class="TerrainChunkDefinition" load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://world/generation/terrain_chunk_definition.gd" id="1_definition"]
+[ext_resource type="PackedScene" path="res://world/generation/chunks/assets/chunk_0011.glb" id="2_scene"]
+[ext_resource type="PackedScene" path="res://world/generation/chunks/assets/chunk_0000.glb" id="3_base_grass"]
+
+[resource]
+script = ExtResource("1_definition")
+stable_id = &"chunk_0011"
+label = "second-tier grass edge"
+packed_scene = ExtResource("2_scene")
+primary_mesh_name = &"chunk_0011"
+base_layer_scene = ExtResource("3_base_grass")
+base_layer_mesh_name = &"chunk_0000"
+overlay_only = true
+selection_weight = 0.28
+maximum_placements = 32
+tags = PackedStringArray("land", "walkable", "grass", "cliff", "edge", "elevation_2", "elevation_2_border")
+allowed_neighbor_tags = PackedStringArray("grass", "elevation_2")
+north_allowed_neighbor_tags = PackedStringArray("elevation_2_border")
+east_allowed_neighbor_tags = PackedStringArray("grass")
+south_allowed_neighbor_tags = PackedStringArray("elevation_2_border")
+west_allowed_neighbor_tags = PackedStringArray("elevation_2_top")
+required_neighbor_tags = PackedStringArray("elevation_2_top")
+minimum_required_neighbors = 1
+preferred_neighbor_tags = PackedStringArray("elevation_2")
+must_be_interior = true

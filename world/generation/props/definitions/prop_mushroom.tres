@@ -16,3 +16,7 @@ preferred_nearby_prop_groups = PackedStringArray("grass_tree")
 preferred_nearby_radius = 12.0
 nearby_preference_weight_multiplier = 3.0
 clearance_radius = 0.8
+visual_offset = Vector3(0, -0.08, 0)
+collision_radius = 0.65
+collision_height = 1.0
+collision_offset = Vector3(0, -0.08, 0)

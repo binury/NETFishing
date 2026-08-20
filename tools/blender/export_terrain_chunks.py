@@ -282,10 +282,16 @@ def _discover_chunks(tolerance: float) -> list[ChunkSource]:
         # Coastline meshes may intentionally stop before the positive-X edge,
         # leaving the surrounding ocean visible. Positive X is the canonical
         # authored ocean direction; Godot supplies the quarter-turn variants.
-        allow_open_east_edge = "ocean_edge" in label
+        # Elevated inland cliff overlays intentionally stop at their downhill
+        # edge. The runtime places them over the existing flat grass chunk, so
+        # these omissions are not coastline openings or holes in the final cell.
+        layered_inland_cliff = "cliff_2" in label
+        allow_open_east_edge = "ocean_edge" in label or layered_inland_cliff
         # Corner pieces additionally leave canonical negative Y open. Their
         # two marked ocean edges rotate together at runtime.
-        allow_open_south_edge = "ocean_edge_corner" in label
+        allow_open_south_edge = (
+            "ocean_edge_corner" in label or layered_inland_cliff
+        )
         bound_problems = _validate_bounds(
             bounds,
             tolerance,

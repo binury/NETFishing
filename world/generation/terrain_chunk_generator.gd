@@ -5,6 +5,8 @@ signal generation_completed(summary: Dictionary)
 
 const CONSTRAINT_PROFILE_QUANTIZATION := 0.001
 const CANDIDATE_WEIGHT_SCALE := 10000.0
+const LARGE_GRID_LIGHTWEIGHT_THRESHOLD := 128
+const LARGE_GRID_PROPAGATION_INTERVAL := 8
 
 @export var catalog: TerrainChunkCatalog
 @export var grid_size := Vector2i(7, 7)
@@ -14,6 +16,15 @@ const CANDIDATE_WEIGHT_SCALE := 10000.0
 @export var show_chunk_labels := false
 @export var force_center_chunk_id: StringName = &"chunk_0000"
 @export var required_chunk_ids := PackedStringArray()
+@export_group("Elevated Inland Feature")
+@export var elevated_cliff_feature_enabled := false
+@export var elevated_cliff_base_chunk_id: StringName = &"chunk_0000"
+@export var elevated_cliff_top_chunk_id: StringName = &"chunk_0009"
+@export var elevated_cliff_corner_chunk_id: StringName = &"chunk_0010"
+@export var elevated_cliff_edge_chunk_id: StringName = &"chunk_0011"
+@export var elevated_cliff_ramp_chunk_id: StringName = &"chunk_0012"
+@export_range(0.0, 1.0, 0.05) var elevated_cliff_ramp_chance := 0.75
+@export_group("")
 @export_range(1.0, 100.0, 1.0) var required_chunk_weight_multiplier := 64.0
 @export_range(1.0, 4.0, 0.05) var preferred_neighbor_weight_multiplier := 1.6
 @export_range(0.01, 1.0, 0.01) var long_repeat_weight_multiplier := 0.3
@@ -33,6 +44,8 @@ var _placements: Array[TerrainChunkVariant] = []
 var _random := RandomNumberGenerator.new()
 var _generated_chunks: Node3D
 var _backtrack_count := 0
+var _elevated_feature_center := Vector2i(-1, -1)
+var _elevated_feature_reserved_grass_indices: Dictionary[int, bool] = {}
 
 
 func _ready() -> void:
@@ -49,6 +62,9 @@ func generate() -> bool:
 	_backtrack_count = 0
 	_placements.clear()
 	_placements.resize(grid_size.x * grid_size.y)
+	if not _prepare_elevated_feature_region():
+		_placements.assign(previous_placements)
+		return false
 	if not _solve_cell(0):
 		_placements.assign(previous_placements)
 		push_error(
@@ -57,6 +73,9 @@ func generate() -> bool:
 		)
 		return false
 	_resolve_equivalent_rotations()
+	if not _apply_elevated_feature():
+		_placements.assign(previous_placements)
+		return false
 	var solution_root := _build_solution_root()
 	if solution_root == null:
 		_placements.assign(previous_placements)
@@ -195,6 +214,8 @@ func _prepare_catalog() -> bool:
 			return false
 		for variant: TerrainChunkVariant in analyzed:
 			_variants.append(variant)
+			if definition.overlay_only:
+				continue
 			var constraint_key := _constraint_key(variant)
 			var rotations: PackedInt32Array = _equivalent_rotations.get(
 				constraint_key,
@@ -206,6 +227,9 @@ func _prepare_catalog() -> bool:
 				_solver_variants.append(variant)
 	if _variants.is_empty():
 		push_error("Terrain chunk catalog produced no usable variants.")
+		return false
+	if _solver_variants.is_empty():
+		push_error("Terrain chunk catalog produced no base-terrain solver variants.")
 		return false
 	for index: int in _solver_variants.size():
 		_solver_variant_indices[_solver_variants[index]] = index
@@ -303,7 +327,7 @@ func _solve_cell(placed_count: int) -> bool:
 		return false
 	if not _requirements_can_still_be_satisfied():
 		return false
-	var next_cell := _select_next_cell()
+	var next_cell := _select_next_cell(placed_count)
 	var index := int(next_cell.get("index", -1))
 	if index < 0:
 		return false
@@ -325,7 +349,12 @@ func _solve_cell(placed_count: int) -> bool:
 	return false
 
 
-func _select_next_cell() -> Dictionary:
+func _select_next_cell(placed_count: int) -> Dictionary:
+	if (
+		_placements.size() >= LARGE_GRID_LIGHTWEIGHT_THRESHOLD
+		and placed_count % LARGE_GRID_PROPAGATION_INTERVAL != 0
+	):
+		return _select_next_large_grid_cell()
 	# Rebuild and propagate the small domain table on every branch. This catches
 	# unsupported connector chains before they turn into a deep recursive dead
 	# end, while keeping placement state simple and deterministic.
@@ -354,6 +383,54 @@ func _select_next_cell() -> Dictionary:
 			if candidates.size() == 1:
 				break
 	return {"index": best_index, "candidates": best_candidates}
+
+
+func _select_next_large_grid_cell() -> Dictionary:
+	# Full all-cell arc propagation scales cubically as the map grows. Large
+	# worlds instead use the same compatibility checks with a frontier-aware MRV
+	# pass. Exact placement validation and backtracking remain unchanged.
+	var best_index := -1
+	var best_candidates: Array[TerrainChunkVariant] = []
+	var best_placed_neighbors := -1
+	for index: int in _placements.size():
+		if _placements[index] != null:
+			continue
+		var candidates := _compatible_candidates(index)
+		if candidates.is_empty():
+			return {"index": index, "candidates": candidates}
+		var placed_neighbors := _placed_neighbor_count(index)
+		if (
+			best_index < 0
+			or candidates.size() < best_candidates.size()
+			or (
+				candidates.size() == best_candidates.size()
+				and placed_neighbors > best_placed_neighbors
+			)
+		):
+			best_index = index
+			best_candidates = candidates
+			best_placed_neighbors = placed_neighbors
+	return {"index": best_index, "candidates": best_candidates}
+
+
+func _placed_neighbor_count(index: int) -> int:
+	var coordinate := Vector2i(index % grid_size.x, index / grid_size.x)
+	var count := 0
+	for edge_value: int in TerrainChunkTopology.Edge.values():
+		var neighbor_coordinate := (
+			coordinate
+			+ TerrainChunkTopology.grid_offset(
+				edge_value as TerrainChunkTopology.Edge
+			)
+		)
+		if not _coordinate_is_inside_grid(neighbor_coordinate):
+			continue
+		var neighbor_index := (
+			neighbor_coordinate.y * grid_size.x + neighbor_coordinate.x
+		)
+		if _placements[neighbor_index] != null:
+			count += 1
+	return count
 
 
 func _propagate_domains(domains: Dictionary) -> bool:
@@ -568,6 +645,11 @@ func _candidate_can_occupy_cell(
 	if not _definition_has_capacity(candidate.definition):
 		return false
 	var coordinate := Vector2i(index % grid_size.x, index / grid_size.x)
+	if (
+		_elevated_feature_reserved_grass_indices.has(index)
+		and candidate.definition.stable_id != elevated_cliff_base_chunk_id
+	):
+		return false
 	var center := Vector2i(grid_size.x / 2, grid_size.y / 2)
 	var center_index := center.y * grid_size.x + center.x
 	if (
@@ -599,10 +681,123 @@ func _candidate_can_occupy_cell(
 	)
 
 
+func _prepare_elevated_feature_region() -> bool:
+	_elevated_feature_center = Vector2i(-1, -1)
+	_elevated_feature_reserved_grass_indices.clear()
+	if not elevated_cliff_feature_enabled:
+		return true
+	for stable_id: StringName in [
+		elevated_cliff_base_chunk_id,
+		elevated_cliff_top_chunk_id,
+		elevated_cliff_corner_chunk_id,
+		elevated_cliff_edge_chunk_id,
+		elevated_cliff_ramp_chunk_id,
+	]:
+		if catalog.definition_for_id(stable_id) == null:
+			push_error("Elevated cliff feature references missing chunk %s." % stable_id)
+			return false
+	if grid_size.x < 11 or grid_size.y < 9:
+		push_error(
+			"Elevated cliff feature requires at least an 11x9 terrain grid."
+		)
+		return false
+	var forced_center := Vector2i(grid_size.x / 2, grid_size.y / 2)
+	var candidates: Array[Vector2i] = []
+	for row: int in range(2, grid_size.y - 2):
+		for column: int in range(2, grid_size.x - 2):
+			var candidate := Vector2i(column, row)
+			if (
+				absi(candidate.x - forced_center.x) <= 2
+				and absi(candidate.y - forced_center.y) <= 2
+			):
+				continue
+			candidates.append(candidate)
+	if candidates.is_empty():
+		push_error("Terrain grid has no inland 3x3 cliff feature location.")
+		return false
+	var feature_random := RandomNumberGenerator.new()
+	feature_random.seed = generation_seed ^ 0x2E1E7A7ED
+	_elevated_feature_center = candidates[
+		feature_random.randi_range(0, candidates.size() - 1)
+	]
+	# Solve the authored 3x3 cliff assembly into a one-cell ring of ordinary
+	# level-one flat grass. Every raised piece still occupies one of the inner
+	# nine grass cells; the outer ring prevents a stream, pond, or coast profile
+	# from being exposed directly against its downhill edge.
+	for row_offset: int in range(-2, 3):
+		for column_offset: int in range(-2, 3):
+			var coordinate := (
+				_elevated_feature_center
+				+ Vector2i(column_offset, row_offset)
+			)
+			_elevated_feature_reserved_grass_indices[
+				coordinate.y * grid_size.x + coordinate.x
+			] = true
+	return true
+
+
+func _apply_elevated_feature() -> bool:
+	if not elevated_cliff_feature_enabled:
+		return true
+	if _elevated_feature_center.x < 0 or _elevated_feature_center.y < 0:
+		push_error("Elevated cliff feature has no reserved base region.")
+		return false
+	var edge_specs: Array[Dictionary] = [
+		{"offset": Vector2i(0, -1), "turns": 1},
+		{"offset": Vector2i(1, 0), "turns": 0},
+		{"offset": Vector2i(0, 1), "turns": 3},
+		{"offset": Vector2i(-1, 0), "turns": 2},
+	]
+	var feature_random := RandomNumberGenerator.new()
+	feature_random.seed = generation_seed ^ 0x51A7C11FF
+	var ramp_edge := -1
+	if feature_random.randf() < elevated_cliff_ramp_chance:
+		ramp_edge = feature_random.randi_range(0, edge_specs.size() - 1)
+	var placements: Array[Dictionary] = [
+		{"offset": Vector2i(-1, -1), "id": elevated_cliff_corner_chunk_id, "turns": 2},
+		{"offset": Vector2i(1, -1), "id": elevated_cliff_corner_chunk_id, "turns": 1},
+		{"offset": Vector2i(0, 0), "id": elevated_cliff_top_chunk_id, "turns": 0},
+		{"offset": Vector2i(-1, 1), "id": elevated_cliff_corner_chunk_id, "turns": 3},
+		{"offset": Vector2i(1, 1), "id": elevated_cliff_corner_chunk_id, "turns": 0},
+	]
+	for edge_index: int in edge_specs.size():
+		var edge_spec := edge_specs[edge_index]
+		placements.append({
+			"offset": edge_spec["offset"],
+			"id": (
+				elevated_cliff_ramp_chunk_id
+				if edge_index == ramp_edge
+				else elevated_cliff_edge_chunk_id
+			),
+			"turns": edge_spec["turns"],
+		})
+	for spec: Dictionary in placements:
+		var definition := catalog.definition_for_id(spec["id"] as StringName)
+		var variant := _authored_variant(definition, int(spec["turns"]))
+		if variant == null:
+			push_error(
+				"Elevated cliff feature cannot resolve %s rotation %d."
+				% [spec["id"], spec["turns"]]
+			)
+			return false
+		var coordinate := _elevated_feature_center + (spec["offset"] as Vector2i)
+		_placements[coordinate.y * grid_size.x + coordinate.x] = variant
+	var validation_error := _resolved_layout_validation_error(_placements)
+	if not validation_error.is_empty():
+		push_error("Elevated cliff feature is invalid: " + validation_error)
+		return false
+	return true
+
+
 func _variant_respects_ocean_boundary(
 	variant: TerrainChunkVariant,
 	coordinate: Vector2i,
 ) -> bool:
+	if (
+		variant.definition.must_be_interior
+		and _coordinate_is_on_boundary(coordinate)
+	):
+		return false
 	var ocean_edges := variant.rotated_edge_mask(
 		variant.definition.ocean_facing_edges
 	)
@@ -1231,7 +1426,7 @@ func _build_solution_root() -> Node3D:
 		if variant == null:
 			continue
 		var coordinate := Vector2i(index % grid_size.x, index / grid_size.x)
-		var chunk_root := variant.definition.packed_scene.instantiate() as Node3D
+		var chunk_root := _instantiate_chunk_root(variant.definition)
 		if chunk_root == null:
 			push_error("%s does not instantiate as Node3D." % variant.stable_key())
 			solution_root.free()
@@ -1260,6 +1455,27 @@ func _build_solution_root() -> Node3D:
 	return solution_root
 
 
+func _instantiate_chunk_root(
+	definition: TerrainChunkDefinition,
+) -> Node3D:
+	var terrain_visual := definition.packed_scene.instantiate() as Node3D
+	if terrain_visual == null:
+		return null
+	if definition.base_layer_scene == null:
+		return terrain_visual
+	var base_layer_visual := definition.base_layer_scene.instantiate() as Node3D
+	if base_layer_visual == null:
+		terrain_visual.free()
+		return null
+	var layered_root := Node3D.new()
+	layered_root.name = "LayeredTerrainChunk"
+	base_layer_visual.name = "TerrainBaseLayer"
+	terrain_visual.name = "TerrainOverlay"
+	layered_root.add_child(base_layer_visual)
+	layered_root.add_child(terrain_visual)
+	return layered_root
+
+
 func _replace_generated_chunks(solution_root: Node3D) -> void:
 	_clear_generated_chunks()
 	_generated_chunks = solution_root
@@ -1274,11 +1490,34 @@ func _add_collision(
 		chunk_root,
 		definition.primary_mesh_name,
 	)
+	_add_collision_to_mesh(
+		primary_mesh,
+		definition.stable_id,
+		"TerrainCollision",
+	)
+	if definition.base_layer_scene == null:
+		return
+	var base_layer_mesh := TerrainChunkAnalyzer.find_primary_mesh(
+		chunk_root,
+		definition.base_layer_mesh_name,
+	)
+	_add_collision_to_mesh(
+		base_layer_mesh,
+		definition.stable_id,
+		"TerrainBaseLayerCollision",
+	)
+
+
+func _add_collision_to_mesh(
+	primary_mesh: MeshInstance3D,
+	stable_id: StringName,
+	collision_name: String,
+) -> void:
 	if primary_mesh == null or primary_mesh.mesh == null:
 		return
 	var terrain_shape := primary_mesh.mesh.create_trimesh_shape()
 	if terrain_shape == null or terrain_shape.get_faces().is_empty():
-		push_warning("%s produced no terrain collision." % definition.stable_id)
+		push_warning("%s produced no terrain collision." % stable_id)
 		return
 	var concave_shape := terrain_shape as ConcavePolygonShape3D
 	if concave_shape != null:
@@ -1287,7 +1526,7 @@ func _add_collision(
 		# can never become an invisible collision gap.
 		concave_shape.backface_collision = true
 	var collision_body := StaticBody3D.new()
-	collision_body.name = "TerrainCollision"
+	collision_body.name = collision_name
 	collision_body.collision_layer = 1
 	collision_body.collision_mask = 0
 	primary_mesh.add_child(collision_body)

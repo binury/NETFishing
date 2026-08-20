@@ -5,6 +5,17 @@ extends Resource
 @export var label := ""
 @export var packed_scene: PackedScene
 @export var primary_mesh_name: StringName
+## Optional existing level-one chunk placed beneath an authored elevated
+## overlay. This lets cliff edges leave their downhill side open while the
+## ordinary base terrain remains present in the same generated cell.
+@export_group("Layered Terrain")
+@export var base_layer_scene: PackedScene
+@export var base_layer_mesh_name: StringName
+## Overlay-only chunks replace a reserved base-terrain placement after the
+## ordinary terrain solve. They remain in placement manifests and runtime
+## output, but do not inflate every cell's global solver domain.
+@export var overlay_only := false
+@export_group("")
 @export_flags("0 degrees", "90 degrees", "180 degrees", "270 degrees")
 var allowed_rotation_mask := 15
 @export_range(0.01, 100.0, 0.01) var selection_weight := 1.0
@@ -36,6 +47,9 @@ var allowed_rotation_mask := 15
 ## weight. This shapes regions without turning a visual preference into a hard
 ## generation constraint.
 @export var preferred_neighbor_tags := PackedStringArray()
+## Interior-only pieces may not occupy any outer grid cell. Coastal elevated
+## pieces use separate authored definitions rather than weakening this rule.
+@export var must_be_interior := false
 ## Coastal transition pieces should normally migrate toward the generated
 ## region's perimeter while remaining legal in the interior.
 @export var prefers_map_boundary := false

@@ -21,12 +21,13 @@ shadow_enabled = true
 [node name="TerrainChunkGenerator" type="Node3D" parent="."]
 script = ExtResource("2_generator")
 catalog = ExtResource("3_catalog")
-grid_size = Vector2i(7, 7)
+grid_size = Vector2i(11, 9)
 generation_seed = 13001
 build_collision = true
 show_chunk_labels = false
 force_center_chunk_id = &"chunk_spawn"
-required_chunk_ids = PackedStringArray("chunk_spawn", "chunk_0001", "chunk_0002", "chunk_0003", "chunk_0004", "chunk_0005", "chunk_0006", "chunk_0007")
+required_chunk_ids = PackedStringArray("chunk_spawn", "chunk_0001", "chunk_0002", "chunk_0003", "chunk_0004", "chunk_0005", "chunk_0006", "chunk_0007", "chunk_0008")
+elevated_cliff_feature_enabled = true
 
 [node name="Player" parent="." instance=ExtResource("4_player")]
 position = Vector3(0, 0.3, 0)

@@ -18,6 +18,15 @@ extends Resource
 @export_range(0.0, 100.0, 0.5) var preferred_nearby_radius := 0.0
 @export_range(1.0, 10.0, 0.1) var nearby_preference_weight_multiplier := 1.0
 @export_range(0.0, 10.0, 0.05) var clearance_radius := 0.5
+## Procedural instances use a deterministic uniform scale in this range.
+@export_range(0.1, 4.0, 0.05) var minimum_visual_scale := 1.0
+@export_range(0.1, 4.0, 0.05) var maximum_visual_scale := 1.0
+## Presentation-only offset. The prop root remains exactly terrain-aligned.
+@export var visual_offset := Vector3.ZERO
+## A single material is chosen per prop and applied only to matching imported
+## material slots. This keeps trunks untouched while varying foliage.
+@export var variant_material_slot_names := PackedStringArray()
+@export var material_variants: Array[Material] = []
 @export_range(0.0, 5.0, 0.05) var collision_radius := 0.0
 @export_range(0.0, 20.0, 0.05) var collision_height := 0.0
 @export var collision_box_size := Vector3.ZERO

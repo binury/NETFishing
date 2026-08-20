@@ -1,0 +1,9 @@
+[gd_resource type="StandardMaterial3D" format=3]
+
+[resource]
+resource_name = "leaf_variant_mid"
+albedo_color = Color(0.3147, 0.4631, 0, 1)
+metallic = 0.0
+roughness = 1.0
+shading_mode = 1
+texture_filter = 0

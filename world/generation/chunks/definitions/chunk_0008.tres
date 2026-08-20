@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="TerrainChunkDefinition" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://world/generation/terrain_chunk_definition.gd" id="1_definition"]
+[ext_resource type="PackedScene" path="res://world/generation/chunks/assets/chunk_0008.glb" id="2_scene"]
+
+[resource]
+script = ExtResource("1_definition")
+stable_id = &"chunk_0008"
+label = "beach corner"
+packed_scene = ExtResource("2_scene")
+primary_mesh_name = &"chunk_0008"
+selection_weight = 0.2
+maximum_placements = 4
+tags = PackedStringArray("land", "walkable", "sand", "coast", "slope", "corner")
+allowed_neighbor_tags = PackedStringArray("sand", "coast")
+north_allowed_neighbor_tags = PackedStringArray("beach_ocean_edge")
+west_allowed_neighbor_tags = PackedStringArray("beach_ocean_edge")
+required_neighbor_tags = PackedStringArray("beach_ocean_edge")
+minimum_required_neighbors = 2
+preferred_neighbor_tags = PackedStringArray("coast")
+prefers_map_boundary = true
+ocean_facing_edges = 6

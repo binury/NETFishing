@@ -30,6 +30,19 @@ func validation_errors() -> PackedStringArray:
 			errors.append("%s has no PackedScene." % definition.stable_id)
 		if definition.primary_mesh_name == &"":
 			errors.append("%s has no primary mesh name." % definition.stable_id)
+		if (
+			(definition.base_layer_scene == null)
+			!= (definition.base_layer_mesh_name == &"")
+		):
+			errors.append(
+				"%s must define both base-layer scene and mesh name."
+				% definition.stable_id
+			)
+		if definition.overlay_only and definition.base_layer_scene == null:
+			errors.append(
+				"%s is overlay-only but has no base-layer scene."
+				% definition.stable_id
+			)
 		if definition.allowed_rotation_mask == 0:
 			errors.append("%s allows no rotations." % definition.stable_id)
 		var has_coast := "coast" in definition.tags
@@ -42,6 +55,11 @@ func validation_errors() -> PackedStringArray:
 		elif not has_coast and has_ocean_edge:
 			errors.append(
 				"%s has an ocean-facing edge without the coast tag."
+				% definition.stable_id
+			)
+		if definition.must_be_interior and definition.prefers_map_boundary:
+			errors.append(
+				"%s cannot require the interior and prefer the boundary."
 				% definition.stable_id
 			)
 		var has_fresh_water := "fresh_water" in definition.tags
