@@ -10,6 +10,21 @@ applicable grants and representations in
 affirmative record of that agreement. Contact the owners before submitting if
 separate written terms are needed.
 
+## Contribution forks
+
+The [NETfishing Asset License](ASSET-LICENSE.md) permits a public source-control
+fork to retain NETfishing assets when the fork is maintained in good faith to
+prepare, test, review, or submit changes for possible inclusion in the official
+project. Keep the hosting platform's fork relationship visible, preserve all
+license and attribution notices, and do not publish general-audience builds or
+use the fork as an independent game or distribution.
+
+Private test builds and temporary access-controlled test servers may be shared
+with people directly participating in development or review of the proposed
+contribution. Submission remains subject to `CONTRIBUTOR-TERMS.md`; permission
+to maintain a Contribution Fork does not guarantee that its changes will be
+accepted.
+
 ## Change discipline
 
 - Keep a change focused; avoid unrelated cleanup.

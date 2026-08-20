@@ -95,8 +95,8 @@ world and UI authoring, and testing are consolidated in
   [GPL-3.0-or-later](LICENSE).
 - Project-owned artwork, models, music, and other creative assets are covered
   by the [NETfishing Asset License](ASSET-LICENSE.md). It permits community
-  Mods for official NETfishing software, but not use in forks, clones, or
-  unrelated products.
+  Mods for official NETfishing software and narrowly scoped contribution forks,
+  but not independent forks, clones, or unrelated products.
 - The NETfishing and Woofmeow names and branding are reserved as described in
   [TRADEMARKS.md](TRADEMARKS.md).
 - Third-party materials retain their own terms; see the consolidated

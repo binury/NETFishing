@@ -53,11 +53,12 @@ alone does not relicense third-party material.
 The GPL permits study, modification, redistribution, and forks of covered
 code. It does not grant rights to NETfishing creative assets or branding. The
 NETfishing Asset License separately permits qualifying noncommercial add-on
-Mods for official NETfishing software; it does not permit those assets to
-accompany code forks, clones, standalone games, unrelated products, or
-general-purpose asset packs. A GPL fork must replace NETfishing assets and
-reserved branding with independently licensed material and a distinct
-identity.
+Mods for official NETfishing software and narrowly scoped Contribution Forks
+used to prepare changes for possible upstream inclusion. It does not permit
+those assets to accompany independent code forks, clones, standalone games,
+unrelated products, or general-purpose asset packs. A GPL fork that is not a
+qualifying Contribution Fork must replace NETfishing assets and reserved
+branding with independently licensed material and a distinct identity.
 
 Project-wide code, asset, branding, or contributor-license changes require
 written approval from both NETfishing owners under their private joint
