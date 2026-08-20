@@ -893,8 +893,9 @@ func _on_entry_text_submitted(_value: String) -> void:
 func _send() -> void:
 	if _send_pending:
 		return
-	var body := _entry.text
-	if body.strip_edges().is_empty():
+	var strippable_spaces := RegEx.create_from_string("(^\\s+|\\s+$)")
+	var body := strippable_spaces.sub(_entry.text, "", true)
+	if body.is_empty():
 		close_chat()
 		return
 	if _handle_editor_world_command(body):
