@@ -302,7 +302,9 @@ func _run_client() -> void:
 		]
 	)
 	assert(service.has_local_attempt())
-	assert(player.bag.get_quantity(&"worms") == worms_before_cast - 1)
+	# Bait remains available while the bobber is waiting. It is consumed only
+	# once the authoritative bite begins.
+	assert(player.bag.get_quantity(&"worms") == worms_before_cast)
 	var fishing_deadline: int = Time.get_ticks_msec() + 5000
 	while (
 		Time.get_ticks_msec() < fishing_deadline

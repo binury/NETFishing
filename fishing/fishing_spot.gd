@@ -417,20 +417,21 @@ func configure_accessibility_auto_click(
 
 func begin_water_recovery() -> void:
 	_external_input_blocked = true
-	if state in [
-		FishingState.AIMING_CAST,
-		FishingState.CASTING,
-		FishingState.WAITING_FOR_BITE,
-		FishingState.FIGHTING,
-	]:
-		_cancel_attempt()
-		# Recovery replaces the normal rod-return presentation. Finish the local
-		# cleanup now so its temporary movement lock is not captured and restored
-		# after the player respawns.
-		if state != FishingState.READY:
-			_finalize_attempt_cleanup("")
-	elif state == FishingState.SHOWING_CATCH:
+	if state == FishingState.SHOWING_CATCH:
 		_secure_showcase_catch_for_recovery()
+	elif is_fishing_sequence_active():
+		if state in [
+			FishingState.AIMING_CAST,
+			FishingState.CASTING,
+			FishingState.WAITING_FOR_BITE,
+			FishingState.FIGHTING,
+		]:
+			_cancel_attempt()
+		# Recovery replaces every in-flight rod return. This includes RETURNING,
+		# which can be entered by Escape a frame before the water trigger fires.
+		# Finish cleanup now so recovery never snapshots the cast movement lock.
+		if state != FishingState.READY or _active_player != null:
+			_finalize_attempt_cleanup("")
 
 
 func end_water_recovery() -> void:
@@ -537,6 +538,12 @@ func _unhandled_input(event: InputEvent) -> void:
 	if not primary_action and not (
 		alternate_reel and state == FishingState.FIGHTING
 	):
+		return
+	# A held keyboard key emits echo events. Treat the alternate reel exactly
+	# like a mouse button: one barrier hit per physical press, while the normal
+	# held-input path continues driving free reeling between barriers.
+	if event is InputEventKey and event.echo:
+		get_viewport().set_input_as_handled()
 		return
 	var selected_item: ItemDataType = _get_active_item()
 	if (
@@ -948,7 +955,6 @@ func _on_cast_completed() -> void:
 	if _selected_fish == null:
 		_cleanup_attempt("nothing is biting here.", &"invalid")
 		return
-	_consume_active_bait()
 
 	state = FishingState.WAITING_FOR_BITE
 	_active_player.set_fishing_visual(true)
@@ -975,11 +981,13 @@ func _on_cast_completed() -> void:
 	status_changed.emit("")
 
 
-func _consume_active_bait() -> void:
+func _consume_active_bait() -> bool:
 	if _active_player == null or _active_player.active_bait_id.is_empty():
-		return
+		return true
 	if _local_bag == null or not _local_bag.remove_item(_active_player.active_bait_id, 1):
 		_active_player.unequip_bait()
+		return false
+	return true
 
 
 func roll_bite_wait_time() -> float:
@@ -1131,14 +1139,18 @@ func _activate_bite(confirmation_override: bool = false) -> void:
 		return
 
 	_set_bite_confirmation_pending(false)
-	state = FishingState.FIGHTING
-	_active_player.set_fighting_visual(true)
-	_state_time_remaining = 0.0
-	_withdrawal_input_held = false
 	_pending_catch = _fish_selector.create_catch(_selected_fish)
 	if _pending_catch == null or not _pending_catch.is_valid():
 		_cancel_attempt()
 		return
+	if not _consume_active_bait():
+		_pending_catch = null
+		_cleanup_attempt("No bait available.", &"cancel")
+		return
+	state = FishingState.FIGHTING
+	_active_player.set_fighting_visual(true)
+	_state_time_remaining = 0.0
+	_withdrawal_input_held = false
 	_start_fight_audio()
 	bite_activated.emit()
 	status_changed.emit("fish on!")

@@ -168,6 +168,7 @@ func cancel_local_attempt(reason: String = "Fishing attempt ended.") -> void:
 	if _session.is_host():
 		_cancel_attempt(peer_id, reason)
 	else:
+		_pending_local_bait_by_request.erase(attempt.request_id)
 		submit_cancel_request.rpc_id(1, attempt.attempt_id)
 
 
@@ -361,7 +362,7 @@ func _handle_cast_request(peer_id: int, data: Dictionary) -> void:
 			owns_authoritative_bag
 			and (
 				avatar_bag == null
-				or not avatar_bag.remove_item(bait_id, 1)
+				or not avatar_bag.owns_item(bait_id)
 			)
 		)
 	):
@@ -378,6 +379,7 @@ func _handle_cast_request(peer_id: int, data: Dictionary) -> void:
 	attempt.bobber_position = authoritative_target
 	attempt.fish_id = selected_fish.id
 	attempt.rod_id = rod.item_id
+	attempt.bait_id = bait_id
 	attempt.bait_tags = _bait_tags_for_request(data)
 	attempt.lure_effects.clear()
 	if lure != null:
@@ -564,7 +566,6 @@ func _start_bite(attempt: NetworkFishingAttempt) -> void:
 		_cancel_attempt(attempt.owner_peer_id, "Fishing attempt ended.")
 		return
 	attempt.bite_confirmation_pending = false
-	attempt.phase = NetworkFishingAttempt.Phase.FIGHTING
 	attempt.encounter_seed = _new_seed()
 	var selector := FishSelectorType.new()
 	selector.active_rod = rod
@@ -575,6 +576,17 @@ func _start_bite(attempt: NetworkFishingAttempt) -> void:
 	if fish_catch == null or not fish_catch.is_valid():
 		_cancel_attempt(attempt.owner_peer_id, "Fishing attempt ended.")
 		return
+	if (
+		attempt.owner_peer_id == _session.get_local_peer_id()
+		and not attempt.bait_id.is_empty()
+		and (
+			_local_bag == null
+			or not _local_bag.remove_item(attempt.bait_id, 1)
+		)
+	):
+		_cancel_attempt(attempt.owner_peer_id, "No bait available.")
+		return
+	attempt.phase = NetworkFishingAttempt.Phase.FIGHTING
 	attempt.catch_payload = fish_catch.to_network_dict()
 	attempt.controller.start_authoritative_encounter(
 		fish.catch_profile,
@@ -1031,6 +1043,13 @@ func _apply_public_outcome(data: Dictionary) -> void:
 	if peer_id == _session.get_local_peer_id():
 		if str(data["outcome"]) != "catch":
 			if not _session.is_host():
+				var local_attempt: NetworkFishingAttempt = _attempts.get(
+					peer_id
+				)
+				if local_attempt != null:
+					_pending_local_bait_by_request.erase(
+						local_attempt.request_id
+					)
 				_attempts.erase(peer_id)
 			local_attempt_ended.emit(
 				StringName(str(data["outcome"])),
@@ -1091,20 +1110,6 @@ func _apply_cast_accepted(data: Dictionary) -> void:
 		# On the host this replaces the same authoritative value with itself.
 		if not _session.is_host():
 			_attempts[peer_id] = attempt
-			var pending_bait_id: StringName = (
-				_pending_local_bait_by_request.get(
-					attempt.request_id,
-					StringName(),
-				)
-			)
-			_pending_local_bait_by_request.erase(attempt.request_id)
-			if not pending_bait_id.is_empty() and (
-				_local_bag == null
-				or not _local_bag.remove_item(pending_bait_id, 1)
-			):
-				cancel_local_attempt("No bait available.")
-				local_cast_rejected.emit("No bait available.")
-				return
 		local_cast_accepted.emit(attempt.attempt_id, target)
 	else:
 		var presentation := _get_remote_presentation(peer_id)
@@ -1140,6 +1145,22 @@ func _apply_bite_started(data: Dictionary) -> void:
 		return
 	var peer_id: int = data["owner_peer_id"]
 	if peer_id == _session.get_local_peer_id():
+		if not _session.is_host():
+			var attempt: NetworkFishingAttempt = _attempts.get(peer_id)
+			var pending_bait_id := StringName()
+			if attempt != null:
+				pending_bait_id = _pending_local_bait_by_request.get(
+					attempt.request_id,
+					StringName(),
+				)
+				_pending_local_bait_by_request.erase(attempt.request_id)
+			if not pending_bait_id.is_empty() and (
+				_local_bag == null
+				or not _local_bag.remove_item(pending_bait_id, 1)
+			):
+				cancel_local_attempt("No bait available.")
+				local_cast_rejected.emit("No bait available.")
+				return
 		local_bite_started.emit(str(data["attempt_id"]))
 	else:
 		var presentation := _get_remote_presentation(peer_id)
@@ -1260,12 +1281,12 @@ func _dispose_attempt(peer_id: int) -> void:
 		attempt.controller.reset()
 		attempt.controller.queue_free()
 	var avatar: Player = _spawn_service.get_avatar(peer_id)
-	var local_return_is_active: bool = (
+	var local_fishing_sequence_is_active: bool = (
 		peer_id == _session.get_local_peer_id()
 		and _fishing_spot != null
-		and _fishing_spot.is_returning()
+		and _fishing_spot.is_fishing_sequence_active()
 	)
-	if avatar != null and not local_return_is_active:
+	if avatar != null and not local_fishing_sequence_is_active:
 		avatar.set_movement_enabled(true)
 
 
@@ -1307,6 +1328,7 @@ func _clear_all() -> void:
 	_result_acknowledgements.clear()
 	_last_cast_time.clear()
 	_last_input_time.clear()
+	_pending_local_bait_by_request.clear()
 	_snapshot_accumulator = 0.0
 	_local_input_sequence = 0
 

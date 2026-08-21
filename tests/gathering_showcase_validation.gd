@@ -59,6 +59,11 @@ func _run() -> void:
 	assert(fishing_spot.present_external_catch(crab_catch))
 	assert(fishing_spot.state == FishingSpot.FishingState.SHOWING_CATCH)
 	assert(not player.is_movement_enabled())
+	# Network attempt cleanup may restore the base movement flag before the
+	# presentation finishes. The showcase owns a separate local-input lock.
+	player.set_movement_enabled(true)
+	assert(not bool(player.call("_is_movement_input_enabled")))
+	assert(not bool(player.call("_is_camera_input_enabled")))
 	Input.action_release("fish_primary")
 	await process_frame
 	assert(not bool(fishing_spot.get("_put_away_press_armed")))
@@ -85,6 +90,8 @@ func _run() -> void:
 		await process_frame
 	assert(fishing_spot.state == FishingSpot.FishingState.READY)
 	assert(player.is_movement_enabled())
+	assert(bool(player.call("_is_movement_input_enabled")))
+	assert(bool(player.call("_is_camera_input_enabled")))
 	assert(player.inventory.contains_catch_id(crab_catch.catch_id))
 	assert(bool(player.get("_active_item_is_net")))
 	print("Gathering showcase validation: PASS")

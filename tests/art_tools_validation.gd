@@ -27,6 +27,7 @@ func _run() -> void:
 	await physics_frame
 
 	var player := main.get("_player") as Player
+	var session := main.get_node("%NetworkSession") as NetworkSession
 	var sprint_dust := player.get_node("%SprintDust") as SprintDustTrail
 	assert(sprint_dust != null)
 	assert(sprint_dust.get_active_puff_count() == 0)
@@ -310,6 +311,55 @@ func _run() -> void:
 	right_stick_motion.axis_value = 0.0
 	Input.parse_input_event(right_stick_motion)
 	await process_frame
+
+	# Chat owns all movement while text entry is active, including developer
+	# freecam movement which reads the same WASD actions as the player.
+	var free_camera_body := player.get("_free_camera_body") as CharacterBody3D
+	assert(free_camera_body != null)
+	chat_ui.open_chat()
+	assert(chat_ui.is_open())
+	var free_camera_position_before: Vector3 = free_camera_body.global_position
+	Input.action_press("move_forward")
+	for _frame: int in 3:
+		await physics_frame
+	Input.action_release("move_forward")
+	assert(free_camera_body.global_position.is_equal_approx(
+		free_camera_position_before
+	))
+	chat_ui.refocus_gameplay()
+
+	# Typewriter speech cycles the shared open-mouth faceplates, then restores
+	# the player's authored mouth. World speech also follows the active freecam,
+	# not the inactive normal gameplay camera.
+	var normal_camera := player.get_gameplay_camera()
+	var normal_camera_transform: Transform3D = normal_camera.global_transform
+	var chat_anchor: Vector3 = player.get_chat_anchor_position()
+	normal_camera.look_at(
+		normal_camera.global_position
+		- (chat_anchor - normal_camera.global_position),
+		Vector3.UP,
+	)
+	assert(normal_camera.is_position_behind(chat_anchor))
+	assert(not free_camera.is_position_behind(chat_anchor))
+	chat_ui.show_local_speech("hello there friend")
+	await process_frame
+	assert(bool(player.get("_speech_mouth_active")))
+	var first_speech_mouth: String = str(player.get("_speech_mouth_id"))
+	await create_timer(0.12).timeout
+	var second_speech_mouth: String = str(player.get("_speech_mouth_id"))
+	assert(not first_speech_mouth.is_empty())
+	assert(not second_speech_mouth.is_empty())
+	assert(first_speech_mouth != second_speech_mouth)
+	chat_ui.call("_update_speech")
+	var speech: Dictionary = chat_ui.get("_speech")
+	var local_speech: Dictionary = speech.get(session.get_local_peer_id(), {})
+	var speech_bubble := local_speech.get("bubble") as PanelContainer
+	assert(speech_bubble != null and speech_bubble.visible)
+	normal_camera.global_transform = normal_camera_transform
+	await create_timer(0.6).timeout
+	assert(not bool(player.get("_speech_mouth_active")))
+	chat_ui.call("_on_peer_removed", session.get_local_peer_id())
+
 	game_ui.call("_on_quick_action_selected", &"freecam")
 	assert(not player.is_free_camera_active())
 	game_ui.call("_on_quick_action_selected", &"hud")
@@ -754,7 +804,6 @@ func _run() -> void:
 	assert(not service.is_active() and not toolbar.visible)
 
 	print("Art tools validation: PASS")
-	var session := main.get_node("%NetworkSession") as NetworkSession
 	session.disconnect_session("")
 	main.queue_free()
 	for _frame: int in 4:

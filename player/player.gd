@@ -85,6 +85,7 @@ const CHARACTER_NET_STRIKE_ANIMATION: StringName = &"strike"
 const CATCH_PRESENTATION_REFERENCE_LONG_SIDE_PX: float = 1280.0
 const CATCH_PRESENTATION_MIN_TEXTURE_SCALE: float = 0.1
 const CATCH_PRESENTATION_MAX_TEXTURE_SCALE: float = 20.0
+const CATCH_SHOWCASE_INPUT_OWNER: StringName = &"catch_showcase"
 # Add future networked emote animation IDs here. The protocol accepts unknown
 # safe IDs so newer clients can extend it, but Player only presents actions
 # explicitly approved by this catalog.
@@ -122,6 +123,13 @@ const BLINK_INTERVAL_SECONDS := Vector2(2.8, 7.5)
 const BLINK_DURATION_SECONDS: float = 0.11
 const CHARACTER_CALL_MOUTH_ID: String = "open_ah"
 const CHARACTER_CALL_MOUTH_DURATION_SECONDS: float = 0.16
+const SPEECH_MOUTH_IDS: Array[String] = [
+	"open_ah",
+	"open_oh",
+	"open_small",
+	"open_smile",
+]
+const SPEECH_MOUTH_FRAME_SECONDS: float = 0.09
 const BASE_REEL_SPEED: float = 0.16
 const LANDING_DUST_MIN_FALL_SPEED: float = 2.5
 const NETWORK_EXTRAPOLATION_LIMIT_SECONDS: float = 0.25
@@ -227,6 +235,42 @@ func play_character_call_visual() -> void:
 	_apply_presented_appearance()
 
 
+func play_speech_visual(duration_seconds: float) -> void:
+	stop_speech_visual()
+	if duration_seconds <= 0.0 or SPEECH_MOUTH_IDS.is_empty():
+		return
+	var generation: int = _speech_visual_generation
+	var elapsed: float = 0.0
+	var frame_index: int = 0
+	_speech_mouth_active = true
+	while elapsed < duration_seconds:
+		_speech_mouth_id = SPEECH_MOUTH_IDS[
+			frame_index % SPEECH_MOUTH_IDS.size()
+		]
+		_apply_presented_appearance()
+		var frame_duration := minf(
+			SPEECH_MOUTH_FRAME_SECONDS,
+			duration_seconds - elapsed,
+		)
+		await get_tree().create_timer(frame_duration).timeout
+		if generation != _speech_visual_generation:
+			return
+		elapsed += frame_duration
+		frame_index += 1
+	_speech_mouth_active = false
+	_speech_mouth_id = ""
+	_apply_presented_appearance()
+
+
+func stop_speech_visual() -> void:
+	_speech_visual_generation += 1
+	if not _speech_mouth_active and _speech_mouth_id.is_empty():
+		return
+	_speech_mouth_active = false
+	_speech_mouth_id = ""
+	_apply_presented_appearance()
+
+
 func set_fishing_visual(active: bool) -> void:
 	if (
 		active
@@ -295,6 +339,10 @@ func _apply_presented_appearance() -> void:
 	if _fighting_visual_active:
 		presented_appearance = appearance_snapshot.duplicate(true)
 		presented_appearance["eyes"] = FIGHTING_EYES_ID
+	if _speech_mouth_active and not _speech_mouth_id.is_empty():
+		if presented_appearance == appearance_snapshot:
+			presented_appearance = appearance_snapshot.duplicate(true)
+		presented_appearance["mouth"] = _speech_mouth_id
 	if _character_call_mouth_active:
 		if presented_appearance == appearance_snapshot:
 			presented_appearance = appearance_snapshot.duplicate(true)
@@ -505,6 +553,9 @@ var _blink_seconds_remaining: float = 0.0
 var _blink_rng := RandomNumberGenerator.new()
 var _character_call_mouth_active: bool = false
 var _character_call_visual_generation: int = 0
+var _speech_mouth_active: bool = false
+var _speech_mouth_id: String = ""
+var _speech_visual_generation: int = 0
 var _fishing_visual_active: bool = false
 var _fishing_visual_phase: FishingVisualPhase = FishingVisualPhase.NONE
 var _fishing_after_release_pending: bool = false
@@ -1755,6 +1806,10 @@ func _update_free_camera_physics() -> void:
 	if _free_camera == null or _free_camera_body == null:
 		_set_free_camera_active(false)
 		return
+	if not _is_movement_input_enabled():
+		_free_camera_body.velocity = Vector3.ZERO
+		_free_camera_body.move_and_slide()
+		return
 	var input_vector: Vector2 = Input.get_vector(
 		"move_left",
 		"move_right",
@@ -2981,6 +3036,8 @@ func _begin_catch_showcase_now(
 ) -> void:
 	if _pocket_visual_target == PocketVisualTarget.CATCH_SHOWCASE:
 		_cancel_pocket_visual()
+	if local_control_enabled:
+		set_local_input_suppressed(CATCH_SHOWCASE_INPUT_OWNER, true)
 	_showcase_animation_active = true
 	set_fishing_visual(false)
 	_kill_showcase_camera_tween()
@@ -3149,6 +3206,8 @@ func end_catch_showcase(
 		not _showcase_visual_rotation_stored
 		and _showcase_camera_snapshot == null
 	):
+		if local_control_enabled:
+			set_local_input_suppressed(CATCH_SHOWCASE_INPUT_OWNER, false)
 		if restored_callback.is_valid():
 			restored_callback.call()
 		return
@@ -3310,6 +3369,8 @@ func _complete_showcase_restore(
 			and Input.is_action_pressed("camera_drag")
 		)
 	_showcase_camera_snapshot = null
+	if local_control_enabled:
+		set_local_input_suppressed(CATCH_SHOWCASE_INPUT_OWNER, false)
 	if restored_callback.is_valid():
 		restored_callback.call()
 

@@ -1068,6 +1068,8 @@ func _show_speech_bubble(
 	var voice_profile_id: String = VoiceProfilesType.DEFAULT_ID
 	var sample_set_id: String = VoiceProfilesType.DEFAULT_SAMPLE_SET_ID
 	var speaker_avatar := _spawn.get_avatar(peer_id)
+	if speaker_avatar != null:
+		speaker_avatar.play_speech_visual(reveal_seconds)
 	if not requested_voice_profile_id.is_empty():
 		voice_profile_id = VoiceProfilesType.sanitized_id(
 			requested_voice_profile_id
@@ -1360,10 +1362,13 @@ func _update_speech() -> void:
 		if bubble == null or now >= float(state.get("expires", 0.0)):
 			if bubble != null:
 				bubble.queue_free()
+			var expired_avatar := _spawn.get_avatar(peer_id)
+			if expired_avatar != null:
+				expired_avatar.stop_speech_visual()
 			_speech.erase(peer_id)
 			continue
 		var avatar := _spawn.get_avatar(peer_id)
-		var camera := _player.get_gameplay_camera()
+		var camera := _player.get_active_gameplay_camera()
 		if avatar == null or camera == null:
 			bubble.hide()
 			continue
@@ -1824,4 +1829,7 @@ func _on_peer_removed(peer_id: int) -> void:
 	var bubble := state.get("bubble") as PanelContainer
 	if bubble != null:
 		bubble.queue_free()
+	var avatar := _spawn.get_avatar(peer_id)
+	if avatar != null:
+		avatar.stop_speech_visual()
 	_speech.erase(peer_id)

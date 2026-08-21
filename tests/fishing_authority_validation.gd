@@ -35,10 +35,17 @@ func _run() -> void:
 	var fishing_status := game_ui.get_node("%StatusLabel") as Label
 	var fishing_panel := game_ui.get_node("%FishingPanel") as PanelContainer
 	var player := main.get("_player") as Player
+	var item_catalog := main.get("item_catalog") as ItemCatalog
 	assert(session.is_host())
 	assert(not session.is_open_host())
 	assert(service != null and fishing_spot != null and player != null)
 	assert(player.hotbar.get_selected_item_id() == &"basic_fishing_rod")
+	var worms: ItemData = item_catalog.get_item_by_id(&"worms")
+	assert(worms != null)
+	if player.bag.get_quantity(&"worms") == 0:
+		assert(player.bag.add_item(&"worms", 2))
+	assert(player.equip_bait(worms))
+	var bait_quantity_before: int = player.bag.get_quantity(&"worms")
 	var fresh_root := main.get_node(
 		"TestWorld/Regions/GeneratedWorldRegion/WaterBodies/FreshWaterBodies"
 	) as Node3D
@@ -90,6 +97,7 @@ func _run() -> void:
 		await process_frame
 	assert(fishing_spot.state == FishingSpotType.FishingState.WAITING_FOR_BITE)
 	assert(service.has_local_attempt())
+	assert(player.bag.get_quantity(&"worms") == bait_quantity_before)
 	assert(fishing_status.text.is_empty())
 	assert(not fishing_status.visible)
 	assert(not fishing_panel.visible)
@@ -124,6 +132,7 @@ func _run() -> void:
 	assert(fishing_spot.state == FishingSpotType.FishingState.READY)
 	assert(player.is_movement_enabled())
 	assert(not bobber.visible)
+	assert(player.bag.get_quantity(&"worms") == bait_quantity_before)
 
 	# A private host rolls and retains the authoritative catch before the fight
 	# so its quality selects the barrier band clients receive in snapshots.
@@ -141,9 +150,11 @@ func _run() -> void:
 	attempts = service.get("_attempts")
 	attempt = attempts.get(session.get_local_peer_id())
 	assert(attempt != null)
+	assert(player.bag.get_quantity(&"worms") == bait_quantity_before)
 	service.call("_start_bite", attempt)
 	await process_frame
 	assert(attempt.phase == NetworkFishingAttempt.Phase.FIGHTING)
+	assert(player.bag.get_quantity(&"worms") == bait_quantity_before - 1)
 	var catalog: FishPool = main.get("fish_catalog") as FishPool
 	assert(catalog != null)
 	var fish: FishData = catalog.get_fish_by_id(attempt.fish_id)
@@ -217,6 +228,29 @@ func _run() -> void:
 	assert(player.is_movement_enabled())
 	assert(fishing_spot.can_change_hotbar_selection())
 	assert(fishing_spot.can_open_fishing_shop())
+
+	# Escape can put the rod into RETURNING immediately before deep-water
+	# recovery begins. Recovery must finish that return before snapshotting its
+	# movement state, otherwise the respawn restores a permanent cast lock.
+	var water_recovery := main.get_node("%WaterRecovery") as WaterRecoveryController
+	assert(water_recovery != null)
+	var pause_menu: PauseMenu = game_ui.get_pause_menu()
+	pause_menu.open_menu()
+	assert(pause_menu.visible)
+	player.set_movement_enabled(false)
+	fishing_spot.set("_active_player", player)
+	fishing_spot.state = FishingSpotType.FishingState.RETURNING
+	water_recovery.call(
+		"_on_recovery_requested",
+		player,
+		player.global_position.y,
+	)
+	assert(fishing_spot.state == FishingSpotType.FishingState.READY)
+	assert(bool(water_recovery.get("_prior_movement_enabled")))
+	assert(bool(water_recovery.get("_prior_camera_input_enabled")))
+	assert(not pause_menu.visible)
+	water_recovery.call("_finish_recovery")
+	assert(player.is_movement_enabled())
 
 	print("Fishing authority validation: PASS")
 	session.disconnect_session("")

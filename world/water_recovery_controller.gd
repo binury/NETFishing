@@ -143,14 +143,17 @@ func _on_recovery_requested(
 		or not is_instance_valid(triggered_player)
 	):
 		return
-	recovery_starting.emit()
 	_generation += 1
 	_entry_position = _player.global_position
 	_recovery_root_basis = _player.global_basis
 	_fishing_spot.begin_water_recovery()
 	_player.prepare_for_water_recovery()
+	# Snapshot the normalized gameplay state before recovery_starting closes
+	# menus for the handoff. Those closures deliberately disable movement and
+	# camera input, which are recovery-owned locks rather than states to restore.
 	_prior_movement_enabled = _player.is_movement_enabled()
 	_prior_camera_input_enabled = _player.is_camera_input_enabled()
+	recovery_starting.emit()
 	_player.set_movement_enabled(false)
 	_player.set_camera_input_enabled(false)
 	_player.set_water_recovery_active(true)

@@ -181,6 +181,20 @@ func _run() -> void:
 	catch_profile.barrier_count_min = 0
 	catch_profile.barrier_count_max = 0
 	catch_controller.start_encounter(catch_profile, 1.0, 1)
+	var alternate_echo := InputEventKey.new()
+	alternate_echo.physical_keycode = KEY_QUOTELEFT
+	alternate_echo.pressed = true
+	alternate_echo.echo = true
+	assert(alternate_echo.is_action(&"reel_alternate"))
+	fishing_spot._unhandled_input(alternate_echo)
+	assert(not bool(catch_controller.get("_reel_input_held")))
+	var alternate_key_press := InputEventKey.new()
+	alternate_key_press.physical_keycode = KEY_QUOTELEFT
+	alternate_key_press.pressed = true
+	assert(alternate_key_press.is_action(&"reel_alternate"))
+	fishing_spot._unhandled_input(alternate_key_press)
+	assert(bool(catch_controller.get("_reel_input_held")))
+	catch_controller.set_reel_input(false)
 	var alternate_press := InputEventAction.new()
 	alternate_press.action = &"reel_alternate"
 	alternate_press.pressed = true
