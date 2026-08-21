@@ -15,7 +15,7 @@ enum Kind { PLAYER, SYSTEM }
 static func sanitize_body(value: Variant) -> String:
 	if typeof(value) != TYPE_STRING:
 		return ""
-	var strippable_whitespace = RegEx.create_from_string("^[\\s\\p{Z}\\p{Cf}\\x{2800}]+|[\\s\\p{Z}\\p{Cf}\\x{2800}]+$")
+	var strippable_whitespace = RegEx.create_from_string("^[^\\w]+|[^\\w]+$")
 	var result := strippable_whitespace.sub(value, "")
 	if result.is_empty() or result.length() > MAX_VISIBLE_CHARACTERS:
 		return ""
