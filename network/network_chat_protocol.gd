@@ -9,15 +9,27 @@ const MAX_HISTORY: int = 100
 const LATE_JOIN_HISTORY: int = 50
 const MAX_ID_LENGTH: int = 96
 
+static var _invisible_edge_pattern: RegEx = RegEx.create_from_string(
+	"^[\\s\\p{Z}\\p{Cf}\\x{2800}]+|[\\s\\p{Z}\\p{Cf}\\x{2800}]+$"
+)
+static var _visible_content_pattern: RegEx = RegEx.create_from_string(
+	"[^\\s\\p{Z}\\p{Cf}\\x{2800}]"
+)
+
 enum Kind { PLAYER, SYSTEM }
 
 
 static func sanitize_body(value: Variant) -> String:
 	if typeof(value) != TYPE_STRING:
 		return ""
-	var strippable_whitespace = RegEx.create_from_string("^[^\\w]+|[^\\w]+$")
-	var result := strippable_whitespace.sub(value, "")
-	if result.is_empty() or result.length() > MAX_VISIBLE_CHARACTERS:
+	var result: String = str(value).replace("\r", " ").replace("\n", " ")
+	result = result.replace("\t", " ")
+	result = _invisible_edge_pattern.sub(result, "", true)
+	if (
+		result.is_empty()
+		or _visible_content_pattern.search(result) == null
+		or result.length() > MAX_VISIBLE_CHARACTERS
+	):
 		return ""
 	if result.to_utf8_buffer().size() > MAX_UTF8_BYTES:
 		return ""
