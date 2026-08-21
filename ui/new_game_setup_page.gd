@@ -187,10 +187,10 @@ func _refresh_presentation() -> void:
 	_generated_button.set_pressed_no_signal(generated)
 	_starter_button.set_pressed_no_signal(not generated)
 	_world_description.text = (
-		"build a new island from terrain chunks. the same seed always "
-		+ "builds the same world."
+		"build a new island from terrain chunks.\n"
+		+ "the same seed always builds the same world."
 		if generated
-		else "play on the authored starter island."
+		else "play on the starter island."
 	)
 	_seed_section.visible = generated
 	_random_seed_button.set_pressed_no_signal(

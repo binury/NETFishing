@@ -2,6 +2,7 @@ extends SceneTree
 
 const MainScene = preload("res://main/main.tscn")
 const FishingSpotType = preload("res://fishing/fishing_spot.gd")
+const TEST_SEED: int = 864209
 
 
 func _initialize() -> void:
@@ -22,9 +23,23 @@ func _run() -> void:
 
 func _run_host() -> void:
 	var main: Node = await _create_initialized_main()
+	assert(bool(main.call(
+		"_apply_world",
+		WorldLayout.STARTER_ISLAND,
+		TEST_SEED,
+		true,
+	)))
+	assert(bool(main.call(
+		"_prepare_host_world",
+		WorldLayout.STARTER_ISLAND,
+		TEST_SEED,
+	)))
 	assert(bool(main.call("_prepare_private_host")))
 	var save_manager := main.get("_save_manager") as PlayerSaveManager
-	assert(save_manager.initialize_new_game())
+	assert(save_manager.initialize_new_game(
+		TEST_SEED,
+		WorldLayout.STARTER_ISLAND,
+	))
 	main.call("_enter_gameplay")
 	var session := main.get_node("%NetworkSession") as NetworkSession
 	assert(session.set_host_open(true))
@@ -217,7 +232,9 @@ func _run_client() -> void:
 		int(player.get("_fishing_visual_phase"))
 		== Player.FishingVisualPhase.CASTING
 	)
-	for _frame: int in 30:
+	# Keep the transient pull-back pose visible long enough for the separate host
+	# process to observe it even when a cold validation run is CPU-bound.
+	for _frame: int in 120:
 		await physics_frame
 	player.set_fishing_visual(false)
 	player.call("_set_sitting", true, true)

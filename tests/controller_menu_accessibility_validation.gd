@@ -353,6 +353,8 @@ func _validate_data_settings_navigation() -> void:
 		"Open Data Folder left a controller-activatable dialog behind.",
 	)
 	var change_data_folder := panel.get_node("%ChangeDataFolder") as Button
+	var export_progression := panel.get_node("%ExportProgression") as Button
+	var import_progression := panel.get_node("%ImportProgression") as Button
 	var copy_fingerprint := panel.get_node("%CopyPlayerFingerprint") as Button
 	var export_player := panel.get_node("%ExportPlayerIdentity") as Button
 	var import_player := panel.get_node("%ImportPlayerIdentity") as Button
@@ -362,6 +364,8 @@ func _validate_data_settings_navigation() -> void:
 		data_tab,
 		open_data_folder,
 		change_data_folder,
+		export_progression,
+		import_progression,
 		copy_fingerprint,
 		export_player,
 		import_player,
@@ -385,7 +389,7 @@ func _validate_data_settings_navigation() -> void:
 	_assert_neighbor(
 		open_data_folder,
 		&"focus_neighbor_bottom",
-		copy_fingerprint,
+		export_progression,
 	)
 	_assert_neighbor(
 		change_data_folder,
@@ -395,12 +399,42 @@ func _validate_data_settings_navigation() -> void:
 	_assert_neighbor(
 		change_data_folder,
 		&"focus_neighbor_bottom",
+		import_progression,
+	)
+	_assert_neighbor(
+		export_progression,
+		&"focus_neighbor_top",
+		open_data_folder,
+	)
+	_assert_neighbor(
+		export_progression,
+		&"focus_neighbor_right",
+		import_progression,
+	)
+	_assert_neighbor(
+		export_progression,
+		&"focus_neighbor_bottom",
+		copy_fingerprint,
+	)
+	_assert_neighbor(
+		import_progression,
+		&"focus_neighbor_top",
+		change_data_folder,
+	)
+	_assert_neighbor(
+		import_progression,
+		&"focus_neighbor_left",
+		export_progression,
+	)
+	_assert_neighbor(
+		import_progression,
+		&"focus_neighbor_bottom",
 		copy_fingerprint,
 	)
 	_assert_neighbor(
 		copy_fingerprint,
 		&"focus_neighbor_top",
-		open_data_folder,
+		export_progression,
 	)
 	_assert_neighbor(
 		copy_fingerprint,

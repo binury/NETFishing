@@ -145,7 +145,10 @@ wait_for_network_host() {
 		sleep 2
 		return 0
 	fi
-	for _attempt in {1..100}; do
+	# A cold generated-world startup can take longer than ten seconds before
+	# NetworkSession is ready to bind. Keep the client launch tied to the actual
+	# listener instead of treating that normal startup work as a host failure.
+	for _attempt in {1..600}; do
 		if ! kill -0 "${host_pid}" 2>/dev/null; then
 			return 1
 		fi
@@ -231,7 +234,7 @@ run_session_switch_network_test() {
 		--headless --path "${PROJECT_ROOT}" --script "${script}" -- second_host \
 		>"${second_root}/output.log" 2>&1 &
 	second_pid=$!
-	for _attempt in {1..100}; do
+	for _attempt in {1..600}; do
 		if ! kill -0 "${first_pid}" 2>/dev/null \
 			|| ! kill -0 "${second_pid}" 2>/dev/null; then
 			break
