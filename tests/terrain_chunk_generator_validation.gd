@@ -291,11 +291,15 @@ func _validate_catalog() -> void:
 			and stream_variant.water_inlet_edges == stream.water_inlet_edges
 			and stream_variant.water_outlet_edges == stream.water_outlet_edges
 			and stream_variant.water_surface_size == stream.water_surface_size
-			and stream_variant.water_surface_offset
-			== stream.water_surface_offset,
+			and stream.water_surface_offset.x < 0.0
+			and stream_variant.water_surface_offset.x > 0.0
+			and is_equal_approx(
+				stream_variant.water_surface_offset.y,
+				stream.water_surface_offset.y,
+			),
 			(
 				"Both stream visuals must share one combined selection weight "
-				+ "and identical terrain/water behavior."
+				+ "and mirrored water footprints."
 			),
 		)
 		for cliff_definition: TerrainChunkDefinition in [

@@ -1,0 +1,13 @@
+[gd_resource type="Resource" load_steps=8 format=3]
+
+[ext_resource type="Script" path="res://fish/fish_pool.gd" id="1_pool"]
+[ext_resource type="Resource" path="res://fish/species/sturgeon_lake/sturgeon_lake.tres" id="2_sturgeon"]
+[ext_resource type="Resource" path="res://fish/species/trout_golden/trout_golden.tres" id="3_trout"]
+[ext_resource type="Resource" path="res://fish/species/chub_lake/chub_lake.tres" id="4_chub"]
+[ext_resource type="Resource" path="res://fish/species/saugeye/saugeye.tres" id="5_saugeye"]
+[ext_resource type="Resource" path="res://fish/species/walleye/walleye.tres" id="6_walleye"]
+[ext_resource type="Resource" path="res://fish/species/goby_round/goby_round.tres" id="7_goby"]
+
+[resource]
+script = ExtResource("1_pool")
+candidates = [ExtResource("2_sturgeon"), ExtResource("3_trout"), ExtResource("4_chub"), ExtResource("5_saugeye"), ExtResource("6_walleye"), ExtResource("7_goby")]

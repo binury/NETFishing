@@ -1,0 +1,18 @@
+[gd_resource type="Resource" load_steps=13 format=3]
+
+[ext_resource type="Script" path="res://fish/fish_pool.gd" id="1_pool"]
+[ext_resource type="Resource" path="res://fish/species/gar_longnose/gar_longnose.tres" id="2_gar"]
+[ext_resource type="Resource" path="res://fish/species/paddlefish/paddlefish.tres" id="3_paddlefish"]
+[ext_resource type="Resource" path="res://fish/species/sturgeon_shovelnose/sturgeon_shovelnose.tres" id="4_sturgeon"]
+[ext_resource type="Resource" path="res://fish/species/trout_cutthroat/trout_cutthroat.tres" id="5_cutthroat"]
+[ext_resource type="Resource" path="res://fish/species/trout_rainbow/trout_rainbow.tres" id="6_rainbow"]
+[ext_resource type="Resource" path="res://fish/species/catfish_blue/catfish_blue.tres" id="7_blue_catfish"]
+[ext_resource type="Resource" path="res://fish/species/catfish_flathead/catfish_flathead.tres" id="8_flathead"]
+[ext_resource type="Resource" path="res://fish/species/chub_european/chub_european.tres" id="9_chub_european"]
+[ext_resource type="Resource" path="res://fish/species/chub_flame/chub_flame.tres" id="10_chub_flame"]
+[ext_resource type="Resource" path="res://fish/species/sauger/sauger.tres" id="11_sauger"]
+[ext_resource type="Resource" path="res://fish/species/trout_steelhead/trout_steelhead.tres" id="12_steelhead"]
+
+[resource]
+script = ExtResource("1_pool")
+candidates = [ExtResource("2_gar"), ExtResource("3_paddlefish"), ExtResource("4_sturgeon"), ExtResource("5_cutthroat"), ExtResource("6_rainbow"), ExtResource("7_blue_catfish"), ExtResource("8_flathead"), ExtResource("9_chub_european"), ExtResource("10_chub_flame"), ExtResource("11_sauger"), ExtResource("12_steelhead")]

@@ -7,7 +7,7 @@
 
 [sub_resource type="Resource" id="TroutCutthroatAvailability"]
 script = ExtResource("3_availability_script")
-allowed_location_tags = Array[StringName]([&"starter_pond"])
+allowed_location_tags = Array[StringName]([&"river"])
 
 [resource]
 script = ExtResource("1_fish_data")

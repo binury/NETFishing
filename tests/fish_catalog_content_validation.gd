@@ -24,6 +24,15 @@ const PondPool: FishPoolType = preload(
 const OceanPool: FishPoolType = preload(
 	"res://fish/pools/starter_ocean_pool.tres"
 )
+const GeneratedPondPool: FishPoolType = preload(
+	"res://fish/pools/generated_pond_pool.tres"
+)
+const GeneratedLakePool: FishPoolType = preload(
+	"res://fish/pools/generated_lake_pool.tres"
+)
+const GeneratedRiverPool: FishPoolType = preload(
+	"res://fish/pools/generated_river_pool.tres"
+)
 const PelicanBuyer = preload("res://economy/buyers/pelicans.tres")
 const StarterRegionScene = preload(
 	"res://world/regions/starter_island_region.tscn"
@@ -73,6 +82,21 @@ const NEW_FRESH_WATER_IDS: Array[StringName] = [
 	&"bowfin", &"sturgeon_lake", &"gar_longnose", &"paddlefish",
 	&"sturgeon_shovelnose", &"gar_spotted", &"lungfish_west_african",
 ]
+const GENERATED_POND_IDS: Array[StringName] = [
+	&"bowfin", &"gar_spotted", &"lungfish_west_african",
+	&"catfish_channel", &"catfish_white", &"carp",
+	&"goldfish_bubbleeye", &"goldfish", &"bluegill",
+]
+const GENERATED_LAKE_IDS: Array[StringName] = [
+	&"sturgeon_lake", &"trout_golden", &"chub_lake", &"saugeye",
+	&"walleye", &"goby_round",
+]
+const GENERATED_RIVER_IDS: Array[StringName] = [
+	&"gar_longnose", &"paddlefish", &"sturgeon_shovelnose",
+	&"trout_cutthroat", &"trout_rainbow", &"catfish_blue",
+	&"catfish_flathead", &"chub_european", &"chub_flame", &"sauger",
+	&"trout_steelhead",
+]
 
 
 func _initialize() -> void:
@@ -81,12 +105,35 @@ func _initialize() -> void:
 
 func _run() -> void:
 	_validate_catalog_and_pools()
+	_validate_generated_habitat_pools()
 	_validate_weight_based_display_scale()
 	_validate_starter_water_bodies()
 	_validate_authoritative_water_filter()
 	_validate_catches_and_authoritative_sale()
 	print("Fish catalog content validation: PASS")
 	quit()
+
+
+func _validate_generated_habitat_pools() -> void:
+	var expected_by_pool: Dictionary = {
+		GeneratedPondPool: GENERATED_POND_IDS,
+		GeneratedLakePool: GENERATED_LAKE_IDS,
+		GeneratedRiverPool: GENERATED_RIVER_IDS,
+	}
+	for pool: FishPoolType in expected_by_pool:
+		var expected_ids: Array[StringName] = expected_by_pool[pool]
+		assert(pool.candidates.size() == expected_ids.size())
+		for fish_id: StringName in expected_ids:
+			var fish: FishDataType = Catalog.get_fish_by_id(fish_id)
+			assert(fish != null and fish.is_fishable())
+			assert(pool.get_fish_by_id(fish_id) == fish)
+			assert(fish.is_allowed_in_water(WaterType.Type.FRESH_WATER))
+	assert(GeneratedPondPool.get_fish_by_id(&"pomfret_white") == null)
+	assert(GeneratedPondPool.get_fish_by_id(&"mackerel_atlantic") == null)
+	assert(GeneratedPondPool.get_fish_by_id(&"gar_longnose") == null)
+	assert(GeneratedRiverPool.get_fish_by_id(&"gar_longnose") != null)
+	assert(GeneratedRiverPool.get_fish_by_id(&"goby_round") == null)
+	assert(GeneratedLakePool.get_fish_by_id(&"goby_round") != null)
 
 
 func _validate_weight_based_display_scale() -> void:
@@ -235,7 +282,12 @@ func _validate_catalog_and_pools() -> void:
 		assert(fish.is_selectable())
 		assert(PondPool.get_fish_by_id(fish_id) == fish)
 		assert(OceanPool.get_fish_by_id(fish_id) == null)
-		assert(fish.availability.allowed_location_tags == [&"starter_pond"])
+		var expected_tags: Array[StringName] = []
+		if fish_id in [&"catfish_channel", &"catfish_white"]:
+			expected_tags.assign([&"starter_pond", &"pond"])
+		else:
+			expected_tags.append(&"river")
+		assert(fish.availability.allowed_location_tags == expected_tags)
 		assert(
 			LogbookCatalog.category_for(fish)
 			== LogbookCatalog.Category.FRESH_WATER
@@ -306,17 +358,25 @@ func _validate_catalog_and_pools() -> void:
 	var pond_context := FishingContextType.new()
 	pond_context.location_tags = [&"starter_pond"]
 	pond_context.water_type = WaterType.Type.FRESH_WATER
-	var night_pond_context := FishingContextType.new()
-	night_pond_context.location_tags = [&"starter_pond"]
-	night_pond_context.water_type = WaterType.Type.FRESH_WATER
-	night_pond_context.is_night = true
 	var ocean_context := FishingContextType.new()
 	ocean_context.location_tags = [&"coast", &"ocean"]
 	ocean_context.water_type = WaterType.Type.SALT_WATER
 	for fish_id: StringName in CATFISH_IDS:
 		var fish: FishDataType = Catalog.get_fish_by_id(fish_id)
-		assert(not fish.availability.is_available(pond_context))
-		assert(fish.availability.is_available(night_pond_context))
+		var day_habitat_context := FishingContextType.new()
+		if fish_id in [&"catfish_channel", &"catfish_white"]:
+			day_habitat_context.location_tags.append(&"pond")
+		else:
+			day_habitat_context.location_tags.append(&"river")
+		day_habitat_context.water_type = WaterType.Type.FRESH_WATER
+		var night_habitat_context := FishingContextType.new()
+		night_habitat_context.location_tags = (
+			day_habitat_context.location_tags.duplicate()
+		)
+		night_habitat_context.water_type = WaterType.Type.FRESH_WATER
+		night_habitat_context.is_night = true
+		assert(not fish.availability.is_available(day_habitat_context))
+		assert(fish.availability.is_available(night_habitat_context))
 		assert(not fish.availability.is_available(ocean_context))
 		var single_species_pool := FishPoolType.new()
 		single_species_pool.candidates = [fish]
@@ -326,7 +386,7 @@ func _validate_catalog_and_pools() -> void:
 		selector.begin_roll()
 		assert(
 			selector.select_fish(
-				single_species_pool, night_pond_context, collection
+				single_species_pool, night_habitat_context, collection
 			) == fish
 		)
 		collection.free()

@@ -3,6 +3,15 @@ extends SceneTree
 const RegionScene: PackedScene = preload(
 	"res://world/generation/generated_world_region.tscn"
 )
+const GeneratedPondPool: FishPool = preload(
+	"res://fish/pools/generated_pond_pool.tres"
+)
+const GeneratedLakePool: FishPool = preload(
+	"res://fish/pools/generated_lake_pool.tres"
+)
+const GeneratedRiverPool: FishPool = preload(
+	"res://fish/pools/generated_river_pool.tres"
+)
 const FIRST_SEED := 13001
 const SECOND_SEED := 13004
 const EXPECTED_PROP_IDS: Array[StringName] = [
@@ -153,6 +162,13 @@ func _validate_generated_region(
 		assert(fresh.surface_size.x < 10.0 or fresh.surface_size.y < 10.0)
 		assert(not fresh.visual_surface_enabled)
 		assert(not (fresh.get_node("VisualWater") as MeshInstance3D).visible)
+		if &"river" in fresh.location_tags:
+			assert(fresh.fish_pool == GeneratedRiverPool)
+		elif &"lake" in fresh.location_tags:
+			assert(fresh.fish_pool == GeneratedLakePool)
+		else:
+			assert(&"pond" in fresh.location_tags)
+			assert(fresh.fish_pool == GeneratedPondPool)
 
 	_validate_authored_chunk_surfaces(region, generator)
 

@@ -1,0 +1,16 @@
+[gd_resource type="Resource" load_steps=11 format=3]
+
+[ext_resource type="Script" path="res://fish/fish_pool.gd" id="1_pool"]
+[ext_resource type="Resource" path="res://fish/species/bowfin/bowfin.tres" id="2_bowfin"]
+[ext_resource type="Resource" path="res://fish/species/gar_spotted/gar_spotted.tres" id="3_gar_spotted"]
+[ext_resource type="Resource" path="res://fish/species/lungfish_west_african/lungfish_west_african.tres" id="4_lungfish"]
+[ext_resource type="Resource" path="res://fish/species/catfish_channel/catfish_channel.tres" id="5_catfish_channel"]
+[ext_resource type="Resource" path="res://fish/species/catfish_white/catfish_white.tres" id="6_catfish_white"]
+[ext_resource type="Resource" path="res://fish/species/carp/carp.tres" id="7_carp"]
+[ext_resource type="Resource" path="res://fish/species/goldfish_bubbleeye/goldfish_bubbleeye.tres" id="8_bubbleeye"]
+[ext_resource type="Resource" path="res://fish/species/goldfish/goldfish.tres" id="9_goldfish"]
+[ext_resource type="Resource" path="res://fish/species/bluegill/bluegill.tres" id="10_bluegill"]
+
+[resource]
+script = ExtResource("1_pool")
+candidates = [ExtResource("2_bowfin"), ExtResource("3_gar_spotted"), ExtResource("4_lungfish"), ExtResource("5_catfish_channel"), ExtResource("6_catfish_white"), ExtResource("7_carp"), ExtResource("8_bubbleeye"), ExtResource("9_goldfish"), ExtResource("10_bluegill")]

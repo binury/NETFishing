@@ -14,5 +14,5 @@ tags = PackedStringArray("land", "walkable", "fresh_water", "pond")
 allowed_neighbor_tags = PackedStringArray("grass")
 preferred_neighbor_tags = PackedStringArray("grass")
 water_inlet_edges = 1
-water_surface_size = Vector2(6.7, 7.75)
+water_surface_size = Vector2(7, 8)
 water_surface_offset = Vector2(-0.32, -1.03)

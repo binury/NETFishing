@@ -7,7 +7,7 @@
 
 [sub_resource type="Resource" id="BlueCatfishAvailability"]
 script = ExtResource("3_availability_script")
-allowed_location_tags = Array[StringName]([&"starter_pond"])
+allowed_location_tags = Array[StringName]([&"river"])
 allow_day = false
 preferred_bait_tags = Array[StringName]([&"worm", &"minnow"])
 preferred_bait_weight_multiplier = 1.35

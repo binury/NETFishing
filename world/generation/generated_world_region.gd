@@ -16,8 +16,14 @@ const SALT_WATER_MATERIAL: Material = preload(
 const FRESH_WATER_MATERIAL: Material = preload(
 	"res://world/materials/stylized_water_fresh.tres"
 )
-const POND_POOL: FishPool = preload(
-	"res://fish/pools/starter_pond_pool.tres"
+const GENERATED_POND_POOL: FishPool = preload(
+	"res://fish/pools/generated_pond_pool.tres"
+)
+const GENERATED_LAKE_POOL: FishPool = preload(
+	"res://fish/pools/generated_lake_pool.tres"
+)
+const GENERATED_RIVER_POOL: FishPool = preload(
+	"res://fish/pools/generated_river_pool.tres"
 )
 const OCEAN_POOL: FishPool = preload(
 	"res://fish/pools/starter_ocean_pool.tres"
@@ -374,7 +380,7 @@ func _configure_fresh_water(records: Array[Dictionary]) -> void:
 		body.visual_surface_enabled = false
 		body.water_material = _fresh_water_material()
 		body.water_type = WaterType.Type.FRESH_WATER
-		body.fish_pool = POND_POOL
+		body.fish_pool = _fresh_water_pool(tags)
 		body.location_tags = _fresh_water_location_tags(tags)
 		body.selection_priority = 10
 
@@ -386,6 +392,14 @@ func _fresh_water_location_tags(tags: PackedStringArray) -> Array[StringName]:
 	if "river" in tags:
 		result.append(&"river")
 	return result
+
+
+func _fresh_water_pool(tags: PackedStringArray) -> FishPool:
+	if "river" in tags:
+		return GENERATED_RIVER_POOL
+	if "lake" in tags:
+		return GENERATED_LAKE_POOL
+	return GENERATED_POND_POOL
 
 
 func _configure_diggable_area() -> void:
