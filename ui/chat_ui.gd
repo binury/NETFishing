@@ -893,14 +893,14 @@ func _on_entry_text_submitted(_value: String) -> void:
 func _send() -> void:
 	if _send_pending:
 		return
-	var body := _entry.text
-	if body.strip_edges().is_empty():
+	var body := NetworkChatProtocol.sanitize_body(_entry.text)
+	if body.is_empty():
 		close_chat()
 		return
 	if _handle_editor_world_command(body):
 		return
 	_send_pending = true
-	_pending_send_body = NetworkChatProtocol.sanitize_body(body)
+	_pending_send_body = body
 	_entry.editable = false
 	if not _service.send_local_message(
 		body,
