@@ -893,17 +893,19 @@ func _on_entry_text_submitted(_value: String) -> void:
 func _send() -> void:
 	if _send_pending:
 		return
-	var body := NetworkChatProtocol.sanitize_body(_entry.text)
-	if body.is_empty():
+	var submitted_text: String = NetworkChatProtocol.sanitize_body(
+		_entry.text
+	)
+	if submitted_text.length() == 0:
 		close_chat()
 		return
-	if _handle_editor_world_command(body):
+	if _handle_editor_world_command(submitted_text):
 		return
 	_send_pending = true
-	_pending_send_body = body
+	_pending_send_body = submitted_text
 	_entry.editable = false
 	if not _service.send_local_message(
-		body,
+		submitted_text,
 		_player.get_animalese_voice_id(),
 		_player.get_animalese_sample_set_id(),
 	):

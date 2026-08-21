@@ -7,7 +7,7 @@ readonly OUTPUT_SAMPLE_RATE="48000"
 
 usage() {
 	printf 'usage: %s SOURCE_DIRECTORY SAMPLE_SET_DIRECTORY\n' "$0" >&2
-	printf 'example: %s /path/to/voice_kim kim\n' "$0" >&2
+	printf 'example: %s /path/to/voice_clips custom_voice\n' "$0" >&2
 }
 
 if (( $# != 2 )); then

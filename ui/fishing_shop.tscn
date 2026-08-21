@@ -1,9 +1,7 @@
-[gd_scene load_steps=8 format=3]
+[gd_scene load_steps=6 format=3]
 
 [ext_resource type="Script" path="res://ui/fishing_shop.gd" id="1_script"]
 [ext_resource type="Theme" path="res://ui/game_theme.tres" id="2_theme"]
-[ext_resource type="Texture2D" path="res://items/icons/shop/64_speed_plus.png" id="3_reel"]
-[ext_resource type="Texture2D" path="res://items/icons/shop/64_power_plus.png" id="4_barrier"]
 [ext_resource type="Texture2D" path="res://items/icons/shop/32_currency.png" id="5_coin"]
 [ext_resource type="Texture2D" path="res://ui/icons/pictograms/x_light.png" id="7_close"]
 [ext_resource type="PackedScene" path="res://ui/components/currency_amount.tscn" id="8_currency"]
@@ -211,7 +209,7 @@ unique_name_in_owner = true
 offset_right = 144.0
 offset_bottom = 144.0
 tooltip_text = "reel speed"
-icon = ExtResource("3_reel")
+icon = ExtResource("7_close")
 expand_icon = true
 icon_max_width = 128
 
@@ -240,7 +238,7 @@ unique_name_in_owner = true
 offset_right = 144.0
 offset_bottom = 144.0
 tooltip_text = "rod power"
-icon = ExtResource("4_barrier")
+icon = ExtResource("7_close")
 expand_icon = true
 icon_max_width = 128
 

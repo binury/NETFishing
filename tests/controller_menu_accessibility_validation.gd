@@ -964,20 +964,19 @@ func _validate_profile_voice_navigation() -> void:
 	for item: Variant in page.call("_controls_under", sample_grid):
 		sample_buttons.append(item as Control)
 	_expect(
-		sample_buttons.size() == 3,
-		"The voice-set row must expose kat, robot, and kim.",
+		sample_buttons.size() == 1,
+		"The voice-set row must expose the project-owned robot set.",
 	)
-	if sample_buttons.size() != 3:
+	if sample_buttons.size() != 1:
 		page.queue_free()
 		await process_frame
 		return
-	var kat_button := sample_grid.get_node("VoiceSet_kat") as Button
 	var robot_button := sample_grid.get_node("VoiceSet_robot") as Button
-	var kim_button := sample_grid.get_node("VoiceSet_kim") as Button
-	_expect(kat_button.text == "kat", "The default voice set is not labeled kat.")
 	_expect(robot_button.text == "robot", "The tone voice set is not labeled robot.")
-	_expect(kim_button.text == "kim", "The kim voice set is not labeled kim.")
-	_expect(kat_button.button_pressed, "The kat voice set is not selected by default.")
+	_expect(
+		robot_button.button_pressed,
+		"The project-owned robot voice set is not selected by default.",
+	)
 	var option_controls: Array[Control] = []
 	var option_groups: Array = page.call("_controller_option_groups")
 	for item: Variant in option_groups[0]:
@@ -992,12 +991,12 @@ func _validate_profile_voice_navigation() -> void:
 		),
 		"The controller voice zone does not contain every voice setting.",
 	)
-	_assert_directionally_reachable(kat_button, option_controls)
-	var kat_down := kat_button.get_node_or_null(
-		kat_button.focus_neighbor_bottom
+	_assert_directionally_reachable(robot_button, option_controls)
+	var robot_down := robot_button.get_node_or_null(
+		robot_button.focus_neighbor_bottom
 	) as Control
 	_expect(
-		kat_down != null and pitch_grid.is_ancestor_of(kat_down),
+		robot_down != null and pitch_grid.is_ancestor_of(robot_down),
 		"Down from the voice-set row does not enter the pitch row.",
 	)
 	if OS.has_environment("NETFISHING_PROFILE_VOICE_CAPTURE"):
@@ -1020,18 +1019,6 @@ func _validate_profile_voice_navigation() -> void:
 	_expect(
 		str(page.get("_draft_sample_set_id")) == "robot",
 		"Selecting robot did not update the profile draft.",
-	)
-	kim_button.grab_focus()
-	kim_button.button_pressed = true
-	kim_button.pressed.emit()
-	await process_frame
-	_expect(
-		root.gui_get_focus_owner() == kim_button,
-		"Selecting kim moved controller focus out of the voice-set row.",
-	)
-	_expect(
-		str(page.get("_draft_sample_set_id")) == "kim",
-		"Selecting kim did not update the profile draft.",
 	)
 	var category_controls: Array[Control] = []
 	for item: Variant in page.call(

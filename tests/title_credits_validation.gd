@@ -155,12 +155,6 @@ func _run() -> void:
 	var adamantris_credit := credits_page.get_node(
 		"Paper/Margin/Layout/Columns/CreativeCredits/AdamantrisCredit"
 	) as Label
-	var tekgator_name := credits_page.get_node(
-		"Paper/Margin/Layout/Columns/CreativeCredits/TekgatorName"
-	) as Label
-	var tekgator_credit := credits_page.get_node(
-		"Paper/Margin/Layout/Columns/CreativeCredits/TekgatorCredit"
-	) as Label
 	var credits_paper := credits_page.get_node("Paper") as PanelContainer
 	var audio_credits := credits_page.get_node(
 		"Paper/Margin/Layout/Columns/AdditionalCredits/AudioCredits"
@@ -188,26 +182,10 @@ func _run() -> void:
 		"in-game credits describe adamantris's hand-net contribution",
 	)
 	_expect(
-		tekgator_name.text == "Tekgator",
-		"in-game credits name Tekgator",
-	)
-	_expect(
-		"shop icon" in tekgator_credit.text.to_lower(),
-		"in-game credits describe Tekgator's shop icon artwork",
-	)
-	_expect(
-		"kat • animalese voice sample" in audio_credits.text,
-		"in-game credits name kat's animalese voice contribution",
-	)
-	_expect(
-		"kim • animalese voice sample" in audio_credits.text,
-		"in-game credits name kim's animalese voice contribution",
-	)
-	_expect(
 		credits_paper.get_global_rect().encloses(
-			tekgator_credit.get_global_rect()
+			audio_credits.get_global_rect()
 		),
-		"contributor credits stay inside the authored credits panel",
+		"audio credits stay inside the authored credits panel",
 	)
 
 	title_screen.queue_free()
