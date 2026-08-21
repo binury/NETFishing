@@ -28,18 +28,21 @@ directory. The templates in `scripts/portmaster/` are authoritative.
 
 - `port.json` uses schema version 4, names `netfishing.zip`, and marks the
   self-contained package ready to run.
-- `NETfishing.sh` starts with `# PORTMASTER: netfishing.zip, NETfishing.sh`.
+- `NETfishing.sh` does not contain a `# PORTMASTER:` signature in the source or
+  distributable archive. HarbourMaster adds that installation marker when it
+  installs the port.
 - The executable is `netfishing/NETfishing.aarch64`.
 - The package declares AArch64, two analog sticks, GLIBC 2.28, and
   `weston_pkg_0.2.squashfs`.
 - The launcher starts GPTOKEYB with the explicit `netfishing.gptk` no-op map.
-  Every keyboard and mouse binding is disabled, leaving only PortMaster's
+  Every keyboard and mouse binding is disabled, leaving only GPTOKEYB's
   device-specific force-quit chord while Godot and NETfishing's controller
-  mapping manager handle gameplay input.
+  mapping manager handle gameplay input. The explicit map also avoids the
+  anomalous controller behavior observed on ROCKNIX without a passthrough map.
 - The launcher calls `pm_platform_helper` for the game executable after
   starting GPTOKEYB and calls `pm_finish` after the game exits.
-- New installations automatically create player data under
-  `ports/saves/netfishing/` and do not present the in-game folder picker.
+- NETfishing automatically creates player data for new installations under
+  `ports/saves/netfishing/` and does not present the in-game folder picker.
 - Existing installations with a selected data root keep that location when
   upgraded. Device-local data, configuration, and cache remain under
   `netfishing/conf/data`, `netfishing/conf/config`, and
@@ -103,15 +106,15 @@ Before upgrading an existing installation, preserve
 device. After installation:
 
 1. Confirm the installed executable and PCK hashes match the staged release.
-2. Confirm the installed launcher contains the canonical PortMaster header,
-   starts GPTOKEYB with `netfishing.gptk`, and calls
-   `pm_platform_helper` for the game executable.
+2. Confirm HarbourMaster added its `# PORTMASTER:` installation signature to
+   the installed launcher, then confirm the launcher starts GPTOKEYB with
+   `netfishing.gptk` and calls `pm_platform_helper` for the game executable.
 3. Confirm `conf/` and the external save directory were not replaced or
    removed.
 4. Launch the installed port through the normal muOS menu.
 5. Verify the displayed game version and controller face-button mapping.
-6. Verify PortMaster's force-quit chord exits the game. This is Start+Select on
-   most devices.
+6. Verify GPTOKEYB's device-specific force-quit chord exits the game. This is
+   Start+Select on most devices.
 
 Installing the public PortMaster catalog entry can still install an older
 catalog build until the upstream `netfishing.zip` is updated. A local release
@@ -173,12 +176,12 @@ the game process. This applies the mapping at the same point as the working
 reconstruction. Do not move the mapping back to either side of
 `westonwrap.sh`.
 
-Legacy GPTOKEYB builds can load their compiled default keyboard map when no
-`-c` file is supplied. That map translates face buttons, D-pad directions, and
-sticks into keyboard or mouse events on top of Godot's native controller input.
 Always pass `netfishing.gptk`, which explicitly unassigns every direct and
-hotkey binding with GPTOKEYB's `\"` value. Do not add gameplay mappings to this
-file. The Start+Select kill chord remains independent of the no-op bindings.
+hotkey binding with GPTOKEYB's `\"` value. This keeps GPTOKEYB from injecting
+keyboard or mouse events on top of Godot's native controller input and retains
+the device-specific kill chord. Supplying the explicit passthrough map also
+avoids the anomalous controller behavior observed on ROCKNIX when no map is
+provided. Do not add gameplay mappings to this file.
 
 Do not call `Input.add_joy_mapping(..., true)` for a recognized connected muOS
 controller. Updating this virtual controller after connection can stop Godot

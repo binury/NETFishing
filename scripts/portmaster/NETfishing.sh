@@ -1,5 +1,4 @@
 #!/bin/bash
-# PORTMASTER: netfishing.zip, NETfishing.sh
 
 XDG_DATA_HOME=${XDG_DATA_HOME:-$HOME/.local/share}
 
@@ -13,19 +12,11 @@ else
 	controlfolder="/roms/ports/PortMaster"
 fi
 
-if [ ! -f "$controlfolder/control.txt" ]; then
-	echo "PortMaster control.txt was not found at $controlfolder" >&2
-	exit 1
-fi
-
 source "$controlfolder/control.txt"
 [ -f "${controlfolder}/mod_${CFW_NAME}.txt" ] && source "${controlfolder}/mod_${CFW_NAME}.txt"
 get_controls
 
 GAMEDIR="/${directory}/ports/netfishing"
-if [ ! -d "$GAMEDIR" ] && [ -d "/mnt/mmc/ports/netfishing" ]; then
-	GAMEDIR="/mnt/mmc/ports/netfishing"
-fi
 
 CONFDIR="$GAMEDIR/conf"
 PORTS_ROOT="${GAMEDIR%/netfishing}"
@@ -38,16 +29,13 @@ CONTROLLER_MAPPING_FILE="$CONFDIR/cache/controller_mapping.txt"
 WESTON_DIR="/tmp/netfishing-weston"
 WESTON_RUNTIME="weston_pkg_0.2"
 HARBOURMASTER="$controlfolder/harbourmaster"
-if [ ! -x "$HARBOURMASTER" ] && [ -x "/mnt/mmc/MUOS/PortMaster/harbourmaster" ]; then
-	HARBOURMASTER="/mnt/mmc/MUOS/PortMaster/harbourmaster"
-fi
 
 mkdir -p "$CONFDIR/data" "$CONFDIR/config" "$CONFDIR/cache" "$WESTON_DIR"
 chmod +x "$GAME_EXECUTABLE"
 
-# New PortMaster installs use a predictable save directory beside the port
-# instead of presenting a folder picker on a small screen. Preserve an
-# established data-root choice when upgrading an existing installation.
+# NETfishing uses a predictable save directory beside the port instead of
+# presenting a folder picker on a small screen. Preserve an established
+# data-root choice when upgrading an existing installation.
 NETFISHING_DATA_ENVIRONMENT=()
 if [ -f "$SAVEDIR/netfishing_data.json" ] || {
 	[ ! -f "$DATA_BOOTSTRAP_DIR/data_root_bootstrap.json" ] &&
@@ -139,10 +127,9 @@ case "$PERFORMANCE_PROFILE" in
 		;;
 esac
 
-# Keep NETfishing's native controller input separate from PortMaster's exit
-# handling. Legacy GPTOKEYB builds can load their default keyboard map when no
-# config is supplied, so the explicit no-op map preserves only the
-# device-specific force-quit chord.
+# NETfishing reads gameplay input natively. The explicit no-op map prevents
+# GPTOKEYB from injecting duplicate keyboard or mouse input while retaining
+# its device-specific force-quit chord, including on ROCKNIX.
 $GPTOKEYB "NETfishing.aarch64" -c "$GPTOKEYB_CONFIG" &
 pm_platform_helper "$GAME_EXECUTABLE"
 

@@ -1,5 +1,6 @@
-# NETfishing reads the controller directly. GPTOKEYB is retained only for the
-# PortMaster force-quit chord, so every keyboard and mouse binding is disabled.
+# NETfishing reads the controller directly. GPTOKEYB is retained only for its
+# device-specific force-quit chord, so every keyboard and mouse binding is
+# disabled to prevent duplicate input.
 
 back = \"
 guide = \"

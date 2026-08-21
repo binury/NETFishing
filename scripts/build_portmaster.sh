@@ -223,7 +223,7 @@ music while omitting rain and shoreline ambience in both profiles. See
 
 ## Controls
 
-NETfishing reads the handheld controller directly. PortMaster's system
+NETfishing reads the handheld controller directly. GPTOKEYB's device-specific
 force-quit chord remains available; this is Start+Select on most devices.
 EOF
 
@@ -249,8 +249,11 @@ if unzip -Z1 "${ARCHIVE}" | grep -qx 'port.json'; then
   echo "port.json must be inside netfishing/, not at the archive root." >&2
   exit 1
 fi
-grep -q '^# PORTMASTER: netfishing.zip, NETfishing.sh$' \
-  "${STAGE_ROOT}/NETfishing.sh"
+if grep -Eq '^[[:space:]]*#[[:space:]]*PORTMASTER:' \
+  "${STAGE_ROOT}/NETfishing.sh"; then
+  echo "The distributable launcher contains an installed PortMaster signature." >&2
+  exit 1
+fi
 grep -Fq 'PROFILE_PATH="$CONFDIR/performance_profile"' \
   "${STAGE_ROOT}/NETfishing.sh"
 grep -Fq 'NETFISHING_PERFORMANCE_PROFILE=light' \
