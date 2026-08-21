@@ -336,6 +336,7 @@ var _transition_generation: int = 0
 var _page_transition_generation: int = 0
 var _transitioning: bool = false
 var _page_transitioning: bool = false
+var _backpack_toggle_queued: bool = false
 var _cooler_rest_position: Vector2 = Vector2.ZERO
 var _bag_rest_position: Vector2 = Vector2.ZERO
 var _tackle_rest_position: Vector2 = Vector2.ZERO
@@ -676,7 +677,9 @@ func _input(event: InputEvent) -> void:
 		return
 	if visible:
 		if event.is_action_pressed("open_backpack"):
-			if not _transitioning and not _page_transitioning:
+			if _transitioning or _page_transitioning:
+				_queue_backpack_toggle()
+			else:
 				close_menu()
 			get_viewport().set_input_as_handled()
 			return
@@ -3251,6 +3254,7 @@ func _finish_menu_entry(generation: int) -> void:
 	_transitioning = false
 	_set_shell_interactive(true)
 	_reset_controller_zone_for_section()
+	_consume_queued_backpack_toggle()
 
 
 func _begin_menu_exit(reason: CloseReason, restore_controls: bool) -> void:
@@ -3311,6 +3315,10 @@ func _finish_close(
 	restore_controls: bool,
 	closing_generation: int,
 ) -> void:
+	var reopen_after_close: bool = (
+		reason == CloseReason.USER and _backpack_toggle_queued
+	)
+	_backpack_toggle_queued = false
 	_cancel_presentation_tween()
 	_cancel_page_tween()
 	_the_net_page.deactivate()
@@ -3339,6 +3347,35 @@ func _finish_close(
 	_menu_generation += 1
 	_transition_generation += 1
 	menu_visibility_changed.emit(false)
+	if reopen_after_close:
+		call_deferred("_open_queued_backpack_toggle")
+
+
+func _consume_queued_backpack_toggle() -> void:
+	if not _backpack_toggle_queued:
+		return
+	_backpack_toggle_queued = false
+	if visible:
+		close_menu()
+	else:
+		_open_queued_backpack_toggle()
+
+
+func _queue_backpack_toggle() -> void:
+	# Preserve press parity: one press reverses the pending menu state, while a
+	# second press during the same animation cancels that request.
+	_backpack_toggle_queued = not _backpack_toggle_queued
+
+
+func _open_queued_backpack_toggle() -> void:
+	if (
+		visible
+		or _fishing_spot == null
+		or not is_instance_valid(_fishing_spot)
+		or not _fishing_spot.can_open_player_menu()
+	):
+		return
+	open_menu()
 
 
 func _get_section_root(section: Section) -> Control:
@@ -3469,6 +3506,7 @@ func _finish_page_transition(generation: int) -> void:
 	_reset_page_transition_visuals()
 	_set_content_interactive(true)
 	_reset_controller_zone_for_section()
+	_consume_queued_backpack_toggle()
 
 
 func _set_shell_interactive(interactive: bool) -> void:

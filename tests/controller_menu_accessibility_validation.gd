@@ -50,6 +50,7 @@ func _run() -> void:
 	await _validate_mail_navigation()
 	await _validate_profile_confirmation_focus()
 	await _validate_profile_voice_navigation()
+	await _validate_player_menu_toggle_queue()
 	await _validate_inventory_tab_zone_transitions()
 	await _validate_player_menu_nested_controller_back()
 	await _validate_confirmation_dialog_navigation()
@@ -62,6 +63,39 @@ func _run() -> void:
 	for failure: String in _failures:
 		push_error(failure)
 	quit(1)
+
+
+func _validate_player_menu_toggle_queue() -> void:
+	var menu := PlayerMenuScene.instantiate() as Control
+	root.add_child(menu)
+	await process_frame
+	menu.visible = true
+	menu.set("_transitioning", true)
+	var toggle := InputEventAction.new()
+	toggle.action = &"open_backpack"
+	toggle.pressed = true
+	menu.call("_input", toggle)
+	_expect(
+		bool(menu.get("_backpack_toggle_queued")),
+		"Player menu discarded TAB during its entry transition.",
+	)
+	menu.call("_input", toggle)
+	_expect(
+		not bool(menu.get("_backpack_toggle_queued")),
+		"Repeated TAB presses did not preserve toggle parity.",
+	)
+	menu.call("_input", toggle)
+	menu.call(
+		"_finish_menu_entry",
+		int(menu.get("_transition_generation")),
+	)
+	await create_timer(0.5).timeout
+	_expect(
+		not menu.visible,
+		"A queued TAB press did not close the menu after entry.",
+	)
+	menu.queue_free()
+	await process_frame
 
 
 func _validate_primary_menu_navigation() -> void:
