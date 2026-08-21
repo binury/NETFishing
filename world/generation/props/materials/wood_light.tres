@@ -1,0 +1,9 @@
+[gd_resource type="StandardMaterial3D" format=3]
+
+[resource]
+resource_name = "wood_variant_light"
+albedo_color = Color(0.644, 0.563, 0.356, 1)
+metallic = 0.0
+roughness = 1.0
+shading_mode = 1
+texture_filter = 0

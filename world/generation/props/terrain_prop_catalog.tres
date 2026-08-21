@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="TerrainPropCatalog" load_steps=16 format=3]
+[gd_resource type="Resource" script_class="TerrainPropCatalog" load_steps=18 format=3]
 
 [ext_resource type="Script" path="res://world/generation/terrain_prop_catalog.gd" id="1_catalog"]
 [ext_resource type="Resource" path="res://world/generation/props/definitions/prop_bridge.tres" id="2_bridge"]
@@ -15,7 +15,9 @@
 [ext_resource type="Resource" path="res://world/generation/props/definitions/prop_tree_2.tres" id="13_tree_2"]
 [ext_resource type="Resource" path="res://world/generation/props/definitions/prop_tree_3.tres" id="14_tree_3"]
 [ext_resource type="Script" path="res://world/generation/terrain_prop_definition.gd" id="15_definition_script"]
+[ext_resource type="Resource" path="res://world/generation/props/definitions/prop_tree_large.tres" id="16_tree_large"]
+[ext_resource type="Resource" path="res://world/generation/props/definitions/prop_pine_large.tres" id="17_pine_large"]
 
 [resource]
 script = ExtResource("1_catalog")
-definitions = Array[ExtResource("15_definition_script")]([ExtResource("2_bridge"), ExtResource("3_dock"), ExtResource("4_log"), ExtResource("5_post_1"), ExtResource("6_post_2"), ExtResource("7_mushroom"), ExtResource("8_palm"), ExtResource("9_pine"), ExtResource("10_timber_1"), ExtResource("11_timber_2"), ExtResource("12_tree_1"), ExtResource("13_tree_2"), ExtResource("14_tree_3")])
+definitions = Array[ExtResource("15_definition_script")]([ExtResource("2_bridge"), ExtResource("3_dock"), ExtResource("4_log"), ExtResource("5_post_1"), ExtResource("6_post_2"), ExtResource("7_mushroom"), ExtResource("8_palm"), ExtResource("9_pine"), ExtResource("10_timber_1"), ExtResource("11_timber_2"), ExtResource("12_tree_1"), ExtResource("13_tree_2"), ExtResource("14_tree_3"), ExtResource("16_tree_large"), ExtResource("17_pine_large")])

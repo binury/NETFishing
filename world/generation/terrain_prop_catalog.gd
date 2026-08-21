@@ -87,6 +87,23 @@ func validation_errors() -> PackedStringArray:
 				"%s has an inverted visual scale range."
 				% definition.stable_id
 			)
+		if definition.minimum_cluster_size > definition.maximum_cluster_size:
+			errors.append(
+				"%s has an inverted cluster size range."
+				% definition.stable_id
+			)
+		if (
+			definition.maximum_cluster_size > 1
+			and (
+				definition.minimum_cluster_radius <= 0.0
+				or definition.minimum_cluster_radius
+				> definition.maximum_cluster_radius
+			)
+		):
+			errors.append(
+				"%s has an invalid loose-cluster radius."
+				% definition.stable_id
+			)
 		if (
 			not definition.material_variants.is_empty()
 			and definition.variant_material_slot_names.is_empty()
@@ -101,4 +118,26 @@ func validation_errors() -> PackedStringArray:
 					"%s contains an empty material variant."
 					% definition.stable_id
 				)
+		if (
+			not definition.secondary_material_variants.is_empty()
+			and definition.secondary_variant_material_slot_names.is_empty()
+		):
+			errors.append(
+				"%s has secondary variants but no target material slots."
+				% definition.stable_id
+			)
+		for material: Material in definition.secondary_material_variants:
+			if material == null:
+				errors.append(
+					"%s contains an empty secondary material variant."
+					% definition.stable_id
+				)
+		if (
+			definition.prefer_ocean_facing
+			and definition.local_overhang_direction.is_zero_approx()
+		):
+			errors.append(
+				"%s prefers the ocean but has no local overhang direction."
+				% definition.stable_id
+			)
 	return errors

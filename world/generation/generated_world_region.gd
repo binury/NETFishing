@@ -31,6 +31,7 @@ const OCEAN_POOL: FishPool = preload(
 const WATER_HEIGHT := -0.25
 const PROP_EDGE_MARGIN := 2.2
 const PROP_PLACEMENT_ATTEMPTS := 12
+const PROP_CLUSTER_PLACEMENT_ATTEMPTS := 10
 const PROP_MINIMUM_GROUND_CLEARANCE := 0.05
 const PROP_CHANCE_SCALE := 10000
 const PROP_SELECTION_WEIGHT_SCALE := 1000
@@ -268,6 +269,7 @@ func _on_generation_completed(summary: Dictionary) -> void:
 						record.get("position", Vector3.ZERO),
 						coordinate,
 						biome.stable_id,
+						int(record.get("ocean_facing_edges", 0)),
 						random,
 						terrain_triangles,
 					):
@@ -445,6 +447,7 @@ func _maybe_add_prop(
 	chunk_center: Vector3,
 	chunk_coordinate: Vector2i,
 	biome_id: StringName,
+	ocean_facing_edges: int,
 	random: RandomNumberGenerator,
 	terrain_triangles: Array[PackedVector3Array],
 ) -> bool:
@@ -460,6 +463,7 @@ func _maybe_add_prop(
 		chunk_center,
 		chunk_coordinate,
 		biome_id,
+		ocean_facing_edges,
 		random,
 		terrain_triangles,
 	)
@@ -470,19 +474,26 @@ func _add_prop(
 	chunk_center: Vector3,
 	chunk_coordinate: Vector2i,
 	biome_id: StringName,
+	ocean_facing_edges: int,
 	random: RandomNumberGenerator,
 	terrain_triangles: Array[PackedVector3Array],
 ) -> bool:
 	if definition == null or definition.packed_scene == null:
 		return false
-	var visual_scale := random.randf_range(
-		definition.minimum_visual_scale,
-		definition.maximum_visual_scale,
+	var cluster_size := random.randi_range(
+		definition.minimum_cluster_size,
+		definition.maximum_cluster_size,
 	)
-	var scaled_clearance := definition.clearance_radius * visual_scale
+	var visual_scales := _prop_visual_scales(
+		definition,
+		cluster_size,
+		random,
+	)
+	var primary_scale := visual_scales[0]
+	var scaled_clearance := definition.clearance_radius * primary_scale
 	var placement := Vector3.ZERO
 	var found_surface := false
-	for attempt: int in PROP_PLACEMENT_ATTEMPTS:
+	for _attempt: int in PROP_PLACEMENT_ATTEMPTS:
 		var offset := Vector3(
 			random.randf_range(-PROP_EDGE_MARGIN, PROP_EDGE_MARGIN),
 			0.0,
@@ -507,6 +518,118 @@ func _add_prop(
 			break
 	if not found_surface:
 		return false
+	var cluster_id := _decorations.get_child_count()
+	if not _instantiate_prop(
+		definition,
+		placement,
+		primary_scale,
+		_prop_yaw(definition, ocean_facing_edges, placement, random),
+		chunk_coordinate,
+		biome_id,
+		cluster_id,
+		0,
+		random,
+	):
+		return false
+	if cluster_size <= 1:
+		return true
+	var cluster_angle := random.randf_range(-PI, PI)
+	var companion_count := cluster_size - 1
+	var chunk_half_extent := _generator.catalog.chunk_size * 0.5 - 0.25
+	for member_index: int in range(1, cluster_size):
+		var member_scale := visual_scales[member_index]
+		var member_clearance := definition.clearance_radius * member_scale
+		for _attempt: int in PROP_CLUSTER_PLACEMENT_ATTEMPTS:
+			var sector_angle := (
+				cluster_angle
+				+ TAU * float(member_index - 1) / float(companion_count)
+				+ random.randf_range(-0.45, 0.45)
+			)
+			var radius := random.randf_range(
+				definition.minimum_cluster_radius,
+				definition.maximum_cluster_radius,
+			)
+			var candidate := placement + Vector3(
+				cos(sector_angle) * radius,
+				0.0,
+				sin(sector_angle) * radius,
+			)
+			if (
+				absf(candidate.x - chunk_center.x) > chunk_half_extent
+				or absf(candidate.z - chunk_center.z) > chunk_half_extent
+			):
+				continue
+			var surface_height := _surface_height_at(
+				candidate,
+				terrain_triangles,
+			)
+			if (
+				surface_height <= WATER_HEIGHT + PROP_MINIMUM_GROUND_CLEARANCE
+				or not _has_prop_clearance(candidate, member_clearance)
+			):
+				continue
+			candidate.y = surface_height
+			if _instantiate_prop(
+				definition,
+				candidate,
+				member_scale,
+				_prop_yaw(
+					definition,
+					ocean_facing_edges,
+					candidate,
+					random,
+				),
+				chunk_coordinate,
+				biome_id,
+				cluster_id,
+				member_index,
+				random,
+			):
+				break
+	return true
+
+
+func _prop_visual_scales(
+	definition: TerrainPropDefinition,
+	count: int,
+	random: RandomNumberGenerator,
+) -> Array[float]:
+	var result: Array[float] = []
+	if count <= 1:
+		result.append(
+			random.randf_range(
+				definition.minimum_visual_scale,
+				definition.maximum_visual_scale,
+			)
+		)
+		return result
+	for index: int in count:
+		var descending_band := count - index - 1
+		var band_minimum := lerpf(
+			definition.minimum_visual_scale,
+			definition.maximum_visual_scale,
+			float(descending_band) / float(count),
+		)
+		var band_maximum := lerpf(
+			definition.minimum_visual_scale,
+			definition.maximum_visual_scale,
+			float(descending_band + 1) / float(count),
+		)
+		result.append(random.randf_range(band_minimum, band_maximum))
+	return result
+
+
+func _instantiate_prop(
+	definition: TerrainPropDefinition,
+	placement: Vector3,
+	visual_scale: float,
+	yaw: float,
+	chunk_coordinate: Vector2i,
+	biome_id: StringName,
+	cluster_id: int,
+	cluster_member_index: int,
+	random: RandomNumberGenerator,
+) -> bool:
 	var packed_instance := definition.packed_scene.instantiate()
 	var visual_root := packed_instance as Node3D
 	if visual_root == null:
@@ -522,8 +645,10 @@ func _add_prop(
 	prop.set_meta(&"terrain_chunk_coordinate", chunk_coordinate)
 	prop.set_meta(&"terrain_biome_id", biome_id)
 	prop.set_meta(&"terrain_prop_visual_scale", visual_scale)
+	prop.set_meta(&"terrain_prop_cluster_id", cluster_id)
+	prop.set_meta(&"terrain_prop_cluster_member_index", cluster_member_index)
 	prop.position = placement
-	prop.rotation.y = random.randf_range(-PI, PI)
+	prop.rotation.y = yaw
 	_decorations.add_child(prop)
 	visual_root.name = "Visual"
 	prop.add_child(visual_root)
@@ -533,7 +658,9 @@ func _add_prop(
 	_apply_prop_material_variant(visual_root, definition, random)
 	_add_prop_collision(prop, definition, visual_scale)
 	_placed_prop_positions.append(placement)
-	_placed_prop_clearance_radii.append(scaled_clearance)
+	_placed_prop_clearance_radii.append(
+		definition.clearance_radius * visual_scale
+	)
 	_placed_prop_groups.append(definition.procedural_group)
 	if definition.gatherable_anchor_height > 0.0:
 		var anchor := Marker3D.new()
@@ -545,6 +672,46 @@ func _add_prop(
 		)
 		_tree_anchors.add_child(anchor)
 	return true
+
+
+func _prop_yaw(
+	definition: TerrainPropDefinition,
+	ocean_facing_edges: int,
+	placement: Vector3,
+	random: RandomNumberGenerator,
+) -> float:
+	if not definition.prefer_ocean_facing:
+		return random.randf_range(-PI, PI)
+	var ocean_direction := Vector2.ZERO
+	for edge_value: int in TerrainChunkTopology.Edge.values():
+		if (ocean_facing_edges & (1 << edge_value)) == 0:
+			continue
+		var edge_normal := TerrainChunkTopology.edge_normal(
+			edge_value as TerrainChunkTopology.Edge
+		)
+		ocean_direction += Vector2(edge_normal.x, edge_normal.z)
+	if ocean_direction.is_zero_approx():
+		ocean_direction = _nearest_ocean_direction(placement)
+	var local_direction := definition.local_overhang_direction.normalized()
+	var target_angle := atan2(ocean_direction.x, ocean_direction.y)
+	var local_angle := atan2(local_direction.x, local_direction.y)
+	var spread := deg_to_rad(definition.ocean_facing_spread_degrees)
+	return (
+		target_angle
+		- local_angle
+		+ random.randf_range(-spread, spread)
+	)
+
+
+func _nearest_ocean_direction(position: Vector3) -> Vector2:
+	var half_extents := get_playable_half_extents()
+	var distance_x := half_extents.x - absf(position.x)
+	var distance_z := half_extents.y - absf(position.z)
+	var direction_x := Vector2.RIGHT if position.x >= 0.0 else Vector2.LEFT
+	var direction_z := Vector2.DOWN if position.z >= 0.0 else Vector2.UP
+	if absf(distance_x - distance_z) <= _generator.catalog.chunk_size * 0.35:
+		return (direction_x + direction_z).normalized()
+	return direction_x if distance_x < distance_z else direction_z
 
 
 func _validate_prop_catalog() -> void:
@@ -776,6 +943,7 @@ func _ensure_minimum_props(
 					record.get("position", Vector3.ZERO),
 					coordinate,
 					biome.stable_id,
+					int(record.get("ocean_facing_edges", 0)),
 					random,
 					terrain_triangles,
 				):
@@ -819,17 +987,32 @@ func _apply_prop_material_variant(
 	definition: TerrainPropDefinition,
 	random: RandomNumberGenerator,
 ) -> void:
-	if (
-		definition.material_variants.is_empty()
-		or definition.variant_material_slot_names.is_empty()
-	):
-		return
-	var variant := definition.material_variants[
-		random.randi_range(0, definition.material_variants.size() - 1)
-	]
-	_apply_material_variant_to_meshes(
+	_apply_random_material_variant(
 		root_node,
 		definition.variant_material_slot_names,
+		definition.material_variants,
+		random,
+	)
+	_apply_random_material_variant(
+		root_node,
+		definition.secondary_variant_material_slot_names,
+		definition.secondary_material_variants,
+		random,
+	)
+
+
+func _apply_random_material_variant(
+	root_node: Node,
+	target_material_names: PackedStringArray,
+	variants: Array[Material],
+	random: RandomNumberGenerator,
+) -> void:
+	if variants.is_empty() or target_material_names.is_empty():
+		return
+	var variant := variants[random.randi_range(0, variants.size() - 1)]
+	_apply_material_variant_to_meshes(
+		root_node,
+		target_material_names,
 		variant,
 	)
 

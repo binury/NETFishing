@@ -1,24 +1,30 @@
-[gd_resource type="Resource" script_class="TerrainPropDefinition" load_steps=6 format=3]
+[gd_resource type="Resource" script_class="TerrainPropDefinition" load_steps=9 format=3]
 
 [ext_resource type="Script" path="res://world/generation/terrain_prop_definition.gd" id="1_definition"]
 [ext_resource type="PackedScene" path="res://world/generation/props/assets/prop_tree_1.glb" id="2_scene"]
 [ext_resource type="Material" path="res://world/generation/props/materials/leaf_light.tres" id="3_leaf_light"]
 [ext_resource type="Material" path="res://world/generation/props/materials/leaf_mid.tres" id="4_leaf_mid"]
 [ext_resource type="Material" path="res://world/generation/props/materials/leaf_dark.tres" id="5_leaf_dark"]
+[ext_resource type="Material" path="res://world/generation/props/materials/wood_light.tres" id="6_wood_light"]
+[ext_resource type="Material" path="res://world/generation/props/materials/wood_mid.tres" id="7_wood_mid"]
+[ext_resource type="Material" path="res://world/generation/props/materials/wood_dark.tres" id="8_wood_dark"]
 
 [resource]
 script = ExtResource("1_definition")
 stable_id = &"prop_tree_1"
-label = "small tree"
+label = "small deciduous tree"
 packed_scene = ExtResource("2_scene")
 procedural_group = &"grass_tree"
 required_chunk_tags = PackedStringArray("grass")
+selection_weight = 1.0
 minimum_spawn_chunk_distance = 2
 clearance_radius = 1.3
-minimum_visual_scale = 0.75
-maximum_visual_scale = 1.15
+minimum_visual_scale = 0.65
+maximum_visual_scale = 1.2
 variant_material_slot_names = PackedStringArray("leaf_light", "leaf", "leaf_dark")
 material_variants = Array[Material]([ExtResource("3_leaf_light"), ExtResource("4_leaf_mid"), ExtResource("5_leaf_dark")])
+secondary_variant_material_slot_names = PackedStringArray("wood", "wood_light", "wood_mid")
+secondary_material_variants = Array[Material]([ExtResource("6_wood_light"), ExtResource("7_wood_mid"), ExtResource("8_wood_dark")])
 collision_radius = 0.4
 collision_height = 3.2
 gatherable_anchor_height = 2.15

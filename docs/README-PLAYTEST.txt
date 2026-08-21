@@ -1,6 +1,5 @@
 NETfishing
-v0.14.0-alpha
-Alpha 0.14.0
+Alpha playtest
 
 Thank you for trying this early private playtest.
 
@@ -30,13 +29,16 @@ Sprint                       Shift
 Sneak                        Ctrl or click right stick
 Slow walk                    Alt
 Rotate camera                Hold right mouse, or use right stick
-Cycle active hotbar slot     Mouse wheel
+Cycle active hotbar slot     Mouse wheel or D-pad left/right
 Select hotbar slot           1 through 9
 Zoom camera                  Shift + mouse wheel
-Cast / withdraw / reel       Left mouse
-Cooler, Bag, and Logbook     Tab
+Primary tool / fishing       Left mouse or right trigger
+Inventory and player pages   Tab
 Game Menu / back             Escape
-Open Fishing Shop            E while near the shop
+Interact                     E
+Chat                         T
+
+Keyboard and controller bindings can be reviewed and changed in Settings.
 
 FISHING
 
@@ -48,12 +50,14 @@ FISHING
 - At barriers, use distinct left-click presses to damage the barrier.
 - Do not let the red chase meter catch the green meter.
 - Accessibility auto-click can be enabled in Settings.
-- Approach the bright Fishing Shop booth and press E to open it.
-- The Fishing Shop buys one Cooler fish at a time for full base value.
-- Buy Coffee, Energy Drinks, Snacks, and Fish Finders as Bag supplies.
-- Drag supplies from Bag to the hotbar and left-click in READY to use one.
+- Approach the Fishing Shop and interact to open it.
+- Move sellable inventory entries into the shop's sell tray, review the total,
+  and confirm the sale.
+- Buy supplies, equipment, and persistent upgrades from their shop tabs.
+- Move world-use items into the hotbar and select their slot to use or hold
+  them.
 - Coffee improves movement; other supplies temporarily improve fishing.
-- The Cooler starts at 12 fish; buy permanent capacity expansions at the shop.
+- Inventory and storage capacity can be expanded permanently at the shop.
 - Reel Speed upgrades increase authoritative green reeling progress.
 - Rod Power upgrades increase damage per valid barrier action.
 - Shop upgrades persist in the local progression save.
@@ -71,28 +75,24 @@ FEATURES TO TRY
 - Barrier-and-chase catching
 - Accessibility auto-click settings
 - Catch showcase and fish size variation
-- Cooler, Bag, Logbook, favorites, and sorting
-- Basic Fishing Rod equipment and the 1–9 hotbar
-- Pelican selling and wallet updates
-- Physical Fishing Shop sales and persistent fishing upgrades
+- General inventory, separate tackle, hotbar storage, player storage, and the
+  Logbook
+- Fishing, net gathering, and beach digging
+- Equipment and consumable use from the hotbar
+- Fishing Shop sell tray, wallet updates, and persistent upgrades
+- Seeded generated worlds and the authored starter-island layout
 - Save, Continue, New Game, and Delete Save
 - Game Menu and persistent camera settings
 - Water-entry recovery from several shores
 
 SAVES AND SETTINGS
 
-Progression and settings are stored in Godot's per-user application-data
-directory, outside this extracted game folder. Delete Save removes progression
-but preserves settings.
-
-Windows:
-    %APPDATA%\Godot\app_userdata\NETFISHING\
-
-Linux:
-    ~/.local/share/godot/app_userdata/NETFISHING/
+Progression and settings are stored outside the extracted game folder. The
+Data & Identity page shows the active player-data location. Delete Save removes
+progression but preserves device settings.
 
 This is an early save format. Keep expectations modest and report any failure
-to Continue, save, sell, favorite, or retain an individual fish.
+to Continue, save, sell, move, favorite, or retain an inventory entry.
 
 FEEDBACK
 

@@ -23,11 +23,13 @@ const EXPECTED_PROP_IDS: Array[StringName] = [
 	&"prop_mushroom",
 	&"prop_palm",
 	&"prop_pine",
+	&"prop_pine_large",
 	&"prop_timber_1",
 	&"prop_timber_2",
 	&"prop_tree_1",
 	&"prop_tree_2",
 	&"prop_tree_3",
+	&"prop_tree_large",
 ]
 const EXPECTED_BIOME_IDS: Array[StringName] = [
 	&"biome_plains",
@@ -40,9 +42,11 @@ const PROCEDURAL_PROP_IDS: Array[StringName] = [
 	&"prop_mushroom",
 	&"prop_palm",
 	&"prop_pine",
+	&"prop_pine_large",
 	&"prop_tree_1",
 	&"prop_tree_2",
 	&"prop_tree_3",
+	&"prop_tree_large",
 ]
 
 
@@ -53,6 +57,11 @@ func _initialize() -> void:
 func _run() -> void:
 	var region := RegionScene.instantiate() as GeneratedWorldRegion
 	assert(region != null)
+	var configured_generator := region.get_node(
+		"Terrain/TerrainChunkGenerator"
+	) as TerrainChunkGenerator
+	assert(configured_generator != null)
+	configured_generator.elevated_cliff_third_level_chance = 1.0
 	root.add_child(region)
 	await process_frame
 	await physics_frame
@@ -124,7 +133,10 @@ func _validate_generated_region(
 	)
 	assert(
 		generator.get_primary_terrain_meshes().size()
-		== expected_chunk_count
+		== (
+			expected_chunk_count
+			+ generator.stacked_elevated_placement_keys().size()
+		)
 	)
 	_validate_elevated_cliff_feature(generator)
 
@@ -179,6 +191,16 @@ func _validate_generated_region(
 	assert(decorations != null and decorations.get_child_count() > 0)
 	assert(anchors != null)
 	assert(anchors.get_spawn_positions().size() > 0)
+	var palm_clusters: Dictionary[int, Array] = {}
+	var tree_scales: Array[float] = []
+	var tree_yaws: Dictionary[float, bool] = {}
+	var ocean_edges_by_coordinate: Dictionary[Vector2i, int] = {}
+	for record: Dictionary in generator.placement_records():
+		var record_edges := int(record.get("ocean_facing_edges", 0))
+		if record_edges != 0:
+			ocean_edges_by_coordinate[
+				record.get("coordinate", Vector2i.ZERO)
+			] = record_edges
 	for child: Node in decorations.get_children():
 		var prop_id := StringName(child.get_meta(&"terrain_prop_id", &""))
 		assert(PROCEDURAL_PROP_IDS.has(prop_id))
@@ -211,13 +233,80 @@ func _validate_generated_region(
 			child as Node3D,
 			definition,
 		)
-		if prop_id in [&"prop_tree_1", &"prop_tree_2", &"prop_tree_3"]:
+		if prop_id == &"prop_palm":
+			var cluster_id := int(
+				child.get_meta(&"terrain_prop_cluster_id", -1)
+			)
+			var members: Array = palm_clusters.get(cluster_id, [])
+			members.append(child)
+			palm_clusters[cluster_id] = members
+			var ocean_direction := _ocean_direction(
+				ocean_edges_by_coordinate.get(coordinate, 0)
+			)
+			if ocean_direction.is_zero_approx():
+				ocean_direction = _nearest_ocean_direction(
+					region,
+					generator,
+					(child as Node3D).position,
+				)
+			var local_overhang := Vector3(
+				definition.local_overhang_direction.x,
+				0.0,
+				definition.local_overhang_direction.y,
+			).normalized()
+			var actual_overhang := local_overhang.rotated(
+				Vector3.UP,
+				(child as Node3D).rotation.y,
+			)
+			assert(
+				actual_overhang.dot(ocean_direction)
+				>= cos(deg_to_rad(definition.ocean_facing_spread_degrees))
+				- 0.001
+			)
+		elif prop_id in [
+			&"prop_tree_1",
+			&"prop_tree_2",
+			&"prop_tree_3",
+			&"prop_tree_large",
+			&"prop_pine",
+			&"prop_pine_large",
+		]:
+			tree_scales.append(
+				float(child.get_meta(&"terrain_prop_visual_scale", 1.0))
+			)
+			tree_yaws[snappedf((child as Node3D).rotation.y, 0.01)] = true
+		if prop_id in [
+			&"prop_tree_1",
+			&"prop_tree_2",
+			&"prop_tree_3",
+			&"prop_tree_large",
+		]:
 			assert(
 				_has_material_variant_override(
 					child.get_node_or_null("Visual"),
 					definition.material_variants,
 				)
 			)
+			assert(
+				_has_material_variant_override(
+					child.get_node_or_null("Visual"),
+					definition.secondary_material_variants,
+				)
+			)
+	assert(not palm_clusters.is_empty())
+	for members: Array in palm_clusters.values():
+		assert(members.size() >= 2 and members.size() <= 3)
+		for first_index: int in members.size():
+			for second_index: int in range(first_index + 1, members.size()):
+				var first := members[first_index] as Node3D
+				var second := members[second_index] as Node3D
+				var separation := Vector2(
+					first.position.x - second.position.x,
+					first.position.z - second.position.z,
+				).length()
+				assert(separation > 0.5 and separation < 6.1)
+	assert(tree_scales.max() - tree_scales.min() > 0.25)
+	assert(tree_yaws.size() >= 8)
 	assert(_decoration_group_count(region, &"grass_tree") > 0)
 	assert(_decoration_group_count(region, &"sand_tree") > 0)
 	assert(
@@ -297,6 +386,35 @@ func _validate_elevated_cliff_feature(
 		assert(base_mesh.has_node("TerrainBaseLayerCollision"))
 		assert(overlay_mesh.has_node("TerrainCollision"))
 	assert(layered_count == 9)
+	var stacked_keys := generator.stacked_elevated_placement_keys()
+	assert(stacked_keys.size() in [0, 4])
+	if stacked_keys.is_empty():
+		return
+	for key: String in stacked_keys:
+		assert(key.begins_with("chunk_0010@"))
+	var stacked_count := 0
+	for chunk_root: Node in generated.get_children():
+		for child: Node in chunk_root.get_children():
+			if not bool(child.get_meta(&"terrain_stacked_elevation", false)):
+				continue
+			stacked_count += 1
+			assert(
+				StringName(child.get_meta(&"terrain_chunk_id", &""))
+				== &"chunk_0010"
+			)
+			assert(
+				is_equal_approx(
+					(child as Node3D).position.y,
+					generator.elevated_cliff_level_height,
+				)
+			)
+			var stacked_mesh := TerrainChunkAnalyzer.find_primary_mesh(
+				child,
+				&"chunk_0010",
+			)
+			assert(stacked_mesh != null and stacked_mesh.mesh != null)
+			assert(stacked_mesh.has_node("TerrainCollision"))
+	assert(stacked_count == 4)
 
 
 func _validate_ocean_facing_record(
@@ -323,6 +441,31 @@ func _validate_ocean_facing_record(
 		)
 
 
+func _ocean_direction(ocean_edges: int) -> Vector3:
+	var result := Vector3.ZERO
+	for edge_value: int in TerrainChunkTopology.Edge.values():
+		if (ocean_edges & (1 << edge_value)) != 0:
+			result += TerrainChunkTopology.edge_normal(
+				edge_value as TerrainChunkTopology.Edge
+			)
+	return result.normalized()
+
+
+func _nearest_ocean_direction(
+	region: GeneratedWorldRegion,
+	generator: TerrainChunkGenerator,
+	position: Vector3,
+) -> Vector3:
+	var half_extents := region.get_playable_half_extents()
+	var distance_x := half_extents.x - absf(position.x)
+	var distance_z := half_extents.y - absf(position.z)
+	var direction_x := Vector3.RIGHT if position.x >= 0.0 else Vector3.LEFT
+	var direction_z := Vector3.BACK if position.z >= 0.0 else Vector3.FORWARD
+	if absf(distance_x - distance_z) <= generator.catalog.chunk_size * 0.35:
+		return (direction_x + direction_z).normalized()
+	return direction_x if distance_x < distance_z else direction_z
+
+
 func _validate_prop_catalog(region: GeneratedWorldRegion) -> void:
 	var catalog := region.get_prop_catalog()
 	assert(catalog != null)
@@ -343,16 +486,49 @@ func _validate_prop_catalog(region: GeneratedWorldRegion) -> void:
 		&"prop_tree_1",
 		&"prop_tree_2",
 		&"prop_tree_3",
+		&"prop_tree_large",
 	]:
 		var tree := catalog.definition_for_id(tree_id)
 		assert(tree != null)
 		assert(tree.minimum_visual_scale < tree.maximum_visual_scale)
 		assert(tree.material_variants.size() >= 3)
 		assert(not tree.variant_material_slot_names.is_empty())
+		assert(tree.secondary_material_variants.size() >= 3)
+		assert(not tree.secondary_variant_material_slot_names.is_empty())
 	var pine := catalog.definition_for_id(&"prop_pine")
 	assert(pine != null)
 	assert(pine.minimum_visual_scale < pine.maximum_visual_scale)
 	assert(pine.material_variants.is_empty())
+	var large_pine := catalog.definition_for_id(&"prop_pine_large")
+	assert(large_pine != null)
+	assert(large_pine.minimum_visual_scale < large_pine.maximum_visual_scale)
+	assert(large_pine.material_variants.is_empty())
+	var palm := catalog.definition_for_id(&"prop_palm")
+	assert(palm != null)
+	assert(is_equal_approx(palm.minimum_visual_scale, 0.5))
+	assert(is_equal_approx(palm.maximum_visual_scale, 1.0))
+	assert(palm.minimum_cluster_size == 2)
+	assert(palm.maximum_cluster_size == 3)
+	assert(palm.minimum_cluster_radius > palm.clearance_radius)
+	assert(palm.maximum_cluster_radius > palm.minimum_cluster_radius)
+	assert(palm.prefer_ocean_facing)
+	assert(not palm.local_overhang_direction.is_zero_approx())
+	var forest := region.get_biome_catalog().definition_for_id(&"biome_forest")
+	var forest_rule := forest.prop_rule_for_group(&"grass_tree")
+	var large_tree := catalog.definition_for_id(&"prop_tree_large")
+	var small_tree_weight := (
+		catalog.definition_for_id(&"prop_tree_1").selection_weight
+		+ catalog.definition_for_id(&"prop_tree_2").selection_weight
+		+ catalog.definition_for_id(&"prop_tree_3").selection_weight
+	)
+	assert(forest_rule.allows_prop(large_tree))
+	assert(large_tree.selection_weight > small_tree_weight)
+	var pine_forest := region.get_biome_catalog().definition_for_id(
+		&"biome_pine_forest"
+	)
+	var pine_rule := pine_forest.prop_rule_for_group(&"grass_tree")
+	assert(pine_rule.allows_prop(large_pine))
+	assert(large_pine.selection_weight > pine.selection_weight)
 
 
 func _validate_biome_catalog(

@@ -34,6 +34,11 @@ const MAX_PACKED_SOLVER_VARIANTS := 62
 @export var elevated_cliff_edge_chunk_id: StringName = &"chunk_0011"
 @export var elevated_cliff_ramp_chunk_id: StringName = &"chunk_0012"
 @export_range(0.0, 1.0, 0.05) var elevated_cliff_ramp_chance := 0.75
+## A smaller third tier reuses the existing corner geometry at the authored
+## two-meter level interval. It is nested into the lower cliff assembly rather
+## than occupying or replacing additional terrain-grid cells.
+@export_range(0.0, 1.0, 0.05) var elevated_cliff_third_level_chance := 0.7
+@export_range(0.1, 10.0, 0.1) var elevated_cliff_level_height := 2.0
 @export_group("")
 @export_range(1.0, 100.0, 1.0) var required_chunk_weight_multiplier := 64.0
 @export_range(1.0, 4.0, 0.05) var preferred_neighbor_weight_multiplier := 1.6
@@ -68,6 +73,7 @@ var _generated_chunks: Node3D
 var _backtrack_count := 0
 var _elevated_feature_center := Vector2i(-1, -1)
 var _elevated_feature_reserved_grass_indices: Dictionary[int, bool] = {}
+var _stacked_elevated_placements: Array[Dictionary] = []
 
 
 func _ready() -> void:
@@ -98,6 +104,9 @@ func generate() -> bool:
 		_assign_placements(previous_placements)
 		return false
 	if not _apply_elevated_feature():
+		_assign_placements(previous_placements)
+		return false
+	if not _configure_stacked_elevated_feature():
 		_assign_placements(previous_placements)
 		return false
 	var solution_root := _build_solution_root()
@@ -138,6 +147,9 @@ func generate_from_placement_keys(keys: PackedStringArray) -> bool:
 	previous_placements.assign(_placements)
 	_assign_placements(resolved)
 	_backtrack_count = 0
+	if not _configure_stacked_elevated_feature():
+		_assign_placements(previous_placements)
+		return false
 	var solution_root := _build_solution_root()
 	if solution_root == null:
 		_assign_placements(previous_placements)
@@ -1184,6 +1196,7 @@ func _candidate_can_occupy_cell(
 func _prepare_elevated_feature_region() -> bool:
 	_elevated_feature_center = Vector2i(-1, -1)
 	_elevated_feature_reserved_grass_indices.clear()
+	_stacked_elevated_placements.clear()
 	if not elevated_cliff_feature_enabled:
 		_build_grid_solver_caches()
 		return true
@@ -1436,6 +1449,65 @@ func _apply_elevated_feature() -> bool:
 	if not validation_error.is_empty():
 		push_error("Elevated cliff feature is invalid: " + validation_error)
 		return false
+	return true
+
+
+func _configure_stacked_elevated_feature() -> bool:
+	_stacked_elevated_placements.clear()
+	if (
+		not elevated_cliff_feature_enabled
+		or elevated_cliff_third_level_chance <= 0.0
+	):
+		return true
+	var top_coordinate := Vector2i(-1, -1)
+	for index: int in _placements.size():
+		var placement := _placements[index]
+		if (
+			placement != null
+			and placement.definition.stable_id == elevated_cliff_top_chunk_id
+		):
+			top_coordinate = Vector2i(index % grid_size.x, index / grid_size.x)
+			break
+	if top_coordinate.x < 0:
+		return true
+	var stack_random := RandomNumberGenerator.new()
+	stack_random.seed = generation_seed ^ 0x7312DC11F
+	if stack_random.randf() >= elevated_cliff_third_level_chance:
+		return true
+	var corner_definition := catalog.definition_for_id(
+		elevated_cliff_corner_chunk_id
+	)
+	if corner_definition == null:
+		push_error(
+			"Stacked cliff feature references missing corner chunk %s."
+			% elevated_cliff_corner_chunk_id
+		)
+		return false
+	# Four nearly half-cell-offset corners form a closed 2x2 ring. A slight
+	# inward overlap keeps the authored curved feet fully seated on the lower
+	# plateau instead of exposing a hairline gap at its outermost vertices.
+	var specs: Array[Dictionary] = [
+		{"offset": Vector2(-0.45, -0.45), "turns": 2},
+		{"offset": Vector2(0.45, -0.45), "turns": 1},
+		{"offset": Vector2(-0.45, 0.45), "turns": 3},
+		{"offset": Vector2(0.45, 0.45), "turns": 0},
+	]
+	for spec: Dictionary in specs:
+		var variant := _authored_variant(
+			corner_definition,
+			int(spec["turns"]),
+		)
+		if variant == null:
+			push_error(
+				"Stacked cliff feature cannot resolve %s rotation %d."
+				% [elevated_cliff_corner_chunk_id, spec["turns"]]
+			)
+			return false
+		_stacked_elevated_placements.append({
+			"support_coordinate": top_coordinate,
+			"offset": spec["offset"],
+			"variant": variant,
+		})
 	return true
 
 
@@ -2040,7 +2112,72 @@ func _build_solution_root() -> Node3D:
 			_add_collision(chunk_root, variant.definition)
 		if show_chunk_labels:
 			_add_chunk_label(chunk_root, variant)
+	if not _add_stacked_elevated_chunks(solution_root):
+		solution_root.free()
+		return null
 	return solution_root
+
+
+func _add_stacked_elevated_chunks(solution_root: Node3D) -> bool:
+	for index: int in _stacked_elevated_placements.size():
+		var record := _stacked_elevated_placements[index]
+		var variant := record.get("variant") as TerrainChunkVariant
+		var support_coordinate: Vector2i = record.get(
+			"support_coordinate",
+			Vector2i(-1, -1),
+		)
+		var support_root := _find_chunk_root_for_coordinate(
+			solution_root,
+			support_coordinate,
+		)
+		if variant == null or support_root == null:
+			push_error("Stacked cliff feature lost its supporting terrain cell.")
+			return false
+		var stacked_root := variant.definition.packed_scene.instantiate() as Node3D
+		if stacked_root == null:
+			push_error(
+				"%s does not instantiate as a stacked Node3D."
+				% variant.stable_key()
+			)
+			return false
+		stacked_root.name = "Stacked_%s_%d" % [
+			variant.stable_key().replace("@", "r"),
+			index,
+		]
+		var offset: Vector2 = record.get("offset", Vector2.ZERO)
+		stacked_root.position = Vector3(
+			offset.x * catalog.chunk_size,
+			elevated_cliff_level_height,
+			offset.y * catalog.chunk_size,
+		)
+		stacked_root.rotation.y = variant.rotation_radians()
+		stacked_root.set_meta(&"terrain_stacked_elevation", true)
+		stacked_root.set_meta(
+			&"terrain_chunk_id",
+			variant.definition.stable_id,
+		)
+		stacked_root.set_meta(
+			&"terrain_chunk_coordinate",
+			support_coordinate,
+		)
+		support_root.add_child(stacked_root)
+		if build_collision:
+			_add_collision(stacked_root, variant.definition)
+		if show_chunk_labels:
+			_add_chunk_label(stacked_root, variant)
+	return true
+
+
+func _find_chunk_root_for_coordinate(
+	solution_root: Node3D,
+	coordinate: Vector2i,
+) -> Node3D:
+	for child: Node in solution_root.get_children():
+		if child.get_meta(&"terrain_chunk_coordinate", Vector2i(-1, -1)) == (
+			coordinate
+		):
+			return child as Node3D
+	return null
 
 
 func _instantiate_chunk_root(
@@ -2171,6 +2308,7 @@ func _build_summary() -> Dictionary:
 		"counts": counts,
 		"variant_counts": variant_counts,
 		"placements": placement_keys(),
+		"stacked_elevated_placements": stacked_elevated_placement_keys(),
 		"layout_fingerprint": placement_fingerprint(),
 	}
 
@@ -2214,7 +2352,27 @@ func placement_fingerprint() -> String:
 		"chunk_size:%.6f" % (catalog.chunk_size if catalog != null else 0.0),
 	])
 	fingerprint_input.append_array(placement_keys())
+	fingerprint_input.append_array(stacked_elevated_placement_keys())
 	return "\n".join(fingerprint_input).sha256_text()
+
+
+func stacked_elevated_placement_keys() -> PackedStringArray:
+	var result := PackedStringArray()
+	for record: Dictionary in _stacked_elevated_placements:
+		var variant := record.get("variant") as TerrainChunkVariant
+		var offset: Vector2 = record.get("offset", Vector2.ZERO)
+		if variant == null:
+			continue
+		result.append(
+			"%s@%.2f,%.2f,+%.2fm"
+			% [
+				variant.stable_key(),
+				offset.x,
+				offset.y,
+				elevated_cliff_level_height,
+			]
+		)
+	return result
 
 
 func placement_records() -> Array[Dictionary]:
@@ -2276,4 +2434,18 @@ func get_primary_terrain_meshes() -> Array[MeshInstance3D]:
 		)
 		if primary_mesh != null and primary_mesh.mesh != null:
 			result.append(primary_mesh)
+		for child: Node in chunk_root.get_children():
+			if not bool(child.get_meta(&"terrain_stacked_elevation", false)):
+				continue
+			var definition := catalog.definition_for_id(
+				StringName(child.get_meta(&"terrain_chunk_id", &""))
+			)
+			if definition == null:
+				continue
+			var stacked_mesh := TerrainChunkAnalyzer.find_primary_mesh(
+				child,
+				definition.primary_mesh_name,
+			)
+			if stacked_mesh != null and stacked_mesh.mesh != null:
+				result.append(stacked_mesh)
 	return result

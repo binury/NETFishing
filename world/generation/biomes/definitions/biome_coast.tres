@@ -6,9 +6,9 @@
 [sub_resource type="Resource" id="Rule_sand_tree"]
 script = ExtResource("2_rule")
 procedural_group = &"sand_tree"
-placement_chance = 4200
-adjacency_bonus = 1200
-maximum_density = 5000
+placement_chance = 2200
+adjacency_bonus = 900
+maximum_density = 2800
 minimum_placements = 1
 allowed_prop_ids = PackedStringArray("prop_palm")
 

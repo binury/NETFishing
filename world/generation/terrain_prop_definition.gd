@@ -21,12 +21,28 @@ extends Resource
 ## Procedural instances use a deterministic uniform scale in this range.
 @export_range(0.1, 4.0, 0.05) var minimum_visual_scale := 1.0
 @export_range(0.1, 4.0, 0.05) var maximum_visual_scale := 1.0
+## Values above one create a loose group of separately anchored instances.
+## Cluster members are distributed across the configured scale range so a
+## three-member cluster naturally contains a small, medium, and large prop.
+@export_range(1, 4, 1) var minimum_cluster_size := 1
+@export_range(1, 4, 1) var maximum_cluster_size := 1
+@export_range(0.0, 10.0, 0.05) var minimum_cluster_radius := 0.0
+@export_range(0.0, 10.0, 0.05) var maximum_cluster_radius := 0.0
 ## Presentation-only offset. The prop root remains exactly terrain-aligned.
 @export var visual_offset := Vector3.ZERO
 ## A single material is chosen per prop and applied only to matching imported
 ## material slots. This keeps trunks untouched while varying foliage.
 @export var variant_material_slot_names := PackedStringArray()
 @export var material_variants: Array[Material] = []
+## An independent second material channel, used when both foliage and wood
+## should vary without coupling their color choices.
+@export var secondary_variant_material_slot_names := PackedStringArray()
+@export var secondary_material_variants: Array[Material] = []
+## Some asymmetric props can loosely face an authored ocean edge. The local
+## direction describes the model's natural overhang in Godot X/Z space.
+@export var prefer_ocean_facing := false
+@export var local_overhang_direction := Vector2(0.0, -1.0)
+@export_range(0.0, 180.0, 1.0) var ocean_facing_spread_degrees := 45.0
 @export_range(0.0, 5.0, 0.05) var collision_radius := 0.0
 @export_range(0.0, 20.0, 0.05) var collision_height := 0.0
 @export var collision_box_size := Vector3.ZERO

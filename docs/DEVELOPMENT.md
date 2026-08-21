@@ -89,9 +89,8 @@ presented through a uniformly scaled SubViewport. Shared UI components and
 palette resources prevent page-specific geometry and style drift.
 
 World presentation systems (time/weather visuals, procedural sky and water,
-shoreline ribbons, player blob shadows) do not own gameplay collision or
-network authority. Generated shoreline meshes are deterministic presentation
-resources baked from explicitly configured static terrain.
+shoreline treatment, player blob shadows) do not own gameplay collision or
+network authority.
 
 ### Engineering consequences
 
@@ -129,9 +128,9 @@ remain authoritative in `.tres` resources and typed scripts.
   wallet exactly once.
 - Reserved assets are rejected atomically; mixed valid and reserved batches
   must not partially succeed.
-- Item effects, shop prices, cooler capacity, fishing upgrades, jobs, and
-  experience are separate balance axes. Avoid changing several in an
-  unrelated presentation pass.
+- Item effects, shop prices, inventory and storage capacity, fishing upgrades,
+  jobs, and experience are separate balance axes. Avoid changing several in
+  an unrelated presentation pass.
 
 Record affected stable IDs and resource paths, old and new values, intended
 player-facing outcome, interactions with quality/availability/economy,
@@ -143,70 +142,57 @@ authored number changed.
 
 ### World composition
 
-The active test world uses the canonical starter island through
-`world/regions/starter_island_region.tscn`.
+`world/test_world.tscn` is the shared gameplay stage. It owns the environment,
+sun, world bounds, and below-world failsafe, then hosts exactly one active
+`WorldRegion`. Two canonical region implementations are supported:
 
-`world/test_world.tscn` owns the gameplay-wide environment, sun, world bounds,
-and below-world failsafe. `StarterIslandRegion` owns the placed island content:
+- the generated world, which is the default for new games and is rebuilt from
+  the saved seed; and
+- the starter island, which remains an authored selectable layout and a useful
+  compatibility/reference scene.
+
+The stable layout IDs live in `world/world_layout.gd`. Do not infer a layout
+from a scene filename, display label, or region node name. Both implementations
+must satisfy the shared `WorldRegion` contract for player spawn, safe respawns,
+water regions, recovery, gathering, digging, the shop, and player storage.
+
+A region owns the content that changes with the selected world:
 
 ```text
-StarterIslandRegion
+WorldRegion
 ├── Terrain
-│   ├── Visual
-│   └── Collision
 ├── WaterBodies
-│   ├── Pond
-│   │   ├── VisualWater
-│   │   ├── FishingRegion
-│   │   └── RecoveryRegion
-│   └── Ocean
-│       ├── VisualWater
-│       ├── FishingRegions
-│       └── RecoveryRegions
 ├── PlayerSpawn
 ├── SafeRespawns
+├── DiggableAreas
+├── GatherableAnchors
 └── Interactables
     ├── FishingShopWorld
-    └── PelicanCoolerPerch
+    └── PlayerStorageBox
 ```
 
-Move a meaningful feature root rather than one of its implementation children.
-Child transforms are local offsets owned by that feature.
+The generated region owns its chunk, biome, and prop catalogs and derives
+terrain collision, water coverage, biome placement, and presentation reference
+geometry from the generated result. The starter-island region owns its imported
+terrain hierarchy and explicitly placed content. Code shared by both layouts
+must depend on `WorldRegion`, not a starter-island child path.
 
-Every fishable region authors its `water_type` explicitly. The starter pond is
-`FRESH_WATER`; the starter coast is `SALT_WATER`. Fish species use the same
-central type through an allowed-water-type bitmask. Do not infer habitat from
-node names, pool filenames, coordinates, or water height.
+Every fishable water body authors its water type explicitly. Fish species use
+the same central type through an allowed-water-type bitmask. Do not infer
+habitat from node names, pool filenames, coordinates, or water height.
 
-Select `WaterBodies/Pond` to move or resize the pond. Its transform is the
-authoritative surface position; surface size and fishing/recovery coverage are
-owned together. Select `WaterBodies/Ocean` to move the surrounding water as one
-feature. Its fishing coverage is derived from the visible water mesh and the
-terrain collision determines the shoreline. New or revised land meshes do not
-require hand-authored fishing exclusions. Recovery volumes remain explicit so
-they can follow the playable world bounds rather than the horizon-sized visual
-ocean.
+In the generated layout, seed and layout ID are persistent data. Chunk IDs,
+edge rules, biome definitions, and prop definitions are authored resources;
+changing them can change the world produced by an existing seed and therefore
+requires deliberate compatibility review.
 
-Placed-feature ownership:
+For the authored starter island, move a meaningful feature root rather than one
+of its implementation children. Child transforms are local offsets owned by
+that feature. Its imported GLB hierarchy is the starter region's terrain and
+collision authority; this rule does not describe generated-world collision.
 
-- `PlayerSpawn` defines the initial player transform and facing.
-- `SafeRespawns` contains authoritative recovery destinations. Recovery
-  preserves current facing.
-- `Interactables/FishingShopWorld` owns the shop visual, collision, interaction
-  area, prompt, and entrance marker.
-- `Interactables/PelicanCoolerPerch` owns the Pelican landmark visual; selling
-  remains a Cooler action.
-- `Terrain` owns imported visuals and generated collision.
-- `BelowWorldFailsafe/Coverage` owns below-world recovery coverage.
-
-The starter-island GLB hierarchy is the terrain-collision authority. The
-region rebuilds one concave collision shape from every imported
-`MeshInstance3D` when it loads, so newly exported terrain and props participate
-without a separate stale collision bake. Keep purely decorative meshes out of
-that hierarchy if they should not block players.
-
-The active `Environment`, `Sun`, and starter-island grass material remain
-Inspector-authored and are not recreated by runtime scripts.
+The active `Environment` and `Sun` remain Inspector-authored on the shared
+stage and are not recreated by either region.
 
 ### Reusable world props
 
@@ -226,29 +212,14 @@ root scaling is acceptable when visual and collision scale together; avoid
 non-uniform root scaling. Make mutable per-instance shapes, meshes, and
 materials local to the scene.
 
-### Shoreline tide ribbons
+### Shoreline presentation
 
-Maps using generated tide ribbons own a `ShorelineRibbonBaker` and one
-`ShorelineRibbonConfig` per water body. Each configuration selects only its
-static terrain source, water height, generation bounds, water-facing reference,
-smoothing overrides, and generated `.tres` path. Props, players, bobbers, and
-gameplay areas are not scanned unless selected explicitly. Only `SALT_WATER`
-bodies generate ribbons.
-
-The editor automatically rebuilds configured shoreline resources when an
-authored terrain GLB is reimported. Select the baker and press **Rebuild
-Shoreline Ribbons** only when intentionally forcing a rebuild without a terrain
-reimport. The equivalent headless fallback and validation command is:
-
-```sh
-godot --headless --path . --script scripts/bake_shoreline_ribbons.gd
-```
-
-Use `debug_path_stage` only while comparing extraction stages and leave it Off
-in committed scenes. A rebuild is required when saltwater terrain at the
-waterline, water height, or generation bounds change; terrain reimports handle
-the usual case automatically. Normal gameplay loads committed generated meshes
-and never runs extraction.
+The visible shoreline treatment is currently produced by the water materials.
+The older smooth-ribbon baker and generated starter-island ribbon resource are
+retained as development history/tooling, but the ribbon mesh is disabled and
+is not part of the current rendered shoreline. Do not treat a ribbon rebuild
+as a normal terrain-authoring requirement or re-enable the mesh as incidental
+cleanup.
 
 ### Facial-feature textures
 
@@ -299,12 +270,12 @@ with a -3 dBFS peak ceiling, mono, 48 kHz, 16-bit PCM. Import a supplied set
 through the normalization script rather than copying its WAV files directly:
 
 ```bash
-scripts/import_animalese_voice.sh /path/to/source_clips sample_set_directory
+scripts/import_animalese_voice.sh /path/to/source_clips <sample-set-id>
 ```
 
 The source directory may contain lowercase letter, number, and underscore WAV
 filenames. The script converts every top-level WAV and writes the results under
-`sound/dialogue/animalese/sample_set_directory/`. Add a new runtime set to
+`sound/dialogue/animalese/<sample-set-id>/`. Add a new runtime set to
 `player/animalese_voice_profiles.gd` after import, then run the quick validation
 suite. Keep the untouched submission and its original hashes in the private
 intake record; repository files are normalized derivatives.
