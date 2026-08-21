@@ -1,8 +1,13 @@
 # NETfishing contributor terms
 
-These terms apply to contributions intentionally submitted for inclusion in
-NETfishing after these terms are published. They do not retroactively change
-ownership of earlier work or replace a separately signed agreement.
+NETfishing does not accept unsolicited contributions. These terms are retained
+as the governing record for contributions previously accepted after their
+publication and for specific future work that both Owners expressly invite in
+writing before submission. They are not a request or standing invitation for
+patches, pull requests, assets, or other material.
+
+These terms do not retroactively change ownership of earlier work or replace a
+separately signed agreement.
 
 “Owners” means the two NETfishing co-owners who publish the Project as
 Woofmeow and are publicly credited as Voyager and Endeavour. “Project” means
@@ -80,15 +85,16 @@ separate written agreement signed by the appropriate parties.
 
 ## 7. Acceptance
 
-A contribution is not accepted merely because it was posted, uploaded, or
-discussed. The Owners or their authorized maintainers may accept, modify,
-decline, or later remove it.
+A contribution is not accepted merely because it was posted, uploaded, linked,
+emailed, or discussed. Unsolicited material will not be reviewed or accepted.
+The Owners or their authorized maintainers may modify, decline, or later
+remove previously accepted or expressly invited work.
 
-By intentionally submitting a patch, pull request, asset, or other material
-for Project inclusion after receiving notice of these terms, you agree to the
-applicable grants above. Maintainers should record the contributor’s
-affirmative agreement in the pull request, issue, email, or another durable
-written record.
+For work expressly invited in writing, intentionally delivering the requested
+material for Project inclusion after receiving notice of these terms records
+agreement to the applicable grants above. Maintainers must retain both the
+written invitation and the contributor's affirmative agreement in a durable
+Project record.
 
-If you cannot agree to these terms, do not submit the contribution; contact
-the Owners to discuss a separate written arrangement.
+Do not send unsolicited work. An owner invitation may instead specify a
+separate written arrangement signed by the appropriate parties.

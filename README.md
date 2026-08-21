@@ -48,7 +48,7 @@ godot --path .
 ## Validation
 
 The validation scripts isolate Godot's settings and application-data roots.
-Run the fast, deterministic suite before submitting a change:
+Run the fast, deterministic suite before committing a change:
 
 ```sh
 scripts/run_validations.sh quick
@@ -101,7 +101,9 @@ world and UI authoring, and testing are consolidated in
   [TRADEMARKS.md](TRADEMARKS.md).
 - Third-party materials retain their own terms; see the consolidated
   [credits, notices, and provenance record](docs/ATTRIBUTION.md).
-- Contributions are accepted under [CONTRIBUTOR-TERMS.md](CONTRIBUTOR-TERMS.md).
+- Unsolicited contributions are not accepted. See
+  [CONTRIBUTING.md](CONTRIBUTING.md). Historical and expressly invited work is
+  governed by [CONTRIBUTOR-TERMS.md](CONTRIBUTOR-TERMS.md).
 
 Material boundaries and binary-release requirements are recorded in that same
 [`docs/ATTRIBUTION.md`](docs/ATTRIBUTION.md) reference.

@@ -34,6 +34,12 @@ and resources. These documents describe boundaries, policy, and maintenance
 procedures; they should not duplicate changing constants or inventories that
 can be derived reliably from the project.
 
+The same rule applies to credits. `ATTRIBUTION.md` records creators, licenses,
+and durable contribution families. It does not attempt to mirror every current
+asset filename or private intake-directory layout. Planned or unincorporated
+work is not described as shipped, and repository paths are included only when
+they help recipients locate a distributed third-party work or license.
+
 ## Files intentionally kept at the repository root
 
 The following are entry points or governing legal documents rather than
@@ -45,6 +51,10 @@ general project documentation, so they remain at conventional root paths:
 - `ASSET-LICENSE.md`
 - `TRADEMARKS.md`
 - `CONTRIBUTOR-TERMS.md`
+
+`CONTRIBUTING.md` records that unsolicited contributions are not accepted.
+`CONTRIBUTOR-TERMS.md` remains a governing legal record for previously
+accepted and expressly invited work, not an invitation for new submissions.
 
 Third-party font license texts stay beside their font files under `ui/fonts/`
 so the licensed files and their original notices cannot drift apart. Build
@@ -58,3 +68,8 @@ update the appropriate reference above and link to its heading when source
 comments need more context. Player-facing package instructions belong only in
 `README-PLAYTEST.txt`; source and scripts remain authoritative for command-line
 usage.
+
+Before adding a literal project path to prose, verify that it exists in the
+same revision and that readers actually need the path. Prefer a stable owner,
+interface, or resource type over a directory listing. A path or Git author is
+never evidence of creative authorship.
