@@ -1,0 +1,28 @@
+[gd_resource type="Resource" script_class="TerrainChunkDefinition" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://world/generation/terrain_chunk_definition.gd" id="1_definition"]
+[ext_resource type="PackedScene" path="res://world/generation/chunks/assets/chunk_0013.glb" id="2_scene"]
+
+[resource]
+script = ExtResource("1_definition")
+stable_id = &"chunk_0013"
+label = "grass-sand diagonal"
+packed_scene = ExtResource("2_scene")
+primary_mesh_name = &"chunk_0013"
+participates_in_base_solver = false
+allowed_rotation_mask = 15
+selection_weight = 0.8
+maximum_placements = 16
+tags = PackedStringArray("land", "walkable", "grass", "sand", "flat", "transition", "mixed_surface")
+allowed_neighbor_tags = PackedStringArray("grass", "sand")
+forbidden_neighbor_tags = PackedStringArray("fresh_water", "spawn")
+north_allowed_neighbor_tags = PackedStringArray("sand")
+east_allowed_neighbor_tags = PackedStringArray("grass")
+south_allowed_neighbor_tags = PackedStringArray("grass")
+west_allowed_neighbor_tags = PackedStringArray("sand")
+north_surface_tags = PackedStringArray("sand")
+east_surface_tags = PackedStringArray("grass")
+south_surface_tags = PackedStringArray("grass")
+west_surface_tags = PackedStringArray("sand")
+preferred_neighbor_tags = PackedStringArray("grass", "sand", "transition")
+must_be_interior = true

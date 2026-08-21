@@ -12,9 +12,14 @@ extends Resource
 @export var base_layer_scene: PackedScene
 @export var base_layer_mesh_name: StringName
 ## Overlay-only chunks replace a reserved base-terrain placement after the
-## ordinary terrain solve. They remain in placement manifests and runtime
-## output, but do not inflate every cell's global solver domain.
+## ordinary terrain solve. Inland overlays normally provide base_layer_scene;
+## complete coastal overlays can instead carry their own descent to sea level.
+## They remain in placement manifests and runtime output, but do not inflate
+## every cell's global solver domain.
 @export var overlay_only := false
+## Post-process pieces remain available as authored variants and in placement
+## manifests, but do not participate in the ordinary base-terrain solve.
+@export var participates_in_base_solver := true
 @export_group("")
 @export_flags("0 degrees", "90 degrees", "180 degrees", "270 degrees")
 var allowed_rotation_mask := 15
@@ -37,6 +42,16 @@ var allowed_rotation_mask := 15
 @export var east_allowed_neighbor_tags := PackedStringArray()
 @export var south_allowed_neighbor_tags := PackedStringArray()
 @export var west_allowed_neighbor_tags := PackedStringArray()
+@export_group("")
+## Optional canonical descriptions of the visible terrain surface at each
+## edge. Empty edges inherit the definition's ordinary tags. Mixed-surface
+## chunks use these to prevent a visually grass edge from joining sand (or the
+## reverse) even when the chunk itself carries both biome tags.
+@export_group("Directional Surface Rules")
+@export var north_surface_tags := PackedStringArray()
+@export var east_surface_tags := PackedStringArray()
+@export var south_surface_tags := PackedStringArray()
+@export var west_surface_tags := PackedStringArray()
 @export_group("")
 ## When non-empty, at least this many in-grid cardinal neighbors must carry one
 ## of the listed tags. This supports statements such as "three sides around the
@@ -103,6 +118,28 @@ func directional_allowed_neighbor_tags(
 			return south_allowed_neighbor_tags
 		TerrainChunkTopology.Edge.WEST:
 			return west_allowed_neighbor_tags
+	return PackedStringArray()
+
+
+func surface_tags_for_edge(
+	edge: TerrainChunkTopology.Edge,
+) -> PackedStringArray:
+	var edge_tags := directional_surface_tags(edge)
+	return tags if edge_tags.is_empty() else edge_tags
+
+
+func directional_surface_tags(
+	edge: TerrainChunkTopology.Edge,
+) -> PackedStringArray:
+	match edge:
+		TerrainChunkTopology.Edge.NORTH:
+			return north_surface_tags
+		TerrainChunkTopology.Edge.EAST:
+			return east_surface_tags
+		TerrainChunkTopology.Edge.SOUTH:
+			return south_surface_tags
+		TerrainChunkTopology.Edge.WEST:
+			return west_surface_tags
 	return PackedStringArray()
 
 

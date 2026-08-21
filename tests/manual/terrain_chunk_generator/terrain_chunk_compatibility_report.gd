@@ -122,4 +122,5 @@ func _make_generator() -> TerrainChunkGenerator:
 			"chunk_0008",
 		]
 	)
+	generator.grass_sand_smoothing_enabled = true
 	return generator

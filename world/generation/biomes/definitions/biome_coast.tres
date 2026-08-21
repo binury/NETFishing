@@ -17,4 +17,5 @@ script = ExtResource("1_definition")
 stable_id = &"biome_coast"
 label = "coast"
 required_chunk_tags = PackedStringArray("sand")
+forbidden_chunk_tags = PackedStringArray("mixed_surface")
 prop_rules = Array[ExtResource("2_rule")]([SubResource("Rule_sand_tree")])

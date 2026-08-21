@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="TerrainChunkDefinition" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://world/generation/terrain_chunk_definition.gd" id="1_definition"]
+[ext_resource type="PackedScene" path="res://world/generation/chunks/assets/chunk_0014.glb" id="2_scene"]
+
+[resource]
+script = ExtResource("1_definition")
+stable_id = &"chunk_0014"
+label = "second-tier grass sea edge"
+packed_scene = ExtResource("2_scene")
+primary_mesh_name = &"chunk_0014"
+overlay_only = true
+selection_weight = 0.28
+maximum_placements = 32
+tags = PackedStringArray("land", "walkable", "grass", "coast", "cliff", "edge", "elevation_2", "elevation_2_border", "elevation_2_sea_edge")
+allowed_neighbor_tags = PackedStringArray("elevation_2")
+north_allowed_neighbor_tags = PackedStringArray("elevation_2_sea_edge")
+south_allowed_neighbor_tags = PackedStringArray("elevation_2_sea_edge")
+west_allowed_neighbor_tags = PackedStringArray("elevation_2_top")
+required_neighbor_tags = PackedStringArray("elevation_2_top")
+minimum_required_neighbors = 1
+preferred_neighbor_tags = PackedStringArray("elevation_2", "coast")
+prefers_map_boundary = true
+ocean_facing_edges = 2

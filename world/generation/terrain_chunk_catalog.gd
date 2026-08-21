@@ -38,10 +38,16 @@ func validation_errors() -> PackedStringArray:
 				"%s must define both base-layer scene and mesh name."
 				% definition.stable_id
 			)
-		if definition.overlay_only and definition.base_layer_scene == null:
+		if (
+			definition.overlay_only
+			and definition.base_layer_scene == null
+			and definition.ocean_facing_edges == 0
+		):
 			errors.append(
-				"%s is overlay-only but has no base-layer scene."
-				% definition.stable_id
+				(
+					"%s is an inland overlay but has no base-layer scene."
+					% definition.stable_id
+				)
 			)
 		if definition.allowed_rotation_mask == 0:
 			errors.append("%s allows no rotations." % definition.stable_id)

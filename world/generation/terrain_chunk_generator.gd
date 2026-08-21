@@ -7,6 +7,9 @@ const CONSTRAINT_PROFILE_QUANTIZATION := 0.001
 const CANDIDATE_WEIGHT_SCALE := 10000.0
 const LARGE_GRID_LIGHTWEIGHT_THRESHOLD := 128
 const LARGE_GRID_PROPAGATION_INTERVAL := 8
+# Keep packed domain bits below the signed 64-bit sign bit. Catalogs larger
+# than this remain correct through the unpacked solver path.
+const MAX_PACKED_SOLVER_VARIANTS := 62
 
 @export var catalog: TerrainChunkCatalog
 @export var grid_size := Vector2i(7, 7)
@@ -16,6 +19,13 @@ const LARGE_GRID_PROPAGATION_INTERVAL := 8
 @export var show_chunk_labels := false
 @export var force_center_chunk_id: StringName = &"chunk_0000"
 @export var required_chunk_ids := PackedStringArray()
+@export_group("Grass-Sand Smoothing")
+@export var grass_sand_smoothing_enabled := false
+@export var smoothing_grass_chunk_id: StringName = &"chunk_0000"
+@export var smoothing_sand_chunk_id: StringName = &"chunk_0001"
+@export var smoothing_diagonal_chunk_id: StringName = &"chunk_0013"
+@export_range(1, 64, 1) var maximum_smoothing_placements := 16
+@export_group("")
 @export_group("Elevated Inland Feature")
 @export var elevated_cliff_feature_enabled := false
 @export var elevated_cliff_base_chunk_id: StringName = &"chunk_0000"
@@ -37,10 +47,22 @@ var _variants: Array[TerrainChunkVariant] = []
 # Rotations with identical terrain edges and connector directions share one
 # solver candidate, then resolve back to an authored rotation after solving.
 var _solver_variants: Array[TerrainChunkVariant] = []
+var _solver_definitions: Array[TerrainChunkDefinition] = []
+var _solver_variants_by_definition: Dictionary[StringName, Array] = {}
+var _definition_variant_masks: Dictionary[StringName, int] = {}
+var _required_neighbor_variant_masks: Dictionary[StringName, int] = {}
 var _equivalent_rotations: Dictionary[String, PackedInt32Array] = {}
 var _solver_variant_indices: Dictionary = {}
 var _edge_compatibility := PackedByteArray()
+var _edge_compatibility_masks := PackedInt64Array()
+var _static_cell_candidate_masks := PackedInt64Array()
+var _neighbor_indices: Array[PackedInt32Array] = []
 var _placements: Array[TerrainChunkVariant] = []
+var _placement_counts: Dictionary[StringName, int] = {}
+var _unfilled_cells := 0
+var _required_stable_ids: Array[StringName] = []
+var _selection_missing_required_count := 0
+var _selection_missing_required_mask := 0
 var _random := RandomNumberGenerator.new()
 var _generated_chunks: Node3D
 var _backtrack_count := 0
@@ -60,25 +82,27 @@ func generate() -> bool:
 	previous_placements.assign(_placements)
 	_random.seed = generation_seed
 	_backtrack_count = 0
-	_placements.clear()
-	_placements.resize(grid_size.x * grid_size.y)
+	_reset_placements(grid_size.x * grid_size.y)
 	if not _prepare_elevated_feature_region():
-		_placements.assign(previous_placements)
+		_assign_placements(previous_placements)
 		return false
 	if not _solve_cell(0):
-		_placements.assign(previous_placements)
+		_assign_placements(previous_placements)
 		push_error(
 			"Terrain generation could not solve a %dx%d grid with seed %d."
 			% [grid_size.x, grid_size.y, generation_seed]
 		)
 		return false
 	_resolve_equivalent_rotations()
+	if not _apply_grass_sand_smoothing():
+		_assign_placements(previous_placements)
+		return false
 	if not _apply_elevated_feature():
-		_placements.assign(previous_placements)
+		_assign_placements(previous_placements)
 		return false
 	var solution_root := _build_solution_root()
 	if solution_root == null:
-		_placements.assign(previous_placements)
+		_assign_placements(previous_placements)
 		return false
 	_replace_generated_chunks(solution_root)
 	var summary := _build_summary()
@@ -112,11 +136,11 @@ func generate_from_placement_keys(keys: PackedStringArray) -> bool:
 
 	var previous_placements: Array[TerrainChunkVariant] = []
 	previous_placements.assign(_placements)
-	_placements.assign(resolved)
+	_assign_placements(resolved)
 	_backtrack_count = 0
 	var solution_root := _build_solution_root()
 	if solution_root == null:
-		_placements.assign(previous_placements)
+		_assign_placements(previous_placements)
 		return false
 	_replace_generated_chunks(solution_root)
 	var summary := _build_summary()
@@ -199,6 +223,10 @@ func _prepare_catalog() -> bool:
 
 	_variants.clear()
 	_solver_variants.clear()
+	_solver_definitions.clear()
+	_solver_variants_by_definition.clear()
+	_definition_variant_masks.clear()
+	_required_neighbor_variant_masks.clear()
 	_equivalent_rotations.clear()
 	_solver_variant_indices.clear()
 	for definition: TerrainChunkDefinition in catalog.definitions:
@@ -214,7 +242,10 @@ func _prepare_catalog() -> bool:
 			return false
 		for variant: TerrainChunkVariant in analyzed:
 			_variants.append(variant)
-			if definition.overlay_only:
+			if (
+				definition.overlay_only
+				or not definition.participates_in_base_solver
+			):
 				continue
 			var constraint_key := _constraint_key(variant)
 			var rotations: PackedInt32Array = _equivalent_rotations.get(
@@ -232,9 +263,75 @@ func _prepare_catalog() -> bool:
 		push_error("Terrain chunk catalog produced no base-terrain solver variants.")
 		return false
 	for index: int in _solver_variants.size():
-		_solver_variant_indices[_solver_variants[index]] = index
+		var variant := _solver_variants[index]
+		_solver_variant_indices[variant] = index
+		var definition_variants: Array = _solver_variants_by_definition.get(
+			variant.definition.stable_id,
+			[],
+		)
+		definition_variants.append(variant)
+		if definition_variants.size() == 1:
+			_solver_definitions.append(variant.definition)
+		_solver_variants_by_definition[
+			variant.definition.stable_id
+		] = definition_variants
+		if index < MAX_PACKED_SOLVER_VARIANTS:
+			_definition_variant_masks[variant.definition.stable_id] = (
+				int(
+					_definition_variant_masks.get(
+						variant.definition.stable_id,
+						0,
+					)
+				)
+				| (1 << index)
+			)
 	_build_edge_compatibility_cache()
 	return true
+
+
+func _reset_placements(cell_count: int) -> void:
+	_placements.clear()
+	_placements.resize(cell_count)
+	_placement_counts.clear()
+	_unfilled_cells = cell_count
+
+
+func _assign_placements(layout: Array[TerrainChunkVariant]) -> void:
+	_placements.assign(layout)
+	_rebuild_placement_tracking()
+
+
+func _rebuild_placement_tracking() -> void:
+	_placement_counts.clear()
+	_unfilled_cells = 0
+	for placement: TerrainChunkVariant in _placements:
+		if placement == null:
+			_unfilled_cells += 1
+			continue
+		_adjust_placement_count(placement.definition.stable_id, 1)
+
+
+func _set_placement(index: int, placement: TerrainChunkVariant) -> void:
+	var previous := _placements[index]
+	if previous == placement:
+		return
+	if previous == null:
+		_unfilled_cells -= 1
+	else:
+		_adjust_placement_count(previous.definition.stable_id, -1)
+	_placements[index] = placement
+	if placement == null:
+		_unfilled_cells += 1
+	else:
+		_adjust_placement_count(placement.definition.stable_id, 1)
+
+
+func _adjust_placement_count(stable_id: StringName, difference: int) -> void:
+	var updated := int(_placement_counts.get(stable_id, 0)) + difference
+	if updated <= 0:
+		_placement_counts.erase(stable_id)
+		return
+	_placement_counts[stable_id] = updated
 
 
 func _constraint_key(variant: TerrainChunkVariant) -> String:
@@ -248,6 +345,10 @@ func _build_edge_compatibility_cache() -> void:
 	var variant_count := _solver_variants.size()
 	_edge_compatibility.resize(variant_count * 4 * variant_count)
 	_edge_compatibility.fill(0)
+	_edge_compatibility_masks.resize(
+		variant_count * 4 if _packed_solver_domains_are_available() else 0
+	)
+	_edge_compatibility_masks.fill(0)
 	for first_index: int in variant_count:
 		var first := _solver_variants[first_index]
 		for first_edge_value: int in TerrainChunkTopology.Edge.values():
@@ -260,14 +361,19 @@ func _build_edge_compatibility_cache() -> void:
 					first_edge,
 					second_index,
 				)
-				_edge_compatibility[cache_index] = int(
-					_calculate_edge_compatibility(
+				var compatible := _calculate_edge_compatibility(
 					first,
 					first_edge,
 					second,
 					second_edge,
-					)
 				)
+				_edge_compatibility[cache_index] = int(compatible)
+				if compatible and _packed_solver_domains_are_available():
+					var mask_index := first_index * 4 + int(first_edge)
+					_edge_compatibility_masks[mask_index] = (
+						_edge_compatibility_masks[mask_index]
+						| (1 << second_index)
+					)
 
 
 func _edge_compatibility_index(
@@ -284,17 +390,28 @@ func _edge_compatibility_index(
 
 func _validate_generation_requirements() -> bool:
 	var seen_required: Dictionary[StringName, bool] = {}
+	_required_stable_ids.clear()
 	for required_id_value: String in required_chunk_ids:
 		var required_id := StringName(required_id_value)
 		if seen_required.has(required_id):
 			continue
 		seen_required[required_id] = true
+		_required_stable_ids.append(required_id)
 		var definition := catalog.definition_for_id(required_id)
 		if definition == null:
 			push_error("Required terrain chunk %s is not in the catalog." % required_id)
 			return false
 		if definition.maximum_placements == 0:
 			push_error("Required terrain chunk %s permits no placements." % required_id)
+			return false
+		if (
+			definition.overlay_only
+			or not definition.participates_in_base_solver
+		):
+			push_error(
+				"Required terrain chunk %s does not participate in the base solver."
+				% required_id
+			)
 			return false
 	if seen_required.size() > grid_size.x * grid_size.y:
 		push_error("The terrain grid has fewer cells than required chunk IDs.")
@@ -325,36 +442,52 @@ func _solve_cell(placed_count: int) -> bool:
 		)
 	if _backtrack_count >= maximum_backtracks:
 		return false
+	_refresh_selection_required_cache()
 	if not _requirements_can_still_be_satisfied():
 		return false
 	var next_cell := _select_next_cell(placed_count)
 	var index := int(next_cell.get("index", -1))
 	if index < 0:
 		return false
-	var candidates := next_cell.get(
-		"candidates",
-		[],
-	) as Array[TerrainChunkVariant]
+	var candidates: Array[TerrainChunkVariant] = []
+	candidates.assign(next_cell.get("candidates", []))
 	for candidate: TerrainChunkVariant in _weighted_candidate_order(
 		candidates,
 		index,
 	):
-		_placements[index] = candidate
+		_set_placement(index, candidate)
 		if _solve_cell(placed_count + 1):
 			return true
-		_placements[index] = null
+		_set_placement(index, null)
 		_backtrack_count += 1
 		if _backtrack_count >= maximum_backtracks:
 			break
 	return false
 
 
+func _refresh_selection_required_cache() -> void:
+	_selection_missing_required_count = 0
+	_selection_missing_required_mask = 0
+	for stable_id: StringName in _required_stable_ids:
+		if int(_placement_counts.get(stable_id, 0)) > 0:
+			continue
+		_selection_missing_required_count += 1
+		_selection_missing_required_mask |= int(
+			_definition_variant_masks.get(stable_id, 0)
+		)
+
+
 func _select_next_cell(placed_count: int) -> Dictionary:
-	if (
-		_placements.size() >= LARGE_GRID_LIGHTWEIGHT_THRESHOLD
-		and placed_count % LARGE_GRID_PROPAGATION_INTERVAL != 0
-	):
-		return _select_next_large_grid_cell()
+	if _packed_solver_domains_are_available():
+		if (
+			_placements.size() >= LARGE_GRID_LIGHTWEIGHT_THRESHOLD
+			and placed_count % LARGE_GRID_PROPAGATION_INTERVAL != 0
+		):
+			return _select_next_large_grid_cell()
+		return _select_next_large_grid_propagated_cell()
+	if _placements.size() >= LARGE_GRID_LIGHTWEIGHT_THRESHOLD:
+		if placed_count % LARGE_GRID_PROPAGATION_INTERVAL != 0:
+			return _select_next_large_grid_cell_unpacked()
 	# Rebuild and propagate the small domain table on every branch. This catches
 	# unsupported connector chains before they turn into a deep recursive dead
 	# end, while keeping placement state simple and deterministic.
@@ -385,6 +518,221 @@ func _select_next_cell(placed_count: int) -> Dictionary:
 	return {"index": best_index, "candidates": best_candidates}
 
 
+func _select_next_large_grid_propagated_cell() -> Dictionary:
+	var domains: Dictionary[int, int] = {}
+	for index: int in _placements.size():
+		if _placements[index] != null:
+			continue
+		var candidate_mask := _compatible_candidate_mask(index)
+		if candidate_mask == 0:
+			return {"index": index, "candidates": []}
+		domains[index] = candidate_mask
+	if not _propagate_domain_masks(domains):
+		return {"index": -1, "candidates": []}
+
+	var best_index := -1
+	var best_mask := 0
+	var best_size := _solver_variants.size() + 1
+	for index: int in domains:
+		var candidate_mask := domains[index]
+		var candidate_count := _mask_bit_count(candidate_mask)
+		if best_index < 0 or candidate_count < best_size:
+			best_index = index
+			best_mask = candidate_mask
+			best_size = candidate_count
+			if candidate_count == 1:
+				break
+	return {
+		"index": best_index,
+		"candidates": _candidates_from_mask(best_mask),
+	}
+
+
+func _candidates_from_mask(candidate_mask: int) -> Array[TerrainChunkVariant]:
+	var result: Array[TerrainChunkVariant] = []
+	for candidate_index: int in _solver_variants.size():
+		if (candidate_mask & (1 << candidate_index)) != 0:
+			result.append(_solver_variants[candidate_index])
+	return result
+
+
+func _mask_bit_count(candidate_mask: int) -> int:
+	var count := 0
+	var remaining := candidate_mask
+	while remaining != 0:
+		remaining &= remaining - 1
+		count += 1
+	return count
+
+
+func _propagate_domain_masks(domains: Dictionary[int, int]) -> bool:
+	var changed := true
+	while changed:
+		changed = false
+		for index: int in domains.keys():
+			var candidates := domains[index]
+			var supported := 0
+			for candidate_index: int in _solver_variants.size():
+				var candidate_bit := 1 << candidate_index
+				if (
+					(candidates & candidate_bit) != 0
+					and _domain_candidate_has_mask_support(
+						candidate_index,
+						index,
+						domains,
+					)
+				):
+					supported |= candidate_bit
+			if supported == 0:
+				return false
+			if supported != candidates:
+				domains[index] = supported
+				changed = true
+		var required_result := _constrain_required_domain_masks(domains)
+		if required_result < 0:
+			return false
+		if required_result > 0:
+			changed = true
+		if not _placed_neighbor_requirements_have_domain_mask_support(domains):
+			return false
+	return true
+
+
+func _domain_candidate_has_mask_support(
+	candidate_index: int,
+	index: int,
+	domains: Dictionary[int, int],
+) -> bool:
+	var candidate := _solver_variants[candidate_index]
+	var possible_required_neighbors := 0
+	var required_neighbor_mask := _required_neighbor_variant_mask(
+		candidate.definition
+	)
+	for edge_value: int in TerrainChunkTopology.Edge.values():
+		var edge := edge_value as TerrainChunkTopology.Edge
+		var neighbor_index := _neighbor_indices[index][edge_value]
+		if neighbor_index < 0:
+			continue
+		var placed_neighbor := _placements[neighbor_index]
+		if placed_neighbor != null:
+			if _definition_matches_required_neighbor_tags(
+				candidate.definition,
+				placed_neighbor.definition,
+			):
+				possible_required_neighbors += 1
+			continue
+		var support_mask := (
+			int(domains.get(neighbor_index, 0))
+			& _edge_compatibility_masks[candidate_index * 4 + int(edge)]
+		)
+		if (
+			candidate.definition.maximum_placements >= 0
+			and _definition_placement_count(candidate.definition) + 2
+			> candidate.definition.maximum_placements
+		):
+			support_mask &= ~int(
+				_definition_variant_masks.get(
+					candidate.definition.stable_id,
+					0,
+				)
+			)
+		if support_mask == 0:
+			return false
+		if (support_mask & required_neighbor_mask) != 0:
+			possible_required_neighbors += 1
+	return (
+		possible_required_neighbors
+		>= candidate.definition.minimum_required_neighbors
+	)
+
+
+func _required_neighbor_variant_mask(
+	definition: TerrainChunkDefinition,
+) -> int:
+	if _required_neighbor_variant_masks.has(definition.stable_id):
+		return _required_neighbor_variant_masks[definition.stable_id]
+	var result := 0
+	for candidate_index: int in _solver_variants.size():
+		if _definition_matches_required_neighbor_tags(
+			definition,
+			_solver_variants[candidate_index].definition,
+		):
+			result |= 1 << candidate_index
+	_required_neighbor_variant_masks[definition.stable_id] = result
+	return result
+
+
+func _constrain_required_domain_masks(
+	domains: Dictionary[int, int],
+) -> int:
+	var changed := false
+	for stable_id: StringName in _missing_required_ids():
+		var definition_mask := int(_definition_variant_masks.get(stable_id, 0))
+		var supporting_cell := -1
+		var supporting_cell_count := 0
+		for index: int in domains:
+			if (domains[index] & definition_mask) == 0:
+				continue
+			supporting_cell = index
+			supporting_cell_count += 1
+			if supporting_cell_count > 1:
+				break
+		if supporting_cell_count == 0:
+			return -1
+		if supporting_cell_count != 1:
+			continue
+		var forced_mask := domains[supporting_cell] & definition_mask
+		if forced_mask == 0:
+			return -1
+		if forced_mask != domains[supporting_cell]:
+			domains[supporting_cell] = forced_mask
+			changed = true
+	return 1 if changed else 0
+
+
+func _placed_neighbor_requirements_have_domain_mask_support(
+	domains: Dictionary[int, int],
+) -> bool:
+	for index: int in _placements.size():
+		var placement := _placements[index]
+		if placement == null or placement.definition.minimum_required_neighbors <= 0:
+			continue
+		var placement_variant_index := int(
+			_solver_variant_indices.get(placement, -1)
+		)
+		if placement_variant_index < 0:
+			return false
+		var required_neighbor_mask := _required_neighbor_variant_mask(
+			placement.definition
+		)
+		var possible_neighbors := 0
+		for edge_value: int in TerrainChunkTopology.Edge.values():
+			var edge := edge_value as TerrainChunkTopology.Edge
+			var neighbor_index := _neighbor_indices[index][edge_value]
+			if neighbor_index < 0:
+				continue
+			var neighbor := _placements[neighbor_index]
+			if neighbor != null:
+				if _definition_matches_required_neighbor_tags(
+					placement.definition,
+					neighbor.definition,
+				):
+					possible_neighbors += 1
+				continue
+			var compatible_required_mask := (
+				int(domains.get(neighbor_index, 0))
+				& required_neighbor_mask
+				& _edge_compatibility_masks[
+					placement_variant_index * 4 + int(edge)
+				]
+			)
+			if compatible_required_mask != 0:
+				possible_neighbors += 1
+		if possible_neighbors < placement.definition.minimum_required_neighbors:
+			return false
+	return true
+
+
 func _select_next_large_grid_cell() -> Dictionary:
 	# Full all-cell arc propagation scales cubically as the map grows. Large
 	# worlds instead use the same compatibility checks with a frontier-aware MRV
@@ -395,7 +743,33 @@ func _select_next_large_grid_cell() -> Dictionary:
 	for index: int in _placements.size():
 		if _placements[index] != null:
 			continue
-		var candidates := _compatible_candidates(index)
+		var candidate_mask := _compatible_candidate_mask(index)
+		if candidate_mask == 0:
+			return {"index": index, "candidates": []}
+		var candidates := _candidates_from_mask(candidate_mask)
+		var placed_neighbors := _placed_neighbor_count(index)
+		if (
+			best_index < 0
+			or candidates.size() < best_candidates.size()
+			or (
+				candidates.size() == best_candidates.size()
+				and placed_neighbors > best_placed_neighbors
+			)
+		):
+			best_index = index
+			best_candidates = candidates
+			best_placed_neighbors = placed_neighbors
+	return {"index": best_index, "candidates": best_candidates}
+
+
+func _select_next_large_grid_cell_unpacked() -> Dictionary:
+	var best_index := -1
+	var best_candidates: Array[TerrainChunkVariant] = []
+	var best_placed_neighbors := -1
+	for index: int in _placements.size():
+		if _placements[index] != null:
+			continue
+		var candidates := _compatible_candidates_unpacked(index)
 		if candidates.is_empty():
 			return {"index": index, "candidates": candidates}
 		var placed_neighbors := _placed_neighbor_count(index)
@@ -414,20 +788,10 @@ func _select_next_large_grid_cell() -> Dictionary:
 
 
 func _placed_neighbor_count(index: int) -> int:
-	var coordinate := Vector2i(index % grid_size.x, index / grid_size.x)
 	var count := 0
-	for edge_value: int in TerrainChunkTopology.Edge.values():
-		var neighbor_coordinate := (
-			coordinate
-			+ TerrainChunkTopology.grid_offset(
-				edge_value as TerrainChunkTopology.Edge
-			)
-		)
-		if not _coordinate_is_inside_grid(neighbor_coordinate):
+	for neighbor_index: int in _neighbor_indices[index]:
+		if neighbor_index < 0:
 			continue
-		var neighbor_index := (
-			neighbor_coordinate.y * grid_size.x + neighbor_coordinate.x
-		)
 		if _placements[neighbor_index] != null:
 			count += 1
 	return count
@@ -622,42 +986,99 @@ func _constrain_required_domains(domains: Dictionary) -> int:
 
 
 func _compatible_candidates(index: int) -> Array[TerrainChunkVariant]:
+	if not _packed_solver_domains_are_available():
+		return _compatible_candidates_unpacked(index)
+	return _candidates_from_mask(_compatible_candidate_mask(index))
+
+
+func _compatible_candidates_unpacked(
+	index: int,
+) -> Array[TerrainChunkVariant]:
 	var result: Array[TerrainChunkVariant] = []
 	var missing_required := _missing_required_ids()
-	var remaining_cells := _unfilled_cell_count()
-	var must_place_missing_required := missing_required.size() >= remaining_cells
+	var must_place_missing_required := (
+		missing_required.size() >= _unfilled_cells
+	)
 	for candidate: TerrainChunkVariant in _solver_variants:
 		if (
 			must_place_missing_required
 			and not missing_required.has(candidate.definition.stable_id)
 		):
 			continue
-		if not _candidate_can_occupy_cell(candidate, index):
-			continue
-		result.append(candidate)
+		if _candidate_can_occupy_cell(candidate, index):
+			result.append(candidate)
 	return result
 
 
-func _candidate_can_occupy_cell(
+func _packed_solver_domains_are_available() -> bool:
+	return _solver_variants.size() <= MAX_PACKED_SOLVER_VARIANTS
+
+
+func _compatible_candidate_mask(index: int) -> int:
+	if index < 0 or index >= _static_cell_candidate_masks.size():
+		return 0
+	var result := int(_static_cell_candidate_masks[index])
+	if _selection_missing_required_count >= _unfilled_cells:
+		result &= _selection_missing_required_mask
+	if result == 0:
+		return 0
+	result = _mask_matching_placed_neighbors(result, index)
+	if result == 0:
+		return 0
+
+	for definition: TerrainChunkDefinition in _solver_definitions:
+		var definition_mask := int(
+			_definition_variant_masks.get(definition.stable_id, 0)
+		)
+		if (result & definition_mask) == 0:
+			continue
+		var definition_variants: Array = _solver_variants_by_definition.get(
+			definition.stable_id,
+			[],
+		)
+		if (
+			definition_variants.is_empty()
+			or not _candidate_dynamic_cell_rules_are_satisfied(
+				definition_variants[0] as TerrainChunkVariant,
+				index,
+			)
+		):
+			result &= ~definition_mask
+	return result
+
+
+func _mask_matching_placed_neighbors(candidate_mask: int, index: int) -> int:
+	var result := candidate_mask
+	for edge_value: int in TerrainChunkTopology.Edge.values():
+		var neighbor_index := _neighbor_indices[index][edge_value]
+		if neighbor_index < 0:
+			continue
+		var neighbor := _placements[neighbor_index]
+		if neighbor == null:
+			continue
+		var neighbor_variant_index := int(
+			_solver_variant_indices.get(neighbor, -1)
+		)
+		if neighbor_variant_index < 0:
+			return 0
+		var neighbor_edge := TerrainChunkTopology.opposite_edge(
+			edge_value as TerrainChunkTopology.Edge
+		)
+		result &= _edge_compatibility_masks[
+			neighbor_variant_index * 4 + int(neighbor_edge)
+		]
+		if result == 0:
+			return 0
+	return result
+
+
+func _candidate_dynamic_cell_rules_are_satisfied(
 	candidate: TerrainChunkVariant,
 	index: int,
 ) -> bool:
 	if not _definition_has_capacity(candidate.definition):
 		return false
-	var coordinate := Vector2i(index % grid_size.x, index / grid_size.x)
-	if (
-		_elevated_feature_reserved_grass_indices.has(index)
-		and candidate.definition.stable_id != elevated_cliff_base_chunk_id
-	):
-		return false
-	var center := Vector2i(grid_size.x / 2, grid_size.y / 2)
-	var center_index := center.y * grid_size.x + center.x
-	if (
-		coordinate == center
-		and force_center_chunk_id != &""
-		and candidate.definition.stable_id != force_center_chunk_id
-	):
-		return false
+	var center_index := (grid_size.y / 2) * grid_size.x + grid_size.x / 2
 	if (
 		index != center_index
 		and _placements[center_index] == null
@@ -668,16 +1089,95 @@ func _candidate_can_occupy_cell(
 	):
 		return false
 	return (
+		_candidate_neighbor_requirement_can_still_be_met_at_index(
+			candidate.definition,
+			index,
+		)
+		and _candidate_preserves_placed_neighbor_requirements_at_index(
+			candidate.definition,
+			index,
+		)
+	)
+
+
+func _candidate_neighbor_requirement_can_still_be_met_at_index(
+	definition: TerrainChunkDefinition,
+	index: int,
+) -> bool:
+	if definition.minimum_required_neighbors <= 0:
+		return true
+	var possible_neighbors := 0
+	for neighbor_index: int in _neighbor_indices[index]:
+		if neighbor_index < 0:
+			continue
+		var neighbor := _placements[neighbor_index]
+		if (
+			neighbor == null
+			or _definition_matches_required_neighbor_tags(
+				definition,
+				neighbor.definition,
+			)
+		):
+			possible_neighbors += 1
+	return possible_neighbors >= definition.minimum_required_neighbors
+
+
+func _candidate_preserves_placed_neighbor_requirements_at_index(
+	candidate_definition: TerrainChunkDefinition,
+	candidate_index: int,
+) -> bool:
+	for neighbor_index: int in _neighbor_indices[candidate_index]:
+		if neighbor_index < 0:
+			continue
+		var neighbor := _placements[neighbor_index]
+		if neighbor == null or neighbor.definition.minimum_required_neighbors <= 0:
+			continue
+		var possible_neighbors := 0
+		for requirement_neighbor_index: int in _neighbor_indices[neighbor_index]:
+			if requirement_neighbor_index < 0:
+				continue
+			if requirement_neighbor_index == candidate_index:
+				if _definition_matches_required_neighbor_tags(
+					neighbor.definition,
+					candidate_definition,
+				):
+					possible_neighbors += 1
+				continue
+			var requirement_neighbor := _placements[requirement_neighbor_index]
+			if (
+				requirement_neighbor == null
+				or _definition_matches_required_neighbor_tags(
+					neighbor.definition,
+					requirement_neighbor.definition,
+				)
+			):
+				possible_neighbors += 1
+		if possible_neighbors < neighbor.definition.minimum_required_neighbors:
+			return false
+	return true
+
+
+func _candidate_can_occupy_cell(
+	candidate: TerrainChunkVariant,
+	index: int,
+) -> bool:
+	var coordinate := Vector2i(index % grid_size.x, index / grid_size.x)
+	if (
+		_elevated_feature_reserved_grass_indices.has(index)
+		and candidate.definition.stable_id != elevated_cliff_base_chunk_id
+	):
+		return false
+	var center := Vector2i(grid_size.x / 2, grid_size.y / 2)
+	if (
+		coordinate == center
+		and force_center_chunk_id != &""
+		and candidate.definition.stable_id != force_center_chunk_id
+	):
+		return false
+	return (
 		_variant_respects_ocean_boundary(candidate, coordinate)
 		and _candidate_matches_placed_neighbors(candidate, coordinate)
-		and _candidate_neighbor_requirement_can_still_be_met(
-			candidate.definition,
-			coordinate,
-		)
-		and _candidate_preserves_placed_neighbor_requirements(
-			candidate.definition,
-			coordinate,
-		)
+		and _candidate_dynamic_cell_rules_are_satisfied(candidate, index)
 	)
 
 
@@ -685,6 +1185,7 @@ func _prepare_elevated_feature_region() -> bool:
 	_elevated_feature_center = Vector2i(-1, -1)
 	_elevated_feature_reserved_grass_indices.clear()
 	if not elevated_cliff_feature_enabled:
+		_build_grid_solver_caches()
 		return true
 	for stable_id: StringName in [
 		elevated_cliff_base_chunk_id,
@@ -733,7 +1234,153 @@ func _prepare_elevated_feature_region() -> bool:
 			_elevated_feature_reserved_grass_indices[
 				coordinate.y * grid_size.x + coordinate.x
 			] = true
+	_build_grid_solver_caches()
 	return true
+
+
+func _build_grid_solver_caches() -> void:
+	_neighbor_indices.clear()
+	_neighbor_indices.resize(_placements.size())
+	_static_cell_candidate_masks.resize(_placements.size())
+	_static_cell_candidate_masks.fill(0)
+	var center := Vector2i(grid_size.x / 2, grid_size.y / 2)
+	for index: int in _placements.size():
+		var coordinate := Vector2i(index % grid_size.x, index / grid_size.x)
+		var neighbors := PackedInt32Array([-1, -1, -1, -1])
+		for edge_value: int in TerrainChunkTopology.Edge.values():
+			var neighbor_coordinate := (
+				coordinate
+				+ TerrainChunkTopology.grid_offset(
+					edge_value as TerrainChunkTopology.Edge
+				)
+			)
+			if _coordinate_is_inside_grid(neighbor_coordinate):
+				neighbors[edge_value] = (
+					neighbor_coordinate.y * grid_size.x
+					+ neighbor_coordinate.x
+				)
+		_neighbor_indices[index] = neighbors
+
+		if not _packed_solver_domains_are_available():
+			continue
+		var candidate_mask := 0
+		for candidate_index: int in _solver_variants.size():
+			var candidate := _solver_variants[candidate_index]
+			if (
+				_elevated_feature_reserved_grass_indices.has(index)
+				and candidate.definition.stable_id
+				!= elevated_cliff_base_chunk_id
+			):
+				continue
+			if (
+				coordinate == center
+				and force_center_chunk_id != &""
+				and candidate.definition.stable_id != force_center_chunk_id
+			):
+				continue
+			if not _variant_respects_ocean_boundary(candidate, coordinate):
+				continue
+			candidate_mask |= 1 << candidate_index
+		_static_cell_candidate_masks[index] = candidate_mask
+
+
+func _apply_grass_sand_smoothing() -> bool:
+	if not grass_sand_smoothing_enabled:
+		return true
+	var diagonal_definition := catalog.definition_for_id(
+		smoothing_diagonal_chunk_id
+	)
+	if diagonal_definition == null:
+		push_error(
+			"Grass-sand smoothing references missing chunk %s."
+			% smoothing_diagonal_chunk_id
+		)
+		return false
+	if diagonal_definition.participates_in_base_solver:
+		push_error(
+			"Grass-sand smoothing chunk %s must be excluded from the base solver."
+			% smoothing_diagonal_chunk_id
+		)
+		return false
+
+	var candidates: Array[Dictionary] = []
+	var center := Vector2i(grid_size.x / 2, grid_size.y / 2)
+	for index: int in _placements.size():
+		var placement := _placements[index]
+		if placement == null or placement.definition.stable_id not in [
+			smoothing_grass_chunk_id,
+			smoothing_sand_chunk_id,
+		]:
+			continue
+		var coordinate := Vector2i(index % grid_size.x, index / grid_size.x)
+		if (
+			_coordinate_is_on_boundary(coordinate)
+			or _elevated_feature_reserved_grass_indices.has(index)
+			or (
+				absi(coordinate.x - center.x)
+				+ absi(coordinate.y - center.y)
+				<= 1
+			)
+		):
+			continue
+		for quarter_turns: int in 4:
+			var diagonal := _authored_variant(
+				diagonal_definition,
+				quarter_turns,
+			)
+			if (
+				diagonal != null
+				and _candidate_matches_placed_neighbors(diagonal, coordinate)
+			):
+				candidates.append({"index": index, "variant": diagonal})
+				break
+
+	var smoothing_random := RandomNumberGenerator.new()
+	smoothing_random.seed = generation_seed ^ 0xD1A60A1
+	for candidate_index: int in range(candidates.size() - 1, 0, -1):
+		var swap_index := smoothing_random.randi_range(0, candidate_index)
+		var temporary := candidates[candidate_index]
+		candidates[candidate_index] = candidates[swap_index]
+		candidates[swap_index] = temporary
+
+	var previous_placements: Array[TerrainChunkVariant] = []
+	previous_placements.assign(_placements)
+	var replacement_count := 0
+	for candidate: Dictionary in candidates:
+		if replacement_count >= maximum_smoothing_placements:
+			break
+		var index := int(candidate["index"])
+		var coordinate := Vector2i(index % grid_size.x, index / grid_size.x)
+		var diagonal := candidate["variant"] as TerrainChunkVariant
+		if (
+			diagonal == null
+			or not _candidate_matches_placed_neighbors(diagonal, coordinate)
+			or not _replacement_preserves_required_chunk(_placements[index])
+		):
+			continue
+		_set_placement(index, diagonal)
+		replacement_count += 1
+
+	var validation_error := _resolved_layout_validation_error(_placements)
+	if not validation_error.is_empty():
+		_assign_placements(previous_placements)
+		push_error(
+			"Grass-sand smoothing produced an invalid layout: "
+			+ validation_error
+		)
+		return false
+	return true
+
+
+func _replacement_preserves_required_chunk(
+	original: TerrainChunkVariant,
+) -> bool:
+	if original == null:
+		return false
+	var stable_id := original.definition.stable_id
+	if String(stable_id) not in required_chunk_ids:
+		return true
+	return _definition_placement_count(original.definition) > 1
 
 
 func _apply_elevated_feature() -> bool:
@@ -781,7 +1428,10 @@ func _apply_elevated_feature() -> bool:
 			)
 			return false
 		var coordinate := _elevated_feature_center + (spec["offset"] as Vector2i)
-		_placements[coordinate.y * grid_size.x + coordinate.x] = variant
+		_set_placement(
+			coordinate.y * grid_size.x + coordinate.x,
+			variant,
+		)
 	var validation_error := _resolved_layout_validation_error(_placements)
 	if not validation_error.is_empty():
 		push_error("Elevated cliff feature is invalid: " + validation_error)
@@ -851,101 +1501,6 @@ func _coordinate_is_inside_grid(coordinate: Vector2i) -> bool:
 	)
 
 
-func _candidate_neighbor_requirement_can_still_be_met(
-	definition: TerrainChunkDefinition,
-	coordinate: Vector2i,
-) -> bool:
-	if definition.minimum_required_neighbors <= 0:
-		return true
-	var possible_neighbors := 0
-	for edge_value: int in TerrainChunkTopology.Edge.values():
-		var neighbor_coordinate := (
-			coordinate
-			+ TerrainChunkTopology.grid_offset(
-				edge_value as TerrainChunkTopology.Edge
-			)
-		)
-		if not _coordinate_is_inside_grid(neighbor_coordinate):
-			continue
-		var neighbor := _placements[
-			neighbor_coordinate.y * grid_size.x + neighbor_coordinate.x
-		]
-		if (
-			neighbor == null
-			or _definition_matches_required_neighbor_tags(
-				definition,
-				neighbor.definition,
-			)
-		):
-			possible_neighbors += 1
-	return possible_neighbors >= definition.minimum_required_neighbors
-
-
-func _candidate_preserves_placed_neighbor_requirements(
-	definition: TerrainChunkDefinition,
-	coordinate: Vector2i,
-) -> bool:
-	for edge_value: int in TerrainChunkTopology.Edge.values():
-		var neighbor_coordinate := (
-			coordinate
-			+ TerrainChunkTopology.grid_offset(
-				edge_value as TerrainChunkTopology.Edge
-			)
-		)
-		if not _coordinate_is_inside_grid(neighbor_coordinate):
-			continue
-		var neighbor := _placements[
-			neighbor_coordinate.y * grid_size.x + neighbor_coordinate.x
-		]
-		if neighbor == null or neighbor.definition.minimum_required_neighbors <= 0:
-			continue
-		if not _placed_requirement_can_still_be_met_with_candidate(
-			neighbor.definition,
-			neighbor_coordinate,
-			definition,
-			coordinate,
-		):
-			return false
-	return true
-
-
-func _placed_requirement_can_still_be_met_with_candidate(
-	definition: TerrainChunkDefinition,
-	coordinate: Vector2i,
-	candidate_definition: TerrainChunkDefinition,
-	candidate_coordinate: Vector2i,
-) -> bool:
-	var possible_neighbors := 0
-	for edge_value: int in TerrainChunkTopology.Edge.values():
-		var neighbor_coordinate := (
-			coordinate
-			+ TerrainChunkTopology.grid_offset(
-				edge_value as TerrainChunkTopology.Edge
-			)
-		)
-		if not _coordinate_is_inside_grid(neighbor_coordinate):
-			continue
-		if neighbor_coordinate == candidate_coordinate:
-			if _definition_matches_required_neighbor_tags(
-				definition,
-				candidate_definition,
-			):
-				possible_neighbors += 1
-			continue
-		var neighbor := _placements[
-			neighbor_coordinate.y * grid_size.x + neighbor_coordinate.x
-		]
-		if (
-			neighbor == null
-			or _definition_matches_required_neighbor_tags(
-				definition,
-				neighbor.definition,
-			)
-		):
-			possible_neighbors += 1
-	return possible_neighbors >= definition.minimum_required_neighbors
-
-
 func _definition_has_capacity(definition: TerrainChunkDefinition) -> bool:
 	if definition.maximum_placements < 0:
 		return true
@@ -953,11 +1508,9 @@ func _definition_has_capacity(definition: TerrainChunkDefinition) -> bool:
 
 
 func _definition_placement_count(definition: TerrainChunkDefinition) -> int:
-	var count := 0
-	for placement: TerrainChunkVariant in _placements:
-		if placement != null and placement.definition == definition:
-			count += 1
-	return count
+	if definition == null:
+		return 0
+	return int(_placement_counts.get(definition.stable_id, 0))
 
 
 func _edges_are_compatible(
@@ -1024,9 +1577,28 @@ func _calculate_edge_compatibility(
 			or (first_inlet and second_outlet)
 		)
 	return (
-		first.allows_non_water_neighbor_on_edge(second, first_edge)
+		_edge_surfaces_are_compatible(
+			first,
+			first_edge,
+			second,
+			second_edge,
+		)
+		and first.allows_non_water_neighbor_on_edge(second, first_edge)
 		and second.allows_non_water_neighbor_on_edge(first, second_edge)
 	)
+
+
+func _edge_surfaces_are_compatible(
+	first: TerrainChunkVariant,
+	first_edge: TerrainChunkTopology.Edge,
+	second: TerrainChunkVariant,
+	second_edge: TerrainChunkTopology.Edge,
+) -> bool:
+	var first_tags := first.surface_tags(first_edge)
+	var second_tags := second.surface_tags(second_edge)
+	if first_tags.is_empty() or second_tags.is_empty():
+		return true
+	return TerrainChunkDefinition.has_any_tag(first_tags, second_tags)
 
 
 func _variant_edge_has_connector(
@@ -1057,35 +1629,57 @@ func _requirements_can_still_be_satisfied() -> bool:
 func _definition_has_available_cell(
 	definition: TerrainChunkDefinition,
 ) -> bool:
+	var definition_variants: Array = _solver_variants_by_definition.get(
+		definition.stable_id,
+		[],
+	)
+	if (
+		_packed_solver_domains_are_available()
+		and not definition_variants.is_empty()
+	):
+		var definition_mask := int(
+			_definition_variant_masks.get(definition.stable_id, 0)
+		)
+		for index: int in _placements.size():
+			if _placements[index] != null:
+				continue
+			var candidate_mask := (
+				int(_static_cell_candidate_masks[index]) & definition_mask
+			)
+			if candidate_mask == 0:
+				continue
+			candidate_mask = _mask_matching_placed_neighbors(
+				candidate_mask,
+				index,
+			)
+			if (
+				candidate_mask != 0
+				and _candidate_dynamic_cell_rules_are_satisfied(
+					definition_variants[0] as TerrainChunkVariant,
+					index,
+				)
+			):
+				return true
+		return false
 	for index: int in _placements.size():
 		if _placements[index] != null:
 			continue
-		for candidate: TerrainChunkVariant in _solver_variants:
-			if (
-				candidate.definition == definition
-				and _candidate_can_occupy_cell(candidate, index)
-			):
+		for candidate: TerrainChunkVariant in definition_variants:
+			if _candidate_can_occupy_cell(candidate, index):
 				return true
 	return false
 
 
 func _unfilled_cell_count() -> int:
-	var count := 0
-	for placement: TerrainChunkVariant in _placements:
-		if placement == null:
-			count += 1
-	return count
+	return _unfilled_cells
 
 
 func _missing_required_ids() -> Array[StringName]:
-	var found: Dictionary[StringName, bool] = {}
-	for placement: TerrainChunkVariant in _placements:
-		if placement != null:
-			found[placement.definition.stable_id] = true
 	var result: Array[StringName] = []
-	for required_id_value: String in required_chunk_ids:
-		var required_id := StringName(required_id_value)
-		if not found.has(required_id) and not result.has(required_id):
+	for required_id: StringName in _required_stable_ids:
+		if (
+			int(_placement_counts.get(required_id, 0)) <= 0
+		):
 			result.append(required_id)
 	return result
 
@@ -1335,13 +1929,7 @@ func _walkable_connectivity_validation_error(
 func _required_chunk_is_missing(stable_id: StringName) -> bool:
 	if not required_chunk_ids.has(String(stable_id)):
 		return false
-	for placement: TerrainChunkVariant in _placements:
-		if (
-			placement != null
-			and placement.definition.stable_id == stable_id
-		):
-			return false
-	return true
+	return int(_placement_counts.get(stable_id, 0)) <= 0
 
 
 func _resolve_equivalent_rotations() -> void:

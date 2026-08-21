@@ -35,6 +35,10 @@ func allows_non_water_neighbor_on_edge(
 	)
 
 
+func surface_tags(edge: TerrainChunkTopology.Edge) -> PackedStringArray:
+	return definition.surface_tags_for_edge(source_edge(edge))
+
+
 func topology_signature(quantization: float) -> String:
 	var tokens := PackedStringArray()
 	for edge_value: int in TerrainChunkTopology.Edge.values():
@@ -44,9 +48,10 @@ func topology_signature(quantization: float) -> String:
 
 
 func constraint_signature(quantization: float) -> String:
-	return "%s|neighbors:%s|ocean:%d|in:%d|out:%d" % [
+	return "%s|neighbors:%s|surfaces:%s|ocean:%d|in:%d|out:%d" % [
 		topology_signature(quantization),
 		_neighbor_rule_signature(),
+		_surface_rule_signature(),
 		rotated_edge_mask(definition.ocean_facing_edges),
 		rotated_edge_mask(definition.water_inlet_edges),
 		rotated_edge_mask(definition.water_outlet_edges),
@@ -62,6 +67,16 @@ func _neighbor_rule_signature() -> String:
 		).duplicate()
 		tags.sort()
 		edge_tokens.append(",".join(tags))
+	return "/".join(edge_tokens)
+
+
+func _surface_rule_signature() -> String:
+	var edge_tokens := PackedStringArray()
+	for edge_value: int in TerrainChunkTopology.Edge.values():
+		var edge := edge_value as TerrainChunkTopology.Edge
+		var edge_tags: PackedStringArray = surface_tags(edge).duplicate()
+		edge_tags.sort()
+		edge_tokens.append(",".join(edge_tags))
 	return "/".join(edge_tokens)
 
 

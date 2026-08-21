@@ -27,6 +27,6 @@ script = ExtResource("1_definition")
 stable_id = &"biome_pine_forest"
 label = "pine forest"
 required_chunk_tags = PackedStringArray("grass")
-forbidden_chunk_tags = PackedStringArray("spawn")
+forbidden_chunk_tags = PackedStringArray("spawn", "mixed_surface")
 region_weight = 1.2
 prop_rules = Array[ExtResource("2_rule")]([SubResource("Rule_grass_tree"), SubResource("Rule_grass_detail")])

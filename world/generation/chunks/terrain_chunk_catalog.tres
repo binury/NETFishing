@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="TerrainChunkCatalog" load_steps=17 format=3]
+[gd_resource type="Resource" script_class="TerrainChunkCatalog" load_steps=21 format=3]
 
 [ext_resource type="Script" path="res://world/generation/terrain_chunk_catalog.gd" id="1_catalog"]
 [ext_resource type="Resource" path="res://world/generation/chunks/definitions/chunk_0000.tres" id="2_grass"]
@@ -16,8 +16,12 @@
 [ext_resource type="Resource" path="res://world/generation/chunks/definitions/chunk_0010.tres" id="14_cliff_corner"]
 [ext_resource type="Resource" path="res://world/generation/chunks/definitions/chunk_0011.tres" id="15_cliff_edge"]
 [ext_resource type="Resource" path="res://world/generation/chunks/definitions/chunk_0012.tres" id="16_cliff_ramp"]
+[ext_resource type="Resource" path="res://world/generation/chunks/definitions/chunk_0013.tres" id="17_grass_sand_diagonal"]
+[ext_resource type="Resource" path="res://world/generation/chunks/definitions/chunk_0014.tres" id="18_cliff_sea_edge"]
+[ext_resource type="Resource" path="res://world/generation/chunks/definitions/chunk_0015.tres" id="19_cliff_sea_corner"]
+[ext_resource type="Resource" path="res://world/generation/chunks/definitions/chunk_0016.tres" id="20_stream_variant"]
 
 [resource]
 script = ExtResource("1_catalog")
 chunk_size = 10.0
-definitions = Array[ExtResource("7_definition_script")]([ExtResource("2_grass"), ExtResource("3_sand"), ExtResource("4_beach"), ExtResource("5_stream"), ExtResource("6_pond"), ExtResource("9_grass_ocean_edge"), ExtResource("10_grass_beach_transition"), ExtResource("11_grass_ocean_corner"), ExtResource("12_beach_ocean_corner"), ExtResource("13_cliff_top"), ExtResource("14_cliff_corner"), ExtResource("15_cliff_edge"), ExtResource("16_cliff_ramp"), ExtResource("8_spawn")])
+definitions = Array[ExtResource("7_definition_script")]([ExtResource("2_grass"), ExtResource("3_sand"), ExtResource("4_beach"), ExtResource("5_stream"), ExtResource("20_stream_variant"), ExtResource("6_pond"), ExtResource("9_grass_ocean_edge"), ExtResource("10_grass_beach_transition"), ExtResource("11_grass_ocean_corner"), ExtResource("12_beach_ocean_corner"), ExtResource("17_grass_sand_diagonal"), ExtResource("13_cliff_top"), ExtResource("14_cliff_corner"), ExtResource("15_cliff_edge"), ExtResource("16_cliff_ramp"), ExtResource("18_cliff_sea_edge"), ExtResource("19_cliff_sea_corner"), ExtResource("8_spawn")])

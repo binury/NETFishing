@@ -94,11 +94,13 @@ func _validate_generated_region(
 	assert(_placement_count(placements, "chunk_0001") >= 1)
 	assert(_placement_count(placements, "chunk_0002") >= 1)
 	assert(_placement_count(placements, "chunk_0003") >= 1)
+	assert(_placement_count(placements, "chunk_0016") >= 1)
 	assert(_placement_count(placements, "chunk_0004") >= 1)
 	assert(_placement_count(placements, "chunk_0005") >= 1)
 	assert(_placement_count(placements, "chunk_0006") >= 1)
 	assert(_placement_count(placements, "chunk_0007") >= 1)
 	assert(_placement_count(placements, "chunk_0008") >= 1)
+	assert(_placement_count(placements, "chunk_0013") >= 1)
 	assert(_placement_count(placements, "chunk_0009") == 1)
 	assert(_placement_count(placements, "chunk_0010") == 4)
 	assert(
@@ -350,7 +352,9 @@ func _validate_biome_catalog(
 		var coordinate: Vector2i = record.get("coordinate", Vector2i.ZERO)
 		var biome_id := region.get_biome_at(coordinate)
 		var tags: PackedStringArray = record.get("tags", PackedStringArray())
-		if "grass" in tags or "sand" in tags:
+		if "mixed_surface" in tags:
+			assert(biome_id == &"")
+		elif "grass" in tags or "sand" in tags:
 			assert(biome_id != &"")
 			var biome := catalog.definition_for_id(biome_id)
 			assert(biome != null and biome.supports_chunk_tags(tags))
@@ -465,11 +469,14 @@ func _validate_authored_chunk_surfaces(
 ) -> void:
 	var generated := generator.get_generated_chunks_root()
 	var found_beach := false
+	var found_stream := false
+	var found_alternate_stream := false
 	var found_pond := false
 	var found_grass_ocean_edge := false
 	var found_grass_beach_transition := false
 	var found_grass_ocean_corner := false
 	var found_beach_ocean_corner := false
+	var found_grass_sand_diagonal := false
 	for chunk_root: Node in generated.get_children():
 		if chunk_root.name.begins_with("chunk_0002r"):
 			var beach := chunk_root.find_child(
@@ -479,6 +486,27 @@ func _validate_authored_chunk_surfaces(
 			var material := beach.get_active_material(0)
 			assert(material != null and material.resource_name == "sand")
 			found_beach = true
+		elif (
+			chunk_root.name.begins_with("chunk_0003r")
+			or chunk_root.name.begins_with("chunk_0016r")
+		):
+			var stream_id := (
+				&"chunk_0016"
+				if chunk_root.name.begins_with("chunk_0016r")
+				else &"chunk_0003"
+			)
+			var stream := chunk_root.find_child(
+				String(stream_id), true, false
+			) as MeshInstance3D
+			assert(stream != null and stream.mesh != null)
+			var stream_materials := _material_names(stream)
+			assert("dirt" in stream_materials)
+			assert("grass_lite" in stream_materials)
+			assert("dirt_wall" in stream_materials)
+			if stream_id == &"chunk_0016":
+				found_alternate_stream = true
+			else:
+				found_stream = true
 		elif chunk_root.name.begins_with("chunk_0004r"):
 			var pond := chunk_root.find_child(
 				"chunk_0004", true, false
@@ -532,12 +560,24 @@ func _validate_authored_chunk_surfaces(
 			var beach_corner_materials := _material_names(beach_ocean_corner)
 			assert("sand" in beach_corner_materials)
 			found_beach_ocean_corner = true
+		elif chunk_root.name.begins_with("chunk_0013r"):
+			var grass_sand_diagonal := chunk_root.find_child(
+				"chunk_0013", true, false
+			) as MeshInstance3D
+			assert(grass_sand_diagonal != null and grass_sand_diagonal.mesh != null)
+			var diagonal_materials := _material_names(grass_sand_diagonal)
+			assert("grass_lite" in diagonal_materials)
+			assert("sand" in diagonal_materials)
+			found_grass_sand_diagonal = true
 	assert(found_beach)
+	assert(found_stream)
+	assert(found_alternate_stream)
 	assert(found_pond)
 	assert(found_grass_ocean_edge)
 	assert(found_grass_beach_transition)
 	assert(found_grass_ocean_corner)
 	assert(found_beach_ocean_corner)
+	assert(found_grass_sand_diagonal)
 
 
 func _material_names(mesh_instance: MeshInstance3D) -> PackedStringArray:
