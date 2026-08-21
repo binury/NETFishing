@@ -172,6 +172,7 @@ func _build_laptop() -> void:
 	margin.add_child(layout)
 
 	var title_row := HBoxContainer.new()
+	title_row.name = "FishnetTitleRow"
 	title_row.add_theme_constant_override("separation", 16)
 	layout.add_child(title_row)
 	var header_left := VBoxContainer.new()
@@ -197,13 +198,14 @@ func _build_laptop() -> void:
 		tab.text = ["daily jobs", "lifetime jobs", "payments"][view_index]
 		tab.toggle_mode = true
 		tab.pressed.connect(_select_view.bind(view_index as View))
-		UtilityPageStyle.apply_ocean_button(tab)
+		UtilityPageStyle.apply_compact_ocean_button(tab)
 		_tabs.add_child(tab)
 	var refresh_alignment_spacer := Control.new()
 	refresh_alignment_spacer.custom_minimum_size.y = 20.0
 	refresh_alignment_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	header_left.add_child(refresh_alignment_spacer)
 	var forecast_column := VBoxContainer.new()
+	forecast_column.name = "ForecastColumn"
 	forecast_column.custom_minimum_size.x = 292.0
 	forecast_column.size_flags_horizontal = Control.SIZE_SHRINK_END
 	forecast_column.add_theme_constant_override("separation", 3)
@@ -237,6 +239,7 @@ func _build_laptop() -> void:
 	_forecast_list.add_theme_constant_override("separation", 6)
 	forecast_stack.add_child(_forecast_list)
 	_refresh_label = Label.new()
+	_refresh_label.name = "DailyRefreshLabel"
 	_refresh_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	_refresh_label.add_theme_font_size_override("font_size", 14)
 	_refresh_label.add_theme_color_override(
@@ -251,6 +254,7 @@ func _build_laptop() -> void:
 	layout.add_child(jobs_column)
 
 	_jobs_scroll = ScrollContainer.new()
+	_jobs_scroll.name = "JobsScroll"
 	_jobs_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_jobs_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_jobs_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
@@ -320,6 +324,8 @@ func _build_job_rows(jobs: Array[Dictionary], empty_text: String) -> void:
 		content.add_child(text_column)
 		var title := Label.new()
 		title.text = str(job.get("title", "job"))
+		title.clip_text = true
+		title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 		title.add_theme_font_size_override("font_size", 20)
 		title.add_theme_color_override(
 			"font_color", UtilityPageStyle.OCEAN_TEXT_PRIMARY
@@ -327,6 +333,7 @@ func _build_job_rows(jobs: Array[Dictionary], empty_text: String) -> void:
 		text_column.add_child(title)
 		var description := Label.new()
 		description.text = str(job.get("description", ""))
+		description.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		description.add_theme_font_size_override("font_size", 16)
 		description.add_theme_color_override(
 			"font_color", UtilityPageStyle.OCEAN_TEXT_SECONDARY

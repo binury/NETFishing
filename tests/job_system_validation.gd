@@ -86,6 +86,9 @@ func _run() -> void:
 		(player_menu.get_node("%NavigationCluster") as Control).get_child_count()
 		== 7
 	)
+	net_page.call("_select_view", TheNetPage.View.LIFETIME)
+	await process_frame
+	_validate_fishnet_bounds(net_page)
 	await _validate_unavailable_fishnet_layout()
 
 	var wallet_before: int = player.wallet.get_balance()
@@ -259,6 +262,29 @@ func _validate_unavailable_fishnet_layout() -> void:
 	unavailable_page.queue_free()
 	for _frame: int in 2:
 		await process_frame
+
+
+func _validate_fishnet_bounds(page: TheNetPage) -> void:
+	var laptop := page.get_node("UtilityMainBox") as PanelContainer
+	var forecast_column := page.find_child(
+		"ForecastColumn", true, false
+	) as VBoxContainer
+	var refresh_label := page.find_child(
+		"DailyRefreshLabel", true, false
+	) as Label
+	var jobs_scroll := page.find_child("JobsScroll", true, false) as ScrollContainer
+	assert(laptop != null)
+	assert(forecast_column != null and refresh_label != null)
+	assert(jobs_scroll != null)
+	var laptop_rect: Rect2 = laptop.get_global_rect()
+	assert(forecast_column.get_global_rect().end.x <= laptop_rect.end.x)
+	assert(refresh_label.get_global_rect().end.x <= laptop_rect.end.x)
+	assert(refresh_label.get_global_rect().end.y <= laptop_rect.end.y)
+	assert(jobs_scroll.horizontal_scroll_mode == ScrollContainer.SCROLL_MODE_DISABLED)
+	var list := page.get("_list") as VBoxContainer
+	assert(list != null)
+	for row: Control in list.get_children():
+		assert(row.size.x <= jobs_scroll.size.x + 0.5)
 
 
 func _validate_creature_jobs(jobs: PlayerJobService) -> void:
