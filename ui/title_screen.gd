@@ -26,6 +26,7 @@ const TitleCreditsPageType = preload("res://ui/title_credits_page.gd")
 const NetworkSessionType = preload("res://network/network_session.gd")
 const SavedServerStoreType = preload("res://network/saved_server_store.gd")
 const JoinGamePageType = preload("res://ui/network/join_game_page.gd")
+const NewGameSetupPageType = preload("res://ui/new_game_setup_page.gd")
 const CurrencyPresentationType = preload(
 	"res://ui/currency_presentation.gd"
 )
@@ -94,14 +95,13 @@ const INTRO_BRANDING_TRAVEL_DURATION: float = 2.0
 const INTRO_BRANDING_START_DELAY: float = 0.35
 const HOST_CLUSTER_SAFE_MARGIN: float = 24.0
 
-signal new_game_requested(world_seed: int)
+signal new_game_requested(world_layout: StringName, world_seed: int)
 signal continue_game_requested
 signal quit_requested
 signal join_game_requested(endpoint: String)
 
 enum ConfirmationAction {
 	NONE,
-	NEW_GAME,
 	DELETE_SAVE,
 }
 
@@ -142,12 +142,12 @@ enum ConfirmationAction {
 @onready var _start_prompt_center: CenterContainer = %StartPromptCenter
 @onready var _start_prompt_label: Label = %StartPromptLabel
 @onready var _join_game_page: JoinGamePageType = %JoinGamePage
+@onready var _new_game_setup_page: NewGameSetupPageType = %NewGameSetupPage
 @onready var _credits_page: TitleCreditsPageType = %CreditsPage
 
 var _save_manager: SaveManagerType
 var _settings_manager: SettingsManagerType
 var _inspection: SaveInspectionType
-var _pending_new_game_seed: int = PlayerSaveManager.DEFAULT_WORLD_SEED
 var _confirmation_action: ConfirmationAction = ConfirmationAction.NONE
 var _action_in_progress: bool = false
 var _decorative_rng := RandomNumberGenerator.new()
@@ -210,6 +210,8 @@ func _ready() -> void:
 	)
 	_new_game_button.pressed.connect(_on_new_game_pressed)
 	_join_game_button.pressed.connect(_open_join_game)
+	_new_game_setup_page.start_requested.connect(_start_configured_new_game)
+	_new_game_setup_page.back_requested.connect(_close_new_game_setup)
 	_settings_button.pressed.connect(_open_settings)
 	_credits_button.pressed.connect(_open_credits)
 	_delete_button.pressed.connect(_on_delete_pressed)
@@ -283,6 +285,7 @@ func reopen() -> void:
 	_reset_confirmation()
 	_settings_panel.hide()
 	_join_game_page.close_page()
+	_new_game_setup_page.close_page()
 	_credits_page.close_page()
 	_refresh_save_inspection()
 	show()
@@ -311,6 +314,7 @@ func open_join_game_page(endpoint: String = "") -> void:
 	_settings_panel.hide()
 	_confirmation_page.hide_page()
 	_credits_page.close_page()
+	_new_game_setup_page.close_page()
 	_join_game_page.open_page(endpoint)
 
 
@@ -326,6 +330,7 @@ func _open_join_game() -> void:
 	if (
 		_action_in_progress
 		or _is_confirmation_active()
+		or _new_game_setup_page.visible
 		or _credits_page.visible
 	):
 		return
@@ -346,6 +351,7 @@ func _open_credits() -> void:
 		or _is_confirmation_active()
 		or _settings_panel.visible
 		or _join_game_page.visible
+		or _new_game_setup_page.visible
 		or _credits_page.visible
 	):
 		return
@@ -583,6 +589,11 @@ func _input(event: InputEvent) -> void:
 			_join_game_page.request_back()
 			get_viewport().set_input_as_handled()
 		return
+	if _new_game_setup_page.visible:
+		if event.is_action_pressed("ui_cancel"):
+			_new_game_setup_page.request_back()
+			get_viewport().set_input_as_handled()
+		return
 	if (
 		_title_settings_transition_active
 		or _title_entry_transition_active
@@ -629,6 +640,7 @@ func _handle_primary_menu_focus_input(event: InputEvent) -> bool:
 		not _button_center.visible
 		or _is_confirmation_active()
 		or _settings_panel.visible
+		or _new_game_setup_page.visible
 		or _credits_page.visible
 	):
 		return false
@@ -1031,17 +1043,57 @@ func _on_new_game_pressed() -> void:
 			"the existing save cannot be accessed safely."
 		)
 		return
-	_pending_new_game_seed = PlayerSaveManager.roll_world_seed()
-	var warning := "start a new world?"
-	if _inspection.status != SaveInspectionType.Status.MISSING:
-		warning += " existing progression will be deleted."
-	warning += "\nworld seed: %d" % _pending_new_game_seed
-	_open_confirmation(
-		ConfirmationAction.NEW_GAME,
-		warning,
-		"start\nnew game",
-		true
+	_open_new_game_setup(
+		_inspection.status != SaveInspectionType.Status.MISSING
 	)
+
+
+func _open_new_game_setup(has_existing_progression: bool) -> void:
+	_modal_restore_navigation_focus = _navigation_focus_active
+	_set_title_bubbles_interactive(false)
+	_release_primary_menu_focus()
+	_presentation_center.hide()
+	_start_prompt_center.hide()
+	_join_game_page.close_page()
+	_credits_page.close_page()
+	_new_game_setup_page.open_page(has_existing_progression)
+
+
+func _close_new_game_setup() -> void:
+	_new_game_setup_page.close_page()
+	_presentation_center.show()
+	_button_center.show()
+	_start_prompt_center.hide()
+	_set_title_bubbles_interactive(true)
+	var restore_navigation_focus: bool = _modal_restore_navigation_focus
+	_modal_restore_navigation_focus = false
+	if restore_navigation_focus:
+		_navigation_focus_active = true
+		_new_game_button.grab_focus()
+	else:
+		_navigation_focus_active = false
+		_release_title_focus()
+	_update_continue_stats_visibility()
+
+
+func _start_configured_new_game(
+	world_layout: StringName,
+	world_seed: int,
+) -> void:
+	if _action_in_progress or not _new_game_setup_page.visible:
+		return
+	_new_game_setup_page.close_page()
+	_action_in_progress = true
+	new_game_requested.emit(world_layout, world_seed)
+	_action_in_progress = false
+	# Signal delivery is synchronous. A successful start hides this title screen;
+	# if it remains visible, restore the menu so a generation error is recoverable.
+	if visible:
+		_presentation_center.show()
+		_button_center.show()
+		_set_title_bubbles_interactive(true)
+		_navigation_focus_active = true
+		_new_game_button.grab_focus()
 
 
 func _on_delete_pressed() -> void:
@@ -1071,14 +1123,6 @@ func _on_confirmation_accepted() -> void:
 	var action: ConfirmationAction = _confirmation_action
 	_confirmation_page.lock_interaction()
 	_action_in_progress = true
-	if action == ConfirmationAction.NEW_GAME:
-		_confirmation_action = ConfirmationAction.NONE
-		_confirmation_transition_generation += 1
-		_cancel_confirmation_transition()
-		_confirmation_page.hide_page()
-		new_game_requested.emit(_pending_new_game_seed)
-		_action_in_progress = false
-		return
 	if not _save_manager.delete_progression_save():
 		_feedback_label.text = _center_feedback_text(
 			"failed to delete saved progression."

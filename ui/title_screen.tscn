@@ -1,4 +1,4 @@
-[gd_scene load_steps=23 format=3]
+[gd_scene load_steps=24 format=3]
 
 [ext_resource type="Script" path="res://ui/title_screen.gd" id="1_script"]
 [ext_resource type="Theme" path="res://ui/game_theme.tres" id="2_theme"]
@@ -19,6 +19,7 @@
 [ext_resource type="Texture2D" path="res://ui/icons/main_menu/new_game.png" id="17_new_game"]
 [ext_resource type="Texture2D" path="res://ui/icons/main_menu/credits.png" id="18_credits"]
 [ext_resource type="Texture2D" path="res://ui/icons/main_menu/delete_save.png" id="19_delete_save"]
+[ext_resource type="PackedScene" path="res://ui/new_game_setup_page.tscn" id="20_new_game_setup"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_title_water"]
 shader = ExtResource("4_water_shader")
@@ -478,6 +479,16 @@ grow_horizontal = 2
 grow_vertical = 2
 
 [node name="JoinGamePage" parent="ResponsiveTitleStage/TitlePresentationScaleRoot" instance=ExtResource("11_join_page")]
+unique_name_in_owner = true
+z_index = 220
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="NewGameSetupPage" parent="ResponsiveTitleStage/TitlePresentationScaleRoot" instance=ExtResource("20_new_game_setup")]
 unique_name_in_owner = true
 z_index = 220
 layout_mode = 1

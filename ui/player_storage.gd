@@ -70,6 +70,10 @@ func setup(
 	_refresh()
 
 
+func set_world_interaction(interaction: PlayerStorageInteraction) -> void:
+	_interaction = interaction
+
+
 func open_storage() -> bool:
 	if (
 		visible

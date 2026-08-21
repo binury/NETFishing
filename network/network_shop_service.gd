@@ -83,6 +83,10 @@ func setup(
 		_session.state_changed.connect(_on_session_state_changed)
 
 
+func set_shop_interaction(interaction: FishingShopInteraction) -> void:
+	_interaction = interaction
+
+
 func can_request_purchase() -> bool:
 	return (
 		_session != null

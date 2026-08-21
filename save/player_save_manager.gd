@@ -31,6 +31,7 @@ const WorldTimeServiceType = preload("res://world/world_time_service.gd")
 const WorldWeatherServiceType = preload(
 	"res://world/world_weather_service.gd"
 )
+const WorldLayoutType = preload("res://world/world_layout.gd")
 const PlayerJobServiceType = preload("res://jobs/player_job_service.gd")
 const PlayerType = preload("res://player/player.gd")
 
@@ -63,6 +64,7 @@ class LoadSnapshot:
 	var cooler_capacity_level: int = 0
 	var art_unlock_mask: int = 0
 	var total_experience: int = 0
+	var world_layout: StringName = WorldLayoutType.GENERATED
 	var world_seed: int = DEFAULT_WORLD_SEED
 	var world_time_hours: float = WorldTimeServiceType.DEFAULT_START_HOUR
 	var has_world_weather_state: bool = false
@@ -102,6 +104,7 @@ var _autosave_enabled: bool = false
 var _save_path := ""
 var _expected_hash := ""
 var _data_root: PlayerDataRoot
+var _world_layout: StringName = WorldLayoutType.GENERATED
 var _world_seed: int = DEFAULT_WORLD_SEED
 
 
@@ -332,6 +335,7 @@ func load_player_data() -> bool:
 	var world_time_restored: bool = (
 		_world_time.restore_persistent_time_hours(snapshot.world_time_hours)
 	)
+	_world_layout = snapshot.world_layout
 	_world_seed = snapshot.world_seed
 	var world_weather_restored: bool = true
 	if snapshot.has_world_weather_state:
@@ -521,16 +525,28 @@ func import_progression_archive(path: String) -> Dictionary:
 	}
 
 
-func initialize_new_game(world_seed: int = DEFAULT_WORLD_SEED) -> bool:
+func initialize_new_game(
+	world_seed: int = DEFAULT_WORLD_SEED,
+	world_layout: StringName = WorldLayoutType.GENERATED,
+) -> bool:
 	if not _is_configured:
 		return false
-	if world_seed <= 0 or world_seed > MAX_WORLD_SEED:
+	if (
+		world_seed <= 0
+		or world_seed > MAX_WORLD_SEED
+		or not WorldLayoutType.is_valid(world_layout)
+	):
 		return false
 	_automatic_saving_blocked = false
 	_restore_defaults()
+	_world_layout = world_layout
 	_world_seed = world_seed
 	_is_dirty = true
 	return true
+
+
+func get_world_layout() -> StringName:
+	return _world_layout
 
 
 func get_world_seed() -> int:
@@ -733,6 +749,7 @@ func _build_save_dictionary() -> Dictionary:
 		"art": _art_unlocks.to_save_data(),
 		"experience": _experience.to_save_data(),
 		"world": {
+			"layout": String(_world_layout),
 			"seed": _world_seed,
 			"time_hours": _world_time.get_persistent_time_hours(),
 			"weather": int(_world_weather.get_persistent_weather()),
@@ -822,6 +839,12 @@ func _build_load_snapshot(save_data: Dictionary) -> LoadSnapshot:
 		return null
 
 	var snapshot := LoadSnapshot.new()
+	if world_data.has("layout"):
+		if not WorldLayoutType.is_valid(world_data["layout"]):
+			return null
+		snapshot.world_layout = WorldLayoutType.normalized(
+			world_data["layout"]
+		)
 	if world_data.has("seed"):
 		snapshot.world_seed = _read_integer(
 			world_data["seed"],
@@ -1525,6 +1548,7 @@ func _prepare_external_save_data(value: Variant) -> Dictionary:
 		"catch_count": snapshot.catches.size(),
 		"wallet_balance": snapshot.wallet_balance,
 		"discovered_species_count": snapshot.discovered_ids.size(),
+		"world_layout": String(snapshot.world_layout),
 		"world_seed": snapshot.world_seed,
 	}
 
@@ -1657,6 +1681,7 @@ func _restore_defaults() -> void:
 		WorldTimeServiceType.DEFAULT_START_HOUR
 	)
 	_world_weather.reset_persistent_state()
+	_world_layout = WorldLayoutType.GENERATED
 	_world_seed = DEFAULT_WORLD_SEED
 	_jobs.reset_to_defaults()
 	_is_restoring = false

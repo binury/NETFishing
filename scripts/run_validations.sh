@@ -51,6 +51,7 @@ readonly -a QUICK_TESTS=(
 	"tests/tree_gathering_prototype_validation.gd"
 	"tests/unified_inventory_validation.gd"
 	"tests/world_time_validation.gd"
+	"tests/world_layout_validation.gd"
 	"tests/world_spawn_protocol_validation.gd"
 	"tests/world_weather_validation.gd"
 )
@@ -88,6 +89,7 @@ readonly -a NETWORK_TESTS=(
 	"tests/profile_multiplayer_validation.gd"
 	"tests/surface_drawing_multiplayer_validation.gd"
 	"tests/world_time_multiplayer_validation.gd"
+	"tests/world_layout_multiplayer_validation.gd"
 	"tests/world_spawn_multiplayer_validation.gd"
 )
 

@@ -758,11 +758,15 @@ func _progression_import_file_selected(path: String) -> void:
 	dialog.ok_button_text = "import progression"
 	dialog.dialog_text = (
 		"this will replace the current progression after making a backup.\n\n"
-		+ "fish: %d\ndiscovered: %d\nworld seed: %d\n\n"
+		+ "fish: %d\ndiscovered: %d\nworld: %s\nworld seed: %d\n\n"
 		+ "identities, settings, friends, bans, and trusted servers are unchanged."
 	) % [
 		int(inspected.get("catch_count", 0)),
 		int(inspected.get("discovered_species_count", 0)),
+		WorldLayout.display_name(inspected.get(
+			"world_layout",
+			String(WorldLayout.GENERATED),
+		)),
 		int(inspected.get("world_seed", 0)),
 	]
 	dialog.confirmed.connect(_confirm_progression_import.bind(dialog))

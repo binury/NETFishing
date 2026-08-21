@@ -26,7 +26,10 @@ func _run() -> void:
 	var player := main.get("_player") as Player
 	assert(save_manager != null and player != null)
 	const TEST_WORLD_SEED := 918273
-	assert(save_manager.initialize_new_game(TEST_WORLD_SEED))
+	assert(save_manager.initialize_new_game(
+		TEST_WORLD_SEED,
+		WorldLayout.STARTER_ISLAND,
+	))
 	save_manager.set_autosave_enabled(true)
 	assert(player.bag.add_item(&"art_kit"))
 	assert(player.bag.add_item(&"coffee"))
@@ -44,6 +47,7 @@ func _run() -> void:
 	assert(bool(decoded.get("ok", false)))
 	var parsed: Dictionary = decoded["data"]
 	var records: Array = parsed["bag"]["items"]
+	assert(str(parsed["world"]["layout"]) == String(WorldLayout.STARTER_ISLAND))
 	assert(int(parsed["world"]["seed"]) == TEST_WORLD_SEED)
 	assert(_saved_slot(records, &"basic_fishing_rod") == 14)
 	assert(_saved_slot(records, &"coffee") == 12)
@@ -53,6 +57,7 @@ func _run() -> void:
 	player.unequip_bait()
 	player.unequip_lure()
 	assert(save_manager.load_player_data())
+	assert(save_manager.get_world_layout() == WorldLayout.STARTER_ISLAND)
 	assert(save_manager.get_world_seed() == TEST_WORLD_SEED)
 	assert(player.bag.get_storage_slot(&"basic_fishing_rod") == 14)
 	assert(player.bag.get_storage_slot(&"coffee") == 12)

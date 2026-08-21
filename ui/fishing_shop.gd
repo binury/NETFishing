@@ -627,6 +627,10 @@ func setup(
 	_refresh_all()
 
 
+func set_world_interaction(interaction: ShopInteractionType) -> void:
+	_interaction = interaction
+
+
 func open_shop() -> bool:
 	if (
 		visible

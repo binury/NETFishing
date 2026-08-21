@@ -488,6 +488,16 @@ func setup(
 	)
 
 
+func set_world_interactions(
+	shop_interaction: ShopInteractionType,
+	storage_interaction: PlayerStorageInteractionType,
+) -> void:
+	_shop_interaction = shop_interaction
+	_storage_interaction = storage_interaction
+	_fishing_shop.set_world_interaction(shop_interaction)
+	_player_storage.set_world_interaction(storage_interaction)
+
+
 func _prioritize_surface_drawing_pointer_input() -> void:
 	# Control input follows sibling order rather than CanvasItem.z_index. Chat is
 	# a full-screen Control with interactive mobile children, so the toolbar must

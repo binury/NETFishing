@@ -7,6 +7,13 @@ const FishingShopInteractionType = preload(
 const PlayerStorageInteractionType = preload(
 	"res://world/player_storage_interaction.gd"
 )
+const WorldLayoutType = preload("res://world/world_layout.gd")
+const GENERATED_REGION_SCENE: PackedScene = preload(
+	"res://world/generation/generated_world_region.tscn"
+)
+const STARTER_ISLAND_REGION_SCENE: PackedScene = preload(
+	"res://world/regions/starter_island_region.tscn"
+)
 
 @onready var _regions_root: Node3D = $Regions
 @onready var _active_region: WorldRegion = _find_active_region()
@@ -16,20 +23,25 @@ const PlayerStorageInteractionType = preload(
 @onready var _world_environment: WorldEnvironment = $Environment/WorldEnvironment
 @onready var _sun: DirectionalLight3D = $Environment/Sun
 
+var _world_layout: StringName = WorldLayoutType.GENERATED
+var _world_seed: int = PlayerSaveManager.DEFAULT_WORLD_SEED
+var _light_performance_profile: bool = false
+
 
 func get_player_water_triggers() -> Array[PlayerWaterTrigger]:
 	var triggers: Array[PlayerWaterTrigger] = []
-	for region: WorldRegion in _get_regions():
-		triggers.append_array(region.get_water_recovery_triggers())
+	if _active_region != null:
+		triggers.append_array(_active_region.get_water_recovery_triggers())
 	triggers.append(_below_world_failsafe)
 	return triggers
 
 
 func get_safe_respawn_points() -> Array[SafeRespawnPoint]:
-	var points: Array[SafeRespawnPoint] = []
-	for region: WorldRegion in _get_regions():
-		points.append_array(region.get_safe_respawn_points())
-	return points
+	return (
+		_active_region.get_safe_respawn_points()
+		if _active_region != null
+		else []
+	)
 
 
 func get_fishing_shop() -> FishingShopInteractionType:
@@ -53,14 +65,17 @@ func get_sun() -> DirectionalLight3D:
 
 
 func set_light_performance_profile(enabled: bool) -> void:
-	_active_region.set_light_performance_profile(enabled)
+	_light_performance_profile = enabled
+	if _active_region != null:
+		_active_region.set_light_performance_profile(enabled)
 
 
 func get_fishable_water_regions() -> Array[FishableWaterRegion]:
-	var waters: Array[FishableWaterRegion] = []
-	for region: WorldRegion in _get_regions():
-		waters.append_array(region.get_fishable_water_regions())
-	return waters
+	return (
+		_active_region.get_fishable_water_regions()
+		if _active_region != null
+		else []
+	)
 
 
 func get_saltwater_shoreline_mesh() -> MeshInstance3D:
@@ -77,26 +92,44 @@ func get_spawn_surface_triangles(
 	)
 
 
-func generate_world(seed: int) -> bool:
-	if _active_region == null or not _active_region.has_method("generate_world"):
+func activate_world(layout: StringName, seed: int) -> bool:
+	if (
+		not WorldLayoutType.is_valid(layout)
+		or seed <= 0
+		or seed > PlayerSaveManager.MAX_WORLD_SEED
+	):
 		return false
-	var generated: bool = bool(_active_region.call("generate_world", seed))
-	if generated:
-		_configure_world_coverage()
-	return generated
+	if _active_region == null or _active_region.region_id != layout:
+		if not _replace_active_region(layout, seed):
+			return false
+	_world_layout = layout
+	_world_seed = seed
+	if layout == WorldLayoutType.GENERATED:
+		if not _active_region.has_method("generate_world"):
+			return false
+		if not bool(_active_region.call("generate_world", seed)):
+			return false
+	_configure_world_coverage()
+	return true
+
+
+func generate_world(seed: int) -> bool:
+	return activate_world(WorldLayoutType.GENERATED, seed)
+
+
+func get_world_layout() -> StringName:
+	return _world_layout
 
 
 func get_generation_seed() -> int:
-	if _active_region != null and _active_region.has_method("get_generation_seed"):
-		return int(_active_region.call("get_generation_seed"))
-	return PlayerSaveManager.DEFAULT_WORLD_SEED
+	return _world_seed
 
 
 func get_diggable_area_triangles(
 	area_id: StringName,
 ) -> Array[PackedVector3Array]:
-	for region: WorldRegion in _get_regions():
-		var area: DiggableArea3D = region.get_diggable_area(area_id)
+	if _active_region != null:
+		var area: DiggableArea3D = _active_region.get_diggable_area(area_id)
 		if area != null:
 			return area.get_surface_triangles()
 	return []
@@ -105,25 +138,18 @@ func get_diggable_area_triangles(
 func get_gatherable_spawn_positions(
 	anchor_set_id: StringName,
 ) -> PackedVector3Array:
-	for region: WorldRegion in _get_regions():
+	if _active_region != null:
 		var anchor_set: GatherableAnchorSet3D = (
-			region.get_gatherable_anchor_set(anchor_set_id)
+			_active_region.get_gatherable_anchor_set(anchor_set_id)
 		)
 		if anchor_set != null:
 			return anchor_set.get_spawn_positions()
 	return PackedVector3Array()
 
 
-func _get_regions() -> Array[WorldRegion]:
-	var regions: Array[WorldRegion] = []
-	for child: Node in _regions_root.get_children():
-		var region: WorldRegion = child as WorldRegion
-		if region != null:
-			regions.append(region)
-	return regions
-
-
 func _ready() -> void:
+	if _active_region != null:
+		_world_layout = _active_region.region_id
 	_configure_world_coverage()
 
 
@@ -133,6 +159,26 @@ func _find_active_region() -> WorldRegion:
 		if region != null:
 			return region
 	return null
+
+
+func _replace_active_region(layout: StringName, seed: int) -> bool:
+	var region_scene: PackedScene = (
+		GENERATED_REGION_SCENE
+		if layout == WorldLayoutType.GENERATED
+		else STARTER_ISLAND_REGION_SCENE
+	)
+	var replacement := region_scene.instantiate() as WorldRegion
+	if replacement == null:
+		return false
+	if layout == WorldLayoutType.GENERATED:
+		replacement.set("initial_seed", seed)
+	if _active_region != null:
+		_regions_root.remove_child(_active_region)
+		_active_region.free()
+	_active_region = replacement
+	_regions_root.add_child(_active_region)
+	_active_region.set_light_performance_profile(_light_performance_profile)
+	return true
 
 
 func _configure_world_coverage() -> void:

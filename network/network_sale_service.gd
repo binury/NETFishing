@@ -91,6 +91,10 @@ func setup(
 		_session.state_changed.connect(_on_session_state_changed)
 
 
+func set_shop_interaction(interaction: FishingShopInteraction) -> void:
+	_shop_interaction = interaction
+
+
 func is_local_sale_pending() -> bool:
 	return not _pending_local_request_id.is_empty()
 
