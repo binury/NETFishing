@@ -53,7 +53,7 @@ func _run_host() -> void:
 		"deep",
 		profile.speech_speed_id,
 		profile.call_id,
-		"robot",
+		"kim",
 	))
 	var save_manager := main.get("_save_manager") as PlayerSaveManager
 	assert(session.start_private_host(TEST_PORT))
@@ -62,7 +62,7 @@ func _run_host() -> void:
 	) as Player
 	assert(local_avatar != null)
 	assert(local_avatar.get_animalese_voice_id() == "deep")
-	assert(local_avatar.get_animalese_sample_set_id() == "robot")
+	assert(local_avatar.get_animalese_sample_set_id() == "kim")
 	assert(save_manager.initialize_new_game())
 	main.call("_enter_gameplay")
 	for _frame: int in 4:
@@ -114,7 +114,7 @@ func _run_host() -> void:
 		await process_frame
 	assert(not voice_messages.is_empty())
 	assert(str(voice_messages[0].get("voice_id", "")) == "deep")
-	assert(str(voice_messages[0].get("sample_set_id", "")) == "robot")
+	assert(str(voice_messages[0].get("sample_set_id", "")) == "kim")
 	var disconnect_deadline: int = Time.get_ticks_msec() + 8000
 	while (
 		Time.get_ticks_msec() < disconnect_deadline
@@ -182,7 +182,7 @@ func _run_client() -> void:
 		"deep",
 		service.get_persisted_speech_speed_id(),
 		service.get_persisted_call_id(),
-		"robot",
+		"kim",
 	))
 	var apply_deadline: int = Time.get_ticks_msec() + 8000
 	while Time.get_ticks_msec() < apply_deadline and apply_results.is_empty():
@@ -191,11 +191,11 @@ func _run_client() -> void:
 	assert(bool(apply_results[0][0]))
 	assert(service.get_persisted_appearance() == changed)
 	assert(service.get_persisted_voice_id() == "deep")
-	assert(service.get_persisted_sample_set_id() == "robot")
+	assert(service.get_persisted_sample_set_id() == "kim")
 	assert(Dictionary(session.get("_local_appearance_snapshot")) == changed)
 	var player := main.get_node("%PlayerSpawnService").get_local_player() as Player
 	assert(player.get_animalese_voice_id() == "deep")
-	assert(player.get_animalese_sample_set_id() == "robot")
+	assert(player.get_animalese_sample_set_id() == "kim")
 	var host_voice_messages: Array[Dictionary] = []
 	for message: Dictionary in chat_service.get_history():
 		if str(message.get("body", "")) == HOST_VOICE_MESSAGE:
@@ -217,8 +217,8 @@ func _run_client() -> void:
 				host_voice_messages.append(message)
 	assert(not host_voice_messages.is_empty())
 	assert(str(host_voice_messages[0].get("voice_id", "")) == "deep")
-	assert(str(host_voice_messages[0].get("sample_set_id", "")) == "robot")
-	assert(remote_voice_samples.has("robot"))
+	assert(str(host_voice_messages[0].get("sample_set_id", "")) == "kim")
+	assert(remote_voice_samples.has("kim"))
 	var local_confirmations: Array[Dictionary] = []
 	chat_service.local_message_confirmed.connect(
 		func(message: Dictionary) -> void:
@@ -238,7 +238,7 @@ func _run_client() -> void:
 		await process_frame
 	assert(not local_confirmations.is_empty())
 	assert(str(local_confirmations[0].get("voice_id", "")) == "deep")
-	assert(str(local_confirmations[0].get("sample_set_id", "")) == "robot")
+	assert(str(local_confirmations[0].get("sample_set_id", "")) == "kim")
 	print("Profile multiplayer client validation: PASS")
 	await _session_cleanup(main, session)
 

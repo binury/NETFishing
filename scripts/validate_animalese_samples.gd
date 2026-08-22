@@ -16,14 +16,20 @@ func _initialize() -> void:
 		"animalese supports every letter and digit",
 	)
 	_expect(
-		VoiceProfilesType.DEFAULT_SAMPLE_SET_ID == "robot",
-		"robot is the default animalese voice set",
+		VoiceProfilesType.DEFAULT_SAMPLE_SET_ID == "kat",
+		"kat is the default animalese voice set",
 	)
 	_expect(
 		VoiceProfilesType.is_valid_sample_set("robot"),
 		"the original tones remain available as robot",
 	)
+	_expect(
+		VoiceProfilesType.is_valid_sample_set("kim"),
+		"kim is available as an animalese voice set",
+	)
+	_validate_set("kat", EXPECTED_CHARACTERS, false)
 	_validate_set("robot", ROBOT_CHARACTERS, true)
+	_validate_set("kim", EXPECTED_CHARACTERS, false)
 	if _failures.is_empty():
 		print("Animalese sample validation: PASS")
 		quit(0)

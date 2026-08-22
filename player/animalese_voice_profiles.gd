@@ -2,15 +2,25 @@ class_name AnimaleseVoiceProfiles
 extends RefCounted
 
 const DEFAULT_ID: String = "natural"
-const DEFAULT_SAMPLE_SET_ID: String = "robot"
+const DEFAULT_SAMPLE_SET_ID: String = "kat"
 const DEFAULT_SPEED_ID: String = "normal"
 const DEFAULT_CALL_ID: String = "meow"
 const CALL_AUDIO_DIRECTORY: String = "res://sound/dialogue/calls"
 const SAMPLE_SET_OPTIONS: Array[Dictionary] = [
 	{
+		"id": "kat",
+		"label": "kat",
+		"directory": "res://sound/dialogue/animalese/alphanumeric",
+	},
+	{
 		"id": "robot",
 		"label": "robot",
 		"directory": "res://sound/dialogue/animalese/robot",
+	},
+	{
+		"id": "kim",
+		"label": "kim",
+		"directory": "res://sound/dialogue/animalese/kim",
 	},
 ]
 const OPTIONS: Array[Dictionary] = [
