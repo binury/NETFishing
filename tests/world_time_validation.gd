@@ -200,13 +200,15 @@ func _validate_system_clock_authority() -> void:
 
 func _validate_fishing_availability() -> void:
 	var day_context := FishingContextType.new()
-	day_context.location_tags = [&"starter_pond"]
+	# Cover both freshwater habitat families so this test isolates time-of-day
+	# gating from the separate pond-versus-river availability rules.
+	day_context.location_tags = [&"starter_pond", &"river"]
 	day_context.is_night = false
 	var night_context := FishingContextType.new()
-	night_context.location_tags = [&"starter_pond"]
+	night_context.location_tags = [&"starter_pond", &"river"]
 	night_context.is_night = true
 	var transition_context := FishingContextType.new()
-	transition_context.location_tags = [&"starter_pond"]
+	transition_context.location_tags = [&"starter_pond", &"river"]
 	transition_context.is_night = true
 	transition_context.is_day_night_transition = true
 
