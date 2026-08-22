@@ -149,12 +149,6 @@ func _run() -> void:
 	var chillnfill_credit := credits_page.get_node(
 		"Paper/Margin/Layout/Columns/CreativeCredits/ChillnfillCredit"
 	) as Label
-	var adamantris_name := credits_page.get_node(
-		"Paper/Margin/Layout/Columns/CreativeCredits/AdamantrisName"
-	) as Label
-	var adamantris_credit := credits_page.get_node(
-		"Paper/Margin/Layout/Columns/CreativeCredits/AdamantrisCredit"
-	) as Label
 	var credits_paper := credits_page.get_node("Paper") as PanelContainer
 	var audio_credits := credits_page.get_node(
 		"Paper/Margin/Layout/Columns/AdditionalCredits/AudioCredits"
@@ -173,13 +167,12 @@ func _run() -> void:
 		"in-game credits describe the supplied model families",
 	)
 	_expect(
-		adamantris_name.text == "adamantris",
-		"in-game credits name adamantris",
+		"kat • animalese source recording" in audio_credits.text,
+		"in-game credits name kat's animalese source contribution",
 	)
 	_expect(
-		"hand-net model" in adamantris_credit.text.to_lower()
-		and "texture artwork" in adamantris_credit.text.to_lower(),
-		"in-game credits describe adamantris's hand-net contribution",
+		"kim • animalese source recording" in audio_credits.text,
+		"in-game credits name kim's animalese source contribution",
 	)
 	_expect(
 		credits_paper.get_global_rect().encloses(

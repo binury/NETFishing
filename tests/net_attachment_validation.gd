@@ -57,67 +57,23 @@ func _run() -> void:
 		"Net rear face did not follow the socket direction guide.",
 	)
 
-	var model := catching_net.get_node_or_null("ModelMount/NetModel") as Node3D
-	_check(model != null, "Imported net model is missing.")
-	if model == null:
-		_finish(host_skeleton)
-		return
-	var skeleton := model.find_child("Skeleton3D", true, false) as Skeleton3D
-	_check(skeleton != null, "Imported net Skeleton3D is missing.")
-	if skeleton == null:
-		_finish(host_skeleton)
-		return
-	_check(
-		skeleton.find_bone("net_root") >= 0,
-		"Imported net_root bone is missing.",
+	var handle := catching_net.get_node_or_null("Handle") as MeshInstance3D
+	var hoop := catching_net.get_node_or_null("Hoop") as MeshInstance3D
+	var bag := catching_net.get_node_or_null("Bag") as MeshInstance3D
+	var impact_marker := (
+		catching_net.get_node_or_null("ImpactMarker") as Marker3D
 	)
-	_check(
-		skeleton.find_bone("net_rim") >= 0,
-		"Imported net_rim bone is missing.",
-	)
-	_check(
-		skeleton.find_bone("net_mid") >= 0,
-		"Imported net_mid bone is missing.",
-	)
-	_check(
-		skeleton.find_bone("net_tip") >= 0,
-		"Imported net_tip bone is missing.",
-	)
-
-	var spring := skeleton.get_node_or_null("NetSpring") as SpringBoneSimulator3D
-	_check(spring != null, "Net spring simulator was not created.")
-	if spring != null:
-		_check(spring.get_setting_count() == 1, "Net spring settings changed.")
+	_check(handle != null and handle.mesh != null, "Placeholder handle is missing.")
+	_check(hoop != null and hoop.mesh != null, "Placeholder hoop is missing.")
+	_check(bag != null and bag.mesh != null, "Placeholder net bag is missing.")
+	_check(impact_marker != null, "Net impact marker is missing.")
+	if impact_marker != null:
 		_check(
-			spring.get_root_bone_name(0) == &"net_mid",
-			"Net spring root must remain net_mid.",
+			attachment.get_impact_world_position().is_equal_approx(
+				impact_marker.global_position
+			),
+			"Net impact position moved away from its marker.",
 		)
-		_check(
-			spring.get_end_bone_name(0) == &"net_tip",
-			"Net spring end must remain net_tip.",
-		)
-		_check(not spring.active, "Hidden net spring must be suspended.")
-		catching_net.visible = true
-		await process_frame
-		await process_frame
-		_check(spring.active, "Visible net spring must be active.")
-		_check(spring.get_joint_count(0) == 2, "Net spring chain is incomplete.")
-		catching_net.visible = false
-		await process_frame
-		_check(not spring.active, "Hidden net spring did not suspend.")
-
-	for child: Node in model.find_children("*", "MeshInstance3D", true, false):
-		var mesh_instance := child as MeshInstance3D
-		if mesh_instance.mesh == null:
-			continue
-		for surface_index: int in mesh_instance.mesh.get_surface_count():
-			var material := mesh_instance.mesh.surface_get_material(surface_index)
-			if material is BaseMaterial3D:
-				_check(
-					(material as BaseMaterial3D).texture_filter
-						== BaseMaterial3D.TEXTURE_FILTER_NEAREST,
-					"Net material does not use nearest texture sampling.",
-				)
 
 	var rod_attachment := (
 		FishingRodAttachmentScene.instantiate() as BoneAttachment3D

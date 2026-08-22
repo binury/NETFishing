@@ -24,8 +24,10 @@ independent team Woofmeow.
   arms, ears and tails, and multiple world props and decorative assets,
   including trees and bridges. The contributor requested to be credited as
   `chillnfill`.
-- adamantris: contributor of the original hand-net model and texture artwork;
-  the contributor is credited as `adamantris`.
+- kat: supplied the original source voice recording for the kat animalese set.
+  Voyager created the sliced, normalized runtime derivatives.
+- kim: supplied the original source voice recording for the kim animalese set.
+  Voyager created the sliced, normalized runtime derivatives.
 
 Voyager is also the original catalog porter credit in PortMaster metadata.
 Third-party creators are credited with their individual records below. Those
@@ -156,6 +158,8 @@ against the repository when this record was revised.
 
 | Material | Runtime location | Credit or terms |
 | --- | --- | --- |
+| Kat animalese alphabet and number sounds | `sound/dialogue/animalese/alphanumeric/` | Project-processed derivatives of the original source voice recording supplied by NETfishing community member kat. |
+| Kim animalese alphabet and number sounds | `sound/dialogue/animalese/kim/` | Project-processed derivatives of the original source voice recording supplied by NETfishing community member kim. |
 | Tuffy font | `ui/fonts/Tuffy_Bold.otf` | Public-domain dedication in `ui/fonts/Tuffy-LICENSE.txt`. |
 | Seattle Avenue font | `ui/fonts/seattle_avenue.otf` | Public-domain font by JLH Fonts; notice in `ui/fonts/Seattle-Avenue-LICENSE.txt`. |
 | Fishing fight loop | `audio/sfx/fishing/fighting.wav` | Edited from “Spinning reel.wav” by Freesound user tosha73, sound 509902, CC0. |
@@ -184,20 +188,6 @@ https://creativecommons.org/licenses/by/3.0/legalcode.
   current `CONTRIBUTOR-TERMS.md`, retain the original permission record or a
   later written confirmation covering Project use, modification,
   distribution, commercial release, and applicable sublicensing.
-
-### adamantris hand-net contribution record
-
-- Requested credit: `adamantris`.
-- Original contribution: hand-net model and texture artwork.
-- The maintained repository source and runtime export contain later Project
-  adaptations. Git history, rather than a duplicated current-file hash here,
-  identifies their bytes at any given revision.
-- Repository adaptation: reshaping and the generic `net_root`, `net_rim`,
-  `net_mid`, and `net_tip` deformation rig were prepared by Voyager for
-  reuse across gathering activities.
-- Permission record: retain the original submission correspondence or a
-  written confirmation accepting `CONTRIBUTOR-TERMS.md` with the project
-  records.
 
 ### Endeavour 2D contribution record
 

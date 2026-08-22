@@ -1,7 +1,42 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=8 format=3]
 
 [ext_resource type="Script" path="res://player/net_attachment.gd" id="1_script"]
-[ext_resource type="PackedScene" path="res://art/exported/items/equipment/net.glb" id="2_model"]
+
+[sub_resource type="StandardMaterial3D" id="HandleMaterial"]
+albedo_color = Color(0.25, 0.13, 0.055, 1)
+roughness = 0.9
+
+[sub_resource type="CylinderMesh" id="HandleMesh"]
+material = SubResource("HandleMaterial")
+top_radius = 0.025
+bottom_radius = 0.035
+height = 1.25
+
+[sub_resource type="StandardMaterial3D" id="HoopMaterial"]
+albedo_color = Color(0.34, 0.39, 0.4, 1)
+metallic = 0.25
+roughness = 0.65
+
+[sub_resource type="TorusMesh" id="HoopMesh"]
+material = SubResource("HoopMaterial")
+inner_radius = 0.24
+outer_radius = 0.29
+rings = 12
+ring_segments = 18
+
+[sub_resource type="StandardMaterial3D" id="NetMaterial"]
+transparency = 1
+albedo_color = Color(0.65, 0.78, 0.75, 0.42)
+shading_mode = 0
+cull_mode = 2
+
+[sub_resource type="CylinderMesh" id="NetMesh"]
+material = SubResource("NetMaterial")
+top_radius = 0.24
+bottom_radius = 0.08
+height = 0.34
+radial_segments = 12
+rings = 1
 
 [node name="NetAttachment" type="BoneAttachment3D"]
 bone_name = "rod_socket"
@@ -12,9 +47,18 @@ aligned_mount_path = NodePath("CatchingNet")
 unique_name_in_owner = true
 visible = false
 
-[node name="ModelMount" type="Node3D" parent="CatchingNet"]
-position = Vector3(-0.000217, -0.098636, -0.020218)
-rotation = Vector3(0, 3.1415927, 0)
+[node name="Handle" type="MeshInstance3D" parent="CatchingNet"]
+position = Vector3(0, 0.55, 0)
+mesh = SubResource("HandleMesh")
 
-[node name="NetModel" parent="CatchingNet/ModelMount" unique_id=1627767240 instance=ExtResource("2_model")]
+[node name="Hoop" type="MeshInstance3D" parent="CatchingNet"]
+position = Vector3(0, 1.17, 0)
+mesh = SubResource("HoopMesh")
+
+[node name="Bag" type="MeshInstance3D" parent="CatchingNet"]
+position = Vector3(0, 1, 0)
+mesh = SubResource("NetMesh")
+
+[node name="ImpactMarker" type="Marker3D" parent="CatchingNet"]
 unique_name_in_owner = true
+position = Vector3(0, 1.17, 0)
