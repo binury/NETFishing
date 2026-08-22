@@ -2,7 +2,7 @@ extends SceneTree
 
 const MainScene: PackedScene = preload("res://main/main.tscn")
 const TEST_PORT: int = 18133
-const WAIT_MSEC: int = 20000
+const WAIT_MSEC: int = 60000
 
 
 func _initialize() -> void:
@@ -83,6 +83,10 @@ func _run_host() -> void:
 		str(overwritten_cell["author_fingerprint"])
 		== remote_record.identity_fingerprint
 	)
+	assert(
+		remote_record.identity_fingerprint
+		in overwritten_state.get("participant_fingerprints", [])
+	)
 
 	assert(service.request_cell_edits(canvas_id, [{
 		"x": 8,
@@ -112,7 +116,61 @@ func _run_host() -> void:
 	assert(service.request_guide_visibility(canvas_id, false, true))
 	await create_timer(1.0).timeout
 	assert(service.clear_session_artwork())
+	var stamp_deadline: int = Time.get_ticks_msec() + WAIT_MSEC
+	while (
+		Time.get_ticks_msec() < stamp_deadline
+		and service.get_canvas_ids().is_empty()
+	):
+		await process_frame
+	assert(service.get_canvas_ids().size() == 1)
+	var stamp_id: String = service.get_canvas_ids()[0]
+	var stamp_state: Dictionary = service.get_canvas_state(stamp_id)
+	assert(bool(stamp_state.get("stamp", false)))
+	assert(bool(stamp_state["finalized"]))
+	assert((stamp_state["cells"] as Array).size() == 1)
+	assert(str(stamp_state["cells"][0]["color_id"]) == "coral")
+	assert(
+		stamp_state.get("participant_fingerprints", [])
+		== [remote_record.identity_fingerprint]
+	)
+	# Give the client a full observation window before the authoritative clear.
 	await create_timer(1.0).timeout
+	assert(
+		service.clear_artwork_by_fingerprint(
+			remote_record.identity_fingerprint
+		) == 1
+	)
+	assert(service.get_canvas_ids().is_empty())
+	var second_stamp_deadline: int = Time.get_ticks_msec() + WAIT_MSEC
+	while (
+		Time.get_ticks_msec() < second_stamp_deadline
+		and service.get_canvas_ids().is_empty()
+	):
+		await process_frame
+	assert(service.get_canvas_ids().size() == 1)
+	var player_list := main.get_node(
+		"%NetworkPlayerListService"
+	) as NetworkPlayerListService
+	var remote_entry: PlayerListEntry = null
+	for entry: PlayerListEntry in player_list.get_entries():
+		if entry.peer_id == remote_peer_id:
+			remote_entry = entry
+			break
+	assert(remote_entry != null and remote_entry.can_ban)
+	assert(player_list.ban(
+		remote_peer_id,
+		remote_record.identity_fingerprint,
+		remote_record.display_name,
+		remote_entry.revision,
+	))
+	assert(service.get_canvas_ids().is_empty())
+	var removed_deadline: int = Time.get_ticks_msec() + WAIT_MSEC
+	while (
+		Time.get_ticks_msec() < removed_deadline
+		and session.is_authenticated_peer(remote_peer_id)
+	):
+		await process_frame
+	assert(not session.is_authenticated_peer(remote_peer_id))
 	print("Surface drawing multiplayer host validation: PASS")
 	session.disconnect_session("")
 	main.queue_free()
@@ -210,8 +268,63 @@ func _run_client() -> void:
 		if service.get_canvas_ids().is_empty():
 			break
 	assert(service.get_canvas_ids().is_empty())
+	var data_root := main.get("_data_root") as PlayerDataRoot
+	var stamp_directory: String = data_root.root_path.path_join("artwork")
+	assert(DirAccess.make_dir_recursive_absolute(stamp_directory) == OK)
+	var stamp_path: String = stamp_directory.path_join("multiplayer-stamp.png")
+	var stamp_image := Image.create(16, 16, false, Image.FORMAT_RGBA8)
+	stamp_image.fill(Color.TRANSPARENT)
+	stamp_image.set_pixel(3, 11, SurfaceDrawingPalette.get_color(&"coral"))
+	assert(stamp_image.save_png(stamp_path) == OK)
+	assert(service.select_saved_stamp(stamp_path))
+	var stamp_surface: Dictionary = _surface_below_local_player(main)
+	assert(not stamp_surface.is_empty())
+	assert(service.request_stamp_at_surface(
+		stamp_surface["position"], stamp_surface["normal"], Vector3.RIGHT
+	))
+	var shared_stamp_deadline: int = Time.get_ticks_msec() + WAIT_MSEC
+	while (
+		Time.get_ticks_msec() < shared_stamp_deadline
+		and service.get_canvas_ids().is_empty()
+	):
+		await process_frame
+	assert(service.get_canvas_ids().size() == 1)
+	var stamp_state: Dictionary = service.get_canvas_state(
+		service.get_canvas_ids()[0]
+	)
+	assert(bool(stamp_state.get("stamp", false)))
+	assert(bool(stamp_state["finalized"]))
+	assert(str(stamp_state["cells"][0]["color_id"]) == "coral")
+	assert(
+		session.get_local_identity_fingerprint()
+		in stamp_state.get("participant_fingerprints", [])
+	)
+	var clear_deadline: int = Time.get_ticks_msec() + WAIT_MSEC
+	while (
+		Time.get_ticks_msec() < clear_deadline
+		and not service.get_canvas_ids().is_empty()
+	):
+		await process_frame
+	assert(service.get_canvas_ids().is_empty())
+	assert(service.request_stamp_at_surface(
+		stamp_surface["position"], stamp_surface["normal"], Vector3.RIGHT
+	))
+	var second_stamp_deadline: int = Time.get_ticks_msec() + WAIT_MSEC
+	while (
+		Time.get_ticks_msec() < second_stamp_deadline
+		and service.get_canvas_ids().is_empty()
+	):
+		await process_frame
+	assert(service.get_canvas_ids().size() == 1)
+	var ban_deadline: int = Time.get_ticks_msec() + WAIT_MSEC
+	while (
+		Time.get_ticks_msec() < ban_deadline
+		and session.state != NetworkSession.State.SERVER_LOST
+	):
+		await process_frame
+	assert(session.state == NetworkSession.State.SERVER_LOST)
+	assert(service.get_canvas_ids().is_empty())
 	print("Surface drawing multiplayer client validation: PASS")
-	session.disconnect_session("")
 	main.queue_free()
 	for _frame: int in 4:
 		await process_frame

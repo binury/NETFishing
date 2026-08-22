@@ -67,6 +67,16 @@ func _run() -> void:
 		state["cells"][0]["author_fingerprint"]
 		== session.get_local_identity_fingerprint()
 	)
+	var export_path: String = service.export_canvas_png(canvas_id)
+	assert(not export_path.is_empty())
+	var data_root := main.get("_data_root") as PlayerDataRoot
+	assert(export_path.begins_with(data_root.root_path.path_join("artwork")))
+	assert(FileAccess.file_exists(export_path))
+	var exported_image: Image = Image.load_from_file(export_path)
+	assert(exported_image.get_size() == Vector2i(16, 16))
+	assert(exported_image.get_pixel(8, 7).is_equal_approx(
+		SurfaceDrawingPalette.get_color(&"ocean_teal")
+	))
 	assert(service.request_guide_visibility(canvas_id, false))
 	state = service.get_canvas_state(canvas_id)
 	assert(not bool(state["guide_visible"]))
@@ -78,6 +88,7 @@ func _run() -> void:
 	assert(service.request_guide_visibility(canvas_id, false, true))
 	assert(bool(service.get_canvas_state(canvas_id)["finalized"]))
 	assert(canvas.is_finalized())
+	assert(not canvas.has_guide_geometry())
 	assert(service.request_canvas_at_surface(
 		hit["position"], hit["normal"], Vector3.RIGHT
 	))
@@ -109,6 +120,38 @@ func _run() -> void:
 	assert(player_list.get_session_artwork_counts() == Vector2i(2, 1))
 	assert(player_list.reset_session_artwork())
 	assert(service.get_canvas_ids().is_empty())
+	var stamp_entries: Array[Dictionary] = service.get_saved_stamp_entries()
+	assert(stamp_entries.size() == 1)
+	assert(str(stamp_entries[0]["path"]) == export_path)
+	assert(int(stamp_entries[0]["grid_size"]) == 16)
+	assert(bool(stamp_entries[0]["available"]))
+	service.activate(Vector2(640.0, 360.0))
+	assert(service.select_saved_stamp(export_path))
+	assert(service.is_stamp_mode())
+	assert(service.request_stamp_at_surface(
+		hit["position"], hit["normal"], Vector3.RIGHT
+	))
+	assert(service.get_canvas_ids().size() == 1)
+	var stamp_id: String = service.get_canvas_ids()[0]
+	var stamp_state: Dictionary = service.get_canvas_state(stamp_id)
+	assert(bool(stamp_state["stamp"]))
+	assert(bool(stamp_state["finalized"]))
+	assert(not bool(stamp_state["guide_visible"]))
+	assert((stamp_state["cells"] as Array).size() == 1)
+	assert(int(stamp_state["cells"][0]["x"]) == 8)
+	assert(int(stamp_state["cells"][0]["y"]) == 8)
+	assert(str(stamp_state["cells"][0]["color_id"]) == "ocean_teal")
+	assert(
+		stamp_state.get("participant_fingerprints", [])
+		== [session.get_local_identity_fingerprint()]
+	)
+	var stamp_canvas_nodes: Dictionary = service.get("_canvas_nodes")
+	var stamp_canvas := stamp_canvas_nodes[stamp_id] as SurfaceDrawingCanvas
+	assert(stamp_canvas.is_finalized())
+	assert(not stamp_canvas.has_guide_geometry())
+	service.set_placement_mode(false)
+	assert(not service.is_stamp_mode())
+	assert(service.clear_session_artwork())
 
 	print("Surface drawing runtime validation: PASS")
 	session.disconnect_session("")

@@ -481,6 +481,8 @@ func _run() -> void:
 	var hide_button := toolbar.get_node("%HideGuideButton") as Button
 	var restore_button := toolbar.get_node("%RestoreGuideButton") as Button
 	var finalize_button := toolbar.get_node("%FinalizeGuideButton") as Button
+	var export_button := toolbar.get_node("%ExportButton") as Button
+	var stamp_button := toolbar.get_node("%StampButton") as Button
 	assert(
 		mode_button != null
 		and eraser_button != null
@@ -488,7 +490,13 @@ func _run() -> void:
 		and hide_button != null
 		and restore_button != null
 		and finalize_button != null
+		and export_button != null
+		and stamp_button != null
 	)
+	assert(export_button.text == "png")
+	assert(export_button.tooltip_text == "export aimed artwork as PNG")
+	assert(stamp_button.text == "stamp")
+	assert(stamp_button.disabled)
 	assert(toolbar.get_node_or_null("%CloseButton") == null)
 	var expected_toolbar_icons: Dictionary[Button, String] = {
 		mode_button: "/art/art_kit_marker.png",
@@ -511,6 +519,8 @@ func _run() -> void:
 		hide_button,
 		restore_button,
 		finalize_button,
+		export_button,
+		stamp_button,
 	]:
 		assert(icon_button.custom_minimum_size == Vector2(48, 44))
 		assert(icon_button.get_theme_constant("icon_max_width") == 40)
@@ -521,7 +531,9 @@ func _run() -> void:
 		assert(is_equal_approx(icon_style.content_margin_top, 2.0))
 	assert(mode_button.custom_minimum_size == Vector2(48, 48))
 	assert(mode_button.get_theme_constant("icon_max_width") == 40)
-	assert(mode_button.get_index() > finalize_button.get_index())
+	assert(export_button.get_index() > finalize_button.get_index())
+	assert(stamp_button.get_index() > export_button.get_index())
+	assert(mode_button.get_index() > stamp_button.get_index())
 	assert(hide_button.button_group != null)
 	assert(hide_button.button_group == restore_button.button_group)
 	assert(hide_button.button_group == finalize_button.button_group)
@@ -537,6 +549,8 @@ func _run() -> void:
 		hide_button,
 		restore_button,
 		finalize_button,
+		export_button,
+		stamp_button,
 	]:
 		assert(pointer_only_control.focus_mode == Control.FOCUS_NONE)
 	assert(brush_option.get_popup().unfocusable)
@@ -639,13 +653,31 @@ func _run() -> void:
 	)) == 24)
 
 	for product_id: StringName in [
-		&"marker_ocean_teal", &"brush_4x", &"grid_128x",
+		&"marker_ocean_teal",
+		&"brush_4x",
+		&"grid_128x",
+		PlayerArtUnlocks.STAMP_PRODUCT_ID,
 	]:
 		assert(player.art_unlocks.unlock_product(product_id))
 	await process_frame
 	assert(not (color_buttons[&"ocean_teal"] as Button).disabled)
 	assert(not brush_option.get_popup().is_item_disabled(3))
 	assert(not grid_option.get_popup().is_item_disabled(3))
+	assert(not stamp_button.disabled)
+	var stamp_library_panel := toolbar.get_node(
+		"%StampLibraryPanel"
+	) as PanelContainer
+	var stamp_library_close := toolbar.get_node(
+		"%StampLibraryClose"
+	) as Button
+	assert(stamp_library_panel != null and not stamp_library_panel.visible)
+	stamp_button.pressed.emit()
+	assert(stamp_library_panel.visible)
+	var library_pointer := InputEventMouseMotion.new()
+	library_pointer.position = stamp_library_panel.get_global_rect().get_center()
+	assert(toolbar.owns_pointer_event(library_pointer))
+	stamp_library_close.pressed.emit()
+	assert(not stamp_library_panel.visible)
 	assert(not locked_color_lock.visible)
 	assert(str(brush_option.get_item_icon(3).get_meta(
 		&"channel_mask_source", ""

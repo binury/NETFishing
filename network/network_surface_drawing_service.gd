@@ -27,6 +27,9 @@ const MAX_REQUESTS_PER_WINDOW: int = 32
 const MAX_RECENT_REQUEST_IDS: int = 64
 const GRID_PREVIEW_SURFACE_OFFSET: float = 0.03
 const POINTER_EDGE_MARGIN: float = 2.0
+const ARTWORK_DIRECTORY_NAME: String = "artwork"
+const STAMP_ALPHA_THRESHOLD: float = 0.5
+const STAMP_COLOR_TOLERANCE: float = 0.012
 const INVALID_POINTER_SCREEN_POSITION := Vector2(-1.0, -1.0)
 
 enum GuideAction {
@@ -43,17 +46,25 @@ var _local_player: Player
 var _bag: PlayerBag
 var _hotbar: PlayerHotbar
 var _art_unlocks: PlayerArtUnlocks
+var _data_root: PlayerDataRoot
 var _drawing_root: Node3D
 var _canvas_states: Dictionary[String, Dictionary] = {}
 var _canvas_nodes: Dictionary[String, SurfaceDrawingCanvas] = {}
 var _selected_canvas_id: String = ""
+var _hovered_canvas_id: String = ""
 var _brush_preview: MultiMeshInstance3D
 var _brush_preview_multimesh: MultiMesh
 var _brush_preview_material: ShaderMaterial
 var _placement_preview: MeshInstance3D
 var _placement_preview_material: StandardMaterial3D
+var _stamp_preview: MeshInstance3D
+var _stamp_preview_material: StandardMaterial3D
 var _active: bool = false
 var _placing_grid: bool = false
+var _stamp_mode: bool = false
+var _stamp_path: String = ""
+var _stamp_pixels := PackedByteArray()
+var _stamp_image: Image
 var _brush_size: int = 1
 var _grid_size: int = SurfaceDrawingProtocol.DEFAULT_GRID_SIZE
 var _color_ids: Array[StringName] = []
@@ -90,6 +101,7 @@ func setup(
 	bag: PlayerBag,
 	hotbar: PlayerHotbar,
 	art_unlocks: PlayerArtUnlocks,
+	data_root: PlayerDataRoot = null,
 ) -> void:
 	_session = session
 	_spawn_service = spawn_service
@@ -99,6 +111,7 @@ func setup(
 	_bag = bag
 	_hotbar = hotbar
 	_art_unlocks = art_unlocks
+	_data_root = data_root
 	_refresh_local_unlocks()
 	if _session != null:
 		_session.state_changed.connect(_on_session_state_changed)
@@ -178,6 +191,8 @@ func handle_input(
 					if mouse_event.pressed:
 						if _armed_guide_action != GuideAction.NONE:
 							_execute_armed_guide_action()
+						elif _stamp_mode:
+							_request_stamp_at_aim()
 						elif mouse_event.shift_pressed and mouse_event.ctrl_pressed:
 							_finalize_selected_guide()
 						elif mouse_event.shift_pressed:
@@ -221,6 +236,7 @@ func activate(
 		return
 	_active = true
 	_placing_grid = false
+	_clear_stamp_mode()
 	_eraser_mode = false
 	_clear_armed_guide_action(false)
 	_refresh_local_unlocks()
@@ -244,11 +260,13 @@ func deactivate() -> void:
 		return
 	_active = false
 	_placing_grid = false
+	_clear_stamp_mode()
 	_eraser_mode = false
 	_clear_armed_guide_action(false)
 	_camera_look_active = false
 	_reset_stroke()
 	_selected_canvas_id = ""
+	_hovered_canvas_id = ""
 	_aim_hit.clear()
 	_hide_previews()
 	_refresh_stencil_visibility()
@@ -281,6 +299,7 @@ func set_color_id(color_id: StringName) -> bool:
 	if color_index < 0:
 		return false
 	_clear_armed_guide_action(true)
+	_clear_stamp_mode()
 	_eraser_mode = false
 	_color_index = color_index
 	_reset_stroke()
@@ -292,6 +311,7 @@ func set_eraser_mode(enabled: bool) -> void:
 	if not _active:
 		return
 	_clear_armed_guide_action(true)
+	_clear_stamp_mode()
 	_eraser_mode = enabled
 	if _eraser_mode and _placing_grid:
 		_placing_grid = false
@@ -318,6 +338,7 @@ func arm_guide_action(action: int) -> bool:
 	if _armed_guide_action == GuideAction.NONE:
 		_armed_return_placement_mode = _placing_grid
 		_armed_return_eraser_mode = _eraser_mode
+	_clear_stamp_mode()
 	_armed_guide_action = action
 	_placing_grid = true
 	_eraser_mode = false
@@ -349,6 +370,7 @@ func set_grid_size(value: int) -> bool:
 		return false
 	if _grid_size == value:
 		return true
+	_clear_stamp_mode()
 	_grid_size = value
 	_rebuild_placement_preview()
 	_update_previews()
@@ -476,6 +498,28 @@ func _peer_can_place_grid(peer_id: int, grid_size: int) -> bool:
 	)
 
 
+func _peer_can_stamp(peer_id: int, request: Dictionary) -> bool:
+	var entitlement: Dictionary = _peer_entitlement(peer_id)
+	var unlock_mask: int = int(entitlement.get("unlock_mask", 0))
+	if (
+		not bool(entitlement.get("has_kit", false))
+		or not _mask_owns_product(
+			unlock_mask, PlayerArtUnlocks.STAMP_PRODUCT_ID
+		)
+		or not _mask_unlocks_grid(unlock_mask, int(request["width"]))
+	):
+		return false
+	var palette_ids: Array[StringName] = SurfaceDrawingPalette.get_color_ids()
+	var pixels: PackedByteArray = request["pixels"]
+	for palette_index: int in pixels:
+		if palette_index <= 0:
+			continue
+		var color_id: StringName = palette_ids[palette_index - 1]
+		if not _mask_unlocks_color(unlock_mask, color_id):
+			return false
+	return true
+
+
 func _peer_can_edit(peer_id: int, request: Dictionary) -> bool:
 	var entitlement: Dictionary = _peer_entitlement(peer_id)
 	if not bool(entitlement.get("has_kit", false)):
@@ -561,6 +605,42 @@ func request_canvas_at_surface(
 		_handle_canvas_request(_session.get_local_peer_id(), data)
 	else:
 		submit_canvas_request.rpc_id(1, data)
+	return true
+
+
+func request_stamp_at_surface(
+	origin: Vector3,
+	normal: Vector3,
+	tangent: Vector3,
+) -> bool:
+	if (
+		not can_activate()
+		or not _stamp_mode
+		or _stamp_pixels.size() != _grid_size * _grid_size
+		or _art_unlocks == null
+		or not _art_unlocks.is_stamp_unlocked()
+		or not _art_unlocks.is_grid_size_unlocked(_grid_size)
+		or normal.is_zero_approx()
+		or tangent.is_zero_approx()
+	):
+		return false
+	var data: Dictionary = {
+		"request_id": _new_request_id("stamp"),
+		"session_id": _session.get_session_id(),
+		"origin": SurfaceDrawingProtocol.vector_to_array(origin),
+		"normal": SurfaceDrawingProtocol.vector_to_array(normal.normalized()),
+		"tangent": SurfaceDrawingProtocol.vector_to_array(tangent.normalized()),
+		"width": _grid_size,
+		"height": _grid_size,
+		"cell_size": SurfaceDrawingProtocol.CELL_SIZE,
+		"pixels": _stamp_pixels,
+	}
+	if not SurfaceDrawingProtocol.validate_stamp_request(data):
+		return false
+	if _session.is_host():
+		_handle_stamp_request(_session.get_local_peer_id(), data)
+	else:
+		submit_stamp_request.rpc_id(1, data)
 	return true
 
 
@@ -670,6 +750,29 @@ func clear_session_artwork() -> bool:
 	return true
 
 
+func clear_artwork_by_fingerprint(fingerprint: String) -> int:
+	if (
+		not _drawing_available()
+		or not _session.is_host()
+		or not NetworkIdentityCrypto.valid_fingerprint(fingerprint)
+	):
+		return -1
+	var affected_layers: int = _apply_artwork_fingerprint_clear(fingerprint)
+	for peer_id: int in _session.get_authenticated_peer_ids():
+		if (
+			peer_id != _session.get_local_peer_id()
+			and _session.peer_supports_capability(
+				peer_id, SurfaceDrawingProtocol.CAPABILITY
+			)
+		):
+			receive_artwork_fingerprint_clear.rpc_id(
+				peer_id,
+				_session.get_session_id(),
+				fingerprint,
+			)
+	return affected_layers
+
+
 func get_canvas_ids() -> Array[String]:
 	var result: Array[String] = []
 	for canvas_id: String in _canvas_states:
@@ -680,6 +783,212 @@ func get_canvas_ids() -> Array[String]:
 
 func get_canvas_state(canvas_id: String) -> Dictionary:
 	return Dictionary(_canvas_states.get(canvas_id, {})).duplicate(true)
+
+
+func is_stamp_mode() -> bool:
+	return _stamp_mode
+
+
+func get_saved_stamp_entries() -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	var directory: String = _artwork_directory()
+	if directory.is_empty() or not DirAccess.dir_exists_absolute(directory):
+		return result
+	var file_names: PackedStringArray = DirAccess.get_files_at(directory)
+	file_names.sort()
+	file_names.reverse()
+	for file_name: String in file_names:
+		if file_name.get_extension().to_lower() != "png":
+			continue
+		var entry: Dictionary = _decode_stamp_file(
+			directory.path_join(file_name)
+		)
+		if entry.is_empty():
+			continue
+		entry["available"] = _stamp_entry_is_unlocked(entry)
+		result.append(entry)
+		if result.size() >= 64:
+			break
+	return result
+
+
+func select_saved_stamp(path: String) -> bool:
+	if (
+		not _active
+		or _art_unlocks == null
+		or not _art_unlocks.is_stamp_unlocked()
+	):
+		_emit_hud_state("unlock the stamp tool in Art Supplies")
+		return false
+	var entry: Dictionary = _decode_stamp_file(path)
+	if entry.is_empty():
+		_emit_hud_state("this artwork PNG cannot be used as a stamp")
+		return false
+	if not _stamp_entry_is_unlocked(entry):
+		_emit_hud_state("this stamp uses an art supply that is still locked")
+		return false
+	_clear_armed_guide_action(true)
+	_stamp_path = str(entry["path"])
+	_stamp_pixels = entry["pixels"]
+	_stamp_image = entry["image"]
+	_stamp_mode = true
+	_placing_grid = true
+	_eraser_mode = false
+	_grid_size = int(entry["grid_size"])
+	_reset_stroke()
+	_selected_canvas_id = ""
+	_rebuild_placement_preview()
+	_rebuild_stamp_preview()
+	_update_aim()
+	_refresh_stencil_visibility()
+	_emit_hud_state(
+		"stamp selected • click a solid surface to place finalized artwork"
+	)
+	return true
+
+
+func export_aimed_canvas() -> String:
+	_update_aim()
+	if _hovered_canvas_id.is_empty():
+		_emit_hud_state("aim at artwork before exporting")
+		return ""
+	return export_canvas_png(_hovered_canvas_id)
+
+
+func export_canvas_png(canvas_id: String) -> String:
+	var canvas: SurfaceDrawingCanvas = _canvas_nodes.get(canvas_id)
+	if canvas == null or not is_instance_valid(canvas):
+		_emit_hud_state("artwork is no longer available")
+		return ""
+	if canvas.get_rendered_pixel_count() <= 0:
+		_emit_hud_state("paint something before exporting")
+		return ""
+	if _data_root == null or _data_root.root_path.is_empty():
+		_emit_hud_state("choose a NETfishing data folder before exporting")
+		return ""
+	var export_directory: String = _artwork_directory()
+	if DirAccess.make_dir_recursive_absolute(export_directory) != OK:
+		_emit_hud_state("the artwork folder could not be created")
+		return ""
+	var image: Image = canvas.get_export_image()
+	if image == null or image.is_empty():
+		_emit_hud_state("the artwork image could not be prepared")
+		return ""
+	var export_path: String = _next_artwork_export_path(export_directory)
+	if image.save_png(export_path) != OK:
+		_emit_hud_state("the artwork PNG could not be saved")
+		return ""
+	print("Art Kit artwork exported: ", export_path)
+	_emit_hud_state("artwork exported to the data folder • artwork")
+	return export_path
+
+
+func _artwork_directory() -> String:
+	if _data_root == null or _data_root.root_path.is_empty():
+		return ""
+	return _data_root.root_path.path_join(ARTWORK_DIRECTORY_NAME)
+
+
+func _decode_stamp_file(path: String) -> Dictionary:
+	var directory: String = _artwork_directory()
+	if directory.is_empty():
+		return {}
+	var normalized_directory: String = directory.simplify_path().trim_suffix(
+		"/"
+	)
+	var normalized_path: String = path.simplify_path()
+	if not normalized_path.begins_with(normalized_directory + "/"):
+		return {}
+	if normalized_path.get_extension().to_lower() != "png":
+		return {}
+	var image: Image = Image.load_from_file(normalized_path)
+	if image == null or image.is_empty():
+		return {}
+	if (
+		image.get_width() != image.get_height()
+		or image.get_width() not in SurfaceDrawingProtocol.GRID_SIZES
+	):
+		return {}
+	if image.is_compressed() and image.decompress() != OK:
+		return {}
+	image.convert(Image.FORMAT_RGBA8)
+	var grid_size: int = image.get_width()
+	var pixels := PackedByteArray()
+	pixels.resize(grid_size * grid_size)
+	var used_color_ids: Array[StringName] = []
+	var painted_count: int = 0
+	for cell_y: int in range(grid_size):
+		var image_y: int = grid_size - 1 - cell_y
+		for x: int in range(grid_size):
+			var color: Color = image.get_pixel(x, image_y)
+			var palette_index: int = 0
+			if color.a >= STAMP_ALPHA_THRESHOLD:
+				palette_index = _stamp_palette_index(color)
+				if palette_index <= 0:
+					return {}
+				painted_count += 1
+				var color_id: StringName = SurfaceDrawingPalette.get_color_ids()[
+					palette_index - 1
+				]
+				if color_id not in used_color_ids:
+					used_color_ids.append(color_id)
+			pixels[cell_y * grid_size + x] = palette_index
+	if painted_count <= 0:
+		return {}
+	return {
+		"path": normalized_path,
+		"file_name": normalized_path.get_file(),
+		"grid_size": grid_size,
+		"painted_count": painted_count,
+		"used_color_ids": used_color_ids,
+		"pixels": pixels,
+		"image": image,
+	}
+
+
+func _stamp_palette_index(color: Color) -> int:
+	var palette_ids: Array[StringName] = SurfaceDrawingPalette.get_color_ids()
+	for index: int in range(palette_ids.size()):
+		var palette_color: Color = SurfaceDrawingPalette.get_color(
+			palette_ids[index]
+		)
+		var difference := Vector3(
+			color.r - palette_color.r,
+			color.g - palette_color.g,
+			color.b - palette_color.b,
+		)
+		if difference.length() <= STAMP_COLOR_TOLERANCE:
+			return index + 1
+	return 0
+
+
+func _stamp_entry_is_unlocked(entry: Dictionary) -> bool:
+	if _art_unlocks == null or not _art_unlocks.is_stamp_unlocked():
+		return false
+	if not _art_unlocks.is_grid_size_unlocked(int(entry.get("grid_size", 0))):
+		return false
+	for color_id: StringName in entry.get("used_color_ids", []):
+		if not _art_unlocks.is_color_unlocked(color_id):
+			return false
+	return true
+
+
+func _next_artwork_export_path(directory: String) -> String:
+	var date_time: Dictionary = Time.get_datetime_dict_from_system()
+	var stem: String = "netfishing-artwork-%04d%02d%02d-%02d%02d%02d" % [
+		int(date_time.get("year", 0)),
+		int(date_time.get("month", 0)),
+		int(date_time.get("day", 0)),
+		int(date_time.get("hour", 0)),
+		int(date_time.get("minute", 0)),
+		int(date_time.get("second", 0)),
+	]
+	var candidate: String = directory.path_join(stem + ".png")
+	var suffix: int = 2
+	while FileAccess.file_exists(candidate):
+		candidate = directory.path_join("%s-%d.png" % [stem, suffix])
+		suffix += 1
+	return candidate
 
 
 func _process(_delta: float) -> void:
@@ -714,26 +1023,53 @@ func _update_aim() -> void:
 	_aim_hit = _raycast_from_pointer()
 	var previous_canvas_id: String = _selected_canvas_id
 	var found_canvas_id: String = ""
+	var found_hovered_canvas_id: String = ""
 	var nearest_plane_distance: float = INF
+	var nearest_hovered_plane_distance: float = INF
+	var selected_layer: int = -1
+	var hovered_layer: int = -1
 	if not _aim_hit.is_empty():
 		var hit_position: Vector3 = _aim_hit["position"]
 		for canvas_id: String in _canvas_nodes:
 			var canvas: SurfaceDrawingCanvas = _canvas_nodes[canvas_id]
-			if canvas.is_finalized():
+			if canvas.is_hidden_by_relationship():
 				continue
 			var plane_distance: float = canvas.get_surface_plane_distance(
 				hit_position
 			)
+			if not canvas.contains_world_point(
+				hit_position,
+				SurfaceDrawingCanvas.SURFACE_SAMPLE_DEPTH + 0.05,
+			):
+				continue
+			var state: Dictionary = _canvas_states.get(canvas_id, {})
+			var layer: int = int(state.get("layer", 0))
 			if (
-				canvas.contains_world_point(
-					hit_position,
-					SurfaceDrawingCanvas.SURFACE_SAMPLE_DEPTH + 0.05,
+				plane_distance < nearest_hovered_plane_distance
+				or (
+					is_equal_approx(
+						plane_distance, nearest_hovered_plane_distance
+					)
+					and layer > hovered_layer
 				)
-				and plane_distance < nearest_plane_distance
+			):
+				found_hovered_canvas_id = canvas_id
+				nearest_hovered_plane_distance = plane_distance
+				hovered_layer = layer
+			if canvas.is_finalized():
+				continue
+			if (
+				plane_distance < nearest_plane_distance
+				or (
+					is_equal_approx(plane_distance, nearest_plane_distance)
+					and layer > selected_layer
+				)
 			):
 				found_canvas_id = canvas_id
 				nearest_plane_distance = plane_distance
+				selected_layer = layer
 	_selected_canvas_id = found_canvas_id
+	_hovered_canvas_id = found_hovered_canvas_id
 	if previous_canvas_id != _selected_canvas_id:
 		_reset_stroke()
 	_update_previews()
@@ -771,6 +1107,8 @@ func _update_previews() -> void:
 		return
 	if _placement_preview != null:
 		_placement_preview.hide()
+	if _stamp_preview != null:
+		_stamp_preview.hide()
 	_update_brush_preview()
 
 
@@ -778,6 +1116,8 @@ func _update_placement_preview() -> void:
 	if _placement_preview == null or _aim_hit.is_empty():
 		if _placement_preview != null:
 			_placement_preview.hide()
+		if _stamp_preview != null:
+			_stamp_preview.hide()
 		return
 	var placement: Dictionary = _resolved_placement()
 	var normal: Vector3 = placement["normal"]
@@ -788,6 +1128,11 @@ func _update_placement_preview() -> void:
 		Basis(tangent, bitangent, normal),
 		hit_position + normal * GRID_PREVIEW_SURFACE_OFFSET,
 	)
+	if _stamp_preview != null:
+		_stamp_preview.global_transform = Transform3D(
+			Basis(tangent, bitangent, normal),
+			hit_position + normal * (GRID_PREVIEW_SURFACE_OFFSET + 0.001),
+		)
 	if _placement_preview_material != null:
 		_placement_preview_material.albedo_color = (
 			Color(0.34, 1.0, 0.72, 0.88)
@@ -795,6 +1140,8 @@ func _update_placement_preview() -> void:
 			else Color(0.46, 0.91, 0.95, 0.72)
 		)
 	_placement_preview.show()
+	if _stamp_preview != null:
+		_stamp_preview.visible = _stamp_mode
 
 
 func _update_brush_preview() -> void:
@@ -841,6 +1188,8 @@ func _hide_previews() -> void:
 	_hide_brush_preview()
 	if _placement_preview != null:
 		_placement_preview.hide()
+	if _stamp_preview != null:
+		_stamp_preview.hide()
 
 
 func _resolved_placement() -> Dictionary:
@@ -887,6 +1236,20 @@ func _request_canvas_at_aim() -> void:
 			if bool(placement["snapped"])
 			else "placing shared grid..."
 		)
+
+
+func _request_stamp_at_aim() -> void:
+	if _aim_hit.is_empty():
+		_emit_hud_state("aim at a solid surface before placing a stamp")
+		return
+	var placement: Dictionary = _resolved_placement()
+	var normal: Vector3 = placement["normal"]
+	var origin: Vector3 = placement["origin"]
+	if _overlaps_existing_canvas(origin, normal, _grid_size):
+		_emit_hud_state("an active shared grid already covers this area")
+		return
+	if request_stamp_at_surface(origin, normal, placement["tangent"]):
+		_emit_hud_state("placing finalized stamp...")
 
 
 @rpc(
@@ -969,11 +1332,123 @@ func _handle_canvas_request(peer_id: int, data: Dictionary) -> void:
 		"finalized": false,
 		"layer": _canvas_sequence,
 		"creator_fingerprint": record.identity_fingerprint,
+		"participant_fingerprints": [record.identity_fingerprint],
 		"cells": [],
 	}
 	_apply_canvas_state(state)
 	_broadcast_canvas_state(state)
 	_emit_hud_state("shared grid placed • everyone can draw here")
+
+
+@rpc(
+	"any_peer",
+	"call_remote",
+	"reliable",
+	SurfaceDrawingProtocol.RELIABLE_CHANNEL,
+)
+func submit_stamp_request(data: Dictionary) -> void:
+	var sender_id: int = multiplayer.get_remote_sender_id()
+	if _session.is_host() and _session.is_authenticated_peer(sender_id):
+		_handle_stamp_request(sender_id, data)
+
+
+func _handle_stamp_request(peer_id: int, data: Dictionary) -> void:
+	var requested_size: int = int(data.get("width", 0))
+	if (
+		not _session.is_host()
+		or not SurfaceDrawingProtocol.validate_stamp_request(data)
+		or str(data["session_id"]) != _session.get_session_id()
+		or not _accept_request(peer_id, str(data["request_id"]))
+		or not _peer_can_stamp(peer_id, data)
+		or _canvas_states.size() >= SurfaceDrawingProtocol.MAX_CANVASES
+		or _allocated_grid_cells() + requested_size * requested_size
+			> SurfaceDrawingProtocol.MAX_SESSION_GRID_CELLS
+	):
+		return
+	var avatar: Player = _spawn_service.get_avatar(peer_id)
+	var requested_origin: Vector3 = SurfaceDrawingProtocol.array_to_vector(
+		data["origin"]
+	)
+	if (
+		avatar == null
+		or avatar.global_position.distance_to(requested_origin)
+			> MAX_DRAW_DISTANCE + 2.0
+	):
+		return
+	var requested_normal: Vector3 = SurfaceDrawingProtocol.array_to_vector(
+		data["normal"]
+	).normalized()
+	var surface_hit: Dictionary = _validate_surface(
+		requested_origin, requested_normal
+	)
+	if surface_hit.is_empty():
+		return
+	var normal: Vector3 = _normalized_or(
+		surface_hit.get("normal", requested_normal), requested_normal
+	)
+	if _overlaps_existing_canvas(
+		surface_hit["position"], normal, requested_size
+	):
+		return
+	var tangent: Vector3 = SurfaceDrawingProtocol.array_to_vector(
+		data["tangent"]
+	)
+	tangent = (tangent - normal * tangent.dot(normal)).normalized()
+	if tangent.is_zero_approx():
+		tangent = _surface_tangent(normal)
+	var record: PeerRegistry.PeerRecord = _session.get_peer_record(peer_id)
+	if record == null or not record.identity_authenticated:
+		return
+	_canvas_sequence += 1
+	var canvas_id: String = "%s-%d" % [
+		_session.get_session_id().left(16), _canvas_sequence,
+	]
+	var state: Dictionary = {
+		"session_id": _session.get_session_id(),
+		"canvas_id": canvas_id,
+		"origin": SurfaceDrawingProtocol.vector_to_array(
+			surface_hit["position"]
+		),
+		"normal": SurfaceDrawingProtocol.vector_to_array(normal),
+		"tangent": SurfaceDrawingProtocol.vector_to_array(tangent),
+		"width": requested_size,
+		"height": requested_size,
+		"cell_size": SurfaceDrawingProtocol.CELL_SIZE,
+		"revision": 1,
+		"guide_visible": false,
+		"finalized": true,
+		"layer": _canvas_sequence,
+		"creator_fingerprint": record.identity_fingerprint,
+		"participant_fingerprints": [record.identity_fingerprint],
+		"cells": _stamp_cells(
+			data["pixels"], requested_size, record.identity_fingerprint
+		),
+		"stamp": true,
+	}
+	_apply_canvas_state(state)
+	_broadcast_canvas_state(state)
+	_emit_hud_state("stamp placed • finalized artwork shared with everyone")
+
+
+func _stamp_cells(
+	pixels: PackedByteArray,
+	grid_size: int,
+	author_fingerprint: String,
+) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	var palette_ids: Array[StringName] = SurfaceDrawingPalette.get_color_ids()
+	for cell_key: int in range(pixels.size()):
+		var palette_index: int = pixels[cell_key]
+		if palette_index <= 0:
+			continue
+		var cell_y: int = floori(float(cell_key) / float(grid_size))
+		result.append({
+			"x": cell_key % grid_size,
+			"y": cell_y,
+			"color_id": str(palette_ids[palette_index - 1]),
+			"author_fingerprint": author_fingerprint,
+		})
+	return result
 
 
 @rpc(
@@ -1000,7 +1475,13 @@ func _handle_guide_request(peer_id: int, data: Dictionary) -> void:
 	var canvas_id: String = str(data["canvas_id"])
 	var state: Dictionary = _canvas_states.get(canvas_id, {})
 	var avatar: Player = _spawn_service.get_avatar(peer_id)
-	if state.is_empty() or avatar == null:
+	var record: PeerRegistry.PeerRecord = _session.get_peer_record(peer_id)
+	if (
+		state.is_empty()
+		or avatar == null
+		or record == null
+		or not record.identity_authenticated
+	):
 		return
 	var origin: Vector3 = SurfaceDrawingProtocol.array_to_vector(state["origin"])
 	if avatar.global_position.distance_to(origin) > MAX_DRAW_DISTANCE + 2.0:
@@ -1015,6 +1496,11 @@ func _handle_guide_request(peer_id: int, data: Dictionary) -> void:
 		and was_finalized == finalized
 	):
 		return
+	if not _register_canvas_participant(
+		canvas_id, record.identity_fingerprint
+	):
+		return
+	state = _canvas_states.get(canvas_id, {})
 	state["revision"] = int(state["revision"]) + 1
 	state["guide_visible"] = guide_visible
 	state["finalized"] = finalized
@@ -1025,6 +1511,9 @@ func _handle_guide_request(peer_id: int, data: Dictionary) -> void:
 		"revision": int(state["revision"]),
 		"guide_visible": guide_visible,
 		"finalized": finalized,
+		"participant_fingerprints": state.get(
+			"participant_fingerprints", []
+		),
 	}
 	var canvas: SurfaceDrawingCanvas = _canvas_nodes.get(canvas_id)
 	if canvas != null:
@@ -1205,6 +1694,15 @@ func _queue_cell_mutation(
 	var next: Dictionary = _cell_value_from_edit(edit)
 	if _same_cell_value(current, next):
 		return
+	var record: PeerRegistry.PeerRecord = _session.get_peer_record(peer_id)
+	if (
+		record == null
+		or not record.identity_authenticated
+		or not _register_canvas_participant(
+			canvas_id, record.identity_fingerprint
+		)
+	):
+		return
 	_record_stroke_change(
 		peer_id, stroke_id, canvas_id, x, y, current, next
 	)
@@ -1346,12 +1844,18 @@ func _publish_cell_mutations(
 			continue
 		state["revision"] = int(state["revision"]) + 1
 		state["cells"] = _sorted_cells(cells)
+		state["participant_fingerprints"] = _merged_participants(
+			state, {"edits": edits}
+		)
 		_canvas_states[canvas_id] = state
 		var update: Dictionary = {
 			"session_id": _session.get_session_id(),
 			"canvas_id": canvas_id,
 			"revision": int(state["revision"]),
 			"edits": edits,
+			"participant_fingerprints": state.get(
+				"participant_fingerprints", []
+			),
 		}
 		var local_canvas: SurfaceDrawingCanvas = _canvas_nodes.get(canvas_id)
 		if local_canvas != null:
@@ -1490,6 +1994,23 @@ func receive_session_artwork_reset(session_id: String) -> void:
 
 
 @rpc(
+	"authority",
+	"call_remote",
+	"reliable",
+	SurfaceDrawingProtocol.RELIABLE_CHANNEL,
+)
+func receive_artwork_fingerprint_clear(
+	session_id: String,
+	fingerprint: String,
+) -> void:
+	if (
+		session_id == _session.get_session_id()
+		and NetworkIdentityCrypto.valid_fingerprint(fingerprint)
+	):
+		_apply_artwork_fingerprint_clear(fingerprint)
+
+
+@rpc(
 	"any_peer",
 	"call_remote",
 	"reliable",
@@ -1525,7 +2046,28 @@ func _apply_canvas_state(data: Dictionary) -> void:
 		and int(data["revision"]) <= int(previous_state["revision"])
 	):
 		return
-	_canvas_states[canvas_id] = data.duplicate(true)
+	var normalized_state: Dictionary = data.duplicate(true)
+	normalized_state["participant_fingerprints"] = _state_participants(
+		normalized_state
+	)
+	_canvas_states[canvas_id] = normalized_state
+	_rebuild_canvas_node(normalized_state)
+	_refresh_stencil_visibility()
+	_emit_artwork_changed()
+	if (
+		_active
+		and str(normalized_state.get("creator_fingerprint", ""))
+			== _session.get_local_identity_fingerprint()
+	):
+		_emit_hud_state(
+			"stamp placed • move and click to place another"
+			if bool(normalized_state.get("stamp", false))
+			else "shared grid placed • move and click to place another"
+		)
+
+
+func _rebuild_canvas_node(data: Dictionary) -> void:
+	var canvas_id: String = str(data["canvas_id"])
 	var previous_canvas: SurfaceDrawingCanvas = _canvas_nodes.get(canvas_id)
 	if previous_canvas != null:
 		previous_canvas.queue_free()
@@ -1536,14 +2078,6 @@ func _apply_canvas_state(data: Dictionary) -> void:
 		canvas.queue_free()
 		return
 	_canvas_nodes[canvas_id] = canvas
-	_refresh_stencil_visibility()
-	_emit_artwork_changed()
-	if (
-		_active
-		and str(data.get("creator_fingerprint", ""))
-			== _session.get_local_identity_fingerprint()
-	):
-		_emit_hud_state("shared grid placed • move and click to place another")
 
 
 func _apply_canvas_update(data: Dictionary) -> void:
@@ -1575,6 +2109,9 @@ func _apply_canvas_update(data: Dictionary) -> void:
 			cells[key] = edit.duplicate(true)
 	state["revision"] = int(data["revision"])
 	state["cells"] = _sorted_cells(cells)
+	state["participant_fingerprints"] = _merged_participants(
+		state, data
+	)
 	_canvas_states[canvas_id] = state
 	canvas.apply_update(data)
 	_emit_artwork_changed()
@@ -1599,6 +2136,9 @@ func _apply_guide_update(data: Dictionary) -> void:
 	state["finalized"] = bool(data["finalized"])
 	state["guide_visible"] = (
 		bool(data["guide_visible"]) and not bool(data["finalized"])
+	)
+	state["participant_fingerprints"] = _merged_participants(
+		state, data
 	)
 	_canvas_states[canvas_id] = state
 	canvas.apply_guide_update(data)
@@ -1834,10 +2374,46 @@ func _rebuild_placement_preview() -> void:
 	_drawing_root.add_child(_placement_preview)
 
 
+func _rebuild_stamp_preview() -> void:
+	if _stamp_preview != null:
+		_stamp_preview.queue_free()
+		_stamp_preview = null
+		_stamp_preview_material = null
+	if (
+		_drawing_root == null
+		or not _stamp_mode
+		or _stamp_image == null
+		or _stamp_image.is_empty()
+	):
+		return
+	var quad := QuadMesh.new()
+	quad.size = Vector2.ONE * (
+		float(_grid_size) * SurfaceDrawingProtocol.CELL_SIZE
+	)
+	_stamp_preview_material = StandardMaterial3D.new()
+	_stamp_preview_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	_stamp_preview_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	_stamp_preview_material.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+	_stamp_preview_material.cull_mode = BaseMaterial3D.CULL_DISABLED
+	_stamp_preview_material.albedo_color = Color(1.0, 1.0, 1.0, 0.72)
+	_stamp_preview_material.albedo_texture = ImageTexture.create_from_image(
+		_stamp_image
+	)
+	quad.material = _stamp_preview_material
+	_stamp_preview = MeshInstance3D.new()
+	_stamp_preview.name = "ArtworkStampPlacementPreview"
+	_stamp_preview.mesh = quad
+	_stamp_preview.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_stamp_preview.hide()
+	_drawing_root.add_child(_stamp_preview)
+
+
 func _set_placement_mode(enabled: bool) -> void:
 	if not _active:
 		return
 	_clear_armed_guide_action(true)
+	if _stamp_mode:
+		_clear_stamp_mode()
 	if _placing_grid == enabled:
 		_emit_hud_state("")
 		return
@@ -1853,6 +2429,17 @@ func _set_placement_mode(enabled: bool) -> void:
 			else "click draw • shift click erase • ctrl z undo • shift scroll zoom"
 		)
 	)
+
+
+func _clear_stamp_mode() -> void:
+	_stamp_mode = false
+	_stamp_path = ""
+	_stamp_pixels = PackedByteArray()
+	_stamp_image = null
+	if _stamp_preview != null:
+		_stamp_preview.queue_free()
+		_stamp_preview = null
+	_stamp_preview_material = null
 
 
 func _execute_armed_guide_action() -> void:
@@ -2013,7 +2600,11 @@ func _current_color() -> Color:
 func _emit_hud_state(status: String) -> void:
 	hud_state_changed.emit(
 		_active,
-		"place grid" if _placing_grid else "marker",
+		(
+			"stamp"
+			if _stamp_mode
+			else "place grid" if _placing_grid else "marker"
+		),
 		SurfaceDrawingPalette.get_display_name(_current_color_id()),
 		_current_color(),
 		_brush_size,
@@ -2072,6 +2663,68 @@ func _state_cell(state: Dictionary, x: int, y: int) -> Dictionary:
 	return Dictionary(
 		cells.get(_cell_key_for_state(state, x, y), {})
 	).duplicate(true)
+
+
+func _register_canvas_participant(
+	canvas_id: String,
+	fingerprint: String,
+) -> bool:
+	if not NetworkIdentityCrypto.valid_fingerprint(fingerprint):
+		return false
+	var state: Dictionary = _canvas_states.get(canvas_id, {})
+	if state.is_empty():
+		return false
+	var participants: Array[String] = _state_participants(state)
+	if fingerprint in participants:
+		return true
+	if participants.size() >= SurfaceDrawingProtocol.MAX_PARTICIPANTS:
+		return false
+	participants.append(fingerprint)
+	state["participant_fingerprints"] = participants
+	_canvas_states[canvas_id] = state
+	return true
+
+
+func _merged_participants(
+	state: Dictionary,
+	update: Dictionary,
+) -> Array[String]:
+	var result: Array[String] = _state_participants(state)
+	for value: Variant in update.get("participant_fingerprints", []):
+		_append_participant(result, str(value))
+	for edit_value: Variant in update.get("edits", []):
+		var edit: Dictionary = edit_value
+		_append_participant(
+			result, str(edit.get("author_fingerprint", ""))
+		)
+	return result
+
+
+func _state_participants(state: Dictionary) -> Array[String]:
+	var result: Array[String] = []
+	_append_participant(
+		result, str(state.get("creator_fingerprint", ""))
+	)
+	for value: Variant in state.get("participant_fingerprints", []):
+		_append_participant(result, str(value))
+	for cell_value: Variant in state.get("cells", []):
+		var cell: Dictionary = cell_value
+		_append_participant(
+			result, str(cell.get("author_fingerprint", ""))
+		)
+	return result
+
+
+func _append_participant(
+	participants: Array[String],
+	fingerprint: String,
+) -> void:
+	if (
+		NetworkIdentityCrypto.valid_fingerprint(fingerprint)
+		and fingerprint not in participants
+		and participants.size() < SurfaceDrawingProtocol.MAX_PARTICIPANTS
+	):
+		participants.append(fingerprint)
 
 
 func _cell_value_from_edit(edit: Dictionary) -> Dictionary:
@@ -2211,11 +2864,42 @@ func _clear_session_artwork_state() -> void:
 	_canvas_nodes.clear()
 	_canvas_sequence = 0
 	_selected_canvas_id = ""
+	_hovered_canvas_id = ""
 	_stroke_history_by_peer.clear()
 	_cell_last_stroke.clear()
 	_last_local_stroke_id = ""
 	_hide_previews()
 	_emit_artwork_changed()
+
+
+func _apply_artwork_fingerprint_clear(fingerprint: String) -> int:
+	var affected_canvas_ids: Array[String] = []
+	for canvas_id: String in _canvas_states:
+		var state: Dictionary = _canvas_states[canvas_id]
+		if fingerprint in _state_participants(state):
+			affected_canvas_ids.append(canvas_id)
+	if affected_canvas_ids.is_empty():
+		return 0
+	for canvas_id: String in affected_canvas_ids:
+		_remove_canvas_state(canvas_id)
+	_stroke_history_by_peer.clear()
+	_cell_last_stroke.clear()
+	_last_local_stroke_id = ""
+	_hide_previews()
+	_emit_artwork_changed()
+	return affected_canvas_ids.size()
+
+
+func _remove_canvas_state(canvas_id: String) -> void:
+	_canvas_states.erase(canvas_id)
+	var canvas: SurfaceDrawingCanvas = _canvas_nodes.get(canvas_id)
+	if canvas != null:
+		canvas.queue_free()
+	_canvas_nodes.erase(canvas_id)
+	if _selected_canvas_id == canvas_id:
+		_selected_canvas_id = ""
+	if _hovered_canvas_id == canvas_id:
+		_hovered_canvas_id = ""
 
 
 func _emit_artwork_changed() -> void:

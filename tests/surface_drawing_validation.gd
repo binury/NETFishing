@@ -90,6 +90,21 @@ func _validate_protocol_bounds() -> void:
 	unsupported_size["width"] = 48
 	unsupported_size["height"] = 48
 	assert(not SurfaceDrawingProtocol.validate_canvas_request(unsupported_size))
+	var stamp_pixels := PackedByteArray()
+	stamp_pixels.resize(16 * 16)
+	stamp_pixels[0] = 1
+	var stamp_request: Dictionary = canvas_request.duplicate(true)
+	stamp_request["request_id"] = "stamp-1"
+	stamp_request["pixels"] = stamp_pixels
+	assert(SurfaceDrawingProtocol.validate_stamp_request(stamp_request))
+	var invalid_stamp: Dictionary = stamp_request.duplicate(true)
+	var invalid_pixels: PackedByteArray = invalid_stamp["pixels"]
+	invalid_pixels[0] = SurfaceDrawingPalette.COLORS.size() + 1
+	invalid_stamp["pixels"] = invalid_pixels
+	assert(not SurfaceDrawingProtocol.validate_stamp_request(invalid_stamp))
+	var empty_stamp: Dictionary = stamp_request.duplicate(true)
+	empty_stamp["pixels"] = PackedByteArray()
+	assert(not SurfaceDrawingProtocol.validate_stamp_request(empty_stamp))
 	var guide_request: Dictionary = {
 		"request_id": "guide-1",
 		"session_id": "session",
@@ -116,9 +131,11 @@ func _validate_art_unlocks() -> void:
 	assert(unlocks.unlock_product(&"marker_ocean_teal"))
 	assert(unlocks.unlock_product(&"brush_4x"))
 	assert(unlocks.unlock_product(&"grid_128x"))
+	assert(unlocks.unlock_product(PlayerArtUnlocks.STAMP_PRODUCT_ID))
 	assert(unlocks.is_color_unlocked(&"ocean_teal"))
 	assert(unlocks.is_brush_size_unlocked(4))
 	assert(unlocks.is_grid_size_unlocked(128))
+	assert(unlocks.is_stamp_unlocked())
 	assert(not unlocks.restore_mask(PlayerArtUnlocks.ALL_UNLOCK_MASK + 1))
 	unlocks.free()
 
@@ -177,6 +194,16 @@ func _validate_canvas_geometry_and_collaboration() -> void:
 		"cells": [],
 	}
 	assert(canvas.setup(state, null))
+	var pixel_instance := canvas.get("_pixel_instance") as MeshInstance3D
+	assert(pixel_instance != null)
+	assert(pixel_instance.name == "ArtworkTexture")
+	var persistent_mesh: Mesh = pixel_instance.mesh
+	var pixel_material := persistent_mesh.surface_get_material(
+		0
+	) as StandardMaterial3D
+	assert(pixel_material != null)
+	var persistent_texture: Texture2D = pixel_material.albedo_texture
+	assert(persistent_texture is ImageTexture)
 	var first_center: Vector3 = canvas.get_cell_world_position(0, 0)
 	assert(canvas.cell_at_world_point(first_center) == Vector2i(0, 0))
 	assert(canvas.contains_world_point(first_center))
@@ -192,6 +219,15 @@ func _validate_canvas_geometry_and_collaboration() -> void:
 		}],
 	}
 	assert(canvas.apply_update(first_update))
+	assert(pixel_instance.mesh == persistent_mesh)
+	assert(pixel_material.albedo_texture == persistent_texture)
+	assert(canvas.get_rendered_pixel_count() == 1)
+	var export_image: Image = canvas.get_export_image()
+	assert(export_image.get_size() == Vector2i(16, 16))
+	assert(export_image.get_pixel(3, 11).is_equal_approx(
+		SurfaceDrawingPalette.get_color(&"coral")
+	))
+	assert(export_image.get_pixel(0, 0).is_equal_approx(Color.TRANSPARENT))
 	var finish_update: Dictionary = {
 		"session_id": "session",
 		"canvas_id": "canvas-1",
@@ -202,6 +238,9 @@ func _validate_canvas_geometry_and_collaboration() -> void:
 	assert(canvas.apply_guide_update(finish_update))
 	assert(not canvas.is_guide_visible())
 	assert(canvas.is_finalized())
+	assert(not canvas.has_guide_geometry())
+	assert(pixel_instance.mesh == persistent_mesh)
+	assert(pixel_material.albedo_texture == persistent_texture)
 	await process_frame
 	var finished_pixel_scale: float = canvas.get_rendered_pixel_size()
 	assert(
@@ -223,6 +262,8 @@ func _validate_canvas_geometry_and_collaboration() -> void:
 		}],
 	}
 	assert(canvas.apply_update(second_update))
+	assert(pixel_instance.mesh == persistent_mesh)
+	assert(pixel_material.albedo_texture == persistent_texture)
 	var cells: Array[Dictionary] = canvas.get_authoritative_cells()
 	assert(cells.size() == 1)
 	assert(cells[0]["color_id"] == "blue")
@@ -240,6 +281,10 @@ func _validate_canvas_geometry_and_collaboration() -> void:
 	}
 	assert(canvas.apply_update(erase_update))
 	assert(canvas.get_authoritative_cells().is_empty())
+	assert(canvas.get_rendered_pixel_count() == 0)
+	assert(canvas.get_export_image().get_pixel(3, 11).is_equal_approx(
+		Color.TRANSPARENT
+	))
 	world.queue_free()
 	await process_frame
 
@@ -282,6 +327,7 @@ func _validate_blocked_author_visibility() -> void:
 		"cell_size": SurfaceDrawingProtocol.CELL_SIZE,
 		"revision": 1,
 		"creator_fingerprint": FINGERPRINT_A,
+		"participant_fingerprints": [FINGERPRINT_A, FINGERPRINT_B],
 		"cells": [
 			{
 				"x": 1,
@@ -298,20 +344,30 @@ func _validate_blocked_author_visibility() -> void:
 		],
 	}
 	assert(canvas.setup(state, relationships))
-	assert(_rendered_pixel_count(canvas) == 1)
+	assert(canvas.is_hidden_by_relationship())
+	assert(canvas.get_rendered_pixel_count() == 0)
 	relationships.set("_records", {})
 	canvas.refresh_relationship_visibility()
 	await process_frame
-	assert(_rendered_pixel_count(canvas) == 2)
+	assert(not canvas.is_hidden_by_relationship())
+	assert(canvas.get_rendered_pixel_count() == 2)
+	relationships.set("_records", {
+		FINGERPRINT_B: {"blocked": true, "muted": true},
+	})
+	assert(canvas.apply_update({
+		"session_id": "session",
+		"canvas_id": "blocked-author-canvas",
+		"revision": 2,
+		"participant_fingerprints": [FINGERPRINT_A, FINGERPRINT_B],
+		"edits": [{
+			"x": 2,
+			"y": 1,
+			"color_id": "",
+			"author_fingerprint": "",
+		}],
+	}))
+	canvas.refresh_relationship_visibility()
+	assert(canvas.is_hidden_by_relationship())
+	assert(canvas.get_rendered_pixel_count() == 0)
 	world.queue_free()
 	await process_frame
-
-
-func _rendered_pixel_count(canvas: SurfaceDrawingCanvas) -> int:
-	var count: int = 0
-	for child: Node in canvas.get_children():
-		if child is MultiMeshInstance3D:
-			var instance := child as MultiMeshInstance3D
-			if instance.multimesh != null:
-				count += instance.multimesh.instance_count
-	return count

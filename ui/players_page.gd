@@ -522,6 +522,15 @@ func _build_active_rows() -> void:
 			operator.pressed.connect(_confirm_operator.bind(entry))
 			UtilityPageStyle.apply_compact_ocean_button(operator)
 			row.add_child(operator)
+		var clear_art := Button.new()
+		clear_art.text = "clear art"
+		clear_art.disabled = not entry.can_clear_art
+		clear_art.tooltip_text = (
+			"Remove every shared artwork this player participated in."
+		)
+		clear_art.pressed.connect(_confirm_clear_art.bind(entry))
+		UtilityPageStyle.apply_compact_ocean_button(clear_art)
+		row.add_child(clear_art)
 		var kick := Button.new()
 		kick.disabled = not entry.can_kick
 		kick.pressed.connect(_confirm_kick.bind(entry))
@@ -704,8 +713,21 @@ func _confirm_kick(entry: PlayerListEntry) -> void:
 	)
 
 
+func _confirm_clear_art(entry: PlayerListEntry) -> void:
+	_confirm(
+		(
+			"Clear every shared artwork %s participated in?\n"
+			+ "This removes it for everyone and cannot be undone."
+		) % entry.display_name,
+		func() -> void:
+			_service.clear_art(
+				entry.peer_id, entry.full_fingerprint, entry.revision
+			)
+	)
+
+
 func _confirm_ban(entry: PlayerListEntry) -> void:
-	_confirm("Ban %s · %s from this server?" % [
+	_confirm("Ban %s · %s from this server?\nTheir shared artwork will also be removed." % [
 		entry.display_name, entry.compact_fingerprint,
 	], func() -> void:
 		_service.ban(

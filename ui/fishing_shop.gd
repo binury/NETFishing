@@ -1118,6 +1118,10 @@ func _refresh_supplies() -> void:
 		var canvas_grid := _add_stock_icon_grid()
 		for product_id: StringName in ArtShopStockType.GRID_PRODUCTS:
 			_add_art_upgrade_button(product_id, canvas_grid)
+		_add_stock_section("stamps")
+		var stamp_grid := _add_stock_icon_grid()
+		for product_id: StringName in ArtShopStockType.STAMP_PRODUCTS:
+			_add_art_upgrade_button(product_id, stamp_grid)
 	call_deferred("_configure_controller_focus")
 
 
@@ -1361,7 +1365,9 @@ func _add_art_upgrade_button(
 	var marker_color_id: StringName = (
 		PlayerArtUnlocksType.color_id_for_product(product_id)
 	)
-	if marker_color_id.is_empty():
+	if product_id == PlayerArtUnlocksType.STAMP_PRODUCT_ID:
+		_configure_art_text_tile(button, "stamp")
+	elif marker_color_id.is_empty():
 		var upgrade_icon: Texture2D = ART_UPGRADE_ICONS.get(
 			product_id,
 			FALLBACK_SUPPLY_ICON,
@@ -1388,6 +1394,16 @@ func _add_art_upgrade_button(
 		or not _wallet.can_afford(ArtShopStockType.UPGRADE_PRICE)
 	)
 	button.pressed.connect(_purchase_art_upgrade.bind(product_id))
+
+
+func _configure_art_text_tile(button: Button, label_text: String) -> void:
+	button.custom_minimum_size = SUPPLY_ICON_TILE_SIZE
+	button.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	button.icon = null
+	button.expand_icon = false
+	button.alignment = HORIZONTAL_ALIGNMENT_CENTER
+	button.text = label_text
+	button.add_theme_font_size_override("font_size", 17)
 
 
 func _make_stock_button(

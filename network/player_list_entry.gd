@@ -14,5 +14,6 @@ var muted := false
 var blocked := false
 var can_kick := false
 var can_ban := false
+var can_clear_art := false
 var can_manage_operator := false
 var revision := 0

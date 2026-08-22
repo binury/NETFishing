@@ -7,6 +7,7 @@ signal unlocks_changed(unlock_mask: int)
 
 const BASE_BRUSH_SIZE: int = 1
 const BASE_GRID_SIZE: int = 16
+const STAMP_PRODUCT_ID: StringName = &"stamp_tool"
 const BRUSH_SIZES: Array[int] = [1, 2, 3, 4]
 const GRID_SIZES: Array[int] = [16, 32, 64, 128]
 
@@ -25,6 +26,7 @@ const PRODUCT_BITS: Dictionary[StringName, int] = {
 	&"grid_32x": 10,
 	&"grid_64x": 11,
 	&"grid_128x": 12,
+	STAMP_PRODUCT_ID: 13,
 }
 const COLOR_PRODUCTS: Dictionary[StringName, StringName] = {
 	&"marker_ocean_teal": &"ocean_teal",
@@ -45,7 +47,7 @@ const GRID_PRODUCTS: Dictionary[StringName, int] = {
 	&"grid_64x": 64,
 	&"grid_128x": 128,
 }
-const ALL_UNLOCK_MASK: int = (1 << 13) - 1
+const ALL_UNLOCK_MASK: int = (1 << 14) - 1
 
 var _unlock_mask: int = 0
 
@@ -144,6 +146,10 @@ func is_brush_size_unlocked(brush_size: int) -> bool:
 
 func is_grid_size_unlocked(grid_size: int) -> bool:
 	return grid_size in get_unlocked_grid_sizes()
+
+
+func is_stamp_unlocked() -> bool:
+	return owns_product(STAMP_PRODUCT_ID)
 
 
 static func get_product_bit(product_id: StringName) -> int:

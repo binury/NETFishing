@@ -65,6 +65,7 @@ func _run_host() -> void:
 	assert(players_page != null)
 	players_page.call("_refresh")
 	assert(_has_button_text(players_page, "deop"))
+	assert(_has_button_text(players_page, "clear art"))
 
 	var unban_deadline: int = Time.get_ticks_msec() + 12000
 	while (

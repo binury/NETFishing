@@ -487,7 +487,7 @@ func _test_host_art_shop_purchase(
 	for _frame: int in 4:
 		await physics_frame
 	var required_balance: int = (
-		ArtShopStock.ART_KIT_PRICE + ArtShopStock.UPGRADE_PRICE * 3
+		ArtShopStock.ART_KIT_PRICE + ArtShopStock.UPGRADE_PRICE * 4
 	)
 	if player.wallet.get_balance() < required_balance:
 		assert(player.wallet.credit(required_balance - player.wallet.get_balance()))
@@ -505,7 +505,10 @@ func _test_host_art_shop_purchase(
 	assert(art_item.icon.resource_path.ends_with("/art/art_kit.png"))
 	assert(player.hotbar.assign_item(0, ArtShopStock.ART_KIT_ITEM_ID))
 	for product_id: StringName in [
-		&"marker_ocean_teal", &"brush_2x", &"grid_32x",
+		&"marker_ocean_teal",
+		&"brush_2x",
+		&"grid_32x",
+		PlayerArtUnlocks.STAMP_PRODUCT_ID,
 	]:
 		_shop_result.clear()
 		assert(not shop_service.request_art_upgrade(product_id).is_empty())
@@ -844,7 +847,9 @@ func _test_fishing_shop_sale_ui(
 	for child: Node in shop.get_node("%SuppliesList").get_children():
 		if child is Label:
 			stock_sections.append((child as Label).text)
-	assert(stock_sections == ["art kit", "markers", "brushes", "grids"])
+	assert(stock_sections == [
+		"art kit", "markers", "brushes", "grids", "stamps",
+	])
 	var marker_icons := shop.find_children(
 		"MarkerIcon", "TextureRect", true, false
 	)
@@ -903,6 +908,17 @@ func _test_fishing_shop_sale_ui(
 			)
 		)
 	assert(found_art_upgrade_icons == expected_art_upgrade_icons.size())
+	var stamp_button: Button
+	for upgrade_node: Node in shop.find_children("*", "Button", true, false):
+		var upgrade_button := upgrade_node as Button
+		if StringName(str(upgrade_button.get_meta(&"art_product_id", ""))) == (
+			PlayerArtUnlocks.STAMP_PRODUCT_ID
+		):
+			stamp_button = upgrade_button
+			break
+	assert(stamp_button != null)
+	assert(stamp_button.text == "stamp")
+	assert(stamp_button.icon == null)
 	var price_bubbles := shop.find_children(
 		"PriceBubble", "PanelContainer", true, false
 	)

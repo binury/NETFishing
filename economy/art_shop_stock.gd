@@ -24,6 +24,9 @@ const GRID_PRODUCTS: Array[StringName] = [
 	&"grid_64x",
 	&"grid_128x",
 ]
+const STAMP_PRODUCTS: Array[StringName] = [
+	PlayerArtUnlocks.STAMP_PRODUCT_ID,
+]
 
 
 static func get_price(product_id: StringName) -> int:
@@ -44,6 +47,8 @@ static func get_display_name(product_id: StringName) -> String:
 	var grid_size: int = PlayerArtUnlocks.grid_size_for_product(product_id)
 	if grid_size > 0:
 		return "%d×%d grid" % [grid_size, grid_size]
+	if product_id == PlayerArtUnlocks.STAMP_PRODUCT_ID:
+		return "Stamp tool"
 	return "Unknown art supply"
 
 
@@ -61,4 +66,6 @@ static func get_description(product_id: StringName) -> String:
 		return "Unlocks the %d×%d grid in the Paint UI." % [
 			grid_size, grid_size,
 		]
+	if product_id == PlayerArtUnlocks.STAMP_PRODUCT_ID:
+		return "Unlocks saved artwork stamps in the Art Kit."
 	return ""

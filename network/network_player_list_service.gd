@@ -81,6 +81,7 @@ func get_entries() -> Array[PlayerListEntry]:
 			and (_session.is_host() or not entry.is_operator)
 		)
 		entry.can_ban = entry.can_kick
+		entry.can_clear_art = entry.can_kick
 		entry.can_manage_operator = (
 			_session.can_manage_operators()
 			and peer_id != local_id
@@ -189,6 +190,20 @@ func kick(peer_id: int, fingerprint: String, revision: int) -> bool:
 	return true
 
 
+func clear_art(peer_id: int, fingerprint: String, revision: int) -> bool:
+	if _session.is_host():
+		return _clear_art_on_host(
+			peer_id, fingerprint, revision, true
+		)
+	if not _session.is_local_operator():
+		moderation_finished.emit(
+			false, "Only the host or an operator can clear player artwork."
+		)
+		return false
+	request_clear_art.rpc_id(1, peer_id, fingerprint)
+	return true
+
+
 func ban(
 	peer_id: int,
 	fingerprint: String,
@@ -254,6 +269,23 @@ func request_kick(peer_id: int, fingerprint: String) -> void:
 	var ok: bool = _kick_on_host(peer_id, fingerprint, -1, false)
 	_send_moderation_result(
 		sender_id, ok, "Player removed." if ok else "Player could not be removed."
+	)
+
+
+@rpc("any_peer", "call_remote", "reliable", 0)
+func request_clear_art(peer_id: int, fingerprint: String) -> void:
+	var sender_id: int = multiplayer.get_remote_sender_id()
+	if not _valid_operator_sender(sender_id):
+		return
+	var ok: bool = _clear_art_on_host(
+		peer_id, fingerprint, -1, false
+	)
+	_send_moderation_result(
+		sender_id,
+		ok,
+		"Player artwork cleared."
+		if ok
+		else "Player artwork could not be cleared.",
 	)
 
 
@@ -551,10 +583,52 @@ func _ban_on_host(
 		if local_host_request:
 			moderation_finished.emit(false, "Ban could not be saved.")
 		return false
+	if _surface_drawing != null:
+		_surface_drawing.clear_artwork_by_fingerprint(fingerprint)
 	var ok: bool = _session.kick_authenticated_peer(peer_id, fingerprint, true)
 	if local_host_request:
 		moderation_finished.emit(ok, "Player banned." if ok else "Ban saved.")
 	return true
+
+
+func _clear_art_on_host(
+	peer_id: int,
+	fingerprint: String,
+	revision: int,
+	local_host_request: bool,
+) -> bool:
+	if not _valid_moderation_target(
+		peer_id,
+		fingerprint,
+		revision,
+		local_host_request,
+		local_host_request,
+	):
+		if local_host_request:
+			moderation_finished.emit(
+				false, "That player is no longer connected."
+			)
+		return false
+	if _surface_drawing == null:
+		if local_host_request:
+			moderation_finished.emit(
+				false, "Player artwork could not be cleared."
+			)
+		return false
+	var affected_layers: int = (
+		_surface_drawing.clear_artwork_by_fingerprint(fingerprint)
+	)
+	var ok: bool = affected_layers >= 0
+	if local_host_request:
+		moderation_finished.emit(
+			ok,
+			"Player artwork cleared."
+			if affected_layers > 0
+			else "No shared artwork from that player was found."
+			if ok
+			else "Player artwork could not be cleared.",
+		)
+	return ok
 
 
 func _reset_session_artwork_on_host(

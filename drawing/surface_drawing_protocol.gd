@@ -18,6 +18,9 @@ const MAX_CANVAS_ID_LENGTH: int = 64
 const MAX_REQUEST_ID_LENGTH: int = 64
 const MAX_STROKE_ID_LENGTH: int = 64
 const MAX_SESSION_ID_LENGTH: int = 96
+# Sessions support up to 128 simultaneous players. Keep enough bounded history
+# for a complete room turnover while never accepting unattributed edits.
+const MAX_PARTICIPANTS: int = 256
 const MAX_COORDINATE: float = 10000.0
 
 
@@ -62,6 +65,38 @@ static func validate_edit_request(data: Variant) -> bool:
 		if not validate_cell_edit(edit_value):
 			return false
 	return true
+
+
+static func validate_stamp_request(data: Variant) -> bool:
+	if typeof(data) != TYPE_DICTIONARY:
+		return false
+	var value: Dictionary = data
+	if (
+		not _valid_common(value)
+		or not _valid_vector(value.get("origin"))
+		or not _valid_vector(value.get("normal"))
+		or not _valid_vector(value.get("tangent"))
+		or typeof(value.get("width")) != TYPE_INT
+		or int(value["width"]) not in GRID_SIZES
+		or typeof(value.get("height")) != TYPE_INT
+		or int(value["height"]) != int(value["width"])
+		or typeof(value.get("cell_size")) not in [TYPE_FLOAT, TYPE_INT]
+		or not is_equal_approx(float(value["cell_size"]), CELL_SIZE)
+		or typeof(value.get("pixels")) != TYPE_PACKED_BYTE_ARRAY
+	):
+		return false
+	var pixels: PackedByteArray = value["pixels"]
+	var expected_size: int = int(value["width"]) * int(value["height"])
+	if pixels.size() != expected_size:
+		return false
+	var maximum_palette_index: int = SurfaceDrawingPalette.COLORS.size()
+	var painted_count: int = 0
+	for palette_index: int in pixels:
+		if palette_index > maximum_palette_index:
+			return false
+		if palette_index > 0:
+			painted_count += 1
+	return painted_count > 0
 
 
 static func validate_guide_request(data: Variant) -> bool:
@@ -112,6 +147,9 @@ static func validate_canvas_state(data: Variant) -> bool:
 		or not NetworkIdentityCrypto.valid_fingerprint(
 			value.get("creator_fingerprint")
 		)
+		or not _valid_participant_fingerprints(
+			value.get("participant_fingerprints", [])
+		)
 		or typeof(value.get("cells")) != TYPE_ARRAY
 	):
 		return false
@@ -127,6 +165,13 @@ static func validate_canvas_state(data: Variant) -> bool:
 			or int((cell_value as Dictionary)["y"]) >= grid_height
 		):
 			return false
+	var participants: Array = value.get("participant_fingerprints", [])
+	if not participants.is_empty():
+		if str(value["creator_fingerprint"]) not in participants:
+			return false
+		for cell_value: Variant in cells:
+			if str((cell_value as Dictionary)["author_fingerprint"]) not in participants:
+				return false
 	return true
 
 
@@ -143,6 +188,9 @@ static func validate_guide_update(data: Variant) -> bool:
 		and int(value["revision"]) >= 1
 		and typeof(value.get("guide_visible")) == TYPE_BOOL
 		and typeof(value.get("finalized")) == TYPE_BOOL
+		and _valid_participant_fingerprints(
+			value.get("participant_fingerprints", [])
+		)
 	)
 
 
@@ -160,6 +208,9 @@ static func validate_canvas_update(data: Variant) -> bool:
 		or typeof(value.get("revision")) != TYPE_INT
 		or int(value["revision"]) < 1
 		or typeof(value.get("edits")) != TYPE_ARRAY
+		or not _valid_participant_fingerprints(
+			value.get("participant_fingerprints", [])
+		)
 	):
 		return false
 	var edits: Array = value["edits"]
@@ -168,6 +219,18 @@ static func validate_canvas_update(data: Variant) -> bool:
 	for edit_value: Variant in edits:
 		if not validate_authoritative_cell(edit_value, true):
 			return false
+	var participants: Array = value.get("participant_fingerprints", [])
+	if not participants.is_empty():
+		for edit_value: Variant in edits:
+			var edit: Dictionary = edit_value
+			var author_fingerprint: String = str(
+				edit.get("author_fingerprint", "")
+			)
+			if (
+				not str(edit.get("color_id", "")).is_empty()
+				and author_fingerprint not in participants
+			):
+				return false
 	return true
 
 
@@ -240,6 +303,26 @@ static func _valid_stroke_id(value: Variant) -> bool:
 		and not str(value).is_empty()
 		and str(value).length() <= MAX_STROKE_ID_LENGTH
 	)
+
+
+static func _valid_participant_fingerprints(value: Variant) -> bool:
+	if typeof(value) != TYPE_ARRAY:
+		return false
+	var fingerprints: Array = value
+	if fingerprints.size() > MAX_PARTICIPANTS:
+		return false
+	var seen: Dictionary[String, bool] = {}
+	for fingerprint_value: Variant in fingerprints:
+		if typeof(fingerprint_value) != TYPE_STRING:
+			return false
+		var fingerprint: String = str(fingerprint_value)
+		if (
+			not NetworkIdentityCrypto.valid_fingerprint(fingerprint)
+			or seen.has(fingerprint)
+		):
+			return false
+		seen[fingerprint] = true
+	return true
 
 
 static func _valid_vector(value: Variant) -> bool:

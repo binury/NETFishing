@@ -29,7 +29,7 @@ const GRID_SIZE_ICONS: Dictionary[int, Texture2D] = {
 	64: preload("res://items/icons/art/art_kit_grid_large_light.png"),
 	128: preload("res://items/icons/art/art_kit_grid_xl_light.png"),
 }
-const TOOLBAR_WIDTH: float = 510.0
+const TOOLBAR_WIDTH: float = 634.0
 const TOOLBAR_HEIGHT: float = 373.0
 const COLOR_RAIL_WIDTH: float = 46.0
 const POPUP_LOCK_ICON_SIZE: int = 24
@@ -48,6 +48,13 @@ const COLOR_LOCK_ICON_ALPHA: float = 0.34
 @onready var _hide_guide_button: Button = %HideGuideButton
 @onready var _restore_guide_button: Button = %RestoreGuideButton
 @onready var _finalize_guide_button: Button = %FinalizeGuideButton
+@onready var _export_button: Button = %ExportButton
+@onready var _stamp_button: Button = %StampButton
+@onready var _stamp_library_panel: PanelContainer = %StampLibraryPanel
+@onready var _stamp_library_close: Button = %StampLibraryClose
+@onready var _empty_stamp_library: Label = %EmptyStampLibrary
+@onready var _stamp_scroll: ScrollContainer = %StampScroll
+@onready var _stamp_grid: GridContainer = %StampGrid
 
 var _service: NetworkSurfaceDrawingService
 var _unlocks: PlayerArtUnlocks
@@ -65,6 +72,7 @@ func _ready() -> void:
 	UtilityPageStyleType.apply_page(self)
 	_apply_toolbar_panel(_top_panel)
 	_apply_toolbar_panel(_color_panel)
+	_apply_toolbar_panel(_stamp_library_panel)
 	UtilityPageStyleType.apply_ocean_button(_mode_button)
 	UtilityPageStyleType.apply_ocean_button(_brush_option)
 	UtilityPageStyleType.apply_ocean_button(_grid_option)
@@ -102,6 +110,9 @@ func _ready() -> void:
 	_finalize_guide_button.pressed.connect(
 		_arm_guide_action.bind(NetworkSurfaceDrawingService.GuideAction.FINALIZE)
 	)
+	_export_button.pressed.connect(_export_aimed_artwork)
+	_stamp_button.pressed.connect(_toggle_stamp_library)
+	_stamp_library_close.pressed.connect(_close_stamp_library)
 	_brush_option.item_selected.connect(_select_brush)
 	_grid_option.item_selected.connect(_select_grid)
 	_configure_pointer_only_controls()
@@ -136,6 +147,8 @@ func _action_buttons() -> Array[Button]:
 		_hide_guide_button,
 		_restore_guide_button,
 		_finalize_guide_button,
+		_export_button,
+		_stamp_button,
 	]
 
 
@@ -224,6 +237,12 @@ func owns_pointer_event(event: InputEvent) -> bool:
 		return (
 			_top_panel.get_global_rect().has_point(pointer_position)
 			or _color_panel.get_global_rect().has_point(pointer_position)
+			or (
+				_stamp_library_panel.visible
+				and _stamp_library_panel.get_global_rect().has_point(
+					pointer_position
+				)
+			)
 		)
 	return false
 
@@ -264,6 +283,9 @@ func _configure_pointer_only_controls() -> void:
 		_hide_guide_button,
 		_restore_guide_button,
 		_finalize_guide_button,
+		_export_button,
+		_stamp_button,
+		_stamp_library_close,
 	]:
 		control.focus_mode = Control.FOCUS_NONE
 		control.focus_neighbor_left = NodePath()
@@ -443,6 +465,14 @@ func _refresh_unlocks() -> void:
 				and _service.get_color_id() == color_id
 			),
 		)
+	_stamp_button.disabled = not _unlocks.is_stamp_unlocked()
+	_stamp_button.tooltip_text = (
+		"Place saved artwork stamps"
+		if not _stamp_button.disabled
+		else "Unlock the stamp tool in Art Supplies"
+	)
+	if _stamp_button.disabled:
+		_close_stamp_library()
 
 
 func _apply_popup_unlock_state(
@@ -524,6 +554,65 @@ func _arm_guide_action(action: int) -> void:
 		_service.arm_guide_action(action)
 
 
+func _export_aimed_artwork() -> void:
+	if _service != null:
+		var export_path: String = _service.export_aimed_canvas()
+		if not export_path.is_empty() and _stamp_library_panel.visible:
+			_rebuild_stamp_library()
+
+
+func _toggle_stamp_library() -> void:
+	if _stamp_button.disabled or _service == null:
+		return
+	if _stamp_library_panel.visible:
+		_close_stamp_library()
+		return
+	_rebuild_stamp_library()
+	_stamp_library_panel.show()
+
+
+func _close_stamp_library() -> void:
+	_stamp_library_panel.hide()
+
+
+func _rebuild_stamp_library() -> void:
+	for child: Node in _stamp_grid.get_children():
+		child.queue_free()
+	var entries: Array[Dictionary] = (
+		_service.get_saved_stamp_entries() if _service != null else []
+	)
+	_empty_stamp_library.visible = entries.is_empty()
+	_stamp_scroll.visible = not entries.is_empty()
+	for entry: Dictionary in entries:
+		var button := Button.new()
+		button.custom_minimum_size = Vector2(110.0, 108.0)
+		button.focus_mode = Control.FOCUS_NONE
+		button.expand_icon = true
+		button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		button.vertical_icon_alignment = VERTICAL_ALIGNMENT_TOP
+		button.add_theme_constant_override("icon_max_width", 74)
+		button.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		button.icon = ImageTexture.create_from_image(entry["image"])
+		button.text = "%d×%d" % [entry["grid_size"], entry["grid_size"]]
+		button.tooltip_text = str(entry["file_name"])
+		button.accessibility_name = "saved artwork %s" % str(
+			entry["file_name"]
+		)
+		button.disabled = not bool(entry.get("available", false))
+		if button.disabled:
+			button.tooltip_text += "\nrequires its grid, colors, and stamp unlock"
+		UtilityPageStyleType.apply_ocean_button(button)
+		button.pressed.connect(
+			_select_saved_stamp.bind(str(entry["path"]))
+		)
+		_stamp_grid.add_child(button)
+
+
+func _select_saved_stamp(path: String) -> void:
+	if _service != null and _service.select_saved_stamp(path):
+		_close_stamp_library()
+
+
 func _on_unlocks_changed(_unlock_mask: int) -> void:
 	_refresh_unlocks()
 
@@ -539,6 +628,7 @@ func _on_service_state_changed(
 ) -> void:
 	visible = is_active
 	if not is_active:
+		_close_stamp_library()
 		hide_virtual_pointer_overlay()
 		return
 	_mode_button.icon = (

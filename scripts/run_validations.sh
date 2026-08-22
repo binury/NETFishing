@@ -44,6 +44,7 @@ readonly -a QUICK_TESTS=(
 	"tests/player_experience_validation.gd"
 	"tests/shoreline_ambience_validation.gd"
 	"tests/surface_drawing_validation.gd"
+	"tests/surface_drawing_texture_renderer_validation.gd"
 	"tests/tackle_order_validation.gd"
 	"tests/terrain_biome_validation.gd"
 	"tests/terrain_blender_material_validation.gd"
