@@ -132,8 +132,14 @@ func _run_client() -> void:
 	var calendar_panel := (
 		chat_ui.get_node("WorldCalendarPanel") as PanelContainer
 	)
+	var calendar_row := (
+		calendar_panel.get_node("WorldCalendarRow") as HBoxContainer
+	)
 	var calendar_label := (
-		calendar_panel.get_node("WorldCalendarLabel") as Label
+		calendar_row.get_node("WorldCalendarLabel") as Label
+	)
+	var calendar_balance := (
+		calendar_row.get_node("WorldCalendarBalance") as CurrencyAmount
 	)
 	var weather_icon := chat_ui.get_node("WorldWeatherIcon") as WeatherIcon
 	var chat_panel := chat_ui.get_node("ChatPanel") as PanelContainer
@@ -143,6 +149,15 @@ func _run_client() -> void:
 	assert(calendar_panel.visible)
 	assert(calendar_label.text == world_time.get_calendar_text())
 	assert(not calendar_label.text.is_empty())
+	assert(
+		calendar_label.horizontal_alignment
+		== HORIZONTAL_ALIGNMENT_LEFT
+	)
+	assert(calendar_label.size_flags_horizontal == Control.SIZE_EXPAND_FILL)
+	var player := chat_ui.get("_player") as Player
+	assert(calendar_balance.amount == player.wallet.get_balance())
+	assert(player.wallet.credit(1))
+	assert(calendar_balance.amount == player.wallet.get_balance())
 	assert(weather_icon.visible)
 	assert(weather_icon.get_weather() == WorldWeatherService.Weather.RAINY)
 	assert(is_equal_approx(clock_panel.position.y, 10.0))

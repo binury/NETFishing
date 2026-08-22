@@ -43,6 +43,9 @@ const CALENDAR_SIZE := Vector2(
 	28.0,
 )
 const CALENDAR_FONT_SIZE: int = 16
+const CALENDAR_BALANCE_FONT_SIZE: int = 14
+const CALENDAR_BALANCE_ICON_SIZE: float = 14.0
+const CALENDAR_CONTENT_GAP: int = 6
 const CALENDAR_TOP_GAP: float = 4.0
 const EXPANDED_CHAT_TOP_GAP: float = 12.0
 const EXPANDED_TOP_MARGIN: float = (
@@ -77,6 +80,9 @@ const WorldWeatherServiceType = preload(
 const WeatherIconType = preload("res://ui/weather_icon.gd")
 const ItemCatalogType = preload("res://items/item_catalog.gd")
 const ItemDataType = preload("res://items/item_data.gd")
+const CurrencyPresentationType = preload(
+	"res://ui/currency_presentation.gd"
+)
 
 const TypewriterRevealType = preload("res://ui/typewriter_reveal.gd")
 const AnimaleseVoiceType = preload("res://ui/animalese_voice.gd")
@@ -112,7 +118,9 @@ var _animalese_voice: AnimaleseVoiceType
 var _clock_panel: PanelContainer
 var _clock_label: Label
 var _calendar_panel: PanelContainer
+var _calendar_row: HBoxContainer
 var _calendar_label: Label
+var _calendar_balance: CurrencyAmount
 var _weather_icon: WeatherIconType
 var _status_effect_column: VBoxContainer
 var _status_effect_icons: Dictionary[StringName, TextureRect] = {}
@@ -174,6 +182,15 @@ func setup(
 	_world_weather = world_weather
 	_item_effects = item_effects
 	_item_catalog = item_catalog
+	if (
+		_player != null
+		and _player.wallet != null
+		and not _player.wallet.balance_changed.is_connected(
+			_on_wallet_balance_changed
+		)
+	):
+		_player.wallet.balance_changed.connect(_on_wallet_balance_changed)
+	_refresh_wallet_balance()
 	_rebuild_status_effect_icons()
 	if (
 		_fishing_spot != null
@@ -510,9 +527,17 @@ func _build_ui() -> void:
 		"panel", _calendar_panel_style()
 	)
 	add_child(_calendar_panel)
+	_calendar_row = HBoxContainer.new()
+	_calendar_row.name = "WorldCalendarRow"
+	_calendar_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_calendar_row.add_theme_constant_override(
+		"separation", CALENDAR_CONTENT_GAP
+	)
+	_calendar_panel.add_child(_calendar_row)
 	_calendar_label = Label.new()
 	_calendar_label.name = "WorldCalendarLabel"
-	_calendar_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_calendar_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_calendar_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	_calendar_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_calendar_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_calendar_label.add_theme_font_override(
@@ -525,7 +550,25 @@ func _build_ui() -> void:
 		"font_color", UtilityPageStyle.OCEAN_TEXT_PRIMARY
 	)
 	_calendar_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	_calendar_panel.add_child(_calendar_label)
+	_calendar_row.add_child(_calendar_label)
+	_calendar_balance = CurrencyPresentationType.instantiate_amount(
+		0, CALENDAR_BALANCE_ICON_SIZE
+	)
+	_calendar_balance.name = "WorldCalendarBalance"
+	_calendar_balance.size_flags_horizontal = Control.SIZE_SHRINK_END
+	_calendar_balance.alignment = BoxContainer.ALIGNMENT_END
+	_calendar_balance.add_theme_constant_override("separation", 2)
+	var balance_label: Label = _calendar_balance.get_amount_label()
+	balance_label.add_theme_font_override(
+		"font", UtilityPageStyle.TuffyFont
+	)
+	balance_label.add_theme_font_size_override(
+		"font_size", CALENDAR_BALANCE_FONT_SIZE
+	)
+	balance_label.add_theme_color_override(
+		"font_color", UtilityPageStyle.OCEAN_TEXT_PRIMARY
+	)
+	_calendar_row.add_child(_calendar_balance)
 	_status_effect_column = VBoxContainer.new()
 	_status_effect_column.name = "StatusEffectColumn"
 	_status_effect_column.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1805,6 +1848,21 @@ func _on_world_calendar_date_changed(_date_id: String) -> void:
 		_available
 		and (not _hud_hidden or _opened)
 		and not _calendar_label.text.is_empty()
+	)
+
+
+func _on_wallet_balance_changed(new_balance: int, _delta: int) -> void:
+	if _calendar_balance != null:
+		_calendar_balance.set_amount(new_balance)
+
+
+func _refresh_wallet_balance() -> void:
+	if _calendar_balance == null:
+		return
+	_calendar_balance.set_amount(
+		_player.wallet.get_balance()
+		if _player != null and _player.wallet != null
+		else 0
 	)
 
 
