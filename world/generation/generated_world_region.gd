@@ -35,6 +35,7 @@ const PROP_CLUSTER_PLACEMENT_ATTEMPTS := 10
 const PROP_MINIMUM_GROUND_CLEARANCE := 0.05
 const PROP_CHANCE_SCALE := 10000
 const PROP_SELECTION_WEIGHT_SCALE := 1000
+const GATHERABLE_ANCHOR_SURFACE_CLEARANCE := 0.02
 const PROCEDURAL_PROP_GROUPS: Array[StringName] = [
 	&"grass_tree",
 	&"grass_detail",
@@ -665,10 +666,21 @@ func _instantiate_prop(
 	if definition.gatherable_anchor_height > 0.0:
 		var anchor := Marker3D.new()
 		anchor.name = "TreeAnchor_%d" % _tree_anchors.get_child_count()
-		anchor.position = prop.position + Vector3(
-			0.0,
-			definition.gatherable_anchor_height * visual_scale,
-			0.0,
+		var local_anchor_position := (
+			definition.collision_offset * visual_scale
+			+ Vector3(
+				0.0,
+				definition.gatherable_anchor_height * visual_scale,
+				-(
+					definition.gatherable_anchor_surface_radius()
+					* visual_scale
+					+ GATHERABLE_ANCHOR_SURFACE_CLEARANCE
+				),
+			)
+		)
+		anchor.position = prop.position + local_anchor_position.rotated(
+			Vector3.UP,
+			yaw,
 		)
 		_tree_anchors.add_child(anchor)
 	return true

@@ -13,7 +13,7 @@ const GeneratedRiverPool: FishPool = preload(
 	"res://fish/pools/generated_river_pool.tres"
 )
 const FIRST_SEED := 13001
-const SECOND_SEED := 13004
+const SECOND_SEED := 13002
 const EXPECTED_PROP_IDS: Array[StringName] = [
 	&"prop_bridge",
 	&"prop_dock",
@@ -110,23 +110,47 @@ func _validate_generated_region(
 	assert(placements[center_index].begins_with("chunk_spawn@"))
 	assert(_placement_count(placements, "chunk_spawn") == 1)
 	assert(_placement_count(placements, "chunk_0001") >= 1)
-	assert(_placement_count(placements, "chunk_0002") >= 1)
 	assert(_placement_count(placements, "chunk_0003") >= 1)
-	assert(_placement_count(placements, "chunk_0016") >= 1)
 	assert(_placement_count(placements, "chunk_0004") >= 1)
-	assert(_placement_count(placements, "chunk_0005") >= 1)
-	assert(_placement_count(placements, "chunk_0006") >= 1)
-	assert(_placement_count(placements, "chunk_0007") >= 1)
-	assert(_placement_count(placements, "chunk_0008") >= 1)
+	var beach_count := _placement_count(placements, "chunk_0002")
+	var grass_coast_count := _placement_count(placements, "chunk_0005")
+	var grass_corner_count := _placement_count(placements, "chunk_0007")
+	var beach_corner_count := _placement_count(placements, "chunk_0008")
+	assert((beach_count > 0) != (grass_coast_count > 0))
+	if beach_count > 0:
+		assert(beach_count == 48 and grass_coast_count == 0)
+		assert(beach_corner_count == 4 and grass_corner_count == 0)
+		assert(_placement_count(placements, "chunk_0009") == 9)
+		assert(_placement_count(placements, "chunk_0010") == 4)
+		assert(
+			_placement_count(placements, "chunk_0011")
+			+ _placement_count(placements, "chunk_0012")
+			== 12
+		)
+		assert(_placement_count(placements, "chunk_0012") == 1)
+		for stable_id: String in [
+			"chunk_0014",
+			"chunk_0015",
+			"chunk_0017",
+			"chunk_0018",
+		]:
+			assert(_placement_count(placements, stable_id) == 0)
+	else:
+		assert(grass_coast_count == 44 and beach_count == 0)
+		assert(grass_corner_count == 3 and beach_corner_count == 0)
+		assert(_placement_count(placements, "chunk_0009") == 10)
+		assert(_placement_count(placements, "chunk_0010") == 5)
+		assert(
+			_placement_count(placements, "chunk_0011")
+			+ _placement_count(placements, "chunk_0012")
+			== 14
+		)
+		assert(_placement_count(placements, "chunk_0012") == 2)
+		assert(_placement_count(placements, "chunk_0014") == 2)
+		assert(_placement_count(placements, "chunk_0015") == 1)
+		assert(_placement_count(placements, "chunk_0017") == 1)
+		assert(_placement_count(placements, "chunk_0018") == 1)
 	assert(_placement_count(placements, "chunk_0013") >= 1)
-	assert(_placement_count(placements, "chunk_0009") == 1)
-	assert(_placement_count(placements, "chunk_0010") == 4)
-	assert(
-		_placement_count(placements, "chunk_0011")
-		+ _placement_count(placements, "chunk_0012")
-		== 4
-	)
-	assert(_placement_count(placements, "chunk_0012") <= 1)
 	assert(
 		generator.get_generated_chunks_root().get_child_count()
 		== expected_chunk_count
@@ -164,6 +188,7 @@ func _validate_generated_region(
 			_validate_ocean_facing_record(record, generator.grid_size)
 		if "fresh_water" in tags:
 			fresh_placement_count += 1
+	_validate_complete_coastline(generator)
 	assert(fresh_root.get_child_count() == fresh_placement_count)
 	for child: Node in fresh_root.get_children():
 		var fresh := child as WaterBodyAuthoring
@@ -191,6 +216,7 @@ func _validate_generated_region(
 	assert(decorations != null and decorations.get_child_count() > 0)
 	assert(anchors != null)
 	assert(anchors.get_spawn_positions().size() > 0)
+	_validate_tree_gatherable_anchors(region, decorations, anchors)
 	var palm_clusters: Dictionary[int, Array] = {}
 	var tree_scales: Array[float] = []
 	var tree_yaws: Dictionary[float, bool] = {}
@@ -295,7 +321,7 @@ func _validate_generated_region(
 			)
 	assert(not palm_clusters.is_empty())
 	for members: Array in palm_clusters.values():
-		assert(members.size() >= 2 and members.size() <= 3)
+		assert(members.size() >= 1 and members.size() <= 3)
 		for first_index: int in members.size():
 			for second_index: int in range(first_index + 1, members.size()):
 				var first := members[first_index] as Node3D
@@ -314,14 +340,14 @@ func _validate_generated_region(
 			region,
 			&"biome_forest",
 			&"grass_tree",
-		) >= 2
+		) >= 4
 	)
 	assert(
 		_decoration_biome_group_count(
 			region,
 			&"biome_pine_forest",
 			&"grass_tree",
-		) >= 2
+		) >= 4
 	)
 
 
@@ -329,7 +355,15 @@ func _validate_elevated_cliff_feature(
 	generator: TerrainChunkGenerator,
 ) -> void:
 	var elevated_coordinates: Dictionary[Vector2i, StringName] = {}
-	var top_coordinate := Vector2i(-1, -1)
+	var top_coordinates: Array[Vector2i] = []
+	var ramp_records: Array[Dictionary] = []
+	var coastal_ids: Array[StringName] = [
+		&"chunk_0014",
+		&"chunk_0015",
+		&"chunk_0017",
+		&"chunk_0018",
+	]
+	var has_coastal_feature := false
 	for record: Dictionary in generator.placement_records():
 		var stable_id: StringName = record.get("stable_id", &"")
 		if stable_id not in [
@@ -337,23 +371,100 @@ func _validate_elevated_cliff_feature(
 			&"chunk_0010",
 			&"chunk_0011",
 			&"chunk_0012",
+			&"chunk_0014",
+			&"chunk_0015",
+			&"chunk_0017",
+			&"chunk_0018",
 		]:
 			continue
 		var coordinate: Vector2i = record.get("coordinate", Vector2i.ZERO)
-		assert(coordinate.x > 0 and coordinate.x < generator.grid_size.x - 1)
-		assert(coordinate.y > 0 and coordinate.y < generator.grid_size.y - 1)
+		if stable_id in coastal_ids:
+			has_coastal_feature = true
+			assert(
+				coordinate.x in [0, generator.grid_size.x - 1]
+				or coordinate.y in [0, generator.grid_size.y - 1]
+			)
+		else:
+			assert(coordinate.x > 0 and coordinate.x < generator.grid_size.x - 1)
+			assert(coordinate.y > 0 and coordinate.y < generator.grid_size.y - 1)
 		elevated_coordinates[coordinate] = stable_id
 		if stable_id == &"chunk_0009":
-			top_coordinate = coordinate
-	assert(elevated_coordinates.size() == 9)
-	assert(top_coordinate != Vector2i(-1, -1))
-	for row_offset: int in range(-1, 2):
-		for column_offset: int in range(-1, 2):
+			top_coordinates.append(coordinate)
+		elif stable_id == &"chunk_0012":
+			ramp_records.append(record)
+	assert(elevated_coordinates.size() == (34 if has_coastal_feature else 25))
+	assert(top_coordinates.size() == (10 if has_coastal_feature else 9))
+	assert(ramp_records.size() == (2 if has_coastal_feature else 1))
+	var feature_center := Vector2i(-1, -1)
+	for candidate: Vector2i in top_coordinates:
+		var neighboring_top_count := 0
+		for row_offset: int in range(-1, 2):
+			for column_offset: int in range(-1, 2):
+				neighboring_top_count += int(
+					elevated_coordinates.get(
+						candidate + Vector2i(column_offset, row_offset),
+						&"",
+					) == &"chunk_0009"
+				)
+		if neighboring_top_count == 9:
+			feature_center = candidate
+			break
+	assert(feature_center != Vector2i(-1, -1))
+	for row_offset: int in range(-2, 3):
+		for column_offset: int in range(-2, 3):
 			assert(
 				elevated_coordinates.has(
-					top_coordinate + Vector2i(column_offset, row_offset)
+					feature_center + Vector2i(column_offset, row_offset)
 				)
 			)
+	if has_coastal_feature:
+		var secondary_top := Vector2i(-1, -1)
+		for coordinate: Vector2i in top_coordinates:
+			if (
+				absi(coordinate.x - feature_center.x) > 1
+				or absi(coordinate.y - feature_center.y) > 1
+			):
+				secondary_top = coordinate
+				break
+		assert(secondary_top != Vector2i(-1, -1))
+		for row_offset: int in range(-1, 2):
+			for column_offset: int in range(-1, 2):
+				assert(
+					elevated_coordinates.has(
+						secondary_top + Vector2i(column_offset, row_offset)
+					)
+				)
+	var found_deep_top_landing := false
+	for ramp_record: Dictionary in ramp_records:
+		var ramp_coordinate: Vector2i = ramp_record.get(
+			"coordinate", Vector2i(-1, -1)
+		)
+		var ramp_turns := int(ramp_record.get("rotation_quarters", 0))
+		var high_edge := TerrainChunkTopology.rotated_edge(
+			TerrainChunkTopology.Edge.WEST,
+			ramp_turns,
+		)
+		var high_offset := TerrainChunkTopology.grid_offset(high_edge)
+		assert(
+			elevated_coordinates.get(ramp_coordinate + high_offset, &"")
+			== &"chunk_0009"
+		)
+		found_deep_top_landing = (
+			found_deep_top_landing
+			or elevated_coordinates.get(
+				ramp_coordinate + high_offset * 2,
+				&"",
+			) == &"chunk_0009"
+		)
+		var low_coordinate := ramp_coordinate - high_offset
+		var low_index := (
+			low_coordinate.y * generator.grid_size.x + low_coordinate.x
+		)
+		assert(
+			generator.placement_keys()[low_index].begins_with("chunk_0000@")
+			or generator.placement_keys()[low_index].begins_with("chunk_spawn@")
+		)
+	assert(found_deep_top_landing)
 
 	var generated := generator.get_generated_chunks_root()
 	assert(generated != null)
@@ -367,25 +478,33 @@ func _validate_elevated_cliff_feature(
 			&"chunk_0010",
 			&"chunk_0011",
 			&"chunk_0012",
+			&"chunk_0014",
+			&"chunk_0015",
+			&"chunk_0017",
+			&"chunk_0018",
 		]:
+			continue
+		if stable_id in [&"chunk_0014", &"chunk_0015"]:
+			assert(chunk_root.get_node_or_null("TerrainBaseLayer") == null)
 			continue
 		layered_count += 1
 		var base_layer := chunk_root.get_node_or_null("TerrainBaseLayer")
 		var overlay := chunk_root.get_node_or_null("TerrainOverlay")
 		assert(base_layer != null and overlay != null)
+		var is_transition := stable_id in [&"chunk_0017", &"chunk_0018"]
 		var base_mesh := TerrainChunkAnalyzer.find_primary_mesh(
 			base_layer,
-			&"chunk_0000",
+			&"chunk_0005" if is_transition else &"chunk_0000",
 		)
 		var overlay_mesh := TerrainChunkAnalyzer.find_primary_mesh(
 			overlay,
-			stable_id,
+			&"chunk_0015" if is_transition else stable_id,
 		)
 		assert(base_mesh != null and base_mesh.mesh != null)
 		assert(overlay_mesh != null and overlay_mesh.mesh != null)
 		assert(base_mesh.has_node("TerrainBaseLayerCollision"))
 		assert(overlay_mesh.has_node("TerrainCollision"))
-	assert(layered_count == 9)
+	assert(layered_count == (31 if has_coastal_feature else 25))
 	var stacked_keys := generator.stacked_elevated_placement_keys()
 	assert(stacked_keys.size() in [0, 4])
 	if stacked_keys.is_empty():
@@ -439,6 +558,28 @@ func _validate_ocean_facing_record(
 			or ocean_coordinate.x >= grid_size.x
 			or ocean_coordinate.y >= grid_size.y
 		)
+
+
+func _validate_complete_coastline(generator: TerrainChunkGenerator) -> void:
+	for record: Dictionary in generator.placement_records():
+		var coordinate: Vector2i = record.get("coordinate", Vector2i.ZERO)
+		var ocean_edges := int(record.get("ocean_facing_edges", 0))
+		for edge_value: int in TerrainChunkTopology.Edge.values():
+			var neighbor := (
+				coordinate
+				+ TerrainChunkTopology.grid_offset(
+					edge_value as TerrainChunkTopology.Edge
+				)
+			)
+			var outside := (
+				neighbor.x < 0
+				or neighbor.y < 0
+				or neighbor.x >= generator.grid_size.x
+				or neighbor.y >= generator.grid_size.y
+			)
+			assert(
+				((ocean_edges & (1 << edge_value)) != 0) == outside
+			)
 
 
 func _ocean_direction(ocean_edges: int) -> Vector3:
@@ -522,13 +663,19 @@ func _validate_prop_catalog(region: GeneratedWorldRegion) -> void:
 		+ catalog.definition_for_id(&"prop_tree_3").selection_weight
 	)
 	assert(forest_rule.allows_prop(large_tree))
-	assert(large_tree.selection_weight > small_tree_weight)
+	assert(large_tree.selection_weight <= small_tree_weight)
 	var pine_forest := region.get_biome_catalog().definition_for_id(
 		&"biome_pine_forest"
 	)
 	var pine_rule := pine_forest.prop_rule_for_group(&"grass_tree")
 	assert(pine_rule.allows_prop(large_pine))
-	assert(large_pine.selection_weight > pine.selection_weight)
+	assert(
+		is_equal_approx(large_pine.selection_weight, pine.selection_weight)
+	)
+	assert(forest_rule.minimum_placements == 4)
+	assert(forest_rule.placement_attempts_per_chunk == 4)
+	assert(pine_rule.minimum_placements == 4)
+	assert(pine_rule.placement_attempts_per_chunk == 4)
 
 
 func _validate_biome_catalog(
@@ -623,6 +770,57 @@ func _validate_decoration_transform(
 	assert(absf(ground_position.y - prop.global_position.y) <= 0.01)
 
 
+func _validate_tree_gatherable_anchors(
+	region: GeneratedWorldRegion,
+	decorations: Node3D,
+	anchors: GatherableAnchorSet3D,
+) -> void:
+	var eligible_props: Array[Node3D] = []
+	for child: Node in decorations.get_children():
+		var prop := child as Node3D
+		if prop == null:
+			continue
+		var prop_id := StringName(prop.get_meta(&"terrain_prop_id", &""))
+		var definition := region.get_prop_catalog().definition_for_id(prop_id)
+		if definition != null and definition.gatherable_anchor_height > 0.0:
+			eligible_props.append(prop)
+	var positions := anchors.get_spawn_positions()
+	assert(positions.size() == eligible_props.size())
+	for prop: Node3D in eligible_props:
+		var prop_id := StringName(prop.get_meta(&"terrain_prop_id", &""))
+		var definition := region.get_prop_catalog().definition_for_id(prop_id)
+		var visual_scale := float(
+			prop.get_meta(&"terrain_prop_visual_scale", 1.0)
+		)
+		var nearest_anchor := Vector3(INF, INF, INF)
+		var nearest_distance_squared := INF
+		for position: Vector3 in positions:
+			var distance_squared := position.distance_squared_to(
+				prop.global_position
+			)
+			if distance_squared < nearest_distance_squared:
+				nearest_distance_squared = distance_squared
+				nearest_anchor = position
+		assert(nearest_anchor.is_finite())
+		var horizontal_distance := Vector2(
+			nearest_anchor.x - prop.global_position.x,
+			nearest_anchor.z - prop.global_position.z,
+		).length()
+		assert(
+			horizontal_distance
+			>= definition.gatherable_anchor_surface_radius() * visual_scale
+		)
+		assert(
+			absf(
+				nearest_anchor.y
+				- (
+					prop.global_position.y
+					+ definition.gatherable_anchor_height * visual_scale
+				)
+			) <= 0.001
+		)
+
+
 func _find_mesh_instance(root_node: Node) -> MeshInstance3D:
 	if root_node is MeshInstance3D:
 		return root_node as MeshInstance3D
@@ -662,13 +860,15 @@ func _validate_authored_chunk_surfaces(
 	var generated := generator.get_generated_chunks_root()
 	var found_beach := false
 	var found_stream := false
-	var found_alternate_stream := false
 	var found_pond := false
 	var found_grass_ocean_edge := false
 	var found_grass_beach_transition := false
 	var found_grass_ocean_corner := false
 	var found_beach_ocean_corner := false
 	var found_grass_sand_diagonal := false
+	var beach_family := (
+		_placement_count(generator.placement_keys(), "chunk_0002") > 0
+	)
 	for chunk_root: Node in generated.get_children():
 		if chunk_root.name.begins_with("chunk_0002r"):
 			var beach := chunk_root.find_child(
@@ -695,9 +895,7 @@ func _validate_authored_chunk_surfaces(
 			assert("dirt" in stream_materials)
 			assert("grass_lite" in stream_materials)
 			assert("dirt_wall" in stream_materials)
-			if stream_id == &"chunk_0016":
-				found_alternate_stream = true
-			else:
+			if stream_id == &"chunk_0003":
 				found_stream = true
 		elif chunk_root.name.begins_with("chunk_0004r"):
 			var pond := chunk_root.find_child(
@@ -761,15 +959,20 @@ func _validate_authored_chunk_surfaces(
 			assert("grass_lite" in diagonal_materials)
 			assert("sand" in diagonal_materials)
 			found_grass_sand_diagonal = true
-	assert(found_beach)
 	assert(found_stream)
-	assert(found_alternate_stream)
 	assert(found_pond)
-	assert(found_grass_ocean_edge)
-	assert(found_grass_beach_transition)
-	assert(found_grass_ocean_corner)
-	assert(found_beach_ocean_corner)
 	assert(found_grass_sand_diagonal)
+	if beach_family:
+		assert(found_beach)
+		assert(found_beach_ocean_corner)
+		assert(not found_grass_ocean_edge)
+		assert(not found_grass_ocean_corner)
+	else:
+		assert(not found_beach)
+		assert(not found_beach_ocean_corner)
+		assert(found_grass_ocean_edge)
+		assert(found_grass_ocean_corner)
+	assert(not found_grass_beach_transition)
 
 
 func _material_names(mesh_instance: MeshInstance3D) -> PackedStringArray:

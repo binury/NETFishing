@@ -11,6 +11,10 @@ extends Resource
 @export_group("Layered Terrain")
 @export var base_layer_scene: PackedScene
 @export var base_layer_mesh_name: StringName
+## Optional canonical rotation applied to a layered base before the authored
+## chunk variant rotation. Coastal transition overlays use this to align one
+## shared coastline scene with either downhill side of a corner.
+@export_range(0, 3, 1) var base_layer_quarter_turns := 0
 ## Overlay-only chunks replace a reserved base-terrain placement after the
 ## ordinary terrain solve. Inland overlays normally provide base_layer_scene;
 ## complete coastal overlays can instead carry their own descent to sea level.
@@ -72,6 +76,10 @@ var allowed_rotation_mask := 15
 ## in this mask must face outside the generated grid; it may never meet another
 ## terrain chunk.
 @export_flags("North", "East", "South", "West") var ocean_facing_edges := 0
+## Lateral seams where a deep coastal cliff may join its ordinary inland
+## counterpart. Geometry below level-one ground is intentionally ignored on
+## these authored edges because the neighboring base terrain buries it.
+@export_flags("North", "East", "South", "West") var buried_cliff_seam_edges := 0
 @export_flags("North", "East", "South", "West") var water_inlet_edges := 0
 @export_flags("North", "East", "South", "West") var water_outlet_edges := 0
 ## Optional generated water footprint in the chunk's unrotated local X/Z plane.

@@ -18,6 +18,38 @@ func matches(other: TerrainChunkEdgeProfile, tolerance: float) -> bool:
 		return false
 	var first_surface := _upper_surface_points()
 	var second_surface := other._upper_surface_points()
+	return _surfaces_match(first_surface, second_surface, tolerance)
+
+
+## Compares only the visible raised portion of two edge profiles. Authored
+## deep-water cliff pieces continue below ordinary ground level; when their
+## lateral end meets an inland cliff, that lower extension is buried by the
+## neighboring base terrain and must not create a false seam mismatch.
+func matches_above_height(
+	other: TerrainChunkEdgeProfile,
+	minimum_height: float,
+	tolerance: float,
+) -> bool:
+	if other == null:
+		return false
+	var first_surface := _points_above_height(
+		_upper_surface_points(),
+		minimum_height,
+		tolerance,
+	)
+	var second_surface := _points_above_height(
+		other._upper_surface_points(),
+		minimum_height,
+		tolerance,
+	)
+	return _surfaces_match(first_surface, second_surface, tolerance)
+
+
+func _surfaces_match(
+	first_surface: PackedVector2Array,
+	second_surface: PackedVector2Array,
+	tolerance: float,
+) -> bool:
 	if first_surface.size() < 2 or second_surface.size() < 2:
 		return false
 	if (
@@ -41,6 +73,18 @@ func matches(other: TerrainChunkEdgeProfile, tolerance: float) -> bool:
 		if absf(first_height - second_height) > tolerance:
 			return false
 	return true
+
+
+func _points_above_height(
+	surface: PackedVector2Array,
+	minimum_height: float,
+	tolerance: float,
+) -> PackedVector2Array:
+	var result := PackedVector2Array()
+	for point: Vector2 in surface:
+		if point.y > minimum_height + tolerance:
+			result.append(point)
+	return result
 
 
 func _upper_surface_points() -> PackedVector2Array:

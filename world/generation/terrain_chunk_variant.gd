@@ -48,14 +48,18 @@ func topology_signature(quantization: float) -> String:
 
 
 func constraint_signature(quantization: float) -> String:
-	return "%s|neighbors:%s|surfaces:%s|ocean:%d|in:%d|out:%d" % [
+	return (
+		"%s|neighbors:%s|surfaces:%s|ocean:%d|buried:%d|in:%d|out:%d"
+		% [
 		topology_signature(quantization),
 		_neighbor_rule_signature(),
 		_surface_rule_signature(),
 		rotated_edge_mask(definition.ocean_facing_edges),
+		rotated_edge_mask(definition.buried_cliff_seam_edges),
 		rotated_edge_mask(definition.water_inlet_edges),
 		rotated_edge_mask(definition.water_outlet_edges),
-	]
+		]
+	)
 
 
 func _neighbor_rule_signature() -> String:

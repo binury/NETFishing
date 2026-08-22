@@ -104,7 +104,7 @@ func _run() -> void:
 func _make_generator() -> TerrainChunkGenerator:
 	var generator := TerrainChunkGenerator.new()
 	generator.catalog = CATALOG
-	generator.grid_size = Vector2i(7, 7)
+	generator.grid_size = Vector2i(9, 9)
 	generator.generation_seed = 13001
 	generator.generate_on_ready = false
 	generator.build_collision = false
@@ -113,13 +113,8 @@ func _make_generator() -> TerrainChunkGenerator:
 		[
 			"chunk_spawn",
 			"chunk_0001",
-			"chunk_0002",
 			"chunk_0003",
 			"chunk_0004",
-			"chunk_0005",
-			"chunk_0006",
-			"chunk_0007",
-			"chunk_0008",
 		]
 	)
 	generator.grass_sand_smoothing_enabled = true

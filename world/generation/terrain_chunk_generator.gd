@@ -7,6 +7,13 @@ const CONSTRAINT_PROFILE_QUANTIZATION := 0.001
 const CANDIDATE_WEIGHT_SCALE := 10000.0
 const LARGE_GRID_LIGHTWEIGHT_THRESHOLD := 128
 const LARGE_GRID_PROPAGATION_INTERVAL := 8
+const ELEVATED_FEATURE_RADIUS := 2
+const ELEVATED_FEATURE_CLEARANCE_RADIUS := ELEVATED_FEATURE_RADIUS + 1
+const ELEVATED_FEATURE_BOUNDARY_MARGIN := ELEVATED_FEATURE_CLEARANCE_RADIUS + 1
+const SECONDARY_ELEVATED_FEATURE_RADIUS := 1
+const SECONDARY_ELEVATED_FEATURE_CLEARANCE_RADIUS := (
+	SECONDARY_ELEVATED_FEATURE_RADIUS + 1
+)
 # Keep packed domain bits below the signed 64-bit sign bit. Catalogs larger
 # than this remain correct through the unpacked solver path.
 const MAX_PACKED_SOLVER_VARIANTS := 62
@@ -33,7 +40,12 @@ const MAX_PACKED_SOLVER_VARIANTS := 62
 @export var elevated_cliff_corner_chunk_id: StringName = &"chunk_0010"
 @export var elevated_cliff_edge_chunk_id: StringName = &"chunk_0011"
 @export var elevated_cliff_ramp_chunk_id: StringName = &"chunk_0012"
-@export_range(0.0, 1.0, 0.05) var elevated_cliff_ramp_chance := 0.75
+@export var elevated_cliff_sea_edge_chunk_id: StringName = &"chunk_0014"
+@export var elevated_cliff_sea_corner_chunk_id: StringName = &"chunk_0015"
+@export var elevated_cliff_sea_transition_right_chunk_id: StringName = &"chunk_0017"
+@export var elevated_cliff_sea_transition_left_chunk_id: StringName = &"chunk_0018"
+@export var elevated_cliff_coast_base_chunk_id: StringName = &"chunk_0005"
+@export_range(0.0, 1.0, 0.05) var elevated_cliff_ramp_chance := 1.0
 ## A smaller third tier reuses the existing corner geometry at the authored
 ## two-meter level interval. It is nested into the lower cliff assembly rather
 ## than occupying or replacing additional terrain-grid cells.
@@ -72,6 +84,7 @@ var _random := RandomNumberGenerator.new()
 var _generated_chunks: Node3D
 var _backtrack_count := 0
 var _elevated_feature_center := Vector2i(-1, -1)
+var _secondary_elevated_feature_center := Vector2i(-1, -1)
 var _elevated_feature_reserved_grass_indices: Dictionary[int, bool] = {}
 var _stacked_elevated_placements: Array[Dictionary] = []
 
@@ -186,7 +199,7 @@ func _resolved_layout_validation_error(
 		var current := layout[index]
 		if not _variant_respects_ocean_boundary(current, coordinate):
 			return (
-				"cell %d has an ocean-facing edge directed into the terrain grid."
+				"cell %d does not exactly match the authored ocean boundary."
 				% index
 			)
 		if coordinate.x + 1 < grid_size.x:
@@ -1177,6 +1190,13 @@ func _candidate_can_occupy_cell(
 	if (
 		_elevated_feature_reserved_grass_indices.has(index)
 		and candidate.definition.stable_id != elevated_cliff_base_chunk_id
+		and not (
+			coordinate == Vector2i(grid_size.x / 2, grid_size.y / 2)
+			and force_center_chunk_id != &""
+			and candidate.definition.stable_id == force_center_chunk_id
+			and "grass" in candidate.definition.tags
+			and "flat" in candidate.definition.tags
+		)
 	):
 		return false
 	var center := Vector2i(grid_size.x / 2, grid_size.y / 2)
@@ -1195,6 +1215,7 @@ func _candidate_can_occupy_cell(
 
 func _prepare_elevated_feature_region() -> bool:
 	_elevated_feature_center = Vector2i(-1, -1)
+	_secondary_elevated_feature_center = Vector2i(-1, -1)
 	_elevated_feature_reserved_grass_indices.clear()
 	_stacked_elevated_placements.clear()
 	if not elevated_cliff_feature_enabled:
@@ -1206,49 +1227,106 @@ func _prepare_elevated_feature_region() -> bool:
 		elevated_cliff_corner_chunk_id,
 		elevated_cliff_edge_chunk_id,
 		elevated_cliff_ramp_chunk_id,
+		elevated_cliff_sea_edge_chunk_id,
+		elevated_cliff_sea_corner_chunk_id,
+		elevated_cliff_sea_transition_right_chunk_id,
+		elevated_cliff_sea_transition_left_chunk_id,
+		elevated_cliff_coast_base_chunk_id,
 	]:
 		if catalog.definition_for_id(stable_id) == null:
 			push_error("Elevated cliff feature references missing chunk %s." % stable_id)
 			return false
-	if grid_size.x < 11 or grid_size.y < 9:
+	if grid_size.x < 11 or grid_size.y < 11:
 		push_error(
-			"Elevated cliff feature requires at least an 11x9 terrain grid."
+			"Elevated cliff feature requires at least an 11x11 terrain grid."
 		)
 		return false
 	var forced_center := Vector2i(grid_size.x / 2, grid_size.y / 2)
 	var candidates: Array[Vector2i] = []
-	for row: int in range(2, grid_size.y - 2):
-		for column: int in range(2, grid_size.x - 2):
+	for row: int in range(
+		ELEVATED_FEATURE_BOUNDARY_MARGIN,
+		grid_size.y - ELEVATED_FEATURE_BOUNDARY_MARGIN,
+	):
+		for column: int in range(
+			ELEVATED_FEATURE_BOUNDARY_MARGIN,
+			grid_size.x - ELEVATED_FEATURE_BOUNDARY_MARGIN,
+		):
 			var candidate := Vector2i(column, row)
 			if (
-				absi(candidate.x - forced_center.x) <= 2
-				and absi(candidate.y - forced_center.y) <= 2
+				absi(candidate.x - forced_center.x)
+				<= ELEVATED_FEATURE_RADIUS
+				and absi(candidate.y - forced_center.y)
+				<= ELEVATED_FEATURE_RADIUS
 			):
 				continue
 			candidates.append(candidate)
 	if candidates.is_empty():
-		push_error("Terrain grid has no inland 3x3 cliff feature location.")
+		push_error("Terrain grid has no inland 5x5 cliff feature location.")
 		return false
 	var feature_random := RandomNumberGenerator.new()
 	feature_random.seed = generation_seed ^ 0x2E1E7A7ED
 	_elevated_feature_center = candidates[
 		feature_random.randi_range(0, candidates.size() - 1)
 	]
-	# Solve the authored 3x3 cliff assembly into a one-cell ring of ordinary
-	# level-one flat grass. Every raised piece still occupies one of the inner
-	# nine grass cells; the outer ring prevents a stream, pond, or coast profile
-	# from being exposed directly against its downhill edge.
-	for row_offset: int in range(-2, 3):
-		for column_offset: int in range(-2, 3):
-			var coordinate := (
-				_elevated_feature_center
-				+ Vector2i(column_offset, row_offset)
+	# Solve the authored 5x5 plateau into a one-cell ring of ordinary level-one
+	# flat grass. The larger top provides a real landing beyond the ramp and
+	# leaves usable second-tier terrain around the optional third tier.
+	_reserve_elevated_feature_base(
+		_elevated_feature_center,
+		ELEVATED_FEATURE_CLEARANCE_RADIUS,
+	)
+	var secondary_candidates := _coastal_elevated_feature_centers()
+	var combined_clearance := (
+		ELEVATED_FEATURE_CLEARANCE_RADIUS
+		+ SECONDARY_ELEVATED_FEATURE_CLEARANCE_RADIUS
+	)
+	secondary_candidates = secondary_candidates.filter(
+		func(candidate: Vector2i) -> bool:
+			var separation := candidate - _elevated_feature_center
+			return (
+				absi(separation.x) > combined_clearance
+				or absi(separation.y) > combined_clearance
 			)
+	)
+	if not secondary_candidates.is_empty():
+		_secondary_elevated_feature_center = secondary_candidates[
+			feature_random.randi_range(0, secondary_candidates.size() - 1)
+		]
+		_reserve_elevated_feature_base(
+			_secondary_elevated_feature_center,
+			SECONDARY_ELEVATED_FEATURE_CLEARANCE_RADIUS,
+		)
+	_build_grid_solver_caches()
+	return true
+
+
+func _coastal_elevated_feature_centers() -> Array[Vector2i]:
+	return [
+		Vector2i(1, 1),
+		Vector2i(grid_size.x - 2, 1),
+		Vector2i(1, grid_size.y - 2),
+		Vector2i(grid_size.x - 2, grid_size.y - 2),
+	]
+
+
+func _reserve_elevated_feature_base(
+	center: Vector2i,
+	clearance_radius: int,
+) -> void:
+	for row_offset: int in range(-clearance_radius, clearance_radius + 1):
+		for column_offset: int in range(
+			-clearance_radius,
+			clearance_radius + 1,
+		):
+			var coordinate := center + Vector2i(column_offset, row_offset)
+			if (
+				not _coordinate_is_inside_grid(coordinate)
+				or _coordinate_is_on_boundary(coordinate)
+			):
+				continue
 			_elevated_feature_reserved_grass_indices[
 				coordinate.y * grid_size.x + coordinate.x
 			] = true
-	_build_grid_solver_caches()
-	return true
 
 
 func _build_grid_solver_caches() -> void:
@@ -1283,6 +1361,14 @@ func _build_grid_solver_caches() -> void:
 				_elevated_feature_reserved_grass_indices.has(index)
 				and candidate.definition.stable_id
 				!= elevated_cliff_base_chunk_id
+				and not (
+					coordinate == center
+					and force_center_chunk_id != &""
+					and candidate.definition.stable_id
+					== force_center_chunk_id
+					and "grass" in candidate.definition.tags
+					and "flat" in candidate.definition.tags
+				)
 			):
 				continue
 			if (
@@ -1402,35 +1488,25 @@ func _apply_elevated_feature() -> bool:
 	if _elevated_feature_center.x < 0 or _elevated_feature_center.y < 0:
 		push_error("Elevated cliff feature has no reserved base region.")
 		return false
-	var edge_specs: Array[Dictionary] = [
-		{"offset": Vector2i(0, -1), "turns": 1},
-		{"offset": Vector2i(1, 0), "turns": 0},
-		{"offset": Vector2i(0, 1), "turns": 3},
-		{"offset": Vector2i(-1, 0), "turns": 2},
-	]
 	var feature_random := RandomNumberGenerator.new()
 	feature_random.seed = generation_seed ^ 0x51A7C11FF
-	var ramp_edge := -1
-	if feature_random.randf() < elevated_cliff_ramp_chance:
-		ramp_edge = feature_random.randi_range(0, edge_specs.size() - 1)
-	var placements: Array[Dictionary] = [
-		{"offset": Vector2i(-1, -1), "id": elevated_cliff_corner_chunk_id, "turns": 2},
-		{"offset": Vector2i(1, -1), "id": elevated_cliff_corner_chunk_id, "turns": 1},
-		{"offset": Vector2i(0, 0), "id": elevated_cliff_top_chunk_id, "turns": 0},
-		{"offset": Vector2i(-1, 1), "id": elevated_cliff_corner_chunk_id, "turns": 3},
-		{"offset": Vector2i(1, 1), "id": elevated_cliff_corner_chunk_id, "turns": 0},
-	]
-	for edge_index: int in edge_specs.size():
-		var edge_spec := edge_specs[edge_index]
-		placements.append({
-			"offset": edge_spec["offset"],
-			"id": (
-				elevated_cliff_ramp_chunk_id
-				if edge_index == ramp_edge
-				else elevated_cliff_edge_chunk_id
-			),
-			"turns": edge_spec["turns"],
-		})
+	var placements := _elevated_feature_placement_specs(
+		_elevated_feature_center,
+		ELEVATED_FEATURE_RADIUS,
+		feature_random,
+	)
+	if (
+		_secondary_elevated_feature_center.x >= 0
+		and int(
+			_placement_counts.get(elevated_cliff_coast_base_chunk_id, 0)
+		) > 0
+	):
+		placements.append_array(
+			_coastal_elevated_feature_placement_specs(
+				_secondary_elevated_feature_center,
+				feature_random,
+			)
+		)
 	for spec: Dictionary in placements:
 		var definition := catalog.definition_for_id(spec["id"] as StringName)
 		var variant := _authored_variant(definition, int(spec["turns"]))
@@ -1440,7 +1516,7 @@ func _apply_elevated_feature() -> bool:
 				% [spec["id"], spec["turns"]]
 			)
 			return false
-		var coordinate := _elevated_feature_center + (spec["offset"] as Vector2i)
+		var coordinate := spec["coordinate"] as Vector2i
 		_set_placement(
 			coordinate.y * grid_size.x + coordinate.x,
 			variant,
@@ -1452,6 +1528,174 @@ func _apply_elevated_feature() -> bool:
 	return true
 
 
+func _elevated_feature_placement_specs(
+	center: Vector2i,
+	radius: int,
+	feature_random: RandomNumberGenerator,
+) -> Array[Dictionary]:
+	var edge_specs: Array[Dictionary] = [
+		{
+			"edge": TerrainChunkTopology.Edge.NORTH,
+			"offset": Vector2i(0, -radius),
+			"turns": 1,
+		},
+		{
+			"edge": TerrainChunkTopology.Edge.EAST,
+			"offset": Vector2i(radius, 0),
+			"turns": 0,
+		},
+		{
+			"edge": TerrainChunkTopology.Edge.SOUTH,
+			"offset": Vector2i(0, radius),
+			"turns": 3,
+		},
+		{
+			"edge": TerrainChunkTopology.Edge.WEST,
+			"offset": Vector2i(-radius, 0),
+			"turns": 2,
+		},
+	]
+	var ramp_edge: int = -1
+	if feature_random.randf() < elevated_cliff_ramp_chance:
+		var usable_edges: Array[int] = []
+		for edge_index: int in edge_specs.size():
+			var edge_spec := edge_specs[edge_index]
+			var landing_coordinate := (
+				center
+				+ (edge_spec["offset"] as Vector2i)
+				+ TerrainChunkTopology.grid_offset(
+					edge_spec["edge"] as TerrainChunkTopology.Edge
+				)
+			)
+			if (
+				_coordinate_is_inside_grid(landing_coordinate)
+				and not _coordinate_is_on_boundary(landing_coordinate)
+			):
+				usable_edges.append(edge_index)
+		if not usable_edges.is_empty():
+			ramp_edge = usable_edges[
+				feature_random.randi_range(0, usable_edges.size() - 1)
+			]
+	var placements: Array[Dictionary] = []
+	for row_offset: int in range(-radius, radius + 1):
+		for column_offset: int in range(-radius, radius + 1):
+			var offset := Vector2i(column_offset, row_offset)
+			var on_horizontal_edge := absi(column_offset) == radius
+			var on_vertical_edge := absi(row_offset) == radius
+			if on_horizontal_edge and on_vertical_edge:
+				placements.append({
+					"coordinate": center + offset,
+					"id": elevated_cliff_corner_chunk_id,
+					"turns": _elevated_corner_turns(offset),
+				})
+				continue
+			if on_horizontal_edge or on_vertical_edge:
+				var edge_index := _elevated_edge_index(offset, radius)
+				placements.append({
+					"coordinate": center + offset,
+					"id": (
+						elevated_cliff_ramp_chunk_id
+						if ramp_edge >= 0
+						and offset == edge_specs[ramp_edge]["offset"]
+						else elevated_cliff_edge_chunk_id
+					),
+					"turns": edge_specs[edge_index]["turns"],
+				})
+				continue
+			placements.append({
+				"coordinate": center + offset,
+				"id": elevated_cliff_top_chunk_id,
+				"turns": 0,
+			})
+	return placements
+
+
+func _coastal_elevated_feature_placement_specs(
+	center: Vector2i,
+	feature_random: RandomNumberGenerator,
+) -> Array[Dictionary]:
+	var placements := _elevated_feature_placement_specs(
+		center,
+		SECONDARY_ELEVATED_FEATURE_RADIUS,
+		feature_random,
+	)
+	for spec: Dictionary in placements:
+		var coordinate := spec["coordinate"] as Vector2i
+		var outside_edge_count := _outside_edge_count(coordinate)
+		if outside_edge_count == 2:
+			spec["id"] = elevated_cliff_sea_corner_chunk_id
+		elif (
+			outside_edge_count == 1
+			and spec["id"] == elevated_cliff_corner_chunk_id
+		):
+			spec["id"] = _coastal_transition_id(
+				coordinate,
+				int(spec["turns"]),
+			)
+		elif outside_edge_count == 1 and (
+			spec["id"] == elevated_cliff_edge_chunk_id
+			or spec["id"] == elevated_cliff_ramp_chunk_id
+		):
+			spec["id"] = elevated_cliff_sea_edge_chunk_id
+	return placements
+
+
+func _coastal_transition_id(
+	coordinate: Vector2i,
+	quarter_turns: int,
+) -> StringName:
+	for stable_id: StringName in [
+		elevated_cliff_sea_transition_right_chunk_id,
+		elevated_cliff_sea_transition_left_chunk_id,
+	]:
+		var definition := catalog.definition_for_id(stable_id)
+		var variant := _authored_variant(definition, quarter_turns)
+		if (
+			variant != null
+			and _variant_respects_ocean_boundary(variant, coordinate)
+		):
+			return stable_id
+	push_error(
+		"Coastal cliff feature has no transition for %s rotation %d."
+		% [coordinate, quarter_turns]
+	)
+	return &""
+
+
+func _outside_edge_count(coordinate: Vector2i) -> int:
+	var result := 0
+	for edge_value: int in TerrainChunkTopology.Edge.values():
+		var neighbor := (
+			coordinate
+			+ TerrainChunkTopology.grid_offset(
+				edge_value as TerrainChunkTopology.Edge
+			)
+		)
+		if not _coordinate_is_inside_grid(neighbor):
+			result += 1
+	return result
+
+
+func _elevated_edge_index(offset: Vector2i, radius: int) -> int:
+	if offset.y == -radius:
+		return 0
+	if offset.x == radius:
+		return 1
+	if offset.y == radius:
+		return 2
+	return 3
+
+
+func _elevated_corner_turns(offset: Vector2i) -> int:
+	if offset.x < 0 and offset.y < 0:
+		return 2
+	if offset.x > 0 and offset.y < 0:
+		return 1
+	if offset.x < 0 and offset.y > 0:
+		return 3
+	return 0
+
+
 func _configure_stacked_elevated_feature() -> bool:
 	_stacked_elevated_placements.clear()
 	if (
@@ -1459,17 +1703,19 @@ func _configure_stacked_elevated_feature() -> bool:
 		or elevated_cliff_third_level_chance <= 0.0
 	):
 		return true
-	var top_coordinate := Vector2i(-1, -1)
-	for index: int in _placements.size():
-		var placement := _placements[index]
-		if (
-			placement != null
-			and placement.definition.stable_id == elevated_cliff_top_chunk_id
-		):
-			top_coordinate = Vector2i(index % grid_size.x, index / grid_size.x)
-			break
+	var top_coordinate := _elevated_feature_center
 	if top_coordinate.x < 0:
 		return true
+	var top_index := top_coordinate.y * grid_size.x + top_coordinate.x
+	if (
+		top_index < 0
+		or top_index >= _placements.size()
+		or _placements[top_index] == null
+		or _placements[top_index].definition.stable_id
+		!= elevated_cliff_top_chunk_id
+	):
+		push_error("Stacked cliff feature lost its central supporting top.")
+		return false
 	var stack_random := RandomNumberGenerator.new()
 	stack_random.seed = generation_seed ^ 0x7312DC11F
 	if stack_random.randf() >= elevated_cliff_third_level_chance:
@@ -1515,25 +1761,28 @@ func _variant_respects_ocean_boundary(
 	variant: TerrainChunkVariant,
 	coordinate: Vector2i,
 ) -> bool:
+	var ocean_edges := variant.rotated_edge_mask(
+		variant.definition.ocean_facing_edges
+	)
 	if (
 		variant.definition.must_be_interior
 		and _coordinate_is_on_boundary(coordinate)
 	):
 		return false
-	var ocean_edges := variant.rotated_edge_mask(
-		variant.definition.ocean_facing_edges
-	)
 	for edge_value: int in TerrainChunkTopology.Edge.values():
-		if (ocean_edges & (1 << edge_value)) == 0:
-			continue
+		var edge := edge_value as TerrainChunkTopology.Edge
 		var ocean_coordinate := (
 			coordinate
-			+ TerrainChunkTopology.grid_offset(
-				edge_value as TerrainChunkTopology.Edge
-			)
+			+ TerrainChunkTopology.grid_offset(edge)
 		)
+		var edge_faces_ocean := (ocean_edges & (1 << edge_value)) != 0
 		if _coordinate_is_inside_grid(ocean_coordinate):
-			return false
+			if edge_faces_ocean:
+				return false
+			continue
+		if edge_faces_ocean:
+			continue
+		return false
 	return true
 
 
@@ -1616,10 +1865,28 @@ func _calculate_edge_compatibility(
 	second: TerrainChunkVariant,
 	second_edge: TerrainChunkTopology.Edge,
 ) -> bool:
-	if not first.profile(first_edge).matches(
+	var profiles_match := first.profile(first_edge).matches(
 		second.profile(second_edge),
 		edge_match_tolerance,
+	)
+	if not profiles_match and (
+		_variant_edge_has_connector(
+			first,
+			first.definition.buried_cliff_seam_edges,
+			first_edge,
+		)
+		or _variant_edge_has_connector(
+			second,
+			second.definition.buried_cliff_seam_edges,
+			second_edge,
+		)
 	):
+		profiles_match = first.profile(first_edge).matches_above_height(
+			second.profile(second_edge),
+			0.0,
+			edge_match_tolerance,
+		)
+	if not profiles_match:
 		return false
 	var first_inlet := _variant_edge_has_connector(
 		first,
@@ -2195,6 +2462,9 @@ func _instantiate_chunk_root(
 	var layered_root := Node3D.new()
 	layered_root.name = "LayeredTerrainChunk"
 	base_layer_visual.name = "TerrainBaseLayer"
+	base_layer_visual.rotation.y = (
+		float(definition.base_layer_quarter_turns) * PI * 0.5
+	)
 	terrain_visual.name = "TerrainOverlay"
 	layered_root.add_child(base_layer_visual)
 	layered_root.add_child(terrain_visual)

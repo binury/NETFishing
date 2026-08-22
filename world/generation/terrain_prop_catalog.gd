@@ -74,6 +74,14 @@ func validation_errors() -> PackedStringArray:
 				% definition.stable_id
 			)
 		if (
+			definition.gatherable_anchor_height > 0.0
+			and definition.gatherable_anchor_surface_radius() <= 0.0
+		):
+			errors.append(
+				"%s is gatherable but has no trunk-surface radius."
+				% definition.stable_id
+			)
+		if (
 			definition.collision_box_size.x < 0.0
 			or definition.collision_box_size.y < 0.0
 			or definition.collision_box_size.z < 0.0

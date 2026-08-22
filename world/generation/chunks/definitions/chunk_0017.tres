@@ -1,24 +1,29 @@
-[gd_resource type="Resource" script_class="TerrainChunkDefinition" load_steps=3 format=3]
+[gd_resource type="Resource" script_class="TerrainChunkDefinition" load_steps=4 format=3]
 
 [ext_resource type="Script" path="res://world/generation/terrain_chunk_definition.gd" id="1_definition"]
 [ext_resource type="PackedScene" path="res://world/generation/chunks/assets/chunk_0015.glb" id="2_scene"]
+[ext_resource type="PackedScene" path="res://world/generation/chunks/assets/chunk_0005.glb" id="3_base_coast"]
 
 [resource]
 script = ExtResource("1_definition")
-stable_id = &"chunk_0015"
-label = "second-tier grass sea corner"
+stable_id = &"chunk_0017"
+label = "second-tier grass sea transition right"
 packed_scene = ExtResource("2_scene")
 primary_mesh_name = &"chunk_0015"
+base_layer_scene = ExtResource("3_base_coast")
+base_layer_mesh_name = &"chunk_0005"
+base_layer_quarter_turns = 3
 overlay_only = true
 selection_weight = 0.12
-maximum_placements = 16
-tags = PackedStringArray("land", "walkable", "grass", "coast", "cliff", "corner", "elevation_2", "elevation_2_border", "elevation_2_sea_edge")
+maximum_placements = 8
+tags = PackedStringArray("land", "walkable", "grass", "coast", "cliff", "corner", "transition", "elevation_2", "elevation_2_border", "elevation_2_sea_edge")
 allowed_neighbor_tags = PackedStringArray("elevation_2")
 north_allowed_neighbor_tags = PackedStringArray("elevation_2_sea_edge", "elevation_2_border")
+east_allowed_neighbor_tags = PackedStringArray("grass")
 west_allowed_neighbor_tags = PackedStringArray("elevation_2_sea_edge", "elevation_2_border")
-required_neighbor_tags = PackedStringArray("elevation_2_sea_edge")
+required_neighbor_tags = PackedStringArray("elevation_2_border")
 minimum_required_neighbors = 2
 preferred_neighbor_tags = PackedStringArray("elevation_2", "coast")
 prefers_map_boundary = true
-ocean_facing_edges = 6
+ocean_facing_edges = 4
 buried_cliff_seam_edges = 9

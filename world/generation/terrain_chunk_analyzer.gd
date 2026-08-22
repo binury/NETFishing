@@ -51,7 +51,18 @@ static func create_variants(
 		boundary_points.append_array(
 			_collect_boundary_points(
 				base_layer_mesh.mesh,
-				_transform_relative_to(base_layer_mesh, base_layer_root),
+				Transform3D(
+					Basis(
+						Vector3.UP,
+						float(definition.base_layer_quarter_turns)
+						* PI
+						* 0.5,
+					),
+					Vector3.ZERO,
+				) * _transform_relative_to(
+					base_layer_mesh,
+					base_layer_root,
+				),
 				chunk_size,
 				edge_epsilon,
 			)

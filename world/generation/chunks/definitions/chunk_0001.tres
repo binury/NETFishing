@@ -13,6 +13,6 @@ allowed_rotation_mask = 15
 selection_weight = 1.5
 tags = PackedStringArray("land", "walkable", "sand", "flat")
 allowed_neighbor_tags = PackedStringArray("sand", "grass")
-required_neighbor_tags = PackedStringArray("coast")
+required_neighbor_tags = PackedStringArray("sand", "coast")
 minimum_required_neighbors = 1
 preferred_neighbor_tags = PackedStringArray("coast", "sand")

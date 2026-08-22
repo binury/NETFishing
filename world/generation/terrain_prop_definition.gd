@@ -49,6 +49,9 @@ extends Resource
 @export var collision_offset := Vector3.ZERO
 ## Values above zero add this prop to the tree-gathering anchor set.
 @export_range(0.0, 20.0, 0.05) var gatherable_anchor_height := 0.0
+## Optional distance from the prop origin to the visible trunk surface. A
+## zero value derives the distance from the authored collision shape.
+@export_range(0.0, 5.0, 0.05) var gatherable_anchor_radius := 0.0
 
 
 func supports_chunk_tags(chunk_tags: PackedStringArray) -> bool:
@@ -72,6 +75,16 @@ func has_box_collision() -> bool:
 		and collision_box_size.y > 0.0
 		and collision_box_size.z > 0.0
 	)
+
+
+func gatherable_anchor_surface_radius() -> float:
+	if gatherable_anchor_radius > 0.0:
+		return gatherable_anchor_radius
+	if has_cylinder_collision():
+		return collision_radius
+	if has_box_collision():
+		return maxf(collision_box_size.x, collision_box_size.z) * 0.5
+	return 0.0
 
 
 func is_procedural() -> bool:
