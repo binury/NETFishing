@@ -245,6 +245,12 @@ func _clear_directional_input_in_flight(generation: int) -> void:
 func _is_directional_navigation(event: InputEvent) -> bool:
 	if event is InputEventKey and (event as InputEventKey).echo:
 		return false
+	# Tab is both Godot's default ui_focus_next key and NETfishing's default
+	# player-menu binding. The global focus presenter must leave that gameplay
+	# action alone; otherwise a remembered neutral focus seed consumes the key
+	# before PlayerMenu can open or close.
+	if event is InputEventKey and event.is_action_pressed(&"open_backpack"):
+		return false
 	return (
 		event.is_action_pressed(&"ui_left")
 		or event.is_action_pressed(&"ui_right")

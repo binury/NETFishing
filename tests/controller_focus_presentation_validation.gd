@@ -52,6 +52,19 @@ func _run() -> void:
 		presentation.get("_neutral_focus_seed") == standard_button,
 		"the neutral menu focus seed did not remember the first action",
 	)
+	var player_menu_tab := InputEventKey.new()
+	player_menu_tab.physical_keycode = KEY_TAB
+	player_menu_tab.pressed = true
+	presentation._input(player_menu_tab)
+	await process_frame
+	_expect(
+		root.gui_get_focus_owner() == null,
+		"the default player-menu Tab was consumed as focus navigation",
+	)
+	_expect(
+		presentation.get("_neutral_focus_seed") == standard_button,
+		"the default player-menu Tab discarded the neutral focus seed",
+	)
 	var first_navigation := InputEventJoypadButton.new()
 	first_navigation.button_index = JOY_BUTTON_DPAD_DOWN
 	first_navigation.pressed = true
