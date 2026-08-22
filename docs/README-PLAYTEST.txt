@@ -1,5 +1,6 @@
 NETfishing
-Alpha playtest
+v0.15.0-alpha
+Alpha 0.15.0
 
 Thank you for trying this early private playtest.
 
@@ -68,8 +69,9 @@ FEATURES TO TRY
 - Hosting a private or public room and joining compatible online sessions
 - Direct-IP, saved-server, recent-server, and public-room connection flows
 - Text chat, player calls, player lists, relationships, and moderation tools
+- Kat, Kim, and robot speech sample sets
 - Movement, jumping, camera rotation, and zoom
-- Short, medium, and maximum-distance casts
+- Short, medium, and maximum-distance casts, including far ocean casts
 - Valid water and invalid land casts
 - Manual withdrawal before a bite
 - Barrier-and-chase catching
@@ -81,6 +83,8 @@ FEATURES TO TRY
 - Equipment and consumable use from the hotbar
 - Fishing Shop sell tray, wallet updates, and persistent upgrades
 - Seeded generated worlds and the authored starter-island layout
+- Generated beaches, coastal sand, denser forests, inland elevation, and closed coastal cliffs
+- Collaborative Art Kit drawing, finalized artwork, PNG export, and stamps
 - Save, Continue, New Game, and Delete Save
 - Game Menu and persistent camera settings
 - Water-entry recovery from several shores

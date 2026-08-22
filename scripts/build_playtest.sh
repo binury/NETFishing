@@ -4,14 +4,14 @@ set -euo pipefail
 
 readonly SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 readonly PROJECT_ROOT="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
-readonly BUILD_ROOT="${PROJECT_ROOT}/builds/v0.14.0-alpha"
+readonly BUILD_ROOT="${PROJECT_ROOT}/builds/v0.15.0-alpha"
 readonly WINDOWS_DIR="${BUILD_ROOT}/windows-x86_64"
 readonly LINUX_DIR="${BUILD_ROOT}/linux-x86_64"
 readonly README_SOURCE="${PROJECT_ROOT}/docs/README-PLAYTEST.txt"
 readonly SOURCE_COMMIT="$(git -C "${PROJECT_ROOT}" rev-parse HEAD)"
 readonly SOURCE_URL="https://forge.makearmy.io/woofmeow/netfishing"
-readonly WINDOWS_ZIP="${BUILD_ROOT}/NETfishing-v0.14.0-alpha-windows-x86_64.zip"
-readonly LINUX_ZIP="${BUILD_ROOT}/NETfishing-v0.14.0-alpha-linux-x86_64.zip"
+readonly WINDOWS_ZIP="${BUILD_ROOT}/NETfishing-v0.15.0-alpha-windows-x86_64.zip"
+readonly LINUX_ZIP="${BUILD_ROOT}/NETfishing-v0.15.0-alpha-linux-x86_64.zip"
 readonly GODOT_BIN="${GODOT_BIN:-godot}"
 
 if [[ ! -f "${PROJECT_ROOT}/project.godot" ]]; then
