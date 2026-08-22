@@ -23,11 +23,14 @@ const EXPECTED_IDS: Array[String] = [
 	"chunk_0016",
 	"chunk_0017",
 	"chunk_0018",
+	"chunk_0019",
+	"chunk_0020",
 	"chunk_spawn",
 ]
 const REQUIRED_IDS: Array[String] = [
 	"chunk_spawn",
 	"chunk_0001",
+	"chunk_0002",
 	"chunk_0003",
 	"chunk_0004",
 ]
@@ -54,6 +57,8 @@ const EXPECTED_VARIANT_COUNTS: Dictionary[StringName, int] = {
 	&"chunk_0016": 4,
 	&"chunk_0017": 4,
 	&"chunk_0018": 4,
+	&"chunk_0019": 4,
+	&"chunk_0020": 4,
 	&"chunk_spawn": 1,
 }
 
@@ -101,6 +106,8 @@ func _validate_catalog() -> void:
 	var cliff_sea_corner := CATALOG.definition_for_id(&"chunk_0015")
 	var cliff_sea_transition_right := CATALOG.definition_for_id(&"chunk_0017")
 	var cliff_sea_transition_left := CATALOG.definition_for_id(&"chunk_0018")
+	var cliff_beach_transition_right := CATALOG.definition_for_id(&"chunk_0019")
+	var cliff_beach_transition_left := CATALOG.definition_for_id(&"chunk_0020")
 	var stream_variant := CATALOG.definition_for_id(&"chunk_0016")
 	var cliff_top := CATALOG.definition_for_id(&"chunk_0009")
 	var cliff_corner := CATALOG.definition_for_id(&"chunk_0010")
@@ -122,6 +129,8 @@ func _validate_catalog() -> void:
 			and cliff_sea_corner != null
 			and cliff_sea_transition_right != null
 			and cliff_sea_transition_left != null
+			and cliff_beach_transition_right != null
+			and cliff_beach_transition_left != null
 			and stream_variant != null
 			and cliff_top != null
 			and cliff_corner != null
@@ -145,6 +154,8 @@ func _validate_catalog() -> void:
 		and cliff_sea_corner != null
 		and cliff_sea_transition_right != null
 		and cliff_sea_transition_left != null
+		and cliff_beach_transition_right != null
+		and cliff_beach_transition_left != null
 		and stream_variant != null
 		and cliff_top != null
 		and cliff_corner != null
@@ -168,8 +179,12 @@ func _validate_catalog() -> void:
 			(
 				"sand" in sand.required_neighbor_tags
 				and "coast" in sand.required_neighbor_tags
+				and sand.maximum_boundary_distance == 1
 			),
-			"Every flat-sand chunk must remain attached to sand or authored coast.",
+			(
+				"Every flat-sand chunk must remain attached to sand or authored "
+				+ "coast within the first inland terrain ring."
+			),
 		)
 		_check(
 			spawn.minimum_required_neighbors == 3,
@@ -270,6 +285,7 @@ func _validate_catalog() -> void:
 		_check(
 			grass_sand_diagonal.must_be_interior
 			and not grass_sand_diagonal.participates_in_base_solver
+			and grass_sand_diagonal.maximum_boundary_distance == 2
 			and "mixed_surface" in grass_sand_diagonal.tags,
 			(
 				"The grass-sand diagonal must remain an inland post-process "
@@ -355,7 +371,7 @@ func _validate_catalog() -> void:
 			_check(
 				transition.overlay_only
 				and transition.base_layer_scene != null
-				and transition.base_layer_mesh_name == &"chunk_0005"
+				and transition.base_layer_mesh_name == &"chunk_0007"
 				and not transition.must_be_interior
 				and transition.prefers_map_boundary
 				and "transition" in transition.tags,
@@ -371,10 +387,36 @@ func _validate_catalog() -> void:
 			"The right coastal transition must align its south-facing base coast.",
 		)
 		_check(
-			cliff_sea_transition_left.base_layer_quarter_turns == 0
+			cliff_sea_transition_left.base_layer_quarter_turns == 1
 			and cliff_sea_transition_left.ocean_facing_edges
 			== (1 << int(TerrainChunkTopology.Edge.EAST)),
 			"The left coastal transition must align its east-facing base coast.",
+		)
+		for transition: TerrainChunkDefinition in [
+			cliff_beach_transition_right,
+			cliff_beach_transition_left,
+		]:
+			_check(
+				transition.overlay_only
+				and transition.base_layer_scene != null
+				and transition.base_layer_mesh_name == &"chunk_0008"
+				and not transition.must_be_interior
+				and transition.prefers_map_boundary
+				and "sand" in transition.tags
+				and "transition" in transition.tags,
+				(
+					"Each raised beach endpoint must close over an authored "
+					+ "level-one beach corner."
+				),
+			)
+		_check(
+			cliff_beach_transition_right.base_layer_quarter_turns == 3
+			and cliff_beach_transition_right.ocean_facing_edges
+			== (1 << int(TerrainChunkTopology.Edge.SOUTH))
+			and cliff_beach_transition_left.base_layer_quarter_turns == 1
+			and cliff_beach_transition_left.ocean_facing_edges
+			== (1 << int(TerrainChunkTopology.Edge.EAST)),
+			"The raised beach endpoint corners must face their open coastline.",
 		)
 		_check(
 			cliff_sea_edge.ocean_facing_edges
@@ -1066,6 +1108,8 @@ func _validate_authored_rotations(generator: TerrainChunkGenerator) -> void:
 		&"chunk_0015",
 		&"chunk_0017",
 		&"chunk_0018",
+		&"chunk_0019",
+		&"chunk_0020",
 	]:
 		for quarter_turns: int in 4:
 			var coast_variant := _find_variant(
@@ -1117,8 +1161,8 @@ func _validate_authored_rotations(generator: TerrainChunkGenerator) -> void:
 func _validate_generation_summary(generator: TerrainChunkGenerator) -> void:
 	var summary := generator._build_summary()
 	_check(
-		int(summary.get("variant_count", 0)) == 77,
-		"The current catalog must expose all 77 authored rotations.",
+		int(summary.get("variant_count", 0)) == 85,
+		"The current catalog must expose all 85 authored rotations.",
 	)
 	_check(
 		int(summary.get("solver_variant_count", 0))

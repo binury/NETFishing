@@ -116,40 +116,31 @@ func _validate_generated_region(
 	var grass_coast_count := _placement_count(placements, "chunk_0005")
 	var grass_corner_count := _placement_count(placements, "chunk_0007")
 	var beach_corner_count := _placement_count(placements, "chunk_0008")
-	assert((beach_count > 0) != (grass_coast_count > 0))
-	if beach_count > 0:
-		assert(beach_count == 48 and grass_coast_count == 0)
-		assert(beach_corner_count == 4 and grass_corner_count == 0)
-		assert(_placement_count(placements, "chunk_0009") == 9)
-		assert(_placement_count(placements, "chunk_0010") == 4)
-		assert(
-			_placement_count(placements, "chunk_0011")
-			+ _placement_count(placements, "chunk_0012")
-			== 12
+	assert(beach_count == 44 and grass_coast_count == 0)
+	assert(beach_corner_count == 3 and grass_corner_count == 0)
+	assert(_placement_count(placements, "chunk_0009") == 10)
+	assert(_placement_count(placements, "chunk_0010") == 5)
+	assert(
+		_placement_count(placements, "chunk_0011")
+		+ _placement_count(placements, "chunk_0012")
+		== 14
+	)
+	assert(_placement_count(placements, "chunk_0012") == 2)
+	assert(_placement_count(placements, "chunk_0014") == 2)
+	assert(_placement_count(placements, "chunk_0015") == 1)
+	assert(_placement_count(placements, "chunk_0017") == 0)
+	assert(_placement_count(placements, "chunk_0018") == 0)
+	assert(_placement_count(placements, "chunk_0019") == 1)
+	assert(_placement_count(placements, "chunk_0020") == 1)
+	for index: int in placements.size():
+		var coordinate := Vector2i(
+			index % generator.grid_size.x,
+			index / generator.grid_size.x,
 		)
-		assert(_placement_count(placements, "chunk_0012") == 1)
-		for stable_id: String in [
-			"chunk_0014",
-			"chunk_0015",
-			"chunk_0017",
-			"chunk_0018",
-		]:
-			assert(_placement_count(placements, stable_id) == 0)
-	else:
-		assert(grass_coast_count == 44 and beach_count == 0)
-		assert(grass_corner_count == 3 and beach_corner_count == 0)
-		assert(_placement_count(placements, "chunk_0009") == 10)
-		assert(_placement_count(placements, "chunk_0010") == 5)
-		assert(
-			_placement_count(placements, "chunk_0011")
-			+ _placement_count(placements, "chunk_0012")
-			== 14
-		)
-		assert(_placement_count(placements, "chunk_0012") == 2)
-		assert(_placement_count(placements, "chunk_0014") == 2)
-		assert(_placement_count(placements, "chunk_0015") == 1)
-		assert(_placement_count(placements, "chunk_0017") == 1)
-		assert(_placement_count(placements, "chunk_0018") == 1)
+		if placements[index].begins_with("chunk_0001@"):
+			assert(generator._distance_from_map_boundary(coordinate) <= 1)
+		elif placements[index].begins_with("chunk_0013@"):
+			assert(generator._distance_from_map_boundary(coordinate) <= 2)
 	assert(_placement_count(placements, "chunk_0013") >= 1)
 	assert(
 		generator.get_generated_chunks_root().get_child_count()
@@ -362,6 +353,8 @@ func _validate_elevated_cliff_feature(
 		&"chunk_0015",
 		&"chunk_0017",
 		&"chunk_0018",
+		&"chunk_0019",
+		&"chunk_0020",
 	]
 	var has_coastal_feature := false
 	for record: Dictionary in generator.placement_records():
@@ -375,6 +368,8 @@ func _validate_elevated_cliff_feature(
 			&"chunk_0015",
 			&"chunk_0017",
 			&"chunk_0018",
+			&"chunk_0019",
+			&"chunk_0020",
 		]:
 			continue
 		var coordinate: Vector2i = record.get("coordinate", Vector2i.ZERO)
@@ -482,6 +477,8 @@ func _validate_elevated_cliff_feature(
 			&"chunk_0015",
 			&"chunk_0017",
 			&"chunk_0018",
+			&"chunk_0019",
+			&"chunk_0020",
 		]:
 			continue
 		if stable_id in [&"chunk_0014", &"chunk_0015"]:
@@ -491,14 +488,27 @@ func _validate_elevated_cliff_feature(
 		var base_layer := chunk_root.get_node_or_null("TerrainBaseLayer")
 		var overlay := chunk_root.get_node_or_null("TerrainOverlay")
 		assert(base_layer != null and overlay != null)
-		var is_transition := stable_id in [&"chunk_0017", &"chunk_0018"]
+		var transition_base_mesh := &"chunk_0000"
+		if stable_id in [&"chunk_0017", &"chunk_0018"]:
+			transition_base_mesh = &"chunk_0007"
+		elif stable_id in [&"chunk_0019", &"chunk_0020"]:
+			transition_base_mesh = &"chunk_0008"
 		var base_mesh := TerrainChunkAnalyzer.find_primary_mesh(
 			base_layer,
-			&"chunk_0005" if is_transition else &"chunk_0000",
+			transition_base_mesh,
 		)
 		var overlay_mesh := TerrainChunkAnalyzer.find_primary_mesh(
 			overlay,
-			&"chunk_0015" if is_transition else stable_id,
+			(
+				&"chunk_0015"
+				if stable_id in [
+					&"chunk_0017",
+					&"chunk_0018",
+					&"chunk_0019",
+					&"chunk_0020",
+				]
+				else stable_id
+			),
 		)
 		assert(base_mesh != null and base_mesh.mesh != null)
 		assert(overlay_mesh != null and overlay_mesh.mesh != null)

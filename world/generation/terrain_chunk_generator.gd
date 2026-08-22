@@ -45,6 +45,9 @@ const MAX_PACKED_SOLVER_VARIANTS := 62
 @export var elevated_cliff_sea_transition_right_chunk_id: StringName = &"chunk_0017"
 @export var elevated_cliff_sea_transition_left_chunk_id: StringName = &"chunk_0018"
 @export var elevated_cliff_coast_base_chunk_id: StringName = &"chunk_0005"
+@export var elevated_cliff_beach_base_chunk_id: StringName = &"chunk_0002"
+@export var elevated_cliff_beach_transition_right_chunk_id: StringName = &"chunk_0019"
+@export var elevated_cliff_beach_transition_left_chunk_id: StringName = &"chunk_0020"
 @export_range(0.0, 1.0, 0.05) var elevated_cliff_ramp_chance := 1.0
 ## A smaller third tier reuses the existing corner geometry at the authored
 ## two-meter level interval. It is nested into the lower cliff assembly rather
@@ -1232,6 +1235,9 @@ func _prepare_elevated_feature_region() -> bool:
 		elevated_cliff_sea_transition_right_chunk_id,
 		elevated_cliff_sea_transition_left_chunk_id,
 		elevated_cliff_coast_base_chunk_id,
+		elevated_cliff_beach_base_chunk_id,
+		elevated_cliff_beach_transition_right_chunk_id,
+		elevated_cliff_beach_transition_left_chunk_id,
 	]:
 		if catalog.definition_for_id(stable_id) == null:
 			push_error("Elevated cliff feature references missing chunk %s." % stable_id)
@@ -1429,6 +1435,10 @@ func _apply_grass_sand_smoothing() -> bool:
 			)
 			if (
 				diagonal != null
+				and _variant_respects_ocean_boundary(
+					diagonal,
+					coordinate,
+				)
 				and _candidate_matches_placed_neighbors(diagonal, coordinate)
 			):
 				candidates.append({"index": index, "variant": diagonal})
@@ -1495,16 +1505,21 @@ func _apply_elevated_feature() -> bool:
 		ELEVATED_FEATURE_RADIUS,
 		feature_random,
 	)
+	var grass_coast_count := int(
+		_placement_counts.get(elevated_cliff_coast_base_chunk_id, 0)
+	)
+	var beach_coast_count := int(
+		_placement_counts.get(elevated_cliff_beach_base_chunk_id, 0)
+	)
 	if (
 		_secondary_elevated_feature_center.x >= 0
-		and int(
-			_placement_counts.get(elevated_cliff_coast_base_chunk_id, 0)
-		) > 0
+		and (grass_coast_count > 0 or beach_coast_count > 0)
 	):
 		placements.append_array(
 			_coastal_elevated_feature_placement_specs(
 				_secondary_elevated_feature_center,
 				feature_random,
+				beach_coast_count > grass_coast_count,
 			)
 		)
 	for spec: Dictionary in placements:
@@ -1613,6 +1628,7 @@ func _elevated_feature_placement_specs(
 func _coastal_elevated_feature_placement_specs(
 	center: Vector2i,
 	feature_random: RandomNumberGenerator,
+	use_beach_base: bool,
 ) -> Array[Dictionary]:
 	var placements := _elevated_feature_placement_specs(
 		center,
@@ -1631,6 +1647,7 @@ func _coastal_elevated_feature_placement_specs(
 			spec["id"] = _coastal_transition_id(
 				coordinate,
 				int(spec["turns"]),
+				use_beach_base,
 			)
 		elif outside_edge_count == 1 and (
 			spec["id"] == elevated_cliff_edge_chunk_id
@@ -1643,11 +1660,20 @@ func _coastal_elevated_feature_placement_specs(
 func _coastal_transition_id(
 	coordinate: Vector2i,
 	quarter_turns: int,
+	use_beach_base: bool = false,
 ) -> StringName:
-	for stable_id: StringName in [
-		elevated_cliff_sea_transition_right_chunk_id,
-		elevated_cliff_sea_transition_left_chunk_id,
-	]:
+	var transition_ids: Array[StringName] = []
+	if use_beach_base:
+		transition_ids.assign([
+			elevated_cliff_beach_transition_right_chunk_id,
+			elevated_cliff_beach_transition_left_chunk_id,
+		])
+	else:
+		transition_ids.assign([
+			elevated_cliff_sea_transition_right_chunk_id,
+			elevated_cliff_sea_transition_left_chunk_id,
+		])
+	for stable_id: StringName in transition_ids:
 		var definition := catalog.definition_for_id(stable_id)
 		var variant := _authored_variant(definition, quarter_turns)
 		if (
@@ -1761,6 +1787,15 @@ func _variant_respects_ocean_boundary(
 	variant: TerrainChunkVariant,
 	coordinate: Vector2i,
 ) -> bool:
+	var maximum_boundary_distance := (
+		variant.definition.maximum_boundary_distance
+	)
+	if (
+		maximum_boundary_distance >= 0
+		and _distance_from_map_boundary(coordinate)
+		> maximum_boundary_distance
+	):
+		return false
 	var ocean_edges := variant.rotated_edge_mask(
 		variant.definition.ocean_facing_edges
 	)
@@ -2160,6 +2195,16 @@ func _coordinate_is_on_boundary(coordinate: Vector2i) -> bool:
 		or coordinate.y == 0
 		or coordinate.x == grid_size.x - 1
 		or coordinate.y == grid_size.y - 1
+	)
+
+
+func _distance_from_map_boundary(coordinate: Vector2i) -> int:
+	return mini(
+		mini(coordinate.x, coordinate.y),
+		mini(
+			grid_size.x - 1 - coordinate.x,
+			grid_size.y - 1 - coordinate.y,
+		),
 	)
 
 

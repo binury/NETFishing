@@ -113,6 +113,7 @@ func _make_generator() -> TerrainChunkGenerator:
 		[
 			"chunk_spawn",
 			"chunk_0001",
+			"chunk_0002",
 			"chunk_0003",
 			"chunk_0004",
 		]

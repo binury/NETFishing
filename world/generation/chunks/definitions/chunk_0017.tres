@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" path="res://world/generation/terrain_chunk_definition.gd" id="1_definition"]
 [ext_resource type="PackedScene" path="res://world/generation/chunks/assets/chunk_0015.glb" id="2_scene"]
-[ext_resource type="PackedScene" path="res://world/generation/chunks/assets/chunk_0005.glb" id="3_base_coast"]
+[ext_resource type="PackedScene" path="res://world/generation/chunks/assets/chunk_0007.glb" id="3_base_coast"]
 
 [resource]
 script = ExtResource("1_definition")
@@ -11,7 +11,7 @@ label = "second-tier grass sea transition right"
 packed_scene = ExtResource("2_scene")
 primary_mesh_name = &"chunk_0015"
 base_layer_scene = ExtResource("3_base_coast")
-base_layer_mesh_name = &"chunk_0005"
+base_layer_mesh_name = &"chunk_0007"
 base_layer_quarter_turns = 3
 overlay_only = true
 selection_weight = 0.12

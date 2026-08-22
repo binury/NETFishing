@@ -14,6 +14,10 @@ const GENERATED_REGION_SCENE: PackedScene = preload(
 const STARTER_ISLAND_REGION_SCENE: PackedScene = preload(
 	"res://world/regions/starter_island_region.tscn"
 )
+## Keep the player boundary beyond the longest fishing cast. The boundary is
+## solid terrain to character movement and therefore also blocks cast-arc
+## probes when it sits directly against the authored shoreline.
+const WORLD_BOUNDARY_SHORELINE_CLEARANCE := 18.0
 
 @onready var _regions_root: Node3D = $Regions
 @onready var _active_region: WorldRegion = _find_active_region()
@@ -185,7 +189,7 @@ func _configure_world_coverage() -> void:
 	if _active_region == null:
 		return
 	var half: Vector2 = _active_region.get_playable_half_extents()
-	var wall_margin := 2.0
+	var wall_margin := WORLD_BOUNDARY_SHORELINE_CLEARANCE
 	var wall_height := 14.0
 	var bounds_root := $WorldBounds as Node3D
 	var north_south_size := Vector3(

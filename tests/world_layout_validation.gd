@@ -86,6 +86,7 @@ func _validate_world_switching() -> void:
 	assert(world.get_world_layout() == WorldLayout.GENERATED)
 	assert(world.get_fishing_shop() != null)
 	assert(world.get_player_storage() != null)
+	_validate_world_boundary_clearance(world)
 	assert(world.activate_world(WorldLayout.STARTER_ISLAND, 13579))
 	assert(world.get_world_layout() == WorldLayout.STARTER_ISLAND)
 	assert(world.get_generation_seed() == 13579)
@@ -101,6 +102,26 @@ func _validate_world_switching() -> void:
 	assert(world.get_node_or_null("Regions/StarterIslandRegion") == null)
 	world.queue_free()
 	await process_frame
+
+
+func _validate_world_boundary_clearance(world: TestWorld) -> void:
+	var active_region := world.get("_active_region") as WorldRegion
+	assert(active_region != null)
+	var half := active_region.get_playable_half_extents()
+	var north := world.get_node("WorldBounds/North") as StaticBody3D
+	var south := world.get_node("WorldBounds/South") as StaticBody3D
+	var west := world.get_node("WorldBounds/West") as StaticBody3D
+	var east := world.get_node("WorldBounds/East") as StaticBody3D
+	var fishing_defaults := FishingSpot.new()
+	assert(
+		TestWorld.WORLD_BOUNDARY_SHORELINE_CLEARANCE
+		> fishing_defaults.maximum_cast_distance + 1.0
+	)
+	fishing_defaults.free()
+	assert(north.position.z - half.y >= 18.0)
+	assert(-south.position.z - half.y >= 18.0)
+	assert(-west.position.x - half.x >= 18.0)
+	assert(east.position.x - half.x >= 18.0)
 
 
 func _validate_network_metadata() -> void:

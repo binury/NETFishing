@@ -16,3 +16,4 @@ allowed_neighbor_tags = PackedStringArray("sand", "grass")
 required_neighbor_tags = PackedStringArray("sand", "coast")
 minimum_required_neighbors = 1
 preferred_neighbor_tags = PackedStringArray("coast", "sand")
+maximum_boundary_distance = 1

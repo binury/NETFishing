@@ -69,6 +69,11 @@ var allowed_rotation_mask := 15
 ## Interior-only pieces may not occupy any outer grid cell. Coastal elevated
 ## pieces use separate authored definitions rather than weakening this rule.
 @export var must_be_interior := false
+## Optional maximum cardinal distance from the closest map edge. Negative
+## values allow the definition anywhere. This keeps shoreline materials such
+## as flat sand in a deliberate coastal band without baking a particular
+## stable ID into the generator.
+@export_range(-1, 1024, 1) var maximum_boundary_distance := -1
 ## Coastal transition pieces should normally migrate toward the generated
 ## region's perimeter while remaining legal in the interior.
 @export var prefers_map_boundary := false

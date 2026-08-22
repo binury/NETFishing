@@ -26,3 +26,4 @@ south_surface_tags = PackedStringArray("grass")
 west_surface_tags = PackedStringArray("sand")
 preferred_neighbor_tags = PackedStringArray("grass", "sand", "transition")
 must_be_interior = true
+maximum_boundary_distance = 2
